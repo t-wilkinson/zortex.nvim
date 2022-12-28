@@ -1,0 +1,79 @@
+:root {
+  --background: #282a36;
+  --background-rgb: 40, 42, 54;
+  --current-line: #44475a;
+  --selection: #44475a;
+  --foreground: #f8f8f2;
+  --comment: #6272a4;
+  --cyan: #8be9fd;
+  --green: #50fa7b;
+  --orange: #ffb86c;
+  --pink: #ff79c6;
+  --purple: #bd93f9;
+  --red: #ff5555;
+  --yellow: #f1fa8c;
+}
+
+body {
+  margin: 0;
+  /*
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+    */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: 'Fira Code', monospace;
+  background-color: var(--current-line);
+}
+
+.z-operator {
+  color: var(--cyan);
+  white-space: pre;
+  font-weight: bold;
+}
+
+.z-tag {
+  font-weight: bold;
+  color: var(--purple);
+}
+
+.z-list {
+  white-space: pre-wrap;
+}
+
+.z-listitem {
+  font-weight: bold;
+  color: var(--cyan);
+}
+
+.z-line {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.z-code {
+  color: var(--green);
+}
+
+.z-comment {
+  color: var(--comment);
+}
+
+.z-quote {
+  color: var(--orange);
+}
+
+.z-link {
+  color: var(--pink);
+  text-decoration: none;
+}
+
+.z-striked {
+  color: var(--yellow);
+}
+
+.z-bold {
+  color: var(--yellow);
+  font-weight: bold;
+}

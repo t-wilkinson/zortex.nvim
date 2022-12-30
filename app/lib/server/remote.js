@@ -6,16 +6,12 @@ const server_1 = require("./server");
 const wiki_1 = tslib_1.__importDefault(require("./wiki"));
 const wiki = tslib_1.__importStar(require("../zortex/wiki"));
 const http = tslib_1.__importStar(require("http"));
-const config = {
-    notesDir: './notes',
-    extension: 'zortex',
-};
 function run({}) {
     // don't await to decrease startup time but requires awaiting any reference
-    const articles = wiki.getArticles(config.notesDir);
+    const articles = wiki.getArticles(process.env.NOTES_DIR);
     const server = http.createServer((req, res) => tslib_1.__awaiter(this, void 0, void 0, function* () {
         req.asPath = req.url.replace(/[?#].*$/, '');
-        req.notesDir = config.notesDir;
+        req.notesDir = process.env.NOTES_DIR;
         req.extension = process.env.EXTENSION;
         req.articles = yield articles;
         // routes

@@ -1,14 +1,12 @@
-import { attach, Attach, NeovimClient } from '@chemzqm/neovim'
+import {attach, Attach, NeovimClient} from '@chemzqm/neovim'
 import * as path from 'path'
 
 const zortex = require('../zortex') // tslint:disable-line
 const logger = require('../util/logger')('attach') // tslint:disable-line
 
 interface IApp {
-  refreshPage: (param: { bufnr: number | string; data: any }) => void
-  closePage: (params: { bufnr: number | string }) => void
-  closeAllPages: () => void
-  openBrowser: (params: { bufnr: number | string }) => void
+  refreshPage: (param: {data: any}) => void
+  openBrowser: (params: {}) => void
 }
 
 export interface IPlugin {
@@ -22,11 +20,7 @@ export default function (options: Attach): IPlugin {
   const nvim: NeovimClient = attach(options)
 
   nvim.on('notification', async (method: string, args: any[]) => {
-    const opts = args[0] || args
-    const bufnr = opts.bufnr
-    const buffers = await nvim.buffers
-    const buffer = buffers.find((b) => b.id === bufnr)
-
+    const buffer = await nvim.buffer
     const notesDir = await nvim.getVar('zortex_notes_dir')
     const extension = await nvim.getVar('zortex_extension')
     const zettels = await zortex.indexZettels(
@@ -44,10 +38,10 @@ export default function (options: Attach): IPlugin {
       const theme = await nvim.getVar('zortex_theme')
       const name = await buffer.name
       const bufferLines = await buffer.getLines()
-      const content = await zortex.populateHub(bufferLines, zettels)
+      const content = await zortex.populateHub(bufferLines, zettels, notesDir)
       const currentBuffer = await nvim.buffer
-      app.refreshPage({
-        bufnr,
+
+      app?.refreshPage({
         data: {
           options: renderOpts,
           isActive: currentBuffer.id === buffer.id,
@@ -61,23 +55,17 @@ export default function (options: Attach): IPlugin {
           zettels,
         },
       })
-    } else if (method === 'close_page') {
-      app.closePage({
-        bufnr,
-      })
     } else if (method === 'open_browser') {
-      app.openBrowser({
-        bufnr,
-      })
+      app?.openBrowser({})
     }
   })
 
-  nvim.on('request', (method: string, args: any, resp: any) => {
-    if (method === 'close_all_pages') {
-      app.closeAllPages()
-    }
-    resp.send()
-  })
+  //   nvim.on('request', (method: string, args: any, resp: any) => {
+  //     if (method === 'close_all_pages') {
+  //       app?.closeAllPages()
+  //     }
+  //     resp.send()
+  //   })
 
   nvim.channelId
     .then(async (channelId) => {

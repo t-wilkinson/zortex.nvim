@@ -106,11 +106,15 @@ function! zortex#rpc#close_pages() abort
   let b:ZortexPreviewToggleBool = 0
 endfunction
 
+" returns 1 if server is running and -1 otherwise
 function! zortex#rpc#get_server_status() abort
   if s:is_vim && s:zortex_channel_id ==# v:null
     return -1
   elseif !s:is_vim && s:zortex_channel_id ==# -1
     return -1
+  endif
+  if system('fuser '.g:zortex_port.'/tcp') != ''
+      return 1
   endif
   return 1
 endfunction

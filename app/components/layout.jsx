@@ -2,7 +2,7 @@ import React from 'react'
 import Head from 'next/head'
 
 const reducer = (state, action) => {
-  switch(action.type) {
+  switch (action.type) {
     case 'change-search-query':
       return {...state, searchQuery: action.searchQuery}
     case 'receive-search-results':
@@ -44,7 +44,7 @@ export default ({children}) => {
         window.matchMedia &&
         window.matchMedia('(prefers-color-scheme: dark)').matches
       ) {
-        dispatch({ type: 'prefers-dark-theme' })
+        dispatch({type: 'prefers-dark-theme'})
       }
     }
   }, [])
@@ -75,7 +75,7 @@ export default ({children}) => {
   )
 }
 
-const Search = ({ state, dispatch }) => {
+const Search = ({state, dispatch}) => {
   React.useEffect(() => {
     fetch(`/wiki/search?query=${state.searchQuery}`, {
       method: 'GET',
@@ -86,7 +86,7 @@ const Search = ({ state, dispatch }) => {
         articles,
       }))
       .catch(err => {
-        console.error(err)
+        // console.error(err)
       })
   }, [state.searchQuery])
 
@@ -121,12 +121,12 @@ const Search = ({ state, dispatch }) => {
   </div>
 }
 
-const Header = ({ state, dispatch }) => {
+const Header = ({state, dispatch}) => {
   return (
     <header
       id="page-header"
-      onMouseEnter={() => dispatch({ type: 'show-theme-button' })}
-      onMouseLeave={() => dispatch({ type: 'hide-theme-button' })}
+      onMouseEnter={() => dispatch({type: 'show-theme-button'})}
+      onMouseLeave={() => dispatch({type: 'hide-theme-button'})}
     >
       <h3>
         <svg
@@ -149,7 +149,7 @@ const Header = ({ state, dispatch }) => {
             id="theme"
             type="checkbox"
             checked={state.theme === 'dark'}
-            onChange={() => dispatch({ type: 'handle-theme-change' })}
+            onChange={() => dispatch({type: 'handle-theme-change'})}
           />
           <span>Dark Mode</span>
         </label>

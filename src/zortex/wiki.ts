@@ -105,7 +105,7 @@ export async function findArticle(notesDir: string, extension: string, articleNa
   }
 
   const zettels = await indexZettels(path.join(notesDir, 'zettels' + extension))
-  const content = await populateHub(article.content, zettels)
+  const content = await populateHub(article.content, zettels, notesDir)
 
   return {
     articleName,

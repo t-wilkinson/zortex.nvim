@@ -1,26 +1,51 @@
-import { isSpace } from 'markdown-it/lib/common/utils'
+import { isSpace, escapeHtml } from 'markdown-it/lib/common/utils'
 
 function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-const listitemRE = /^\s*([A-Za-z0-9]+)\.\s*$/
-const timeRE = /^\s*(\d+:\d\d)\s*$/
-function getListitem(state, startLine) {
-  var pos, newline, line, listitem
+const lineitemRE = /^\s*([A-Za-z0-9]+)\.( .*)?$/
+const timeRE = /^\s*(\d+:\d\d)( .*)?$/
+const orderedListitemRE = /^\s*(\d+)\.( .*)?$/
+const unorderedListitemRE = /^\s*(-|\?|\*)( .*)?$/
+function getLineitem(state, startLine) {
+  let pos, newline, line, match
 
   pos = state.bMarks[startLine] + state.tShift[startLine]
   newline = state.src.indexOf('\n', pos)
   line = state.src.slice(pos, newline)
 
-  const match = line.match(listitemRE) || line.match(timeRE)
-  if (!match) {
+  if (match = line.match(orderedListitemRE)) {
+    return {
+      list: match[1],
+      text: match[2] || '',
+      pos: pos + match[0].length,
+      type: 'ordered',
+    }
+  } else if (match = line.match(unorderedListitemRE)) {
+    return {
+      list: match[1],
+      text: match[2] || '',
+      pos: pos + match[0].length,
+      type: 'unordered',
+    }
+  } else if (match = line.match(timeRE)) {
+    return {
+      list: match[1],
+      text: match[2] || '',
+      pos: pos + match[0].length,
+      type: 'time',
+    }
+  } else if (match = line.match(lineitemRE)) {
+    return {
+      list: match[1],
+      text: match[2] || '',
+      pos: pos + match[0].length,
+      type: 'line',
+    }
+  } else {
     return false
   }
-
-  listitem = match[1]
-  pos += match[0].length
-  return { pos, listitem }
 }
 
 function markTightParagraphs(state, idx) {
@@ -40,10 +65,11 @@ function markTightParagraphs(state, idx) {
   }
 }
 
-function zettelListitem(state, startLine, endLine, silent) {
+function zortexListitem(state, startLine, endLine, silent) {
   var indent,
     listTokIdx,
     max,
+    currentLine,
     nextLine,
     offset,
     oldListIndent,
@@ -53,16 +79,15 @@ function zettelListitem(state, startLine, endLine, silent) {
     token,
     start,
     pos,
-    listitem,
+    lineitem,
     tight = true
 
   start = state.bMarks[startLine] + state.tShift[startLine] + 1
-  let res = getListitem(state, startLine)
-  if (!res) {
+  lineitem = getLineitem(state, startLine)
+  if (!lineitem) {
     return false
   }
-  pos = res.pos
-  listitem = res.listitem
+  pos = lineitem.pos
 
   // For validation mode we can terminate immediately
   if (silent) {
@@ -71,26 +96,60 @@ function zettelListitem(state, startLine, endLine, silent) {
 
   // Start list
   listTokIdx = state.tokens.length
-  nextLine = startLine
+  currentLine = startLine
+  nextLine = currentLine + 1
 
   // Parse line and children
-  max = state.eMarks[nextLine]
-  indent = offset =
-    state.sCount[nextLine] +
-    start -
-    (state.bMarks[startLine] + state.tShift[startLine])
+  max = state.eMarks[currentLine]
+  indent = state.sCount[currentLine]
 
   // Run subparser & write tokens
-  token = state.push('zortex_listitem_open', 'div', 1)
-  token.attrSet('class', 'z-listitem')
-  token.map = [startLine, nextLine]
+  token = state.push('zortex_listitem_open', 'li', 1)
+  token.attrSet('class', 'z-list')
+  token.map = [startLine, currentLine]
 
-  token = state.push('inline', '', 0)
-  token.content = `${listitem}.`
-  token.map = [startLine, nextLine]
-  token.children = []
+  const addLineLabel = (line) => {
+    token = state.push('zortex_listitem', 'span', 0)
+    token.attrSet('class', 'z-listitem')
+    token.content = line
+    token.children = []
+    return token
+  }
 
-  token = state.push('zortex_listitem_close', 'div', -1)
+  const spaces = " ".repeat(indent)
+  switch (lineitem.type) {
+    case 'unordered':
+      token = state.push('inline', 'span', 0)
+      const list = lineitem.list === '-' ? '·' : lineitem.list
+      token.content = `${spaces}${list} ${lineitem.text}`
+      token.map = [startLine, currentLine]
+      token.children = []
+      break;
+    case 'ordered':
+      addLineLabel(`${spaces}${lineitem.list}. `)
+      token = state.push('inline', 'span', 0)
+      token.content = `${lineitem.text}`
+      token.map = [startLine, currentLine]
+      token.children = []
+      break;
+    case 'time':
+      addLineLabel(lineitem.list)
+      token = state.push('inline', 'span', 0)
+      token.content = `${spaces}${lineitem.text}`
+      token.map = [startLine, currentLine]
+      token.children = []
+      break;
+    case 'line':
+      addLineLabel(`${spaces}${lineitem.list}. `)
+      token = state.push('inline', 'span', 0)
+      token.content = `${lineitem.text}`
+      token.map = [startLine, currentLine]
+      token.children = []
+      break;
+  }
+
+  token = state.push('zortex_listitem_close', 'li', -1)
+
 
   // change current state, then restore it after parser subcall
   oldTight = state.tight
@@ -142,7 +201,7 @@ function zettelListitem(state, startLine, endLine, silent) {
 }
 
 const tagRE = /^\w*(@+).+/
-function zettelTag(state, startLine, _endLine, silent) {
+function zortexTag(state, startLine, _endLine, silent) {
   let token, pos, newline, tags
   pos = state.bMarks[startLine] + state.tShift[startLine]
   newline = state.src.indexOf('\n', pos)
@@ -198,7 +257,7 @@ const maxOperatorLength = operators.reduce(
   0
 )
 
-function zettelLineTag(state, silent) {
+function zortexLineTag(state, silent) {
   let token, pos, max, code
   pos = state.pos
   max = state.posMax
@@ -209,7 +268,7 @@ function zettelLineTag(state, silent) {
 
   for (; pos < max; pos++) {
     code = state.src.charCodeAt(pos)
-    if (isSpace(code) || code === 0x3b || code === 0x7d) {
+    if (isSpace(code) || code === 0x3b || code === 0x7d /*  | ; | } */) {
       break
     }
   }
@@ -233,7 +292,7 @@ function zettelLineTag(state, silent) {
   return true
 }
 
-function zettelOperator(state, silent) {
+function zortexOperator(state, silent) {
   let operator, token, match
 
   // Get operator
@@ -297,10 +356,61 @@ const sources = {
   website() {},
 }
 
+function articleToHref(name) {
+  return `/wiki/${name.replace(/ /g, /_/)}`
+}
+
+/**
+ * [Article name]
+ */
+function zortexLink(state, silent) {
+  let start,
+    middle,
+    end,
+    labelStart,
+    labelEnd,
+    token,
+    label,
+    pos = state.pos,
+    max = state.posMax
+
+  if (state.src.charCodeAt(state.pos) !== 0x5b /* [ */) {
+    return false
+  }
+
+  labelStart = state.pos + 1
+  labelEnd = state.md.helpers.parseLinkLabel(state, state.pos, true)
+
+  // parser failed to find ']', so it's not a valid link
+  if (labelEnd < 0) {
+    return false
+  }
+
+  if (silent) {
+    return true
+  }
+
+  label = state.src.slice(labelStart, labelEnd)
+  token = state.push('link_open', 'a', 1)
+  token.attrs = [
+    ['href', articleToHref(label)],
+    ['title', label],
+  ]
+
+  token = state.push('text', '', 0)
+  token.content = label
+
+  token = state.push('link_close', 'a', -1)
+
+  pos = labelEnd + 1
+  state.pos = pos
+  return true
+}
+
 /**
  * Process [z-source]{ key1=value1; key2=value2; key3=value3 }
  */
-function zettelSource(state, silent) {
+function zortexSource(state, silent) {
   let start,
     middle,
     end,
@@ -424,7 +534,7 @@ function zettelSource(state, silent) {
   return true
 }
 
-function zettelBlock(state, startLine, _endLine, silent) {
+function zortexBlock(state, startLine, _endLine, silent) {
   let pos, token, nextLine
   nextLine = startLine + 1
   pos = state.bMarks[startLine] + state.tShift[startLine]
@@ -453,7 +563,7 @@ function zettelBlock(state, startLine, _endLine, silent) {
   return true
 }
 
-function zettelTOC(state) {
+function zortexTOC(state) {
   let i, token;
   let toc = []
   for (i = 0; i < state.tokens.length; i++) {
@@ -463,16 +573,21 @@ function zettelTOC(state) {
       toc.push(state.tokens[i])
     }
   }
-  console.log(state)
-  console.log(toc)
 }
 
 export default function zettelkasten(md) {
-  md.block.ruler.before('paragraph', 'zortex_block', zettelBlock)
-  md.block.ruler.before('paragraph', 'zortex_tag', zettelTag)
-  md.block.ruler.before('paragraph', 'zortex_listitem', zettelListitem)
-  md.inline.ruler.before('emphasis', 'zortex_operator', zettelOperator)
-  md.inline.ruler.before('emphasis', 'zortex_operator', zettelLineTag)
-  md.inline.ruler.before('link', 'zortex_source', zettelSource)
-  // md.core.ruler.push('zortex_toc', zettelTOC)
+  md.block.ruler.disable(['list', 'code'])
+
+  md.block.ruler.before('paragraph', 'zortex_block', zortexBlock)
+  md.block.ruler.before('paragraph', 'zortex_tag', zortexTag)
+  md.block.ruler.before('code', 'zortex_listitem', zortexListitem)
+  md.inline.ruler.before('emphasis', 'zortex_operator', zortexOperator)
+  md.inline.ruler.before('emphasis', 'zortex_operator', zortexLineTag)
+  md.inline.ruler.before('link', 'zortex_source', zortexSource)
+  md.inline.ruler.after('zortex_source', 'zortex_link', zortexLink)
+  md.renderer.rules['zortex_listitem'] = function(tokens, idx, _opts, _env, self) {
+    const token = tokens[idx]
+    return `<span ${self.renderAttrs(token)}>${escapeHtml(token.content)}</span>`
+  }
+  // md.core.ruler.push('zortex_toc', zortexTOC)
 }

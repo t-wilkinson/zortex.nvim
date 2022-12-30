@@ -34,11 +34,6 @@ function run({ plugin, logger }) {
     const server = http.createServer((req, res) => tslib_1.__awaiter(this, void 0, void 0, function* () {
         req.logger = logger;
         req.plugin = plugin;
-        // bufnr
-        req.bufnr = (req.headers.referer || req.url)
-            .replace(/[?#].*$/, '')
-            .split('/')
-            .pop();
         // request path
         req.asPath = req.url.replace(/[?#].*$/, '');
         req.mkcss = yield plugin.nvim.getVar('zortex_markdown_css');
@@ -53,37 +48,50 @@ function run({ plugin, logger }) {
     // websocket server
     const io = (0, socket_io_1.default)(server);
     io.on('connection', (client) => {
-        (0, buffer_1.onWebsocketConnection)(logger, client, clients, plugin);
+        logger.info('client connect: ', client.id);
+        clients[client.id] = client;
+        (0, buffer_1.onWebsocketConnection)(logger, client, plugin);
+        client.on('disconnect', () => {
+            logger.info('disconnect: ', client.id);
+            delete clients[client.id];
+        });
     });
-    function refreshPage({ bufnr, data }) {
-        logger.info('refresh page: ', bufnr);
-        (clients[bufnr] || []).forEach((c) => {
+    function refreshPage({ data }) {
+        logger.info('refresh page: ', data.name);
+        Object.values(clients).forEach((c) => {
             if (c.connected) {
                 c.emit('refresh_content', data);
             }
         });
     }
-    function closePage({ bufnr }) {
-        logger.info('close page: ', bufnr);
-        clients[bufnr] = (clients[bufnr] || []).filter((c) => {
-            if (c.connected) {
-                c.emit('close_page');
-                return false;
+    function openBrowser({}) {
+        return tslib_1.__awaiter(this, void 0, void 0, function* () {
+            const openToTheWord = yield plugin.nvim.getVar('zortex_open_to_the_world');
+            let port = yield plugin.nvim.getVar('zortex_port');
+            port = port || (8080 + Number(`${Date.now()}`.slice(-3)));
+            const openIp = yield plugin.nvim.getVar('zortex_open_ip');
+            const openHost = openIp !== '' ? openIp : (openToTheWord ? (0, getIP_1.getIP)() : 'localhost');
+            const url = `http://${openHost}:${port}/buffer`;
+            const browserfunc = yield plugin.nvim.getVar('zortex_browserfunc');
+            if (browserfunc !== '') {
+                logger.info(`open page [${browserfunc}]: `, url);
+                plugin.nvim.call(browserfunc, [url]);
             }
-            return true;
-        });
-    }
-    function closeAllPages() {
-        logger.info('close all pages');
-        Object.keys(clients).forEach((bufnr) => {
-            ;
-            (clients[bufnr] || []).forEach((c) => {
-                if (c.connected) {
-                    c.emit('close_page');
+            else {
+                const browser = yield plugin.nvim.getVar('zortex_browser');
+                logger.info(`open page [${browser || 'default'}]: `, url);
+                if (browser !== '') {
+                    openUrl(plugin, url, browser);
                 }
-            });
+                else {
+                    openUrl(plugin, url);
+                }
+            }
+            const isEchoUrl = yield plugin.nvim.getVar('zortex_echo_preview_url');
+            if (isEchoUrl) {
+                plugin.nvim.call('zortex#util#echo_url', [url]);
+            }
         });
-        clients = {};
     }
     function startServer() {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
@@ -91,41 +99,13 @@ function run({ plugin, logger }) {
             const host = openToTheWord ? '0.0.0.0' : '127.0.0.1';
             let port = yield plugin.nvim.getVar('zortex_port');
             port = port || (8080 + Number(`${Date.now()}`.slice(-3)));
-            function openBrowser({ bufnr }) {
-                return tslib_1.__awaiter(this, void 0, void 0, function* () {
-                    const openIp = yield plugin.nvim.getVar('zortex_open_ip');
-                    const openHost = openIp !== '' ? openIp : (openToTheWord ? (0, getIP_1.getIP)() : 'localhost');
-                    const url = `http://${openHost}:${port}/buffer/${bufnr}`;
-                    const browserfunc = yield plugin.nvim.getVar('zortex_browserfunc');
-                    if (browserfunc !== '') {
-                        logger.info(`open page [${browserfunc}]: `, url);
-                        plugin.nvim.call(browserfunc, [url]);
-                    }
-                    else {
-                        const browser = yield plugin.nvim.getVar('zortex_browser');
-                        logger.info(`open page [${browser || 'default'}]: `, url);
-                        if (browser !== '') {
-                            openUrl(plugin, url, browser);
-                        }
-                        else {
-                            openUrl(plugin, url);
-                        }
-                    }
-                    const isEchoUrl = yield plugin.nvim.getVar('zortex_echo_preview_url');
-                    if (isEchoUrl) {
-                        plugin.nvim.call('zortex#util#echo_url', [url]);
-                    }
-                });
-            }
             server.listen({
                 host,
-                port
+                port,
             }, () => {
                 logger.info('server run: ', port);
                 plugin.init({
                     refreshPage,
-                    closePage,
-                    closeAllPages,
                     openBrowser,
                 });
                 // plugin.nvim.call('zortex#util#open_browser')

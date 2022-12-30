@@ -1,5 +1,5 @@
 function! s:ssh(command) abort
-    call system('ssh ' . g:zortex_remote_server . ' -f  "cd ' . g:zortex_remote_server_dir . '; ls; ' . escape(a:command, '\"') . '"')
+    return jobstart('ssh ' . g:zortex_remote_server . ' -f  "cd ' . g:zortex_remote_server_dir . '; ls; ' . escape(a:command, '\"') . '"')
 endfunction
 
 function! s:rsync(local, remote) abort
@@ -11,9 +11,9 @@ function! s:rsync(local, remote) abort
     endfunction
 
     if a:local[0] == '/'
-        call jobstart('rsync -azr --update --delete ' . a:local . ' ' . a:remote, {'on_stderr': function('s:OnError') })
+        return jobstart('rsync -azr --update --delete ' . a:local . ' ' . a:remote, {'on_stderr': function('s:OnError') })
     else
-        call jobstart('rsync -azr --update --delete ' . g:zortex_root_dir . '/' . a:local . ' ' . a:remote, {'on_stderr': function('s:OnError') })
+        return jobstart('rsync -azr --update --delete ' . g:zortex_root_dir . '/' . a:local . ' ' . a:remote, {'on_stderr': function('s:OnError') })
     endif
 endfunction
 
@@ -21,6 +21,7 @@ function! s:save_env_variables() abort
     let env_variables = {
                 \ "PORT": g:zortex_remote_wiki_port,
                 \ "EXTENSION": g:zortex_extension,
+                \ "NOTES_DIR": g:zortex_remote_server_dir . '/notes'
                 \ }
     let exports = map(items(l:env_variables), {_, x -> x[0].'='.x[1]})
     call writefile(l:exports, g:zortex_root_dir . '/app/.env.remote')
@@ -52,7 +53,7 @@ function! zortex#remote#sync() abort
     call Sync('app/lib', remote_root)
     call Sync('node_modules', remote_root)
 
-    call jobwait(ids)
+    return ids
 endfunction
 
 function! zortex#remote#stop_server() abort
@@ -66,7 +67,7 @@ endfunction
 
 function! zortex#remote#restart_server() abort
     call s:save_env_variables()
-    call zortex#remote#sync()
-    call zortex#remote#stop_server()
-    call zortex#remote#start_server()
+    call jobwait(zortex#remote#sync())
+    call jobwait(zortex#remote#stop_server())
+    call jobwait(zortex#remote#start_server())
 endfunction

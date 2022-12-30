@@ -9,13 +9,14 @@ function s:def_value(name, value)
 endfunction
 
 call s:def_value('remote_server', '')
+call s:def_value('remote_server_dir', '/www/zortex')
 call s:def_value('remote_wiki_port', '8080')
 
-call s:def_value('auto_start_server', 0)
+" call s:def_value('auto_start_server', 0)
 
 " set to 1, the vim will open the preview window once enter the markdown
 " buffer
-call s:def_value('auto_start_preview', 0)
+call s:def_value('auto_start_preview', 1)
 
 " set to 1, the vim will auto open preview window when you edit the
 " markdown file
@@ -136,6 +137,10 @@ function! s:init_command() abort
     command! ZortexResourceToZettel call zortex#article#resource_to_zettel(<q-args>)
     command! ZortexOpenStructure call zortex#article#open_structure()
 
+    command! ZortexStartRemoteServer call zortex#remote#start_server()
+    command! ZortexRestartRemoteServer call zortex#remote#restart_server()
+    command! ZortexSyncRemoteServer call zortex#remote#sync()
+
     command! ZortexStartServer call zortex#util#try_start_server()
     command! ZortexStopServer call zortex#rpc#stop_server()
     command! -buffer ZortexPreview call zortex#util#open_preview_page()
@@ -151,11 +156,11 @@ function! s:init() abort
         else
             autocmd BufEnter,FileType * if index(g:zortex_filetypes, &filetype) !=# -1 | call s:init_command() | endif
         endif
-        if g:zortex_auto_start_preview
+        if g:zortex_auto_start_server
             call zortex#util#try_start_server()
         endif
         if g:zortex_auto_start_preview
-            execute 'autocmd BufEnter *.{zortex,md,mkd,mdown,mkdn,mdwn,' . join(g:zortex_filetypes, ',') . '} call zortex#util#open_preview_page()'
+            execute 'autocmd BufEnter *.{zortex,md,mkd,mdown,mkdn,mdwn,' . join(g:zortex_filetypes, ',') . '} call zortex#autocmd#init()'
         endif
     augroup END
 endfunction

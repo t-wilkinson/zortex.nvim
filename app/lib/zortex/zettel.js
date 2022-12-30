@@ -107,17 +107,20 @@ function indexZettels(zettelsFile) {
     });
 }
 exports.indexZettels = indexZettels;
-function populateHub(lines, zettels) {
+function populateHub(lines, zettels, notesDir) {
     var lines_2, lines_2_1;
     var e_2, _a;
     return tslib_1.__awaiter(this, void 0, void 0, function* () {
-        let newLines = [];
+        const newLines = [];
         newLines.push('[[toc]]');
         try {
             for (lines_2 = tslib_1.__asyncValues(lines); lines_2_1 = yield lines_2.next(), !lines_2_1.done;) {
-                const line = lines_2_1.value;
+                let line = lines_2_1.value;
                 // If line is a query, fetch zettels and add them to the hub
                 const queryMatch = (0, query_1.matchQuery)(line);
+                // TODO: more efficient way to do this?
+                // Replace local links with absolute link which server knows how to handle
+                line = line.replace('](./', `](/`);
                 if (!queryMatch) {
                     newLines.push(line);
                     continue;

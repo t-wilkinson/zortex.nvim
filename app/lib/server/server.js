@@ -14,6 +14,19 @@ function listener(req, res, routes) {
 }
 exports.listener = listener;
 exports.staticRoutes = [
+    // /resources
+    (req, res, next) => {
+        if (/\/resources/.test(req.asPath)) {
+            const filepath = path.join(req.notesDir, req.asPath);
+            if (fs.existsSync(filepath)) {
+                return fs.createReadStream(path.join('./out', '404.html')).pipe(res);
+            }
+            else {
+                return fs.createReadStream(filepath).pipe(res);
+            }
+        }
+        next();
+    },
     // /_next/path
     (req, res, next) => {
         if (/\/_next/.test(req.asPath)) {

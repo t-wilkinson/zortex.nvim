@@ -151,7 +151,7 @@ function run() {
         // Populate hub with zettels
         if (env.noteFile && env.zettelsFile) {
             const lines = (0, helpers_1.readLines)(env.noteFile);
-            const populatedHub = yield (0, zettel_1.populateHub)(lines, env.zettels);
+            const populatedHub = yield (0, zettel_1.populateHub)(lines, env.zettels, env.projectDir);
             (0, helpers_1.inspect)(populatedHub);
             return;
         }

@@ -9,10 +9,7 @@ let app;
 function default_1(options) {
     const nvim = (0, neovim_1.attach)(options);
     nvim.on('notification', (method, args) => tslib_1.__awaiter(this, void 0, void 0, function* () {
-        const opts = args[0] || args;
-        const bufnr = opts.bufnr;
-        const buffers = yield nvim.buffers;
-        const buffer = buffers.find((b) => b.id === bufnr);
+        const buffer = yield nvim.buffer;
         const notesDir = yield nvim.getVar('zortex_notes_dir');
         const extension = yield nvim.getVar('zortex_extension');
         const zettels = yield zortex.indexZettels(
@@ -28,10 +25,9 @@ function default_1(options) {
             const theme = yield nvim.getVar('zortex_theme');
             const name = yield buffer.name;
             const bufferLines = yield buffer.getLines();
-            const content = yield zortex.populateHub(bufferLines, zettels);
+            const content = yield zortex.populateHub(bufferLines, zettels, notesDir);
             const currentBuffer = yield nvim.buffer;
-            app.refreshPage({
-                bufnr,
+            app === null || app === void 0 ? void 0 : app.refreshPage({
                 data: {
                     options: renderOpts,
                     isActive: currentBuffer.id === buffer.id,
@@ -46,23 +42,16 @@ function default_1(options) {
                 },
             });
         }
-        else if (method === 'close_page') {
-            app.closePage({
-                bufnr,
-            });
-        }
         else if (method === 'open_browser') {
-            app.openBrowser({
-                bufnr,
-            });
+            app === null || app === void 0 ? void 0 : app.openBrowser({});
         }
     }));
-    nvim.on('request', (method, args, resp) => {
-        if (method === 'close_all_pages') {
-            app.closeAllPages();
-        }
-        resp.send();
-    });
+    //   nvim.on('request', (method: string, args: any, resp: any) => {
+    //     if (method === 'close_all_pages') {
+    //       app?.closeAllPages()
+    //     }
+    //     resp.send()
+    //   })
     nvim.channelId
         .then((channelId) => tslib_1.__awaiter(this, void 0, void 0, function* () {
         yield nvim.setVar('zortex_node_channel_id', channelId);

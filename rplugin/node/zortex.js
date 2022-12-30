@@ -264,7 +264,7 @@ const fileLinkRE = /\[([^\]]+)\]\(([^\)]+)\)/
 const fragmentLinkRE = /\|([^|]+)\|/
 const zortexLinkRE = /ref=([^\s;}]+)/
 const articleLinkRE = /\[([^\]]+)\]/
-const filePathRE = /(^|\s)(?<path>~?\/[/\S]+)($|\s)/
+const filePathRE = /(^|\s)(?<path>[~.]?\/[/\S]+)($|\s)/
 const linkRE = /\[(?<text>[^\]]+)\](\((?<ref>[^\)]+)\))?/
 
 async function extractLink(nvim, line) {
@@ -353,40 +353,49 @@ async function openLink(nvim) {
     return null
   }
 
-  if (filename === 'zortex-structures' && link.type === 'text') {
-    const lines = await nvim.buffer.lines
-    openStructure(nvim, lines, link.name, link.indent)
-  } else if (filename === 'structure' && link.type === 'text') {
-    const lines = await readZortexLines(nvim, 'structure.zortex')
-    const opened = await openStructure(nvim, lines, link.name, link.indent)
-    if (!opened) {
-      open(`https://en.wikipedia.org/wiki/Special:Search/${link.name}`)
-    }
-  } else if (filename === 'schedule' && link.type === 'text') {
-    openProject(nvim, link.name)
-  } else if (link.type === 'wikipedia' || link.type === 'text') {
-    if (link.name) {
-      open(`https://en.wikipedia.org/wiki/Special:Search/${link.name}`)
-    }
-  } else if (link.type === 'path') {
-    if (fs.lstatSync(link.path.replace(/^~/, os.homedir()))?.isDirectory()) {
-      nvim.command(`edit ${link.path}`)
-    } else {
-      nvim.command(`edit ${link.path}`)
-    }
-  } else if (link.type === 'fragment-link') {
-    // // move cursor forward one line to skip any matches of current line
-    // let pos = await nvim.commandOutput(`echo getpos(".")[1]]`)
-    // pos += 1
-    // nvim.command(`call cursor(${pos}, 1)`)
+  // TODO: better error handling
+  try {
+    if (filename === 'zortex-structures' && link.type === 'text') {
+      const lines = await nvim.buffer.lines
+      openStructure(nvim, lines, link.name, link.indent)
+    } else if (filename === 'structure' && link.type === 'text') {
+      const lines = await readZortexLines(nvim, 'structure.zortex')
+      const opened = await openStructure(nvim, lines, link.name, link.indent)
+      if (!opened) {
+        open(`https://en.wikipedia.org/wiki/Special:Search/${link.name}`)
+      }
+    } else if (filename === 'schedule' && link.type === 'text') {
+      openProject(nvim, link.name)
+    } else if (link.type === 'wikipedia' || link.type === 'text') {
+      if (link.name) {
+        open(`https://en.wikipedia.org/wiki/Special:Search/${link.name}`)
+      }
+    } else if (link.type === 'path') {
+      if (fs.lstatSync(link.path.replace(/^~/, os.homedir()))?.isDirectory()) {
+        nvim.command(`edit ${link.path}`)
+      } else {
+        nvim.command(`edit ${link.path}`)
+      }
+    } else if (link.type === 'fragment-link') {
+      // // move cursor forward one line to skip any matches of current line
+      // let pos = await nvim.commandOutput(`echo getpos(".")[1]]`)
+      // pos += 1
+      // nvim.command(`call cursor(${pos}, 1)`)
 
-    nvim.command(`call search('\\c\s*- ${link.fragment}', 'sw')`)
-  } else if (link.type === 'zortex-link') {
-    open(link.url)
-  } else if (link.type === 'website' || link.type === 'resource' || link.type === 'file') {
-    open(link.url)
-  } else if (link.type === 'article') {
-    openArticle(nvim, link.name)
+      nvim.command(`call search('\\c\s*- ${link.fragment}', 'sw')`)
+    } else if (link.type === 'zortex-link') {
+      open(link.url)
+    } else if (link.type === 'website' || link.type === 'resource' || link.type === 'file') {
+      if (link.url.startsWith('./')) {
+        nvim.command(`let @a = '${path.join(await nvim.getVar('zortex_notes_dir'), link.url)}'`)
+        open(path.join(await nvim.getVar('zortex_notes_dir'), link.url))
+      } else {
+        open(link.url)
+      }
+    } else if (link.type === 'article') {
+      openArticle(nvim, link.name)
+    }
+  } catch (e) {
   }
 }
 

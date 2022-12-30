@@ -34,12 +34,6 @@ export function run({plugin, logger}) {
     req.logger = logger
     req.plugin = plugin
 
-    // bufnr
-    req.bufnr = (req.headers.referer || req.url)
-      .replace(/[?#].*$/, '')
-      .split('/')
-      .pop()
-
     // request path
     req.asPath = req.url.replace(/[?#].*$/, '')
     req.mkcss = await plugin.nvim.getVar('zortex_markdown_css')
@@ -57,37 +51,51 @@ export function run({plugin, logger}) {
   // websocket server
   const io = websocket(server)
   io.on('connection', (client) => {
-    onWebsocketConnection(logger, client, clients, plugin)
+    logger.info('client connect: ', client.id)
+    clients[client.id] = client
+
+    onWebsocketConnection(logger, client, plugin)
+
+    client.on('disconnect', () => {
+      logger.info('disconnect: ', client.id)
+      delete clients[client.id]
+    })
   })
 
-  function refreshPage({bufnr, data}) {
-    logger.info('refresh page: ', bufnr)
-      ; (clients[bufnr] || []).forEach((c) => {
-        if (c.connected) {
-          c.emit('refresh_content', data)
-        }
-      })
-  }
-  function closePage({bufnr}) {
-    logger.info('close page: ', bufnr)
-    clients[bufnr] = (clients[bufnr] || []).filter((c) => {
+  function refreshPage({data}) {
+    logger.info('refresh page: ', data.name)
+    Object.values(clients).forEach((c: any) => {
       if (c.connected) {
-        c.emit('close_page')
-        return false
+        c.emit('refresh_content', data)
       }
-      return true
     })
   }
-  function closeAllPages() {
-    logger.info('close all pages')
-    Object.keys(clients).forEach((bufnr) => {
-      ; (clients[bufnr] || []).forEach((c) => {
-        if (c.connected) {
-          c.emit('close_page')
-        }
-      })
-    })
-    clients = {}
+
+  async function openBrowser({}) {
+    const openToTheWord = await plugin.nvim.getVar('zortex_open_to_the_world')
+    let port = await plugin.nvim.getVar('zortex_port')
+    port = port || (8080 + Number(`${Date.now()}`.slice(-3)))
+
+    const openIp = await plugin.nvim.getVar('zortex_open_ip')
+    const openHost = openIp !== '' ? openIp : (openToTheWord ? getIP() : 'localhost')
+    const url = `http://${openHost}:${port}/buffer`
+    const browserfunc = await plugin.nvim.getVar('zortex_browserfunc')
+    if (browserfunc !== '') {
+      logger.info(`open page [${browserfunc}]: `, url)
+      plugin.nvim.call(browserfunc, [url])
+    } else {
+      const browser = await plugin.nvim.getVar('zortex_browser')
+      logger.info(`open page [${browser || 'default'}]: `, url)
+      if (browser !== '') {
+        openUrl(plugin, url, browser)
+      } else {
+        openUrl(plugin, url)
+      }
+    }
+    const isEchoUrl = await plugin.nvim.getVar('zortex_echo_preview_url')
+    if (isEchoUrl) {
+      plugin.nvim.call('zortex#util#echo_url', [url])
+    }
   }
 
   async function startServer() {
@@ -96,41 +104,16 @@ export function run({plugin, logger}) {
     let port = await plugin.nvim.getVar('zortex_port')
     port = port || (8080 + Number(`${Date.now()}`.slice(-3)))
 
-    async function openBrowser({bufnr}) {
-      const openIp = await plugin.nvim.getVar('zortex_open_ip')
-      const openHost = openIp !== '' ? openIp : (openToTheWord ? getIP() : 'localhost')
-      const url = `http://${openHost}:${port}/buffer/${bufnr}`
-      const browserfunc = await plugin.nvim.getVar('zortex_browserfunc')
-      if (browserfunc !== '') {
-        logger.info(`open page [${browserfunc}]: `, url)
-        plugin.nvim.call(browserfunc, [url])
-      } else {
-        const browser = await plugin.nvim.getVar('zortex_browser')
-        logger.info(`open page [${browser || 'default'}]: `, url)
-        if (browser !== '') {
-          openUrl(plugin, url, browser)
-        } else {
-          openUrl(plugin, url)
-        }
-      }
-      const isEchoUrl = await plugin.nvim.getVar('zortex_echo_preview_url')
-      if (isEchoUrl) {
-        plugin.nvim.call('zortex#util#echo_url', [url])
-      }
-    }
-
     server.listen(
       {
         host,
-        port
+        port,
       },
       () => {
         logger.info('server run: ', port)
 
         plugin.init({
           refreshPage,
-          closePage,
-          closeAllPages,
           openBrowser,
         })
 

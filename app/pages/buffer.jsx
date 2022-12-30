@@ -16,26 +16,64 @@ A@Tag1
 
 test == test
 
-[z-source]{type=website; resource=link; title=one; ref=https://youtube.com}
-[z-source]{type=website; resource=image; title=one; ref=http://www.graphviz.org/Gallery/directed/bazel.svg}
+- [Test]
 
 % #z-reference#general#
 
-10:20
-  - hello
+  - Represents a change of basis or coordinates encoding the notion that the basis vectors may change as a function of position in the vector field.
 
-ABCDEFG.
-    - Note 1
-    ASDF.
-      - Note 2
+- Differential form
+  - Recall that compact sets can be viewed as closed and bounded sets in a topological space.
+  - For the following statements, let:
+      - $D \\subset \\mathbb{R}^k$ be a compact set
+      - $W \\subset \\mathbb{R}^k$ be a compact set and $D \\subset W$
+      - $E \\subset \\mathbb{R}^n$ be an open set
+  - If $f$ is a *$\\mathscr{C}$'-mapping* of $D$ into $\\mathbb{R}^n$ then there exists a $\\mathscr{C}$'-mapping $g$ which maps $W$ into $\\mathbb{R}^n$ such that $g(x)=f(x)$ for all $x \\in D$.
+      - One can view a $f$ as embedding a compact set in $\\mathbb{R}^n$.
+  - A *k-surface* in $E$ is a $\\mathscr{C}$'-mapping $\\phi$ from $D$ into $E$
+      - $D$ is called the parameter domain of $\\phi$
+
+  - A *differential form of order $k \\ge 1$ in $E$* (a *k-form in $E$*) is a function $\\omega$ which assigns to each $\\phi$ in $E$ a number $\\omega(\\phi) = \\int_\\phi \\omega$. $i_1, \\cdots, i_k$ range independently from 1 to $n$.
+      $$\\omega = \\sum a_{i_1} \\cdots _{i_k}(\\mathbf{x})dx_{i_1} \\wedge \\cdots \\wedge dx_{i_k}$$
+      $$\\int_\\phi \\omega = \\int_D \\sum a_{i_1} \\cdots _{i_k}(\\mathbf{\\Phi}(\\mathbf{u})) \\frac{\\partial(x_{i_1},\\cdots,x_{i_k})}{\\partial(u_1,\\cdots,u_{k})} d\\mathbf{u}$$
+      $$\\int_{\\Omega}d\\omega = \\int_{\\partial\\Omega}\\omega$$
+
+10:20
+    - hello
+
+A.
+    - x
+    AA.
+      - x
+
+B.
+    - x
+    - x
+C.
+    CA.
+        CAA.
+            - x
+            - x
+
+D.
+    - x
+
+    DA.
+      - x
+
 
 1. Test one
 2. Test two
 
+[z-source]{type=website; resource=link; title=one; ref=https://youtube.com}
+[z-source]{type=website; resource=image; title=one; ref=http://www.graphviz.org/Gallery/directed/bazel.svg}
+
 `
 
 const testRefreshContentParams = {
-  content: defaultContent.split('\n'),
+  content: process.env.NODE_ENV === 'development'
+    ? defaultContent.split('\n')
+    : '',
   isActive: true,
   winline: 1,
   winheight: 800,
@@ -62,21 +100,22 @@ const refreshScroll = ({
   }
 }
 
-const refreshRender = ({ newContent, refreshContent, md, state, setState, name }) => {
+const refreshRender = ({newContent, refreshContent, md, state, setState, name}) => {
   setState({
     ...state,
     // name: ((name) => {
     //   let tokens = name.split(/\\|\//).pop().split('.')
     //   return tokens.length > 1 ? tokens.slice(0, -1).join('.') : tokens[0]
     // })(name),
-    ...(refreshContent ? { content: md.render(newContent) } : {}),
+    ...(refreshContent ? {content: md.render(newContent)} : {}),
   })
 }
 
-const Buffer = ({ md, options }) => {
+const Buffer = ({md, options}) => {
   const [state, setState] = React.useState({
     content: [],
   })
+  console.log(process.env.NODE_ENV)
 
   // socket functions
   React.useEffect(() => {
@@ -85,12 +124,12 @@ const Buffer = ({ md, options }) => {
 
     const socket = io({
       query: {
-        bufnr: window.location.pathname.split('/')[2],
+        // bufnr: window.location.pathname.split('/')[2],
       },
     })
 
-    const onConnect = () => { console.log('connect success') }
-    const onDisconnect = () => { console.log('disconnect') }
+    const onConnect = () => {console.log('connect success')}
+    const onDisconnect = () => {console.log('disconnect')}
     const onClose = () => {
       console.log('close')
       window.closet()
@@ -106,8 +145,8 @@ const Buffer = ({ md, options }) => {
       const refreshContent = preContent !== newContent
       preContent = newContent
 
-      const refreshRenderProps = { newContent, refreshContent, state, setState, md }
-      const refreshScrollProps = { winline, winheight, content, cursor, isActive, options }
+      const refreshRenderProps = {newContent, refreshContent, state, setState, md}
+      const refreshScrollProps = {winline, winheight, content, cursor, isActive, options}
 
       if (!preContent) {
         refreshRender(refreshRenderProps)

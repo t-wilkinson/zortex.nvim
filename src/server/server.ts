@@ -1,10 +1,10 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { Logger } from 'log4js'
-import { IPlugin } from '../attach'
-import { IncomingMessage, ServerResponse } from 'http'
-import { Articles } from '../zortex/wiki'
+import {Logger} from 'log4js'
+import {IPlugin} from '../attach'
+import {IncomingMessage, ServerResponse} from 'http'
+import {Articles} from '../zortex/wiki'
 
 export type RemoteRequest = IncomingMessage & {
   asPath: string
@@ -43,6 +43,19 @@ export function listener<Request>(req: Request, res: ServerResponse, routes: Rou
 }
 
 export const staticRoutes: Routes<LocalRequest> = [
+  // /resources
+  (req, res, next) => {
+    if (/\/resources/.test(req.asPath)) {
+      const filepath = path.join(req.notesDir, req.asPath)
+      if (fs.existsSync(filepath)) {
+        return fs.createReadStream(path.join('./out', '404.html')).pipe(res)
+      } else {
+        return fs.createReadStream(filepath).pipe(res)
+      }
+    }
+    next()
+  },
+
   // /_next/path
   (req, res, next) => {
     if (/\/_next/.test(req.asPath)) {

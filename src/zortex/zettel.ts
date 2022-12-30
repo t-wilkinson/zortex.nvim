@@ -3,9 +3,9 @@ import * as path from 'path'
 import * as fs from 'fs'
 
 import strftime from 'strftime'
-import { Articles, Zettels } from './types'
-import { readLines } from './helpers'
-import { fetchQuery, matchQuery } from './query'
+import {Articles, Zettels} from './types'
+import {readLines} from './helpers'
+import {fetchQuery, matchQuery} from './query'
 
 export function newZettelId() {
   const randInt = (1e5 + Math.random() * 1e5 + '').slice(-5)
@@ -62,7 +62,7 @@ export async function indexZettels(zettelsFile: string): Promise<Zettels> {
         if (!Array.isArray(zettels.ids[id].content)) {
           zettels.ids[id].content = [zettels.ids[id].content as string]
         }
-        ;(zettels.ids[id].content as string[]).push(line)
+        ; (zettels.ids[id].content as string[]).push(line)
       }
       continue
     }
@@ -105,13 +105,16 @@ export async function indexZettels(zettelsFile: string): Promise<Zettels> {
   return zettels
 }
 
-export async function populateHub(lines: readline.Interface | string[], zettels: Zettels) {
-  let newLines = []
+export async function populateHub(lines: readline.Interface | string[], zettels: Zettels, notesDir: string): Promise<string[]> {
+  const newLines = []
   newLines.push('[[toc]]')
 
-  for await (const line of lines) {
+  for await (let line of lines) {
     // If line is a query, fetch zettels and add them to the hub
     const queryMatch = matchQuery(line)
+    // TODO: more efficient way to do this?
+    // Replace local links with absolute link which server knows how to handle
+    line = line.replace('](./', `](/`)
     if (!queryMatch) {
       newLines.push(line)
       continue
@@ -144,8 +147,8 @@ export async function indexCategories(categoriesFile: string) {
   let match: RegExpMatchArray
   let category: string
   let categories: string[]
-  const graph: { [key: string]: Set<string> } = {}
-  const sortedGraph: { [key: string]: string[] } = {}
+  const graph: {[key: string]: Set<string>} = {}
+  const sortedGraph: {[key: string]: string[]} = {}
 
   for await (const line of lines) {
     match = line.match(categoriesRE)
@@ -176,7 +179,7 @@ const articleRE = /.zortex/
 const tagRE = /^([A-Z][a-z]*)?(@+)(.*)$/
 export async function indexArticles(projectDir: string) {
   let match: RegExpMatchArray
-  const articles: Articles = { names: new Set(), tags: new Set(), ids: {} }
+  const articles: Articles = {names: new Set(), tags: new Set(), ids: {}}
 
   await Promise.all(
     fs.readdirSync(projectDir).map(async (file) => {
@@ -194,7 +197,7 @@ export async function indexArticles(projectDir: string) {
         }
 
         if (!articles.ids[file]) {
-          articles.ids[file] = { name: null, tags: [] }
+          articles.ids[file] = {name: null, tags: []}
         }
 
         if (match[2].length === 1) {

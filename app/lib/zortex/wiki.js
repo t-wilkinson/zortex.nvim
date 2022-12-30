@@ -94,7 +94,7 @@ function findArticle(notesDir, extension, articleName, articles) {
             return null;
         }
         const zettels = yield (0, zettel_1.indexZettels)(path.join(notesDir, 'zettels' + extension));
-        const content = yield (0, zettel_1.populateHub)(article.content, zettels);
+        const content = yield (0, zettel_1.populateHub)(article.content, zettels, notesDir);
         return Object.assign(Object.assign({ articleName }, article), { content });
     });
 }

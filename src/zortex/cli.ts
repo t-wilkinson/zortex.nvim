@@ -1,8 +1,8 @@
 import * as path from 'path'
-import { Env } from './types'
-import { indexCategories, populateHub, indexZettels } from './zettel'
-import { inspect, readLines, allRelatedTags } from './helpers'
-import { executeCommand, repl } from './repl'
+import {Env} from './types'
+import {indexCategories, populateHub, indexZettels} from './zettel'
+import {inspect, readLines, allRelatedTags} from './helpers'
+import {executeCommand, repl} from './repl'
 
 function parseArgs(args: string[]) {
   const env: Env = {
@@ -37,8 +37,8 @@ function parseArgs(args: string[]) {
         env.command = nextArg()
         break
       // case '--categories':
-        // env.categoriesFile = nextArg()
-        // break
+      // env.categoriesFile = nextArg()
+      // break
       case '--zettels':
       case '-z':
         env.zettelsFile = nextArg()
@@ -133,7 +133,7 @@ export async function run() {
 
   // Show tag count of all zettels
   if (env.onlyTags) {
-    let tags: { [key: string]: number }
+    let tags: {[key: string]: number}
     tags = Object.entries(env.zettels.tags).reduce((acc, [tag, zettels]) => {
       acc[tag] = zettels.size
       return acc
@@ -156,7 +156,7 @@ export async function run() {
   // Populate hub with zettels
   if (env.noteFile && env.zettelsFile) {
     const lines = readLines(env.noteFile)
-    const populatedHub = await populateHub(lines, env.zettels)
+    const populatedHub = await populateHub(lines, env.zettels, env.projectDir)
     inspect(populatedHub)
     return
   }

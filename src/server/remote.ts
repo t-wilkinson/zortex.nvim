@@ -1,21 +1,16 @@
-import { listener, RemoteRequest } from './server'
+import {listener, RemoteRequest} from './server'
 import wikiServer from './wiki'
 import * as wiki from '../zortex/wiki'
 import * as http from 'http'
 
-const config = {
-  notesDir: './notes',
-  extension: 'zortex',
-}
-
 export function run({}) {
   // don't await to decrease startup time but requires awaiting any reference
-  const articles = wiki.getArticles(config.notesDir)
+  const articles = wiki.getArticles(process.env.NOTES_DIR)
 
   const server = http.createServer(async (req: RemoteRequest, res) => {
     req.asPath = req.url.replace(/[?#].*$/, '')
 
-    req.notesDir = config.notesDir
+    req.notesDir = process.env.NOTES_DIR
     req.extension = process.env.EXTENSION
     req.articles = await articles
 

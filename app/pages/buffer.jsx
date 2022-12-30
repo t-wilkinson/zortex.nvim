@@ -73,7 +73,7 @@ D.
 const testRefreshContentParams = {
   content: process.env.NODE_ENV === 'development'
     ? defaultContent.split('\n')
-    : '',
+    : [],
   isActive: true,
   winline: 1,
   winheight: 800,
@@ -115,7 +115,6 @@ const Buffer = ({md, options}) => {
   const [state, setState] = React.useState({
     content: [],
   })
-  console.log(process.env.NODE_ENV)
 
   // socket functions
   React.useEffect(() => {

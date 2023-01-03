@@ -1,6 +1,8 @@
 import React from 'react'
 import Head from 'next/head'
 
+// const defMatchingStructures = [{"root": {"text": "Projects", "slug": "Projects", "indent": 0, "isLink": true}, "tags": [], "structures": [{"text": "Me", "slug": "Me", "isLink": true, "indent": 4}, {"text": "Review", "slug": null, "isLink": false, "indent": 8}, {"text": "Refactor", "slug": null, "isLink": false, "indent": 8}, {"text": "Presentation", "slug": null, "isLink": false, "indent": 8}, {"text": "AI Presentation", "slug": "AI_Presentation", "isLink": true, "indent": 12}, {"text": "Talk", "slug": null, "isLink": false, "indent": 8}, {"text": "Spiritual growth", "slug": null, "isLink": false, "indent": 12}, {"text": "Projects", "slug": "Projects", "isLink": true, "indent": 8}, {"text": "Cognition", "slug": "Cognition", "isLink": true, "indent": 12}, {"text": "Artificial intelligence", "slug": null, "isLink": false, "indent": 16}, {"text": "Artificial general intelligence", "slug": "Artificial_general_intelligence", "isLink": true, "indent": 20}, {"text": "Deep learning", "slug": "Deep_learning", "isLink": true, "indent": 20}, {"text": "PyTorch", "slug": "PyTorch", "isLink": true, "indent": 20}, {"text": "MLOps", "slug": null, "isLink": false, "indent": 20}, {"text": "Neuroscience", "slug": "Neuroscience", "isLink": true, "indent": 16}, {"text": "Language", "slug": null, "isLink": false, "indent": 16}, {"text": "Cognitive science", "slug": "Cognitive_science", "isLink": true, "indent": 16}, {"text": "Music", "slug": "Music", "isLink": true, "indent": 12}, {"text": "Piano", "slug": null, "isLink": false, "indent": 16}, {"text": "Torrent", "slug": null, "isLink": false, "indent": 20}, {"text": "Moonlight Sonata", "slug": null, "isLink": false, "indent": 20}, {"text": "Moonlight Sonata third movement", "slug": null, "isLink": false, "indent": 20}, {"text": "Moonlight Sonata x Torrent", "slug": null, "isLink": false, "indent": 20}, {"text": "Un Sospiro", "slug": null, "isLink": false, "indent": 20}, {"text": "Piano technique", "slug": null, "isLink": false, "indent": 20}, {"text": "Guitar", "slug": null, "isLink": false, "indent": 16}, {"text": "Computer systems", "slug": null, "isLink": false, "indent": 12}, {"text": "Robotics", "slug": "Robotics", "isLink": true, "indent": 12}, {"text": "Fullstack", "slug": null, "isLink": false, "indent": 12}, {"text": "Clay 3D printer", "slug": null, "isLink": false, "indent": 16}, {"text": "Soccer robots", "slug": null, "isLink": false, "indent": 16}, {"text": "Website", "slug": null, "isLink": false, "indent": 12}, {"text": "Stake website", "slug": null, "isLink": false, "indent": 16}, {"text": "Shopping", "slug": null, "isLink": false, "indent": 8}, {"text": "Knowledge", "slug": null, "isLink": false, "indent": 8}, {"text": "Neuroscience", "slug": "Neuroscience", "isLink": true, "indent": 12}, {"text": "Metaphysics", "slug": null, "isLink": false, "indent": 12}, {"text": "Topos theory", "slug": "Topos_theory", "isLink": true, "indent": 12}, {"text": "Computation", "slug": "Computation", "isLink": true, "indent": 12}, {"text": "Health", "slug": "Health", "isLink": true, "indent": 8}, {"text": "Social", "slug": null, "isLink": false, "indent": 8}, {"text": "Spiritual", "slug": null, "isLink": false, "indent": 8}, {"text": "Relax", "slug": null, "isLink": false, "indent": 8}, {"text": "Learn", "slug": null, "isLink": false, "indent": 8}, {"text": "Neuroscience", "slug": "Neuroscience", "isLink": true, "indent": 12}, {"text": "Infinite Closet", "slug": "Infinite_Closet", "isLink": true, "indent": 4}, {"text": "Features", "slug": null, "isLink": false, "indent": 8}, {"text": "Charge more to items in high demand", "slug": null, "isLink": false, "indent": 12}, {"text": "Personalized recommendations", "slug": null, "isLink": false, "indent": 12}, {"text": "Accounts", "slug": null, "isLink": false, "indent": 12}, {"text": "Orders", "slug": null, "isLink": false, "indent": 12}, {"text": "Gift cards", "slug": null, "isLink": false, "indent": 12}, {"text": "Projects", "slug": "Projects", "isLink": true, "indent": 12}, {"text": "Shop", "slug": null, "isLink": false, "indent": 12}, {"text": "Sizing", "slug": null, "isLink": false, "indent": 12}, {"text": "Blogs", "slug": null, "isLink": false, "indent": 12}, {"text": "Virtual closet", "slug": null, "isLink": false, "indent": 12}, {"text": "Social media", "slug": null, "isLink": false, "indent": 12}, {"text": "My wardrobe", "slug": null, "isLink": false, "indent": 12}, {"text": "Monitoring", "slug": null, "isLink": false, "indent": 8}, {"text": "Website", "slug": null, "isLink": false, "indent": 8}, {"text": "DevOps", "slug": null, "isLink": false, "indent": 8}, {"text": "Business", "slug": "Business", "isLink": true, "indent": 8}, {"text": "Budget", "slug": null, "isLink": false, "indent": 8}, {"text": "LandDecorInc", "slug": "LandDecorInc", "isLink": true, "indent": 4}, {"text": "YSA", "slug": null, "isLink": false, "indent": 4}, {"text": "Zettelkasten", "slug": "Zettelkasten", "isLink": true, "indent": 4}, {"text": "Structure", "slug": "Structure", "isLink": true, "indent": 8}, {"text": "Memory palace", "slug": null, "isLink": false, "indent": 8}, {"text": "Wikipedia-like", "slug": null, "isLink": false, "indent": 8}, {"text": "Todo", "slug": null, "isLink": false, "indent": 8}, {"text": "Tags", "slug": null, "isLink": false, "indent": 8}]}]
+
 const reducer = (state, action) => {
   switch (action.type) {
     case 'change-search-query':
@@ -25,7 +27,7 @@ const reducer = (state, action) => {
   }
 }
 
-export default ({children}) => {
+export default ({children, articleSlug}) => {
   const [state, dispatch] = React.useReducer(reducer, {
     name: '',
     searchQuery: '',
@@ -68,6 +70,7 @@ export default ({children}) => {
             />
           )}
           <Search state={state} dispatch={dispatch} />
+          <Structures articleSlug={articleSlug} />
           {children}
         </div>
       </main>
@@ -85,9 +88,7 @@ const Search = ({state, dispatch}) => {
         type: 'receive-search-results',
         articles,
       }))
-      .catch(err => {
-        // console.error(err)
-      })
+      .catch(() => {})
   }, [state.searchQuery])
 
   return <div className="search">
@@ -112,6 +113,7 @@ const Search = ({state, dispatch}) => {
           <a
             className="search__result"
             href={`/wiki/${article.slug}`}
+            data-z-article-name={article.title}
           >
             {article.title}
           </a>
@@ -158,3 +160,42 @@ const Header = ({state, dispatch}) => {
   )
 }
 
+const Structures = ({articleSlug}) => {
+  const [matchingStructures, setStructures] = React.useState([])
+
+  React.useEffect(() => {
+    if (articleSlug) {
+      fetch(`/wiki/structures/${articleSlug}`)
+        .then(data => data.json())
+        .then(structures => {
+          setStructures(structures)
+        })
+        .catch(() => {})
+    }
+  }, [articleSlug])
+
+  return <div>
+    {matchingStructures.map(({root, tags, structures}) =>
+      <div key={root.text} style={{textAlign: 'center', fontSize: '10px', marginTop: '1rem'}}>
+        <strong>{root.text} {tags.join('#')}</strong>
+        <div>
+          {structures.map((structure) =>
+            <React.Fragment key={structure.text}>
+              <StructureItem {...structure} />
+              {' '}·{' '}
+            </React.Fragment>
+          )}
+        </div>
+      </div>
+    )}
+  </div>
+}
+
+const StructureItem = ({text, slug, indent, isLink}) => {
+  const style = indent <= 4 ? {fontWeight: 'bold'} : {}
+  return <>{isLink
+    ? <a href={`/wiki/${slug}`} data-z-article-name={text}
+      style={style}
+    >{text}</a>
+    : <span style={style}>{text}</span>}</>
+}

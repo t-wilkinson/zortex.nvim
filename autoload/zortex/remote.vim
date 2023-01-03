@@ -1,5 +1,5 @@
 function! s:ssh(command) abort
-    return jobstart('ssh ' . g:zortex_remote_server . ' -f  "cd ' . g:zortex_remote_server_dir . '; ls; ' . escape(a:command, '\"') . '"')
+    return jobstart('ssh ' . g:zortex_remote_server . ' -f  "cd ' . g:zortex_remote_server_dir . '; ' . escape(a:command, '\"') . '"')
 endfunction
 
 function! s:rsync(local, remote) abort
@@ -61,8 +61,8 @@ function! zortex#remote#stop_server() abort
 endfunction
 
 function! zortex#remote#start_server() abort
-    " asume linux server for now
-    call s:ssh('./bin/zortex-linux --path ' . g:zortex_remote_server_dir . '/remote.js')
+    " assume linux server for now
+    call s:ssh('nohup ./bin/zortex-linux --path ' . g:zortex_remote_server_dir . '/remote.js')
 endfunction
 
 function! zortex#remote#restart_server() abort

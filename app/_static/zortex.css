@@ -79,3 +79,8 @@ body {
   color: var(--yellow);
   font-weight: bold;
 }
+
+.zortex-local-link {
+  color: blue;
+  cursor: pointer;
+}

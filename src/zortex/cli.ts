@@ -3,6 +3,7 @@ import {Env} from './types'
 import {indexCategories, populateHub, indexZettels} from './zettel'
 import {inspect, readLines, allRelatedTags} from './helpers'
 import {executeCommand, repl} from './repl'
+import {getArticleStructures} from './structures'
 
 function parseArgs(args: string[]) {
   const env: Env = {
@@ -10,6 +11,7 @@ function parseArgs(args: string[]) {
     relatedTags: false,
     repl: false,
     missingTags: false,
+    structures: false,
     command: null,
 
     extension: '.zortex',
@@ -50,6 +52,10 @@ function parseArgs(args: string[]) {
       case '--project-dir':
       case '-p':
         env.projectDir = nextArg()
+        break
+
+      case '--structures':
+        env.structures = true
         break
 
       case '--missing-tags':
@@ -147,6 +153,12 @@ export async function run() {
     return
   }
 
+  if (env.structures) {
+    const structures = await getArticleStructures(env.projectDir, env.extension)
+    inspect(structures)
+    return
+  }
+
   // Show indexed zettels
   if (!env.noteFile) {
     console.log(env.zettels)
@@ -160,4 +172,15 @@ export async function run() {
     inspect(populatedHub)
     return
   }
+}
+
+
+if (!module.parent) {
+  ; (async () => {
+    try {
+      await run()
+    } catch (e) {
+      console.error(e)
+    }
+  })()
 }

@@ -65,8 +65,8 @@ D.
 1. Test one
 2. Test two
 
-[z-source]{type=website; resource=link; title=one; ref=https://youtube.com}
-[z-source]{type=website; resource=image; title=one; ref=http://www.graphviz.org/Gallery/directed/bazel.svg}
+- [z-source]{type=website; resource=link; title=one; ref=https://youtube.com}
+- {type=website; resource=image; title=one; ref=http://www.graphviz.org/Gallery/directed/bazel.svg}
 
 `
 
@@ -100,9 +100,11 @@ const refreshScroll = ({
   }
 }
 
-const refreshRender = ({newContent, refreshContent, md, state, setState, name}) => {
+const refreshRender = ({newContent, refreshContent, md, state, setState, articleTitle}) => {
   setState({
     ...state,
+    title: articleTitle?.title,
+    slug: articleTitle?.slug,
     // name: ((name) => {
     //   let tokens = name.split(/\\|\//).pop().split('.')
     //   return tokens.length > 1 ? tokens.slice(0, -1).join('.') : tokens[0]
@@ -111,24 +113,20 @@ const refreshRender = ({newContent, refreshContent, md, state, setState, name}) 
   })
 }
 
-const Buffer = ({md, options}) => {
+const Buffer = ({md, options, setSlug}) => {
   const [state, setState] = React.useState({
     content: [],
   })
+  const socket = React.useMemo(() => io(), [])
 
   // socket functions
   React.useEffect(() => {
     let timer = undefined
     let preContent = ''
+    let bufferLinksTimer = undefined
 
-    const socket = io({
-      query: {
-        // bufnr: window.location.pathname.split('/')[2],
-      },
-    })
-
-    const onConnect = () => {console.log('connect success')}
-    const onDisconnect = () => {console.log('disconnect')}
+    const onConnect = () => {}
+    const onDisconnect = () => {}
     const onClose = () => {
       console.log('close')
       window.closet()
@@ -138,13 +136,14 @@ const Buffer = ({md, options}) => {
       winheight,
       content,
       cursor,
-      isActive
+      isActive,
+      articleTitle,
     }) => {
       const newContent = content.join('\n')
       const refreshContent = preContent !== newContent
       preContent = newContent
 
-      const refreshRenderProps = {newContent, refreshContent, state, setState, md}
+      const refreshRenderProps = {newContent, refreshContent, state, setState, md, articleTitle}
       const refreshScrollProps = {winline, winheight, content, cursor, isActive, options}
 
       if (!preContent) {
@@ -154,9 +153,28 @@ const Buffer = ({md, options}) => {
         if (!refreshContent) {
           refreshScroll(refreshScrollProps)
         } else {
+          setSlug(articleTitle?.slug)
           if (timer) {
             clearTimeout(timer)
           }
+          if (bufferLinksTimer) {
+            clearTimeout(bufferLinksTimer)
+          }
+
+          // can't reliably get this to work otherwise
+          bufferLinksTimer = setTimeout(() => {
+            const onPageChange = articleName => socket.emit('change_page', articleName)
+            document.querySelectorAll('[data-z-article-name]')
+              .forEach(elem => {
+                const articleName = elem.getAttribute('data-z-article-name')
+                elem.removeAttribute('data-z-article-name')
+                elem.removeAttribute('href')
+
+                elem.onclick = () => onPageChange(articleName)
+                elem.classList.add('zortex-local-link')
+              })
+          }, 1000)
+
           timer = setTimeout(() => {
             refreshRender(refreshRenderProps)
             refreshScroll(refreshScrollProps)
@@ -200,8 +218,9 @@ const Buffer = ({md, options}) => {
 
 export default () => {
   const md = initMarkdown()
+  const [slug, setSlug] = React.useState(null)
 
-  return <Layout>
-    <Buffer md={md} options={{}} />
+  return <Layout articleSlug={slug}>
+    <Buffer md={md} options={{}} setSlug={setSlug} />
   </Layout>
 }

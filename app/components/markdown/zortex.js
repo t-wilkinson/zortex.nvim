@@ -7,7 +7,7 @@ function escapeRegExp(string) {
 const lineitemRE = /^\s*([A-Za-z0-9]+)\.( .*)?$/
 const timeRE = /^\s*(\d+:\d\d)( .*)?$/
 const orderedListitemRE = /^\s*(\d+)\.( .*)?$/
-const unorderedListitemRE = /^\s*(-|\?|\*)( .*)?$/
+const unorderedListitemRE = /^\s*(-|\?|\+|\*)( .*)?$/
 function getLineitem(state, startLine) {
   let pos, newline, line, match
 
@@ -335,6 +335,7 @@ const sources = {
     token.attrs = attrs = [
       ['src', attrs.ref],
       ['alt', attrs.title],
+      ['data-z-article-name', attrs.title],
     ]
     token.content = attrs.title
   },
@@ -346,14 +347,23 @@ const sources = {
       ['target', '_blank'],
       ['href', attrs.ref],
       ['title', attrs.title],
+      ['data-z-article-name', attrs.title],
     ]
 
     token = state.push('text', '', 0)
-    token.content = attrs.title
+
+    const title = attrs.title || attrs.ref || ''
+    const subtitle = attrs.title && attrs.subtitle ? `: ${attrs.subtitle}` : attrs.subtitle || ''
+    const author = attrs.authors || attrs.author
+    const authors = !author
+      ? ''
+      : ' - ' + (Array.isArray(author)
+      ? author.join(', ')
+      : author || '')
+    token.content = `${title}${subtitle}${authors}`
 
     token = state.push('link_close', 'a', -1)
   },
-  website() {},
 }
 
 function articleToHref(name) {
@@ -382,7 +392,7 @@ function zortexLink(state, silent) {
   labelEnd = state.md.helpers.parseLinkLabel(state, state.pos, true)
 
   // parser failed to find ']', so it's not a valid link
-  if (labelEnd < 0) {
+  if (labelEnd < 0 || (state.src[labelEnd + 2] || ' ') !== ' ') {
     return false
   }
 
@@ -395,6 +405,7 @@ function zortexLink(state, silent) {
   token.attrs = [
     ['href', articleToHref(label)],
     ['title', label],
+    ['data-z-article-name', label],
   ]
 
   token = state.push('text', '', 0)
@@ -408,7 +419,9 @@ function zortexLink(state, silent) {
 }
 
 /**
- * Process [z-source]{ key1=value1; key2=value2; key3=value3 }
+ * Process
+ *  - [z-source]{ key1=value1; key2=value2; key3=value3; }
+ *  - { key1=value1; key2=value2; key3=value3; }
  */
 function zortexSource(state, silent) {
   let start,
@@ -424,33 +437,35 @@ function zortexSource(state, silent) {
     pos = state.pos,
     max = state.posMax
 
-  if (state.src.charCodeAt(state.pos) !== 0x5b /* [ */) {
+  if (state.src.charCodeAt(state.pos) === 0x5b /* [ */) {
+    labelStart = state.pos + 1
+    labelEnd = state.md.helpers.parseLinkLabel(state, state.pos, true)
+
+    // parser failed to find ']', so it's not a valid link
+    if (labelEnd < 0) {
+      return false
+    }
+
+    if ('z-source' !== state.src.slice(labelStart, labelEnd)) {
+      return false
+    }
+
+    pos = labelEnd + 1
+    if (pos >= max || state.src.charCodeAt(pos) !== 0x7b /* { */) {
+      return false
+    }
+    pos++
+  } else if (state.src.charCodeAt(pos) === 0x7b /* { */) {
+    pos++
+  } else {
     return false
   }
 
-  labelStart = state.pos + 1
-  labelEnd = state.md.helpers.parseLinkLabel(state, state.pos, true)
-
-  // parser failed to find ']', so it's not a valid link
-  if (labelEnd < 0) {
-    return false
-  }
-
-  if ('z-source' !== state.src.slice(labelStart, labelEnd)) {
-    return false
-  }
-
-  pos = labelEnd + 1
-  if (pos >= max || state.src.charCodeAt(pos) !== 0x7b /* { */) {
-    return false
-  }
-  pos++
-
-  //   [key]=[value];  }
+  //   [key]=[value]; }
   // ^^ skipping space
   for (; pos < max; pos++) {
     code = state.src.charCodeAt(pos)
-    if (!isSpace(code) && code !== 0x0a) {
+    if (!isSpace(code) && code !== 0x0a /* \n */) {
       break
     }
   }
@@ -461,7 +476,7 @@ function zortexSource(state, silent) {
   while (true) {
     start = pos
 
-    //   [key]=[value];  }
+    //   [key]=[value]; }
     //   ^^^^^ alphanumericdash
     for (; pos < max; pos++) {
       if (state.src.charCodeAt(pos) === 0x3d) {
@@ -480,7 +495,7 @@ function zortexSource(state, silent) {
     pos++
     for (; pos < max; pos++) {
       code = state.src.charCodeAt(pos)
-      if (isSpace(code) || code === 0x3b || code === 0x7d) {
+      if (code === 0x3b /* ; */) {
         break
       }
     }
@@ -490,14 +505,24 @@ function zortexSource(state, silent) {
     end = pos
     key = state.src.slice(start, middle)
     value = state.src.slice(middle + 1, end)
-    attrs[key] = value
+
+    if (attrs[key]) {
+      if (Array.isArray(attrs[key])) {
+        attrs[key].push(value)
+      } else {
+        attrs[key] = [value]
+      }
+    } else {
+      attrs[key] = value
+    }
+
     if (code === 0x7d) {
       pos++
       break
     }
 
-    //   [key]=[value];  }
-    //                 ^^ space
+    //   [key]=[value];   }
+    //                 ^^^ spaces
     pos++
     for (; pos < max; pos++) {
       code = state.src.charCodeAt(pos)
@@ -521,7 +546,7 @@ function zortexSource(state, silent) {
     return true
   }
 
-  const source = sources[attrs.resource]
+  const source = sources[attrs.resource] || sources.link
   if (source) {
     source(state, attrs)
   } else {

@@ -1,15 +1,28 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.findArticle = exports.searchArticles = exports.matchArticle = exports.getArticles = void 0;
+exports.findArticle = exports.searchArticles = exports.matchArticle = exports.getArticles = exports.parseArticleTitle = exports.slugifyArticleName = exports.compareArticleNames = exports.compareArticle = exports.compareArticleSlugs = void 0;
 const tslib_1 = require("tslib");
 const fs = tslib_1.__importStar(require("fs"));
 const path = tslib_1.__importStar(require("path"));
 const zettel_1 = require("./zettel");
 const helpers_1 = require("./helpers");
-const slugifyArticleName = (articleName) => {
+function compareArticleSlugs(slug1, slug2) {
+    return slug1.toLowerCase() === slug2.toLowerCase();
+}
+exports.compareArticleSlugs = compareArticleSlugs;
+function compareArticle(name, slug) {
+    return compareArticleSlugs(slugifyArticleName(name), slug);
+}
+exports.compareArticle = compareArticle;
+function compareArticleNames(name1, name2) {
+    return compareArticleSlugs(slugifyArticleName(name1), slugifyArticleName(name2));
+}
+exports.compareArticleNames = compareArticleNames;
+function slugifyArticleName(articleName) {
     return articleName.replace(/ /g, '_');
-};
-const parseArticleTitle = (titleLine) => {
+}
+exports.slugifyArticleName = slugifyArticleName;
+function parseArticleTitle(titleLine) {
     let title = titleLine.replace(/^@+/, '');
     // if article title is a link, extract the name
     // [name](link)
@@ -23,7 +36,8 @@ const parseArticleTitle = (titleLine) => {
         title,
         slug: slugifyArticleName(title),
     };
-};
+}
+exports.parseArticleTitle = parseArticleTitle;
 function getArticles(notesDir) {
     var e_1, _a;
     return tslib_1.__awaiter(this, void 0, void 0, function* () {
@@ -36,8 +50,7 @@ function getArticles(notesDir) {
         try {
             for (var fileNames_1 = tslib_1.__asyncValues(fileNames), fileNames_1_1; fileNames_1_1 = yield fileNames_1.next(), !fileNames_1_1.done;) {
                 const fileName = fileNames_1_1.value;
-                const line = yield (0, helpers_1.getFirstLine)(path.join(notesDir, fileName));
-                const article = parseArticleTitle(line);
+                const article = yield (0, helpers_1.getArticleTitle)(path.join(notesDir, fileName));
                 articles[article.slug] = {
                     title: article.title,
                     fileName,

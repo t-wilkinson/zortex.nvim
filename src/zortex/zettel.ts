@@ -1,11 +1,10 @@
-import * as readline from 'readline'
 import * as path from 'path'
 import * as fs from 'fs'
 
 import strftime from 'strftime'
-import {Articles, Zettels} from './types'
+import {Articles, Zettels, Lines} from './types'
 import {readLines} from './helpers'
-import {fetchQuery, matchQuery} from './query'
+import {isQuery, fetchQuery, parseQuery} from './query'
 
 export function newZettelId() {
   const randInt = (1e5 + Math.random() * 1e5 + '').slice(-5)
@@ -37,16 +36,16 @@ function showZettel(id: string, tags: string[], content: string | string[]) {
 export function showZettels(ids: string[], zettels: Zettels) {
   for (const id of ids) {
     const zettel = zettels.ids[id]
-    console.log(showZettel(id, zettel.tags, zettel.content))
+    console.log(showZettel(id, [...zettel.tags], zettel.content))
   }
 }
 
 export async function indexZettels(zettelsFile: string): Promise<Zettels> {
   let lineNumber = 0
   let id: string
-  let tags: string[]
-  let content: string
-  let zettels: Zettels = {
+  let tags: Set<string>
+  let content: string | string[]
+  const zettels: Zettels = {
     tags: {},
     ids: {},
   }
@@ -67,18 +66,17 @@ export async function indexZettels(zettelsFile: string): Promise<Zettels> {
       continue
     }
 
-    if (zettels.tags[id]?.has('z-source')) {
-      const content = zettels.ids[id].content
-      if (typeof content === 'string') {
-        zettels.ids[id].content = `[z-source]{${content}}`
-      } else {
-        zettels.ids[id].content = `[z-source]{${content.join('\n')}}`
-      }
-    }
+    //     if (zettels.ids[id].tags?.has('z-source')) {
+    //       const source = zettels.ids[id].content
+    //       zettels.ids[id].content =
+    //         typeof source === 'string'
+    //           ? `[z-source]{${source}}`
+    //           : `[z-source]{${source.join('\n')}}`
+    //     }
 
     id = match[1]
-    tags = match[2] ? match[2].replace(/^#|#$/g, '').split('#') : []
-    content = match[3] || ''
+    tags = new Set(match[2] ? match[2].replace(/^#|#$/g, '').split('#') : [])
+    content = match[3] ? match[3] : []
 
     if (zettels.ids[id]) {
       throw new Error(
@@ -105,35 +103,32 @@ export async function indexZettels(zettelsFile: string): Promise<Zettels> {
   return zettels
 }
 
-export async function populateHub(lines: readline.Interface | string[], zettels: Zettels, notesDir: string): Promise<string[]> {
+export async function populateHub(lines: Lines, zettels: Zettels, notesDir: string): Promise<string[]> {
   const newLines = []
   newLines.push('[[toc]]')
 
   for await (let line of lines) {
-    // If line is a query, fetch zettels and add them to the hub
-    const queryMatch = matchQuery(line)
-    // TODO: more efficient way to do this?
-    // Replace local links with absolute link which server knows how to handle
-    line = line.replace('](./', `](/`)
-    if (!queryMatch) {
+    if (!isQuery(line)) {
+      // Replace local links with absolute link which server knows how to handle
+      line = line.replace('](./resources/', `](/resources/`)
       newLines.push(line)
       continue
     }
 
-    // Execute query
-    const [indent, query] = queryMatch
+    // Fetch zettels and add them to the hub
+    const query = parseQuery(line)
     const results = fetchQuery(query, zettels)
 
     // Populate file with query responses
     const resultZettels = results.map((id) => zettels.ids[id])
     for (const zettel of resultZettels) {
       if (Array.isArray(zettel.content)) {
-        newLines.push(`${' '.repeat(indent)}- ${zettel.content[0]}`)
+        newLines.push(`${' '.repeat(query.indent)}- ${zettel.content[0]}`)
         for (const line of zettel.content.slice(1)) {
-          newLines.push(`${' '.repeat(indent)}${line}`)
+          newLines.push(`${' '.repeat(query.indent)}${line}`)
         }
       } else {
-        newLines.push(`${' '.repeat(indent)}- ${zettel.content}`)
+        newLines.push(`${' '.repeat(query.indent)}- ${zettel.content}`)
       }
     }
   }
@@ -141,9 +136,9 @@ export async function populateHub(lines: readline.Interface | string[], zettels:
   return newLines
 }
 
-export async function indexCategories(categoriesFile: string) {
+export async function indexCategories(categoriesFileName: string) {
   const categoriesRE = /^\s*- ([^#]*) (#.*#)$/
-  const lines = readLines(categoriesFile)
+  const lines = readLines(categoriesFileName)
   let match: RegExpMatchArray
   let category: string
   let categories: string[]

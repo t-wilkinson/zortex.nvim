@@ -6,12 +6,14 @@ const path = tslib_1.__importStar(require("path"));
 const zettel_1 = require("./zettel");
 const helpers_1 = require("./helpers");
 const repl_1 = require("./repl");
+const structures_1 = require("./structures");
 function parseArgs(args) {
     const env = {
         onlyTags: false,
         relatedTags: false,
         repl: false,
         missingTags: false,
+        structures: false,
         command: null,
         extension: '.zortex',
         zettelsFile: 'zettels.zortex',
@@ -47,6 +49,9 @@ function parseArgs(args) {
             case '--project-dir':
             case '-p':
                 env.projectDir = nextArg();
+                break;
+            case '--structures':
+                env.structures = true;
                 break;
             case '--missing-tags':
                 env.missingTags = true;
@@ -143,6 +148,11 @@ function run() {
             }
             return;
         }
+        if (env.structures) {
+            const structures = yield (0, structures_1.getArticleStructures)(env.projectDir, env.extension);
+            (0, helpers_1.inspect)(structures);
+            return;
+        }
         // Show indexed zettels
         if (!env.noteFile) {
             console.log(env.zettels);
@@ -158,3 +168,14 @@ function run() {
     });
 }
 exports.run = run;
+if (!module.parent) {
+    ;
+    (() => tslib_1.__awaiter(void 0, void 0, void 0, function* () {
+        try {
+            yield run();
+        }
+        catch (e) {
+            console.error(e);
+        }
+    }))();
+}

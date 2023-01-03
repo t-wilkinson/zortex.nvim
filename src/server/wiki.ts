@@ -1,9 +1,32 @@
 import * as fs from 'fs'
 import * as url from 'url'
-import * as wiki from '../zortex/wiki'
+import {findArticle, searchArticles} from '../zortex/wiki'
+import {getArticleStructures, getMatchingStructures} from '../zortex/structures'
 import {ServerRequest, Routes} from './server'
 
 const routes: Routes<ServerRequest> = [
+  // /wiki/structures/:name
+  async (req, res, next) => {
+    let match: null | string[]
+    if (match = req.asPath.match(/wiki\/structures\/([^/]+)/)) {
+      const articleName = match[1]
+      const notesDir = req.notesDir
+      const extension = req.extension
+      const structures = await getArticleStructures(notesDir, extension)
+      const matchingStructures = getMatchingStructures(articleName, structures)
+
+      res.setHeader('Content-Type', 'application/json')
+      return res.end(
+        JSON.stringify(
+          matchingStructures,
+          null,
+          0
+        )
+      )
+    }
+    next()
+  },
+
   // /wiki/article/:name
   async (req, res, next) => {
     let match: null | string[]
@@ -15,7 +38,7 @@ const routes: Routes<ServerRequest> = [
       res.setHeader('Content-Type', 'application/json')
       return res.end(
         JSON.stringify(
-          await wiki.findArticle(notesDir, extension, articleName, req.articles),
+          await findArticle(notesDir, extension, articleName, req.articles),
           null,
           0
         )
@@ -33,7 +56,7 @@ const routes: Routes<ServerRequest> = [
         searchQuery = searchQuery.join(' ')
       }
 
-      const articles = wiki.searchArticles(req.articles, searchQuery)
+      const articles = searchArticles(req.articles, searchQuery)
       res.setHeader('Content-Type', 'application/json')
       return res.end(JSON.stringify(articles, null, 0))
     }

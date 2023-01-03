@@ -1,24 +1,24 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.fetchQuery = exports.parseQuery = exports.matchQuery = void 0;
+exports.fetchQuery = exports.parseQuery = exports.isQuery = void 0;
 // % #asdf#asdfa#
-const queryRE = /^(\s*)%\s*(.*)$/;
-function matchQuery(line) {
-    const match = line.match(queryRE);
+const queryRE = /^(\s*)%\s*#(.*)#$/;
+const isQueryRE = /^(\s*)%\s/;
+function isQuery(line) {
+    return isQueryRE.test(line);
+}
+exports.isQuery = isQuery;
+function parseQuery(queryString) {
+    const match = queryString.match(queryRE);
     if (!match) {
         return null;
     }
     const indent = match[1].length;
-    const query = parseQuery(match[2]);
-    return [indent, query];
-}
-exports.matchQuery = matchQuery;
-// TODO: make query more sophisticated
-function parseQuery(query) {
+    const query = match[2].trim();
     let tags;
-    query = query.trim();
-    tags = query.replace(/^#|#$/g, '').split('#');
+    tags = query.split('#').filter((v) => v);
     return {
+        indent,
         tags,
     };
 }

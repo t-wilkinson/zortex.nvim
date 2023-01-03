@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import {indexZettels, populateHub} from './zettel'
 
-import {getFirstLine} from './helpers'
+import {getArticleTitle} from './helpers'
 
 export interface Article {
   title: string
@@ -11,11 +11,29 @@ export interface Article {
 }
 export type Articles = {[slug: string]: Article}
 
-const slugifyArticleName = (articleName: string) => {
+export function compareArticleSlugs(slug1: string, slug2: string) {
+  return slug1.toLowerCase() === slug2.toLowerCase()
+}
+
+export function compareArticle(name: string, slug: string) {
+  return compareArticleSlugs(
+    slugifyArticleName(name),
+    slug,
+  )
+}
+
+export function compareArticleNames(name1: string, name2: string) {
+  return compareArticleSlugs(
+    slugifyArticleName(name1),
+    slugifyArticleName(name2)
+  )
+}
+
+export function slugifyArticleName(articleName: string) {
   return articleName.replace(/ /g, '_')
 }
 
-const parseArticleTitle = (titleLine: string) => {
+export function parseArticleTitle(titleLine: string) {
   let title = titleLine.replace(/^@+/, '')
 
   // if article title is a link, extract the name
@@ -43,8 +61,7 @@ export async function getArticles(notesDir: string): Promise<Articles> {
     .map((item) => item.name)
 
   for await (const fileName of fileNames) {
-    const line = await getFirstLine(path.join(notesDir, fileName))
-    const article = parseArticleTitle(line)
+    const article = await getArticleTitle(path.join(notesDir, fileName))
 
     articles[article.slug] = {
       title: article.title,

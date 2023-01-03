@@ -1,27 +1,26 @@
-import { Query, Zettels } from './types'
+import {Query, Zettels} from './types'
 
 // % #asdf#asdfa#
-const queryRE = /^(\s*)%\s*(.*)$/
+const queryRE = /^(\s*)%\s*#(.*)#$/
+const isQueryRE = /^(\s*)%\s/
 
-export function matchQuery(line: string): [number, Query] {
-  const match = line.match(queryRE)
+export function isQuery(line: string): boolean {
+  return isQueryRE.test(line)
+}
+
+export function parseQuery(queryString: string): Query {
+  const match = queryString.match(queryRE)
   if (!match) {
     return null
   }
   const indent = match[1].length
-  const query = parseQuery(match[2])
+  const query = match[2].trim()
 
-  return [indent, query]
-}
-
-// TODO: make query more sophisticated
-export function parseQuery(query: string): Query {
   let tags: string[]
-
-  query = query.trim()
-  tags = query.replace(/^#|#$/g, '').split('#')
+  tags = query.split('#').filter((v) => v)
 
   return {
+    indent,
     tags,
   }
 }

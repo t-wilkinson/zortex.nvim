@@ -157,7 +157,7 @@ syntax match zOperator /\d\+:\d\d/ " Times
 syntax match zOperator /[A-Z]\S* \d\+:\d\+\(-\d\+\)/ " Scripture quotes
 syntax match zOperator /\d\{1,3}%\_s/ " Percents
 syntax match zOperator /\(,\|;\)\_s/ " Commas
-syntax match zOperator /\w\+=\ze\(\w\|\/\)/ " s
+syntax match zOperator /\w\+=\ze\(\w\|\/\|\.\)/
 syntax match zOperator /\w\zs\(\.\|?\)\( \|$\)/
 syntax match zOperator /\w\zs: /
 syntax match zOperator /:$/

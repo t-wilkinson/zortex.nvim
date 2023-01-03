@@ -1,7 +1,9 @@
 import * as util from 'util'
 import * as fs from 'fs'
+import * as path from 'path'
 import * as readline from 'readline'
-import { Zettels } from './types'
+import {Zettels} from './types'
+import {compareArticle, parseArticleTitle, compareArticleSlugs, slugifyArticleName} from './wiki'
 
 export function inspect(x: any) {
   console.log(
@@ -18,7 +20,7 @@ export function inspect(x: any) {
 
 export async function getFirstLine(pathToFile: string): Promise<string> {
   const readable = fs.createReadStream(pathToFile)
-  const reader = readline.createInterface({ input: readable })
+  const reader = readline.createInterface({input: readable})
   const firstLine = await new Promise<string>((resolve) => {
     reader.on('line', (line) => {
       reader.close()
@@ -77,4 +79,28 @@ export function allRelatedTags(zettels: Zettels) {
 
 export function toSpacecase(str: string) {
   return str.charAt(0).toUpperCase() + str.slice(1).replace(/-/g, ' ')
+}
+
+export async function getArticleFilepath(notesDir: string, articleName: string) {
+  const articleSlug = slugifyArticleName(articleName)
+
+  // get article files
+  const fileNames = fs
+    .readdirSync(notesDir, {withFileTypes: true})
+    .filter((item) => !item.isDirectory())
+    .map((item) => item.name)
+
+  for await (const fileName of fileNames) {
+    const filepath = path.join(notesDir, fileName)
+    const line = await getFirstLine(filepath)
+    const {slug} = parseArticleTitle(line)
+    if (compareArticleSlugs(slug, articleSlug)) {
+      return filepath
+    }
+  }
+}
+
+export async function getArticleTitle(filepath) {
+  const line = await getFirstLine(filepath)
+  return parseArticleTitle(line)
 }

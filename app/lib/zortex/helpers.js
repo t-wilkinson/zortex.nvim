@@ -1,10 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.toSpacecase = exports.allRelatedTags = exports.relatedTags = exports.readLines = exports.getFirstLine = exports.inspect = void 0;
+exports.getArticleTitle = exports.getArticleFilepath = exports.toSpacecase = exports.allRelatedTags = exports.relatedTags = exports.readLines = exports.getFirstLine = exports.inspect = void 0;
 const tslib_1 = require("tslib");
 const util = tslib_1.__importStar(require("util"));
 const fs = tslib_1.__importStar(require("fs"));
+const path = tslib_1.__importStar(require("path"));
 const readline = tslib_1.__importStar(require("readline"));
+const wiki_1 = require("./wiki");
 function inspect(x) {
     console.log(util.inspect(x, {
         showHidden: false,
@@ -79,3 +81,40 @@ function toSpacecase(str) {
     return str.charAt(0).toUpperCase() + str.slice(1).replace(/-/g, ' ');
 }
 exports.toSpacecase = toSpacecase;
+function getArticleFilepath(notesDir, articleName) {
+    var e_1, _a;
+    return tslib_1.__awaiter(this, void 0, void 0, function* () {
+        const articleSlug = (0, wiki_1.slugifyArticleName)(articleName);
+        // get article files
+        const fileNames = fs
+            .readdirSync(notesDir, { withFileTypes: true })
+            .filter((item) => !item.isDirectory())
+            .map((item) => item.name);
+        try {
+            for (var fileNames_1 = tslib_1.__asyncValues(fileNames), fileNames_1_1; fileNames_1_1 = yield fileNames_1.next(), !fileNames_1_1.done;) {
+                const fileName = fileNames_1_1.value;
+                const filepath = path.join(notesDir, fileName);
+                const line = yield getFirstLine(filepath);
+                const { slug } = (0, wiki_1.parseArticleTitle)(line);
+                if ((0, wiki_1.compareArticleSlugs)(slug, articleSlug)) {
+                    return filepath;
+                }
+            }
+        }
+        catch (e_1_1) { e_1 = { error: e_1_1 }; }
+        finally {
+            try {
+                if (fileNames_1_1 && !fileNames_1_1.done && (_a = fileNames_1.return)) yield _a.call(fileNames_1);
+            }
+            finally { if (e_1) throw e_1.error; }
+        }
+    });
+}
+exports.getArticleFilepath = getArticleFilepath;
+function getArticleTitle(filepath) {
+    return tslib_1.__awaiter(this, void 0, void 0, function* () {
+        const line = yield getFirstLine(filepath);
+        return (0, wiki_1.parseArticleTitle)(line);
+    });
+}
+exports.getArticleTitle = getArticleTitle;

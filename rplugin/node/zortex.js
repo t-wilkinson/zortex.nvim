@@ -353,6 +353,10 @@ async function openLink(nvim) {
     return null
   }
 
+  if (link.url?.startsWith('./')) {
+    link.url = path.join(await nvim.getVar('zortex_notes_dir'), link.url)
+  }
+
   // TODO: better error handling
   try {
     if (filename === 'zortex-structures' && link.type === 'text') {
@@ -386,12 +390,7 @@ async function openLink(nvim) {
     } else if (link.type === 'zortex-link') {
       open(link.url)
     } else if (link.type === 'website' || link.type === 'resource' || link.type === 'file') {
-      if (link.url.startsWith('./')) {
-        nvim.command(`let @a = '${path.join(await nvim.getVar('zortex_notes_dir'), link.url)}'`)
-        open(path.join(await nvim.getVar('zortex_notes_dir'), link.url))
-      } else {
-        open(link.url)
-      }
+      open(link.url)
     } else if (link.type === 'article') {
       openArticle(nvim, link.name)
     }

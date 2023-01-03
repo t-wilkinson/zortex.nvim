@@ -32,19 +32,18 @@ function showZettel(id, tags, content) {
 function showZettels(ids, zettels) {
     for (const id of ids) {
         const zettel = zettels.ids[id];
-        console.log(showZettel(id, zettel.tags, zettel.content));
+        console.log(showZettel(id, [...zettel.tags], zettel.content));
     }
 }
 exports.showZettels = showZettels;
 function indexZettels(zettelsFile) {
     var e_1, _a;
-    var _b;
     return tslib_1.__awaiter(this, void 0, void 0, function* () {
         let lineNumber = 0;
         let id;
         let tags;
         let content;
-        let zettels = {
+        const zettels = {
             tags: {},
             ids: {},
         };
@@ -66,18 +65,16 @@ function indexZettels(zettelsFile) {
                     }
                     continue;
                 }
-                if ((_b = zettels.tags[id]) === null || _b === void 0 ? void 0 : _b.has('z-source')) {
-                    const content = zettels.ids[id].content;
-                    if (typeof content === 'string') {
-                        zettels.ids[id].content = `[z-source]{${content}}`;
-                    }
-                    else {
-                        zettels.ids[id].content = `[z-source]{${content.join('\n')}}`;
-                    }
-                }
+                //     if (zettels.ids[id].tags?.has('z-source')) {
+                //       const source = zettels.ids[id].content
+                //       zettels.ids[id].content =
+                //         typeof source === 'string'
+                //           ? `[z-source]{${source}}`
+                //           : `[z-source]{${source.join('\n')}}`
+                //     }
                 id = match[1];
-                tags = match[2] ? match[2].replace(/^#|#$/g, '').split('#') : [];
-                content = match[3] || '';
+                tags = new Set(match[2] ? match[2].replace(/^#|#$/g, '').split('#') : []);
+                content = match[3] ? match[3] : [];
                 if (zettels.ids[id]) {
                     throw new Error(`Zettel id: ${id} already exists at line: ${zettels.ids[id].lineNumber}`);
                 }
@@ -116,29 +113,26 @@ function populateHub(lines, zettels, notesDir) {
         try {
             for (lines_2 = tslib_1.__asyncValues(lines); lines_2_1 = yield lines_2.next(), !lines_2_1.done;) {
                 let line = lines_2_1.value;
-                // If line is a query, fetch zettels and add them to the hub
-                const queryMatch = (0, query_1.matchQuery)(line);
-                // TODO: more efficient way to do this?
-                // Replace local links with absolute link which server knows how to handle
-                line = line.replace('](./', `](/`);
-                if (!queryMatch) {
+                if (!(0, query_1.isQuery)(line)) {
+                    // Replace local links with absolute link which server knows how to handle
+                    line = line.replace('](./resources/', `](/resources/`);
                     newLines.push(line);
                     continue;
                 }
-                // Execute query
-                const [indent, query] = queryMatch;
+                // Fetch zettels and add them to the hub
+                const query = (0, query_1.parseQuery)(line);
                 const results = (0, query_1.fetchQuery)(query, zettels);
                 // Populate file with query responses
                 const resultZettels = results.map((id) => zettels.ids[id]);
                 for (const zettel of resultZettels) {
                     if (Array.isArray(zettel.content)) {
-                        newLines.push(`${' '.repeat(indent)}- ${zettel.content[0]}`);
+                        newLines.push(`${' '.repeat(query.indent)}- ${zettel.content[0]}`);
                         for (const line of zettel.content.slice(1)) {
-                            newLines.push(`${' '.repeat(indent)}${line}`);
+                            newLines.push(`${' '.repeat(query.indent)}${line}`);
                         }
                     }
                     else {
-                        newLines.push(`${' '.repeat(indent)}- ${zettel.content}`);
+                        newLines.push(`${' '.repeat(query.indent)}- ${zettel.content}`);
                     }
                 }
             }
@@ -154,11 +148,11 @@ function populateHub(lines, zettels, notesDir) {
     });
 }
 exports.populateHub = populateHub;
-function indexCategories(categoriesFile) {
+function indexCategories(categoriesFileName) {
     var e_3, _a;
     return tslib_1.__awaiter(this, void 0, void 0, function* () {
         const categoriesRE = /^\s*- ([^#]*) (#.*#)$/;
-        const lines = (0, helpers_1.readLines)(categoriesFile);
+        const lines = (0, helpers_1.readLines)(categoriesFileName);
         let match;
         let category;
         let categories;

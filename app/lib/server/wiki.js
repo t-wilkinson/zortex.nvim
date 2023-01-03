@@ -3,8 +3,23 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const tslib_1 = require("tslib");
 const fs = tslib_1.__importStar(require("fs"));
 const url = tslib_1.__importStar(require("url"));
-const wiki = tslib_1.__importStar(require("../zortex/wiki"));
+const wiki_1 = require("../zortex/wiki");
+const structures_1 = require("../zortex/structures");
 const routes = [
+    // /wiki/structures/:name
+    (req, res, next) => tslib_1.__awaiter(void 0, void 0, void 0, function* () {
+        let match;
+        if (match = req.asPath.match(/wiki\/structures\/([^/]+)/)) {
+            const articleName = match[1];
+            const notesDir = req.notesDir;
+            const extension = req.extension;
+            const structures = yield (0, structures_1.getArticleStructures)(notesDir, extension);
+            const matchingStructures = (0, structures_1.getMatchingStructures)(articleName, structures);
+            res.setHeader('Content-Type', 'application/json');
+            return res.end(JSON.stringify(matchingStructures, null, 0));
+        }
+        next();
+    }),
     // /wiki/article/:name
     (req, res, next) => tslib_1.__awaiter(void 0, void 0, void 0, function* () {
         let match;
@@ -13,7 +28,7 @@ const routes = [
             const notesDir = req.notesDir;
             const extension = req.extension;
             res.setHeader('Content-Type', 'application/json');
-            return res.end(JSON.stringify(yield wiki.findArticle(notesDir, extension, articleName, req.articles), null, 0));
+            return res.end(JSON.stringify(yield (0, wiki_1.findArticle)(notesDir, extension, articleName, req.articles), null, 0));
         }
         next();
     }),
@@ -25,7 +40,7 @@ const routes = [
             if (Array.isArray(searchQuery)) {
                 searchQuery = searchQuery.join(' ');
             }
-            const articles = wiki.searchArticles(req.articles, searchQuery);
+            const articles = (0, wiki_1.searchArticles)(req.articles, searchQuery);
             res.setHeader('Content-Type', 'application/json');
             return res.end(JSON.stringify(articles, null, 0));
         }

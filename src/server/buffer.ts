@@ -1,6 +1,8 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import * as zortex from '../zortex'
+import {indexZettels, populateHub} from '../zortex/zettel'
+import {parseArticleTitle} from '../zortex/wiki'
+import {getArticleFilepath} from '../zortex/helpers'
 import {LocalRequest, Routes} from './server'
 
 const routes: Routes<LocalRequest> = [
@@ -13,10 +15,10 @@ const routes: Routes<LocalRequest> = [
   },
 ]
 
-export const onWebsocketConnection = async (logger, client, plugin) => {
+const getRefreshContent = async (plugin) => {
   const notesDir = await plugin.nvim.getVar('zortex_notes_dir')
   const extension = await plugin.nvim.getVar('zortex_extension')
-  const zettels = await zortex.indexZettels(path.join(notesDir, 'zettels' + extension))
+  const zettels = await indexZettels(path.join(notesDir, 'zettels' + extension))
 
   const buffer = await plugin.nvim.buffer
   const winline = await plugin.nvim.call('winline')
@@ -28,9 +30,12 @@ export const onWebsocketConnection = async (logger, client, plugin) => {
   const theme = await plugin.nvim.getVar('zortex_theme')
   const name = await buffer.name
   const bufferLines = await buffer.getLines()
-  const content = await zortex.populateHub(bufferLines, zettels, notesDir)
+  const content = await populateHub(bufferLines, zettels, notesDir)
 
-  client.emit('refresh_content', {
+  const articleTitle = parseArticleTitle(bufferLines[0])
+
+
+  return {
     options,
     isActive: true,
     winline,
@@ -41,6 +46,22 @@ export const onWebsocketConnection = async (logger, client, plugin) => {
     name,
     content,
     zettels,
+    articleTitle,
+  }
+}
+
+export const onWebsocketConnection = async (logger, client, plugin) => {
+  client.emit('refresh_content', await getRefreshContent(plugin))
+
+  client.on('change_page', async (articleName: string) => {
+    const notesDir = await plugin.nvim.getVar('zortex_notes_dir')
+    const filepath = await getArticleFilepath(notesDir, articleName)
+    if (filepath) {
+      plugin.nvim.command(`edit ${filepath}`)
+        .then(async () => {
+          client.emit('refresh_content', await getRefreshContent(plugin))
+        })
+    }
   })
 }
 

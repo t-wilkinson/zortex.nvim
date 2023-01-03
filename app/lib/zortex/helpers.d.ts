@@ -10,3 +10,8 @@ export declare function relatedTags(zettels: Zettels, tag: string): string[];
  */
 export declare function allRelatedTags(zettels: Zettels): {};
 export declare function toSpacecase(str: string): string;
+export declare function getArticleFilepath(notesDir: string, articleName: string): Promise<string>;
+export declare function getArticleTitle(filepath: any): Promise<{
+    title: string;
+    slug: string;
+}>;

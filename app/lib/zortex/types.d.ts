@@ -1,4 +1,21 @@
+/// <reference types="node" />
+import { Interface } from 'readline';
+export declare type Lines = Interface | string[];
+export declare type Structures = {
+    [name: string]: {
+        root: Structure;
+        tags: string[];
+        structures: Structure[];
+    };
+};
+export interface Structure {
+    text: string;
+    slug: string;
+    indent: number;
+    isLink: boolean;
+}
 export interface Query {
+    indent: number;
     tags: string[];
 }
 export interface Articles {
@@ -13,17 +30,18 @@ export interface Articles {
 }
 export interface Zettels {
     tags: {
-        [key: string]: Set<string>;
+        [tag: string]: Set<string>;
     };
     ids: {
-        [key: string]: {
-            tags: string[];
+        [id: string]: {
+            tags: Set<string>;
             content: string | string[];
             lineNumber: number;
         };
     };
 }
 export interface Env {
+    structures: boolean;
     onlyTags: boolean;
     relatedTags: boolean;
     repl: boolean;

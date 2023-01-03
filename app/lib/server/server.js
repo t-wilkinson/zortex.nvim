@@ -19,10 +19,10 @@ exports.staticRoutes = [
         if (/\/resources/.test(req.asPath)) {
             const filepath = path.join(req.notesDir, req.asPath);
             if (fs.existsSync(filepath)) {
-                return fs.createReadStream(path.join('./out', '404.html')).pipe(res);
+                return fs.createReadStream(filepath).pipe(res);
             }
             else {
-                return fs.createReadStream(filepath).pipe(res);
+                return fs.createReadStream(path.join('./out', '404.html')).pipe(res);
             }
         }
         next();

@@ -6,6 +6,7 @@ import * as http from 'http'
 import websocket from 'socket.io'
 import {getIP} from '../util/getIP'
 import * as wiki from '../zortex/wiki'
+import {getArticleFilepath} from '../zortex/helpers'
 
 // TODO: move app/nvim.js to here?
 const openUrl = (plugin, url, browser = null) => {
@@ -50,6 +51,7 @@ export function run({plugin, logger}) {
 
   // websocket server
   const io = websocket(server)
+
   io.on('connection', (client) => {
     logger.info('client connect: ', client.id)
     clients[client.id] = client

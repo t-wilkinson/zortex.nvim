@@ -32,6 +32,15 @@ function! s:try_open_preview_page(timer_id) abort
   endif
 endfunction
 
+function zortex#util#restart_server() abort
+  let l:server_status = zortex#rpc#get_server_status()
+  if l:server_status !=# 1
+    let s:try_id = ''
+    call zortex#rpc#stop_server()
+    call zortex#rpc#start_server()
+  endif
+endfunction
+
 " start server if not already running
 function! zortex#util#try_start_server() abort
   if get(s:, 'try_id', '') !=# ''

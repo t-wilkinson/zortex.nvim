@@ -44,6 +44,10 @@ body {
   white-space: pre-wrap;
 }
 
+.z-comment {
+  color: var(--comment);
+}
+
 .z-listitem {
   font-weight: bold;
   color: var(--cyan);

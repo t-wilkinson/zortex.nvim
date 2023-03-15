@@ -7,6 +7,8 @@ import {IncomingMessage, ServerResponse} from 'http'
 import {Articles} from '../zortex/wiki'
 
 export type RemoteRequest = IncomingMessage & {
+  logger: Logger
+
   asPath: string
 
   extension: string

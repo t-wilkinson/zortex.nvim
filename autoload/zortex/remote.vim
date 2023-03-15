@@ -1,5 +1,9 @@
-function! s:ssh(command) abort
-    return jobstart('ssh ' . g:zortex_remote_server . ' -f  "cd ' . g:zortex_remote_server_dir . '; ' . escape(a:command, '\"') . '"')
+function! s:ssh(command, ...) abort
+    if get(a:, 1, 0)
+        return jobstart('ssh ' . g:zortex_remote_server . ' -f "cd ' . g:zortex_remote_server_dir . '; ' . escape(a:command, '\"') . '"')
+    else
+        return jobstart('ssh ' . g:zortex_remote_server . ' "cd ' . g:zortex_remote_server_dir . '; ' . escape(a:command, '\"') . '"')
+    endif
 endfunction
 
 function! s:rsync(local, remote) abort
@@ -39,7 +43,7 @@ function! zortex#remote#sync() abort
     call Sync('app/.env.remote', remote_root.'.env')
 
     " notes dir
-    call Sync(g:zortex_notes_dir.'/', remote_root.'notes')
+    " call Sync(g:zortex_notes_dir.'/', remote_root.'notes')
 
     " static files
     call Sync('app/_static', remote_root)
@@ -57,12 +61,12 @@ function! zortex#remote#sync() abort
 endfunction
 
 function! zortex#remote#stop_server() abort
-    call s:ssh('fuser -k ' . g:zortex_remote_wiki_port . '/tcp')
+    return [s:ssh('fuser -k ' . g:zortex_remote_wiki_port . '/tcp')]
 endfunction
 
 function! zortex#remote#start_server() abort
     " assume linux server for now
-    call s:ssh('nohup ./bin/zortex-linux --path ' . g:zortex_remote_server_dir . '/remote.js')
+    return [s:ssh('nohup ./bin/zortex-linux --path ' . g:zortex_remote_server_dir . '/remote.js', 1)]
 endfunction
 
 function! zortex#remote#restart_server() abort

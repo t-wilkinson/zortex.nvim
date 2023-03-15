@@ -13,7 +13,7 @@ function! zortex#autocmd#init() abort
       autocmd BufHidden <buffer> call zortex#rpc#preview_close()
     endif
     " server close autocmd
-    autocmd VimLeave * call zortex#rpc#stop_server()
+    " autocmd VimLeave * call zortex#rpc#stop_server()
   augroup END
 endfunction
 

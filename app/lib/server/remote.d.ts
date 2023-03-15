@@ -1,1 +1,3 @@
-export declare function run({}: {}): void;
+export declare function run({ logger }: {
+    logger: any;
+}): void;

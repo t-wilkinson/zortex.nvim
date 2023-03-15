@@ -1,11 +1,10 @@
 import {Query, Zettels} from './types'
 
 // % #asdf#asdfa#
-const queryRE = /^(\s*)%\s*#(.*)#$/
-const isQueryRE = /^(\s*)%\s/
+const queryRE = /^(\s*)%\s+#(.*)#$/
 
 export function isQuery(line: string): boolean {
-  return isQueryRE.test(line)
+  return queryRE.test(line)
 }
 
 export function parseQuery(queryString: string): Query {

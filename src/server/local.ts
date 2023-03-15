@@ -49,6 +49,14 @@ export function run({plugin, logger}) {
     listener(req, res, [...wikiServer.routes, ...bufferServer.routes])
   })
 
+  server.on('error', (e: any) => {
+    if (e.code === 'EADDRINUSE') {
+      return
+    } else {
+      throw e
+    }
+  })
+
   // websocket server
   const io = websocket(server)
 

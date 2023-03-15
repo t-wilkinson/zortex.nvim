@@ -88,6 +88,7 @@ export async function getArticleStructures(notesDir: string, extension: string):
     const isLink = !!m[3]
     const text = m[4]
     const tags = m[5] || ''
+    const slug = isLink ? slugifyArticleName(text) : null
 
     // Lines with '*' bullet are considered root structures
     if (item === '*') {
@@ -96,7 +97,7 @@ export async function getArticleStructures(notesDir: string, extension: string):
       structures[text] = {
         root: {
           text,
-          slug: isLink ? slugifyArticleName(text) : null,
+          slug,
           indent,
           isLink,
         },
@@ -115,7 +116,7 @@ export async function getArticleStructures(notesDir: string, extension: string):
     if (rootText && item === '-' && indent > rootIndent) {
       structures[rootText].structures.push({
         text,
-        slug: isLink ? slugifyArticleName(text) : null,
+        slug,
         isLink,
         indent: indent - rootIndent,
       })
@@ -128,16 +129,22 @@ export async function getArticleStructures(notesDir: string, extension: string):
 export function getMatchingStructures(articleName: string, structures: Structures): Structures[keyof Structures][] {
   const matchingBranches = []
   const slug = slugifyArticleName(articleName)
-  for (const branch of Object.values(structures)) {
+  const articleTag = slug.replace(/_/g, '-').toLowerCase()
+
+  next_branch: for (const branch of Object.values(structures)) {
     if (compareArticleNames(branch.root.text, articleName)) {
       matchingBranches.push(branch)
-      break
+      continue next_branch
+    }
+    if (branch.tags.some((tag) => tag === articleTag)) {
+      matchingBranches.push(branch)
+      continue next_branch
     }
 
     for (const structure of branch.structures) {
       if (compareArticle(structure.text, slug)) {
         matchingBranches.push(branch)
-        break
+        continue next_branch
       }
     }
   }

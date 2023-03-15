@@ -174,15 +174,20 @@ const Structures = ({articleSlug}) => {
     }
   }, [articleSlug])
 
-  return <div>
+  return <div style={{marginBottom: '1rem'}}>
     {matchingStructures.map(({root, tags, structures}) =>
       <div key={root.text} style={{textAlign: 'center', fontSize: '10px', marginTop: '1rem'}}>
-        <strong>{root.text} {tags.join('#')}</strong>
         <div>
-          {structures.map((structure) =>
+          <strong>{root.text}</strong>
+        </div>
+        <div>
+          <span style={{fontWeight: 300}}>{tags.length > 0 && ' #'}{tags.join('#')}{tags.length > 0 && '#'}</span>
+        </div>
+        <div>
+          {structures.map((structure, i) =>
             <React.Fragment key={structure.text}>
               <StructureItem {...structure} />
-              {' '}·{' '}
+              {i < structures.length - 1 && ' · '}
             </React.Fragment>
           )}
         </div>
@@ -192,7 +197,11 @@ const Structures = ({articleSlug}) => {
 }
 
 const StructureItem = ({text, slug, indent, isLink}) => {
-  const style = indent <= 4 ? {fontWeight: 'bold'} : {}
+  const style = indent <= 4
+    ? {fontWeight: 700}
+    : indent <= 8
+      ? {fontWeight: 500}
+      : {fontWeight: 300}
   return <>{isLink
     ? <a href={`/wiki/${slug}`} data-z-article-name={text}
       style={style}

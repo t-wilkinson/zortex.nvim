@@ -2,10 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.fetchQuery = exports.parseQuery = exports.isQuery = void 0;
 // % #asdf#asdfa#
-const queryRE = /^(\s*)%\s*#(.*)#$/;
-const isQueryRE = /^(\s*)%\s/;
+const queryRE = /^(\s*)%\s+#(.*)#$/;
 function isQuery(line) {
-    return isQueryRE.test(line);
+    return queryRE.test(line);
 }
 exports.isQuery = isQuery;
 function parseQuery(queryString) {

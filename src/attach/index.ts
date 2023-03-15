@@ -1,7 +1,8 @@
 import {attach, Attach, NeovimClient} from '@chemzqm/neovim'
 import * as path from 'path'
 
-const zortex = require('../zortex') // tslint:disable-line
+import {parseArticleTitle} from '../zortex/wiki'
+import {indexZettels, populateHub} from '../zortex/zettel' // tslint:disable-line
 const logger = require('../util/logger')('attach') // tslint:disable-line
 
 interface IApp {
@@ -23,7 +24,7 @@ export default function (options: Attach): IPlugin {
     const buffer = await nvim.buffer
     const notesDir = await nvim.getVar('zortex_notes_dir')
     const extension = await nvim.getVar('zortex_extension')
-    const zettels = await zortex.indexZettels(
+    const zettels = await indexZettels(
       // @ts-ignore
       path.join(notesDir, 'zettels' + extension)
     )
@@ -38,13 +39,14 @@ export default function (options: Attach): IPlugin {
       const theme = await nvim.getVar('zortex_theme')
       const name = await buffer.name
       const bufferLines = await buffer.getLines()
-      const content = await zortex.populateHub(bufferLines, zettels, notesDir)
-      const currentBuffer = await nvim.buffer
+      const content = await populateHub(bufferLines, zettels, notesDir.toString())
+
+      const articleTitle = parseArticleTitle(bufferLines[0])
 
       app?.refreshPage({
         data: {
           options: renderOpts,
-          isActive: currentBuffer.id === buffer.id,
+          isActive: true,
           winline,
           winheight,
           cursor,
@@ -52,7 +54,7 @@ export default function (options: Attach): IPlugin {
           theme,
           name,
           content,
-          zettels,
+          articleTitle,
         },
       })
     } else if (method === 'open_browser') {

@@ -8,6 +8,7 @@ const lineitemRE = /^\s*([A-Za-z0-9]+)\.( .*)?$/
 const timeRE = /^\s*(\d+:\d\d)( .*)?$/
 const orderedListitemRE = /^\s*(\d+)\.( .*)?$/
 const unorderedListitemRE = /^\s*(-|\?|\+|\*)( .*)?$/
+const commentListItemRE = /^\s*>( .*)?$/
 function getLineitem(state, startLine) {
   let pos, newline, line, match
 
@@ -42,6 +43,12 @@ function getLineitem(state, startLine) {
       text: match[2] || '',
       pos: pos + match[0].length,
       type: 'line',
+    }
+  } else if (match = line.match(commentListItemRE)) {
+    return {
+      text: match[1] || '',
+      pos: pos + match[0].length,
+      type: 'comment',
     }
   } else {
     return false
@@ -143,6 +150,13 @@ function zortexListitem(state, startLine, endLine, silent) {
       addLineLabel(`${spaces}${lineitem.list}. `)
       token = state.push('inline', 'span', 0)
       token.content = `${lineitem.text}`
+      token.map = [startLine, currentLine]
+      token.children = []
+      break;
+    case 'comment':
+      token = state.push('zortex_listitem', 'span', 0)
+      token.attrSet('class', 'z-comment')
+      token.content = `${space}> ${lineitem.text}`
       token.map = [startLine, currentLine]
       token.children = []
       break;
@@ -332,11 +346,12 @@ const sources = {
     let token
 
     token = state.push('image', 'img', 0)
-    token.attrs = attrs = [
-      ['src', attrs.ref],
+    token.attrs = [
+      ['src', attrs.ref || attrs.src],
       ['alt', attrs.title],
-      ['data-z-article-name', attrs.title],
-    ]
+      ['width', attrs.width],
+      ['height', attrs.height],
+    ].filter(([_,v]) => v !== undefined)
     token.content = attrs.title
   },
   link(state, attrs) {
@@ -345,10 +360,10 @@ const sources = {
     token = state.push('link_open', 'a', 1)
     token.attrs = [
       ['target', '_blank'],
-      ['href', attrs.ref],
+      ['href', attrs.ref || attrs.src],
       ['title', attrs.title],
       ['data-z-article-name', attrs.title],
-    ]
+    ].filter(([k,v]) => v !== undefined)
 
     token = state.push('text', '', 0)
 
@@ -600,7 +615,7 @@ function zortexTOC(state) {
   }
 }
 
-export default function zettelkasten(md) {
+export default function (md) {
   md.block.ruler.disable(['list', 'code'])
 
   md.block.ruler.before('paragraph', 'zortex_block', zortexBlock)

@@ -45,6 +45,14 @@ function run({ plugin, logger }) {
         // routes
         (0, server_1.listener)(req, res, [...wiki_1.default.routes, ...buffer_1.default.routes]);
     }));
+    server.on('error', (e) => {
+        if (e.code === 'EADDRINUSE') {
+            return;
+        }
+        else {
+            throw e;
+        }
+    });
     // websocket server
     const io = (0, socket_io_1.default)(server);
     io.on('connection', (client) => {

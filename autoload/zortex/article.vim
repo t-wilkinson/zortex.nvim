@@ -65,6 +65,10 @@ endfunction
 
 "=========================== Manage articles ========================================
 
+function! s:new_filepath()
+    return g:zortex_notes_dir . strftime("%Y%W%u%H%M%S") . g:zortex_extension " YYYYWWDHHMMSS.zortex
+endfunction
+
 function! zortex#article#branch_to_article()
     let currentLine = getpos('.')[1]
     let totalIndent = indent(currentLine)

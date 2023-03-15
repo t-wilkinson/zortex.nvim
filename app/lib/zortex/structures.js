@@ -90,6 +90,7 @@ function getArticleStructures(notesDir, extension) {
                 const isLink = !!m[3];
                 const text = m[4];
                 const tags = m[5] || '';
+                const slug = isLink ? (0, wiki_1.slugifyArticleName)(text) : null;
                 // Lines with '*' bullet are considered root structures
                 if (item === '*') {
                     rootText = text;
@@ -97,7 +98,7 @@ function getArticleStructures(notesDir, extension) {
                     structures[text] = {
                         root: {
                             text,
-                            slug: isLink ? (0, wiki_1.slugifyArticleName)(text) : null,
+                            slug,
                             indent,
                             isLink,
                         },
@@ -114,7 +115,7 @@ function getArticleStructures(notesDir, extension) {
                 if (rootText && item === '-' && indent > rootIndent) {
                     structures[rootText].structures.push({
                         text,
-                        slug: isLink ? (0, wiki_1.slugifyArticleName)(text) : null,
+                        slug,
                         isLink,
                         indent: indent - rootIndent,
                     });
@@ -135,15 +136,20 @@ exports.getArticleStructures = getArticleStructures;
 function getMatchingStructures(articleName, structures) {
     const matchingBranches = [];
     const slug = (0, wiki_1.slugifyArticleName)(articleName);
-    for (const branch of Object.values(structures)) {
+    const articleTag = slug.replace(/_/g, '-').toLowerCase();
+    next_branch: for (const branch of Object.values(structures)) {
         if ((0, wiki_1.compareArticleNames)(branch.root.text, articleName)) {
             matchingBranches.push(branch);
-            break;
+            continue next_branch;
+        }
+        if (branch.tags.some((tag) => tag === articleTag)) {
+            matchingBranches.push(branch);
+            continue next_branch;
         }
         for (const structure of branch.structures) {
             if ((0, wiki_1.compareArticle)(structure.text, slug)) {
                 matchingBranches.push(branch);
-                break;
+                continue next_branch;
             }
         }
     }

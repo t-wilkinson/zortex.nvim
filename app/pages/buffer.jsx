@@ -142,6 +142,7 @@ const Buffer = ({md, options, setSlug}) => {
       const newContent = content.join('\n')
       const refreshContent = preContent !== newContent
       preContent = newContent
+      setSlug(articleTitle?.slug)
 
       const refreshRenderProps = {newContent, refreshContent, state, setState, md, articleTitle}
       const refreshScrollProps = {winline, winheight, content, cursor, isActive, options}
@@ -153,7 +154,6 @@ const Buffer = ({md, options, setSlug}) => {
         if (!refreshContent) {
           refreshScroll(refreshScrollProps)
         } else {
-          setSlug(articleTitle?.slug)
           if (timer) {
             clearTimeout(timer)
           }

@@ -138,15 +138,16 @@ function! s:init_command() abort
     command! ZortexOpenStructure call zortex#article#open_structure()
 
     " Server management
-    command! ZortexStartRemoteServer call zortex#remote#start_server()
-    command! ZortexRestartRemoteServer call zortex#remote#restart_server()
-    command! ZortexSyncRemoteServer call zortex#remote#sync()
-
     command! ZortexStartServer call zortex#util#try_start_server()
     command! ZortexStopServer call zortex#rpc#stop_server()
+    command! ZortexRestartServer call zortex#util#restart_server()
     command! -buffer ZortexPreview call zortex#util#open_preview_page()
     command! -buffer ZortexPreviewStop call zortex#util#stop_preview()
     command! -buffer ZortexPreviewToggle call zortex#util#toggle_preview()
+
+    command! ZortexStartRemoteServer call zortex#remote#start_server()
+    command! ZortexRestartRemoteServer call zortex#remote#restart_server()
+    command! ZortexSyncRemoteServer call zortex#remote#sync()
 endfunction
 
 function! s:init() abort

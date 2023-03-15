@@ -4,6 +4,8 @@ function resolveHtmlImage (tokens, idx) {
   content = content.replace(/<img\s+([^>]*?)src\s*=\s*(["'])([^\2>]+?)\2([^>]*)>/gm, (m, g1, g2, g3, g4) => {
     if (/^(http|\/\/|data:)/.test(g3)) {
       return m
+    } else if (/^.\//.test(g3)) {
+      return m
     }
     return `<img ${g1}src="/_local_image_${encodeURIComponent(g3)}"${g4}>`
   })
@@ -17,6 +19,8 @@ function resolveImage (tokens, idx) {
   const resAttrs = tokens[idx].attrs.slice(2).reduce((pre, cur) => `${pre} ${cur[0]}=${cur[1]}`, '')
   if (/^(http|\/\/|data:)/.test(src)) {
     return `<img src="${src}" alt="${alt}" ${resAttrs} />`
+  } else if (/^.\//.test(src)) {
+    return `<img src="${src.slice(1)}" alt="${alt}" ${resAttrs} />`
   }
   return `<img src="/_local_image_${encodeURIComponent(src)}" alt="${alt}" ${resAttrs} />`
 }

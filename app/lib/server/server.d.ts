@@ -4,6 +4,7 @@ import { IPlugin } from '../attach';
 import { IncomingMessage, ServerResponse } from 'http';
 import { Articles } from '../zortex/wiki';
 export declare type RemoteRequest = IncomingMessage & {
+    logger: Logger;
     asPath: string;
     extension: string;
     notesDir: string;

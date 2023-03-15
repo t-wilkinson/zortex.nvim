@@ -34,7 +34,6 @@ const getRefreshContent = async (plugin) => {
 
   const articleTitle = parseArticleTitle(bufferLines[0])
 
-
   return {
     options,
     isActive: true,

@@ -3,11 +3,12 @@ import wikiServer from './wiki'
 import * as wiki from '../zortex/wiki'
 import * as http from 'http'
 
-export function run({}) {
+export function run({logger}) {
   // don't await to decrease startup time but requires awaiting any reference
   const articles = wiki.getArticles(process.env.NOTES_DIR)
 
   const server = http.createServer(async (req: RemoteRequest, res) => {
+    req.logger = logger
     req.asPath = req.url.replace(/[?#].*$/, '')
 
     req.notesDir = process.env.NOTES_DIR
@@ -24,6 +25,8 @@ export function run({}) {
     server.listen({
       host,
       port,
+    }, () => {
+      logger.info('server run: ', port)
     })
   }
 

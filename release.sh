@@ -4,7 +4,7 @@ set -e
 [ "$TRACE" ] && set -x
 
 # Create tag and push
-tag="v$(node -p "require('./package.json').version")"
+tag="v$(node -p "require('./app/package.json').version")"
 git tag -f "$tag" -m "Release $tag"
 git push --tags
 

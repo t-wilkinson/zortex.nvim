@@ -33,6 +33,13 @@ body {
   font-weight: bold;
 }
 
+.z-main-tag {
+  font-size: 2em;
+  margin: 1em 0;
+  font-weight: bold;
+  color: var(--purple);
+}
+
 .z-tag {
   font-weight: bold;
   color: var(--purple);
@@ -49,6 +56,11 @@ body {
 }
 
 .z-listitem {
+  font-weight: bold;
+  color: var(--cyan);
+}
+
+.z-listlabel {
   font-weight: bold;
   color: var(--cyan);
 }
@@ -87,4 +99,9 @@ body {
 .zortex-local-link {
   color: blue;
   cursor: pointer;
+}
+
+img {
+  display: block;
+  margin: 0 auto;
 }

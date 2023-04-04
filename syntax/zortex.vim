@@ -167,6 +167,7 @@ syntax match zOperator /^\d\{14}:/
 " syntax match zOperator /\$\d\+\.\d\+/ " Price
 syntax match zOperator /z:\d\{4}\.\d\{5}\.\d\{5}/
 syntax match zTag /^#\{1,} .*$/            " Headings
+syntax match zOperator /^\s*- .*\ze:$/      " - Label:
 
 syntax match Statement /|[^|]\+|/
 syntax match zTag /^\s*\zs%/ " queries

@@ -41,6 +41,7 @@ main {
 #page-ctn {
   margin: 0 auto;
   max-width: 900px;
+  width: 100%;
   color: var(--foreground-color);
   display: flex;
   flex-direction: column;

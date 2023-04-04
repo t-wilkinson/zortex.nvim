@@ -1,4 +1,5 @@
 <h1 align="center"> ✨ All-in-one personal management system for (Neo)vim ✨ </h1>
+
 https://github.com/chemzqm/node-client
     - Logger
 
@@ -20,7 +21,7 @@ This is mean to be a second brain. An all-in-one personal management system. The
 ### TODO
 
 ### Important files
-```tree
+```
 .
 ├── app
 │   ├── bin
@@ -36,7 +37,7 @@ This is mean to be a second brain. An all-in-one personal management system. The
 ├── ftplugin
 ├── plugin
 ├── rplugin
-├── src
+├── lib
 ├── syntax
 ├── test
 ├── README.md
@@ -49,7 +50,7 @@ This is mean to be a second brain. An all-in-one personal management system. The
 ### Code stolen from/inspired by
 
 - https://github.com/iamcco/markdown-preview.nvim
-    - *Please refer to this repo for original code and better documentation.*
+    - **Please refer to this repo for original code and better documentation.**
     - Integrates with markdown-it and vim to preview markdown-type buffers in the browser
     - Converted class components to functional components
     - Changed variables from "g:mkdp_*" to "g:zortex_*"
@@ -135,3 +136,7 @@ Commands:
 - [opener](https://github.com/domenic/opener)
 - [sequence-diagrams](https://github.com/bramp/js-sequence-diagrams)
 - [socket.io](https://github.com/socketio/socket.io)
+
+### Use case ideas
+- I like to open a split browser in full screen next to my terminal window.
+

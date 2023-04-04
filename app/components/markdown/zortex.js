@@ -126,11 +126,25 @@ function zortexListitem(state, startLine, endLine, silent) {
   const spaces = " ".repeat(indent)
   switch (lineitem.type) {
     case 'unordered':
-      token = state.push('inline', 'span', 0)
       const list = lineitem.list === '-' ? '·' : lineitem.list
-      token.content = `${spaces}${list} ${lineitem.text}`
-      token.map = [startLine, currentLine]
-      token.children = []
+
+      if (lineitem.text.charAt(lineitem.text.length-1) === ':') {
+        token = state.push('inline', 'span', 0)
+        token.content = `${spaces}${list} `
+        token.map = [startLine, currentLine]
+        token.children = []
+
+        token = state.push('zortex_listlabel', 'span', 0)
+        token.attrSet('class', 'z-listlabel')
+        token.content = `${lineitem.text}`
+        token.children = []
+
+      } else {
+        token = state.push('inline', 'span', 0)
+        token.content = `${spaces}${list} ${lineitem.text}`
+        token.map = [startLine, currentLine]
+        token.children = []
+      }
       break;
     case 'ordered':
       addLineLabel(`${spaces}${lineitem.list}. `)
@@ -214,9 +228,9 @@ function zortexListitem(state, startLine, endLine, silent) {
   return true
 }
 
-const tagRE = /^\w*(@+).+/
+const tagRE = /^\w*(@+)(.+)$/
 function zortexTag(state, startLine, _endLine, silent) {
-  let token, pos, newline, tags
+  let token, pos, newline, tags, text, content
   pos = state.bMarks[startLine] + state.tShift[startLine]
   newline = state.src.indexOf('\n', pos)
 
@@ -225,7 +239,8 @@ function zortexTag(state, startLine, _endLine, silent) {
   if (!match) {
     return false
   }
-  tags = match[1]
+  tags = match[1] || ''
+  text = match[2] || ''
 
   state.line = startLine + 1
 
@@ -235,11 +250,19 @@ function zortexTag(state, startLine, _endLine, silent) {
 
   token = state.push('zortex_tag_open', 'div', 1)
   token.markup = tags
-  token.attrSet('class', 'z-tag')
   token.map = [startLine, state.line]
 
+  if (tags.length >= 2) {
+    token.attrSet('class', 'z-main-tag')
+    state.push('zortex_tag_line', 'br', 0)
+    content = text.trim()
+  } else {
+    token.attrSet('class', 'z-tag')
+    content = line.trim()
+  }
+
   token = state.push('inline', '', 0)
-  token.content = line.trim()
+  token.content = content
   token.map = [startLine, state.line]
   token.children = []
 
@@ -625,9 +648,13 @@ export default function (md) {
   md.inline.ruler.before('emphasis', 'zortex_operator', zortexLineTag)
   md.inline.ruler.before('link', 'zortex_source', zortexSource)
   md.inline.ruler.after('zortex_source', 'zortex_link', zortexLink)
-  md.renderer.rules['zortex_listitem'] = function(tokens, idx, _opts, _env, self) {
+
+  const spanAttrs = function(tokens, idx, _opts, _env, self) {
     const token = tokens[idx]
     return `<span ${self.renderAttrs(token)}>${escapeHtml(token.content)}</span>`
   }
+
+  md.renderer.rules['zortex_listitem'] = spanAttrs
+  md.renderer.rules['zortex_listlabel'] = spanAttrs
   // md.core.ruler.push('zortex_toc', zortexTOC)
 }

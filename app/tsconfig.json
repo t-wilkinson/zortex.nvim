@@ -2,7 +2,6 @@
   "compileOnSave": true,
   "compilerOptions": {
     "resolveJsonModule": true,
-    "composite": true,
     "target": "es2015",
     "module": "commonjs",
     "moduleResolution": "node",
@@ -11,21 +10,26 @@
       "dom",
       "esnext"
     ],
-    "paths": {},
-    "baseUrl": ".",
-    "rootDir": "src",
-    "outDir": "lib",
     "importHelpers": true,
     "allowSyntheticDefaultImports": true,
     "downlevelIteration": true,
-    "allowJs": true,
     "skipLibCheck": true,
     "strict": false,
     "forceConsistentCasingInFileNames": true,
     "noEmit": false,
-    "incremental": true,
     "isolatedModules": true,
-    "jsx": "preserve"
+
+    "paths": {},
+    "baseUrl": ".",
+    "rootDir": "src",
+    "outDir": "lib",
+
+    "allowJs": true,
+    "checkJs": true,
+
+    "composite": false,
+    "incremental": false,
+    "declaration": false
   },
   "include": [
     "./src/**/*.ts",

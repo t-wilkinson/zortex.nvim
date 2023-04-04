@@ -1,4 +1,5 @@
 const attach = require('./attach').default
+// @ts-ignore
 const logger = require('./util/logger')('src/nvim')
 
 const MSG_PREFIX = '[zortex.nvim]'

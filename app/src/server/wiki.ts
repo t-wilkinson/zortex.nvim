@@ -66,7 +66,7 @@ const routes: Routes<ServerRequest> = [
   // /wiki/:name
   (req, res, next) => {
     if (/\/wiki\/([^/]+)/.test(req.asPath)) {
-      return fs.createReadStream('./out/wiki.html').pipe(res)
+      return fs.createReadStream('out/wiki.html').pipe(res)
     }
     next()
   },

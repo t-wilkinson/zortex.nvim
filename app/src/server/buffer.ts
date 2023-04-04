@@ -9,7 +9,7 @@ const routes: Routes<LocalRequest> = [
   // /buffer
   (req, res, next) => {
     if (/^\/buffer$/.test(req.asPath)) {
-      return fs.createReadStream('./out/buffer.html').pipe(res)
+      return fs.createReadStream('out/buffer.html').pipe(res)
     }
     next()
   },

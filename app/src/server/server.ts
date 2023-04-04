@@ -52,7 +52,7 @@ export const staticRoutes: Routes<LocalRequest> = [
       if (fs.existsSync(filepath)) {
         return fs.createReadStream(filepath).pipe(res)
       } else {
-        return fs.createReadStream(path.join('./out', '404.html')).pipe(res)
+        return fs.createReadStream('out/404.html').pipe(res)
       }
     }
     next()
@@ -61,7 +61,7 @@ export const staticRoutes: Routes<LocalRequest> = [
   // /_next/path
   (req, res, next) => {
     if (/\/_next/.test(req.asPath)) {
-      return fs.createReadStream(path.join('./out', req.asPath)).pipe(res)
+      return fs.createReadStream(path.join('out', req.asPath)).pipe(res)
     }
     next()
   },
@@ -140,6 +140,6 @@ export const staticRoutes: Routes<LocalRequest> = [
   // 404
   (req, res) => {
     res.statusCode = 404
-    return fs.createReadStream(path.join('./out', '404.html')).pipe(res)
+    return fs.createReadStream('out/404.html').pipe(res)
   },
 ]

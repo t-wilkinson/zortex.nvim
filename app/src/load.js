@@ -9,4 +9,4 @@ if (!/^(\/|C:\\)snapshot/.test(__dirname)) {
   // process.chdir(process.execPath.replace(/(zortex.nvim.*?app).+?$/, '$1'))
 }
 
-require('./lib/app')
+require('./app')

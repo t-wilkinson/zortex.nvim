@@ -14,8 +14,8 @@
     "build-app": "rm -rf ./.next && next build && next export",
     "build-lib": "tsc -p ./",
     "build-bin": "yarn run build-lib && pkg --targets node16-linux-x64,node16-macos-x64,node16-win-x64 --out-path ./bin ./lib/local.js",
-    "build-cli": "tsc -p ./ && pkg --targets node16-linux-x64,node16-macos-x64,node16-win-x64  -o ./bin/zortex ./lib/zortex/cli.js",
-    "build": "tsc -p ./ && rm -rf ./.next && next build && next export && yarn && pkg --targets node16-linux-x64,node16-macos-x64,node16-win-x64 --out-path ./bin . && rm -rf ./node_modules ./.next"
+    "build-cli": "tsc -p ./ && pkg --targets node16-linux-x64,node16-macos-x64,node16-win-x64  -o ./bin/cli ./lib/zortex/cli.js",
+    "build": "tsc -p ./ && rm -rf ./.next && next build && next export && yarn && pkg --targets node16-linux-x64,node16-macos-x64,node16-win-x64 --out-path ./bin ./lib/local.js"
   },
   "dependencies": {
     "@chemzqm/neovim": "^5.7.9",

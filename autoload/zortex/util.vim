@@ -151,7 +151,7 @@ endfunction
 
 function! zortex#util#install(...)
   let l:version = zortex#util#pre_build_version()
-  let l:info = json_decode(join(readfile(s:zortex_root_dir . '/package.json'), ''))
+  let l:info = json_decode(join(readfile(s:zortex_root_dir . '/app/package.json'), ''))
   if s:trim(l:version) ==# s:trim(l:info.version)
     return
   endif

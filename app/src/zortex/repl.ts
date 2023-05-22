@@ -6,6 +6,7 @@ import { Env } from './types'
 import { indexArticles, indexCategories, showZettels } from './zettel'
 import { parseQuery, fetchQuery } from './query'
 import { inspect, readLines, toSpacecase, relatedTags } from './helpers'
+import {setupEnv, parseArgs} from './env'
 
 export async function executeCommand(input: string, loop, env: Env, rl) {
   const [command, ...args] = input.split(' ')
@@ -67,12 +68,49 @@ export async function executeCommand(input: string, loop, env: Env, rl) {
     console.log([...articles.tags].join('\n'))
   }
 
+  // Find articles that are not in "structure.zettel" and links to non-existent articles
+  if (command === 'missing') {
+    const articles = await indexArticles(env.projectDir)
+    const linkRE = /^(\s*)(-|\*) (\[.*\])( #.*#)?$/
+    // const missingLinkRE = /^(\s*)(-|\*) ([^[].*[^\]])( #.*#)?$/
+    const lines = readLines(env.structuresFile)
+    const missingNames = new Set(articles.names)
+    const badLinks = new Set()
+
+    // Ignore resource articles
+    for (const name of missingNames.values()) {
+      if (name.charAt(0) === '[') {
+        missingNames.delete(name)
+      }
+    }
+
+    for await (const line of lines) {
+      const match = line.match(linkRE)
+      if (!match) {
+        continue
+      }
+      const titles = match[3].split(' == ').map(link => link.slice(1, -1))
+      for (const title of titles) {
+        if (missingNames.has(title)) {
+          missingNames.delete(title)
+        }
+        if (!articles.names.has(title)) {
+          badLinks.add(title)
+        }
+      }
+    }
+
+    console.log('Missing articles:\n' + [...missingNames].join('\n'))
+    console.log('Bad links:\n' + [...badLinks].join('\n'))
+  }
+
   // Create links to articles in "structure.zettel"
-  if (command === 'structure') {
+  if (command === 'create-structure-links') {
     const articles = await indexArticles(env.projectDir)
     const lineRE = /^(\s*)(-|\*) ([^[].*[^\]])( #.*#)?$/
     const lines = readLines(env.structuresFile)
     const content = []
+    const addedLinks = new Set()
 
     for await (const line of lines) {
       const match = line.match(lineRE)
@@ -86,12 +124,15 @@ export async function executeCommand(input: string, loop, env: Env, rl) {
       const titles = match[3].split(' == ')
       if (titles.some((t) => articles.names.has(t))) {
         for (const title of titles) {
+          addedLinks.add(title)
           content.push(`${spaces}${bullet} [${title}]`)
         }
       } else {
         content.push(line)
       }
     }
+
+    console.log('Added links for:\n' + [...addedLinks].join('\n'))
 
     // @ts-ignore
     fs.writeFileSync(env.structuresFile, content.join('\n'), (err: any) => {
@@ -230,4 +271,9 @@ export async function repl(env: Env) {
   // env.categoriesGraph = await indexCategories(env.categoriesFile)
 
   return replLoop(env, rl, [])
+}
+
+export async function run() {
+  const env = await setupEnv(parseArgs(process.argv.slice(2)))
+  repl(env)
 }

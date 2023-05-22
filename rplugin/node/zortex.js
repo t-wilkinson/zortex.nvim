@@ -5,6 +5,7 @@ const path = require('path')
 const cheerio = require('cheerio')
 const fetch = require('node-fetch')
 const os = require('os')
+const process = require('process')
 
 function readLines(filename) {
   const fileStream = fs.createReadStream(filename)
@@ -34,29 +35,40 @@ async function getFirstLine(pathToFile) {
 }
 
 function normalizeArticleName(name) {
-  name = name.trim().toLowerCase().replace(/\s+/g, '-').replace(/^@+/, '')
-  return name
-}
-
-function intersection(a, b) {
-  return a.filter((x) => b.includes(x))
+  return name.trim().toLowerCase().replace(/\s+/g, '-').replace(/^@+/, '')
 }
 
 function articleNamesMatch(n1, n2) {
-  const names1 = n1.split(' == ').map(normalizeArticleName)
-  const names2 = n2.split(' == ').map(normalizeArticleName)
-  return intersection(names1, names2).length > 0
+  return normalizeArticleName(n1) === normalizeArticleName(n2)
+}
+
+const articleNameRE = /^@@/
+async function getArticleNames(pathToArticle) {
+  const names = []
+  const lines = readLines(pathToArticle)
+  for await (const line of lines) {
+    if (articleNameRE.test(line)) {
+      names.push(line)
+      continue
+    }
+    break
+  }
+
+  return names
 }
 
 async function getArticlePath(nvim, articleName) {
   // find article matching link name and edit it
   const notesDir = await nvim.commandOutput(`echo get(g:, "zortex_notes_dir", 0)`)
   for await (const file of fs.readdirSync(notesDir)) {
-    const filePath = path.join(notesDir, file)
-    const line = await getFirstLine(filePath)
+    const articlePath = path.join(notesDir, file)
+    const names = await getArticleNames(articlePath)
 
-    if (articleNamesMatch(articleName, line)) {
-      return filePath
+    for (const name of names) {
+      nvim.command(`let @a="${articleName} ${name} ${articleNamesMatch(articleName, name)}"`)
+      if (articleNamesMatch(articleName, name)) {
+        return articlePath
+      }
     }
   }
 }
@@ -266,6 +278,7 @@ const zortexLinkRE = /ref=([^\s;}]+)/
 const articleLinkRE = /\[([^\]]+)\]/
 const filePathRE = /(^|\s)(?<path>[~.]?\/[/\S]+)($|\s)/
 const linkRE = /\[(?<text>[^\]]+)\](\((?<ref>[^\)]+)\))?/
+const headingRE = /^#+ (.*)$/
 
 async function extractLink(nvim, line) {
   let match
@@ -328,16 +341,24 @@ async function extractLink(nvim, line) {
       indent: match[1].length,
       name: match[2],
     }
+  } else if ((match = line.match(headingRE))) {
+    return {
+      line,
+      type: 'heading',
+      name: match[1],
+    }
   } else {
     // get text under visual selection
     const selection = await nvim.commandOutput(
       `echo getline("'<")[getpos("'<")[2]-1:getpos("'>")[2]-1]`
     )
-    return {
-      line,
-      type: 'wikipedia',
-      name: selection.trim(),
-    }
+
+    return null
+    // return {
+    //   line,
+    //   type: 'wikipedia',
+    //   name: selection.trim(),
+    // }
   }
 }
 
@@ -347,7 +368,6 @@ async function openLink(nvim) {
 
   // get article name
   const link = await extractLink(nvim, line)
-  // nvim.command(`let @a='${Math.floor(Math.random() * 1000)}${filename}${JSON.stringify(link)}'`)
 
   if (!link) {
     return null
@@ -356,45 +376,44 @@ async function openLink(nvim) {
   if (link.url?.startsWith('./')) {
     link.url = path.join(await nvim.getVar('zortex_notes_dir'), link.url)
   }
+  // nvim.command(`let @a='${Math.floor(Math.random() * 1000)}${filename}${JSON.stringify(link)}'`)
 
-  // TODO: better error handling
-  try {
-    if (filename === 'zortex-structures' && link.type === 'text') {
-      const lines = await nvim.buffer.lines
-      openStructure(nvim, lines, link.name, link.indent)
-    } else if (filename === 'structure' && link.type === 'text') {
-      const lines = await readZortexLines(nvim, 'structure.zortex')
-      const opened = await openStructure(nvim, lines, link.name, link.indent)
-      if (!opened) {
-        open(`https://en.wikipedia.org/wiki/Special:Search/${link.name}`)
-      }
-    } else if (filename === 'schedule' && link.type === 'text') {
-      openProject(nvim, link.name)
-    } else if (link.type === 'wikipedia' || link.type === 'text') {
-      if (link.name) {
-        open(`https://en.wikipedia.org/wiki/Special:Search/${link.name}`)
-      }
-    } else if (link.type === 'path') {
-      if (fs.lstatSync(link.path.replace(/^~/, os.homedir()))?.isDirectory()) {
-        nvim.command(`edit ${link.path}`)
-      } else {
-        nvim.command(`edit ${link.path}`)
-      }
-    } else if (link.type === 'fragment-link') {
-      // // move cursor forward one line to skip any matches of current line
-      // let pos = await nvim.commandOutput(`echo getpos(".")[1]]`)
-      // pos += 1
-      // nvim.command(`call cursor(${pos}, 1)`)
-
-      nvim.command(`call search('\\c\s*- ${link.fragment}', 'sw')`)
-    } else if (link.type === 'zortex-link') {
-      open(link.url)
-    } else if (link.type === 'website' || link.type === 'resource' || link.type === 'file') {
-      open(link.url)
-    } else if (link.type === 'article') {
-      openArticle(nvim, link.name)
+  if (filename === 'zortex-structures' && link.type === 'text') {
+    const lines = await nvim.buffer.lines
+    openStructure(nvim, lines, link.name, link.indent)
+  } else if (filename === 'structure' && link.type === 'text') {
+    const lines = await readZortexLines(nvim, 'structure.zortex')
+    const opened = await openStructure(nvim, lines, link.name, link.indent)
+    if (!opened) {
+      open(`https://en.wikipedia.org/wiki/Special:Search/${link.name}`)
     }
-  } catch (e) {
+  } else if (filename === 'schedule' && link.type === 'text') {
+    openProject(nvim, link.name)
+  } else if (link.type === 'wikipedia' || link.type === 'text') {
+    if (link.name) {
+      open(`https://en.wikipedia.org/wiki/Special:Search/${link.name}`)
+    }
+  } else if (link.type === 'path') {
+    if (fs.lstatSync(link.path.replace(/^~/, os.homedir()))?.isDirectory()) {
+      nvim.command(`edit ${link.path}`)
+    } else {
+      nvim.command(`edit ${link.path}`)
+    }
+  } else if (link.type === 'fragment-link') {
+    // // move cursor forward one line to skip any matches of current line
+    // let pos = await nvim.commandOutput(`echo getpos(".")[1]]`)
+    // pos += 1
+    // nvim.command(`call cursor(${pos}, 1)`)
+
+    nvim.command(`call search('\\c\s*- ${link.fragment}', 'sw')`)
+  } else if (link.type === 'zortex-link') {
+    open(link.url)
+  } else if (link.type === 'website' || link.type === 'resource' || link.type === 'file') {
+    open(link.url)
+  } else if (link.type === 'article') {
+    openArticle(nvim, link.name)
+  } else if (link.type === 'heading') {
+    openArticle(nvim, link.name)
   }
 }
 
@@ -544,6 +563,17 @@ module.exports = (plugin) => {
     range: '',
   })
   plugin.registerCommand('ZortexOpenLink', () => openLink(nvim), {})
+
+  // Needed to prevent errors from closing the rplugins connection
+  process
+    .on('unhandledRejection', (reason, p) => {
+      // nvim.errWrite(`"${reason}"`)
+      console.error(reason, 'Unhandled Rejection at Promise', p);
+    })
+    .on('uncaughtException', err => {
+      // nvim.errWrite(`"${err.toString()}"`)
+      console.error(err, 'Uncaught Exception thrown');
+    });
 }
 
 module.exports.default = module.exports

@@ -103,33 +103,63 @@ export async function indexZettels(zettelsFile: string): Promise<Zettels> {
   return zettels
 }
 
+const indentRE = /\S/
 export async function populateHub(lines: Lines, zettels: Zettels, notesDir: string): Promise<string[]> {
   const newLines = []
   newLines.push('[[toc]]')
 
+  let query
+  let indent
+  let queryResults
+  let queryStructure
+
   for await (let line of lines) {
+  // sub query structure should form nested dictionaries, descending matchings tags until no tag matches, then placing it there
+      // Find the sub structure in the query and correctly populate it with search results
+      // Find a way to convert tags to the right structure
+
+    if (query) {
+      // Check if query ends
+      const indent = line.match(indentRE)?.index
+      if (indent <= query.indent) {
+        // Query ends, finally build the structure
+
+        // Populate file with query responses
+        const resultZettels = queryResults.map((id) => zettels.ids[id])
+        for (const zettel of resultZettels) {
+          if (Array.isArray(zettel.content)) {
+            newLines.push(`${' '.repeat(query.indent)}- ${zettel.content[0]}`)
+            for (const line of zettel.content.slice(1)) {
+              newLines.push(`${' '.repeat(query.indent)}${line}`)
+            }
+          } else {
+            newLines.push(`${' '.repeat(query.indent)}- ${zettel.content}`)
+          }
+        }
+
+        query = null
+        queryResults = null
+        queryStructure = null
+      } else {
+        // Query is continuing, so `line` should be a substructure (or TODO: subquery)
+        // Find a way to track where nesting level and corresponding hierarchy
+        // I might need a hierarchy parser here
+
+        continue // might not want to continue if we are handling sub queries
+      }
+    }
+
     if (!isQuery(line)) {
       // Replace local links with absolute link which server knows how to handle
       line = line.replace('](./resources/', `](/resources/`)
       newLines.push(line)
       continue
-    }
-
-    // Fetch zettels and add them to the hub
-    const query = parseQuery(line)
-    const results = fetchQuery(query, zettels)
-
-    // Populate file with query responses
-    const resultZettels = results.map((id) => zettels.ids[id])
-    for (const zettel of resultZettels) {
-      if (Array.isArray(zettel.content)) {
-        newLines.push(`${' '.repeat(query.indent)}- ${zettel.content[0]}`)
-        for (const line of zettel.content.slice(1)) {
-          newLines.push(`${' '.repeat(query.indent)}${line}`)
-        }
-      } else {
-        newLines.push(`${' '.repeat(query.indent)}- ${zettel.content}`)
-      }
+    } else {
+      // Fetch zettels and add them to the hub
+      query = parseQuery(line)
+      queryResults = fetchQuery(query, zettels)
+      queryStructure = {}
+      indent = query.indent
     }
   }
 
@@ -172,7 +202,7 @@ export async function indexCategories(categoriesFileName: string) {
 
 const articleRE = /.zortex/
 const tagRE = /^([A-Z][a-z]*)?(@+)(.*)$/
-export async function indexArticles(projectDir: string) {
+export async function indexArticles(projectDir: string): Promise<Articles> {
   let match: RegExpMatchArray
   const articles: Articles = {names: new Set(), tags: new Set(), ids: {}}
 

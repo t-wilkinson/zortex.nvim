@@ -18,18 +18,16 @@
     "forceConsistentCasingInFileNames": true,
     "noEmit": false,
     "isolatedModules": true,
-
     "paths": {},
     "baseUrl": ".",
     "rootDir": "src",
     "outDir": "lib",
-
     "allowJs": true,
     "checkJs": true,
-
     "composite": false,
     "incremental": false,
-    "declaration": false
+    "declaration": false,
+    "jsx": "preserve"
   },
   "include": [
     "./src/**/*.ts",

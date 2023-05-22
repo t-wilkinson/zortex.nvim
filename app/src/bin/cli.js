@@ -1,4 +1,4 @@
-const { run } = require('./zortex/cli')
+const { run } = require('../zortex/cli')
 
 ;(async () => {
   try {

@@ -13,7 +13,8 @@
     "watch": "tsc -w -p ./",
     "build-app": "rm -rf ./.next && next build && next export",
     "build-lib": "tsc -p ./",
-    "build-bin": "yarn run build-lib && pkg --targets node16-linux-x64,node16-macos-x64,node16-win-x64 --out-path ./bin ./lib/local.js",
+    "build-bin": "yarn run build-lib && for bin in ./lib/bin/*.js; do echo \"building $(basename $bin)\" && pkg --targets node16-linux-x64,node16-macos-x64,node16-win-x64 --out-path ./bin $bin; done",
+    "build-repl": "yarn run build-lib && pkg --targets node16-linux-x64,node16-macos-x64,node16-win-x64 --out-path ./bin ./lib/bin/repl.js",
     "build-loader": "pkg --targets node16-linux-x64,node16-macos-x64,node16-win-x64 --out-path ./bin ./lib/load.js",
     "build-cli": "tsc -p ./ && pkg --targets node16-linux-x64,node16-macos-x64,node16-win-x64  -o ./bin/cli ./lib/zortex/cli.js",
     "build": "tsc -p ./ && rm -rf ./.next && next build && next export && yarn && pkg --targets node16-linux-x64,node16-macos-x64,node16-win-x64 --out-path ./bin ./lib/local.js"

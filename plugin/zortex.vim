@@ -148,12 +148,18 @@ function! s:init_command() abort
     command! ZortexStartRemoteServer call zortex#remote#start_server()
     command! ZortexRestartRemoteServer call zortex#remote#restart_server()
     command! ZortexSyncRemoteServer call zortex#remote#sync()
+
+    command! ZortexReloadFolds call zortex#fold#update_folds()
+
 endfunction
 
 function! s:init() abort
+    autocmd Filetype zortex call zortex#fold#init()
+
     augroup zortex_init
         autocmd!
         autocmd BufEnter * :call s:init_command()
+
         if g:zortex_command_for_global
         else
             autocmd BufEnter,FileType * if index(g:zortex_filetypes, &filetype) !=# -1 | call s:init_command() | endif

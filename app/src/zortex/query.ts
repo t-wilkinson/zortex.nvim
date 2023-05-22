@@ -7,6 +7,11 @@ export function isQuery(line: string): boolean {
   return queryRE.test(line)
 }
 
+// Line is in the form /^\s*- .*$/
+export function lineToTag(line: string) {
+  return line.trim().toLowerCase().replace(/\s/g, '-')
+}
+
 export function parseQuery(queryString: string): Query | null {
   let match = queryString.match(queryRE)
 

@@ -1,6 +1,7 @@
 "============================  Helpers ==============================
 
 let s:listitemRE = '^\(\s*\)- \(#.*#\)\? \?\(.*\)$' " ____-_Line
+let s:zettelRE = '^\[z:.*] #.\{-}# {\(.*\);\?}'
 
 function! s:zettel_id()
     let rand_str = join(systemlist("strings -n 1 < /dev/urandom | grep -o '[[:digit:]]'  | head -5"), '')[0:4]
@@ -174,6 +175,26 @@ function! zortex#article#resource_to_zettel(...)
     call setline('.', '[' . l:id . ']' . ' ' . l:tags . l:resource)
 endfunction
 
+function! zortex#article#zettel_to_markdown(...)
+    let m = matchlist(getline('.'), s:zettelRE)
+
+    if len(m) == 0
+        return
+    endif
+
+    let properties = split(m[1], ";")
+    let tags = {}
+    for property in properties
+        if !property
+            continue
+        endif
+
+        let [k,v] = split(property, "=")
+        let tags[k] = v
+    endfor
+    " call setline('.', '[' . m[1] . '](' . m[2] . ')')
+endfunction
+
 function! s:get_url_title(url)
     if a:url !~ '^https\?://'
         return ''
@@ -199,7 +220,7 @@ endfunction
 
 function! s:title_to_resource(title)
     let parsed_title = s:parse_title(a:title)
-    return { 'title': empty(l:parsed_title.title) ? '' : 'title=' . l:parsed_title.title . '; ',
+    return { 'title': empty(l:parsed_title.title) ? '' : '[' . l:parsed_title.title . ']',
            \ 'subtitle': empty(l:parsed_title.subtitle) ? '' : 'subtitle=' . l:parsed_title.subtitle . '; ',
            \ 'authors': empty(l:parsed_title.authors) ? '' : join(map(l:parsed_title.authors, '"author=".trim(v:val).";"' ), " ") . ' '
            \ }
@@ -217,7 +238,7 @@ function! zortex#article#convert_resource(line)
     " [title: subtitle - authors](ref.extension)
     let m = matchlist(a:line, s:resourceRE)
     if len(l:m) != 0
-        let title = empty(l:m[1]) ? '' : 'title=' . l:m[1] . '; '
+        let title = empty(l:m[1]) ? '' : '[' . l:m[1] . ']'
         let subtitle = empty(l:m[2]) ? '' : 'subtitle=' . l:m[2][2:] . '; '
         let authors = empty(l:m[3]) ? '' : join(map(split(l:m[3][3:], ","), '"author=".trim(v:val).";"' ), " ") . ' '
         let ref = empty(l:m[4]) ? '' : 'ref=' . l:m[4] . l:m[5] . '; '
@@ -234,7 +255,7 @@ function! zortex#article#convert_resource(line)
         " type = vim.eval("get(a:, 1, v:null)")
         " type = f'type={type}; ' if type else ''
 
-        return '{' . trim(l:title . l:subtitle . l:authors . l:ref . l:resource) . '}'
+        return l:title . '{' . trim(l:subtitle . l:authors . l:ref . l:resource) . '}'
     endif
 
     " http://domain.tld/path
@@ -246,7 +267,7 @@ function! zortex#article#convert_resource(line)
             return '{' . 'ref=' . l:url . '; resource=website;}'
         else
             let t = s:title_to_resource(l:title)
-            return '{' . l:t.title . l:t.subtitle . l:t.authors . 'ref=' . l:url . '; resource=website;}'
+            return l:t.title . '{' . l:t.subtitle . l:t.authors . 'ref=' . l:url . '; resource=website;}'
         endif
     endif
 
@@ -254,7 +275,7 @@ function! zortex#article#convert_resource(line)
     let m = matchlist(a:line, '\[\([^)]*\)\]')
     if len(l:m) != 0
         let t = s:title_to_resource(l:m[1])
-        return '{' . trim(l:t.title . l:t.subtitle . l:t.authors) . '}'
+        return l:t.title . '{' . trim(l:t.subtitle . l:t.authors) . '}'
     endif
 
     return ''

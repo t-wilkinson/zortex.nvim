@@ -114,6 +114,9 @@ call s:def_value('extension', '.zortex')
 " temporary buffer created to show zortex structure
 call s:def_value('temporary_buffer_name', 'zortex-structures')
 
+" directory where resources are downloaded
+call s:def_value('resources_download', $HOME . '/Downloads/zortex_resources')
+
 " FZF window settings
 call s:def_value('window_direction', 'down')
 call s:def_value('window_width', '40%')
@@ -135,6 +138,7 @@ function! s:init_command() abort
     " command! ZortexBranchToArticle call zortex#article#branch_to_article()
     command! -range ZortexListitemToZettel <line1>,<line2> call zortex#article#listitem_to_zettel()
     command! -range ZortexResourceToZettel <line1>,<line2> call zortex#article#resource_to_zettel(<q-args>)
+    command! -range ZortexZettelToMD <line1>,<line2> call zortex#article#zettel_to_markdown(<q-args>)
     command! ZortexOpenStructure call zortex#article#open_structure()
 
     " Server management
@@ -150,7 +154,6 @@ function! s:init_command() abort
     command! ZortexSyncRemoteServer call zortex#remote#sync()
 
     command! ZortexReloadFolds call zortex#fold#update_folds()
-
 endfunction
 
 function! s:init() abort

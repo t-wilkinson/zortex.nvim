@@ -17,7 +17,7 @@ function readLines(filename) {
 }
 
 async function readZortexLines(nvim, filePath) {
-  const notesDir = await nvim.commandOutput(`echo g:zortex_notes_dir`)
+  const notesDir = await nvim.eval(`g:zortex_notes_dir`)
   return readLines(path.join(notesDir, filePath))
 }
 
@@ -59,13 +59,12 @@ async function getArticleNames(pathToArticle) {
 
 async function getArticlePath(nvim, articleName) {
   // find article matching link name and edit it
-  const notesDir = await nvim.commandOutput(`echo get(g:, "zortex_notes_dir", 0)`)
+  const notesDir = await nvim.eval(`get(g:, "zortex_notes_dir", 0)`)
   for await (const file of fs.readdirSync(notesDir)) {
     const articlePath = path.join(notesDir, file)
     const names = await getArticleNames(articlePath)
 
     for (const name of names) {
-      nvim.command(`let @a="${articleName} ${name} ${articleNamesMatch(articleName, name)}"`)
       if (articleNamesMatch(articleName, name)) {
         return articlePath
       }
@@ -89,20 +88,20 @@ async function openArticle(nvim, articleName) {
  * @returns {string} nested project name
  */
 async function findParentProjectName(nvim) {
-  const pos = await nvim.commandOutput(`echo getpos(".")[1]`)
-  const indent = Number(await nvim.commandOutput(`echo indent(${pos})`))
+  const pos = await nvim.eval(`getpos(".")[1]`)
+  const indent = Number(await nvim.eval(`indent(${pos})`))
 
   // search backwards for parent project
   for (let currentPos = pos; currentPos > 0; currentPos--) {
     // looking for parent line
     const currentIndent = Number(
-      await nvim.commandOutput(`echo indent(${currentPos})`)
+      await nvim.eval(`indent(${currentPos})`)
     )
     if (currentIndent >= indent) {
       continue
     }
 
-    const line = await nvim.commandOutput(`echo getline(${currentPos})`)
+    const line = await nvim.eval(`getline(${currentPos})`)
 
     // skip line if it is empty
     if (line === '') {
@@ -132,7 +131,7 @@ async function findProjectLineNumber(
   startLineNumber = 1,
   indent = 0
 ) {
-  const notesDir = await nvim.commandOutput(`echo g:zortex_notes_dir`)
+  const notesDir = await nvim.eval(`g:zortex_notes_dir`)
   let lineNumber = 0
 
   const spaceRE = /\S|$/
@@ -170,7 +169,7 @@ async function findProjectLineNumber(
 }
 
 async function openProject(nvim, projectName) {
-  const notesDir = await nvim.commandOutput(`echo g:zortex_notes_dir`)
+  const notesDir = await nvim.eval(`g:zortex_notes_dir`)
   const projectsFile = path.join(notesDir, 'projects.zortex')
   let startLineNumber = 1
   let indentsize = 0
@@ -178,14 +177,14 @@ async function openProject(nvim, projectName) {
 
   // find starting line of parent project
   const currentIndent = Number(
-    await nvim.commandOutput(`echo indent(line("."))`)
+    await nvim.eval(`indent(line("."))`)
   )
   if (currentIndent > 0) {
     parentProjectName = await findParentProjectName(nvim)
     if (parentProjectName) {
       parentLineNumber = await findProjectLineNumber(nvim, parentProjectName)
       if (parentLineNumber) {
-        indentsize = await nvim.commandOutput(`echo &tabstop`)
+        indentsize = await nvim.eval(`&tabstop`)
         startLineNumber = parentLineNumber + 1
       }
     }
@@ -217,7 +216,7 @@ async function openProject(nvim, projectName) {
 }
 
 async function openStructure(nvim, lines, structureName, indent) {
-  const cursorLineNumber = await nvim.commandOutput(`echo line(".")`)
+  const cursorLineNumber = await nvim.eval(`line(".")`)
   let lineNumber = 0
   let articleName = null
 
@@ -279,6 +278,8 @@ const articleLinkRE = /\[([^\]]+)\]/
 const filePathRE = /(^|\s)(?<path>[~.]?\/[/\S]+)($|\s)/
 const linkRE = /\[(?<text>[^\]]+)\](\((?<ref>[^\)]+)\))?/
 const headingRE = /^#+ (.*)$/
+const zettelLinkRE = /\[(z:\d{4}\.\d{5}\.\d{5})]/
+const footernoteRE = /\[\^(\d+)]/
 
 async function extractLink(nvim, line) {
   let match
@@ -296,9 +297,48 @@ async function extractLink(nvim, line) {
       name: match[1],
       url: match[2],
     }
+  } else if ((match = line.match(zortexLinkRE))) {
+    return {
+      line,
+      type: 'zortex-link',
+      url: match[1],
+    }
+  } else if ((match = line.match(zettelLinkRE))) {
+    let pos = await nvim.eval(`getcurpos()`)
+    let col = Number(pos[2]) - 1
+    const re = new RegExp(zettelLinkRE)
+
+    while ((match = re.exec(line)) != null) {
+      // find first match that the cursor is on or before
+      if (col <= match[0].length + match.index) {
+        break
+      }
+    }
+
+    return {
+      line,
+      type: 'zettel-link',
+      zettel_id: match[1],
+    }
+  } else if ((match = line.match(footernoteRE))) {
+    let col = Number(await nvim.eval(`getpos(".")[2]`)) - 1
+    const re = new RegExp(footernoteRE)
+
+    while ((match = re.exec(line)) != null) {
+      // find first match that the cursor is on or before
+      if (col <= match[0].length + match.index) {
+        break
+      }
+    }
+
+    return {
+      line,
+      type: 'footernote',
+      ref: match[1],
+    }
   } else if ((match = line.match(fragmentLinkRE))) {
     // get line from cursor to end of line
-    let col = Number(await nvim.commandOutput(`echo getpos(".")[2]`))
+    let col = Number(await nvim.eval(`getpos(".")[2]`)) - 1
     const re = new RegExp(fragmentLinkRE)
 
     while ((match = re.exec(line)) != null) {
@@ -307,20 +347,14 @@ async function extractLink(nvim, line) {
       //        ^no match ^match            ^no match
       const link = match[1]
       if (col <= link.length + match.index) {
-
-        return {
-          line,
-          type: 'fragment-link',
-          fragment: link,
-        }
+        break
       }
     }
 
-  } else if ((match = line.match(zortexLinkRE))) {
     return {
       line,
-      type: 'zortex-link',
-      url: match[1],
+      type: 'fragment-link',
+      fragment: link,
     }
   } else if ((match = line.match(articleLinkRE))) {
     return {
@@ -349,8 +383,8 @@ async function extractLink(nvim, line) {
     }
   } else {
     // get text under visual selection
-    const selection = await nvim.commandOutput(
-      `echo getline("'<")[getpos("'<")[2]-1:getpos("'>")[2]-1]`
+    const selection = await nvim.eval(
+      `getline("'<")[getpos("'<")[2]-1:getpos("'>")[2]-1]`
     )
 
     return null
@@ -364,7 +398,7 @@ async function extractLink(nvim, line) {
 
 async function openLink(nvim) {
   const line = await nvim.getLine()
-  const filename = await nvim.commandOutput(`echo expand("%:t:r")`)
+  const filename = await nvim.eval(`expand("%:t:r")`)
 
   // get article name
   const link = await extractLink(nvim, line)
@@ -376,7 +410,7 @@ async function openLink(nvim) {
   if (link.url?.startsWith('./')) {
     link.url = path.join(await nvim.getVar('zortex_notes_dir'), link.url)
   }
-  // nvim.command(`let @a='${Math.floor(Math.random() * 1000)}${filename}${JSON.stringify(link)}'`)
+  nvim.command(`let @a='${Math.floor(Math.random() * 1000)}${JSON.stringify(link)}'`)
 
   if (filename === 'zortex-structures' && link.type === 'text') {
     const lines = await nvim.buffer.lines
@@ -401,11 +435,16 @@ async function openLink(nvim) {
     }
   } else if (link.type === 'fragment-link') {
     // // move cursor forward one line to skip any matches of current line
-    // let pos = await nvim.commandOutput(`echo getpos(".")[1]]`)
+    // let pos = await nvim.eval(`getpos(".")[1]]`)
     // pos += 1
     // nvim.command(`call cursor(${pos}, 1)`)
 
     nvim.command(`call search('\\c\s*- ${link.fragment}', 'sw')`)
+  } else if (link.type === 'zettel-link') {
+    await nvim.command(`exec "edit " . expand("%:p:h") . "/zettels.zortex"`)
+    nvim.command(`call search('^[${link.zettel_id}')`)
+  } else if (link.type === 'footernote') {
+    nvim.command(`call search('[^${link.ref}]: ', 'b')`)
   } else if (link.type === 'zortex-link') {
     open(link.url)
   } else if (link.type === 'website' || link.type === 'resource' || link.type === 'file') {
@@ -530,7 +569,7 @@ async function createLink(nvim, args) {
   const [startLine, endLine] = args
 
   await Promise.all(new Array(endLine - startLine + 1).fill(0).forEach((_, i) =>
-    nvim.commandOutput(`echo getline(${startLine + i})`)
+    nvim.eval(`getline(${startLine + i})`)
     .then(line => getLink(nvim, line))
     .then(async (link) => {
       nvim.command(`undojoin`)
@@ -568,10 +607,12 @@ module.exports = (plugin) => {
   process
     .on('unhandledRejection', (reason, p) => {
       // nvim.errWrite(`"${reason}"`)
+      nvim.command(`let @a="${reason && reason.toString()}"`)
       console.error(reason, 'Unhandled Rejection at Promise', p);
     })
     .on('uncaughtException', err => {
       // nvim.errWrite(`"${err.toString()}"`)
+      nvim.command(`let @a="${err && err.toString()}"`)
       console.error(err, 'Uncaught Exception thrown');
     });
 }

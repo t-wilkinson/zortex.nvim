@@ -1,7 +1,10 @@
 <h1 align="center"> ✨ All-in-one personal management system for (Neo)vim ✨ </h1>
 
-https://github.com/chemzqm/node-client
-    - Logger
+### What is this?
+This is mean to be a second brain. An all-in-one personal management system. The goal is to allow one to store notes, todo lists, schedules, thoughts, etc. in a single location. It includes:
+- A derivative of markdown which you can visualize in the browser, which utilizes [Markdown It](https://github.com/markdown-it/markdown-it).
+- Useful functions and shortcuts for managing information in the markdown files.
+- Fast file searching through a simple and predictable plain-text format. Currently I have 300 pages, at 38,000 lines, and can still immediately find what I need.
 
 ### Where did the name come from?
 - Zettelkasten (german for note "zettel" desk "kasten") was a note taking system popularized by Niklas Luhmann, a very prolific sociologist.
@@ -12,45 +15,9 @@ https://github.com/chemzqm/node-client
 - bat: preview files
 - fd: sourcing files
 
-### What is this?
-This is mean to be a second brain. An all-in-one personal management system. The goal is to allow one to store notes, todo lists, schedules, thoughts, etc. in a single location. It includes:
-- A derivative of markdown which you can visualize in the browser, which utilizes [Markdown It](https://github.com/markdown-it/markdown-it).
-- Useful functions and shortcuts for managing information in the markdown files.
-- Fast file searching through a simple and predictable plain-text format. Currently I have 300 pages, at 38,000 lines, and can still immediately find what I need.
-
-### TODO
-
-### Important files
-```
-.
-├── app
-│   ├── bin
-│   ├── lib
-│   ├── index.js
-│   ├── install.cmd
-│   ├── install.sh
-│   ├── routes.js
-│   ├── server.js
-│   └── cli.js
-├── autoload
-├── ftdetect
-├── ftplugin
-├── plugin
-├── rplugin
-├── lib
-├── syntax
-├── test
-├── README.md
-├── release.sh
-└── yarn.lock
-
-22 directories, 24 files
-```
-
 ### Code stolen from/inspired by
 
 - https://github.com/iamcco/markdown-preview.nvim
-    - **Please refer to this repo for original code and better documentation.**
     - Integrates with markdown-it and vim to preview markdown-type buffers in the browser
     - Converted class components to functional components
     - Changed variables from "g:mkdp_*" to "g:zortex_*"

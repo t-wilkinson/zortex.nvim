@@ -75,10 +75,12 @@ execute 'syn region htmlBoldItalic matchgroup=mkdBoldItalic start="\%(^\|\s\)\zs
 
 " [link](URL) | [link][id] | [link][] | ![image](URL)
 syn region mkdFootnotes matchgroup=mkdDelimiter start="\[^"    end="\]"
-execute 'syn region mkdID matchgroup=mkdDelimiter    start="\["    end="\]" contained oneline' . s:conceal
+execute 'syn region mkdZettel matchgroup=mkdDelimiter   start="{"     end="}"  contained oneline' . s:conceal
 execute 'syn region mkdURL matchgroup=mkdDelimiter   start="("     end=")"  contained oneline' . s:conceal
-execute 'syn region mkdLink matchgroup=mkdDelimiter  start="\\\@<!!\?\[\ze[^]\n]*\n\?[^]\n]*\][[(]" end="\]" contains=@mkdNonListItem,@Spell nextgroup=mkdURL,mkdID skipwhite' . s:concealends
-execute 'syn region mkdEmptyLink matchgroup=mkdDelimiter  start="\\\@<!!\?\[\ze[^]\n]*\n\?[^]\n]*\][[(]\@!" end="\]" contains=@mkdNonListItem,@Spell skipwhite' . s:concealends
+execute 'syn region mkdID matchgroup=mkdDelimiter    start="\["    end="\]" contained oneline' . s:conceal
+execute 'syn region mkdLink matchgroup=mkdDelimiter       start="\\\@<!!\?\[\ze[^]\n]*\n\?[^]\n]*\][[({]" end="\]" contains=@mkdNonListItem,@Spell nextgroup=mkdZettel,mkdURL,mkdID skipwhite' . s:concealends
+execute 'syn region mkdEmptyLink matchgroup=mkdDelimiter  start="\\\@<!!\?\[\ze[^]\n]*\n\?[^]\n]*\][[({]\@!" end="\]" contains=@mkdNonListItem,@Spell skipwhite' . s:concealends
+" execute 'syn region mkdLink matchgroup=mkdDelimiter  start="\[\ze[^]]*\]{" end="\]" contains=@mkdNonListItem,@Spell nextgroup=mkdZettel,mkdURL,mkdID skipwhite' . s:concealends
 
 " Autolink without angle brackets.
 " mkd  inline links:      protocol     optional  user:pass@  sub/domain                    .com, .co.uk, etc         optional port   path/querystring/hash fragment
@@ -199,6 +201,7 @@ Hi mkdListItem      Identifier
 Hi mkdRule          Identifier
 Hi mkdString        String
 Hi mkdURL           htmlString
+Hi mkdZettel        htmlString
 
 Hi htmlString       Tag
 Hi htmlLink         Statement

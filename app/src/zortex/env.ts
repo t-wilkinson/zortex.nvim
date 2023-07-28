@@ -27,8 +27,12 @@ export function parseArgs(args: string[]) {
   let i = 0
 
   function nextArg() {
-    i++
-    return args[i]
+    if (args.length >= 1) {
+      i++
+      return args[i]
+    } else {
+      throw new Error('Not enough arguments')
+    }
   }
 
   while (i < args.length) {

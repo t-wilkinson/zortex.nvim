@@ -76,7 +76,31 @@ async function openArticle(nvim, articleName) {
   const filePath = await getArticlePath(nvim, articleName)
 
   if (filePath) {
-    nvim.command(`edit ${filePath}`)
+    const bufName = await nvim.eval(`bufname()`)
+
+    if (!bufName.endsWith('structure.zortex')) {
+      await nvim.command(`edit ${filePath}`)
+      return true
+    }
+
+    const numWindows = await nvim.eval(`winnr("$")`)
+    const numCols = await nvim.eval(`&columns`)
+    if (numWindows > Math.floor(numCols / 100)) {
+      // Move each buffer on the right of the structure article to the window on its right
+      const curWinNr = await nvim.eval(`winnr()`)
+
+      for (let i = numWindows; i > curWinNr + 1; i--) {
+        const bufNr = await nvim.eval(`winbufnr(${i-1})`)
+        await nvim.command(`${i}wincmd w`)
+        await nvim.command(`${bufNr}buffer`)
+      }
+
+      await nvim.command(`${curWinNr + 1}wincmd w`)
+      await nvim.command(`edit ${filePath}`)
+    } else {
+      await nvim.command(`vsplit ${filePath}`)
+    }
+
     return true
   } else {
     return false
@@ -425,7 +449,8 @@ async function openLink(nvim) {
     openProject(nvim, link.name)
   } else if (link.type === 'wikipedia' || link.type === 'text') {
     if (link.name) {
-      open(`https://en.wikipedia.org/wiki/Special:Search/${link.name}`)
+      openArticle(nvim, link.name)
+      // open(`https://en.wikipedia.org/wiki/Special:Search/${link.name}`)
     }
   } else if (link.type === 'path') {
     if (fs.lstatSync(link.path.replace(/^~/, os.homedir()))?.isDirectory()) {
@@ -583,6 +608,7 @@ async function createLink(nvim, args) {
 
 module.exports = (plugin) => {
   const nvim = plugin.nvim
+
   plugin.setOptions({
     dev: true,
     alwaysInit: true,

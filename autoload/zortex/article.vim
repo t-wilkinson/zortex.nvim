@@ -170,7 +170,7 @@ function! zortex#article#resource_to_zettel(...)
     endif
 
     let id = s:zettel_id()
-    let tags = empty(l:m[2]) ? '#z-source# ' : '#z-source'.l:m[2] . ' '
+    let tags = empty(l:m[2]) ? '' : l:m[2]
     let lineitem = empty(l:m[3]) ? '' : ' '.l:m[3]
     call setline('.', '[' . l:id . ']' . ' ' . l:tags . l:resource)
 endfunction
@@ -229,7 +229,6 @@ endfunction
 let s:resourceRE = '\[\([^\]]\{-1,}\)\(: [^\]]\{-1,}\)\?\( - [^\]]*\)\?\](\(.\{-}\)\(\.\w\+\)\?)' " [title: subtitle - authors](ref.extension)
 " Convert various resource formats into {title=title; subtitle=subtitle; ...;}
 function! zortex#article#convert_resource(line)
-
     " Exit if line already looks like its in zortex resource format
     if len(matchlist(a:line, '{\w\+=.*;}')) != 0
         return ''

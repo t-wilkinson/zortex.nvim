@@ -200,6 +200,11 @@ function! s:contextual_indents(init_ind, line_start, line_end, ind_list) abort
         let ind = a:ind_list[curr_line] + len(n_headings)
         let line = getline(curr_line + a:line_start)
 
+        if line =~? '^[z:'
+            let n_headings = [0]
+            let ind = 0
+        endif
+
         if line =~? '^#'
             " headings
             let n_heading = len(matchstr(line, '^#\+'))
@@ -209,6 +214,8 @@ function! s:contextual_indents(init_ind, line_start, line_end, ind_list) abort
                 let n_headings += [n_heading]
             elseif n_headings[-1] > n_heading
                 " n_heading is smaller nesting level than n_headings
+                " remove headings smaller than n_heading
+                let prev_depth = n_headings[-1]
                 let curr_heading = len(n_headings)
                 while curr_heading > 0
                     let curr_heading -= 1
@@ -219,6 +226,11 @@ function! s:contextual_indents(init_ind, line_start, line_end, ind_list) abort
                 endwhile
 
                 let n_headings = n_headings + [n_heading]
+                if n_headings[-1] <= prev_depth
+                    let ind = a:ind_list[curr_line] + len(n_headings) - 1
+                else
+                    let ind = a:ind_list[curr_line] + len(n_headings)
+                endif
             else
                 " n_heading is same nesting level
                 let ind = ind - 1

@@ -170,11 +170,15 @@ syntax match zOperator /^\d\{14}:/
 " syntax match zOperator /\$\d\+\.\d\+/ " Price
 syntax match zOperator /z:\d\{4}\.\d\{5}\.\d\{5}/
 syntax match zTag /^#\{1,} .*$/             " Headings
-syntax match zOperator /^.*:$/           " Label:
+syntax match zOperator /^[^ ]\+:$/           " Label:
 syntax match zOperator /^\s*- .*\ze:$/      " - Label:
 
 syntax match Statement /|[^|]\+|/
 syntax match zTag /^\s*\zs%/ " queries
+
+" History
+syntax match Statement /\d\+s\?: /  " history year
+syntax match Statement /\d\+s\?-\d\+s\?: /  " history year range
 
 " $HOME/.vim/plugged/vim/colors/dracula.vim
 command! -nargs=+ Hi hi def link <args>

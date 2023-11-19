@@ -22,12 +22,12 @@ export default function (options: Attach): IPlugin {
 
   nvim.on('notification', async (method: string, args: any[]) => {
     const buffer = await nvim.buffer
-    const notesDir = await nvim.getVar('zortex_notes_dir')
-    const extension = await nvim.getVar('zortex_extension')
-    const zettels = await indexZettels(
-      // @ts-ignore
-      path.join(notesDir, 'zettels' + extension)
-    )
+    // const notesDir = await nvim.getVar('zortex_notes_dir')
+    // const extension = await nvim.getVar('zortex_extension')
+    // const zettels = await indexZettels(
+    //   // @ts-ignore
+    //   path.join(notesDir, 'zettels' + extension)
+    // )
 
     if (method === 'refresh_content') {
       const winline = await nvim.call('winline')
@@ -39,7 +39,7 @@ export default function (options: Attach): IPlugin {
       const theme = await nvim.getVar('zortex_theme')
       const name = await buffer.name
       const bufferLines = await buffer.getLines()
-      const content = await populateHub(bufferLines, zettels, notesDir.toString())
+      // const content = await populateHub(bufferLines, zettels, notesDir.toString())
 
       const articleTitle = parseArticleTitle(bufferLines[0])
 
@@ -53,7 +53,7 @@ export default function (options: Attach): IPlugin {
           pageTitle,
           theme,
           name,
-          content,
+          content: '',
           articleTitle,
         },
       })

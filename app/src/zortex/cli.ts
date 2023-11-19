@@ -73,11 +73,11 @@ export async function run() {
   }
 
   // Populate hub with zettels
-  if (env.noteFile && env.zettelsFile) {
-    const lines = readLines(env.noteFile)
-    const populatedHub = await populateHub(lines, env.zettels, env.projectDir)
-    inspect(populatedHub)
-    return
-  }
+  // if (env.noteFile && env.zettelsFile) {
+  //   const lines = readLines(env.noteFile)
+  //   const populatedHub = await populateHub(lines, env.zettels, env.projectDir)
+  //   inspect(populatedHub)
+  //   return
+  // }
 }
 

@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import {indexZettels, populateHub} from '../zortex/zettel'
+// import {indexZettels, populateHub} from '../zortex/zettel'
 import {parseArticleTitle} from '../zortex/wiki'
 import {getArticleFilepath} from '../zortex/helpers'
 import {LocalRequest, Routes} from './server'
@@ -16,9 +16,9 @@ const routes: Routes<LocalRequest> = [
 ]
 
 const getRefreshContent = async (plugin) => {
-  const notesDir = await plugin.nvim.getVar('zortex_notes_dir')
-  const extension = await plugin.nvim.getVar('zortex_extension')
-  const zettels = await indexZettels(path.join(notesDir, 'zettels' + extension))
+  // const notesDir = await plugin.nvim.getVar('zortex_notes_dir')
+  // const extension = await plugin.nvim.getVar('zortex_extension')
+  // const zettels = await indexZettels(path.join(notesDir, 'zettels' + extension))
 
   const buffer = await plugin.nvim.buffer
   const winline = await plugin.nvim.call('winline')
@@ -30,7 +30,7 @@ const getRefreshContent = async (plugin) => {
   const theme = await plugin.nvim.getVar('zortex_theme')
   const name = await buffer.name
   const bufferLines = await buffer.getLines()
-  const content = await populateHub(bufferLines, zettels, notesDir)
+  const content = bufferLines // await populateHub(bufferLines, zettels, notesDir)
 
   const articleTitle = parseArticleTitle(bufferLines[0])
 
@@ -44,7 +44,7 @@ const getRefreshContent = async (plugin) => {
     theme,
     name,
     content,
-    zettels,
+    zettels: [],
     articleTitle,
   }
 }

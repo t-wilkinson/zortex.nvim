@@ -1,7 +1,7 @@
 import * as path from 'path'
 
 import {Env} from './types'
-import { indexZettels } from './zettel'
+// import { indexZettels } from './zettel'
 
 // TODO: move cli specific logic into cli
 export function parseArgs(args: string[]) {
@@ -14,7 +14,7 @@ export function parseArgs(args: string[]) {
     command: null,
 
     extension: '.zortex',
-    zettelsFile: 'zettels.zortex',
+    // zettelsFile: 'zettels.zortex',
     // categoriesFile: 'categories.zortex',
     structuresFile: 'structure.zortex',
     noteFile: '',
@@ -44,10 +44,10 @@ export function parseArgs(args: string[]) {
       // case '--categories':
       // env.categoriesFile = nextArg()
       // break
-      case '--zettels':
-      case '-z':
-        env.zettelsFile = nextArg()
-        break
+      // case '--zettels':
+      // case '-z':
+      //   env.zettelsFile = nextArg()
+      //   break
       case '--note':
       case '-n':
         env.noteFile = nextArg()
@@ -92,12 +92,12 @@ export async function setupEnv(env: Env): Promise<Env> {
 
   resolveFile('structuresFile')
   // resolveFile('categoriesFile')
-  resolveFile('zettelsFile')
+  // resolveFile('zettelsFile')
   resolveFile('noteFile')
 
-  if (env.zettelsFile) {
-    env.zettels = await indexZettels(env.zettelsFile)
-  }
+  // if (env.zettelsFile) {
+  //   env.zettels = await indexZettels(env.zettelsFile)
+  // }
 
   return env
 }

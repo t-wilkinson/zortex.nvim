@@ -78,6 +78,7 @@ async function openArticle(nvim, articleName) {
   if (filePath) {
     const bufName = await nvim.eval(`bufname()`)
 
+    // Open article in current buffer if its not the Structure article
     if (!bufName.endsWith('structure.zortex')) {
       await nvim.command(`edit ${filePath}`)
       return true
@@ -465,9 +466,9 @@ async function openLink(nvim) {
     // nvim.command(`call cursor(${pos}, 1)`)
 
     nvim.command(`call search('\\c\s*- ${link.fragment}', 'sw')`)
-  } else if (link.type === 'zettel-link') {
-    await nvim.command(`exec "edit " . expand("%:p:h") . "/zettels.zortex"`)
-    nvim.command(`call search('^[${link.zettel_id}')`)
+  // } else if (link.type === 'zettel-link') {
+  //   await nvim.command(`exec "edit " . expand("%:p:h") . "/zettels.zortex"`)
+  //   nvim.command(`call search('^[${link.zettel_id}')`)
   } else if (link.type === 'footernote') {
     nvim.command(`call search('[^${link.ref}]: ', 'b')`)
   } else if (link.type === 'zortex-link') {

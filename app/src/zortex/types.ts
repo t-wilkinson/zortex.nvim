@@ -64,7 +64,7 @@ export interface Env {
   command?: string
 
   extension: string
-  zettelsFile: string
+  // zettelsFile: string
   structuresFile: string
   // categoriesFile: string
   noteFile: string

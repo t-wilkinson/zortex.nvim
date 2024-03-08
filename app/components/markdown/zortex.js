@@ -170,7 +170,7 @@ function zortexListitem(state, startLine, endLine, silent) {
     case 'comment':
       token = state.push('zortex_listitem', 'span', 0)
       token.attrSet('class', 'z-comment')
-      token.content = `${space}> ${lineitem.text}`
+      token.content = `${spaces}> ${lineitem.text}`
       token.map = [startLine, currentLine]
       token.children = []
       break;

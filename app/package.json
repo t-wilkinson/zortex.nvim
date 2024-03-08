@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "description": "all-in-one tool for knowledge management/daily planner/etc.",
   "main": "./index.js",
-  "bin": "./src/local.js",
+  "bin": "./lib/bin/local.js",
   "repository": "https://github.com/t-wilkinson/zortex.nvim.git",
   "author": "Trey Wilkinson <winston.trey.wilkinson@gmail.com>",
   "license": "MIT",
@@ -15,12 +15,18 @@
     "build-lib": "tsc -p ./",
     "build-bin": "yarn run build-lib && for bin in ./lib/bin/*.js; do echo \"building $(basename $bin)\" && pkg --targets node16-linux-x64,node16-macos-x64,node16-win-x64 --out-path ./bin $bin; done",
     "build-repl": "yarn run build-lib && pkg --targets node16-linux-x64,node16-macos-x64,node16-win-x64 --out-path ./bin ./lib/bin/repl.js",
-    "build-loader": "pkg --targets node16-linux-x64,node16-macos-x64,node16-win-x64 --out-path ./bin ./lib/load.js",
+    "build-loader": "pkg --targets node16-linux-x64,node16-macos-x64,node16-win-x64 --out-path ./bin ./lib/bin/load.js",
     "build-cli": "tsc -p ./ && pkg --targets node16-linux-x64,node16-macos-x64,node16-win-x64  -o ./bin/cli ./lib/zortex/cli.js",
-    "build": "tsc -p ./ && rm -rf ./.next && next build && next export && yarn && pkg --targets node16-linux-x64,node16-macos-x64,node16-win-x64 --out-path ./bin ./lib/local.js"
+    "build-all": "yarn run build && yarn run build-bin && yarn run build-cli && yarn run build-loader",
+    "build": "tsc -p ./ && rm -rf ./.next && next build && next export && yarn && pkg --targets node16-linux-x64,node16-macos-x64,node16-win-x64 --out-path ./bin ./lib/bin/local.js"
   },
   "dependencies": {
     "@chemzqm/neovim": "^5.7.9",
+    "@react-three/drei": "^9.89.0",
+    "@react-three/fiber": "^8.15.11",
+    "@types/three": "^0.158.3",
+    "@use-gesture/react": "^10.3.0",
+    "axios": "^1.6.2",
     "chart.js": "^2.7.3",
     "cheerio": "^1.0.0-rc.12",
     "dotenv": "^16.0.3",
@@ -43,10 +49,15 @@
     "puppeteer": "^16.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-markdown": "^9.0.1",
+    "rehype-katex": "^7.0.0",
+    "remark-math": "^6.0.0",
     "socket.io": "2.4.0",
     "socket.io-client": "^2.1.1",
     "strftime": "^0.10.1",
-    "viz": "^3.0.1"
+    "three": "^0.158.0",
+    "viz": "^3.0.1",
+    "zustand": "^4.5.2"
   },
   "devDependencies": {
     "@next/bundle-analyzer": "^13.1.1",

@@ -1,4 +1,4 @@
-function! zortex#fold#init() abort
+function! zortex#fold#init()
     " make sure initialisation only happens once
     if exists("b:anyfold_initialised")
         return
@@ -46,7 +46,7 @@ endfunction
 " Inspired by example code by Greg Sexton
 " http://gregsexton.org/2011/03/27/improving-the-text-displayed-in-a-vim-fold.html
 "----------------------------------------------------------------------------/
-function! MinimalFoldText() abort
+function! MinimalFoldText()
     let fs = v:foldstart
     while getline(fs) !~ '\w'
         let fs = nextnonblank(fs + 1)
@@ -66,7 +66,7 @@ function! MinimalFoldText() abort
     return line . expansionString . foldSizeStr . foldLevelStr
 endfunction
 
-function! s:init_indent_list() abort
+function! s:init_indent_list()
     let b:anyfold_ind_actual = s:actual_indents(1, line('$'))
     let b:anyfold_ind_contextual = s:contextual_indents(0, 1, line('$'), b:anyfold_ind_actual)
     let b:anyfold_ind_buffer = s:buffer_indents(1, line('$'))
@@ -80,7 +80,7 @@ endfunction
 "----------------------------------------------------------------------------/
 " get indent, filtering ignores special lines (empty lines, comment lines ...)
 "----------------------------------------------------------------------------/
-function! s:line_indent(lnum) abort
+function! s:line_indent(lnum)
     let prev_indent = indent(s:prev_non_blank_line(a:lnum))
     let next_indent = indent(s:next_non_blank_line(a:lnum))
     if s:consider_line(a:lnum)
@@ -93,7 +93,7 @@ endfunction
 "----------------------------------------------------------------------------/
 " buffer for indents used in foldexpr
 "----------------------------------------------------------------------------/
-function! s:buffer_indents(line_start, line_end) abort
+function! s:buffer_indents(line_start, line_end)
     let ind_list = []
     let curr_line = a:line_start
     while curr_line <= a:line_end
@@ -106,7 +106,7 @@ endfunction
 "----------------------------------------------------------------------------/
 " Utility function to check if line is to be considered
 "----------------------------------------------------------------------------/
-function! s:consider_line(lnum) abort
+function! s:consider_line(lnum)
     let line = getline(a:lnum)
     if l:line !~? '\v\S'
         " empty line
@@ -123,7 +123,7 @@ endfunction
 "----------------------------------------------------------------------------/
 " Next non-blank line
 "----------------------------------------------------------------------------/
-function! s:next_non_blank_line(lnum) abort
+function! s:next_non_blank_line(lnum)
     let numlines = line('$')
     let curr_line = a:lnum + 1
 
@@ -141,7 +141,7 @@ endfunction
 "----------------------------------------------------------------------------/
 " Previous non-blank line
 "----------------------------------------------------------------------------/
-function! s:prev_non_blank_line(lnum) abort
+function! s:prev_non_blank_line(lnum)
     let curr_line = a:lnum - 1
 
     while curr_line > 0
@@ -160,7 +160,7 @@ endfunction
 " don't depend on context
 " Note: this implements good heuristics also for braces
 "----------------------------------------------------------------------------/
-function! s:actual_indents(line_start, line_end) abort
+function! s:actual_indents(line_start, line_end)
     let curr_line = a:line_start
     let offset = curr_line
 
@@ -189,7 +189,7 @@ endfunction
 " get indent hierarchy from actual indents
 " indents depend on context
 "----------------------------------------------------------------------------/
-function! s:contextual_indents(init_ind, line_start, line_end, ind_list) abort
+function! s:contextual_indents(init_ind, line_start, line_end, ind_list)
     let prev_ind = a:ind_list[0]
     let hierind_list = [a:init_ind]
     let ind_open_list = [a:ind_list[0]]
@@ -272,7 +272,7 @@ endfunction
 "----------------------------------------------------------------------------/
 " fold expression
 "----------------------------------------------------------------------------/
-function! s:get_indent_fold(lnum) abort
+function! s:get_indent_fold(lnum)
     let this_indent = b:anyfold_ind_contextual[a:lnum-1]
 
     if a:lnum >= line('$')
@@ -331,7 +331,7 @@ endfunction
 " Note: update mechanism may not always update brace based folds since it
 " detects block to be updated based on indents.
 "----------------------------------------------------------------------------/
-function! s:reload_folds() abort
+function! s:reload_folds()
 
     " many of the precautions taken are necessary because the marks of
     " previously changed text '[ & '] are not always reliable, for instance if
@@ -474,7 +474,7 @@ endfunction
 " Zero out part that correspond to changed lines and move all other entries to
 " the correct positions.
 "----------------------------------------------------------------------------/
-function! s:extend_line_list(list, insert_start, insert_end) abort
+function! s:extend_line_list(list, insert_start, insert_end)
     let nchanged = a:insert_end - a:insert_start + 1
     let delta_lines = line('$') - len(a:list)
 
@@ -499,7 +499,7 @@ endfunction
 "----------------------------------------------------------------------------/
 " Debugging
 "----------------------------------------------------------------------------/
-function! s:echo_indents(mode) abort
+function! s:echo_indents(mode)
     if a:mode == 2
         echom b:anyfold_ind_actual[line('.')-1]
     elseif a:mode == 3

@@ -1,5 +1,5 @@
 let s:zortex_root_dir = expand('<sfile>:h:h:h')
-let s:pre_build = s:zortex_root_dir . '/app/bin/zortex-'
+let s:pre_build = s:zortex_root_dir . '/app/bin/local-'
 let s:package_file = s:zortex_root_dir . '/package.json'
 
 " echo message

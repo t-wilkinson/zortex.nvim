@@ -40,11 +40,12 @@ endfunction
 function! zortex#rpc#start_server() abort
   let l:zortex_server_script = s:zortex_root_dir . '/app/bin/load-' . zortex#util#get_platform()
   if executable('node')
-    let l:zortex_server_script = s:zortex_root_dir . '/app/lib/load.js'
-    let l:cmd = ['node', l:zortex_server_script, '--path', s:zortex_root_dir . '/app/lib/local.js']
+    let l:zortex_server_script = s:zortex_root_dir . '/app/lib/bin/load.js'
+    let l:cmd = ['node', l:zortex_server_script, '--path', s:zortex_root_dir . '/app/lib/bin/local.js']
   elseif executable(l:zortex_server_script)
-    let l:cmd = [l:zortex_server_script, '--path', s:zortex_root_dir . '/app/lib/local.js']
+    let l:cmd = [l:zortex_server_script, '--path', s:zortex_root_dir . '/app/lib/bin/local.js']
   endif
+
   if exists('l:cmd')
     if s:is_vim
       call s:start_vim_server(l:cmd)

@@ -67,7 +67,8 @@ endfunction
 function! zortex#remote#start_server() abort
     " assume linux server for now
     " TODO: should make sure the server is not already running
-    return [s:ssh('nohup ./bin/zortex-linux --path ' . g:zortex_remote_server_dir . '/remote.js', 1)]
+    " This probably doesn't work anymore
+    return [s:ssh('nohup ./bin/local-linux --path ' . g:zortex_remote_server_dir . '/remote.js', 1)]
 endfunction
 
 function! zortex#remote#restart_server() abort

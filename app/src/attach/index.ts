@@ -40,6 +40,7 @@ export default function (options: Attach): IPlugin {
       const name = await buffer.name
       const bufferLines = await buffer.getLines()
       // const content = await populateHub(bufferLines, zettels, notesDir.toString())
+      const content = bufferLines
 
       const articleTitle = parseArticleTitle(bufferLines[0])
 
@@ -53,7 +54,7 @@ export default function (options: Attach): IPlugin {
           pageTitle,
           theme,
           name,
-          content: '',
+          content,
           articleTitle,
         },
       })

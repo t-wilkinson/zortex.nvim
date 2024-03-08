@@ -61,7 +61,7 @@ endif
 
 if get(g:, 'vim_markdown_math', 1)
   syn include @tex syntax/tex.vim
-  syn region mkdMath start="\\\@<!\$" end="\$" contains=@tex keepend oneline
+  syn region mkdMath start="\\\@<!\$" end="[^ ]\$" contains=@tex keepend oneline
   syn region mkdMath start="\\\@<!\$\$" end="\$\$" skip="\\\$" contains=@tex keepend
   syn region mkdMath start="\\\@<!\\(" end="\\)" contains=@tex keepend oneline
   syn region mkdMath start="\\\[" end="\\]" contains=@tex keepend
@@ -152,7 +152,7 @@ endif
 syntax match Statement /[A-Za-z0-9 ]\+\ze :=/
 syntax match zTag /\d*@\{1,2}\ze\[/
 syntax match zTag /\S*@\{1,2}\([A-Za-z0-9()]\S*\s\?\)\+/  " @Tags
-syntax match Statement /&\{1,2}\([A-Za-z0-9]*\s\?\)\+/  " &Tags
+" syntax match Statement /&\{1,2}\([A-Za-z0-9]*\s\?\)\+/  " &Tags. Just use links instead, like: [Tag]
 syntax match zOperator /^\s*[-+x!*¿?✘★✓]\ze\s/            " Unordered lists
 syntax match zOperator /^\s*[A-Za-z0-9]\+\./  " Numbered lists
 syntax match zOperator / \(:\|:=\|<->\|<-\|->\|>-\|-<\|>-<\|\~>\|<=>\|=>\|!=\|==\|+\|vs\.\|\/\||\) /
@@ -161,24 +161,28 @@ syntax match zOperator /[A-Z]\S* \d\+:\d\+\(-\d\+\)/ " Scripture quotes
 syntax match zOperator /\d\{1,3}%\_s/ " Percents
 syntax match zOperator /\(,\|;\)\_s/ " Commas
 syntax match zOperator /\w\+=\ze\(\w\|\/\|\.\)/
-syntax match zOperator /\w\zs\(\.\|?\)\( \|$\)/
-syntax match zOperator /\w\zs: /
+syntax match zOperator /\w\zs\(\.\|?\)\ze\( \|$\)/ " Sentence
+" syntax match zOperator /\(\w\|*\)\zs: /
+syntax match zOperator /: /
 syntax match zOperator /:$/
 " syntax match zOperator /#\([A-Z0-9]\S*\s\?\)\+#/
 syntax match zOperator /#.*#/
-syntax match zOperator /^\d\{14}:/
+" syntax match zOperator /^\d\{14}:/
 " syntax match zOperator /\$\d\+\.\d\+/ " Price
 syntax match zOperator /z:\d\{4}\.\d\{5}\.\d\{5}/
-syntax match zTag /^#\{1,} .*$/             " Headings
-syntax match zOperator /^[^ ]\+:$/           " Label:
+syntax match zTag /^#\{1,} [^#]*/             " Headings
+syntax match zOperator /^[A-Z][^.]\+:$/           " Label:\n
+syntax match zOperator /^[A-Z][^.?]\+?$/           " Question?\n
+" syntax match String  /^- [A-Z][^*]\+\ze: /           " - Label: text
+syntax match String  /^[A-Za-z][^.*:]\+\ze: /           " Label: text
 syntax match zOperator /^\s*- .*\ze:$/      " - Label:
 
 syntax match Statement /|[^|]\+|/
 syntax match zTag /^\s*\zs%/ " queries
 
 " History
-syntax match Statement /\d\+s\?: /  " history year
-syntax match Statement /\d\+s\?-\d\+s\?: /  " history year range
+syntax match Statement /[ \r\n]\d\+s\?: /  " history year
+syntax match Statement /[ \r\n]\s\d\+s\?-\d\+s\?: /  " history year range
 
 " $HOME/.vim/plugged/vim/colors/dracula.vim
 command! -nargs=+ Hi hi def link <args>

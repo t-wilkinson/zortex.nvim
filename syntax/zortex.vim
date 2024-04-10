@@ -171,10 +171,10 @@ syntax match zOperator /#.*#/
 " syntax match zOperator /\$\d\+\.\d\+/ " Price
 syntax match zOperator /z:\d\{4}\.\d\{5}\.\d\{5}/
 syntax match zTag /^#\{1,} [^#]*/             " Headings
-syntax match zOperator /^[A-Z][^.]\+:$/           " Label:\n
+syntax match zOperator /^[0-9A-Z][^.]\+:$/           " Label:\n
 syntax match zOperator /^[A-Z][^.?]\+?$/           " Question?\n
 " syntax match String  /^- [A-Z][^*]\+\ze: /           " - Label: text
-syntax match String  /^[A-Za-z][^.*:]\+\ze: /           " Label: text
+syntax match String  /^[A-Za-z0-9][^.*:]\+\ze: /           " Label: text
 syntax match zOperator /^\s*- .*\ze:$/      " - Label:
 
 syntax match Statement /|[^|]\+|/

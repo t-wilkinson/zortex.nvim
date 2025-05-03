@@ -149,7 +149,7 @@ if main_syntax ==# 'zettel'
   unlet! s:done_include
 endif
 
-syntax match Statement /[A-Za-z0-9 ]\+\ze :=/
+syntax match Statement /[A-Za-z0-9- )(.].\{-}\ze :=/
 syntax match zTag /\d*@\{1,2}\ze\[/
 syntax match zTag /\S*@\{1,2}\([A-Za-z0-9()]\S*\s\?\)\+/  " @Tags
 " syntax match Statement /&\{1,2}\([A-Za-z0-9]*\s\?\)\+/  " &Tags. Just use links instead, like: [Tag]

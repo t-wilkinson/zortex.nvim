@@ -12,7 +12,7 @@ call s:def_value('remote_server', '')
 call s:def_value('remote_server_dir', '/www/zortex')
 call s:def_value('remote_wiki_port', '8080')
 
-" call s:def_value('auto_start_server', 0)
+call s:def_value('auto_start_server', 0)
 
 " set to 1, the vim will open the preview window once enter the markdown
 " buffer

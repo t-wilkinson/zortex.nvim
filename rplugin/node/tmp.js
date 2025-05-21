@@ -305,141 +305,6 @@ async function openLink(nvim) {
   }
 }
 
-function toZortexLink(info, tags = null) {
-  function addParam(name, value) {
-    if (value) {
-      return `${name}=${value}`;
-    }
-    return null;
-  }
-
-  const params = Object.entries(info)
-    .map(([name, value]) => addParam(name, value))
-    .filter((v) => v)
-    .join("; ");
-  return `${tags ? tags + " " : ""}{${params}}`;
-}
-
-async function getZortexLink(url) {
-  // Get title from <h1> tag
-  const respose = await fetch(url);
-  const body = await respose.text();
-  let $ = cheerio.load(body);
-  let title = $("h1").text() || $("title").text();
-  if (!title) {
-    return null;
-  }
-  title = title.replace(/\s+/g, " ").trim();
-
-  return {
-    title,
-    ref: url,
-  };
-}
-
-function parseLinkText(text) {
-  const subtitleIndex = text.indexOf(": ");
-  const authorsIndex = text.indexOf(" - ", subtitleIndex || 0);
-
-  let title = null;
-  let subtitle = null;
-  let authors = null;
-
-  if (subtitleIndex > 0 && authorsIndex > 0) {
-    title = text.substring(0, subtitleIndex);
-    subtitle = text.substring(subtitleIndex + 2, authorsIndex);
-    authors = text.substring(authorsIndex + 3);
-  } else if (subtitleIndex > 0) {
-    title = text.substring(0, subtitleIndex);
-    subtitle = text.substring(subtitleIndex + 2);
-  } else if (authorsIndex > 0) {
-    title = text.substring(0, authorsIndex);
-    authors = text.substring(authorsIndex + 3);
-  } else {
-    title = text;
-  }
-
-  return {
-    title,
-    subtitle,
-    authors,
-  };
-}
-
-async function getLink(nvim, line) {
-  let match;
-
-  function toLine(match, link) {
-    const beforeLink = match.input.substring(0, match.index);
-    const afterLink = match.input.substring(match.index + match[0].length);
-    const line = `${beforeLink}${link}${afterLink}`;
-    return line;
-  }
-
-  // try getting link from current line
-  if ((match = line.match(linkRE))) {
-    const g = match.groups;
-    let ref = g.ref;
-    let { title, subtitle, authors } = parseLinkText(g.text);
-
-    if ((!title && g.ref) || websiteLinkRE.test(title)) {
-      let res = await getZortexLink(title);
-      if (res) {
-        ref = res.ref;
-
-        res = parseLinkText(res.title);
-        title = res.title;
-        subtitle = res.subtitle;
-        authors = res.authors;
-      }
-    }
-
-    const link = toZortexLink({
-      title,
-      subtitle,
-      authors,
-      ref,
-    });
-    return toLine(match, link);
-  } else if ((match = line.match(websiteLinkRE))) {
-    const link = toZortexLink(await getZortexLink(match[0]));
-    return toLine(match, link);
-  } else if ((match = line.match(zortexLineRE))) {
-    const g = match.groups;
-    const link = toZortexLink({
-      title: g.text,
-    });
-    return toLine(match, `- ${g.tags}${link}`);
-  }
-
-  return null;
-}
-
-async function createLink(nvim, args) {
-  const [startLine, endLine] = args;
-
-  await Promise.all(
-    new Array(endLine - startLine + 1).fill(0).forEach((_, i) =>
-      nvim
-        .eval(`getline(${startLine + i})`)
-        .then((line) => getLink(nvim, line))
-        .then(async (link) => {
-          nvim.command(`undojoin`);
-          return link;
-        })
-        .then(
-          (link) =>
-            link &&
-            nvim.command(
-              `call setline(${startLine + i}, '${link.replace(/'/g, "''")}')`,
-            ),
-        ),
-    ),
-  );
-
-  nvim.command(`write`);
-}
-
 module.exports = (plugin) => {
   const nvim = plugin.nvim;
 
@@ -466,9 +331,6 @@ module.exports = (plugin) => {
       nargs: "*",
     },
   );
-  plugin.registerCommand("ZortexCreateLink", (args) => createLink(nvim, args), {
-    range: "",
-  });
   plugin.registerCommand("ZortexOpenLink", () => openLink(nvim), {});
 
   // Needed to prevent errors from closing the rplugins connection
@@ -484,5 +346,3 @@ module.exports = (plugin) => {
       console.error(err, "Uncaught Exception thrown");
     });
 };
-
-module.exports.default = module.exports;

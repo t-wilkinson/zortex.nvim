@@ -2,8 +2,9 @@ import os
 import re
 import datetime
 
-tag_re = re.compile('^(@+)(.*)$')  # Count tags and heading links
-file_re = re.compile('^\d+$')
+tag_re = re.compile("^(@+)(.*)$")  # Count tags and heading links
+# file_re = re.compile("^\d+$")
+
 
 def file_creation(path):
     base = os.path.basename(path)
@@ -16,9 +17,10 @@ def file_creation(path):
         minutes = base[9:11]
         seconds = base[11:13]
 
-        return f'{year}-{week}-{day} {hours}:{minutes}:{seconds}'
+        return f"{year}-{week}-{day} {hours}:{minutes}:{seconds}"
     else:
-        return f'{base.replace(".zortex", ""):<18}'
+        return f"{base.replace('.zortex', ''):<18}"
+
 
 def to_tags(lines):
     tags = []
@@ -31,14 +33,16 @@ def to_tags(lines):
         if not m:
             break
         else:
-            tags.append({
-                "num": len(m.group(1)),
-                "text": m.group(2),
-            })
+            tags.append(
+                {
+                    "num": len(m.group(1)),
+                    "text": m.group(2),
+                }
+            )
 
-    tags = sorted(tags, key=lambda tag: tag['num'], reverse=True)
+    tags = sorted(tags, key=lambda tag: tag["num"], reverse=True)
     if len(tags) == 0:
-        return [ { "num": 0, "text": "Untitled" } ]
+        return [{"num": 0, "text": "Untitled"}]
     else:
         return tags
 
@@ -47,34 +51,30 @@ def to_zettel(path, lines):
     tags = to_tags(lines)
 
     # Prepare the file for preview
-    lines.insert(0, file_creation(path) + ' ')
-    if path.endswith('storage.zortex'):
+    lines.insert(0, file_creation(path) + " ")
+    if path.endswith("storage.zortex"):
         # file = ' \f'.join([*lines[:1], *list(map(lambda tag: tag['text'], tags))])
-        file = ' \f'.join(lines[:3])
+        file = " \f".join(lines[:3])
     else:
-        file = ' \f'.join(lines)
+        file = " \f".join(lines)
 
-    return {
-        'path': path,
-        'file': file,
-        'tags': tags,
-        'name': tags[0]['text']
-    }
+    return {"path": path, "file": file, "tags": tags, "name": tags[0]["text"]}
 
 
 def path_to_zettel(path):
-    lines = list(map(lambda line: line.rstrip(), open(path, 'r').readlines()))
+    lines = list(map(lambda line: line.rstrip(), open(path, "r").readlines()))
     return to_zettel(path, lines)
+
 
 def file_to_zettel(file):
     now = str(datetime.datetime.now())
-    lines = list(map(lambda line: line.rstrip(), file.split('\n')))
+    lines = list(map(lambda line: line.rstrip(), file.split("\n")))
     return to_zettel(now, lines)
 
 
 def source_zettels():
     files = [
-"""@@One
+        """@@One
 @Tag1
 @Tag2
 
@@ -83,7 +83,7 @@ def source_zettels():
     - Thought 2
     - Thought 3
 """,
-"""@@Two
+        """@@Two
 @Tag1
 @Tag3
 
@@ -91,14 +91,14 @@ def source_zettels():
     - Thought 1
     - Thought 3
 """,
-"""@@Three
+        """@@Three
 @Tag2
 
 - Context 2
     - Thought 2
     - Thought 3
-"""
-]
+""",
+    ]
     return map(file_to_zettel, files)
 
 
@@ -110,10 +110,11 @@ def build_tree(zettels, tree):
         Otherwise, find line within current zettel
     """
     index = index_zettels(zettels)
+
     def _build_tree():
         for branch in tree:
             pass
 
 
 def index_zettels(zettels):
-    return { index[zettel['name']]: zettel for zettel in zettels }
+    return {index[zettel["name"]]: zettel for zettel in zettels}

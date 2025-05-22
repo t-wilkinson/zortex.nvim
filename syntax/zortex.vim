@@ -175,7 +175,7 @@ syntax match zOperator /^[0-9A-Z][^.]\+:$/           " Label:\n
 syntax match zOperator /^[A-Z][^.?]\+?$/           " Question?\n
 " syntax match String  /^- [A-Z][^*]\+\ze: /           " - Label: text
 syntax match String  /^[A-Za-z0-9][^.*:]\+\ze: /           " Label: text
-syntax match zOperator /^\s*- .*\ze:$/      " - Label:
+syntax match zOperator /^\s*- \zs[A-Z].*\ze:$/      " - Label:
 
 syntax match Statement /|[^|]\+|/
 syntax match zTag /^\s*\zs%/ " queries

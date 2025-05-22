@@ -1,5 +1,23 @@
 let g:zortex_root_dir = expand('<sfile>:p:h:h')
 
+if exists('g:zortex_loaded') | finish | endif
+
+" let s:save_cpo = &cpo
+" set cpo&vim
+
+lua require('zortex')
+" command! Zortex lua require'zortex'.whid()
+
+" let &cpo = s:save_cpo
+" unlet s:save_cpo
+
+let g:zortex_loaded = 1
+
+" TODO: would this be better in lua or vimscript?
+" Convert it to the most intuitive/natural and improve the overall structure
+" of the code.
+
+" TODO: use dictionaries to set default values instead
 " helper function to set the default value of a setting, prefixing it with
 " 'zortex_'
 function s:def_value(name, value)
@@ -102,7 +120,8 @@ call s:def_value('page_title', '「${name}」')
 " recognized filetypes
 call s:def_value('filetypes', ['zortex'])
 
-" where are notes found? path should end with '/'
+" where are notes found? given path should end not with '/'
+" TODO: if it ends with '/', remove it
 let g:zortex_notes_dir = get(g:, 'zortex_notes_dir', g:zortex_root_dir.'/examples') . '/'
 
 " default zortex filetype
@@ -115,7 +134,7 @@ call s:def_value('extension', '.zortex')
 call s:def_value('temporary_buffer_name', 'zortex-structures')
 
 " directory where resources are downloaded
-call s:def_value('resources_download', $HOME . '/Downloads/zortex_resources')
+" call s:def_value('resources_download', $HOME . '/Downloads/zortex_resources')
 
 " FZF window settings
 call s:def_value('window_direction', 'down')
@@ -171,7 +190,7 @@ function! s:init() abort
             call zortex#util#try_start_server()
         endif
         if g:zortex_auto_start_preview
-            execute 'autocmd BufEnter *.{zortex,md,mkd,mdown,mkdn,mdwn,' . join(g:zortex_filetypes, ',') . '} call zortex#autocmd#init()'
+            execute 'autocmd BufEnter *.{' . join(g:zortex_filetypes, ',') . '} call zortex#autocmd#init()'
         endif
     augroup END
 endfunction

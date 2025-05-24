@@ -32,7 +32,7 @@ local joinpath = vim.fs and vim.fs.joinpath
 -- Pre-compile regex objects for performance in iterative matching
 M.regex_iterators = {
 	zettel = vim.regex("\\v\\[(z:\\d{4}\\.\\d{5}\\.\\d{5})]"),
-	footernote = vim.regex("\\v\\[\\^(\\d+)]"),
+	footernote = vim.regex("\\[^(\\d\\+)]"),
 	fragment = vim.regex("\\v\\|([^|]+)\\|"),
 }
 
@@ -148,6 +148,7 @@ end
 function M.extract_link(line)
 	local match_list
 	local cursor_col_0idx -- Lazily initialized
+	vim.notify(match_list)
 
 	-- 1. Website Link
 	match_list = vim.fn.matchlist(line, M.patterns.website)
@@ -200,6 +201,7 @@ function M.extract_link(line)
 		end
 	)
 	if footernote_match then
+		vim.notify(footernote_match)
 		return footernote_match
 	end
 

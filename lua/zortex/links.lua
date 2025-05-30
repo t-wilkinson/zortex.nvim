@@ -487,11 +487,11 @@ function M.open_external(target)
 		return
 	end
 	local cmd_parts
-	if vim.fn.has("macunix") then
+	if vim.fn.has("macunix") == 1 then
 		cmd_parts = { "open", target }
-	elseif vim.fn.has("unix") then
+	elseif vim.fn.has("unix") == 1 then
 		cmd_parts = { "xdg-open", target }
-	elseif vim.fn.has("win32") or vim.fn.has("win64") then
+	elseif vim.fn.has("win32") == 1 or vim.fn.has("win64") == 1 then
 		cmd_parts = { "cmd", "/c", "start", "", target }
 	else
 		vim.notify("Unsupported OS for opening external links.", vim.log.levels.WARN)

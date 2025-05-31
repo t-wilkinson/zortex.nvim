@@ -69,9 +69,9 @@ endif
 
 
 " execute 'syn region htmlItalic matchgroup=mkdItalic start="\%(^\|\s\)\zs\*\ze[^\\\*\t ]\%(\%([^*]\|\\\*\|\n\)*[^\\\*\t ]\)\?\*\_W" end="[^\\\*\t ]\zs\*\ze\_W" keepend contains=@Spell' . s:oneline . s:concealends
-execute 'syn region htmlItalic matchgroup=mkdItalic start="\%(^\|\s\)\zs\*\ze\S" end="\S\zs\*" keepend contains=@Spell' . s:oneline . s:concealends
-execute 'syn region htmlBold matchgroup=mkdBold start="\%(^\|\s\)\zs\*\*\ze\S" end="\S\zs\*\*" keepend contains=@Spell' . s:oneline . s:concealends
-execute 'syn region htmlBoldItalic matchgroup=mkdBoldItalic start="\%(^\|\s\)\zs\*\*\*\ze\S" end="\S\zs\*\*\*" keepend contains=@Spell' . s:oneline . s:concealends
+execute 'syn region zBright matchgroup=mkdItalic start="\%(^\|\s\)\zs\*\ze\S" end="\S\zs\*" keepend contains=@Spell' . s:oneline . s:concealends
+execute 'syn region zBold matchgroup=mkdBold start="\%(^\|\s\)\zs\*\*\ze\S" end="\S\zs\*\*" keepend contains=@Spell' . s:oneline . s:concealends
+execute 'syn region zBrightBold matchgroup=mkdBoldItalic start="\%(^\|\s\)\zs\*\*\*\ze\S" end="\S\zs\*\*\*" keepend contains=@Spell' . s:oneline . s:concealends
 
 " [link](URL) | [link][id] | [link][] | ![image](URL)
 syn region mkdFootnotes matchgroup=mkdDelimiter start="\[^"    end="\]"
@@ -153,7 +153,7 @@ syntax match Statement /[A-Za-z0-9- )(.].\{-}\ze :=/
 syntax match zTag /\d*@\{1,2}\ze\[/
 syntax match zTag /\S*@\{1,2}\([A-Za-z0-9()]\S*\s\?\)\+/  " @Tags
 " syntax match Statement /&\{1,2}\([A-Za-z0-9]*\s\?\)\+/  " &Tags. Just use links instead, like: [Tag]
-syntax match zOperator /^\s*[-+x!*¿?✘★✓]\ze\s/            " Unordered lists
+syntax match zBullet /^\s*[-+x!*¿?✘★✓]\ze\s/            " Unordered lists
 syntax match zOperator /^\s*[A-Za-z0-9]\+\./  " Numbered lists
 syntax match zOperator / \(:\|:=\|<->\|<-\|->\|>-\|-<\|>-<\|\~>\|<=>\|=>\|!=\|==\|+\|vs\.\|\/\||\) /
 syntax match zOperator /\d\+:\d\d/ " Times
@@ -169,9 +169,12 @@ syntax match zOperator /:$/
 syntax match zOperator /#.*#/
 " syntax match zOperator /^\d\{14}:/
 " syntax match zOperator /\$\d\+\.\d\+/ " Price
-syntax match zOperator /z:\d\{4}\.\d\{5}\.\d\{5}/
-syntax match zTag /^#\{1,} [^#]*/             " Headings
-syntax match zOperator /^[0-9A-Z][^.]\+:$/           " Label:\n
+" syntax match zOperator /z:\d\{4}\.\d\{5}\.\d\{5}/
+syntax match zHeading /^#\{1,} [^#]*/             " Headings
+
+" TODO: match only if there's a new line before
+syntax match zLabel /^[0-9A-Z][^.]\+:$/           " Label:\n
+
 syntax match zOperator /^[A-Z][^.?]\+?$/           " Question?\n
 " syntax match String  /^- [A-Z][^*]\+\ze: /           " - Label: text
 syntax match String  /^[A-Za-z0-9][^.*:]\+\ze: /           " Label: text
@@ -179,6 +182,8 @@ syntax match zOperator /^\s*- \zs[A-Z].*\ze:$/      " - Label:
 
 syntax match Statement /|[^|]\+|/
 syntax match zTag /^\s*\zs%/ " queries
+
+syntax match zListLabel /^\d\+\. [^.]\+\ze:$/       " ^\d. Label text:$
 
 " History
 syntax match Statement /[ \r\n]\d\+s\?: /  " history year
@@ -216,16 +221,22 @@ Hi htmlLink         Statement
 Hi mkdItalic        mkdSurround
 Hi mkdBold          mkdSurround
 Hi mkdBoldItalic    mkdSurround
-Hi htmlItalic       String
-Hi htmlBold         Directory
-Hi htmlBoldItalic   Title
+
+Hi zBright       String
+Hi zBold         Directory
+Hi zBrightBold   Title
 Hi zettelTag Tag
 
 Hi mkdSurround      Statement
 
-Hi zQuote    String
+Hi zHeading         Number
+Hi zQuote           String
 Hi zTag             Number
 Hi zOperator        Tag
+Hi zLabel           Number
+Hi zBullet          Tag
+Hi zListLabel       String
+" hi zLabel gui=bold
 
 let b:current_syntax = "zettel"
 if main_syntax ==# 'zettel'

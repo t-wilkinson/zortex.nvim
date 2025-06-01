@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tree-sitter-zortex"
-description = "Zortex grammar for tree-sitter"
+description = "For zortex files"
 version = "0.1.0"
 keywords = ["incremental", "parsing", "tree-sitter", "zortex"]
 classifiers = [
@@ -14,16 +14,16 @@ classifiers = [
   "Typing :: Typed",
 ]
 authors = [{ name = "Trey Wilkinson", email = "winston.trey.wilkinson@gmail.com" }]
-requires-python = ">=3.10"
+requires-python = ">=3.9"
 license.text = "MIT"
 readme = "README.md"
 
 [project.urls]
-Homepage = "https://github.com/tree-sitter/tree-sitter-zortex"
+Homepage = "https://github.com/t-wilkinson/zortex.nvim"
 
 [project.optional-dependencies]
-core = ["tree-sitter~=0.24"]
+core = ["tree-sitter~=0.22"]
 
 [tool.cibuildwheel]
-build = "cp310-*"
+build = "cp39-*"
 build-frontend = "build"

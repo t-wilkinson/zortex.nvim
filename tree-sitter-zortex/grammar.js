@@ -1,263 +1,285 @@
-/**
- * @file Zortex grammar for tree-sitter
- * @author Trey Wilkinson <winston.trey.wilkinson@gmail.com>
- * @license MIT
- */
+// Zortex Tree-sitter Grammar (grammar.js) - Inline Content Conflict Fix
 
-/// <reference types="tree-sitter-cli/dsl" />
-// @ts-check
+// Precedence levels for resolving inline ambiguities
+const PRECEDENCE_LEVEL_EMPHASIS = 1;
+const PRECEDENCE_LEVEL_LINK = 10;
 
-// grammar.js
+// prettier-ignore
 module.exports = grammar({
-  name: "custom_markdown",
+  name: 'zortex',
 
-  // Whitespace that can appear anywhere (excluding newlines initially, handled by blocks)
-  extras: ($) => [
-    /[ \t]+/, // Allow spaces and tabs between tokens on the same line
-  ],
+  extras: $ => [/\s+/], // Corrected: Allow all whitespace as extras
 
-  // Rules that might conflict and need explicit resolution
-  conflicts: ($) => [
-    [$._text_inline, $.link],
-    [$._text_inline, $.formatted_text], // To ensure formatting markers are preferred
-    [$._text_inline, $.inline_code],
-    [$._text_inline, $.latex_inline],
-    // Potentially, if list items can be very simple and resemble plain paragraph lines.
-    // The structure of list items (marker + space) should generally prevent this.
-  ],
-
-  // Precedence for ambiguous parsing, e.g., *** vs ** and *
-  precedences: ($) => [
-    [$.bold_italic, $.bold, $.italic], // *** wins over **, which wins over *
-    // Block-level precedence: more specific block starters should win
-    [$.code_block, $.latex_block, $.list, $.heading, $.label, $.paragraph],
+  conflicts: $ => [
+    [$._list_marker, $._star_delimiter]
   ],
 
   rules: {
-    // Root node: document
-    document: ($) =>
-      seq(
-        optional($.article_headers),
-        optional($.tags),
-        optional($._blank_lines), // Separator blank lines
-        optional($.body),
+      // ---------------------------------------------------------------------
+      // Document Structure
+      // ---------------------------------------------------------------------
+      document: $ => seq(
+          // Metadata Section - order is important here
+          $.article_name, // The first @@ line is the article name
+          repeat($.article_alias),  // Subsequent @@ lines are aliases
+          repeat($.tag_line),       // @ lines are tags
+
+          // Content Section
+          repeat($._block_content_item) // All other content blocks
       ),
 
-    // 1. Article Headers
-    article_headers: ($) => repeat1($.article_header),
-    article_header: ($) => seq("@@", field("name", $.article_name), $._newline),
-    article_name: ($) => token(prec(1, /[^\n]+/)),
-
-    // 2. Tags
-    tags: ($) => repeat1($.tag_line),
-    tag_line: ($) => seq("@", field("name", $.tag_name), $._newline),
-    tag_name: ($) => token(/[^\s@\n]+/),
-
-    // 3. Blank Lines (structural separator)
-    _blank_lines: ($) => repeat1($._blank_line_token), // Use a named token for clarity
-    _blank_line_token: ($) => alias($._newline, $.blank_line), // Alias for semantic meaning in tree
-
-    // 4. Body Content
-    body: ($) => repeat1($._block),
-
-    _block: ($) =>
-      choice(
-        $.heading,
-        $.label,
-        $.list,
-        $.code_block,
-        $.latex_block,
-        $.paragraph,
-        $._blank_line_token, // Allow blank lines between blocks in the body
+      // A block content item can be a content block or a blank line
+      _block_content_item: $ => choice(
+          $._content_block,
+          $._blank_line_explicit // Using an explicit blank line rule for clarity in sequences
       ),
 
-    // 5. Headings
-    heading: ($) =>
-      seq(
-        field("marker", $.heading_marker),
-        " ", // Required space after marker
-        field("text", $.heading_text),
-        $._newline, // Headings are line-based
+      _blank_line_explicit: $ => prec.left(repeat1($._newline)),
+
+      // ---------------------------------------------------------------------
+      // Metadata Rules (consume their own newlines)
+      // ---------------------------------------------------------------------
+      article_name:  $ => seq('@@', field('name',  $._text_to_eol), $._newline),
+      article_alias: $ => seq('@@', field('alias', $._text_to_eol), $._newline),
+      tag_line:      $ => seq('@',  field('tag',   $._text_to_eol), $._newline),
+
+      // ---------------------------------------------------------------------
+      // Content Blocks (these do not include metadata items handled above)
+      // ---------------------------------------------------------------------
+      _content_block: $ => choice(
+          $.heading,
+          $.paragraph,
+          $.fenced_code_block,
+          $.latex_block,
+          $.list,
+          $.label_standalone,
+          $.label_with_text
+          // _blank_line_explicit is handled in _block_content_item
       ),
-    heading_marker: ($) => token(/#+/),
-    heading_text: ($) =>
-      repeat1(
-        // Content of the heading
-        choice(
-          $.link,
-          $.formatted_text,
+
+      // ---------------------------------------------------------------------
+      // Helper Rules - Basic
+      // ---------------------------------------------------------------------
+      _text_to_eol: $ => /[^\n\r]+/,
+      _newline: $ => /\r?\n/,
+
+      // ---------------------------------------------------------------------
+      // Headings
+      // ---------------------------------------------------------------------
+      heading: $ => choice(
+          $.heading1,
+          $.heading2,
+          $.heading3,
+          $.heading4,
+          $.heading5,
+          $.heading6
+      ),
+
+      heading1: $ => seq('#', ' ', field('content', $._inline_content_no_newline), $._newline),
+      heading2: $ => seq('##', ' ', field('content', $._inline_content_no_newline), $._newline),
+      heading3: $ => seq('###', ' ', field('content', $._inline_content_no_newline), $._newline),
+      heading4: $ => seq('####', ' ', field('content', $._inline_content_no_newline), $._newline),
+      heading5: $ => seq('#####', ' ', field('content', $._inline_content_no_newline), $._newline),
+      heading6: $ => seq('######', ' ', field('content', $._inline_content_no_newline), $._newline),
+
+      // ---------------------------------------------------------------------
+      // Paragraphs and Inline Content
+      // ---------------------------------------------------------------------
+      paragraph: $ => prec.right(repeat1(
+          seq($._inline_content, $._newline)
+      )),
+
+      _inline_content: $ => prec.right(repeat1(choice( // Added prec.right for greedy matching
+          $._word,
+          $.emphasis,
+          $.strong_emphasis,
+          $.bright_bold_emphasis,
           $.inline_code,
-          $.latex_inline,
-          $._escaped_char_generic, // Allow escaped characters
-          token(prec(-1, /[^#*`$\[\n\\]+/)), // General text, avoiding other inline starters
-        ),
+          $.inline_latex,
+          $.zortex_link,
+          $.autolink,
+          $.text_punctuation,
+          $.escaped_char
+      ))),
+
+      _inline_content_no_newline: $ => prec.right(repeat1(choice( // Also add prec.right here for consistency
+          $._word,
+          $.emphasis,
+          $.strong_emphasis,
+          $.bright_bold_emphasis,
+          $.inline_code,
+          $.inline_latex,
+          $.zortex_link,
+          $.autolink,
+          $.text_punctuation_inline,
+          $.escaped_char
+      ))),
+
+      _word: $ => /\S+/,
+
+      text_punctuation: $ => choice('.', ',', ';', ':', '?', '!'),
+      text_punctuation_inline: $ => choice('.', ',', ';', '?', '!'),
+
+      escaped_char: $ => token(prec(1, seq('\\', /./))),
+
+      // ---------------------------------------------------------------------
+      // Labels
+      // ---------------------------------------------------------------------
+      _label_text_content: $ => /[^:\n\r]+/,
+
+      label_standalone: $ => seq(
+          field('name', $._label_text_content),
+          ':',
+          $._newline
       ),
 
-    // 6. Labels
-    label: ($) => seq(field("name", $.label_name), ":", $._newline),
-    label_name: ($) => token(/[A-Za-z0-9][A-Za-z0-9 ]*/),
-
-    // 7. Paragraphs
-    // A paragraph is a sequence of inline content, terminated by a newline.
-    // It's distinguished from other blocks by not starting with their specific markers.
-    paragraph: ($) =>
-      prec.dynamic(-1, seq(repeat1($._inline_item), $._newline)),
-
-    // Unified inline item definition
-    _inline_item: ($) =>
-      choice(
-        $.link,
-        $.formatted_text,
-        $.inline_code,
-        $.latex_inline,
-        $._escaped_char_generic,
-        $._text_inline, // General text
+      label_with_text: $ => seq(
+          field('name', $._label_text_content),
+          ':',
+          // optional(' '), // Covered by `extras: [/\s+/]`
+          field('value', $._inline_content_no_newline),
+          $._newline
       ),
 
-    // General text token for inline content
-    // It should not consume characters that start other inline elements or block elements at line start.
-    _text_inline: ($) => token(prec(-2, /([^\[*`$\n\\]|\\.)+/)), // Lowest precedence text
+      // ---------------------------------------------------------------------
+      // Emphasis
+      // ---------------------------------------------------------------------
+      _star_delimiter: $ => '*',
+      _double_star_delimiter: $ => '**',
+      _triple_star_delimiter: $ => '***',
 
-    // Escaped character (generic)
-    _escaped_char_generic: ($) => token.immediate(/\\./), // Escape any character, immediate to bind tightly
+      emphasis: $ => prec.dynamic(PRECEDENCE_LEVEL_EMPHASIS, seq(
+          alias($._star_delimiter, $.emphasis_delimiter),
+          field('content', $._inline_content_no_star),
+          alias($._star_delimiter, $.emphasis_delimiter)
+      )),
 
-    // 8. Links
-    link: ($) =>
-      choice(
-        // Markdown style: [text](url)
-        seq(
-          "[",
-          field("text", repeat1($._link_text_content)),
-          "]",
-          "(",
-          field("url", repeat($._url_content)),
-          ")",
-        ),
-        // Article/Subpath style: [Article/#Heading], [Article/:Label], [/LocalHeading], [Article]
-        seq("[", field("path", repeat1($._link_text_content)), "]"),
-      ),
-    _link_text_content: ($) =>
-      choice(token.immediate(/[^\]\\]+/), $._escaped_char_generic),
-    _url_content: ($) =>
-      choice(token.immediate(/[^)\s\\]+/), $._escaped_char_generic),
+      strong_emphasis: $ => prec.dynamic(PRECEDENCE_LEVEL_EMPHASIS + 1, seq(
+          alias($._double_star_delimiter, $.emphasis_delimiter),
+          field('content', $._inline_content_no_double_star),
+          alias($._double_star_delimiter, $.emphasis_delimiter)
+      )),
 
-    // 9. Lists
-    list: ($) => repeat1(choice($.bullet_list_item, $.numbered_list_item)),
+      bright_bold_emphasis: $ => prec.dynamic(PRECEDENCE_LEVEL_EMPHASIS + 2, seq(
+          alias($._triple_star_delimiter, $.emphasis_delimiter),
+          field('content', $._inline_content_no_triple_star),
+          alias($._triple_star_delimiter, $.emphasis_delimiter)
+      )),
 
-    bullet_list_item: ($) =>
-      seq(
-        field("marker", choice("-", "*", "+")),
-        " ",
-        repeat1($._inline_item),
-        $._newline,
-        // Note: Nested lists typically require indentation handling (external scanner).
-      ),
-    numbered_list_item: ($) =>
-      seq(field("marker", /\d+\./), " ", repeat1($._inline_item), $._newline),
+      _inline_content_no_star: $ => prec.right(repeat1(choice( // Added prec.right
+          $._word, $.strong_emphasis, $.bright_bold_emphasis, $.inline_code, $.inline_latex, $.zortex_link, $.autolink, $.text_punctuation, $.escaped_char,
+          token(prec(-1, /[^ *\n\r\\]+/)) // Text not containing star, newline, or backslash
+      ))),
+      _inline_content_no_double_star: $ => prec.right(repeat1(choice( // Added prec.right
+          $._word, $.emphasis, $.bright_bold_emphasis, $.inline_code, $.inline_latex, $.zortex_link, $.autolink, $.text_punctuation, $.escaped_char,
+          token(prec(-1, /[^ *\n\r\\]+/))
+      ))),
+      _inline_content_no_triple_star: $ => prec.right(repeat1(choice( // Added prec.right
+          $._word, $.emphasis, $.strong_emphasis, $.inline_code, $.inline_latex, $.zortex_link, $.autolink, $.text_punctuation, $.escaped_char,
+          token(prec(-1, /[^ *\n\r\\]+/))
+      ))),
 
-    // 10. Inline Code & Code Blocks
-    inline_code: ($) =>
-      seq(
-        "`",
-        field("content", token.immediate(/[^`\n]+/)), // Content cannot contain backticks or newlines
-        "`",
-      ),
-    code_block: ($) =>
-      seq(
-        "```",
-        optional(field("language", $.language_name)),
-        $._newline,
-        field("content", optional($._fenced_content)),
-        "```",
-        $._newline,
-      ),
-    language_name: ($) => token.immediate(/[a-zA-Z0-9]+/), // No spaces around language name
-
-    // 11. LaTeX / Math Blocks
-    latex_inline: ($) =>
-      seq(
-        "$",
-        field("content", token.immediate(/[^$\n]+/)), // Content cannot contain $ or newlines
-        "$",
-      ),
-    latex_block: ($) =>
-      seq(
-        "$$",
-        $._newline,
-        field("content", optional($._fenced_content)),
-        "$$",
-        $._newline,
+      // ---------------------------------------------------------------------
+      // Code Blocks
+      // ---------------------------------------------------------------------
+      inline_code: $ => seq(
+          '`',
+          field('content', optional(token.immediate(/[^`\n\r]+/))),
+          '`'
       ),
 
-    // Helper for content of fenced blocks (code and LaTeX)
-    // This captures lines until the closing fence. For robustness with escaped fences,
-    // an external scanner is better.
-    _fenced_content: ($) =>
-      repeat1(
-        choice(
-          token.immediate(/[^\n]+/), // Any character except newline
-          $._newline, // Allow newlines within the fenced content
-        ),
+      fenced_code_block: $ => seq(
+          alias(/`{3,}/, $.code_fence_start_delimiter),
+          field('language', optional(alias(/[a-zA-Z0-9_\-\+]+/, $.language_name))),
+          $._newline,
+          field('content', optional($._code_block_content)),
+          // optional($._newline), // Allow newline before closing fence if needed
+          alias(/`{3,}/, $.code_fence_end_delimiter),
+          $._newline // Fenced code block should end with a newline to be a block
       ),
 
-    // 12. Formatting (Bold, Italic, Bold-Italic)
-    formatted_text: ($) => choice($.bold_italic, $.bold, $.italic),
-
-    bold: ($) =>
-      seq(
-        alias(token.immediate("**"), $.bold_marker_start),
-        field("content", repeat1($._inline_item_for_formatting)), // Content of bold
-        alias(token.immediate("**"), $.bold_marker_end),
-      ),
-    italic: ($) =>
-      seq(
-        alias(token.immediate("*"), $.italic_marker_start),
-        field("content", repeat1($._inline_item_for_formatting)), // Content of italic
-        alias(token.immediate("*"), $.italic_marker_end),
-      ),
-    bold_italic: ($) =>
-      seq(
-        alias(token.immediate("***"), $.bold_italic_marker_start),
-        field("content", repeat1($._inline_item_for_formatting)), // Content of bold_italic
-        alias(token.immediate("***"), $.bold_italic_marker_end),
+      _code_block_content: $ => repeat1( // Content lines, not including the final fence line
+          prec.dynamic(-1, seq($._text_to_eol, $._newline))
       ),
 
-    // Content within formatting: cannot directly contain the *same* level of formatting marker
-    // but can contain others or general text. This helps avoid trivial infinite recursion.
-    // This is a common pattern but can be complex.
-    // A simpler approach is to allow any _inline_item and rely on precedence,
-    // but this can sometimes lead to unexpected parse trees for nested formatting.
-    _inline_item_for_formatting: ($) =>
-      choice(
-        // $.link, // Links can be inside formatting
-        // $.inline_code, // Inline code can be inside
-        // $.latex_inline, // Inline LaTeX can be inside
-        // $.bold, // Allow bold inside italic/bold_italic (if not ***)
-        // $.italic, // Allow italic inside bold/bold_italic (if not ***)
-        // $.bold_italic, // Potentially allow bold_italic inside others (complex)
-        // For now, keeping it simpler:
-        $.link,
-        $.inline_code,
-        $.latex_inline,
-        $._escaped_char_generic,
-        token(prec(-1, /[^\[*`$\n\\]+/)), // Text not starting other markers
-        // Adjust this regex if specific markers need to be excluded
-        // based on the parent formatting rule.
-        // Example: in *italic*, text cannot be *
-        // This is where Tree-sitter's GLR parsing helps.
-        // The original `_inline_item` might be sufficient with correct precedence.
-        // Let's revert to the simpler `_inline_item` and rely on precedence.
-        // If issues arise, this is an area for refinement.
+
+      // ---------------------------------------------------------------------
+      // LaTeX Blocks
+      // ---------------------------------------------------------------------
+      _latex_span_start: $ => '$',
+      _latex_span_close: $ => '$',
+      _double_dollar_delimiter: $ => '$$',
+
+      inline_latex: $ => seq(
+          alias($._latex_span_start, $.latex_delimiter),
+          field('content', repeat(choice(
+              token.immediate(/[^\$\s\n\r\\]+/),
+              $._word,
+              $.escaped_char
+          ))),
+          alias($._latex_span_close, $.latex_delimiter)
       ),
 
-    // Common Tokens
-    _newline: ($) => "\n",
-  },
+      latex_block: $ => seq(
+          alias($._double_dollar_delimiter, $.latex_block_delimiter_start),
+          $._newline,
+          field('content', repeat(choice( // Content lines
+              prec.dynamic(-1, seq($._text_to_eol, $._newline))
+          ))),
+          alias($._double_dollar_delimiter, $.latex_block_delimiter_end),
+          $._newline // LaTeX block should end with a newline
+      ),
+
+      // ---------------------------------------------------------------------
+      // Lists
+      // ---------------------------------------------------------------------
+      list: $ => prec.left(repeat1($.list_item)),
+
+      list_item: $ => seq(
+          field('marker', $._list_marker),
+          ' ',
+          field('content', $._inline_content),
+          $._newline,
+          optional($.list)
+      ),
+
+      _list_marker: $ => choice('-', '+', '*'),
+
+      // ---------------------------------------------------------------------
+      // Links
+      // ---------------------------------------------------------------------
+      autolink: $ => token(prec(1, /https?:\/\/[^\s\[\]()<>'""]+/)),
+
+      zortex_link: $ => prec.dynamic(PRECEDENCE_LEVEL_LINK, choice(
+          $._internal_label_link,
+          $._internal_article_anchor_link,
+          $._internal_article_link
+      )),
+
+      _link_content_char: $ => /[^\]\\]/,
+      _link_text: $ => repeat1(choice($._link_content_char, $.escaped_char)),
+
+      _internal_label_link_content: $ => $._link_text,
+      _internal_label_link: $ => seq(
+          '[/:',
+          field('label_name', $._internal_label_link_content),
+          ']'
+      ),
+
+      _internal_article_name_content: $ => alias(repeat1(choice(/[^\]#:\/\\]/, $.escaped_char)), $.article_identifier),
+      _internal_article_link: $ => seq(
+          '[',
+          field('article_name', $._internal_article_name_content),
+          ']'
+      ),
+
+      _internal_anchor_target_content: $ => $._link_text,
+      _internal_article_anchor_link: $ => seq(
+          '[',
+          field('article_name', $._internal_article_name_content),
+          field('anchor_type', choice('/#', '/:', '/')),
+          field('target', $._internal_anchor_target_content),
+          ']'
+      )
+  }
 });
-
-// Re-assigning _inline_item_for_formatting to _inline_item after definition
-// This is a common JS pattern if you need to break a circular dependency in rule definitions,
-// or if you decide later that a more general rule is fine.
-// In this case, relying on precedence for formatting nesting is generally robust.
-// module.exports.rules._inline_item_for_formatting =
-//   module.exports.rules._inline_item;

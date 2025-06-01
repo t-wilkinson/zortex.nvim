@@ -1,4 +1,4 @@
-"""Zortex grammar for tree-sitter"""
+"""For zortex files"""
 
 from importlib.resources import files as _files
 

@@ -1,0 +1,43 @@
+@@Article Name
+@@Optional Alias
+@Tag 1
+@Tag 2
+
+This is an example layout of zortex files. Every file starts with "@@" followed by an article name. You can immediately follow the article name with aliases. For example, for an article "@@World Wide Web", you could have "@@WWW". "@@Article Names" should be title case.
+
+Commas and periods are highlighted in their natural sentence positions because I find it helps me scan sentences quicker.
+
+# This is a heading
+
+This is a label:
+Another label: but this time with text after.
+And another one: but this time with text after.
+
+Label:
+Hey! Did I mention we have $l^at_ex$ blocks? We even have latex code blocks
+
+$$
+$J(\theta)=-\mathbb{E}_{X,Y\sim\hat{p}_{data}}[log~p_{model}(y;x,\theta)]+\lambda\Omega(\theta)$
+$$
+.
+
+There's also inline code `like this` or code fences...
+
+```bash
+#!/bin/bash
+echo Hello World!
+```
+
+## Sub heading
+- We also have markdown-like syntax
+- One of my most favorite features are links. They are pretty powerful. [/:This is a label] links to the label "This is a label:" above.
+
+# What else?
+Well, the goal with this project is to have a comprehensive plain-text syntax that reads naturally and serves well as a note system. Because notes are plain text, we can search them with "ZZ".
+
+- Words can be *bright* or **bold** or ***both***
+    - **This** is a common pattern
+    - As is this: it is a useful way to give details for a key word.
+    - https://en.wikipedia.org/wiki/Routing_protocol is automatically treated as a link
+    - [Calculus] is treated as a link to a article in "~/.zortex".
+    - [Calculus/#Heading] or [Calculus/:Label] or [Calculus/HeadingOrLabel] are links to the Calculus article and jumps to the specific heading, label, or generic structure item in.

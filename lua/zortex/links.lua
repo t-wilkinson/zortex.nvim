@@ -1,14 +1,4 @@
--- Personal Wikipedia Link Parser and Opener
--- Updated with advanced article link parsing and navigation
-
--- M.open_link()
--- Remove: M.open_external(
---   "https://en.wikipedia.org/wiki/Special:Search/" .. vim.fn.fnameescape(link.article_name_query)
--- )
---
--- create_search_pattern_for_part()
--- the `+` in search_pattern regex should be escaped `\\+`. So:
--- search_pattern = "\\c^#\\+\\s*" .. vim.fn.escape(part:sub(2), "\\")
+-- Local links like [/Heading] should work on files not in the main zortex directory.
 
 local M = {}
 
@@ -398,7 +388,6 @@ function M.search_all_articles_globally(search_text_with_prefix)
 		vim.notify("Invalid global search query: " .. search_text_with_prefix, vim.log.levels.WARN)
 		return false
 	end
-	-- \c^#+\s*Hyperfocus
 
 	local qf_list = {}
 	local scandir_handle = vim.loop.fs_scandir(notes_dir)

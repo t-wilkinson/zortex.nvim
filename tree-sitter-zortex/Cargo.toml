@@ -1,25 +1,18 @@
 [package]
 name = "tree-sitter-zortex"
-description = "Zortex grammar for tree-sitter"
+description = "For zortex files"
 version = "0.1.0"
 authors = ["Trey Wilkinson <winston.trey.wilkinson@gmail.com>"]
 license = "MIT"
 readme = "README.md"
 keywords = ["incremental", "parsing", "tree-sitter", "zortex"]
-categories = ["parser-implementations", "parsing", "text-editors"]
-repository = "https://github.com/tree-sitter/tree-sitter-zortex"
+categories = ["parsing", "text-editors"]
+repository = "https://github.com/t-wilkinson/zortex.nvim"
 edition = "2021"
 autoexamples = false
 
 build = "bindings/rust/build.rs"
-include = [
-  "bindings/rust/*",
-  "grammar.js",
-  "queries/*",
-  "src/*",
-  "tree-sitter.json",
-  "LICENSE",
-]
+include = ["bindings/rust/*", "grammar.js", "queries/*", "src/*", "tree-sitter.json"]
 
 [lib]
 path = "bindings/rust/lib.rs"
@@ -28,7 +21,7 @@ path = "bindings/rust/lib.rs"
 tree-sitter-language = "0.1"
 
 [build-dependencies]
-cc = "1.2"
+cc = "1.1.22"
 
 [dev-dependencies]
-tree-sitter = "0.25.4"
+tree-sitter = "0.24.6"

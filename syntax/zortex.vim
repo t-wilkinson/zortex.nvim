@@ -102,7 +102,7 @@ syn region mkdLinkTitle matchgroup=mkdDelimiter start=+(+     end=+)+  contained
 
 "define Markdown groups
 syn match  mkdLineBreak    /  \+$/
-syn region mkdBlockquote   start=/^\s*>/                   end=/$/ contains=mkdLink,mkdInlineURL,mkdLineBreak,@Spell
+syn region mkdBlockquote   start=/^\s*|/                   end=/$/ contains=mkdLink,mkdInlineURL,mkdLineBreak,@Spell
 
 " execute 'syn region mkdCode matchgroup=mkdCodeDelimiter start=/\(\([^\\]\|^\)\\\)\@<!`/                     end=/`/'
 " execute 'syn region mkdCode matchgroup=mkdCodeDelimiter start=/\(\([^\\]\|^\)\\\)\@<!``/ skip=/[^`]`[^`]/   end=/``/' . s:concealcode
@@ -149,45 +149,50 @@ if main_syntax ==# 'zettel'
   unlet! s:done_include
 endif
 
-syntax match Statement /[A-Za-z0-9- )(.].\{-}\ze :=/
-syntax match zTag /\d*@\{1,2}\ze\[/
-syntax match zTag /\S*@\{1,2}\([A-Za-z0-9()]\S*\s\?\)\+/  " @Tags
-" syntax match Statement /&\{1,2}\([A-Za-z0-9]*\s\?\)\+/  " &Tags. Just use links instead, like: [Tag]
-syntax match zBullet /^\s*[-+x!*¿?✘★✓]\ze\s/            " Unordered lists
+" Structures
+" syntax match zTag /^\d*@\{1,2}\ze\[/
+syntax match zTag /^[A-Za-z0-9]*@\{1,2}\([A-Za-z0-9()]\S*\s\?\)\+/  " @@Article names or @Tags or key@Value
+" TODO: match only if there's a new line before
+syntax match zHeading /^#\{1,} [^#]*/             " Headings
+" syntax match String  /^- [A-Z][^*]\+\ze: /           " - Label: text
+syntax match String  /^[A-Za-z0-9][^.*:]\+\ze: /           " Label: text
+syntax match String  /^\s\+[A-Za-z0-9][^.*:]\+\ze: /           " \s+Label: text
+syntax match zListLabel /^\d\+\. \zs[^.]\+\ze:$/       " ^\d. Label text:$
+syntax match zLabel /^[0-9A-Z][^.]\+\ze:$/           " Label:\n
+syntax match zLabel /^\s\+[0-9A-Z][^.]\+\ze:$/           " \s+Label:\n
+syntax match zOperator /- \zs#.*#\ze / " - #tag1#tag2# Text
+syntax match zOperator /^\s*- \zs[A-Z].*\ze:$/      " - Label:\n
+" syntax match zOperator /^\s*- \zs[A-Z].*\ze: /      " - Label: Some text
+syntax match String /\s[A-Za-z0-9() ]\+\ze: /      " - Label: Some text
+
+syntax match zBullet /^\s*\zs[-+x!*¿?✘★✓]\ze\s/            " Unordered lists
 syntax match zOperator /^\s*[A-Za-z0-9]\+\./  " Numbered lists
-syntax match zOperator / \(:\|:=\|<->\|<-\|->\|>-\|-<\|>-<\|\~>\|<=>\|=>\|!=\|==\|+\|vs\.\|\/\||\) /
-syntax match zOperator /\d\+:\d\d/ " Times
+
+syntax match zOperator /\d\d\?:\d\d/ " Times of day 
 syntax match zOperator /[A-Z]\S* \d\+:\d\+\(-\d\+\)/ " Scripture quotes
+syntax match zDefinition /[A-Za-z0-9- )(.].\{-}\ze :=/ " Word := is defined as...
+syntax match Statement /[ \r\n]\d\+s\?: /  " history year
+syntax match Statement /[ \r\n]\s\d\+s\?-\d\+s\?: /  " history year range
+
+" Operators
+syntax match zOperator / \(:\|:=\|<->\|<-\|->\|>-\|-<\|>-<\|\~>\|<=>\|=>\|!=\|==\|+\|vs\.\|\/\||\) /
 syntax match zOperator /\d\{1,3}%\_s/ " Percents
 syntax match zOperator /\(,\|;\)\_s/ " Commas
-syntax match zOperator /\w\+=\ze\(\w\|\/\|\.\)/
-syntax match zOperator /\w\zs\(\.\|?\)\ze\( \|$\)/ " Sentence
-" syntax match zOperator /\(\w\|*\)\zs: /
 syntax match zOperator /: /
 syntax match zOperator /:$/
+
+syntax match zOperator /\w\zs\(\.\|?\)\ze\( \|$\)/ " Sentence period.
+syntax match zOperator /^[A-Z][^.?]\+?$/           " Sentence question?
+
+" syntax match zOperator /\w\+=\ze\(\w\|\/\|\.\)/ " Dunno
+" syntax match zOperator /\(\w\|*\)\zs: /
 " syntax match zOperator /#\([A-Z0-9]\S*\s\?\)\+#/
-syntax match zOperator /#.*#/
 " syntax match zOperator /^\d\{14}:/
 " syntax match zOperator /\$\d\+\.\d\+/ " Price
 " syntax match zOperator /z:\d\{4}\.\d\{5}\.\d\{5}/
-syntax match zHeading /^#\{1,} [^#]*/             " Headings
 
-" TODO: match only if there's a new line before
-syntax match zLabel /^[0-9A-Z][^.]\+:$/           " Label:\n
-
-syntax match zOperator /^[A-Z][^.?]\+?$/           " Question?\n
-" syntax match String  /^- [A-Z][^*]\+\ze: /           " - Label: text
-syntax match String  /^[A-Za-z0-9][^.*:]\+\ze: /           " Label: text
-syntax match zOperator /^\s*- \zs[A-Z].*\ze:$/      " - Label:
-
-syntax match Statement /|[^|]\+|/
-syntax match zTag /^\s*\zs%/ " queries
-
-syntax match zListLabel /^\d\+\. [^.]\+\ze:$/       " ^\d. Label text:$
-
-" History
-syntax match Statement /[ \r\n]\d\+s\?: /  " history year
-syntax match Statement /[ \r\n]\s\d\+s\?-\d\+s\?: /  " history year range
+" syntax match Statement /|[^|]\+|/ " Search for tag
+" syntax match zTag /^\s*\zs%/ " queries
 
 " $HOME/.vim/plugged/vim/colors/dracula.vim
 command! -nargs=+ Hi hi def link <args>
@@ -229,11 +234,12 @@ Hi zettelTag Tag
 
 Hi mkdSurround      Statement
 
-Hi zHeading         Number
+hi zHeading gui=bold,italic guifg=#3e8fb0
+Hi zHeading         mkdBoldItalic
 Hi zQuote           String
 Hi zTag             Number
 Hi zOperator        Tag
-Hi zLabel           Number
+Hi zLabel           Conditional
 Hi zBullet          Tag
 Hi zListLabel       String
 " hi zLabel gui=bold

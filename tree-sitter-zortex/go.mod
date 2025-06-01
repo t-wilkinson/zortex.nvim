@@ -1,4 +1,4 @@
-module github.com/tree-sitter/tree-sitter-zortex
+module github.com/t-wilkinson/zortex.nvim
 
 go 1.22
 

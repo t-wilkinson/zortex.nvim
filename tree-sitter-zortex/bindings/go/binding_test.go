@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
-	tree_sitter_zortex "github.com/tree-sitter/tree-sitter-zortex/bindings/go"
+	tree_sitter_zortex "github.com/t-wilkinson/zortex.nvim/bindings/go"
 )
 
 func TestCanLoadGrammar(t *testing.T) {

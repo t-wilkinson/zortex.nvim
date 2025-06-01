@@ -1,7 +1,6 @@
 from unittest import TestCase
 
-import tree_sitter
-import tree_sitter_zortex
+import tree_sitter, tree_sitter_zortex
 
 
 class TestLanguage(TestCase):

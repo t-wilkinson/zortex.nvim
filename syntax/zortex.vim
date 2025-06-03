@@ -159,16 +159,17 @@ endif
 syntax match zTag /^[A-Za-z0-9]*@\{1,2}\([A-Za-z0-9()]\S*\s\?\)\+/  " @@Article names or @Tags or key@Value
 " TODO: match only if there's a new line before
 syntax match zHeading /^#\{1,6} .*$/             " Headings
-" syntax match String  /^- [A-Z][^*]\+\ze: /           " - Label: text
+
 syntax match String  /^[A-Za-z0-9][^.*:]\+\ze: /           " Label: text
-syntax match String  /^\s\+[A-Za-z0-9][^.*:]\+\ze: /           " \s+Label: text
-syntax match zListLabel /\(\d\+\.\)\@<= \zs[^.]\+\ze:$/       " ^\d. Label text:$
 syntax match zLabel /^[0-9A-Z][^.]\+\ze:$/           " Label:\n
+syntax match String  /^\s\+[A-Za-z0-9][^.*:]\+\ze: /           " \s+Label: text
 syntax match zLabel /^\s\+[0-9A-Z][^.]\+\ze:$/           " \s+Label:\n
+syntax match zListLabel /\(\d\+\.\)\@<= \zs[^.]\+\ze:$/       " ^\d. Label text:$
+
+" syntax match zOperator /^\s*- \zs[A-Z].*\ze:$/      " - Label:\n
+" syntax match String /\s[A-Za-z0-9() ]\+\ze: /      " - Label: Some text
+
 syntax match zOperator /- \zs#.*#\ze / " - #tag1#tag2# Text
-syntax match zOperator /^\s*- \zs[A-Z].*\ze:$/      " - Label:\n
-" syntax match zOperator /^\s*- \zs[A-Z].*\ze: /      " - Label: Some text
-syntax match String /\s[A-Za-z0-9() ]\+\ze: /      " - Label: Some text
 
 syntax match zBullet /^\s*\zs[-+x!*¿?✘★✓]\ze\s/            " Unordered lists
 syntax match zOperator /^\s*[A-Za-z0-9]\+\./  " Numbered lists

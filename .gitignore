@@ -1,3 +1,5 @@
+.direnv
+
 app/.env.remote
 app/lib
 

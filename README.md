@@ -140,3 +140,4 @@ Commands:
 ### TODOS
 
 - Convert original resource link to tag setup `[name]{author=...; ref=...}` -> `#author=...#[name](ref)`
+- When searching files, initially populate each file with only the article names for quick searching. it is possible to do some form of multiprocessing

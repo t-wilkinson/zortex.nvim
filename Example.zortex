@@ -28,9 +28,13 @@ There's also inline code `like this` or code fences...
 echo Hello World!
 ```
 
+This is my label:
+
 ## Sub heading
 - We also have markdown-like syntax
-- One of my most favorite features are links. They are pretty powerful. [/:This is a label] links to the label "This is a label:" above.
+- One of my most favorite features are links. They are pretty powerful. [/:This is my label] links to the label "This is a label:" above.
+- [/This is a heading] takes you to the heading
+- [/%have]
 
 # What else?
 Well, the goal with this project is to have a comprehensive plain-text syntax that reads naturally and serves well as a note system. Because notes are plain text, we can search them with "ZZ".

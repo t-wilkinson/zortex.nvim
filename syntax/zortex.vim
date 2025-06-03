@@ -73,13 +73,18 @@ execute 'syn region zBright matchgroup=mkdItalic start="\%(^\|\s\)\zs\*\ze\S" en
 execute 'syn region zBold matchgroup=mkdBold start="\%(^\|\s\)\zs\*\*\ze\S" end="\S\zs\*\*" keepend contains=@Spell' . s:oneline . s:concealends
 execute 'syn region zBrightBold matchgroup=mkdBoldItalic start="\%(^\|\s\)\zs\*\*\*\ze\S" end="\S\zs\*\*\*" keepend contains=@Spell' . s:oneline . s:concealends
 
+
+" [^footer note]
+execute 'syn region zLink matchgroup=mkdDelimiter start="\[\ze[^^]" end="\]" contains=@zInline,@Spell skipwhite oneline' . s:concealends
+" [zortex link]
+execute 'syn region zFooterNote matchgroup=mkdDelimiter start="\[^" end="\]" contains=@zInline,@Spell skipwhite oneline' . s:concealends
+
 " [link](URL) | [link][id] | [link][] | ![image](URL)
-syn region mkdFootnotes matchgroup=mkdDelimiter start="\[^"    end="\]"
-execute 'syn region mkdZettel matchgroup=mkdDelimiter   start="{"     end="}"  contained oneline' . s:conceal
-execute 'syn region mkdURL matchgroup=mkdDelimiter   start="("     end=")"  contained oneline' . s:conceal
-execute 'syn region mkdID matchgroup=mkdDelimiter    start="\["    end="\]" contained oneline' . s:conceal
-execute 'syn region mkdLink matchgroup=mkdDelimiter       start="\\\@<!!\?\[\ze[^]\n]*\n\?[^]\n]*\][[({]" end="\]" contains=@mkdNonListItem,@Spell nextgroup=mkdZettel,mkdURL,mkdID skipwhite' . s:concealends
-execute 'syn region mkdEmptyLink matchgroup=mkdDelimiter  start="\\\@<!!\?\[\ze[^]\n]*\n\?[^]\n]*\][[({]\@!" end="\]" contains=@mkdNonListItem,@Spell skipwhite' . s:concealends
+" execute 'syn region mkdZettel matchgroup=mkdDelimiter   start="{"     end="}"  contained oneline' . s:conceal
+" execute 'syn region mkdURL matchgroup=mkdDelimiter   start="("     end=")"  contained oneline' . s:conceal
+" execute 'syn region mkdID matchgroup=mkdDelimiter    start="\["    end="\]" contained oneline' . s:conceal
+" execute 'syn region mkdLink matchgroup=mkdDelimiter       start="\\\@<!!\?\[\ze[^]\n]*\n\?[^]\n]*\][[({]" end="\]" contains=@mkdNonListItem,@Spell nextgroup=mkdZettel,mkdURL,mkdID skipwhite' . s:concealends
+" execute 'syn region mkdEmptyLink matchgroup=mkdDelimiter  start="\\\@<!!\?\[\ze[^]\n]*\n\?[^]\n]*\][[({]\@!" end="\]" contains=@mkdNonListItem,@Spell skipwhite' . s:concealends
 " execute 'syn region mkdLink matchgroup=mkdDelimiter  start="\[\ze[^]]*\]{" end="\]" contains=@mkdNonListItem,@Spell nextgroup=mkdZettel,mkdURL,mkdID skipwhite' . s:concealends
 
 " Autolink without angle brackets.
@@ -117,10 +122,10 @@ syn region mkdBlockquote   start=/^\s*|/                   end=/$/ contains=mkdL
 syn region mkdCode matchgroup=mkdCodeDelimiter start="^\s*\z(`\{3,\}\).*" end="^\s*\z1\ze\s*$" keepend
 " syn cluster markdownBlock contains=markdownH1,markdownH2,markdownH3,markdownH4,markdownH5,markdownH6,markdownBlockquote,markdownListMarker,markdownOrderedListMarker,markdownCodeBlock,markdownRule
 
-" Zettelkasten
-syn region zettelTag start=" #"    end="# " conceal oneline cchar= "
-            "\d\{4}\.\d\{3}\.\d\{5}]/
-syn region zettelTag start="\[z:" end="\]" conceal cchar=▣
+" " Zettelkasten
+" syn region zettelTag start=" #"    end="# " conceal oneline cchar= "
+"             "\d\{4}\.\d\{3}\.\d\{5}]/
+" syn region zettelTag start="\[z:" end="\]" conceal cchar=▣
 
 if get(g:, 'vim_markdown_strikethrough', 1)
     execute 'syn region mkdStrike matchgroup=htmlStrike start="\%(\~\~\)" end="\%(\~\~\)"' . s:concealends
@@ -131,7 +136,7 @@ if get(g:, 'vim_markdown_math', 1)
   syn region mkdMath start="\\\@<!\$\$" end="\$\$" skip="\\\$" contains=@tex keepend
 endif
 
-syn cluster mkdNonListItem contains=@htmlTop,htmlItalic,htmlBold,htmlBoldItalic,mkdFootnotes,mkdInlineURL,mkdLink,mkdLinkDef,mkdLineBreak,mkdBlockquote,mkdCode,mkdRule,htmlH1,htmlH2,htmlH3,htmlH4,htmlH5,htmlH6,mkdMath,mkdStrike,mkdEmptyLink
+syn cluster zInline contains=zFooterNote,zLink,@htmlTop,htmlItalic,htmlBold,htmlBoldItalic,mkdFootnotes,mkdInlineURL,mkdLink,mkdLinkDef,mkdLineBreak,mkdBlockquote,mkdCode,mkdRule,htmlH1,htmlH2,htmlH3,htmlH4,htmlH5,htmlH6,mkdMath,mkdStrike,mkdEmptyLink
 
 syn region zQuote start=/"/ end=/"/ oneline
 
@@ -153,11 +158,11 @@ endif
 " syntax match zTag /^\d*@\{1,2}\ze\[/
 syntax match zTag /^[A-Za-z0-9]*@\{1,2}\([A-Za-z0-9()]\S*\s\?\)\+/  " @@Article names or @Tags or key@Value
 " TODO: match only if there's a new line before
-syntax match zHeading /^#\{1,} [^#]*/             " Headings
+syntax match zHeading /^#\{1,6} .*$/             " Headings
 " syntax match String  /^- [A-Z][^*]\+\ze: /           " - Label: text
 syntax match String  /^[A-Za-z0-9][^.*:]\+\ze: /           " Label: text
 syntax match String  /^\s\+[A-Za-z0-9][^.*:]\+\ze: /           " \s+Label: text
-syntax match zListLabel /^\d\+\. \zs[^.]\+\ze:$/       " ^\d. Label text:$
+syntax match zListLabel /\(\d\+\.\)\@<= \zs[^.]\+\ze:$/       " ^\d. Label text:$
 syntax match zLabel /^[0-9A-Z][^.]\+\ze:$/           " Label:\n
 syntax match zLabel /^\s\+[0-9A-Z][^.]\+\ze:$/           " \s+Label:\n
 syntax match zOperator /- \zs#.*#\ze / " - #tag1#tag2# Text
@@ -231,17 +236,24 @@ Hi zBright       String
 Hi zBold         Directory
 Hi zBrightBold   Title
 Hi zettelTag Tag
+Hi zFooterNote      Comment
 
 Hi mkdSurround      Statement
 
-hi zHeading gui=bold,italic guifg=#3e8fb0
-Hi zHeading         mkdBoldItalic
+" hi zHeading gui=bold,italic guifg=#3e8fb0
+" Hi zHeading         mkdBoldItalic
+" hi zHeading gui=bold guibg=#3e8fb0 guifg=#232136
+hi zHeading gui=bold,italic guifg=#eb6f92 
+
+Hi zLink     Tag
 Hi zQuote           String
 Hi zTag             Number
 Hi zOperator        Tag
-Hi zLabel           Conditional
+" Hi zLabel           Conditional
+hi zLabel gui=bold guifg=#3e8fb0
 Hi zBullet          Tag
-Hi zListLabel       String
+" Hi zListLabel       Macro
+Hi zListLabel       Underlined
 " hi zLabel gui=bold
 
 let b:current_syntax = "zettel"

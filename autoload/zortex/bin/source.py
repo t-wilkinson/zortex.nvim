@@ -1,31 +1,22 @@
 #!/usr/bin/env python3
 import os
 import glob
-import sys
-import re
-from multiprocessing import Pool
+from concurrent.futures import ProcessPoolExecutor
 import argparse
-from zettel import source_zettels, path_to_zettel
+from zortex import get_path_metadata
 
 
-def from_zettel(zettel):
-    return zettel["file"]
+def metadata_sort_key(metadata):
+    text = metadata["tags"][0]["text"]
 
-
-def zortex_sort_key(zettel):
-    text = zettel["tags"][0]["text"]
-
-    # @@[name](link)
-    #   ^ sort these last
     return (
-        text[0] in "[" if len(text) >= 1 else False,
         text.lower(),
-        len(zettel["tags"]),
+        len(metadata["tags"]),
     )
 
 
-def filter_num_tags(zettel, max_tags=1):
-    return len(zettel["tags"]) <= max_tags
+def filter_num_tags(metadata, max_tags=1):
+    return len(metadata["tags"]) <= max_tags
 
 
 if __name__ == "__main__":
@@ -33,33 +24,49 @@ if __name__ == "__main__":
     parser.add_argument("dir")
     parser.add_argument("ext", nargs="?", default="zortex")
     parser.add_argument("-t", "--type")
-    parser.add_argument("--test", action="store_true")
     args = parser.parse_args()
 
     zortex_dir = args.dir
     zortex_ext = args.ext
-    print(zortex_dir, zortex_ext)
 
-    if args.test == True:
-        zettels = source_zettels()
+    num_workers = os.cpu_count() or 1
+
+    files_to_process = glob.glob(os.path.join(zortex_dir, "*.zortex"))
+
+    # Process files in chunks to avoid creating a process per file.
+    if len(files_to_process) > 0:
+        heuristic = 8
+        chunk_size = max(1,
+            (len(files_to_process) + num_workers * heuristic - 1)
+            // (num_workers * heuristic)
+                    )
     else:
-        with Pool() as p:
-            files = glob.glob(os.path.join(zortex_dir, "*.zortex"))
-            zettels = p.map(path_to_zettel, files)
+        chunk_size = 1
 
-    # Only show zettels with a single master tag
+    print(f"Using {num_workers} workers and chunksize {chunk_size}.")
+
+    with ProcessPoolExecutor(max_workers=num_workers) as executor:
+        results_iterator = executor.map(get_path_metadata, files_to_process, chunksize=chunk_size)
+        zortex_metadata = list(results_iterator)
+
+    # Only show zortexs with an article_name
     if args.type == "single-tag":
-        zettels = filter(filter_num_tags, zettels)
+        # The idea here is you might want some articles without a name but multiple tags.
+        # The idea would be to explore the connections between ideas.
+        # I'm not sure it's that useful though.
+        zortex_metadata = filter(filter_num_tags, zortex_metadata)
 
-    sorted_zettels = sorted(zettels, key=zortex_sort_key, reverse=True)
+    zortex_metadata = sorted(zortex_metadata, key=metadata_sort_key, reverse=True)
 
-    # Only show a single zettel per master tag
+    # Show unique article names
     if args.type == "unique":
-        unique_zettels = {}
-        for zettel in sorted_zettels:
-            tag = zettel["tags"][0]["text"]
-            unique_zettels[tag] = zettel
-        sorted_zettels = unique_zettels.values()
+        # The idea is you might want to differentiate articles based on their zortex_metadata (for example different types of tags).
+        # I don't think it's that useful but I'll keep it for now.
+        unique_articles = {}
+        for metadata in zortex_metadata:
+            tag = metadata["tags"][0]["text"]
+            unique_articles[tag] = metadata
+        zortex_metadata = unique_articles.values()
 
-    files = map(from_zettel, sorted_zettels)
+    files = map(lambda metadata: metadata["content"], zortex_metadata)
     print("\n".join(files))

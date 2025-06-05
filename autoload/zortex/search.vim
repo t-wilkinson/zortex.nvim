@@ -98,25 +98,6 @@ function! s:tagify(string) abort
     return '@' . title_case
 endfunction
 
-function! s:get_branch() abort
-    " might be better to read/write current buffer
-    let cur_line = getline('.')
-    let cur_lnum = line('.')
-    let cur_indent = indent(cur_lnum)
-    let lines = []
-
-    " Cut branch
-    for i in range(cur_lnum, line('$'))
-        exec 'norm "_dd'
-        if indent(cur_lnum) <= cur_indent
-            break
-        endif
-        call add(lines, getline(cur_lnum))
-    endfor
-
-    return #{ tag: s:tagify(cur_line), lines: lines }
-endfunction
-
 "============================== Handler functions ===========================
 
 function! zortex#search#handler(lines) abort
@@ -185,55 +166,6 @@ function! s:delete_notes_handler(req) abort
     endfor
 endfunction
 
-function! s:branch_note_handler(lines) abort
-    let branch = s:get_branch()
-    let f_tags = s:extract_file_tags(readfile(bufname()))
-
-    let f_path = s:new_filepath()
-    execute s:keypress_command() f_path
-
-    call append(0, add(f_tags, branch.tag))
-    call append('$', branch.lines)
-    exec "norm gg<G"
-endfunction
-
-" function! s:branch_note(...) abort
-"     let keypress = get(a:, 1, 0)
-"     let f_tags = s:extract_file_tags(readfile(bufname()))
-"     let f_path = s:new_filepath()
-"     execute s:keypress_command(keypress) f_path
-"     call append(0, f_tags)
-"     call cursor('$', 1)
-"     " startinsert
-" endfunction
-
-" function! s:remove_tag_from_notes(req) abort
-"     let tag = input('please enter tag (including @): ')
-"     if tag == '' | return | endif
-"     let RemoveTag = {line->substitute(line,
-"                     \ '\s*'.tag,
-"                     \ '',
-"                     \ 'g')}
-"     for [basename, filebody] in a:req.previewbodies
-"         if len(filebody) == 0 | continue | endif
-"         " NOTE: You COULD use the following line but it only applies to a few situations and has a dramatic slowdown
-"         " call map(filebody, RemoveTag)
-"         let filebody[0] = RemoveTag(filebody[0])
-"         call writefile(filebody, g:zortex_notes_dir . basename)
-"         call s:redraw_file(g:zortex_notes_dir . basename)
-"     endfor
-" endfunction
-
-" function! s:add_tag_to_notes(req) abort
-"     let tag = input('please enter tag (including @): ')
-"     if tag == '' | return | endif
-"     for [basename, filebody] in a:req.previewbodies
-"         let filebody[0] = filebody[0].' '.l:tag
-"         call writefile(filebody, g:zortex_notes_dir . basename)
-"         call s:redraw_file(g:zortex_notes_dir . basename)
-"     endfor
-" endfunction
-
 "=========================== Keymap ========================================
 " unusable  : a c e m n p u w y
 " iffy      : j k l
@@ -242,9 +174,6 @@ endfunction
 
 " " t=tag → tag files
 " let s:tag_note_key = get(g:, 'zortex_tag_note_key', 'ctrl-t')
-"
-" " r=remove link → unlink buffer with selection list
-" let s:remove_tags_key = get(g:, 'zortex_remove_tag_key', 'ctrl-r')
 
 " d=delete → delete all selected notes, asks user for confirmation
 let s:delete_note_key = get(g:, 'zortex_delete_note_key', 'ctrl-d')

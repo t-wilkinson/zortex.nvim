@@ -149,8 +149,8 @@ let g:zortex_preview_width = exists('g:zortex_preview_width') ? string(float2nr(
 
 function! s:init_command() abort
     command! -nargs=* -bang ZortexSearch call zortex#search#search()
-    command! -nargs=* -bang ZortexSearchUnique call zortex#search#search_unique()
 
+    " command! -nargs=* -bang ZortexSearchUnique call zortex#search#search_unique()
     " command! ZortexCopyZettelId call zortex#article#copy_zettel_id()
     " command! ZortexCopyZettel call zortex#article#copy_zettel()
     " command! ZortexBranchToOutline call zortex#article#branch_to_outline()

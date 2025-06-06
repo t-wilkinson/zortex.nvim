@@ -142,3 +142,13 @@ Commands:
 - Change the FZF title when searching so you don't see that super long shortened path.
 - Convert original resource link to tag setup `[name]{author=...; ref=...}` -> `#author=...#[name](ref)`
 - When searching files, initially populate each file with only the article names for quick searching. it is possible to do some form of multiprocessing
+
+### Ideal searching behavior
+
+- The left side of search should be either the modified or created article time and the article name.
+- Each file should be named a unique article name.
+- Searching should be plain text using rg or fzf. rg or fzf should get each article file path and return the name of each match and if possible the matching phrase.
+- It might be better to do a custom searching window using a lazyvim plugin.
+
+**Better file names:**
+[] Write script to move the article name and remove the article name? We would be limited by os by file names. Also wouldn't ease code if we are still doing aliases.

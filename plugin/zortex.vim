@@ -122,7 +122,8 @@ call s:def_value('filetypes', ['zortex'])
 
 " where are notes found? given path should end not with '/'
 " TODO: if it ends with '/', remove it
-let g:zortex_notes_dir = get(g:, 'zortex_notes_dir', g:zortex_root_dir.'/examples') . '/'
+let g:zortex_notes_dir = get(g:, 'zortex_notes_dir', $HOME . '/.zortex') . '/'
+let g:zortex_bin_dir = expand('<sfile:p:h:h>') . '/'
 
 " default zortex filetype
 call s:def_value('filetype', 'zortex')

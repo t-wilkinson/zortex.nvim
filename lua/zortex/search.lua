@@ -130,24 +130,54 @@ local function action_delete_notes(selected_entries)
 	end
 end
 
-local function generate_rg_prompt(prompt)
-	local placeholder = "_UR_MUM_SUX_XD_"
-	-- Treat "\ " as literal space
-	-- Otherwise, treat spaces as different patterns to all be matched.
-	local clean = prompt:gsub("\\ ", placeholder)
-	local words = vim.split(clean, "%s+")
+-- Helper to escape string for PCRE2 regex fixed string embedding
+local function escape_for_pcre2(s)
+	-- Escapes characters that have special meaning in PCRE2 regex.
+	return s:gsub("([.\\+*?%[^]%${}()|^#&~-])", "\\%1") -- Added common metacharacters
+end
 
-	local args = {}
-	for _, word in ipairs(words) do
-		if word:find(placeholder, 1, true) then
-			word = word:gsub(placeholder, " ")
+-- Builds the command arguments for Ripgrep
+local function build_rg_command_args(prompt_text)
+	local rg_args = {
+		"rg",
+		"--color=never",
+		"--no-heading",
+		"--with-filename",
+		"--line-number",
+		"--column",
+		"--smart-case",
+		"--pcre2",
+	}
+
+	local patterns_for_rg = {}
+	if prompt_text and #prompt_text > 0 then
+		local temp_placeholder = "__ZORTEX_LITERAL_SPACE__"
+		local p_text = prompt_text:gsub("\\ ", temp_placeholder) -- Handle escaped spaces
+		local terms = vim.split(p_text, "%s+") -- Split by any whitespace
+
+		for _, term in ipairs(terms) do
+			local actual_term = term:gsub(temp_placeholder, " "):gsub("^%s*(.-)%s*$", "%1") -- Restore spaces, trim
+			if #actual_term > 0 then
+				-- Each term is wrapped in (?=.*escaped_term) for PCRE2 AND logic
+				table.insert(patterns_for_rg, "(?=.*" .. escape_for_pcre2(actual_term) .. ")")
+			end
 		end
-		table.insert(args, "(?=.*" .. word .. ")")
-		-- table.insert(args, "-e")
-		-- table.insert(args, word)
 	end
 
-	return args
+	if #patterns_for_rg > 0 then
+		table.insert(rg_args, "-e")
+		table.insert(rg_args, table.concat(patterns_for_rg)) -- All lookaheads form one regex pattern
+	else
+		-- If prompt is empty, search for default text (e.g., "@@") to provide initial results.
+		-- This matches the `default_text` behavior of the picker.
+		table.insert(rg_args, "-e")
+		table.insert(rg_args, "(?=.*" .. escape_for_pcre2("@@") .. ")")
+	end
+
+	table.insert(rg_args, "--")
+	table.insert(rg_args, vim.g.zortex_notes_dir)
+	-- vim.notify("rg command: " .. table.concat(rg_args, " "), vim.log.levels.DEBUG)
+	return rg_args
 end
 
 function M.search(opts)
@@ -176,8 +206,6 @@ function M.search(opts)
 
 	-- Path to your preview.sh script
 	local preview_script_path = vim.g.zortex_bin_dir .. "preview.sh"
-	local vimgrep_arguments =
-		{ "rg", "--color=never", "--no-heading", "--with-filename", "--line-number", "--column", "--smart-case" }
 
 	local entry_maker = function(line)
 		-- Expected rg output: filename:lineno:colno:text
@@ -212,21 +240,10 @@ function M.search(opts)
 		}
 	end
 
-	local zortex_searcher = finders.new_job(function(prompt)
-		if not prompt then
-			prompt = ""
-		end
-
-		vim.notify("Initial prompt received: " .. vim.inspect(prompt), vim.log.levels.DEBUG)
-		prompt = generate_rg_prompt(prompt)
-		vim.notify(table.concat(prompt, ","), vim.log.levels.DEBUG)
-		return flatten({ vimgrep_arguments, "--pcre2", "-e", table.concat(prompt), "--", vim.g.zortex_notes_dir })
-	end, entry_maker, nil, vim.g.zortex_notes_dir)
-
 	pickers
 		.new(opts, {
 			prompt_title = "Zortex Search",
-			finder = zortex_searcher,
+			finder = finders.new_job(build_rg_command_args, entry_maker, nil, vim.g.zortex_notes_dir),
 			sorter = conf.generic_sorter({}),
 			previewer = conf.grep_previewer(opts),
 			-- previewer = previewers.new_buffer_previewer({

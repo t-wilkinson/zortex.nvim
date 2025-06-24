@@ -71,7 +71,6 @@ local function action_create_new_note(prompt_bufnr)
 	end, 100) -- Small delay
 end
 
--- Action: Delete notes
 local function action_delete_notes(selected_entries)
 	if not selected_entries or #selected_entries == 0 then
 		vim.notify("Zortex Search: No notes selected for deletion.", vim.log.levels.INFO)
@@ -128,6 +127,90 @@ local function action_delete_notes(selected_entries)
 		end
 		-- Telescope is already closed. Next search will reflect changes.
 	end
+end
+
+-- Incremental file cache for FZF searching
+local file_cache = {}
+
+-- Update the cache by loading new or modified files and dropping removed ones
+local function update_file_cache()
+        if not check_globals() then
+                return
+        end
+
+        local dir = vim.g.zortex_notes_dir
+        local ext = vim.g.zortex_extension
+        local uv = vim.loop
+        local handle = uv.fs_scandir(dir)
+        if not handle then
+                return
+        end
+
+        local seen = {}
+        while true do
+                local name, t = uv.fs_scandir_next(handle)
+                if not name then break end
+                if t == 'file' and name:sub(-#ext) == ext then
+                        local path = dir .. name
+                        seen[path] = true
+                        local stat = uv.fs_stat(path)
+                        local mtime = stat and stat.mtime.sec or 0
+                        local cached = file_cache[path]
+                        if not cached or cached.mtime ~= mtime then
+                                local lines = {}
+                                for line in io.lines(path) do
+                                        table.insert(lines, line)
+                                end
+                                file_cache[path] = { mtime = mtime, lines = lines }
+                        end
+                end
+        end
+
+        for path, _ in pairs(file_cache) do
+                if not seen[path] then
+                        file_cache[path] = nil
+                end
+        end
+end
+
+-- Build the list passed to fzf from the cache
+local function build_fzf_source()
+        update_file_cache()
+
+        local items = {}
+        for path, data in pairs(file_cache) do
+                for idx, line in ipairs(data.lines) do
+                        table.insert(items, string.format('%s:%d:%s', path, idx, line))
+                end
+        end
+        return items
+end
+
+-- Invoke fzf with exact matching over the cached lines
+function M.fzf_search()
+        if not check_globals() then
+                return
+        end
+
+        local items = build_fzf_source()
+
+        local spec = {
+                source = items,
+                options = '--multi --cycle --exact --inline-info',
+                ['sink*'] = function(selected)
+                        if not selected or vim.tbl_isempty(selected) then
+                                return
+                        end
+                        local first = selected[1]
+                        local filepath, lnum = string.match(first, '([^:]+):(%d+):')
+                        if filepath and lnum then
+                                vim.cmd('edit ' .. filepath)
+                                vim.fn.cursor(tonumber(lnum), 1)
+                        end
+                end,
+        }
+
+        vim.fn['fzf#run'](vim.fn['fzf#wrap'](spec, 1))
 end
 
 -- Helper to escape string for PCRE2 regex fixed string embedding

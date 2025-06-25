@@ -149,7 +149,7 @@ let g:zortex_include_hidden = get(g:, 'zortex_include_hidden', 0) ? '--hidden' :
 let g:zortex_preview_width = exists('g:zortex_preview_width') ? string(float2nr(str2float(g:zortex_preview_width) / 100.0 * &columns)) : ''
 
 function! s:init_command() abort
-    command! -nargs=* -bang ZortexSearch call zortex#search#search()
+    " command! -nargs=* -bang ZortexSearch call zortex#search#search()
     command! -nargs=* -bang ZortexSearchUnique call zortex#search#search_unique()
 
     " command! ZortexCopyZettelId call zortex#article#copy_zettel_id()

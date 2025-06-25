@@ -29,6 +29,10 @@
       "required": true,
       "types": [
         {
+          "type": "blank_line",
+          "named": true
+        },
+        {
           "type": "code_block",
           "named": true
         },
@@ -124,15 +128,11 @@
           "named": true
         },
         {
-          "type": "blank_line",
-          "named": true
-        },
-        {
           "type": "block",
           "named": true
         },
         {
-          "type": "tags",
+          "type": "tag_line",
           "named": true
         }
       ]
@@ -304,31 +304,25 @@
       "required": true,
       "types": [
         {
-          "type": "bold",
+          "type": "paragraph_line",
           "named": true
         },
         {
-          "type": "bolditalic",
-          "named": true
-        },
-        {
-          "type": "inline_code",
-          "named": true
-        },
-        {
-          "type": "italic",
-          "named": true
-        },
-        {
-          "type": "link",
-          "named": true
-        },
-        {
-          "type": "text",
+          "type": "paragraph_start",
           "named": true
         }
       ]
     }
+  },
+  {
+    "type": "paragraph_line",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "paragraph_start",
+    "named": true,
+    "fields": {}
   },
   {
     "type": "tag_line",
@@ -339,26 +333,11 @@
         "required": true,
         "types": [
           {
-            "type": "tag_name",
+            "type": "line_content",
             "named": true
           }
         ]
       }
-    }
-  },
-  {
-    "type": "tags",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "tag_line",
-          "named": true
-        }
-      ]
     }
   },
   {
@@ -435,10 +414,6 @@
   },
   {
     "type": "ordered_marker",
-    "named": true
-  },
-  {
-    "type": "tag_name",
     "named": true
   },
   {

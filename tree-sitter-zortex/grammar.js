@@ -1,48 +1,34 @@
-// Bare‑bones Tree‑sitter grammar for the **zortex** markup language.
-// Patch #3 — minimise spurious `label` matches in running text and favour `paragraph`.
-//   • `block` choice order changed: paragraph precedes label.
-//   • `label` now demands *no* trailing content other than a newline (end-of-line anchor).
-//   • Added `token(…)` usage for label’s colon‑newline combo to reduce back‑tracking.
-//   • Widened `text` again to swallow unmatched punctuation (prevent partial parses).
-
 module.exports = grammar({
   name: "zortex",
-
   /* -------------------------------- Extras -------------------------------- */
   extras: ($) => [/[ \t\f\r]+/],
-
   /* --------------------------- Precedence helpers ------------------------- */
-  precedences: ($) => [["list", $.list_item]],
-
+  precedences: ($) => [
+    ["special_line", "paragraph"],
+    ["list", "paragraph"],
+  ],
   /* ------------------------------- Conflicts ------------------------------ */
   conflicts: ($) => [[$.list, $.paragraph]],
-
   /* ------------------------------ Top‑level ------------------------------- */
   rules: {
     document: ($) =>
-      seq(
-        repeat1($.article_header),
-        optional($.tags),
-        repeat($.blank_line),
-        repeat($.block),
-      ),
+      seq(repeat1($.article_header), repeat($.tag_line), repeat($.block)),
 
     /* ------------------------- Structural lines --------------------------- */
     article_header: ($) => seq("@@", field("name", $.line_content), "\n"),
 
-    tags: ($) => repeat1($.tag_line),
-    tag_line: ($) => seq("@", field("name", $.tag_name), "\n"),
-    tag_name: ($) => /[^\s\n]+/,
+    tag_line: ($) => seq("@", field("name", $.line_content), "\n"),
 
     /* ---------------------------- Body blocks ----------------------------- */
     block: ($) =>
       choice(
-        $.heading,
+        $.blank_line,
         $.list,
         $.code_block,
         $.latex_block,
-        $.paragraph, // ← now *before* label to win ambiguous lines
+        $.heading,
         $.label,
+        $.paragraph,
       ),
 
     /* Headings */
@@ -59,8 +45,7 @@ module.exports = grammar({
     label_name: ($) => /[A-Za-z0-9 ][A-Za-z0-9 ]*/,
 
     /* Lists */
-    list: ($) => prec.left(seq($.list_item, repeat($.list_item))),
-
+    list: ($) => prec.left("list", seq($.list_item, repeat($.list_item))),
     list_item: ($) =>
       seq(
         field("marker", choice("-", $.ordered_marker)),
@@ -78,7 +63,6 @@ module.exports = grammar({
         "\n",
         field("content", repeat(choice($.code_line, "\n"))),
         "```",
-        optional("\n"),
       ),
     code_line: ($) => /[^\n]+/,
 
@@ -89,21 +73,25 @@ module.exports = grammar({
         "\n",
         field("content", repeat(choice($.code_line, "\n"))),
         "$$",
-        optional("\n"),
       ),
 
-    /* Paragraph */
-    paragraph: ($) => prec.right(seq(repeat1($._inline), repeat("\n"))),
+    /* Paragraph - constrained to not start with special characters */
+    paragraph: ($) =>
+      seq($.paragraph_start, repeat(seq($.paragraph_line, "\n")), "\n"),
+
+    // First line of paragraph - explicit token that excludes special starts
+    paragraph_start: ($) => token(prec(-1, /[^@#`$\-0-9\n][^\n]*/)),
+
+    // Additional paragraph lines
+    paragraph_line: ($) => token(prec(-1, /[^@#`$\-0-9\n][^\n]*/)),
 
     /* ------------------------------ Inline ------------------------------- */
     _inline: ($) =>
       choice($.bolditalic, $.bold, $.italic, $.inline_code, $.link, $.text),
-
     bolditalic: ($) => seq("***", repeat1($.text), "***"),
     bold: ($) => seq("**", repeat1($.text), "**"),
     italic: ($) => seq("*", repeat1($.text), "*"),
     inline_code: ($) => seq("`", /[^`]+/, "`"),
-
     link: ($) =>
       seq(
         "[",
@@ -113,12 +101,11 @@ module.exports = grammar({
       ),
 
     /* ---------------------------- Terminals ----------------------------- */
-    text: ($) => /[^*`\n\[\]]+/, // include ':' so it stays inside paragraph
+    text: ($) => /[^*`\n\[\]]+/,
     line_content: ($) => /[^\n]+/,
     blank_line: ($) => "\n",
   },
 });
-
 /* NEXT STEPS --------------------------------------------------------------
  * – Add externals: $ => [ $.indent, $.dedent ] once indentation nesting is needed.
  */

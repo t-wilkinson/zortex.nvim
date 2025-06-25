@@ -1,7 +1,7 @@
 -- search.lua – incremental exact‑substring note search
 --   • Space separates tokens (logical AND across the entire file).
---   • Use "\ " for a literal space inside a token (search phrases).
---   • One entry per note: <file> | <title> | <first match> | <other matches…>.
+--   • Use underscore "_" instead of spaces for phrase search (hello_world searches for "hello world").
+--   • One entry per note: <modified_date> | <title> | <first match> | <other matches…>.
 --   • Preview uses *bat* with Markdown highlighting (falls back if absent).
 --   • M.search() is called at the end so you can :luafile % for quick tests.
 
@@ -45,6 +45,19 @@ local function create_new_note(prompt_bufnr)
 	end, 100)
 end
 
+-- Format timestamp for display
+local function format_timestamp(timestamp)
+	return os.date("%Y-%m-%d %H:%M", timestamp)
+end
+
+-- Extract header name (remove @@ prefix and trim)
+local function extract_header_name(title)
+	if title:match("^@@") then
+		return title:sub(3):gsub("^%s+", ""):gsub("%s+$", "")
+	end
+	return title
+end
+
 --------------------------------------------------
 -- File cache (avoids disk I/O on every keystroke)
 --------------------------------------------------
@@ -86,31 +99,69 @@ local function update_file_cache()
 end
 
 --------------------------------------------------
--- Parse prompt ➜ tokens ("\ " gives literal space)
+-- Parse prompt ➜ tokens (underscore becomes space for phrases)
 --------------------------------------------------
 local function parse_tokens(prompt)
-	local tokens, cur = {}, {}
-	local i = 1
-	while i <= #prompt do
-		local c = prompt:sub(i, i)
-		if c == "\\" and i < #prompt and prompt:sub(i + 1, i + 1) == " " then
-			table.insert(cur, " ")
-			i = i + 2
-		elseif c == " " then
-			if #cur > 0 then
-				table.insert(tokens, table.concat(cur))
-				cur = {}
-			end
-			i = i + 1
-		else
-			table.insert(cur, c)
-			i = i + 1
-		end
+	local tokens = {}
+
+	-- Split by spaces first
+	for token in prompt:gmatch("%S+") do
+		-- Convert underscores to spaces within each token
+		local phrase_token = token:gsub("_", " ")
+		table.insert(tokens, phrase_token)
 	end
-	if #cur > 0 then
-		table.insert(tokens, table.concat(cur))
-	end
+
 	return tokens
+end
+
+--------------------------------------------------
+-- Custom sorter that does no filtering (passes everything through)
+--------------------------------------------------
+local function no_filter_sorter()
+	local sorters = require("telescope.sorters")
+	return sorters.Sorter:new({
+		scoring_function = function(_, prompt, line, entry)
+			-- Always return a score of 1 (no filtering, everything passes)
+			return 1
+		end,
+		highlighter = function(_, prompt, display)
+			if not prompt or prompt == "" then
+				return {}
+			end
+
+			local highlights = {}
+			local tokens = parse_tokens(prompt)
+			local display_lower = display:lower()
+
+			for _, token in ipairs(tokens) do
+				local token_lower = token:lower()
+				local start_pos = 1
+
+				-- Find all occurrences of this token in the display string
+				while true do
+					local match_start, match_end = display_lower:find(token_lower, start_pos, true)
+					if not match_start then
+						break
+					end
+
+					-- Add highlight for this match
+					table.insert(highlights, {
+						start = match_start,
+						finish = match_end,
+					})
+
+					start_pos = match_end + 1
+				end
+			end
+
+			-- Sort highlights by start position to avoid overlaps
+			table.sort(highlights, function(a, b)
+				return a.start < b.start
+			end)
+
+			return highlights
+		end,
+	})
 end
 
 --------------------------------------------------
@@ -125,27 +176,28 @@ function M.search(opts)
 	local telescope = require("telescope")
 	local pickers, finders = require("telescope.pickers"), require("telescope.finders")
 	local actions, action_st = require("telescope.actions"), require("telescope.actions.state")
-	local conf, sorters = require("telescope.config").values, require("telescope.sorters")
+	local conf = require("telescope.config").values
 	local previewers = require("telescope.previewers")
 
 	-- Candidate generator: one entry per file, tokens act as AND across file
 	local function gather(prompt)
 		update_file_cache()
-		prompt = (prompt or ""):gsub("^@@", "")
+		-- Don't strip @@ - let it be searched literally
+		prompt = prompt or ""
 		local tokens = parse_tokens(prompt)
 		local empty = #tokens == 0
 		local results = {}
 
 		for path, data in pairs(file_cache) do
 			local title = data.lines[1] or ""
-			local basename = vim.fn.fnamemodify(path, ":t")
+			local modified_date = format_timestamp(data.mtime)
 
 			local first_match_line, first_match_idx, extras = nil, nil, {}
 			local seen_tok = {}
 
 			for idx, line in ipairs(data.lines) do
 				for _, tok in ipairs(tokens) do
-					if not seen_tok[tok] and line:find(tok, 1, true) then
+					if not seen_tok[tok] and line:lower():find(tok:lower(), 1, true) then
 						seen_tok[tok] = { idx, line }
 						if not first_match_line then
 							first_match_idx, first_match_line = idx, line
@@ -171,7 +223,8 @@ function M.search(opts)
 						end
 					end
 				end
-				local display = { basename, title, first_match_line or title }
+				-- local display = { modified_date, title, first_match_line or title }
+				local display = { title }
 				if #extras > 0 then
 					table.insert(display, table.concat(extras, " ∥ "))
 				end
@@ -184,9 +237,17 @@ function M.search(opts)
 					filename = path,
 					lnum = first_match_idx or 1,
 					text = first_match_line or title,
+					header_name = extract_header_name(title),
+					mtime = data.mtime,
 				})
 			end
 		end
+
+		-- Sort results by header name (case-insensitive)
+		table.sort(results, function(a, b)
+			return a.header_name:lower() < b.header_name:lower()
+		end)
+
 		return results
 	end
 
@@ -197,10 +258,8 @@ function M.search(opts)
 		end,
 	})
 
-	-- Exact substring sorter (fzf-native if available, else Lua)
-	local ok = pcall(telescope.load_extension, "fzf")
-	local sorter = (ok and telescope.extensions.fzf.native_fzf_sorter({ fuzzy = false, case_mode = "respect_case" }))
-		or sorters.get_substr_matcher({})
+	-- Use custom no-filter sorter to disable Telescope's filtering
+	local sorter = no_filter_sorter()
 
 	-- Previewer: bat markdown or default grep
 	local previewer = (vim.fn.executable("bat") == 1)
@@ -239,5 +298,4 @@ function M.search(opts)
 		:find()
 end
 
-M.search()
 return M

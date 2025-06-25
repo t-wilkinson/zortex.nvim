@@ -266,7 +266,7 @@ function M.search(opts)
 			and previewers.new_termopen_previewer({
 				get_command = function(entry)
 					local cmd =
-						{ "bat", "--style=numbers,changes", "--color=always", "--language=markdown", entry.filename }
+						{ "bat", "--style=numbers,changes", "--color=always", "--language=zortex", entry.filename }
 					if entry.lnum then
 						table.insert(cmd, 5, "--highlight-line")
 						table.insert(cmd, 6, tostring(entry.lnum))

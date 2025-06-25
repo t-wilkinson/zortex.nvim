@@ -1,4 +1,5 @@
 local links = require("zortex.links")
+local search = require("zortex.search")
 -- print(vim.inspect(links.extract_link("- some [text](url)")))
 
 local M = {}
@@ -64,6 +65,7 @@ function M.init()
 	--   })
 
 	vim.api.nvim_create_user_command("ZortexOpenLink", links.open_link, {})
+	vim.api.nvim_create_user_command("ZortexSearch", search.search, {})
 	-- vim.api.nvim_create_user_command("ZortexOpenLink", links.open_link, {
 	-- 	bang = false, -- No !bang support for now
 	-- 	nargs = "0", -- No arguments

@@ -21,7 +21,6 @@ local joinpath = vim.fs and vim.fs.joinpath
 
 -- Pre-compile regex objects for performance in iterative matching
 M.regex_iterators = {
-	zettel = vim.regex("\\v\\[(z:\\d{4}\\.\\d{5}\\.\\d{5})]"),
 	footernote_ref = vim.regex("\\[\\^([%w_.-]+)]"), -- Captures identifier in [^id]
 	-- Label definition pattern (for finding where labels are defined, not for link extraction)
 	label_def = vim.regex("^\\^([%w_.-]+).*:"), -- Captures LabelName from ^LabelName.*:
@@ -32,11 +31,6 @@ M.patterns = {
 	website = "\\vhttps?://[^);}]+",
 	file_markdown_style = "\\v\\[([^]]*)]\\(([^)]+)\\)", -- Captures: 1=name (optional), 2=url. Handles [alt text](url) or [](url)
 	zortex_link = "\\vref=([^\\s;}]+)", -- Captures: 1=url
-	-- Generic bracket link: [[Displayed Text|Link Definition]] or [[Link Definition]]
-	-- Group 1: Displayed Text (optional, including the |)
-	-- Group 2: Link Definition
-	-- Group 3: Content if no pipe (used if group 1 is nil)
-	enhanced_link = "\\[(?:([^]|]+)\\|)?([^]]+)]", -- Lua pattern
 	file_path = "\\v(^|\\s)([~.]?/[/\\S]+)($|\\s)", -- Captures the path in group 3
 	heading = "\\v^#+ (.*)$", -- Standard markdown heading
 	list_item = "\\v^(\\s*)- (.*)$",
@@ -212,28 +206,10 @@ function M.extract_link(line)
 	local match_list
 	local cursor_col_0idx -- Lazily initialized
 
-	-- Helper to ensure cursor_col_0idx is available
-	local function ensure_cursor_col()
-		if not cursor_col_0idx then
-			cursor_col_0idx = get_cursor_col_0idx()
-		end
-	end
-
-	-- MODIFICATION START: Prioritize iterative, cursor-sensitive links (Zettel, Footnote)
-	ensure_cursor_col()
-
-	local zettel_match = extract_link_iteratively(
-		line,
-		cursor_col_0idx,
-		M.regex_iterators.zettel,
-		"zettel_id_link",
-		function(l, captures, type_n) -- captures.group_texts[1] is the zettel id
-			return { line = l, type = type_n, zettel_id = captures.group_texts[1], display_text = captures.full_match_text, full_match_text = captures.full_match_text }
-		end
-	)
-	if zettel_match then
-		return zettel_match
-	end
+	-- ensure cursor_col_0idx is available
+  if not cursor_col_0idx then
+    cursor_col_0idx = get_cursor_col_0idx()
+  end
 
 	local footernote_ref_match = extract_link_iteratively(
 		line,
@@ -245,13 +221,12 @@ function M.extract_link(line)
 		end
 	)
 	if footernote_ref_match then
+    vim.notify("Found footernote", vim.log.levels.DEBUG)
 		return footernote_ref_match
 	end
-	-- MODIFICATION END: Prioritize iterative links
 
 	-- 1. Standard Markdown file links: [text](url)
 	-- This needs to be cursor sensitive if multiple on a line.
-	ensure_cursor_col() -- Already called, but good practice if sections are moved
 	local offset = 0
 	while offset < #line do
 		local s, e, name, url = string.find(line, M.patterns.file_markdown_style, offset + 1)
@@ -270,7 +245,6 @@ function M.extract_link(line)
 	end
 
 	-- 2. Enhanced links: [Displayed Text|Link Definition] or [Link Definition]
-	ensure_cursor_col() -- Already called
 	offset = 0
 	while offset < #line do
 		local s, e, displayed_text_capture, link_definition_capture =
@@ -318,7 +292,6 @@ function M.extract_link(line)
 	-- 3. Website links
 	match_list = vim.fn.matchlist(line, M.patterns.website)
 	if match_list[1] and #match_list[1] > 0 then
-		ensure_cursor_col()
 		local s_web, e_web = string.find(line, M.patterns.website, 1) -- Find first
 		if s_web and cursor_col_0idx >= (s_web-1) and cursor_col_0idx < e_web then
 			return { line = line, type = "website", url = match_list[1], display_text = match_list[1], full_match_text = match_list[1] }
@@ -336,7 +309,6 @@ function M.extract_link(line)
 	-- 5. File paths (heuristic, might be broad)
 	match_list = vim.fn.matchlist(line, M.patterns.file_path)
 	if match_list[1] and #match_list[1] > 0 and match_list[3] then
-		ensure_cursor_col()
 		local path_text = match_list[3]
 		local s_path, e_path = string.find(line, vim.pesc(path_text), 1) -- Find the path
 		if s_path and cursor_col_0idx >= (s_path-1) and cursor_col_0idx < e_path then

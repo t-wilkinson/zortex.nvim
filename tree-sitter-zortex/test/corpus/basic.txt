@@ -1,7 +1,6 @@
 ==================
 Heading
 ==================
-
 @@Test
 
 ---
@@ -9,6 +8,129 @@ Heading
 (document
   (article_header
     name: (line_content)))
+
+==============================
+Headers & tags parse
+==============================
+@@Main Article
+@@Alias Title
+@math
+@ai
+
+---
+(document
+  (article_header
+    name: (line_content))
+  (article_header           ; alias
+    name: (line_content))
+  (tag_line
+    name: (line_content))
+  (tag_line
+    name: (line_content)))
+
+==============================
+Headings + label line
+==============================
+# H1
+## H2
+Topic Label:
+
+---
+(document
+  (heading
+    marker: (heading_marker)
+    (line_content))
+  (heading
+    marker: (heading_marker)
+    (line_content))
+  (label
+    name: (label_name)))
+
+==============================
+Paragraph-with-inline (***bolditalic***)
+==============================
+
+This line has ***bolditalic***, **bold**, *italic*, `code`,
+and a simple [Link] plus a [Pretty text](https://url).
+
+---
+(document
+  (paragraph
+    (text)
+    (bolditalic (text))
+    (text)
+    (bold (text))
+    (text)
+    (italic (text))
+    (text)
+    (inline_code (inline_code_token1))
+    (text)
+    (link
+      text: (link_token1))
+    (text)
+    (link
+      text: (link_token1)
+      url: (link_token2))))
+
+==============================
+Unordered list
+==============================
+
+- first
+- second
+  - nested
+
+---
+(document
+  (list
+    (list_item
+      marker: "-"
+      (text))
+    (list_item
+      marker: "-"
+      (text)
+      (list            ; nested list
+        (list_item
+          marker: "-"
+          (text))))))
+
+==============================
+Ordered list
+==============================
+
+1. one
+2. two
+
+---
+(document
+  (list
+    (list_item
+      marker: (ordered_marker)
+      (text))
+    (list_item
+      marker: (ordered_marker)
+      (text))))
+
+==============================
+Bad close fence  → ERROR node
+==============================
+
+```python
+print("oops")
+`  ; ← one back-tick only!
+---
+(document
+  (code_block
+    language: (code_block_token1)
+    (ERROR)))
+
+==============================
+Fenced code-block
+==============================
+
+```js
+console.log("hi");
+```
 
 ==============================
 List item

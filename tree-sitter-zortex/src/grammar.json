@@ -13,22 +13,10 @@
           }
         },
         {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "SYMBOL",
-              "name": "tags"
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
-        },
-        {
           "type": "REPEAT",
           "content": {
             "type": "SYMBOL",
-            "name": "blank_line"
+            "name": "tag_line"
           }
         },
         {
@@ -61,13 +49,6 @@
         }
       ]
     },
-    "tags": {
-      "type": "REPEAT1",
-      "content": {
-        "type": "SYMBOL",
-        "name": "tag_line"
-      }
-    },
     "tag_line": {
       "type": "SEQ",
       "members": [
@@ -80,7 +61,7 @@
           "name": "name",
           "content": {
             "type": "SYMBOL",
-            "name": "tag_name"
+            "name": "line_content"
           }
         },
         {
@@ -89,16 +70,12 @@
         }
       ]
     },
-    "tag_name": {
-      "type": "PATTERN",
-      "value": "[^\\s\\n]+"
-    },
     "block": {
       "type": "CHOICE",
       "members": [
         {
           "type": "SYMBOL",
-          "name": "heading"
+          "name": "blank_line"
         },
         {
           "type": "SYMBOL",
@@ -114,11 +91,15 @@
         },
         {
           "type": "SYMBOL",
-          "name": "paragraph"
+          "name": "heading"
         },
         {
           "type": "SYMBOL",
           "name": "label"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "paragraph"
         }
       ]
     },
@@ -184,7 +165,7 @@
     },
     "list": {
       "type": "PREC_LEFT",
-      "value": 0,
+      "value": "list",
       "content": {
         "type": "SEQ",
         "members": [
@@ -293,18 +274,6 @@
         {
           "type": "STRING",
           "value": "```"
-        },
-        {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "STRING",
-              "value": "\n"
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
         }
       ]
     },
@@ -346,42 +315,58 @@
         {
           "type": "STRING",
           "value": "$$"
-        },
-        {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "STRING",
-              "value": "\n"
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
         }
       ]
     },
     "paragraph": {
-      "type": "PREC_RIGHT",
-      "value": 0,
-      "content": {
-        "type": "SEQ",
-        "members": [
-          {
-            "type": "REPEAT1",
-            "content": {
-              "type": "SYMBOL",
-              "name": "_inline"
-            }
-          },
-          {
-            "type": "REPEAT",
-            "content": {
-              "type": "STRING",
-              "value": "\n"
-            }
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "paragraph_start"
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "SEQ",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "paragraph_line"
+              },
+              {
+                "type": "STRING",
+                "value": "\n"
+              }
+            ]
           }
-        ]
+        },
+        {
+          "type": "STRING",
+          "value": "\n"
+        }
+      ]
+    },
+    "paragraph_start": {
+      "type": "TOKEN",
+      "content": {
+        "type": "PREC",
+        "value": -1,
+        "content": {
+          "type": "PATTERN",
+          "value": "[^@#`$\\-0-9\\n][^\\n]*"
+        }
+      }
+    },
+    "paragraph_line": {
+      "type": "TOKEN",
+      "content": {
+        "type": "PREC",
+        "value": -1,
+        "content": {
+          "type": "PATTERN",
+          "value": "[^@#`$\\-0-9\\n][^\\n]*"
+        }
       }
     },
     "_inline": {
@@ -569,11 +554,21 @@
     [
       {
         "type": "STRING",
+        "value": "special_line"
+      },
+      {
+        "type": "STRING",
+        "value": "paragraph"
+      }
+    ],
+    [
+      {
+        "type": "STRING",
         "value": "list"
       },
       {
-        "type": "SYMBOL",
-        "name": "list_item"
+        "type": "STRING",
+        "value": "paragraph"
       }
     ]
   ],

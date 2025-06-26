@@ -118,7 +118,7 @@ call s:def_value('port', '8080')
 call s:def_value('page_title', '「${name}」')
 
 " recognized filetypes
-call s:def_value('filetypes', ['zortex'])
+call s:def_value('filetypes', ['zortex', 'zx'])
 
 " where are notes found? given path should end not with '/'
 " TODO: if it ends with '/', remove it

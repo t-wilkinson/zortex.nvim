@@ -1,1 +1,1 @@
-autocmd BufRead,BufNewFile *.zortex setfiletype zortex
+autocmd BufRead,BufNewFile *.zortex,*.zx setfiletype zortex

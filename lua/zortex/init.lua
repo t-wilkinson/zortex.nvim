@@ -1,6 +1,5 @@
-local links = require("zortex.links")
+local open_link = require("zortex.open_link")
 local search = require("zortex.search")
--- print(vim.inspect(links.extract_link("- some [text](url)")))
 
 local M = {}
 
@@ -60,19 +59,18 @@ function M.init()
 		vim.g[k] = v
 	end
 
-	-- vim.api.nvim_create_user_command('MyCmd', function()
-	-- end, {
-	--   })
+	vim.keymap.set("n", "Zo", function()
+		open_link.open_link_in_split()
+	end, { desc = "Open link in split (structure navigation)" })
 
-	vim.api.nvim_create_user_command("ZortexOpenLink", links.open_link, {})
+	vim.api.nvim_create_user_command("ZortexOpenLinkSplit", open_link.open_link_in_split, {})
+	vim.api.nvim_create_user_command("ZortexOpenLink", open_link.open_link, {})
 	vim.api.nvim_create_user_command("ZortexSearch", search.search, {})
 	-- vim.api.nvim_create_user_command("ZortexOpenLink", links.open_link, {
 	-- 	bang = false, -- No !bang support for now
 	-- 	nargs = "0", -- No arguments
 	-- 	desc = "Open Zortex link under cursor",
 	-- })
-
-	-- vim.keymap.set("n", "<leader>zo", "<Cmd>ZortexOpenLink<CR>", { desc = "Zortex Open Link" })
 end
 
 M.init()

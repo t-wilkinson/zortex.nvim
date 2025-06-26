@@ -251,7 +251,7 @@ hi zHeading gui=bold,italic guifg=#eb6f92
 
 Hi zLink     Tag
 Hi zQuote           String
-Hi zTag             Number
+Hi zTag             Directory
 Hi zOperator        Tag
 " Hi zLabel           Conditional
 hi zLabel gui=bold guifg=#3e8fb0

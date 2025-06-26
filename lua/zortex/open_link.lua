@@ -534,9 +534,9 @@ function M.open_link_with_mode(use_split_for_structure)
 		if found_pos[1] ~= 0 and found_pos[2] ~= 0 then
 			vim.api.nvim_win_set_cursor(0, { found_pos[1], found_pos[2] - 1 })
 			vim.cmd("normal! zvzz")
-			vim.notify("Found footnote definition: [^" .. link_info.ref_id .. "]", vim.log.levels.INFO)
+			-- vim.notify("Found footnote definition: [^" .. link_info.ref_id .. "]", vim.log.levels.INFO)
 		else
-			vim.notify("Footnote definition [^" .. link_info.ref_id .. "]: not found.", vim.log.levels.WARN)
+			-- vim.notify("Footnote definition [^" .. link_info.ref_id .. "]: not found.", vim.log.levels.WARN)
 			vim.api.nvim_win_set_cursor(0, original_cursor)
 		end
 	elseif link_info.type == "website" or link_info.type == "zortex_ref_link" then

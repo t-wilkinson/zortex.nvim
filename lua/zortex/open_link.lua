@@ -1,3 +1,5 @@
+local extract_link = require("zortex.extract_link")
+
 local M = {}
 
 -- For Neovim 0.7+ path joining, otherwise use manual concatenation.
@@ -18,375 +20,6 @@ local joinpath = vim.fs and vim.fs.joinpath
 		end
 		return path:gsub("//+", "/") -- Normalize multiple slashes
 	end
-
--- Pre-compile regex objects for performance in iterative matching
-M.regex_iterators = {
-	footernote_ref = vim.regex("\\[\\^([%w_.-]+)]"), -- Captures identifier in [^id]
-	-- Label definition pattern (for finding where labels are defined, not for link extraction)
-	label_def = vim.regex("^\\^([%w_.-]+).*:"), -- Captures LabelName from ^LabelName.*:
-}
-
--- Regex patterns for vim.fn.matchlist (string format)
-M.patterns = {
-	website = "\\vhttps?://[^);}]+",
-	file_markdown_style = "\\v\\[([^]]*)]\\(([^)]+)\\)", -- Captures: 1=name (optional), 2=url. Handles [alt text](url) or [](url)
-	zortex_link = "\\vref=([^\\s;}]+)", -- Captures: 1=url
-	file_path = "\\v(^|\\s)([~.]?/[/\\S]+)($|\\s)", -- Captures the path in group 3
-	heading = "\\v^#+ (.*)$", -- Standard markdown heading
-	list_item = "\\v^(\\s*)- (.*)$",
-}
-
---- Helper function to get 0-indexed cursor column
-local function get_cursor_col_0idx()
-	return vim.api.nvim_win_get_cursor(0)[2]
-end
-
---- Slugify text for heading IDs (lowercase, spaces to hyphens, remove special chars)
--- Based on rules from "Enhanced Document Linking Functionality" II.B.1
-local function slugify_heading_text(text)
-	if not text then
-		return ""
-	end
-	local slug = text:lower()
-	slug = slug:gsub("[^%w%s-]", "") -- Remove non-word, non-space, non-hyphen
-	slug = slug:gsub("%s+", "-") -- Replace spaces with hyphens
-	slug = slug:gsub("-+", "-") -- Collapse multiple hyphens
-	slug = slug:gsub("^-", "") -- Remove leading hyphen
-	slug = slug:gsub("-$", "") -- Remove trailing hyphen
-	return slug
-end
-
---- Iteratively match a regex on a line for cursor-sensitive links.
-local function extract_link_iteratively(line, cursor_col_0idx, regex_obj, type_name, result_builder)
-	local search_offset_0idx = 0
-	local final_match_data = nil
-	while search_offset_0idx < #line do
-		-- Using regex_obj:match_str for Neovim regex objects
-		local captures = regex_obj:match_str(line, search_offset_0idx)
-		if not captures then
-			break
-		end
-		-- captures[1] is the full match info, captures[2] is the first group info, etc.
-		local full_match_info = captures[1]
-		if not full_match_info then
-			break
-		end -- Should always exist if captures is not nil
-
-		local group_infos = {}
-		for i = 2, #captures do
-			if captures[i] then
-				table.insert(group_infos, captures[i])
-			else
-				-- If a capture group is optional and didn't match, it might be nil.
-				-- Add a placeholder or handle as needed by result_builder.
-				table.insert(group_infos, nil)
-			end
-		end
-
-		if not full_match_info then
-			break
-		end
-
-		local match_start_0idx, match_end_0idx = full_match_info[1], full_match_info[2]
-		if cursor_col_0idx >= match_start_0idx and cursor_col_0idx < match_end_0idx then
-			final_match_data = result_builder(line, {
-				full_match_text = string.sub(line, match_start_0idx + 1, match_end_0idx),
-				-- Pass all group texts to the builder
-				group_texts = vim.tbl_map(function(info)
-					if info then
-						return string.sub(line, info[1] + 1, info[2])
-					else
-						return nil
-					end
-				end, group_infos),
-			}, type_name)
-			break
-		end
-		search_offset_0idx = match_end_0idx
-		if search_offset_0idx >= #line then
-			break
-		end
-	end
-	return final_match_data
-end
-
---- Parses the Link Definition part of an enhanced link.
--- @param link_definition string The core linking information.
--- @return table|nil A structured table describing the link target, or nil.
-function M.parse_link_definition(link_definition)
-	if not link_definition or link_definition == "" then
-		return nil
-	end
-
-	local result = {
-		original_definition = link_definition,
-		article_specifier = nil, -- Name of the target article
-		target_specifier = "", -- The #Heading, :Label, %Query, or GenericText
-		target_type = "generic", -- "heading", "label", "query", "generic"
-		target_text = "", -- The actual text for heading/label/query/generic
-		scope = "global", -- "article_specific", "local", "global"
-		chained_parts = nil, -- For [Article/#Heading/:Label]
-	}
-
-	local definition_to_parse = link_definition
-
-	-- 1. Check for Article Specifier (ends with /)
-	local captured_article_name, position_after_slash = definition_to_parse:match("^([^/]+)/()")
-	if captured_article_name then
-		result.article_specifier = captured_article_name
-		if position_after_slash then
-			definition_to_parse = definition_to_parse:sub(position_after_slash)
-		else
-			definition_to_parse = ""
-		end
-		result.scope = "article_specific"
-	elseif definition_to_parse:sub(1, 1) == "/" then
-		-- 2. Check for Local Scope (starts with /)
-		result.scope = "local"
-		definition_to_parse = definition_to_parse:sub(2) -- Remove leading /
-	else
-		-- 3. Default to Global Scope (no ArticleSpecifier, no leading /)
-		result.scope = "global"
-	end
-
-	result.target_specifier = definition_to_parse -- What remains is the target specifier
-
-	-- 4. Parse Chained Links (e.g., #Heading/:Label or /#Heading/:Label)
-	local chained_match_pos = result.target_specifier:match("/:()")
-	if chained_match_pos then
-		result.chained_parts = {}
-		local primary_target_full = result.target_specifier:sub(1, chained_match_pos - 3)
-		local secondary_target_label_name = result.target_specifier:sub(chained_match_pos)
-
-		if primary_target_full:sub(1, 1) == "#" then
-			table.insert(result.chained_parts, {
-				type = "heading",
-				text = primary_target_full:sub(2),
-				original = primary_target_full,
-			})
-		else
-			vim.notify(
-				"Invalid chained link: Primary target must be a heading. Found: " .. primary_target_full,
-				vim.log.levels.WARN
-			)
-			return nil
-		end
-
-		table.insert(result.chained_parts, {
-			type = "label",
-			text = secondary_target_label_name,
-			original = ":" .. secondary_target_label_name,
-		})
-		result.target_type = "chained_label"
-		result.target_text = result.target_specifier
-		return result
-	end
-
-	-- 5. Parse Target Type and Text for non-chained links
-	if result.target_specifier:sub(1, 1) == "#" then
-		result.target_type = "heading"
-		result.target_text = result.target_specifier:sub(2)
-	elseif result.target_specifier:sub(1, 1) == ":" then
-		result.target_type = "label"
-		result.target_text = result.target_specifier:sub(2)
-	elseif result.target_specifier:sub(1, 1) == "%" then
-		result.target_type = "query"
-		result.target_text = result.target_specifier:sub(2)
-	else
-		result.target_type = "generic"
-		result.target_text = result.target_specifier
-	end
-
-	if result.target_text == "" and result.target_type ~= "generic" then
-		if result.scope == "local" and result.target_specifier == "" then
-			result.target_type = "article_root"
-		else
-			vim.notify("Warning: Link target text is empty for type " .. result.target_type, vim.log.levels.WARN)
-		end
-	end
-
-	return result
-end
-
---- Extracts link information from a given line of text, prioritizing cursor position.
-function M.extract_link(line)
-	local match_list
-	local cursor_col_0idx = get_cursor_col_0idx()
-
-	-- 1. Footnote references (highest priority for cursor-sensitive matching)
-	local footernote_ref_match = extract_link_iteratively(
-		line,
-		cursor_col_0idx,
-		M.regex_iterators.footernote_ref,
-		"footernote_ref",
-		function(l, captures, type_n)
-			return {
-				line = l,
-				type = type_n,
-				ref_id = captures.group_texts[1],
-				display_text = captures.full_match_text,
-				full_match_text = captures.full_match_text,
-			}
-		end
-	)
-	if footernote_ref_match then
-		vim.notify("Found footernote", vim.log.levels.DEBUG)
-		return footernote_ref_match
-	end
-
-	local offset = 0
-	while offset < #line do
-		local s, e, name, url = string.find(line, M.patterns.file_markdown_style, offset + 1)
-		if not s then
-			break
-		end
-		if cursor_col_0idx >= (s - 1) and cursor_col_0idx < e then
-			return {
-				line = line,
-				type = "file_md_style",
-				name = name,
-				url = url,
-				display_text = name,
-				full_match_text = string.sub(line, s, e),
-			}
-		end
-		offset = e
-	end
-
-	-- 3. Enhanced links: [Displayed Text|Link Definition] or [Link Definition] - cursor sensitive
-	offset = 0
-	while offset < #line do
-		-- First try to match the pipe format: [DisplayText|LinkDef]
-		local s, e, displayed_text_capture, link_definition_capture =
-			string.find(line, "%[([^]|]*)%|([^]]+)%]", offset + 1)
-
-		local final_displayed_text = nil
-		local final_link_definition = nil
-
-		if s and cursor_col_0idx >= (s - 1) and cursor_col_0idx < e then
-			-- Found pipe format and cursor is within it
-			final_displayed_text = displayed_text_capture
-			final_link_definition = link_definition_capture
-		else
-			-- Try to match simple format: [LinkDef]
-			s, e, link_definition_capture = string.find(line, "%[([^]]+)%]", offset + 1)
-			if s and cursor_col_0idx >= (s - 1) and cursor_col_0idx < e then
-				-- Make sure this isn't actually a pipe format that we missed
-				if not link_definition_capture:find("|", 1, true) then
-					final_displayed_text = link_definition_capture
-					final_link_definition = link_definition_capture
-				else
-					-- This is a pipe format, skip it (it will be caught in next iteration)
-					offset = e
-					goto continue_enhanced_link_loop
-				end
-			else
-				-- No match found, move to next position or break
-				if s then
-					offset = e
-				else
-					break
-				end
-				goto continue_enhanced_link_loop
-			end
-		end
-
-		-- If we found a valid link definition, process it
-		if final_link_definition then
-			local parsed_definition = M.parse_link_definition(final_link_definition)
-			if parsed_definition then
-				return {
-					line = line,
-					type = "enhanced_link",
-					display_text = final_displayed_text,
-					definition_details = parsed_definition,
-					full_match_text = string.sub(line, s, e),
-				}
-			else
-				-- If parsing failed, this might not be a valid enhanced link
-				vim.notify("Failed to parse link definition: " .. final_link_definition, vim.log.levels.DEBUG)
-			end
-		end
-
-		-- Move to next position
-		if s then
-			offset = e
-		else
-			break
-		end
-
-		::continue_enhanced_link_loop::
-	end
-
-	-- 4. Website links - cursor sensitive
-	offset = 0
-	while offset < #line do
-		local s, e = string.find(line, M.patterns.website, offset + 1)
-		if not s then
-			break
-		end
-		if cursor_col_0idx >= (s - 1) and cursor_col_0idx < e then
-			local url = string.sub(line, s, e)
-			return { line = line, type = "website", url = url, display_text = url, full_match_text = url }
-		end
-		offset = e
-	end
-
-	-- 5. Zortex specific ref= links - cursor sensitive
-	offset = 0
-	while offset < #line do
-		local s, e, full_match, url = string.find(line, M.patterns.zortex_link, offset + 1)
-		if not s then
-			break
-		end
-		if cursor_col_0idx >= (s - 1) and cursor_col_0idx < e then
-			return {
-				line = line,
-				type = "zortex_ref_link",
-				url = url,
-				display_text = full_match,
-				full_match_text = full_match,
-			}
-		end
-		offset = e
-	end
-
-	-- 6. File paths (cursor sensitive)
-	match_list = vim.fn.matchlist(line, M.patterns.file_path)
-	if match_list[1] and #match_list[1] > 0 and match_list[3] then
-		local path_text = match_list[3]
-		local s_path, e_path = string.find(line, vim.pesc(path_text), 1)
-		if s_path and cursor_col_0idx >= (s_path - 1) and cursor_col_0idx < e_path then
-			return {
-				line = line,
-				type = "file_path_heuristic",
-				path = path_text,
-				display_text = path_text,
-				full_match_text = path_text,
-			}
-		end
-	end
-
-	-- 7. Text context recognition (only if no links found above)
-	-- These are lower priority and should only trigger if nothing else matches
-	match_list = vim.fn.matchlist(line, M.patterns.list_item)
-	if match_list[1] and #match_list[1] > 0 then
-		return {
-			line = line,
-			type = "text_list_item",
-			indent = #match_list[2],
-			name = match_list[3],
-			display_text = match_list[3],
-		}
-	end
-
-	match_list = vim.fn.matchlist(line, M.patterns.heading)
-	if match_list[1] and #match_list[1] > 0 then
-		return { line = line, type = "text_heading", name = match_list[2], display_text = match_list[2] }
-	end
-
-	return nil
-end
 
 --- Finds an article file based on its @@ArticleName title.
 function M.find_article_file_path(article_name_query)
@@ -687,46 +320,84 @@ function M.open_external(target)
 	vim.fn.jobstart(cmd_parts, { detach = true })
 end
 
-function M.open_link()
+-- Add this helper function to check if current buffer is a @@Structure file
+local function is_structure_file()
+	local first_line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+	return first_line and first_line:match("^@@Structure")
+end
+
+-- Add this helper function to ensure we have a split and return the target window
+local function get_or_create_target_window()
+	local current_win = vim.api.nvim_get_current_win()
+	local all_wins = vim.api.nvim_list_wins()
+
+	-- If we only have one window, create a split
+	if #all_wins == 1 then
+		vim.cmd("vsplit") -- Create vertical split, you can change to "split" for horizontal
+		-- After split, we want to return to the original window (structure window)
+		-- and the target window will be the new one
+		local new_wins = vim.api.nvim_list_wins()
+		for _, win in ipairs(new_wins) do
+			if win ~= current_win then
+				return win -- Return the new window
+			end
+		end
+	else
+		-- Find a window that's not the current one
+		for _, win in ipairs(all_wins) do
+			if win ~= current_win then
+				return win -- Return the other window
+			end
+		end
+	end
+
+	-- Fallback: create a new split if we couldn't find another window
+	vim.cmd("vsplit")
+	local new_wins = vim.api.nvim_list_wins()
+	for _, win in ipairs(new_wins) do
+		if win ~= current_win then
+			return win
+		end
+	end
+end
+
+-- Modified version of open_link that accepts a parameter for special behavior
+function M.open_link_with_mode(use_split_for_structure)
 	local line = vim.api.nvim_get_current_line()
 	local current_filename_full = vim.fn.expand("%:p")
 	local current_file_dir = vim.fn.expand("%:p:h")
 
-	local link_info = M.extract_link(line)
+	local link_info = extract_link.extract_link(line)
 
 	if not link_info then
 		vim.notify("No link found on the current line.", vim.log.levels.INFO)
 		return
 	end
 
+	-- Debug info (you can remove this later)
 	vim.fn.setreg("+", vim.inspect(link_info))
+
+	-- Check if we should use structure navigation mode
+	local should_use_structure_mode = use_split_for_structure and is_structure_file()
+	local target_window = nil
+
+	if should_use_structure_mode then
+		target_window = get_or_create_target_window()
+	end
 
 	if link_info.type == "enhanced_link" then
 		local def = link_info.definition_details
 		if def.target_type == "query" then
-			-- For query links, they will use search_all_articles_globally (or a similar local variant)
-			-- which now handles the quickfix window behavior correctly.
+			-- Query links always use global search regardless of structure mode
 			if def.scope == "local" then
-				-- TODO: Implement a dedicated local query function that populates qf_list.
-				-- For now, it might still use the global search or a simplified version.
-				-- If it uses a function similar to search_all_articles_globally, the new qf behavior will apply.
 				vim.notify(
 					"Local query: searching current buffer for '%"
 						.. def.target_text
 						.. "'. (Implement local qf population)",
 					vim.log.levels.INFO
 				)
-				-- Example of how a local query might be structured (conceptual):
-				-- local local_qf_list = M.find_in_current_buffer_for_qf(def.target_text)
-				-- if #local_qf_list > 0 then
-				--    M.jump_to_first_and_copen(local_qf_list, def.target_text) -- New helper needed
-				-- else
-				--    vim.notify("No local matches for query: " .. def.target_text, vim.log.levels.INFO)
-				-- end
-				-- For now, let's assume it might call a global-like search or placeholder
-				M.search_all_articles_globally("query", def.target_text) -- Placeholder behavior
+				M.search_all_articles_globally("query", def.target_text)
 			elseif def.scope == "article_specific" and def.article_specifier then
-				-- TODO: Implement article-specific query that populates qf_list.
 				vim.notify(
 					"Article query: searching "
 						.. def.article_specifier
@@ -735,7 +406,7 @@ function M.open_link()
 						.. "'. (Implement article qf population)",
 					vim.log.levels.INFO
 				)
-				M.search_all_articles_globally("query", def.target_text) -- Placeholder behavior
+				M.search_all_articles_globally("query", def.target_text)
 			else -- global
 				M.search_all_articles_globally("query", def.target_text)
 			end
@@ -758,50 +429,58 @@ function M.open_link()
 
 		if def.scope == "local" then
 			if #targets_to_search_for > 0 then
-				M.search_in_current_buffer(targets_to_search_for, current_filename_full)
+				if should_use_structure_mode and target_window then
+					-- Stay in current window for local links in structure mode
+					M.search_in_current_buffer(targets_to_search_for, current_filename_full)
+				else
+					M.search_in_current_buffer(targets_to_search_for, current_filename_full)
+				end
 			else
 				vim.notify("Link to current article.", vim.log.levels.INFO)
-				vim.api.nvim_win_set_cursor(0, { 1, 0 })
-				vim.cmd("normal! zz")
+				local win_to_use = should_use_structure_mode and vim.api.nvim_get_current_win()
+					or vim.api.nvim_get_current_win()
+				vim.api.nvim_win_set_cursor(win_to_use, { 1, 0 })
+				vim.api.nvim_win_call(win_to_use, function()
+					vim.cmd("normal! zz")
+				end)
 			end
 		elseif def.scope == "article_specific" and def.article_specifier then
 			local article_path = M.find_article_file_path(def.article_specifier)
 			if article_path then
-				local original_win_id = vim.api.nvim_get_current_win()
+				local win_to_use = should_use_structure_mode and target_window or vim.api.nvim_get_current_win()
 				local target_bufnr = vim.fn.bufadd(article_path)
-				vim.api.nvim_win_set_buf(original_win_id, target_bufnr) -- Set buffer in original window
+				vim.api.nvim_win_set_buf(win_to_use, target_bufnr)
 
 				-- Defer search within the new buffer to allow it to load fully
 				vim.defer_fn(function()
-					-- Ensure the window context is still correct if other async things happened
-					vim.api.nvim_set_current_win(original_win_id)
+					vim.api.nvim_set_current_win(win_to_use)
 					if #targets_to_search_for > 0 then
 						M.search_in_current_buffer(targets_to_search_for, article_path)
 					else
-						vim.api.nvim_win_set_cursor(original_win_id, { 1, 0 })
-						vim.api.nvim_win_call(original_win_id, function()
+						vim.api.nvim_win_set_cursor(win_to_use, { 1, 0 })
+						vim.api.nvim_win_call(win_to_use, function()
 							vim.cmd("normal! zz")
 						end)
 					end
-				end, 50) -- Small delay
+				end, 50)
 			end
 		elseif def.scope == "global" then
-			-- Fast‑path: a bare [Article] (generic global link) should jump straight to the file whose
-			-- title line starts with "@@Article" instead of doing a heading/label search.
+			-- Fast-path: a bare [Article] (generic global link) should jump straight to the file
 			if def.target_type == "generic" and def.target_text ~= "" then
 				local article_path = M.find_article_file_path(def.target_text)
 				if article_path then
-					local win = vim.api.nvim_get_current_win()
+					local win_to_use = should_use_structure_mode and target_window or vim.api.nvim_get_current_win()
 					local bufnr = vim.fn.bufadd(article_path)
-					vim.api.nvim_win_set_buf(win, bufnr)
-					vim.api.nvim_win_call(win, function()
-						vim.cmd("normal! ggzz") -- jump to top of the file and center
+					vim.api.nvim_win_set_buf(win_to_use, bufnr)
+					vim.api.nvim_win_call(win_to_use, function()
+						vim.cmd("normal! ggzz")
 					end)
-					return -- we are done; no further target lookup needed
+					return
 				end
 			end
 
 			if #targets_to_search_for > 0 then
+				-- Global searches always use the search functionality regardless of structure mode
 				M.search_all_articles_globally(targets_to_search_for[1].type, targets_to_search_for[1].text)
 			else
 				vim.notify("Global enhanced link without specific target.", vim.log.levels.WARN)
@@ -811,7 +490,12 @@ function M.open_link()
 		end
 	elseif link_info.type == "file_path_heuristic" then
 		local expanded_path = vim.fn.expand(link_info.path)
-		vim.cmd("edit " .. vim.fn.fnameescape(expanded_path))
+		if should_use_structure_mode and target_window then
+			local bufnr = vim.fn.bufadd(expanded_path)
+			vim.api.nvim_win_set_buf(target_window, bufnr)
+		else
+			vim.cmd("edit " .. vim.fn.fnameescape(expanded_path))
+		end
 	elseif link_info.type == "file_md_style" then
 		local resolved_url = link_info.url
 		if
@@ -833,12 +517,16 @@ function M.open_link()
 		if resolved_url:match("^https?://") or not vim.fn.filereadable(vim.fn.expand(resolved_url)) then
 			M.open_external(resolved_url)
 		else
-			vim.cmd("edit " .. vim.fn.fnameescape(resolved_url))
+			if should_use_structure_mode and target_window then
+				local bufnr = vim.fn.bufadd(resolved_url)
+				vim.api.nvim_win_set_buf(target_window, bufnr)
+			else
+				vim.cmd("edit " .. vim.fn.fnameescape(resolved_url))
+			end
 		end
 	elseif link_info.type == "footernote_ref" then
-		-- The regex for footernote_ref in M.regex_iterators captures the ID.
-		-- The pattern_str searches for the definition [^id]:
-		local pattern_str = "^\\%V\\[\\^" .. vim.fn.escape(link_info.ref_id, "[].*^$") .. "\\]:\\s*"
+		-- Footnotes always search in current buffer regardless of structure mode
+		local pattern_str = "^\\[\\^" .. vim.fn.escape(link_info.ref_id, "[].*^$\\") .. "\\]:\\s*"
 		local original_cursor = vim.api.nvim_win_get_cursor(0)
 		vim.api.nvim_win_set_cursor(0, { 1, 0 })
 		local found_pos = vim.fn.searchpos(pattern_str, "w")
@@ -846,6 +534,7 @@ function M.open_link()
 		if found_pos[1] ~= 0 and found_pos[2] ~= 0 then
 			vim.api.nvim_win_set_cursor(0, { found_pos[1], found_pos[2] - 1 })
 			vim.cmd("normal! zvzz")
+			vim.notify("Found footnote definition: [^" .. link_info.ref_id .. "]", vim.log.levels.INFO)
 		else
 			vim.notify("Footnote definition [^" .. link_info.ref_id .. "]: not found.", vim.log.levels.WARN)
 			vim.api.nvim_win_set_cursor(0, original_cursor)
@@ -864,6 +553,14 @@ function M.open_link()
 	else
 		vim.notify("Link type not fully handled or invalid: " .. (link_info.type or "unknown"), vim.log.levels.INFO)
 	end
+end
+
+function M.open_link()
+	M.open_link_with_mode(false)
+end
+
+function M.open_link_in_split()
+	M.open_link_with_mode(true)
 end
 
 return M

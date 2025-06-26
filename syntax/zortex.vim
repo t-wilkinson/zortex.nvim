@@ -74,16 +74,18 @@ execute 'syn region zBold matchgroup=mkdBold start="\%(^\|\s\)\zs\*\*\ze\S" end=
 execute 'syn region zBrightBold matchgroup=mkdBoldItalic start="\%(^\|\s\)\zs\*\*\*\ze\S" end="\S\zs\*\*\*" keepend contains=@Spell' . s:oneline . s:concealends
 
 
-" [^footer note]
+" []
 execute 'syn region zLink matchgroup=mkdDelimiter start="\[\ze[^^]" end="\]" contains=@zInline,@Spell skipwhite oneline' . s:concealends
-" [zortex link]
+
+" [^zortex footer note]
 execute 'syn region zFooterNote matchgroup=mkdDelimiter start="\[^" end="\]" contains=@zInline,@Spell skipwhite oneline' . s:concealends
 
 " [link](URL) | [link][id] | [link][] | ![image](URL)
+execute 'syn region mkdLink matchgroup=mkdDelimiter       start="\\\@<!!\?\[\ze[^]\n]*\n\?[^]\n]*\][[({]" end="\]" contains=@mkdNonListItem,@Spell nextgroup=mkdZettel,mkdURL,mkdID skipwhite' . s:concealends
+execute 'syn region mkdURL matchgroup=mkdDelimiter   start="("     end=")"  contained oneline' . s:conceal
+
 " execute 'syn region mkdZettel matchgroup=mkdDelimiter   start="{"     end="}"  contained oneline' . s:conceal
-" execute 'syn region mkdURL matchgroup=mkdDelimiter   start="("     end=")"  contained oneline' . s:conceal
 " execute 'syn region mkdID matchgroup=mkdDelimiter    start="\["    end="\]" contained oneline' . s:conceal
-" execute 'syn region mkdLink matchgroup=mkdDelimiter       start="\\\@<!!\?\[\ze[^]\n]*\n\?[^]\n]*\][[({]" end="\]" contains=@mkdNonListItem,@Spell nextgroup=mkdZettel,mkdURL,mkdID skipwhite' . s:concealends
 " execute 'syn region mkdEmptyLink matchgroup=mkdDelimiter  start="\\\@<!!\?\[\ze[^]\n]*\n\?[^]\n]*\][[({]\@!" end="\]" contains=@mkdNonListItem,@Spell skipwhite' . s:concealends
 " execute 'syn region mkdLink matchgroup=mkdDelimiter  start="\[\ze[^]]*\]{" end="\]" contains=@mkdNonListItem,@Spell nextgroup=mkdZettel,mkdURL,mkdID skipwhite' . s:concealends
 
@@ -93,17 +95,17 @@ execute 'syn region zFooterNote matchgroup=mkdDelimiter start="\[^" end="\]" con
 syn match   mkdInlineURL /https\?:\/\/\(\w\+\(:\w\+\)\?@\)\?\([A-Za-z0-9][-_0-9A-Za-z]*\.\)\{1,}\(\w\{2,}\.\?\)\{1,}\(:[0-9]\{1,5}\)\?[^] \t]*/
 
 " Autolink with parenthesis.
-syn region  mkdInlineURL matchgroup=mkdDelimiter start="(\(https\?:\/\/\(\w\+\(:\w\+\)\?@\)\?\([A-Za-z0-9][-_0-9A-Za-z]*\.\)\{1,}\(\w\{2,}\.\?\)\{1,}\(:[0-9]\{1,5}\)\?[^] \t]*)\)\@=" end=")"
+" syn region  mkdInlineURL matchgroup=mkdDelimiter start="(\(https\?:\/\/\(\w\+\(:\w\+\)\?@\)\?\([A-Za-z0-9][-_0-9A-Za-z]*\.\)\{1,}\(\w\{2,}\.\?\)\{1,}\(:[0-9]\{1,5}\)\?[^] \t]*)\)\@=" end=")"
 
 " Autolink with angle brackets.
-syn region mkdInlineURL matchgroup=mkdDelimiter start="\\\@<!<\ze[a-z][a-z0-9,.-]\{1,22}:\/\/[^> ]*>" end=">"
+" syn region mkdInlineURL matchgroup=mkdDelimiter start="\\\@<!<\ze[a-z][a-z0-9,.-]\{1,22}:\/\/[^> ]*>" end=">"
 
 " Link definitions: [id]: URL (Optional Title)
-syn region mkdLinkDef matchgroup=mkdDelimiter   start="^ \{,3}\zs\[\^\@!" end="]:" oneline nextgroup=mkdLinkDefTarget skipwhite
-syn region mkdLinkDefTarget start="<\?\zs\S" excludenl end="\ze[>[:space:]\n]"   contained nextgroup=mkdLinkTitle,mkdLinkDef skipwhite skipnl oneline
-syn region mkdLinkTitle matchgroup=mkdDelimiter start=+"+     end=+"+  contained
-syn region mkdLinkTitle matchgroup=mkdDelimiter start=+'+     end=+'+  contained
-syn region mkdLinkTitle matchgroup=mkdDelimiter start=+(+     end=+)+  contained
+" syn region mkdLinkDef matchgroup=mkdDelimiter   start="^ \{,3}\zs\[\^\@!" end="]:" oneline nextgroup=mkdLinkDefTarget skipwhite
+" syn region mkdLinkDefTarget start="<\?\zs\S" excludenl end="\ze[>[:space:]\n]"   contained nextgroup=mkdLinkTitle,mkdLinkDef skipwhite skipnl oneline
+" syn region mkdLinkTitle matchgroup=mkdDelimiter start=+"+     end=+"+  contained
+" syn region mkdLinkTitle matchgroup=mkdDelimiter start=+'+     end=+'+  contained
+" syn region mkdLinkTitle matchgroup=mkdDelimiter start=+(+     end=+)+  contained
 
 "define Markdown groups
 syn match  mkdLineBreak    /  \+$/
@@ -216,7 +218,6 @@ Hi mkdFootnotes     htmlLink
 Hi mkdID            Tag
 Hi mkdInlineURL     Tag
 Hi mkdLineBreak     Visual
-Hi mkdLink          htmlLink
 Hi mkdEmptyLink     Tag
 Hi mkdLinkDef       mkdID
 Hi mkdLinkDefTarget mkdURL
@@ -224,7 +225,6 @@ Hi mkdLinkTitle     htmlString
 Hi mkdListItem      Identifier
 Hi mkdRule          Identifier
 Hi mkdString        String
-Hi mkdURL           htmlString
 Hi mkdZettel        htmlString
 
 Hi htmlString       Tag
@@ -232,6 +232,9 @@ Hi htmlLink         Statement
 Hi mkdItalic        mkdSurround
 Hi mkdBold          mkdSurround
 Hi mkdBoldItalic    mkdSurround
+
+Hi mkdLink          Label
+Hi mkdURL           Label
 
 Hi zBright       String
 Hi zBold         Directory

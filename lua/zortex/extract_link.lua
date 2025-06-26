@@ -12,7 +12,8 @@ M.regex_iterators = {
 
 -- Regex patterns for vim.fn.matchlist (string format)
 M.patterns = {
-	website = "\\vhttps?://[^);}]+",
+	website = "https?://[^%s%]%)};]+",
+	-- "\\vhttps?://[^);}]+",
 	file_markdown_style = "\\v\\[([^]]*)]\\(([^)]+)\\)", -- Captures: 1=name (optional), 2=url. Handles [alt text](url) or [](url)
 	zortex_link = "\\vref=([^\\s;}]+)", -- Captures: 1=url
 	file_path = "\\v(^|\\s)([~.]?/[/\\S]+)($|\\s)", -- Captures the path in group 3
@@ -240,7 +241,7 @@ function M.extract_link(line)
 		end
 	)
 	if footernote_ref_match then
-		vim.notify("Found footernote", vim.log.levels.DEBUG)
+		-- vim.notify("Found footernote", vim.log.levels.DEBUG)
 		return footernote_ref_match
 	end
 

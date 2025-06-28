@@ -1,7 +1,7 @@
 -- search.lua – incremental exact‑substring note search
 --   • Space separates tokens (logical AND across the entire file).
 --   • Use underscore "_" instead of spaces for phrase search (hello_world searches for "hello world").
---   • One entry per note: <modified_date> | <title> | <first match> | <other matches…>.
+--   • One entry per note: <header> ▌ <date> ▌ <aliases/tags> ▌ <matching text>.
 --   • Preview uses *bat* with Markdown highlighting (falls back if absent).
 --   • M.search() is called at the end so you can :luafile % for quick tests.
 
@@ -47,7 +47,7 @@ end
 
 -- Format timestamp for display
 local function format_timestamp(timestamp)
-	return os.date("%Y-%m-%d %H:%M", timestamp)
+	return os.date("%Y-%m-%d", timestamp)
 end
 
 -- Extract header name (remove @@ prefix and trim)
@@ -56,6 +56,57 @@ local function extract_header_name(title)
 		return title:sub(3):gsub("^%s+", ""):gsub("%s+$", "")
 	end
 	return title
+end
+
+-- Extract date from filename if it follows the YYYYWWDHHMMSS format
+local function extract_date_from_filename(filename)
+	local basename = filename:match("([^/]+)$") -- Get just the filename
+	local name_without_ext = basename:match("^(.+)%.[^.]+$") or basename
+
+	-- Check if it matches YYYYWWDHHMMSS format (13 digits)
+	if name_without_ext:match("^%d%d%d%d%d%d%d%d%d%d%d%d%d$") then
+		local year = name_without_ext:sub(1, 4)
+		local week = tonumber(name_without_ext:sub(5, 6))
+		local day = tonumber(name_without_ext:sub(7, 7))
+
+		-- Convert week/day to approximate date
+		-- This is a simplified conversion - you might want to use a proper ISO week calculation
+		local day_of_year = (week - 1) * 7 + day
+		local timestamp = os.time({ year = tonumber(year), month = 1, day = 1 }) + (day_of_year - 1) * 24 * 60 * 60
+		return format_timestamp(timestamp)
+	end
+
+	return nil
+end
+
+-- Extract aliases and tags from content (lines starting with @@alias or containing @tags)
+local function extract_aliases_and_tags(lines)
+	local aliases_tags = {}
+
+	for _, line in ipairs(lines) do
+		-- Look for @@alias lines
+		if line:match("^@@alias") then
+			table.insert(aliases_tags, line)
+		else
+			-- Look for @tags in any line
+			for tag in line:gmatch("@%w+") do
+				table.insert(aliases_tags, tag)
+			end
+		end
+	end
+
+	-- Remove duplicates and sort
+	local seen = {}
+	local unique_tags = {}
+	for _, tag in ipairs(aliases_tags) do
+		if not seen[tag] then
+			seen[tag] = true
+			table.insert(unique_tags, tag)
+		end
+	end
+	table.sort(unique_tags)
+
+	return table.concat(unique_tags, " ")
 end
 
 --------------------------------------------------
@@ -190,9 +241,15 @@ function M.search(opts)
 
 		for path, data in pairs(file_cache) do
 			local title = data.lines[1] or ""
-			local modified_date = format_timestamp(data.mtime)
+			local header_name = extract_header_name(title)
 
-			local first_match_line, first_match_idx, extras = nil, nil, {}
+			-- Determine date: from filename format or modification time
+			local date_str = extract_date_from_filename(path) or format_timestamp(data.mtime)
+
+			-- Extract aliases and tags
+			local aliases_tags = extract_aliases_and_tags(data.lines)
+
+			local first_match_line, first_match_idx, matching_lines = nil, nil, {}
 			local seen_tok = {}
 
 			for idx, line in ipairs(data.lines) do
@@ -215,29 +272,58 @@ function M.search(opts)
 					end
 				end
 			end
+
 			if qualifies then
+				-- Collect all matching lines for display
 				if not empty then
 					for _, v in pairs(seen_tok) do
-						if v[2] ~= first_match_line then
-							table.insert(extras, v[2])
+						if v[2] ~= first_match_line and not vim.tbl_contains(matching_lines, v[2]) then
+							table.insert(matching_lines, v[2])
 						end
 					end
 				end
-				-- local display = { modified_date, title, first_match_line or title }
-				local display = { title }
-				if #extras > 0 then
-					table.insert(display, table.concat(extras, " ∥ "))
+
+				-- Build display string: @@Header ▌ Date ▌ Aliases/Tags ▌ Matching text
+				local display_parts = {}
+
+				-- Add date
+				table.insert(display_parts, date_str)
+
+				-- Add header (with @@ prefix if it was originally there)
+				if title:match("^@@") then
+					table.insert(display_parts, "@@" .. header_name)
+				else
+					table.insert(display_parts, header_name)
 				end
-				local ord = table.concat(display, " ")
+
+				-- Add aliases/tags if any
+				if aliases_tags ~= "" then
+					table.insert(display_parts, aliases_tags)
+				end
+
+				-- Add matching text
+				if first_match_line and first_match_line ~= title then
+					local match_text = first_match_line
+					if #matching_lines > 0 then
+						match_text = match_text .. " ∥ " .. table.concat(matching_lines, " ∥ ")
+					end
+					table.insert(display_parts, match_text)
+				elseif #matching_lines > 0 then
+					table.insert(display_parts, table.concat(matching_lines, " ∥ "))
+				end
+
+				local display_str = table.concat(display_parts, " | ")
+				local ordinal = header_name .. " " .. date_str .. " " .. aliases_tags .. " " .. (first_match_line or "")
+
 				table.insert(results, {
 					value = path .. ":" .. (first_match_idx or 1),
-					ordinal = ord,
-					display = table.concat(display, " | "),
-					filter_text = ord,
+					ordinal = ordinal,
+					display = display_str,
+					filter_text = ordinal,
 					filename = path,
 					lnum = first_match_idx or 1,
 					text = first_match_line or title,
-					header_name = extract_header_name(title),
+					header_name = header_name,
 					mtime = data.mtime,
 				})
 			end

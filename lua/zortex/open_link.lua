@@ -21,6 +21,248 @@ local joinpath = vim.fs and vim.fs.joinpath
 		return path:gsub("//+", "/") -- Normalize multiple slashes
 	end
 
+--- Escapes characters in a string for use in Lua patterns.
+local function lua_pattern_escape(text)
+	if text == nil then
+		return ""
+	end
+	return text:gsub("([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1")
+end
+
+--- NEW: Searches for all articles containing a specific tag.
+-- Populates the quickfix list with matching files.
+-- Used for [@Tag] links.
+local function search_articles_by_tag(tag_to_find)
+	local notes_dir = vim.g.zortex_notes_dir
+	if not notes_dir or notes_dir == "" then
+		vim.notify("g:zortex_notes_dir is not set.", vim.log.levels.ERROR)
+		return false
+	end
+
+	local qf_list = {}
+	vim.notify("Searching for articles with tag: @" .. tag_to_find, vim.log.levels.INFO)
+
+	local lua_search_pattern = "^@" .. lua_pattern_escape(tag_to_find:lower()) .. "$"
+
+	local scandir_handle = vim.loop.fs_scandir(notes_dir)
+	if not scandir_handle then
+		vim.notify("Could not scan directory: " .. notes_dir, vim.log.levels.WARN)
+		return false
+	end
+
+	while true do
+		local name, file_type_info = vim.loop.fs_scandir_next(scandir_handle)
+		if not name then
+			break
+		end
+
+		if file_type_info == "file" and (name:match("%.md$") or name:match("%.zortex$") or name:match("%.txt$")) then
+			local full_path = joinpath(notes_dir, name)
+			local file = io.open(full_path, "r")
+			if file then
+				local lnum = 0
+				for file_line in file:lines() do
+					lnum = lnum + 1
+					if file_line:lower():find(lua_search_pattern) then
+						table.insert(qf_list, {
+							filename = full_path,
+							lnum = lnum,
+							col = 1,
+							text = string.format("[@%s] %s", tag_to_find, file_line:gsub("[\r\n]", "")),
+							valid = 1,
+						})
+						break -- Found tag, move to next file
+					end
+				end
+				file:close()
+			end
+		end
+	end
+
+	if #qf_list > 0 then
+		vim.fn.setqflist(qf_list, "r")
+		vim.cmd("copen")
+		vim.notify(string.format("Found %d article(s) with tag '@%s'.", #qf_list, tag_to_find), vim.log.levels.INFO)
+		return true
+	else
+		vim.notify("No articles found with tag: @" .. tag_to_find, vim.log.levels.INFO)
+		return false
+	end
+end
+
+--- NEW: Searches for articles with a specific tag AND a specific header.
+-- Populates the quickfix list with matches, pointing to the header line.
+-- Used for [@Tag/#Header] links.
+local function search_articles_by_tag_and_header(tag_to_find, header_to_find)
+	local notes_dir = vim.g.zortex_notes_dir
+	if not notes_dir or notes_dir == "" then
+		vim.notify("g:zortex_notes_dir is not set.", vim.log.levels.ERROR)
+		return false
+	end
+
+	local qf_list = {}
+	vim.notify(
+		"Searching for articles with tag '@" .. tag_to_find .. "' and header '#" .. header_to_find .. "'",
+		vim.log.levels.INFO
+	)
+
+	local lua_tag_pattern = "^@" .. lua_pattern_escape(tag_to_find:lower()) .. "$"
+	local lua_header_pattern = "^#+%s*" .. lua_pattern_escape(header_to_find:lower())
+
+	local scandir_handle = vim.loop.fs_scandir(notes_dir)
+	if not scandir_handle then
+		vim.notify("Could not scan directory: " .. notes_dir, vim.log.levels.WARN)
+		return false
+	end
+
+	while true do
+		local name, file_type_info = vim.loop.fs_scandir_next(scandir_handle)
+		if not name then
+			break
+		end
+
+		if file_type_info == "file" and (name:match("%.md$") or name:match("%.zortex$") or name:match("%.txt$")) then
+			local full_path = joinpath(notes_dir, name)
+			local file = io.open(full_path, "r")
+			if file then
+				local has_tag = false
+				local header_match = nil
+				local lnum = 0
+				for file_line in file:lines() do
+					lnum = lnum + 1
+					if not has_tag and file_line:lower():find(lua_tag_pattern) then
+						has_tag = true
+					end
+					if not header_match then
+						local s, e = file_line:lower():find(lua_header_pattern)
+						if s then
+							header_match = { lnum = lnum, col = s, text = file_line:gsub("[\r\n]", "") }
+						end
+					end
+					if has_tag and header_match then
+						break
+					end
+				end
+				file:close()
+
+				if has_tag and header_match then
+					table.insert(qf_list, {
+						filename = full_path,
+						lnum = header_match.lnum,
+						col = header_match.col,
+						text = string.format("[@%s/#%s] %s", tag_to_find, header_to_find, header_match.text),
+						valid = 1,
+					})
+				end
+			end
+		end
+	end
+
+	if #qf_list > 0 then
+		vim.fn.setqflist(qf_list, "r")
+		vim.cmd("copen")
+		vim.notify(
+			string.format("Found %d match(es) for tag '@%s' and header '#%s'.", #qf_list, tag_to_find, header_to_find),
+			vim.log.levels.INFO
+		)
+		return true
+	else
+		vim.notify(
+			"No matches found for tag '@" .. tag_to_find .. "' and header '#" .. header_to_find .. "'",
+			vim.log.levels.INFO
+		)
+		return false
+	end
+end
+
+--- NEW: Finds an article by its @@Name and a specific @tag.
+-- Used for [Article/@Tag] links for disambiguation.
+-- Returns a file path if one match is found.
+-- Populates quickfix and returns nil if multiple matches are found.
+local function find_article_file_by_name_and_tag(article_name, tag_to_find)
+	local notes_dir = vim.g.zortex_notes_dir
+	if not notes_dir or notes_dir == "" then
+		vim.notify("g:zortex_notes_dir is not set.", vim.log.levels.ERROR)
+		return nil
+	end
+
+	local qf_list = {}
+	local lower_article_name = article_name:lower()
+	local lua_tag_pattern = "^@" .. lua_pattern_escape(tag_to_find:lower()) .. "$"
+
+	local scandir_handle = vim.loop.fs_scandir(notes_dir)
+	if not scandir_handle then
+		vim.notify("Could not scan directory: " .. notes_dir, vim.log.levels.WARN)
+		return nil
+	end
+
+	while true do
+		local name, file_type_info = vim.loop.fs_scandir_next(scandir_handle)
+		if not name then
+			break
+		end
+
+		if file_type_info == "file" and (name:match("%.md$") or name:match("%.zortex$") or name:match("%.txt$")) then
+			local full_path = joinpath(notes_dir, name)
+			local file = io.open(full_path, "r")
+			if file then
+				local has_article_name = false
+				local has_tag = false
+				local article_lnum = 1
+				local lnum = 0
+				for file_line in file:lines() do
+					lnum = lnum + 1
+					if not has_article_name and lnum <= 20 then
+						if file_line:sub(1, 2) == "@@" then
+							local title = file_line:sub(3):gsub("^%s*(.-)%s*$", "%1")
+							if title:lower() == lower_article_name then
+								has_article_name = true
+								article_lnum = lnum
+							end
+						end
+					end
+					if not has_tag and file_line:lower():find(lua_tag_pattern) then
+						has_tag = true
+					end
+					if has_article_name and has_tag then
+						break
+					end
+				end
+				file:close()
+
+				if has_article_name and has_tag then
+					table.insert(qf_list, {
+						filename = full_path,
+						lnum = article_lnum,
+						col = 1,
+						text = string.format("[%s/@%s]", article_name, tag_to_find),
+						valid = 1,
+					})
+				end
+			end
+		end
+	end
+
+	if #qf_list == 1 then
+		return qf_list[1].filename
+	elseif #qf_list > 1 then
+		vim.fn.setqflist(qf_list, "r")
+		vim.cmd("copen")
+		vim.notify(
+			"Multiple articles match '"
+				.. article_name
+				.. "' with tag '@"
+				.. tag_to_find
+				.. "'. Populated quickfix list.",
+			vim.log.levels.INFO
+		)
+		return nil
+	else
+		vim.notify("No article '" .. article_name .. "' with tag '@" .. tag_to_find .. "' found.", vim.log.levels.INFO)
+		return nil
+	end
+end
+
 --- Finds an article file based on its @@ArticleName title.
 function M.find_article_file_path(article_name_query)
 	local notes_dir = vim.g.zortex_notes_dir
@@ -90,13 +332,6 @@ local function create_vim_search_pattern_for_target(target_type, target_text, fo
 		search_pattern = "\\c" .. base_text
 	end
 	return search_pattern
-end
-
-local function lua_pattern_escape(text)
-	if text == nil then
-		return ""
-	end
-	return text:gsub("([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1")
 end
 
 function M.search_in_current_buffer(targets_to_find, current_file_path_for_msg)
@@ -387,6 +622,32 @@ function M.open_link_with_mode(use_split_for_structure)
 
 	if link_info.type == "enhanced_link" then
 		local def = link_info.definition_details
+
+		-- NEW: Handle @-links
+		if def.article_specifier and def.article_specifier:sub(1, 1) == "@" and def.target_type == "heading" then
+			-- Format: [@Tag/#Header]
+			local tag = def.article_specifier:sub(2)
+			search_articles_by_tag_and_header(tag, def.target_text)
+			return
+		elseif def.scope == "article_specific" and def.target_type == "tag" then
+			-- Format: [Article/@Tag]
+			local article_path = find_article_file_by_name_and_tag(def.article_specifier, def.target_text)
+			if article_path then
+				local win_to_use = should_use_structure_mode and target_window or vim.api.nvim_get_current_win()
+				local target_bufnr = vim.fn.bufadd(article_path)
+				vim.api.nvim_win_set_buf(win_to_use, target_bufnr)
+				vim.api.nvim_win_set_cursor(win_to_use, { 1, 0 })
+				vim.api.nvim_win_call(win_to_use, function()
+					vim.cmd("normal! zz")
+				end)
+			end
+			return
+		elseif def.scope == "global" and def.target_type == "tag" then
+			-- Format: [@Tag]
+			search_articles_by_tag(def.target_text)
+			return
+		end
+
 		if def.target_type == "query" then
 			-- Query links always use global search regardless of structure mode
 			if def.scope == "local" then

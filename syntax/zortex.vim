@@ -161,6 +161,7 @@ endif
 syntax match zTag /^[A-Za-z0-9]*@\{1,2}\([A-Za-z0-9()]\S*\s\?\)\+/  " @@Article names or @Tags or key@Value
 " TODO: match only if there's a new line before
 syntax match zHeading /^#\{1,6} .*$/             " Headings
+" syntax match zSection /^\d\+\.\d\+ [A-Za-z0-9-: ()]\+$/
 
 syntax match String  /^[A-Za-z0-9][^.*:]\+\ze: /           " Label: text
 syntax match zLabel /^[0-9A-Z][^.]\+\ze:$/           " Label:\n
@@ -174,7 +175,7 @@ syntax match zOperator /\(- \)\@<=\zs[A-Z][A-Za-z0-9(), ]\+\ze: /      " - Label
 syntax match zOperator /- \zs#.*#\ze / " - #tag1#tag2# Text
 
 syntax match zBullet /^\s*\zs[-+x!*¿?✘★✓]\ze\s/            " Unordered lists
-syntax match zOperator /^\s*[A-Za-z0-9]\+\./  " Numbered lists
+syntax match zOperator /^\s*[A-Za-z0-9]\+\.\ze\s/  " Numbered lists
 
 syntax match zOperator /\d\d\?:\d\d/ " Times of day 
 syntax match zOperator /[A-Z]\S* \d\+:\d\+\(-\d\+\)/ " Scripture quotes
@@ -247,7 +248,8 @@ Hi mkdSurround      Statement
 " hi zHeading gui=bold,italic guifg=#3e8fb0
 " Hi zHeading         mkdBoldItalic
 " hi zHeading gui=bold guibg=#3e8fb0 guifg=#232136
-hi zHeading gui=bold,italic guifg=#eb6f92 
+hi zHeading gui=bold,italic guifg=#eb6f92
+hi zSection guifg=#eb6f92
 
 Hi zLink     Tag
 Hi zQuote           String

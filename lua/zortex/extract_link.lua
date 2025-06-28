@@ -133,7 +133,7 @@ function M.parse_link_definition(link_definition)
 		original_definition = link_definition,
 		article_specifier = nil, -- Name of the target article
 		target_specifier = "", -- The #Heading, :Label, %Query, or GenericText
-		target_type = "generic", -- "heading", "label", "query", "generic"
+		target_type = "generic", -- "heading", "label", "query", "generic", "tag"
 		target_text = "", -- The actual text for heading/label/query/generic
 		scope = "global", -- "article_specific", "local", "global"
 		chained_parts = nil, -- For [Article/#Heading/:Label]
@@ -202,6 +202,10 @@ function M.parse_link_definition(link_definition)
 		result.target_text = result.target_specifier:sub(2)
 	elseif result.target_specifier:sub(1, 1) == "%" then
 		result.target_type = "query"
+		result.target_text = result.target_specifier:sub(2)
+	elseif result.target_specifier:sub(1, 1) == "@" then
+		-- NEW: Handle @tag links
+		result.target_type = "tag"
 		result.target_text = result.target_specifier:sub(2)
 	else
 		result.target_type = "generic"

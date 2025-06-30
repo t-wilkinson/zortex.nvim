@@ -1,6 +1,7 @@
-local open_link = require("zortex.open_link")
+-- local open_link = require("zortex.open_link")
 local search = require("zortex.search")
-local link_opener = require("zortex.link_opener")
+local links = require("zortex.links")
+-- local link_opener = require("zortex.link_opener")
 
 local M = {}
 
@@ -10,6 +11,7 @@ M.defaults = {
 	zortex_remote_wiki_port = "8080",
 	zortex_auto_start_server = false,
 	zortex_auto_start_preview = true,
+	zortex_special_articles = { "structure", "inbox" },
 	zortex_auto_close = true,
 	zortex_refresh_slow = false,
 	zortex_command_for_global = false,
@@ -60,18 +62,19 @@ function M.init()
 		vim.g[k] = v
 	end
 
-	vim.keymap.set("n", "Zo", function()
-		open_link.open_link_in_split()
-	end, { desc = "Open link in split (structure navigation)" })
+	-- vim.keymap.set("n", "Zo", function()
+	-- 	open_link.open_link_in_split()
+	-- end, { desc = "Open link in split (structure navigation)" })
 
 	-- Map Enter key to open link function in normal mode
-	vim.keymap.set("n", "<CR>", link_opener.open_link_or_search_forward, {
-		buffer = true, -- Make it buffer-local, remove if you want it global
-		desc = "Open link under cursor or search forward",
-	})
+	-- vim.keymap.set("n", "<CR>", link_opener.open_link_or_search_forward, {
+	-- 	buffer = true, -- Make it buffer-local, remove if you want it global
+	-- 	desc = "Open link under cursor or search forward",
+	-- })
 
-	vim.api.nvim_create_user_command("ZortexOpenLinkSplit", open_link.open_link_in_split, {})
-	vim.api.nvim_create_user_command("ZortexOpenLink", open_link.open_link, {})
+	vim.api.nvim_create_user_command("ZortexOpenLinkSplit", links.open_link, {})
+	-- vim.api.nvim_create_user_command("ZortexOpenLinkSplit", open_link.open_link_in_split, {})
+	-- vim.api.nvim_create_user_command("ZortexOpenLink", open_link.open_link, {})
 	vim.api.nvim_create_user_command("ZortexSearch", search.search, {})
 	-- vim.api.nvim_create_user_command("ZortexOpenLink", links.open_link, {
 	-- 	bang = false, -- No !bang support for now

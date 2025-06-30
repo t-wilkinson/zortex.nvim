@@ -317,7 +317,8 @@ local function find_article_file_by_name_and_tag(article_name, tag_to_find)
 
 				if has_article_name and has_tag then
 					table.insert(qf_list, {
-						filename = shorten_path(full_path),
+						-- filename = shorten_path(full_path),
+						filename = full_path,
 						bufnr = vim.fn.bufadd(full_path),
 						lnum = article_lnum,
 						col = 1,

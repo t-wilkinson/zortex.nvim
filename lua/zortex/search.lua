@@ -442,7 +442,7 @@ function M.search(opts)
 					actions.close(bufnr)
 					open_location(sel)
 				end)
-				map("n", "<C-o>", function()
+				map({ "i", "n" }, "<C-o>", function()
 					create_new_note(bufnr)
 				end)
 				return true

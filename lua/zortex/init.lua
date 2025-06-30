@@ -1,5 +1,6 @@
 local open_link = require("zortex.open_link")
 local search = require("zortex.search")
+local link_opener = require("zortex.link_opener")
 
 local M = {}
 
@@ -62,6 +63,12 @@ function M.init()
 	vim.keymap.set("n", "Zo", function()
 		open_link.open_link_in_split()
 	end, { desc = "Open link in split (structure navigation)" })
+
+	-- Map Enter key to open link function in normal mode
+	vim.keymap.set("n", "<CR>", link_opener.open_link_or_search_forward, {
+		buffer = true, -- Make it buffer-local, remove if you want it global
+		desc = "Open link under cursor or search forward",
+	})
 
 	vim.api.nvim_create_user_command("ZortexOpenLinkSplit", open_link.open_link_in_split, {})
 	vim.api.nvim_create_user_command("ZortexOpenLink", open_link.open_link, {})

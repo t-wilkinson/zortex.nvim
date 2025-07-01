@@ -460,7 +460,7 @@ local function create_search_pattern(component)
 	elseif component.type == "label" then
 		return "^" .. text .. ":"
 	elseif component.type == "listitem" then
-		return "^%s*" .. text .. "$"
+		return "^%s*- " .. text .. "$"
 	elseif component.type == "highlight" then
 		-- Match *, **, or *** wrapping
 		return "%*%*?%*?" .. text .. "%*%*?%*?"

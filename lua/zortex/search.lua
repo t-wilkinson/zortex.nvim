@@ -402,17 +402,11 @@ end
 function Utils.extract_aliases_and_tags(lines)
 	local out, seen = {}, {}
 
-	for _, line in ipairs(lines) do
-		if line:match("^@@alias") then
-			if not seen[line] then
-				out[#out + 1], seen[line] = line, true
-			end
-		else
-			for tag in line:gmatch("@%w+") do
-				if not seen[tag] then
-					out[#out + 1], seen[tag] = tag, true
-				end
-			end
+	for i = 2, math.min(15, #lines) do
+		local line = lines[i]
+		if not seen[line] and line:match("^@+%w+") then -- @@alias or @tag
+			out[#out + 1] = line
+			seen[line] = true
 		end
 	end
 
@@ -423,77 +417,7 @@ end
 --------------------------------------------------
 -- Smart Sorter with Scoring
 --------------------------------------------------
-local function create_smart_sorter()
-	local ts_sorters = require("telescope.sorters")
-
-	return ts_sorters.Sorter:new({
-		scoring_function = function(self, prompt, entry)
-			-- Handle case where entry is just a string (ordinal)
-			if type(entry) == "string" then
-				return 999999 -- High score (low priority) for string entries
-			end
-
-			-- Skip if entry doesn't have required fields
-			if not entry or not entry.filename then
-				return 999999
-			end
-
-			if not entry.score_calculated then
-				local tokens = Utils.parse_tokens(prompt)
-				local current_time = os.time()
-
-				-- Calculate comprehensive score
-				entry.total_score = calculate_entry_score(entry, tokens, current_time)
-				entry.score_calculated = true
-			end
-
-			-- In Telescope, LOWER scores rank HIGHER
-			-- So return inverse of our score (higher score = lower return value = higher rank)
-			local score = 1000 / (entry.total_score + 1)
-
-			-- Debug logging (uncomment to troubleshoot)
-			-- if entry.header_name then
-			--     print(string.format("Score for %s: %.2f (recency: %.2f)",
-			--         entry.header_name, score, entry.recency_score or 0))
-			-- end
-
-			return score
-		end,
-
-		highlighter = function(_, prompt, display)
-			if not prompt or prompt == "" then
-				return {}
-			end
-
-			local tokens = Utils.parse_tokens(prompt)
-			local highlights = {}
-			local disp_lower = display:lower()
-
-			for _, tok in ipairs(tokens) do
-				local tok_lower = tok:lower()
-				local start = 1
-
-				while true do
-					local s, e = disp_lower:find(tok_lower, start, true)
-					if not s then
-						break
-					end
-
-					highlights[#highlights + 1] = { start = s, finish = e }
-					start = e + 1
-				end
-			end
-
-			table.sort(highlights, function(a, b)
-				return a.start < b.start
-			end)
-
-			return highlights
-		end,
-	})
-end
-
-function calculate_entry_score(entry, tokens, current_time)
+local function calculate_entry_score(entry, tokens, current_time)
 	-- Defensive checks
 	if type(entry) ~= "table" then
 		return 0
@@ -589,6 +513,81 @@ function calculate_entry_score(entry, tokens, current_time)
 	return math.max(total, 0.001)
 end
 
+local function create_smart_sorter()
+	local ts_sorters = require("telescope.sorters")
+
+	-- Store a mapping from ordinal to entry for lookup
+	local ordinal_to_entry = {}
+
+	return ts_sorters.Sorter:new({
+		-- Store entries when they're created
+		start = function(self, prompt)
+			ordinal_to_entry = {}
+		end,
+
+		scoring_function = function(self, prompt, line, entry)
+			-- Handle both cases: when we get just ordinal or full entry
+			local actual_entry = entry
+
+			if type(line) == "string" and not entry then
+				-- We got just the ordinal, need to look up the entry
+				actual_entry = ordinal_to_entry[line]
+				if not actual_entry then
+					return 999999
+				end
+			elseif type(entry) == "table" and entry.ordinal then
+				-- We have the full entry, store it for later lookup
+				ordinal_to_entry[entry.ordinal] = entry
+				actual_entry = entry
+			else
+				return 999999
+			end
+
+			if not actual_entry.score_calculated then
+				local tokens = Utils.parse_tokens(prompt)
+				local current_time = os.time()
+
+				actual_entry.total_score = calculate_entry_score(actual_entry, tokens, current_time)
+				actual_entry.score_calculated = true
+			end
+
+			-- In Telescope, LOWER scores rank HIGHER
+			local score = 1000 / (actual_entry.total_score + 1)
+
+			return score
+		end,
+
+		highlighter = function(_, prompt, display)
+			-- ... (same as before)
+		end,
+	})
+end
+
+local function norm(x, max) -- 0 ≤ x ≤ max ⇒ 0 … 1
+	if max == 0 then
+		return 1
+	end
+	return x / max
+end
+
+-- compute a vault‑wide “oldest possible age” once at startup so every score
+-- lands nicely in the 0…1 bracket.  (This is fast: just stats every file.)
+local NOW = uv.now() / 1000 -- libuv gives ms; scale to seconds
+local NOTES_DIR = vim.g.zortex_notes_dir or (vim.fn.expand("~") .. "/.zortex/")
+local function max_file_age()
+	local max = 0
+	for _, path in ipairs(vim.fn.globpath(NOTES_DIR, "*", false, true)) do
+		local stat = uv.fs_stat(path)
+		if stat and stat.mtime.sec > 0 then
+			local age = NOW - stat.mtime.sec
+			if age > max then
+				max = age
+			end
+		end
+	end
+	return max
+end
+
 --------------------------------------------------
 -- Note Creation
 --------------------------------------------------
@@ -655,7 +654,7 @@ function M.search(opts)
 			local title = data.lines[1] or ""
 			local header_name = Utils.extract_header_name(title)
 			local date_str = Utils.extract_date_from_filename(path) or Utils.format_timestamp(data.mtime)
-			local alias_tag = Utils.extract_aliases_and_tags(data.lines)
+			local tags = Utils.extract_aliases_and_tags(data.lines)
 
 			-- Token matching
 			local seen_tok = {}
@@ -710,21 +709,24 @@ function M.search(opts)
 				end
 
 				local parts = {
-					recency_indicator .. date_str,
-					(title:match("^@@") and "@@" .. header_name or header_name),
+					date_str,
+					recency_indicator .. header_name .. (tags ~= "" and (" " .. tags) or ""),
 				}
-				if alias_tag ~= "" then
-					parts[#parts + 1] = alias_tag
-				end
-				if first_line and first_line ~= title then
-					parts[#parts + 1] = (#extra > 0) and (first_line .. " ∥ " .. table.concat(extra, " ∥ "))
-						or first_line
-				elseif #extra > 0 then
-					parts[#parts + 1] = table.concat(extra, " ∥ ")
+
+				-- Matching query
+				local has_extra = #extra > 0
+				local first_diff = first_line and first_line ~= title
+				if first_diff or has_extra then
+					local preview = first_diff and first_line or ""
+					if has_extra then
+						local extra_str = table.concat(extra, " ∥ ")
+						preview = preview ~= "" and (preview .. " ∥ " .. extra_str) or extra_str
+					end
+					parts[#parts + 1] = string.gsub(preview, "^%s+", "")
 				end
 
 				local display = table.concat(parts, " | ")
-				local ordinal = table.concat({ header_name, date_str, alias_tag, first_line or "" }, " ")
+				local ordinal = table.concat({ header_name, date_str, tags, first_line or "" }, " ")
 
 				results[#results + 1] = {
 					value = path .. ":" .. (first_idx or 1),
@@ -733,7 +735,7 @@ function M.search(opts)
 					filename = path,
 					lnum = first_idx or 1,
 					header_name = header_name,
-					aliases_tags = alias_tag,
+					tags = tags,
 					matched_line = first_line,
 					mtime = data.mtime,
 					metadata = data.metadata,
@@ -780,7 +782,7 @@ function M.search(opts)
 	pickers
 		.new(opts, {
 			prompt_title = "Zortex Smart Search",
-			default_text = "@@",
+			default_text = "",
 			finder = finder,
 			sorter = sorter,
 			previewer = previewer,

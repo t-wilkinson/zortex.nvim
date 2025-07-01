@@ -691,9 +691,9 @@ function M.search(opts)
 					local age_days = (os.time() - last_access) / 86400
 					if age_days < 1 then
 						recency_indicator = "● " -- Today
-					elseif age_days < 7 then
+					elseif age_days < 3 then
 						recency_indicator = "◐ " -- This week
-					elseif age_days < 30 then
+					elseif age_days < 7 then
 						recency_indicator = "○ " -- This month
 					end
 				end
@@ -713,7 +713,7 @@ function M.search(opts)
 					recency_indicator .. header_name .. (tags ~= "" and (" " .. tags) or ""),
 				}
 
-				-- Matching query
+				-- Show the matching query, removing leading whitespace
 				local has_extra = #extra > 0
 				local first_diff = first_line and first_line ~= title
 				if first_diff or has_extra then
@@ -873,7 +873,7 @@ function M.clear_access_history()
 	print("Access history cleared")
 end
 
--- Export module
-return M
+-- Uncomment for testing:
+-- M.search()
 
--- Uncomment for testing: M.search()
+return M

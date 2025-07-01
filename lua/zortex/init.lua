@@ -1,6 +1,6 @@
 local search = require("zortex.search")
 local links = require("zortex.links")
-local calendar = require("zortex.calendar")
+local calendar = require("zortex.calendar.ui")
 
 local M = {}
 
@@ -62,21 +62,18 @@ function M.init()
 		vim.g[k] = v
 	end
 
-	-- Map Enter key to open link function in normal mode
-	-- vim.keymap.set("n", "<CR>", link_opener.open_link_or_search_forward, {
-	-- 	buffer = true, -- Make it buffer-local, remove if you want it global
-	-- 	desc = "Open link under cursor or search forward",
-	-- })
-
 	vim.api.nvim_create_user_command("ZortexOpenLink", links.open_link, {})
 	vim.api.nvim_create_user_command("ZortexSearch", search.search, {})
 
-	vim.keymap.set("n", "Zc", calendar.open_calendar)
-	vim.keymap.set("n", "Zt", calendar.telescope_calendar)
+	vim.keymap.set("n", "Zc", calendar.open, {
+		desc = "Open Zortex calendar",
+	})
+	vim.keymap.set("n", "Zt", calendar.telescope_calendar, {
+		desc = "Search calendar entries",
+	})
 	-- vim.keymap.set("n", "Za", calendar.quick_add)
 end
 
 M.init()
--- vim.defer_fn(calendar.open_calendar, 1000)
 
 return M

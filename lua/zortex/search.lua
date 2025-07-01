@@ -150,16 +150,17 @@ function FileAnalyzer.extract_metadata(lines)
 		end
 
 		-- Extract aliases
-		if line:match("^@@alias") then
-			local alias = line:match("^@@alias%s+(.+)")
+		if line:match("^@@.") then
+			local alias = line:match("^@@(.+)")
 			if alias then
 				alias_set[alias] = true
 			end
 		end
 
 		-- Extract tags
-		for tag in line:gmatch("@(%w+)") do
-			if tag ~= "alias" then -- Don't count @alias as a tag
+		if line:match("^@[^@]") then
+			local tag = line:match("^@([^@]+)")
+			if tag then
 				tag_set[tag] = true
 			end
 		end
@@ -250,12 +251,12 @@ function IndexManager.build_index()
 			else
 				-- Read and analyze file
 				local lines = IndexManager.read_file_lines(path)
-				local metadata = FileAnalyzer.extract_metadata(lines)
+				-- local metadata = FileAnalyzer.extract_metadata(lines)
 
 				new_index[path] = {
 					mtime = mtime,
 					lines = lines,
-					metadata = metadata,
+					-- metadata = metadata,
 				}
 			end
 		end
@@ -376,7 +377,7 @@ function Utils.format_timestamp(ts)
 	return os.date("%Y-%m-%d", ts)
 end
 
-function Utils.extract_header_name(title)
+function Utils.extract_article_name(title)
 	if title:match("^@@") then
 		return title:sub(3):gsub("^%s+", ""):gsub("%s+$", "")
 	end
@@ -450,23 +451,27 @@ local function calculate_entry_score(entry, tokens, current_time)
 	for _, token in ipairs(tokens) do
 		local tok_lower = token:lower()
 
-		-- Header match (highest priority)
-		if entry.header_name and entry.header_name:lower():find(tok_lower, 1, true) then
-			relevance_multiplier = relevance_multiplier * 5
+		-- Article match (highest priority)
+		if entry.article_name and entry.article_name:lower():find(tok_lower, 1, true) then
+			relevance_multiplier = relevance_multiplier * 20
 			has_any_match = true
+			goto continue
 		end
 
 		-- Tag/alias match (high priority)
-		if entry.aliases_tags and entry.aliases_tags:lower():find(tok_lower, 1, true) then
+		if entry.tags and entry.tags:lower():find(tok_lower, 1, true) then
 			relevance_multiplier = relevance_multiplier * 3
 			has_any_match = true
+			goto continue
 		end
 
 		-- Content match (standard priority)
 		if entry.matched_line and entry.matched_line:lower():find(tok_lower, 1, true) then
 			relevance_multiplier = relevance_multiplier * 1.5
 			has_any_match = true
+			goto continue
 		end
+		::continue::
 	end
 
 	-- If no matches found, return very low score
@@ -474,32 +479,33 @@ local function calculate_entry_score(entry, tokens, current_time)
 		return 0.001
 	end
 
-	scores.relevance = math.log(relevance_multiplier + 1) -- Logarithmic scaling
+	-- scores.relevance = math.log(relevance_multiplier + 1) -- Logarithmic scaling
+	scores.relevance = relevance_multiplier
 
-	-- Content richness score
-	local meta = entry.metadata
-	if meta then
-		scores.richness = (
-			math.min(#(meta.tags or {}), 5) * 0.4 -- Tag count (capped)
-			+ math.log(math.max(1, (meta.word_count or 0) / 100)) * 0.3 -- Word count (log scale)
-			+ (entry.line_count and math.log(entry.line_count + 1) * 0.2 or 0) -- Line count
-			+ ((meta.has_code or meta.has_links) and 0.5 or 0) -- Special content
-		)
-	end
+	-- -- Content richness score
+	-- local meta = entry.metadata
+	-- if meta then
+	-- 	scores.richness = (
+	-- 		math.min(#(meta.tags or {}), 5) * 0.4 -- Tag count (capped)
+	-- 		+ math.log(math.max(1, (meta.word_count or 0) / 100)) * 0.3 -- Word count (log scale)
+	-- 		+ (entry.line_count and math.log(entry.line_count + 1) * 0.2 or 0) -- Line count
+	-- 		+ ((meta.has_code or meta.has_links) and 0.5 or 0) -- Special content
+	-- 	)
+	-- end
 
-	-- Structure quality score
-	if meta then
-		scores.structure = (
-			((meta.avg_line_length or 0) > 20 and (meta.avg_line_length or 0) < 80 and 1 or 0)
-			+ (meta.has_lists and 0.5 or 0)
-			+ ((meta.complexity_score or 0) > 2 and 0.5 or 0)
-		)
-	end
+	-- -- Structure quality score
+	-- if meta then
+	-- 	scores.structure = (
+	-- 		((meta.avg_line_length or 0) > 20 and (meta.avg_line_length or 0) < 80 and 1 or 0)
+	-- 		+ (meta.has_lists and 0.5 or 0)
+	-- 		+ ((meta.complexity_score or 0) > 2 and 0.5 or 0)
+	-- 	)
+	-- end
 
 	-- Calculate weighted total
 	local weights = {
-		recency = 6.0, -- Increased weight for recency
-		relevance = 4.0, -- Still important for search matches
+		recency = 5.0, -- Increased weight for recency
+		relevance = 5.0, -- Still important for search matches
 		richness = 1.5,
 		structure = 0.5,
 	}
@@ -558,7 +564,34 @@ local function create_smart_sorter()
 		end,
 
 		highlighter = function(_, prompt, display)
-			-- ... (same as before)
+			if not prompt or prompt == "" then
+				return {}
+			end
+
+			local tokens = Utils.parse_tokens(prompt)
+			local highlights = {}
+			local disp_lower = display:lower()
+
+			for _, tok in ipairs(tokens) do
+				local tok_lower = tok:lower()
+				local start = 1
+
+				while true do
+					local s, e = disp_lower:find(tok_lower, start, true)
+					if not s then
+						break
+					end
+
+					highlights[#highlights + 1] = { start = s, finish = e }
+					start = e + 1
+				end
+			end
+
+			table.sort(highlights, function(a, b)
+				return a.start < b.start
+			end)
+
+			return highlights
 		end,
 	})
 end
@@ -652,7 +685,7 @@ function M.search(opts)
 
 		for path, data in pairs(IndexManager.cache) do
 			local title = data.lines[1] or ""
-			local header_name = Utils.extract_header_name(title)
+			local article_name = Utils.extract_article_name(title)
 			local date_str = Utils.extract_date_from_filename(path) or Utils.format_timestamp(data.mtime)
 			local tags = Utils.extract_aliases_and_tags(data.lines)
 
@@ -710,7 +743,7 @@ function M.search(opts)
 
 				local parts = {
 					date_str,
-					recency_indicator .. header_name .. (tags ~= "" and (" " .. tags) or ""),
+					recency_indicator .. article_name .. (tags ~= "" and (" " .. tags) or ""),
 				}
 
 				-- Show the matching query, removing leading whitespace
@@ -719,6 +752,9 @@ function M.search(opts)
 				if first_diff or has_extra then
 					local preview = first_diff and first_line or ""
 					if has_extra then
+						for i, v in pairs(extra) do
+							extra[i] = string.gsub(v, "^%s+", "")
+						end
 						local extra_str = table.concat(extra, " ∥ ")
 						preview = preview ~= "" and (preview .. " ∥ " .. extra_str) or extra_str
 					end
@@ -726,7 +762,7 @@ function M.search(opts)
 				end
 
 				local display = table.concat(parts, " | ")
-				local ordinal = table.concat({ header_name, date_str, tags, first_line or "" }, " ")
+				local ordinal = table.concat({ article_name, date_str, tags, first_line or "" }, " ")
 
 				results[#results + 1] = {
 					value = path .. ":" .. (first_idx or 1),
@@ -734,11 +770,11 @@ function M.search(opts)
 					display = display,
 					filename = path,
 					lnum = first_idx or 1,
-					header_name = header_name,
+					article_name = article_name,
 					tags = tags,
 					matched_line = first_line,
 					mtime = data.mtime,
-					metadata = data.metadata,
+					-- metadata = data.metadata,
 					line_count = #data.lines,
 					score_calculated = false,
 				}

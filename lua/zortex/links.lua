@@ -9,10 +9,15 @@ local function get_cursor_col_0idx()
 	return vim.api.nvim_win_get_cursor(0)[2]
 end
 
---- Extract link from current line at cursor position
+--- Extract link from current line at specified position
+-- @param line string The line to extract from
+-- @param cursor_col_0idx number Optional 0-indexed cursor column (defaults to actual cursor position)
 -- Returns link info table or nil if no link found
-function M.extract_link(line)
-	local cursor_col_0idx = get_cursor_col_0idx()
+function M.extract_link(line, cursor_col_0idx)
+	-- Use provided position or get current cursor position
+	if cursor_col_0idx == nil then
+		cursor_col_0idx = get_cursor_col_0idx()
+	end
 
 	-- 1. Check for footnote references [^id] - highest priority
 	local offset = 0
@@ -134,6 +139,21 @@ function M.extract_link(line)
 		offset = e
 	end
 
+	return nil
+end
+
+--- Search forward from cursor position to find next link on line
+-- @param line string The line to search
+-- @param start_col number Starting column (0-indexed)
+-- Returns link info table or nil if no link found
+function M.find_next_link_on_line(line, start_col)
+	-- Try each position from start_col to end of line
+	for col = start_col, #line - 1 do
+		local link_info = M.extract_link(line, col)
+		if link_info then
+			return link_info
+		end
+	end
 	return nil
 end
 
@@ -645,14 +665,22 @@ local function search_footnote(ref_id)
 	return nil
 end
 
---- Open link at cursor
+--- Open link at cursor or search forward
 function M.open_link()
 	local line = vim.api.nvim_get_current_line()
+	local cursor_col = get_cursor_col_0idx()
+
+	-- First try to extract link at cursor position
 	local link_info = M.extract_link(line)
 
+	-- If no link at cursor, search forward on the line
 	if not link_info then
-		vim.notify("No link found on current line", vim.log.levels.INFO)
-		return
+		link_info = M.find_next_link_on_line(line, cursor_col + 1)
+
+		if not link_info then
+			vim.notify("No link found on current line", vim.log.levels.INFO)
+			return
+		end
 	end
 
 	-- Handle different link types

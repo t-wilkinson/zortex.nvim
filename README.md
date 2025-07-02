@@ -1,4 +1,4 @@
-<h1 align="center"> ✨ All-in-one personal management system for (Neo)vim ✨ </h1>
+# Zortex Calendar System
 
 ### What is this?
 
@@ -152,3 +152,159 @@ Commands:
 
 **Better file names:**
 [] Write script to move the article name and remove the article name? We would be limited by os by file names. Also wouldn't ease code if we are still doing aliases.
+
+An enhanced calendar system for Neovim that integrates with your OKR, PARA, and GTD note-taking system.
+
+## Features
+
+- **Unified Calendar View**: Shows tasks from both `calendar.zortex` and `projects.zortex` files
+- **Telescope Integration**: Searchable digest view of dates and projects
+- **Project Task Integration**: Automatically displays project tasks with date/time attributes in the calendar
+- **Header Preservation**: Fixed the bug where adding entries would delete file headers
+- **Multiple Views**: Month view with 3-month display and week view
+- **Smart Task Detection**: Recognizes tasks with `@due`, `@at`, and time prefixes (HH:MM)
+
+## Installation
+
+Place the Lua files in your Neovim configuration:
+
+```
+~/.config/nvim/lua/zortex/calendar/
+├── init.lua
+├── data.lua
+├── ui.lua
+├── projects.lua
+└── telescope.lua
+```
+
+## Setup
+
+Add to your Neovim configuration:
+
+```lua
+require('zortex.calendar').setup({
+  notes_dir = "~/path/to/your/notes",  -- Directory containing .zortex files
+  keymaps = {
+    open_calendar = "<leader>zc",       -- Open calendar view
+    telescope_digest = "<leader>zd",    -- Open Telescope digest
+    today_digest = "<leader>zt",        -- Show today's digest notification
+  }
+})
+```
+
+## Usage
+
+### Commands
+
+- `:ZortexCalendar` - Open the calendar view
+- `:ZortexDigest` - Open Telescope digest view (calendar + projects)
+- `:ZortexCalendarTelescope` - Calendar-only Telescope view
+- `:ZortexTodayDigest` - Show today's tasks/events as notification
+- `:ZortexSetupNotifications` - Setup system notifications for events
+
+### Calendar Navigation
+
+In the calendar view:
+
+- `h/l` - Navigate days
+- `j/k` - Navigate weeks
+- `J/K` - Navigate months
+- `H/L` - Navigate years
+- `w` - Switch to week view
+- `m` - Switch to month view
+- `a` - Add entry for selected date
+- `<CR>` - Go to selected date in calendar file
+- `t` - Jump to today
+- `q`/`<Esc>` - Close calendar
+
+### Telescope Digest
+
+The digest view shows:
+
+- **Calendar Dates**: Searchable by MM-DD-YYYY or long date format
+- **Projects**: Searchable by project name or area (parent heading)
+
+Each project shows:
+
+- Project name with area in brackets
+- Number of tasks
+- All tasks, resources, and notes in preview
+
+### File Formats
+
+#### calendar.zortex
+
+```
+Article Name
+tags: #tag1 #tag2
+
+01-15-2024:
+  - [ ] Task with no time
+  - 10:00 Meeting with team
+  - [x] Completed task @due(2024-01-20)
+  - [ ] Task with notification @notify(30min)
+```
+
+#### projects.zortex
+
+```
+Article Name
+tags: #projects #para
+
+# Work
+
+## Project Alpha
+- [ ] Design mockups @due(2024-01-20)
+- [ ] 14:00 Client presentation @at(2024-01-18)
+- [x] Setup repository
+Resources:
+- Design guidelines document
+- Client feedback form
+
+## Project Beta
+- [ ] Code review @due(2024-01-19 15:00)
+- [ ] Deploy to staging
+```
+
+### Task Attributes
+
+Both calendar and project tasks support:
+
+- `@due(YYYY-MM-DD)` or `@due(MM-DD-YYYY)` - Due date
+- `@at(YYYY-MM-DD HH:MM)` - Specific date/time
+- `@from(date)` / `@to(date)` - Date ranges
+- `@repeat(daily/weekly)` - Recurring tasks
+- `@notify(30min)` or `@n(1h)` - Notifications
+- `HH:MM` prefix - Time for the task
+- `HH:MM-HH:MM` prefix - Time range
+
+### Visual Indicators
+
+- `[25]` - Selected date
+- `>15` - Today's date
+- `.10` - Date with tasks
+- `●20` - Date with events
+- `*5` - Date with notes
+- `☐` - Incomplete task
+- `☑` - Complete task
+- `⚠` - Important task
+- `◐` - In progress task
+- `⏸` - Paused task
+
+## Tips
+
+1. **Project Tasks in Calendar**: Any project task with date/time attributes will automatically appear in the calendar view for that date.
+
+2. **Quick Search**: Use the Telescope digest to quickly find any date or project. The search works with partial matches.
+
+3. **Project Context**: When viewing project tasks in the calendar, the project name appears in brackets [Project Name] for context.
+
+4. **Notifications**: Use `@notify(30min)` to get system notifications before events. Run `:ZortexSetupNotifications` to schedule them.
+
+## Troubleshooting
+
+If file headers are being deleted when adding entries:
+
+- The fix has been applied to preserve headers
+- Headers are any lines before the first date entry
+- Make sure your calendar.zortex has proper date format: `MM-DD-YYYY:`

@@ -195,13 +195,12 @@ local function generate_month_lines(year, month, show_week_nums)
 		then
 			day_display_str = "[" .. day .. "]"
 		elseif year == ui_state.today.year and month == ui_state.today.month and day == ui_state.today.day then
-			-- FIX: Use tostring(day) instead of day_str:sub(2) to correctly handle all day numbers.
 			day_display_str = ">" .. tostring(day)
 		else
 			local icon
 			if counts.total > 0 then
 				if counts.tasks > 0 then
-					icon = "."
+					icon = "~"
 				elseif counts.events > 0 then
 					icon = "●"
 				else
@@ -209,20 +208,16 @@ local function generate_month_lines(year, month, show_week_nums)
 				end
 			end
 			if icon then
-				-- FIX: Use tostring(day) to correctly handle all day numbers.
 				day_display_str = icon .. tostring(day)
 			else
 				day_display_str = tostring(day)
 			end
 		end
 
-		-- FIX: Use the custom pad function to create a 3-column cell. This correctly
-		-- handles wide characters and prevents alignment issues.
 		line = line .. pad(day_display_str, 3, true)
 
 		if (first_dow + day) % 7 == 0 then
 			if show_week_nums then
-				-- FIX: Use pad function to correctly align the week number.
 				line = line .. string.format("  %2d", get_week_number(year, month, day))
 			end
 			table.insert(lines, line)
@@ -232,7 +227,6 @@ local function generate_month_lines(year, month, show_week_nums)
 
 	if line ~= "" then
 		if show_week_nums then
-			-- FIX: Use pad function to correctly align the week number on the final line.
 			line = pad(line, 21, false) -- Pad the days part of the line
 			line = line .. string.format("  %2d", get_week_number(year, month, num_days))
 		end
@@ -254,9 +248,6 @@ local function generate_three_month_view()
 	local max_lines = math.max(#prev_cal, #curr_cal, #next_cal)
 	local combined_lines = {}
 	for i = 1, max_lines do
-		-- FIX: Use the custom pad function instead of string.format. This ensures each
-		-- month's content is padded to the correct display width, fixing the alignment
-		-- of the vertical separators.
 		local p = pad(prev_cal[i] or "", 21, false)
 		local c = pad(curr_cal[i] or "", 28, false)
 		local n = pad(next_cal[i] or "", 21, false)

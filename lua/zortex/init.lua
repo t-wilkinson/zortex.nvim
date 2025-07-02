@@ -1,7 +1,6 @@
 local search = require("zortex.search")
 local links = require("zortex.links")
-local calendar = require("zortex.calendar.ui")
-local calendar_data = require("zortex.calendar.data")
+local calendar = require("zortex.calendar")
 
 local M = {}
 
@@ -52,6 +51,9 @@ M.defaults = {
 M.options = {}
 
 function M.setup(opts)
+	if opts.notes_dir then
+		vim.g.zortex_notes_dir = opts.notes_dir
+	end
 	M.options = vim.tbl_deep_extend("force", {}, M.defaults, opts or {})
 end
 
@@ -66,16 +68,28 @@ function M.init()
 	vim.api.nvim_create_user_command("ZortexOpenLink", links.open_link, {})
 	vim.api.nvim_create_user_command("ZortexSearch", search.search, {})
 
+	-- Calendar commands
+	vim.api.nvim_create_user_command("ZortexCalendar", calendar.open, {})
+	vim.api.nvim_create_user_command("ZortexDigest", calendar.telescope_digest, {})
+	vim.api.nvim_create_user_command("ZortexCalendarTelescope", calendar.telescope_calendar, {})
+	vim.api.nvim_create_user_command("ZortexTodayDigest", calendar.show_today_digest, {})
+	vim.api.nvim_create_user_command("ZortexSetupNotifications", function()
+		local count = M.setup_notifications()
+		vim.notify(string.format("Scheduled %d notifications", count))
+	end, {})
+
+	-- Create keymaps
 	vim.keymap.set("n", "Zc", calendar.open, {
-		desc = "Open Zortex calendar",
+		desc = "Open Zortex Calendar",
 	})
-	vim.keymap.set("n", "Zt", calendar.telescope_calendar, {
-		desc = "Search calendar entries",
-	})
-	vim.keymap.set("n", "Zd", calendar_data.show_today_digest, {
-		desc = "Show today's digest",
+	vim.keymap.set("n", "Zt", calendar.telescope_digest, { desc = "Zortex Telescope Digest" })
+	vim.keymap.set("n", "Zd", calendar.show_today_digest, {
+		desc = "Show Today's Digest",
 	})
 	-- vim.keymap.set("n", "Za", calendar.quick_add)
+	-- vim.keymap.set("n", "Zt", calendar.telescope_calendar, {
+	-- 	desc = "Search calendar entries",
+	-- })
 end
 
 M.init()

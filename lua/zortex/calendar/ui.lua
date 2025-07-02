@@ -52,6 +52,31 @@ end
 -- Private Helper Functions
 -- =============================================================================
 
+--- Pads a string to a certain display width, accounting for wide characters.
+--- @param str string The string to pad.
+--- @param width integer The target display width (columns).
+--- @param align_right boolean True to right-align (pad left), false to left-align (pad right).
+--- @return string The padded string.
+local function pad(str, width, align_right)
+	str = tostring(str or "")
+	-- Use vim.fn.strwidth to correctly calculate the display width of the string
+	local str_w = vim.fn.strwidth(str)
+	local pad_len = width - str_w
+
+	if pad_len <= 0 then
+		-- If the string is already wider than the target, return it as is.
+		-- This prevents errors and handles oversized content like '[25]' gracefully.
+		return str
+	end
+
+	local padding = string.rep(" ", pad_len)
+	if align_right then
+		return padding .. str
+	else
+		return str .. padding
+	end
+end
+
 --- Date/Time helpers for UI rendering
 local function days_in_month(year, month)
 	local days = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 }
@@ -99,6 +124,10 @@ end
 local function format_entry_display(parsed_entry, show_attributes)
 	local display = ""
 
+	if parsed_entry.attributes.at then
+		display = "🕐 " .. parsed_entry.attributes.at .. " "
+	end
+
 	if parsed_entry.task_status then
 		display = parsed_entry.task_status.symbol .. " "
 	end
@@ -114,9 +143,6 @@ local function format_entry_display(parsed_entry, show_attributes)
 
 	if show_attributes then
 		local attrs = {}
-		if parsed_entry.attributes.at then
-			table.insert(attrs, "🕐 " .. parsed_entry.attributes.at)
-		end
 		if parsed_entry.attributes.due and not parsed_entry.is_due_date_instance then
 			table.insert(attrs, "📅 " .. parsed_entry.attributes.due)
 		end
@@ -147,7 +173,11 @@ local function generate_month_lines(year, month, show_week_nums)
 	local first_dow = day_of_week(year, month, 1)
 
 	local header = string.format("%s %d", MONTHS[month], year)
-	local header_padding = math.floor((show_week_nums and 28 or 21 - #header) / 2)
+	local total_width = show_week_nums and 28 or 21
+	local header_padding = math.floor((total_width - vim.fn.strwidth(header)) / 2)
+	if header_padding < 0 then
+		header_padding = 0
+	end
 	table.insert(lines, string.rep(" ", header_padding) .. header)
 	table.insert(lines, "")
 	table.insert(lines, show_week_nums and " Su Mo Tu We Th Fr Sa  Wk" or " Su Mo Tu We Th Fr Sa")
@@ -156,30 +186,43 @@ local function generate_month_lines(year, month, show_week_nums)
 	for day = 1, num_days do
 		local date_str = string.format("%04d-%02d-%02d", year, month, day)
 		local counts = count_entries_by_type(date_str)
-		local day_str = string.format("%2d", day)
+		local day_display_str
 
 		if
 			year == ui_state.current_date.year
 			and month == ui_state.current_date.month
 			and day == ui_state.current_date.day
 		then
-			day_str = "[" .. day .. "]"
+			day_display_str = "[" .. day .. "]"
 		elseif year == ui_state.today.year and month == ui_state.today.month and day == ui_state.today.day then
-			day_str = ">" .. day_str:sub(2)
-		elseif counts.total > 0 then
-			if counts.tasks > 0 then
-				day_str = "□" .. day_str:sub(2)
-			elseif counts.events > 0 then
-				day_str = "●" .. day_str:sub(2)
+			-- FIX: Use tostring(day) instead of day_str:sub(2) to correctly handle all day numbers.
+			day_display_str = ">" .. tostring(day)
+		else
+			local icon
+			if counts.total > 0 then
+				if counts.tasks > 0 then
+					icon = "."
+				elseif counts.events > 0 then
+					icon = "●"
+				else
+					icon = "*"
+				end
+			end
+			if icon then
+				-- FIX: Use tostring(day) to correctly handle all day numbers.
+				day_display_str = icon .. tostring(day)
 			else
-				day_str = "*" .. day_str:sub(2)
+				day_display_str = tostring(day)
 			end
 		end
 
-		line = line .. string.format("%3s", day_str)
+		-- FIX: Use the custom pad function to create a 3-column cell. This correctly
+		-- handles wide characters and prevents alignment issues.
+		line = line .. pad(day_display_str, 3, true)
 
 		if (first_dow + day) % 7 == 0 then
 			if show_week_nums then
+				-- FIX: Use pad function to correctly align the week number.
 				line = line .. string.format("  %2d", get_week_number(year, month, day))
 			end
 			table.insert(lines, line)
@@ -189,7 +232,9 @@ local function generate_month_lines(year, month, show_week_nums)
 
 	if line ~= "" then
 		if show_week_nums then
-			line = string.format("%-25s", line) .. string.format("  %2d", get_week_number(year, month, num_days))
+			-- FIX: Use pad function to correctly align the week number on the final line.
+			line = pad(line, 21, false) -- Pad the days part of the line
+			line = line .. string.format("  %2d", get_week_number(year, month, num_days))
 		end
 		table.insert(lines, line)
 	end
@@ -209,9 +254,12 @@ local function generate_three_month_view()
 	local max_lines = math.max(#prev_cal, #curr_cal, #next_cal)
 	local combined_lines = {}
 	for i = 1, max_lines do
-		local p = string.format("%-21s", prev_cal[i] or "")
-		local c = string.format("%-28s", curr_cal[i] or "")
-		local n = string.format("%-21s", next_cal[i] or "")
+		-- FIX: Use the custom pad function instead of string.format. This ensures each
+		-- month's content is padded to the correct display width, fixing the alignment
+		-- of the vertical separators.
+		local p = pad(prev_cal[i] or "", 21, false)
+		local c = pad(curr_cal[i] or "", 28, false)
+		local n = pad(next_cal[i] or "", 21, false)
 		table.insert(combined_lines, p .. " │ " .. c .. " │ " .. n)
 	end
 	return combined_lines
@@ -525,17 +573,72 @@ function M.close()
 end
 
 --- Opens the calendar file, positioned at the selected date.
-function M.go_to_date()
-	local date = ui_state.current_date
 
+function M.go_to_date()
+	-- Selected day from UI and close popup
+	local d = ui_state.current_date -- {year, month, day}
 	M.close()
 
+	local date_header = string.format("%02d-%02d-%04d:", d.month, d.day, d.year)
+	local target_ts = os.time({ year = d.year, month = d.month, day = d.day })
+
+	-- Open calendar file
 	local path = data.get_calendar_path()
 	vim.cmd("edit " .. vim.fn.fnameescape(path))
-	local lines = {
-		os.date("%B-%d-%Y", os.time(date)) .. ":",
-	}
-	api.nvim_buf_set_lines(0, 0, -1, false, lines)
+	local bufnr = 0
+
+	-- Load buffer lines
+	local lines = api.nvim_buf_get_lines(bufnr, 0, -1, false)
+
+	-- Pass 1: locate existing header and first header *after* target
+	local existing_idx, after_idx
+	for idx, l in ipairs(lines) do
+		local m, d_, y = l:match("^(%d%d)%-(%d%d)%-(%d%d%d%d):%s*$")
+		if m then
+			local ts = os.time({ year = tonumber(y), month = tonumber(m), day = tonumber(d_) })
+			if ts == target_ts then
+				existing_idx = idx
+			elseif ts > target_ts and not after_idx then
+				after_idx = idx
+			end
+		end
+	end
+
+	local header_row = existing_idx
+
+	-- If header missing, insert it in chronological position
+	if not header_row then
+		local insert_at = after_idx and (after_idx - 1) or #lines
+		api.nvim_buf_set_lines(bufnr, insert_at, insert_at, false, { date_header })
+		header_row = insert_at + 1
+		-- Insert an indented blank bullet right below the new header
+		local bullet = "    - "
+		api.nvim_buf_set_lines(bufnr, header_row, header_row, false, { bullet })
+		-- Place cursor at end of bullet and enter insert mode
+		api.nvim_win_set_cursor(0, { header_row + 1, #bullet })
+		vim.cmd("startinsert!")
+		return
+	end
+
+	---------------------------------------------------------------------------
+	-- Header existed → find last non‑empty line in this section
+	---------------------------------------------------------------------------
+	lines = api.nvim_buf_get_lines(bufnr, 0, -1, false) -- refresh after no‑op
+
+	local last_non_blank = header_row
+	for idx = header_row + 1, #lines do
+		local l = lines[idx]
+		if l:match("^%d%d%-%d%d%-%d%d%d%d:") then
+			break
+		end -- next header
+		if l:match("%S") then
+			last_non_blank = idx
+		end -- keep latest non‑blank
+	end
+
+	-- Move cursor to the end of that line
+	local col = #(lines[last_non_blank] or "")
+	api.nvim_win_set_cursor(0, { last_non_blank, col })
 end
 
 --- Prompts the user to add a new entry for the selected date.

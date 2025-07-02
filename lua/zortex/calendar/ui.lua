@@ -2,7 +2,7 @@
 -- Renders the calendar views, handles navigation, and user input.
 
 -- The data layer, responsible for all data operations.
-local data = require("zortex.calendar.data")
+local Utils = require("zortex.calendar.utils")
 
 local M = {}
 
@@ -106,7 +106,7 @@ end
 --- Count entries by type for a given date.
 local function count_entries_by_type(date_str)
 	local counts = { tasks = 0, events = 0, notes = 0, total = 0 }
-	local entries = data.get_entries_for_date(date_str)
+	local entries = Utils.get_entries_for_date(date_str)
 	for _, entry in ipairs(entries) do
 		counts.total = counts.total + 1
 		if entry.type == "task" then
@@ -288,7 +288,7 @@ local function generate_week_view()
 		table.insert(lines, "")
 		table.insert(lines, day_header)
 
-		local entries = data.get_entries_for_date(date_str)
+		local entries = Utils.get_entries_for_date(date_str)
 		if #entries > 0 then
 			for _, entry in ipairs(entries) do
 				table.insert(lines, "    " .. format_entry_display(entry, true))
@@ -323,7 +323,7 @@ local function create_calendar_content()
 	local sel_str = string.format("%04d-%02d-%02d", sel.year, sel.month, sel.day)
 	table.insert(lines, string.format("Selected: %s", os.date("%A, %B %d, %Y", os.time(sel))))
 
-	local entries = data.get_entries_for_date(sel_str)
+	local entries = Utils.get_entries_for_date(sel_str)
 	if #entries > 0 then
 		for _, entry in ipairs(entries) do
 			table.insert(lines, "  " .. format_entry_display(entry, true))
@@ -359,7 +359,7 @@ local function apply_highlights(lines)
 		highlight_pattern("^●", "Special") -- Today marker in week view
 
 		-- Highlight task status symbols.
-		for _, status in pairs(data.TASK_STATUS) do
+		for _, status in pairs(Utils.TASK_STATUS) do
 			-- Loop to find all occurrences of a symbol on a single line.
 			local current_pos = 1
 			while true do
@@ -529,7 +529,7 @@ end
 
 --- Opens the main calendar popup window.
 function M.open()
-	data.load()
+	Utils.load()
 	init_current_date()
 
 	ui_state.calendar_buf = api.nvim_create_buf(false, true)
@@ -574,7 +574,7 @@ function M.go_to_date()
 	local target_ts = os.time({ year = d.year, month = d.month, day = d.day })
 
 	-- Open calendar file
-	local path = data.get_calendar_path()
+	local path = Utils.get_calendar_path()
 	vim.cmd("edit " .. vim.fn.fnameescape(path))
 	local bufnr = 0
 
@@ -638,7 +638,7 @@ function M.add_entry_interactive()
 	local date_str = string.format("%04d-%02d-%02d", d.year, d.month, d.day)
 	vim.ui.input({ prompt = string.format("Add for %s: ", date_str) }, function(input)
 		if input and input ~= "" then
-			data.add_entry(date_str, input)
+			Utils.add_entry(date_str, input)
 			update_calendar_display()
 		end
 	end)
@@ -647,14 +647,14 @@ end
 --- Telescope integration to search and view calendar entries.
 function M.telescope_calendar(opts)
 	opts = opts or {}
-	data.load()
+	Utils.load()
 
 	local pickers = require("telescope.pickers")
 	local finders = require("telescope.finders")
 	local actions = require("telescope.actions")
 	local action_state = require("telescope.actions.state")
 
-	local all_parsed = data.get_all_parsed_entries()
+	local all_parsed = Utils.get_all_parsed_entries()
 	local entries = {}
 	for date_str, parsed_list in pairs(all_parsed) do
 		local y, m, d = date_str:match("(%d%d%d%d)%-(%d%d)%-(%d%d)")

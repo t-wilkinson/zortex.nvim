@@ -285,31 +285,6 @@ local function escape_pattern(text)
 	return text:gsub("([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1")
 end
 
---- Get article title from file (@@Article title in first 5 non-blank lines)
-local function get_article_title(file_path)
-	local file = io.open(file_path, "r")
-	if not file then
-		return nil
-	end
-
-	local non_blank_count = 0
-	for line in file:lines() do
-		if line:match("%S") then -- non-blank line
-			non_blank_count = non_blank_count + 1
-			if line:match("^@@(.+)") then
-				local title = line:match("^@@(.+)")
-				file:close()
-				return title:match("^%s*(.-)%s*$") -- trim
-			end
-			if non_blank_count >= 5 then
-				break
-			end
-		end
-	end
-	file:close()
-	return nil
-end
-
 --- Check if buffer is special (has article title in g:zortex_special_articles list)
 local function is_special_buffer()
 	local special_articles = vim.g.zortex_special_articles or {}

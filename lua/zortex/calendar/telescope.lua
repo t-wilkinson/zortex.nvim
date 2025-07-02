@@ -3,7 +3,7 @@
 
 local M = {}
 
-local data = require("zortex.calendar.data")
+local Utils = require("zortex.calendar.utils")
 local projects = require("zortex.calendar.projects")
 
 --- Create a unified digest view with both calendar entries and projects
@@ -11,7 +11,7 @@ function M.telescope_digest(opts)
 	opts = opts or {}
 
 	-- Load data
-	data.load()
+	Utils.load()
 	projects.load()
 
 	local pickers = require("telescope.pickers")
@@ -25,7 +25,7 @@ function M.telescope_digest(opts)
 	local entries = {}
 
 	-- Add calendar entries grouped by date
-	local all_calendar = data.get_all_parsed_entries()
+	local all_calendar = Utils.get_all_parsed_entries()
 	for date_str, parsed_list in pairs(all_calendar) do
 		local y, m, d = date_str:match("(%d%d%d%d)%-(%d%d)%-(%d%d)")
 		if y then
@@ -259,7 +259,7 @@ end
 --- Calendar-only Telescope view (backward compatibility)
 function M.telescope_calendar(opts)
 	opts = opts or {}
-	data.load()
+	Utils.load()
 
 	local pickers = require("telescope.pickers")
 	local finders = require("telescope.finders")
@@ -267,7 +267,7 @@ function M.telescope_calendar(opts)
 	local actions = require("telescope.actions")
 	local action_state = require("telescope.actions.state")
 
-	local all_parsed = data.get_all_parsed_entries()
+	local all_parsed = Utils.get_all_parsed_entries()
 	local entries = {}
 	for date_str, parsed_list in pairs(all_parsed) do
 		local y, m, d = date_str:match("(%d%d%d%d)%-(%d%d)%-(%d%d)")

@@ -30,19 +30,19 @@ local state = {
 }
 
 -- =============================================================================
--- Private Helper Functions
+-- Helper Functions
 -- =============================================================================
 
 --- Deep copy a table to prevent mutation of original data.
-local function deepcopy(orig)
+function M.deepcopy(orig)
 	local orig_type = type(orig)
 	local copy
 	if orig_type == "table" then
 		copy = {}
 		for orig_key, orig_value in next, orig, nil do
-			copy[deepcopy(orig_key)] = deepcopy(orig_value)
+			copy[M.deepcopy(orig_key)] = M.deepcopy(orig_value)
 		end
-		setmetatable(copy, deepcopy(getmetatable(orig)))
+		setmetatable(copy, M.deepcopy(getmetatable(orig)))
 	else -- number, string, boolean, etc
 		copy = orig
 	end
@@ -50,7 +50,7 @@ local function deepcopy(orig)
 end
 
 --- Parse a date string (YYYY-MM-DD) or (MM-DD-YYYY) into a table.
-local function parse_date(date_str)
+function M.parse_date(date_str)
 	if not date_str then
 		return nil
 	end
@@ -71,7 +71,7 @@ local function parse_date(date_str)
 end
 
 --- Parse time string into hour and minute
-local function parse_time(time_str)
+function M.parse_time(time_str)
 	if not time_str then
 		return nil
 	end
@@ -120,8 +120,8 @@ local function parse_datetime(dt_str, default_date)
 	-- Try to parse as date + time
 	local date_part, time_part = dt_str:match("^(%d%d%d%d%-%d%d%-%d%d)%s+(.+)$")
 	if date_part and time_part then
-		local date = parse_date(date_part)
-		local time = parse_time(time_part)
+		local date = M.parse_date(date_part)
+		local time = M.parse_time(time_part)
 		if date and time then
 			date.hour = time.hour
 			date.min = time.min
@@ -130,7 +130,7 @@ local function parse_datetime(dt_str, default_date)
 	end
 
 	-- Try to parse as date only
-	local date = parse_date(dt_str)
+	local date = M.parse_date(dt_str)
 	if date then
 		date.hour = 0
 		date.min = 0
@@ -138,9 +138,9 @@ local function parse_datetime(dt_str, default_date)
 	end
 
 	-- Try to parse as time only (use default date)
-	local time = parse_time(dt_str)
+	local time = M.parse_time(dt_str)
 	if time and default_date then
-		local date = parse_date(default_date)
+		local date = M.parse_date(default_date)
 		if date then
 			date.hour = time.hour
 			date.min = time.min
@@ -369,6 +369,8 @@ function M.load()
 			end
 		end
 	end
+
+	return state
 end
 
 --- Saves the current calendar data to the file.
@@ -419,7 +421,7 @@ end
 
 --- Gets all active entries for a given date, including recurring and ranged events.
 function M.get_entries_for_date(date_str)
-	local target_date_obj = parse_date(date_str)
+	local target_date_obj = M.parse_date(date_str)
 	if not target_date_obj then
 		return {}
 	end
@@ -440,7 +442,7 @@ function M.get_entries_for_date(date_str)
 
 	-- 2. Check all other entries for recurring, ranged, or due attributes
 	for original_date_str, entries in pairs(state.parsed_data) do
-		local original_date_obj = parse_date(original_date_str)
+		local original_date_obj = M.parse_date(original_date_str)
 		if original_date_obj then
 			local original_time = os.time(original_date_obj)
 
@@ -471,7 +473,7 @@ function M.get_entries_for_date(date_str)
 					end
 
 					if is_recurring or is_ranged then
-						local instance = deepcopy(entry)
+						local instance = M.deepcopy(entry)
 						instance.is_recurring_instance = is_recurring
 						instance.is_ranged_instance = is_ranged
 						instance.effective_date = date_str -- Store the effective date
@@ -486,7 +488,7 @@ function M.get_entries_for_date(date_str)
 					if due_dt then
 						local due_date_str = string.format("%04d-%02d-%02d", due_dt.year, due_dt.month, due_dt.day)
 						if due_date_str == date_str and not added_entries[entry.raw_text] then
-							local due_entry = deepcopy(entry)
+							local due_entry = M.deepcopy(entry)
 							due_entry.is_due_date_instance = true
 							due_entry.effective_date = date_str
 							table.insert(active_entries, due_entry)
@@ -504,247 +506,6 @@ end
 --- Returns all parsed entries, useful for Telescope.
 function M.get_all_parsed_entries()
 	return state.parsed_data
-end
-
--- =============================================================================
--- Notification Functions
--- =============================================================================
-
---- Get the datetime for an entry (considering various attributes)
-local function get_entry_datetime(entry, effective_date)
-	local date_str = effective_date or entry.date_context
-	local date_obj = parse_date(date_str)
-	if not date_obj then
-		return nil
-	end
-
-	-- Default to midnight
-	date_obj.hour = 0
-	date_obj.min = 0
-
-	-- Check various time attributes
-	local time_str = nil
-	if entry.attributes.at then
-		time_str = entry.attributes.at
-	elseif entry.attributes.notify then
-		-- If notify has time, use it
-		local dt = parse_datetime(entry.attributes.notify, date_str)
-		if dt then
-			return dt
-		end
-	elseif entry.attributes.due then
-		-- If due has time, use it
-		local dt = parse_datetime(entry.attributes.due, date_str)
-		if dt then
-			return dt
-		end
-	end
-
-	if time_str then
-		local time = parse_time(time_str)
-		if time then
-			date_obj.hour = time.hour
-			date_obj.min = time.min
-		end
-	end
-
-	return date_obj
-end
-
---- Setup system notifications for all future events
-function M.setup_notifications()
-	M.load()
-
-	local now = os.time()
-	local notifications_scheduled = 0
-
-	-- Get today's date string for comparison
-	local today = os.date("%Y-%m-%d")
-
-	-- Process all entries
-	for date_str, entries in pairs(state.parsed_data) do
-		for _, entry in ipairs(entries) do
-			if entry.attributes.notification_enabled then
-				local base_dt = get_entry_datetime(entry)
-				if base_dt then
-					local base_time = os.time(base_dt)
-
-					-- Process each notification duration
-					for _, duration_mins in ipairs(entry.attributes.notification_durations) do
-						local notify_time = base_time - (duration_mins * 60)
-
-						if notify_time > now then
-							-- Calculate delay in seconds
-							local delay = notify_time - now
-
-							-- Format notification message
-							local title = "Zortex Reminder"
-							local message = entry.display_text
-
-							if duration_mins > 0 then
-								local dur_str = ""
-								if duration_mins < 60 then
-									dur_str = string.format("%d minutes", duration_mins)
-								elseif duration_mins < 1440 then
-									dur_str = string.format("%.1f hours", duration_mins / 60)
-								else
-									dur_str = string.format("%.1f days", duration_mins / 1440)
-								end
-								title = string.format("Zortex: In %s", dur_str)
-							end
-
-							-- Schedule notification using 'at' command or systemd timer
-							-- For simplicity, we'll use a background sleep + notify-send
-							local cmd = string.format(
-								"(sleep %d && notify-send '%s' '%s') &",
-								delay,
-								title:gsub("'", "'\\''"),
-								message:gsub("'", "'\\''")
-							)
-							os.execute(cmd)
-							notifications_scheduled = notifications_scheduled + 1
-						end
-					end
-				end
-			end
-		end
-
-		-- Also check for recurring events that might occur in the future
-		-- This is a simplified version - you might want to expand this
-		local date_obj = parse_date(date_str)
-		if date_obj then
-			for _, entry in ipairs(entries) do
-				if entry.attributes.repeating and entry.attributes.notification_enabled then
-					-- Calculate next occurrence
-					local repeat_val = entry.attributes.repeating:lower()
-					local base_time = os.time(date_obj)
-					local next_time = base_time
-
-					-- Find next occurrence after now
-					while next_time <= now do
-						if repeat_val == "daily" then
-							next_time = next_time + 86400
-						elseif repeat_val == "weekly" then
-							next_time = next_time + (86400 * 7)
-						else
-							break
-						end
-					end
-
-					if next_time > now and next_time < now + (86400 * 7) then -- Only schedule for next week
-						local next_dt = os.date("*t", next_time)
-						local entry_dt = get_entry_datetime(entry)
-						if entry_dt then
-							next_dt.hour = entry_dt.hour
-							next_dt.min = entry_dt.min
-							local notify_base = os.time(next_dt)
-
-							for _, duration_mins in ipairs(entry.attributes.notification_durations) do
-								local notify_time = notify_base - (duration_mins * 60)
-								if notify_time > now then
-									local delay = notify_time - now
-									local title = "Zortex Reminder (Recurring)"
-									local message = entry.display_text
-
-									local cmd = string.format(
-										"(sleep %d && notify-send '%s' '%s') &",
-										delay,
-										title:gsub("'", "'\\''"),
-										message:gsub("'", "'\\''")
-									)
-									os.execute(cmd)
-									notifications_scheduled = notifications_scheduled + 1
-								end
-							end
-						end
-					end
-				end
-			end
-		end
-	end
-
-	return notifications_scheduled
-end
-
---- Show today's digest notification
-function M.show_today_digest()
-	M.load()
-
-	local today = os.date("%Y-%m-%d")
-	local entries = M.get_entries_for_date(today)
-
-	if #entries == 0 then
-		os.execute("notify-send 'Zortex Daily Digest' 'No events or tasks for today'")
-		return
-	end
-
-	-- Sort entries by time if available
-	table.sort(entries, function(a, b)
-		local time_a = a.attributes.at or "00:00"
-		local time_b = b.attributes.at or "00:00"
-		return time_a < time_b
-	end)
-
-	-- Build digest message
-	local tasks = {}
-	local events = {}
-	local notes = {}
-
-	for _, entry in ipairs(entries) do
-		local line = entry.display_text
-		if entry.attributes.at then
-			line = entry.attributes.at .. " - " .. line
-		end
-
-		if entry.type == "task" then
-			local status = entry.task_status and entry.task_status.symbol or "☐"
-			line = status .. " " .. line
-			table.insert(tasks, line)
-		elseif entry.type == "event" then
-			table.insert(events, line)
-		else
-			table.insert(notes, line)
-		end
-	end
-
-	local message_parts = {}
-
-	if #events > 0 then
-		table.insert(message_parts, "📅 Events:")
-		for _, event in ipairs(events) do
-			table.insert(message_parts, "  " .. event)
-		end
-	end
-
-	if #tasks > 0 then
-		if #message_parts > 0 then
-			table.insert(message_parts, "")
-		end
-		table.insert(message_parts, "✓ Tasks:")
-		for _, task in ipairs(tasks) do
-			table.insert(message_parts, "  " .. task)
-		end
-	end
-
-	if #notes > 0 then
-		if #message_parts > 0 then
-			table.insert(message_parts, "")
-		end
-		table.insert(message_parts, "📝 Notes:")
-		for _, note in ipairs(notes) do
-			table.insert(message_parts, "  " .. note)
-		end
-	end
-
-	local message = table.concat(message_parts, "\n")
-
-	-- Use notify-send with proper escaping
-	local cmd = string.format(
-		"notify-send -u normal -t 10000 'Zortex Daily Digest - %s' '%s'",
-		today,
-		message:gsub("'", "'\\''"):gsub("\n", "\\n")
-	)
-	os.execute(cmd)
 end
 
 return M

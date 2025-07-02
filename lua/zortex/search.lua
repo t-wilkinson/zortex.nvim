@@ -4,361 +4,12 @@
 --   • Smart sorting based on: recency (30-day half-life), tags, length, word count, and more
 --   • Access tracking for intelligent ranking
 --   • Enhanced preview with better highlighting
---
--- 2025‑06‑30 — Major refactor with smart sorting & access tracking
+--   • Header matching with priority based on header level
+--   • Start-of-text matching preference
+--   • Ignores storage.zortex file
 
 local M = {}
-
---------------------------------------------------
--- Dependencies
---------------------------------------------------
-local uv = vim.loop
-local std_cache = vim.fn.stdpath("cache")
-local CACHE_FILE = std_cache .. "/zortex_index.json"
-local ACCESS_FILE = std_cache .. "/zortex_access.json"
-
---------------------------------------------------
--- Constants
---------------------------------------------------
-local HALF_LIFE_DAYS = 30
-local HALF_LIFE_SECONDS = HALF_LIFE_DAYS * 86400
-
---------------------------------------------------
--- Cache Management
---------------------------------------------------
-local CacheManager = {}
-
-function CacheManager.load(filepath)
-	local f = io.open(filepath, "r")
-	if not f then
-		return {}
-	end
-
-	local content = f:read("*a")
-	f:close()
-
-	local ok, decoded = pcall(vim.fn.json_decode, content)
-	return (ok and type(decoded) == "table") and decoded or {}
-end
-
-function CacheManager.save(filepath, data)
-	local ok, encoded = pcall(vim.fn.json_encode, data)
-	if not ok then
-		return false
-	end
-
-	local f = io.open(filepath, "w")
-	if not f then
-		return false
-	end
-
-	f:write(encoded)
-	f:close()
-	return true
-end
-
---------------------------------------------------
--- Access Tracking
---------------------------------------------------
-local AccessTracker = {}
-AccessTracker.data = CacheManager.load(ACCESS_FILE)
-
-function AccessTracker.record(path)
-	if not AccessTracker.data[path] then
-		AccessTracker.data[path] = {
-			count = 0,
-			times = {},
-		}
-	end
-
-	local entry = AccessTracker.data[path]
-	entry.count = entry.count + 1
-
-	-- Keep only last 100 access times to prevent unbounded growth
-	table.insert(entry.times, os.time())
-	if #entry.times > 100 then
-		table.remove(entry.times, 1)
-	end
-
-	-- Save immediately to ensure persistence
-	CacheManager.save(ACCESS_FILE, AccessTracker.data)
-
-	-- Debug log (uncomment to verify tracking)
-	-- print(string.format("Accessed: %s (count: %d)", vim.fn.fnamemodify(path, ":t"), entry.count))
-end
-
-function AccessTracker.get_score(path, current_time)
-	local entry = AccessTracker.data[path]
-	if not entry or not entry.times or #entry.times == 0 then
-		return 0
-	end
-
-	-- Calculate recency score with exponential decay (half-life)
-	local score = 0
-	for _, access_time in ipairs(entry.times) do
-		local age = current_time - access_time
-		if age >= 0 then -- Sanity check for time
-			local decay = math.exp(-0.693 * age / HALF_LIFE_SECONDS) -- ln(2) ≈ 0.693
-			score = score + decay
-		end
-	end
-
-	return score
-end
-
---------------------------------------------------
--- File Analysis
---------------------------------------------------
-local FileAnalyzer = {}
-
-function FileAnalyzer.extract_metadata(lines)
-	local metadata = {
-		header = lines[1] or "",
-		word_count = 0,
-		char_count = 0,
-		tags = {},
-		aliases = {},
-		has_code = false,
-		has_lists = false,
-		has_links = false,
-		avg_line_length = 0,
-		complexity_score = 0,
-	}
-
-	local total_length = 0
-	local tag_set, alias_set = {}, {}
-
-	for i, line in ipairs(lines) do
-		-- Character and word counting
-		metadata.char_count = metadata.char_count + #line
-		metadata.word_count = metadata.word_count + select(2, line:gsub("%S+", ""))
-		total_length = total_length + #line
-
-		-- Detect code blocks
-		if line:match("^```") or line:match("^%s*```") then
-			metadata.has_code = true
-		end
-
-		-- Detect lists
-		if line:match("^%s*[-*+]%s") or line:match("^%s*%d+%.%s") then
-			metadata.has_lists = true
-		end
-
-		-- Detect links
-		if line:match("%[.-%]%(.-%)") or line:match("https?://") then
-			metadata.has_links = true
-		end
-
-		-- Extract aliases
-		if line:match("^@@.") then
-			local alias = line:match("^@@(.+)")
-			if alias then
-				alias_set[alias] = true
-			end
-		end
-
-		-- Extract tags
-		if line:match("^@[^@]") then
-			local tag = line:match("^@([^@]+)")
-			if tag then
-				tag_set[tag] = true
-			end
-		end
-	end
-
-	-- Convert sets to arrays
-	for tag in pairs(tag_set) do
-		table.insert(metadata.tags, tag)
-	end
-	for alias in pairs(alias_set) do
-		table.insert(metadata.aliases, alias)
-	end
-
-	-- Calculate averages and complexity
-	metadata.avg_line_length = #lines > 0 and (total_length / #lines) or 0
-
-	-- Simple complexity score based on various factors
-	metadata.complexity_score = (
-		(metadata.has_code and 2 or 0)
-		+ (metadata.has_lists and 1 or 0)
-		+ (metadata.has_links and 1 or 0)
-		+ (#metadata.tags > 5 and 2 or 0)
-		+ (metadata.word_count > 1000 and 1 or 0)
-	)
-
-	return metadata
-end
-
---------------------------------------------------
--- Index Management (Refactored)
---------------------------------------------------
-local IndexManager = {}
-IndexManager.cache = CacheManager.load(CACHE_FILE)
-
-function IndexManager.stat_mtime(path)
-	local stat = uv.fs_stat(path)
-	return stat and stat.mtime and stat.mtime.sec or 0
-end
-
-function IndexManager.read_file_lines(path)
-	local lines = {}
-	local ok, iter = pcall(io.lines, path)
-	if ok then
-		for line in iter do
-			lines[#lines + 1] = line
-		end
-	end
-	return lines
-end
-
-function IndexManager.build_index()
-	if not vim.g.zortex_notes_dir or not vim.g.zortex_extension then
-		vim.notify("Zortex: Missing configuration", vim.log.levels.ERROR)
-		return IndexManager.cache
-	end
-
-	local dir = vim.g.zortex_notes_dir
-	if not dir:match("/$") then
-		dir = dir .. "/"
-		vim.g.zortex_notes_dir = dir
-	end
-
-	local ext = vim.g.zortex_extension
-	local new_index = {}
-	local seen = {}
-
-	local handle = uv.fs_scandir(dir)
-	if not handle then
-		vim.notify("Zortex: Cannot scan directory " .. dir, vim.log.levels.ERROR)
-		return IndexManager.cache
-	end
-
-	while true do
-		local name, type = uv.fs_scandir_next(handle)
-		if not name then
-			break
-		end
-
-		if type == "file" and name:sub(-#ext) == ext then
-			local path = dir .. name
-			seen[path] = true
-			local mtime = IndexManager.stat_mtime(path)
-
-			local cached = IndexManager.cache[path]
-			if cached and cached.mtime == mtime then
-				-- Reuse cached entry
-				new_index[path] = cached
-			else
-				-- Read and analyze file
-				local lines = IndexManager.read_file_lines(path)
-				-- local metadata = FileAnalyzer.extract_metadata(lines)
-
-				new_index[path] = {
-					mtime = mtime,
-					lines = lines,
-					-- metadata = metadata,
-				}
-			end
-		end
-	end
-
-	-- Clean up deleted files
-	for path in pairs(IndexManager.cache) do
-		if not seen[path] then
-			new_index[path] = nil
-		end
-	end
-
-	return new_index
-end
-
-function IndexManager.update_sync()
-	IndexManager.cache = IndexManager.build_index()
-end
-
-function IndexManager.update_async()
-	-- Simple deferred update - avoids libuv worker complexity
-	-- The sync update is already fast due to mtime checking
-	vim.defer_fn(function()
-		IndexManager.update_sync()
-		CacheManager.save(CACHE_FILE, IndexManager.cache)
-	end, 100)
-end
-
--- Alternative: True async using Neovim jobs (more reliable than libuv workers)
-function IndexManager.update_async_job()
-	if not vim.g.zortex_notes_dir or not vim.g.zortex_extension then
-		return
-	end
-
-	local dir = vim.g.zortex_notes_dir
-	if not dir:match("/$") then
-		dir = dir .. "/"
-	end
-
-	-- Create a Lua script to run in a separate process
-	local script = string.format(
-		[[
-        local dir = %q
-        local ext = %q
-        local output = {}
-        
-        -- Scan directory
-        local handle = io.popen('find "' .. dir .. '" -name "*' .. ext .. '" -type f')
-        if handle then
-            for path in handle:lines() do
-                local stat_handle = io.popen('stat -c %%Y "' .. path .. '" 2>/dev/null || stat -f %%m "' .. path .. '" 2>/dev/null')
-                local mtime = stat_handle and stat_handle:read("*a"):match("%%d+") or "0"
-                if stat_handle then stat_handle:close() end
-                
-                table.insert(output, path .. "|" .. mtime)
-            end
-            handle:close()
-        end
-        
-        print(table.concat(output, "\n"))
-    ]],
-		dir,
-		vim.g.zortex_extension
-	)
-
-	-- Run job
-	local output_lines = {}
-	vim.fn.jobstart({ "lua", "-e", script }, {
-		on_stdout = function(_, data)
-			vim.list_extend(output_lines, data)
-		end,
-		on_exit = function()
-			-- Process results in main thread
-			local updates_needed = false
-			for _, line in ipairs(output_lines) do
-				if line ~= "" then
-					local path, mtime_str = line:match("^(.+)|(%d+)$")
-					if path and mtime_str then
-						local mtime = tonumber(mtime_str) or 0
-						local cached = IndexManager.cache[path]
-
-						if not cached or cached.mtime ~= mtime then
-							updates_needed = true
-							break
-						end
-					end
-				end
-			end
-
-			-- If updates needed, do a sync update
-			if updates_needed then
-				vim.schedule(function()
-					IndexManager.update_sync()
-					CacheManager.save(CACHE_FILE, IndexManager.cache)
-				end)
-			end
-		end,
-	})
-end
-
--- Initialize async update on startup
-vim.defer_fn(IndexManager.update_async, 100)
+local S = require("zortex.search_managers")
 
 --------------------------------------------------
 -- Utilities
@@ -388,6 +39,13 @@ function Utils.extract_date_from_filename(fname)
 	local basename = fname:match("([^/]+)$")
 	local stem = basename:match("^(.+)%.[^.]+$") or basename
 
+	-- New format: YYYY-MM-DD.NNN.zortex
+	local year, month, day = stem:match("^(%d%d%d%d)%-(%d%d)%-(%d%d)%.%d+$")
+	if year and month and day then
+		return string.format("%s-%s-%s", year, month, day)
+	end
+
+	-- Old format: YYYYWWDHHMMSS.zortex
 	if stem:match("^%d%d%d%d%d%d%d%d%d%d%d%d%d$") then
 		local year = tonumber(stem:sub(1, 4))
 		local week = tonumber(stem:sub(5, 6))
@@ -415,6 +73,73 @@ function Utils.extract_aliases_and_tags(lines)
 	return table.concat(out, " ")
 end
 
+function Utils.generate_unique_filename()
+	local date = os.date("%Y-%m-%d")
+	local dir = vim.g.zortex_notes_dir
+	local ext = vim.g.zortex_extension
+
+	-- Generate random 3-digit number until we find a unique filename
+	math.randomseed(os.time())
+	for i = 1, 1000 do
+		local num = string.format("%03d", math.random(0, 999))
+		local filename = date .. "." .. num .. ext
+		local filepath = dir .. filename
+
+		-- Check if file exists
+		local f = io.open(filepath, "r")
+		if not f then
+			return filename
+		else
+			f:close()
+		end
+	end
+
+	-- Fallback: use timestamp if we somehow can't find a unique name
+	return date .. "." .. os.time() .. ext
+end
+
+---Return the (lnum, line, priority) of the first match for `token`.
+---Priority order: 1‑article, 2‑tag, 3‑header, 4‑body. `nil` if not found.
+---@param lines string[]             Buffer contents
+---@param token string               Search token (already raw, *not* lower‑cased)
+---@return integer|nil, string|nil, integer|nil
+function Utils.prioritized_match_line(lines, token)
+	if not token or token == "" then
+		return nil
+	end
+	local tok = token:lower()
+
+	-- 1 ▸ article title (line 1, strip the leading @@)
+	if lines[1] then
+		local art = Utils.extract_article_name(lines[1]):lower()
+		if art:find(tok, 1, true) then
+			return 1, lines[1], 1
+		end
+	end
+
+	-- 2 ▸ tags / aliases (first ~15 lines for cheap scan)
+	for i = 2, math.min(#lines, 15) do
+		local line = lines[i]
+		if line:match("^@+") and line:lower():find(tok, 1, true) then
+			return i, line, 2
+		end
+	end
+
+	-- 3 ▸ markdown headings
+	for i, line in ipairs(lines) do
+		if line:match("^%s*#+") and line:lower():find(tok, 1, true) then
+			return i, line, 3
+		end
+	end
+
+	-- 4 ▸ any other text
+	for i, line in ipairs(lines) do
+		if line:lower():find(tok, 1, true) then
+			return i, line, 4
+		end
+	end
+end
+
 --------------------------------------------------
 -- Smart Sorter with Scoring
 --------------------------------------------------
@@ -429,11 +154,13 @@ local function calculate_entry_score(entry, tokens, current_time)
 		relevance = 0,
 		richness = 0,
 		structure = 0,
+		header_bonus = 0,
+		start_match_bonus = 0,
 	}
 
 	-- Recency score with 30-day half-life
 	if entry.filename then
-		scores.recency = AccessTracker.get_score(entry.filename, current_time)
+		scores.recency = S.AccessTracker.get_score(entry.filename, current_time)
 		-- Store for debugging
 		entry.recency_score = scores.recency
 	end
@@ -450,27 +177,82 @@ local function calculate_entry_score(entry, tokens, current_time)
 
 	for _, token in ipairs(tokens) do
 		local tok_lower = token:lower()
+		local found_in_header = false
+		local found_at_start = false
+
+		-- Check for header matches
+		if entry.metadata and entry.metadata.headers then
+			for _, header in ipairs(entry.metadata.headers) do
+				local header_lower = header.text:lower()
+				if header_lower:find(tok_lower, 1, true) then
+					found_in_header = true
+					-- Header bonus: inversely proportional to header level
+					-- Level 1 (#) gets 10x, Level 2 (##) gets 5x, etc.
+					local header_multiplier = 10 / header.level
+					relevance_multiplier = relevance_multiplier * header_multiplier
+
+					-- Extra bonus for start-of-header match
+					if header_lower:sub(1, #tok_lower) == tok_lower then
+						found_at_start = true
+						relevance_multiplier = relevance_multiplier * 2
+					end
+
+					has_any_match = true
+					break
+				end
+			end
+		end
 
 		-- Article match (highest priority)
-		if entry.article_name and entry.article_name:lower():find(tok_lower, 1, true) then
-			relevance_multiplier = relevance_multiplier * 20
-			has_any_match = true
-			goto continue
+		if not found_in_header and entry.article_name then
+			local article_lower = entry.article_name:lower()
+			if article_lower:find(tok_lower, 1, true) then
+				relevance_multiplier = relevance_multiplier * 20
+				has_any_match = true
+
+				-- Extra bonus for start-of-article match
+				if article_lower:sub(1, #tok_lower) == tok_lower then
+					found_at_start = true
+					relevance_multiplier = relevance_multiplier * 3
+				end
+				goto continue
+			end
 		end
 
 		-- Tag/alias match (high priority)
-		if entry.tags and entry.tags:lower():find(tok_lower, 1, true) then
-			relevance_multiplier = relevance_multiplier * 3
-			has_any_match = true
-			goto continue
+		if not found_in_header and entry.tags then
+			local tags_lower = entry.tags:lower()
+			if tags_lower:find(tok_lower, 1, true) then
+				relevance_multiplier = relevance_multiplier * 3
+				has_any_match = true
+
+				-- Check if any individual tag starts with the token
+				for tag in entry.tags:gmatch("@%S+") do
+					if tag:lower():sub(2, #tok_lower + 1) == tok_lower then
+						found_at_start = true
+						relevance_multiplier = relevance_multiplier * 2
+						break
+					end
+				end
+				goto continue
+			end
 		end
 
 		-- Content match (standard priority)
-		if entry.matched_line and entry.matched_line:lower():find(tok_lower, 1, true) then
+		if not found_in_header and entry.matched_line and entry.matched_line:lower():find(tok_lower, 1, true) then
 			relevance_multiplier = relevance_multiplier * 1.5
 			has_any_match = true
 			goto continue
 		end
+
+		-- Track bonuses
+		if found_in_header then
+			scores.header_bonus = scores.header_bonus + 1
+		end
+		if found_at_start then
+			scores.start_match_bonus = scores.start_match_bonus + 1
+		end
+
 		::continue::
 	end
 
@@ -479,35 +261,38 @@ local function calculate_entry_score(entry, tokens, current_time)
 		return 0.001
 	end
 
-	-- scores.relevance = math.log(relevance_multiplier + 1) -- Logarithmic scaling
 	scores.relevance = relevance_multiplier
 
-	-- -- Content richness score
-	-- local meta = entry.metadata
-	-- if meta then
-	-- 	scores.richness = (
-	-- 		math.min(#(meta.tags or {}), 5) * 0.4 -- Tag count (capped)
-	-- 		+ math.log(math.max(1, (meta.word_count or 0) / 100)) * 0.3 -- Word count (log scale)
-	-- 		+ (entry.line_count and math.log(entry.line_count + 1) * 0.2 or 0) -- Line count
-	-- 		+ ((meta.has_code or meta.has_links) and 0.5 or 0) -- Special content
-	-- 	)
-	-- end
+	-- Content richness score
+	local meta = entry.metadata
+	if meta then
+		scores.richness = (
+			math.min(#(meta.tags or {}), 5) * 0.4 -- Tag count (capped)
+			+ math.log(math.max(1, (meta.word_count or 0) / 100)) * 0.3 -- Word count (log scale)
+			+ (entry.line_count and math.log(entry.line_count + 1) * 0.2 or 0) -- Line count
+			+ ((meta.has_code or meta.has_links) and 0.5 or 0) -- Special content
+			+ (#(meta.headers or {}) > 0 and 1 or 0) -- Has structure
+		)
+	end
 
-	-- -- Structure quality score
-	-- if meta then
-	-- 	scores.structure = (
-	-- 		((meta.avg_line_length or 0) > 20 and (meta.avg_line_length or 0) < 80 and 1 or 0)
-	-- 		+ (meta.has_lists and 0.5 or 0)
-	-- 		+ ((meta.complexity_score or 0) > 2 and 0.5 or 0)
-	-- 	)
-	-- end
+	-- Structure quality score
+	if meta then
+		scores.structure = (
+			((meta.avg_line_length or 0) > 20 and (meta.avg_line_length or 0) < 80 and 1 or 0)
+			+ (meta.has_lists and 0.5 or 0)
+			+ ((meta.complexity_score or 0) > 2 and 0.5 or 0)
+			+ (#(meta.headers or {}) > 3 and 1 or 0) -- Well-structured with headers
+		)
+	end
 
 	-- Calculate weighted total
 	local weights = {
-		recency = 5.0, -- Increased weight for recency
-		relevance = 5.0, -- Still important for search matches
+		recency = 5.0,
+		relevance = 5.0,
 		richness = 1.5,
 		structure = 0.5,
+		header_bonus = 3.0,
+		start_match_bonus = 2.0,
 	}
 
 	local total = 0
@@ -596,31 +381,6 @@ local function create_smart_sorter()
 	})
 end
 
-local function norm(x, max) -- 0 ≤ x ≤ max ⇒ 0 … 1
-	if max == 0 then
-		return 1
-	end
-	return x / max
-end
-
--- compute a vault‑wide “oldest possible age” once at startup so every score
--- lands nicely in the 0…1 bracket.  (This is fast: just stats every file.)
-local NOW = uv.now() / 1000 -- libuv gives ms; scale to seconds
-local NOTES_DIR = vim.g.zortex_notes_dir or (vim.fn.expand("~") .. "/.zortex/")
-local function max_file_age()
-	local max = 0
-	for _, path in ipairs(vim.fn.globpath(NOTES_DIR, "*", false, true)) do
-		local stat = uv.fs_stat(path)
-		if stat and stat.mtime.sec > 0 then
-			local age = NOW - stat.mtime.sec
-			if age > max then
-				max = age
-			end
-		end
-	end
-	return max
-end
-
 --------------------------------------------------
 -- Note Creation
 --------------------------------------------------
@@ -628,13 +388,13 @@ local function create_new_note(prompt_bufnr)
 	local actions = require("telescope.actions")
 	actions.close(prompt_bufnr)
 
-	local name = os.date("%Y%W%u%H%M%S") .. vim.g.zortex_extension
+	local name = Utils.generate_unique_filename()
 	local path = vim.g.zortex_notes_dir .. name
 
 	vim.cmd("edit " .. path)
 	vim.defer_fn(function()
 		vim.api.nvim_buf_set_lines(0, 0, 0, false, { "@@" })
-		vim.api.nvim_win_set_cursor(0, { 1, 0 })
+		vim.api.nvim_win_set_cursor(0, { 1, 2 })
 		vim.cmd("startinsert")
 	end, 100)
 end
@@ -642,15 +402,80 @@ end
 --------------------------------------------------
 -- Entry Opening with Access Tracking
 --------------------------------------------------
-local function open_location(entry, cmd)
-	cmd = cmd or "edit"
-	if entry and entry.filename and entry.lnum then
-		-- Track access
-		AccessTracker.record(entry.filename)
+local function locate_token(bufnr, token)
+	if not token or token == "" then
+		return nil
+	end
+	local token_lower = token:lower()
+	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
 
-		-- Open file
+	-- 1. Article title (first line – strip "@@")
+	if #lines > 0 then
+		local article_name = Utils.extract_article_name(lines[1])
+		local s = article_name:lower():find(token_lower, 1, true)
+		if s then
+			return 1, s
+		end
+	end
+
+	-- 2. Tags or aliases (lines that start with @ / @@)
+	for i, line in ipairs(lines) do
+		if line:match("^@+") then
+			local s = line:lower():find(token_lower, 1, true)
+			if s then
+				return i, s
+			end
+		end
+	end
+
+	-- 3. Markdown headers (#, ##, ### …)
+	for i, line in ipairs(lines) do
+		if line:match("^%s*#+") then
+			local s = line:lower():find(token_lower, 1, true)
+			if s then
+				return i, s
+			end
+		end
+	end
+
+	-- 4. Fallback: first occurrence anywhere in the note
+	for i, line in ipairs(lines) do
+		local s = line:lower():find(token_lower, 1, true)
+		if s then
+			return i, s
+		end
+	end
+end
+
+local function open_location(entry, cmd, tokens)
+	cmd = cmd or "edit"
+	if not (entry and entry.filename) then
+		return
+	end
+
+	-- Track access
+	S.AccessTracker.record(entry.filename)
+
+	-- Open in the requested window / split
+	if cmd == "split" or cmd == "vsplit" then
+		if #vim.api.nvim_list_wins() == 1 then -- ensure we actually split when only one window
+			vim.cmd(cmd)
+		end
+		vim.cmd(string.format("edit %s", entry.filename))
+	else
 		vim.cmd(string.format("%s %s", cmd, entry.filename))
-		vim.fn.cursor(entry.lnum, 1)
+	end
+
+	-- Default cursor location (fallback)
+	local fallback_lnum = entry.lnum or 1
+	vim.fn.cursor(fallback_lnum, 1)
+
+	-- 🔍 Single‑token smart jump using the priority order
+	if tokens and #tokens == 1 then
+		local l, c = locate_token(0, tokens[1])
+		if l then
+			vim.fn.cursor(l, c)
+		end
 	end
 end
 
@@ -674,37 +499,41 @@ function M.search(opts)
 	local previewers = require("telescope.previewers")
 
 	-- Update index
-	IndexManager.update_sync()
+	S.IndexManager.update_sync()
+
+	-- Track current tokens for single-token navigation
+	local current_tokens = {}
 
 	-- Entry gathering function
 	local function gather(prompt)
 		prompt = prompt or ""
 		local tokens = Utils.parse_tokens(prompt)
+		current_tokens = tokens -- Used later by `open_location`
+
 		local results = {}
 		local empty = #tokens == 0
 
-		for path, data in pairs(IndexManager.cache) do
+		for path, data in pairs(S.IndexManager.cache) do
 			local title = data.lines[1] or ""
 			local article_name = Utils.extract_article_name(title)
 			local date_str = Utils.extract_date_from_filename(path) or Utils.format_timestamp(data.mtime)
-			local tags = Utils.extract_aliases_and_tags(data.lines)
+			local tags_line = Utils.extract_aliases_and_tags(data.lines)
 
-			-- Token matching
-			local seen_tok = {}
-			local first_line, first_idx = nil, nil
+			------------------------------------------------------------------------
+			-- 2.1 ▸ Resolve the *best* line for each token ------------------------
+			local seen_tok, first_idx, first_line, first_prio = {}, nil, nil, nil
 
-			for idx, line in ipairs(data.lines) do
-				for _, tok in ipairs(tokens) do
-					if not seen_tok[tok] and line:lower():find(tok:lower(), 1, true) then
-						seen_tok[tok] = { idx, line }
-						if not first_line then
-							first_idx, first_line = idx, line
-						end
+			for _, tok in ipairs(tokens) do
+				local lnum, line, prio = Utils.prioritized_match_line(data.lines, tok)
+				if lnum then
+					seen_tok[tok] = { lnum, line, prio }
+					if not first_prio or prio < first_prio then -- smaller = higher priority
+						first_idx, first_line, first_prio = lnum, line, prio
 					end
 				end
 			end
 
-			-- Check if all tokens match
+			-- 2.2 ▸ Verify that *all* tokens matched (logical AND semantics) -------
 			local qualifies = empty
 			if not empty then
 				qualifies = true
@@ -717,52 +546,46 @@ function M.search(opts)
 			end
 
 			if qualifies then
-				-- Build display with recency indicator
+				--------------------------------------------------------------------
+				-- 2.3 ▸ Build pretty display line ---------------------------------
 				local recency_indicator = ""
-				if AccessTracker.data[path] and #AccessTracker.data[path].times > 0 then
-					local last_access = AccessTracker.data[path].times[#AccessTracker.data[path].times]
+				if S.AccessTracker.data[path] and #S.AccessTracker.data[path].times > 0 then
+					local last_access = S.AccessTracker.data[path].times[#S.AccessTracker.data[path].times]
 					local age_days = (os.time() - last_access) / 86400
 					if age_days < 1 then
-						recency_indicator = "● " -- Today
+						recency_indicator = "● " -- today
 					elseif age_days < 3 then
-						recency_indicator = "◐ " -- This week
+						recency_indicator = "◐ " -- last 3 days
 					elseif age_days < 7 then
-						recency_indicator = "○ " -- This month
+						recency_indicator = "○ " -- this week
 					end
 				end
 
-				-- Build display
-				local extra = {}
-				if not empty then
-					for _, v in pairs(seen_tok) do
-						if v[2] ~= first_line then
-							extra[#extra + 1] = v[2]
-						end
+				-- extra previews (excluding the main one)
+				local extras = {}
+				for _, v in pairs(seen_tok) do
+					local line = v[2]
+					if line ~= first_line then
+						extras[#extras + 1] = (line:gsub("^%s+", ""))
 					end
 				end
+				table.sort(extras) -- stable ordering
 
 				local parts = {
 					date_str,
-					recency_indicator .. article_name .. (tags ~= "" and (" " .. tags) or ""),
+					recency_indicator .. article_name .. (tags_line ~= "" and (" " .. tags_line) or ""),
 				}
 
-				-- Show the matching query, removing leading whitespace
-				local has_extra = #extra > 0
-				local first_diff = first_line and first_line ~= title
-				if first_diff or has_extra then
-					local preview = first_diff and first_line or ""
-					if has_extra then
-						for i, v in pairs(extra) do
-							extra[i] = string.gsub(v, "^%s+", "")
-						end
-						local extra_str = table.concat(extra, " ∥ ")
-						preview = preview ~= "" and (preview .. " ∥ " .. extra_str) or extra_str
+				if first_line and (#extras > 0 or first_line ~= title) then
+					local preview = first_line
+					if #extras > 0 then
+						preview = preview .. " ∥ " .. table.concat(extras, " ∥ ")
 					end
-					parts[#parts + 1] = string.gsub(preview, "^%s+", "")
+					parts[#parts + 1] = preview:gsub("^%s+", "")
 				end
 
 				local display = table.concat(parts, " | ")
-				local ordinal = table.concat({ article_name, date_str, tags, first_line or "" }, " ")
+				local ordinal = table.concat({ article_name, date_str, tags_line, first_line or "" }, " ")
 
 				results[#results + 1] = {
 					value = path .. ":" .. (first_idx or 1),
@@ -771,10 +594,10 @@ function M.search(opts)
 					filename = path,
 					lnum = first_idx or 1,
 					article_name = article_name,
-					tags = tags,
+					tags = tags_line,
 					matched_line = first_line,
 					mtime = data.mtime,
-					-- metadata = data.metadata,
+					metadata = data.metadata,
 					line_count = #data.lines,
 					score_calculated = false,
 				}
@@ -827,7 +650,7 @@ function M.search(opts)
 				actions.select_default:replace(function()
 					local sel = action_state.get_selected_entry()
 					actions.close(bufnr)
-					open_location(sel)
+					open_location(sel, nil, current_tokens)
 				end)
 
 				-- Create new note
@@ -835,18 +658,24 @@ function M.search(opts)
 					create_new_note(bufnr)
 				end)
 
+				-- Clear prompt (C-u in insert mode)
+				map("i", "<C-u>", function()
+					vim.api.nvim_buf_set_lines(bufnr, 0, 1, false, { "" })
+					vim.api.nvim_win_set_cursor(0, { 1, 0 })
+				end)
+
 				-- Open in split
 				map({ "i", "n" }, "<C-x>", function()
 					local sel = action_state.get_selected_entry()
 					actions.close(bufnr)
-					open_location(sel, "split")
+					open_location(sel, "split", current_tokens)
 				end)
 
 				-- Open in vsplit
 				map({ "i", "n" }, "<C-v>", function()
 					local sel = action_state.get_selected_entry()
 					actions.close(bufnr)
-					open_location(sel, "vsplit")
+					open_location(sel, "vsplit", current_tokens)
 				end)
 
 				return true
@@ -854,62 +683,5 @@ function M.search(opts)
 		})
 		:find()
 end
-
--- Debug function to check access tracking
-function M.debug_access()
-	print("=== Access Tracking Debug ===")
-	local count = 0
-	for path, data in pairs(AccessTracker.data) do
-		count = count + 1
-		local recent = data.times[#data.times]
-		if recent then
-			print(
-				string.format(
-					"%s: %d accesses, last: %s",
-					vim.fn.fnamemodify(path, ":t"),
-					data.count,
-					os.date("%Y-%m-%d %H:%M:%S", recent)
-				)
-			)
-		end
-	end
-	print(string.format("Total tracked files: %d", count))
-	print(string.format("Access file: %s", ACCESS_FILE))
-end
-
--- Debug function to show scoring for current results
-function M.debug_scoring()
-	print("=== Scoring Debug ===")
-	local current_time = os.time()
-	for path, data in pairs(IndexManager.cache) do
-		local score = AccessTracker.get_score(path, current_time)
-		if score > 0 then
-			print(string.format("%s: recency score = %.3f", vim.fn.fnamemodify(path, ":t"), score))
-		end
-	end
-end
-
--- Manual access tracking (useful for testing or external integrations)
-function M.track_access(filepath)
-	if filepath then
-		AccessTracker.record(filepath)
-	else
-		-- Track current buffer if no filepath provided
-		local current = vim.api.nvim_buf_get_name(0)
-		if current and current ~= "" then
-			AccessTracker.record(current)
-		end
-	end
-end
-
--- Clear access history (for testing or privacy)
-function M.clear_access_history()
-	AccessTracker.data = {}
-	CacheManager.save(ACCESS_FILE, AccessTracker.data)
-	print("Access history cleared")
-end
-
--- Uncomment for testing:
--- M.search()
 
 return M

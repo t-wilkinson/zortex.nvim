@@ -1,6 +1,7 @@
 local search = require("zortex.search")
 local links = require("zortex.links")
 local calendar = require("zortex.calendar.ui")
+local calendar_data = require("zortex.calendar.data")
 
 local M = {}
 
@@ -70,6 +71,9 @@ function M.init()
 	})
 	vim.keymap.set("n", "Zt", calendar.telescope_calendar, {
 		desc = "Search calendar entries",
+	})
+	vim.keymap.set("n", "Zd", calendar_data.show_today_digest, {
+		desc = "Show today's digest",
 	})
 	-- vim.keymap.set("n", "Za", calendar.quick_add)
 end

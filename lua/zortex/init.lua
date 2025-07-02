@@ -1,6 +1,7 @@
 local search = require("zortex.search")
 local links = require("zortex.links")
 local calendar = require("zortex.calendar")
+local xp = require("zortex.xp")
 
 local M = {}
 
@@ -51,19 +52,17 @@ M.defaults = {
 M.options = {}
 
 function M.setup(opts)
-	if opts.notes_dir then
-		vim.g.zortex_notes_dir = opts.notes_dir
-	end
 	M.options = vim.tbl_deep_extend("force", {}, M.defaults, opts or {})
+
+	for k, v in pairs(M.options) do
+		vim.g[k] = v
+	end
+
+	M.init()
 end
 
 function M.init()
 	local opts = M.options
-
-	-- Legacy access
-	for k, v in pairs(M.options) do
-		vim.g[k] = v
-	end
 
 	vim.api.nvim_create_user_command("ZortexOpenLink", links.open_link, {})
 	vim.api.nvim_create_user_command("ZortexSearch", search.search, {})
@@ -82,16 +81,18 @@ function M.init()
 	vim.keymap.set("n", "Zc", calendar.open, {
 		desc = "Open Zortex Calendar",
 	})
-	vim.keymap.set("n", "Zt", calendar.telescope_digest, { desc = "Zortex Telescope Digest" })
-	vim.keymap.set("n", "Zd", calendar.show_today_digest, {
+	vim.keymap.set("n", "Zd", calendar.telescope_digest, { desc = "Zortex Telescope Digest" })
+	vim.keymap.set("n", "ZD", calendar.show_today_digest, {
 		desc = "Show Today's Digest",
 	})
+
+	xp.setup()
 	-- vim.keymap.set("n", "Za", calendar.quick_add)
 	-- vim.keymap.set("n", "Zt", calendar.telescope_calendar, {
 	-- 	desc = "Search calendar entries",
 	-- })
 end
 
-M.init()
+M.setup()
 
 return M

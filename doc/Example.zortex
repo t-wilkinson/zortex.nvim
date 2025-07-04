@@ -10,8 +10,11 @@ Commas and periods are highlighted in their natural sentence positions because I
 # This is a heading
 
 This is a label:
+A paragraph is here.
 Another label: but this time with text after.
 And another one: but this time with text after.
+
+The previous label has ended.
 
 Label:
 Hey! Did I mention we have $l^at_ex$ blocks? We even have latex code blocks
@@ -35,6 +38,7 @@ This is my label:
 - One of my most favorite features are links. They are pretty powerful. [/:This is my label] links to the label "This is a label:" above.
 - [/This is a heading] takes you to the heading
 - [/%have]
+    - Nested 
 
 # What else?
 Well, the goal with this project is to have a comprehensive plain-text syntax that reads naturally and serves well as a note system. Because notes are plain text, we can search them with "ZZ".

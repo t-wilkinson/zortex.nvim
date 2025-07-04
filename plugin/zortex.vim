@@ -178,6 +178,7 @@ endfunction
 
 function! s:init() abort
     autocmd Filetype zortex call zortex#fold#init()
+    autocmd BufWrite zortex call zortex#fold#update_folds()
 
     augroup zortex_init
         autocmd!

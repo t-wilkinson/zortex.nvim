@@ -4,7 +4,7 @@ local M = {}
 
 -- Dependencies
 local Path = require("plenary.path")
-local Job = require("plenary.job")
+local config = require("zortex.config")
 
 -- State management
 M.state = {
@@ -21,120 +21,12 @@ M.state = {
 	area_xp = {}, -- XP per area for skill trees
 	spent_budget = 0, -- Total budget spent
 	daily_budget_xp_penalty = 0,
+	last_line_states = {}, -- Track line states to detect changes
 }
 
--- Default configuration
-M.config = {
-	-- Graph weights
-	distance_decay = 0.6,
-	base_xp = 100,
-	multi_parent_bonus = "sum",
-	orphan_xp = 1,
-
-	-- Multipliers
-	priority = { p1 = 1.5, p2 = 1.2, p3 = 1.0 },
-	urgency = { day_factor = 0.2, repeat_daily = 1.1 },
-	xp_per_hour = 5,
-
-	-- Size modifiers
-	size_multipliers = {
-		xs = 0.5,
-		s = 0.8,
-		m = 1.0,
-		l = 1.5,
-		xl = 2.0,
-	},
-	size_thresholds = {
-		l = 6, -- Lines of markdown for @l
-		xl = 12, -- Lines for @xl
-	},
-
-	-- Budget
-	budget = {
-		enabled = true,
-		xp_per_dollar = 1, -- XP penalty per dollar spent
-		exempt_areas = { "Health", "Education" }, -- Areas exempt from budget penalty
-	},
-
-	-- Momentum
-	streak = { daily_bonus = 10, cap_pct_of_day = 0.5 },
-	combo = { init = 20, step = 10 },
-
-	-- Project fatigue
-	fatigue = { after_hours = 4, penalty = 0.5, reset_hours = 12 },
-
-	-- Objective heat
-	heat = { default = 1.0, decay_per_week = 0.10 },
-
-	-- Badges
-	badges = {
-		["Vision Keeper"] = 1000,
-		["Deep Work"] = 500,
-		["Consistency Master"] = 2000,
-		["Multi-Focus"] = 1500,
-		["Sprint Champion"] = 3000,
-		["Budget Master"] = 5000, -- Earned by saving money
-		["Area Specialist"] = 1000, -- Per area
-	},
-
-	-- Vision quota
-	vision_quota = { enabled = true, min_xp = 50 },
-
-	-- Skill tree levels
-	skill_levels = {
-		{ name = "Novice", xp = 0 },
-		{ name = "Apprentice", xp = 500 },
-		{ name = "Journeyman", xp = 1500 },
-		{ name = "Expert", xp = 3000 },
-		{ name = "Master", xp = 5000 },
-		{ name = "Grandmaster", xp = 10000 },
-	},
-}
-
--- Parse config.zortex file
-function M.load_config()
-	local config_path = Path:new(vim.g.zortex_notes_dir, "config" .. vim.g.zortex_extension)
-	if not config_path:exists() then
-		return
-	end
-
-	local content = config_path:read()
-	local current_section = nil
-
-	for line in content:gmatch("[^\r\n]+") do
-		line = line:gsub("^%s+", ""):gsub("%s+$", "")
-
-		-- Skip comments and empty lines
-		if line:match("^%-%-") or line == "" then
-			goto continue
-		end
-
-		-- Section headers
-		if line:match("^[%w_]+:$") then
-			current_section = line:gsub(":$", "")
-			if not M.config[current_section] then
-				M.config[current_section] = {}
-			end
-		-- Key-value pairs
-		elseif line:match("^%s*[%w_]+:%s*.+") then
-			local key, value = line:match("^%s*([%w_]+):%s*(.+)")
-			if current_section and M.config[current_section] then
-				-- Parse value type
-				if value:match("^%d+%.%d+$") then
-					value = tonumber(value)
-				elseif value:match("^%d+$") then
-					value = tonumber(value)
-				elseif value == "true" then
-					value = true
-				elseif value == "false" then
-					value = false
-				end
-				M.config[current_section][key] = value
-			end
-		end
-
-		::continue::
-	end
+-- Get config from the config module
+function M.get_config()
+	return config.get("xp") or config.defaults.xp
 end
 
 -- Graph building and traversal
@@ -189,6 +81,7 @@ function M.parse_file(filepath)
 	local current_item = nil
 	local item_lines = 0 -- Track lines for size heuristic
 	local in_task = false
+	local task_metadata = {} -- Store metadata for the next task
 
 	for line in content:gmatch("[^\r\n]+") do
 		-- Article names (headers)
@@ -247,6 +140,27 @@ function M.parse_file(filepath)
 		-- Tags and metadata
 		elseif line:match("^@") and not line:match("^@@") then
 			local tag = line:match("^@(.+)")
+			-- Store metadata for next task
+			if tag:match("^p[123]") then
+				task_metadata.priority = tag
+			elseif tag:match("^due%((.+)%)") then
+				task_metadata.due = tag:match("^due%((.+)%)")
+			elseif tag:match("^(%d+)h") then
+				task_metadata.duration = tonumber(tag:match("^(%d+)h"))
+			elseif tag:match("^heat%((.+)%)") then
+				task_metadata.heat = tonumber(tag:match("^heat%((.+)%)"))
+			elseif tag:match("^status%((.+)%)") then
+				task_metadata.status = tag:match("^status%((.+)%)")
+			elseif tag:match("^repeat%((.+)%)") then
+				task_metadata.repeat_type = tag:match("^repeat%((.+)%)")
+			elseif tag:match("^(xs|s|m|l|xl)$") then
+				task_metadata.size = tag
+			elseif tag:match("^budget%((.+)%)") then
+				local amount = tag:match("^budget%(%$?([%d%.]+)%)")
+				task_metadata.budget = tonumber(amount)
+			end
+
+			-- Also apply to current item if it exists
 			if current_item then
 				-- Extract metadata
 				if tag:match("^p[123]") then
@@ -276,9 +190,10 @@ function M.parse_file(filepath)
 
 			-- Apply size heuristic if previous task exists and no size set
 			if in_task and current_item and not current_item.size then
-				if item_lines >= M.config.size_thresholds.xl then
+				local cfg = M.get_config()
+				if item_lines >= cfg.size_thresholds.xl then
 					current_item.size = "xl"
-				elseif item_lines >= M.config.size_thresholds.l then
+				elseif item_lines >= cfg.size_thresholds.l then
 					current_item.size = "l"
 				end
 			end
@@ -291,6 +206,13 @@ function M.parse_file(filepath)
 				file = filepath,
 				links = {},
 			}
+
+			-- Apply any stored metadata
+			for k, v in pairs(task_metadata) do
+				current_item[k] = v
+			end
+			task_metadata = {} -- Clear metadata after use
+
 			table.insert(file_data.tasks, current_item)
 			table.insert(file_data.items, current_item)
 			item_lines = 1
@@ -312,9 +234,10 @@ function M.parse_file(filepath)
 		else
 			-- Apply size heuristic when task ends
 			if in_task and current_item and not current_item.size then
-				if item_lines >= M.config.size_thresholds.xl then
+				local cfg = M.get_config()
+				if item_lines >= cfg.size_thresholds.xl then
 					current_item.size = "xl"
-				elseif item_lines >= M.config.size_thresholds.l then
+				elseif item_lines >= cfg.size_thresholds.l then
 					current_item.size = "l"
 				end
 			end
@@ -324,9 +247,10 @@ function M.parse_file(filepath)
 
 	-- Apply final size heuristic
 	if in_task and current_item and not current_item.size then
-		if item_lines >= M.config.size_thresholds.xl then
+		local cfg = M.get_config()
+		if item_lines >= cfg.size_thresholds.xl then
 			current_item.size = "xl"
-		elseif item_lines >= M.config.size_thresholds.l then
+		elseif item_lines >= cfg.size_thresholds.l then
 			current_item.size = "l"
 		end
 	end
@@ -448,30 +372,31 @@ end
 
 -- Calculate XP for a task
 function M.calculate_task_xp(task)
+	local cfg = M.get_config()
 	local node_id = task.file .. ":" .. task.text
 	local distance = M.graph.distances[node_id] or math.huge
 
 	-- Base XP calculation
-	local xp = M.config.base_xp
+	local xp = cfg.base_xp
 
 	if distance == math.huge then
-		xp = M.config.orphan_xp
+		xp = cfg.orphan_xp
 	else
-		xp = xp * math.pow(M.config.distance_decay, distance)
+		xp = xp * math.pow(cfg.distance_decay, distance)
 	end
 
 	-- Apply multipliers
 	local multiplier = 1.0
 
 	-- Priority multiplier
-	if task.priority and M.config.priority[task.priority] then
-		multiplier = multiplier * M.config.priority[task.priority]
+	if task.priority and cfg.priority[task.priority] then
+		multiplier = multiplier * cfg.priority[task.priority]
 	end
 
 	-- Size multiplier
 	local size = task.size or "m"
-	if M.config.size_multipliers[size] then
-		multiplier = multiplier * M.config.size_multipliers[size]
+	if cfg.size_multipliers[size] then
+		multiplier = multiplier * cfg.size_multipliers[size]
 	end
 
 	-- Urgency multiplier
@@ -479,14 +404,14 @@ function M.calculate_task_xp(task)
 		local due_date = M.parse_date(task.due)
 		if due_date then
 			local days_until = (due_date - os.time()) / 86400
-			local urgency = 1 + M.config.urgency.day_factor / (days_until + 1)
+			local urgency = 1 + cfg.urgency.day_factor / (days_until + 1)
 			multiplier = multiplier * urgency
 		end
 	end
 
 	-- Repeat bonus
 	if task.repeat_type == "daily" then
-		multiplier = multiplier * M.config.urgency.repeat_daily
+		multiplier = multiplier * cfg.urgency.repeat_daily
 	end
 
 	-- Apply heat from parent objective
@@ -499,7 +424,7 @@ function M.calculate_task_xp(task)
 
 	-- Duration bonus
 	if task.duration then
-		xp = xp + M.config.xp_per_hour * task.duration
+		xp = xp + cfg.xp_per_hour * task.duration
 	end
 
 	-- Store distance for vision quota tracking
@@ -510,14 +435,15 @@ end
 
 -- Process budget expenses
 function M.process_budget(task)
-	if not task.budget or not M.config.budget.enabled then
+	local cfg = M.get_config()
+	if not task.budget or not cfg.budget.enabled then
 		return 0
 	end
 
 	-- Check if task is linked to exempt areas
 	local task_areas = M.find_task_areas(task)
 	for _, area in ipairs(task_areas) do
-		for _, exempt in ipairs(M.config.budget.exempt_areas) do
+		for _, exempt in ipairs(cfg.budget.exempt_areas) do
 			if area == exempt then
 				return 0 -- No penalty for exempt areas
 			end
@@ -525,7 +451,7 @@ function M.process_budget(task)
 	end
 
 	-- Calculate XP penalty
-	local penalty = task.budget * M.config.budget.xp_per_dollar
+	local penalty = task.budget * cfg.budget.xp_per_dollar
 	M.state.spent_budget = M.state.spent_budget + task.budget
 	M.state.daily_budget_xp_penalty = M.state.daily_budget_xp_penalty + penalty
 
@@ -542,7 +468,7 @@ function M.get_objective_heat(task)
 			end
 		end
 	end
-	return M.config.heat.default
+	return M.get_config().heat.default
 end
 
 -- Get project fatigue multiplier
@@ -558,8 +484,9 @@ function M.get_project_fatigue(task)
 	end
 
 	local hours_today = fatigue_data.hours_today or 0
-	if hours_today > M.config.fatigue.after_hours then
-		return M.config.fatigue.penalty
+	local cfg = M.get_config()
+	if hours_today > cfg.fatigue.after_hours then
+		return cfg.fatigue.penalty
 	end
 
 	return 1.0
@@ -580,13 +507,14 @@ end
 
 -- Calculate momentum bonuses
 function M.calculate_momentum_bonus(task)
+	local cfg = M.get_config()
 	local bonus = 0
 	local now = os.time()
 	local today = os.date("%Y-%m-%d")
 
 	-- Streak bonus
 	if M.state.last_completion_date == today then
-		bonus = bonus + M.config.streak.daily_bonus * M.state.current_streak
+		bonus = bonus + cfg.streak.daily_bonus * M.state.current_streak
 	end
 
 	-- Combo bonus
@@ -595,7 +523,7 @@ function M.calculate_momentum_bonus(task)
 		local time_diff = now - M.state.combo.last_time
 		if time_diff <= 5400 then -- 90 minutes
 			M.state.combo.count = M.state.combo.count + 1
-			bonus = bonus + M.config.combo.init + (M.state.combo.count - 1) * M.config.combo.step
+			bonus = bonus + cfg.combo.init + (M.state.combo.count - 1) * cfg.combo.step
 		else
 			M.state.combo = { project = project, count = 1, last_time = now }
 		end
@@ -604,7 +532,7 @@ function M.calculate_momentum_bonus(task)
 	end
 
 	-- Cap momentum bonus
-	local cap = M.state.daily_xp * M.config.streak.cap_pct_of_day
+	local cap = M.state.daily_xp * cfg.streak.cap_pct_of_day
 	return math.min(bonus, cap)
 end
 
@@ -669,7 +597,8 @@ end
 
 -- Check and award badges
 function M.check_badges()
-	for badge_name, required_xp in pairs(M.config.badges) do
+	local cfg = M.get_config()
+	for badge_name, required_xp in pairs(cfg.badges) do
 		if badge_name == "Budget Master" then
 			-- Special badge for saving money (negative spending)
 			if M.state.spent_budget < -required_xp and not M.state.badges[badge_name] then
@@ -730,12 +659,13 @@ end
 
 -- Get skill level for an area
 function M.get_skill_level(area_xp)
-	for i = #M.config.skill_levels, 1, -1 do
-		if area_xp >= M.config.skill_levels[i].xp then
-			return M.config.skill_levels[i]
+	local cfg = M.get_config()
+	for i = #cfg.skill_levels, 1, -1 do
+		if area_xp >= cfg.skill_levels[i].xp then
+			return cfg.skill_levels[i]
 		end
 	end
-	return M.config.skill_levels[1]
+	return cfg.skill_levels[1]
 end
 
 -- Save state to disk
@@ -756,19 +686,21 @@ function M.load_state()
 			M.state.area_xp = M.state.area_xp or {}
 			M.state.spent_budget = M.state.spent_budget or 0
 			M.state.daily_budget_xp_penalty = M.state.daily_budget_xp_penalty or 0
+			M.state.last_line_states = M.state.last_line_states or {}
 		end
 	end
 end
 
 -- Update objective heat (decay over time)
 function M.update_objective_heat()
+	local cfg = M.get_config()
 	local current_time = os.time()
 	local week_seconds = 7 * 24 * 60 * 60
 
 	for objective, heat_data in pairs(M.state.objective_heat) do
 		if type(heat_data) == "table" then
 			local weeks_elapsed = (current_time - heat_data.last_update) / week_seconds
-			local decay = M.config.heat.decay_per_week * weeks_elapsed
+			local decay = cfg.heat.decay_per_week * weeks_elapsed
 			heat_data.value = math.max(0.1, heat_data.value - decay)
 			heat_data.last_update = current_time
 		end
@@ -777,6 +709,7 @@ end
 
 -- Dashboard command
 function M.show_dashboard()
+	local cfg = M.get_config()
 	local lines = {
 		"═══════════════════════════════════════════════════════",
 		"              ZORTEX XP DASHBOARD",
@@ -789,7 +722,7 @@ function M.show_dashboard()
 	}
 
 	-- Budget status
-	if M.config.budget.enabled then
+	if cfg.budget.enabled then
 		table.insert(lines, string.format("Daily Budget Impact: %d XP", -M.state.daily_budget_xp_penalty))
 		table.insert(lines, string.format("Total Spent: $%.2f", M.state.spent_budget))
 	end
@@ -814,9 +747,9 @@ function M.show_dashboard()
 		for area, xp in pairs(M.state.area_xp) do
 			local level = M.get_skill_level(xp)
 			local next_level = nil
-			for i, l in ipairs(M.config.skill_levels) do
-				if l.name == level.name and i < #M.config.skill_levels then
-					next_level = M.config.skill_levels[i + 1]
+			for i, l in ipairs(cfg.skill_levels) do
+				if l.name == level.name and i < #cfg.skill_levels then
+					next_level = cfg.skill_levels[i + 1]
 					break
 				end
 			end
@@ -856,10 +789,10 @@ function M.show_dashboard()
 	end
 
 	-- Vision quota status
-	if M.config.vision_quota.enabled then
+	if cfg.vision_quota.enabled then
 		local vision_xp_today = M.calculate_vision_xp_today()
 		table.insert(lines, "")
-		table.insert(lines, string.format("Vision Quota: %d/%d XP", vision_xp_today, M.config.vision_quota.min_xp))
+		table.insert(lines, string.format("Vision Quota: %d/%d XP", vision_xp_today, cfg.vision_quota.min_xp))
 	end
 
 	-- Create buffer
@@ -1002,6 +935,7 @@ end
 
 -- Calculate today's XP from vision-aligned tasks
 function M.calculate_vision_xp_today()
+	local cfg = M.get_config()
 	local vision_xp = 0
 	local today = os.date("%Y-%m-%d")
 
@@ -1092,16 +1026,49 @@ function M.audit_tasks()
 	return audit_results
 end
 
+-- Check if task was completed in the current buffer
+function M.check_task_completion()
+	local line_num = vim.api.nvim_win_get_cursor(0)[1]
+	local line = vim.api.nvim_get_current_line()
+	local buf = vim.api.nvim_get_current_buf()
+	local filepath = vim.fn.expand("%:p")
+
+	-- Create unique key for this line
+	local line_key = string.format("%s:%d", filepath, line_num)
+
+	-- Check if this is a task line
+	if line:match("^%s*%- %[[ x]%]") then
+		local is_completed = line:match("%[x%]") ~= nil
+		local was_completed = M.state.last_line_states[line_key] or false
+
+		-- Task was just completed (changed from [ ] to [x])
+		if is_completed and not was_completed then
+			-- Rebuild graph to ensure we have latest data
+			M.build_graph()
+
+			-- Parse the current file to get full task context
+			local file_data = M.parse_file(filepath)
+
+			if file_data then
+				-- Find the matching task
+				local task_text = line:match("%- %[x%]%s*(.+)")
+				for _, task in ipairs(file_data.tasks) do
+					if task.text == task_text and task.completed then
+						-- Award XP
+						M.complete_task(task)
+						break
+					end
+				end
+			end
+		end
+
+		-- Update state
+		M.state.last_line_states[line_key] = is_completed
+	end
+end
+
 -- Setup function
-function M.setup(opts)
-	opts = opts or {}
-
-	-- Merge user config
-	M.config = vim.tbl_deep_extend("force", M.config, opts)
-
-	-- Load config from file
-	M.load_config()
-
+function M.setup()
 	-- Load saved state
 	M.load_state()
 
@@ -1138,29 +1105,22 @@ function M.setup(opts)
 		vim.notify("Graph rebuilt successfully", "info", { title = "Zortex" })
 	end, { desc = "Rebuild the task graph" })
 
-	-- Set up autocmd for task completion
-	vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
+	-- More robust autocmd for task completion
+	vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", "TextChangedP" }, {
 		pattern = "*" .. vim.g.zortex_extension,
 		callback = function()
-			-- Check if a task was just completed
-			local line = vim.api.nvim_get_current_line()
-			if line:match("^%s*%- %[x%]") then
-				-- Parse the current file to get full task context
-				local filepath = vim.fn.expand("%:p")
-				local file_data = M.parse_file(filepath)
+			-- Defer the check slightly to ensure the buffer is updated
+			vim.defer_fn(function()
+				M.check_task_completion()
+			end, 50)
+		end,
+	})
 
-				if file_data then
-					-- Find the matching task
-					local task_text = line:match("%- %[x%]%s*(.+)")
-					for _, task in ipairs(file_data.tasks) do
-						if task.text == task_text and task.completed then
-							-- Award XP
-							M.complete_task(task)
-							break
-						end
-					end
-				end
-			end
+	-- Also check on cursor movement (in case user uses visual mode to change)
+	vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI" }, {
+		pattern = "*" .. vim.g.zortex_extension,
+		callback = function()
+			M.check_task_completion()
 		end,
 	})
 

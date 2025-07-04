@@ -132,9 +132,9 @@ local function parse_task(task_text)
 	local status_key, remaining_text = working_text:match(status_pattern)
 	if status_key then
 		-- Import task status definitions from data module
-		local data = require("zortex.calendar.data")
-		if data.TASK_STATUS[status_key] then
-			parsed.task_status = data.TASK_STATUS[status_key]
+		local Utils = require("zortex.calendar.utils")
+		if Utils.TASK_STATUS[status_key] then
+			parsed.task_status = Utils.TASK_STATUS[status_key]
 			parsed.task_status.key = status_key
 			working_text = remaining_text
 		end

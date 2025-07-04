@@ -112,7 +112,7 @@ function M.parse_time(time_str)
 end
 
 --- Parse datetime string (date + optional time)
-local function parse_datetime(dt_str, default_date)
+function M.parse_datetime(dt_str, default_date)
 	if not dt_str then
 		return nil
 	end
@@ -463,8 +463,8 @@ function M.get_entries_for_date(date_str)
 
 					-- Check for @from/@to range
 					if entry.attributes.from or entry.attributes.to then
-						local from_dt = parse_datetime(entry.attributes.from, original_date_str)
-						local to_dt = parse_datetime(entry.attributes.to, original_date_str)
+						local from_dt = M.parse_datetime(entry.attributes.from, original_date_str)
+						local to_dt = M.parse_datetime(entry.attributes.to, original_date_str)
 						local from_time = from_dt and os.time(from_dt) or original_time
 						local to_time = to_dt and os.time(to_dt) or from_time
 						if target_time >= from_time and target_time <= to_time then
@@ -484,7 +484,7 @@ function M.get_entries_for_date(date_str)
 
 				-- Check for @due date
 				if entry.attributes.due then
-					local due_dt = parse_datetime(entry.attributes.due, original_date_str)
+					local due_dt = M.parse_datetime(entry.attributes.due, original_date_str)
 					if due_dt then
 						local due_date_str = string.format("%04d-%02d-%02d", due_dt.year, due_dt.month, due_dt.day)
 						if due_date_str == date_str and not added_entries[entry.raw_text] then

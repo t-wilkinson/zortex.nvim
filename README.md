@@ -308,3 +308,18 @@ If file headers are being deleted when adding entries:
 - The fix has been applied to preserve headers
 - Headers are any lines before the first date entry
 - Make sure your calendar.zortex has proper date format: `MM-DD-YYYY:`
+
+For best notification support on macOS, install one of:
+
+1. terminal-notifier (Recommended):
+   brew install terminal-notifier
+
+2. alerter:
+   brew install alerter
+
+Without these, notifications may not appear due to
+macOS security restrictions on terminal apps.
+
+After installing, restart Neovim and try again.
+
+Alternative: Use :ZortexDigest for buffer view

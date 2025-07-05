@@ -574,7 +574,7 @@ function M.go_to_date()
 	local target_ts = os.time({ year = d.year, month = d.month, day = d.day })
 
 	-- Open calendar file
-	local path = Utils.get_calendar_path()
+	local path = Utils.get_file_path(Utils.CALENDAR_FILE)
 	vim.cmd("edit " .. vim.fn.fnameescape(path))
 	local bufnr = 0
 

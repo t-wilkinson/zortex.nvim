@@ -5,7 +5,6 @@ local M = {}
 
 local Utils = require("zortex.calendar.utils")
 local projects = require("zortex.calendar.projects")
-local Config = require("zortex.config")
 
 -- =============================================================================
 -- Helper Functions
@@ -710,7 +709,7 @@ function M.telescope_projects(opts)
 					if selection then
 						local e = selection.value
 						-- Open projects file at the project location
-						local path = projects.get_projects_path()
+						local path = Utils.get_file_path(Utils.PROJECTS_FILE)
 						if path then
 							vim.cmd("edit " .. vim.fn.fnameescape(path))
 							vim.api.nvim_win_set_cursor(0, { e.project.line_num, 0 })

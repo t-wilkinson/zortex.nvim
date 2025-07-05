@@ -2,12 +2,7 @@
 -- Handles loading, parsing, and querying project entries from projects.zortex
 
 local M = {}
-
--- =============================================================================
--- Constants
--- =============================================================================
-
-local PROJECTS_FILE = "projects.zortex"
+local Utils = require("zortex.calendar.utils")
 
 -- =============================================================================
 -- State
@@ -23,97 +18,6 @@ local state = {
 -- =============================================================================
 -- Private Helper Functions
 -- =============================================================================
-
---- Parse time string into hour and minute (same as in data.lua)
-local function parse_time(time_str)
-	if not time_str then
-		return nil
-	end
-
-	-- Try HH:MM format
-	local hour, min = time_str:match("^(%d%d?):(%d%d)$")
-	if hour then
-		return { hour = tonumber(hour), min = tonumber(min) }
-	end
-
-	-- Try HH:MMam/pm format
-	hour, min = time_str:match("^(%d%d?):(%d%d)([ap]m)$")
-	if hour then
-		local h = tonumber(hour)
-		local pm = time_str:match("pm$")
-		if pm and h ~= 12 then
-			h = h + 12
-		elseif not pm and h == 12 then
-			h = 0
-		end
-		return { hour = h, min = tonumber(min) }
-	end
-
-	return nil
-end
-
---- Parse a date string (YYYY-MM-DD) or (MM-DD-YYYY) into a table
-local function parse_date(date_str)
-	if not date_str then
-		return nil
-	end
-
-	-- 1) YYYY-MM-DD
-	local y, m, d = date_str:match("^(%d%d%d%d)%-(%d%d)%-(%d%d)$")
-	if y then
-		return { year = tonumber(y), month = tonumber(m), day = tonumber(d) }
-	end
-
-	-- 2) MM-DD-YYYY
-	local m2, d2, y2 = date_str:match("^(%d%d)%-(%d%d)%-(%d%d%d%d)$")
-	if m2 then
-		return { year = tonumber(y2), month = tonumber(m2), day = tonumber(d2) }
-	end
-
-	return nil
-end
-
---- Parse datetime string (date + optional time)
-local function parse_datetime(dt_str)
-	if not dt_str then
-		return nil
-	end
-
-	-- Try to parse as date + time
-	local date_part, time_part = dt_str:match("^(%d%d%d%d%-%d%d%-%d%d)%s+(.+)$")
-	if date_part and time_part then
-		local date = parse_date(date_part)
-		local time = parse_time(time_part)
-		if date and time then
-			date.hour = time.hour
-			date.min = time.min
-			return date
-		end
-	end
-
-	-- Try to parse as date only
-	local date = parse_date(dt_str)
-	if date then
-		date.hour = 0
-		date.min = 0
-		return date
-	end
-
-	return nil
-end
-
---- Get the full path to the projects file
-function M.get_projects_path()
-	local notes_dir = vim.g.zortex_notes_dir
-	if not notes_dir then
-		vim.notify("g:zortex_notes_dir not set", vim.log.levels.ERROR)
-		return nil
-	end
-	if not notes_dir:match("/$") then
-		notes_dir = notes_dir .. "/"
-	end
-	return notes_dir .. PROJECTS_FILE
-end
 
 --- Parse a task line for attributes
 local function parse_task(task_text)
@@ -132,7 +36,6 @@ local function parse_task(task_text)
 	local status_key, remaining_text = working_text:match(status_pattern)
 	if status_key then
 		-- Import task status definitions from data module
-		local Utils = require("zortex.calendar.utils")
 		if Utils.TASK_STATUS[status_key] then
 			parsed.task_status = Utils.TASK_STATUS[status_key]
 			parsed.task_status.key = status_key
@@ -184,7 +87,7 @@ end
 
 --- Load and parse the projects file
 function M.load()
-	local path = M.get_projects_path()
+	local path = Utils.get_file_path(Utils.PROJECTS_FILE)
 	if not path then
 		return
 	end
@@ -303,7 +206,7 @@ end
 --- Get tasks for a specific date
 function M.get_tasks_for_date(date_str)
 	local tasks_for_date = {}
-	local target_date = parse_date(date_str)
+	local target_date = Utils.parse_date(date_str)
 	if not target_date then
 		return tasks_for_date
 	end
@@ -315,7 +218,7 @@ function M.get_tasks_for_date(date_str)
 
 				-- Check @due attribute
 				if task.attributes.due then
-					local due_dt = parse_datetime(task.attributes.due)
+					local due_dt = Utils.parse_datetime(task.attributes.due)
 					if due_dt then
 						local due_str = string.format("%04d-%02d-%02d", due_dt.year, due_dt.month, due_dt.day)
 						if due_str == date_str then
@@ -326,7 +229,7 @@ function M.get_tasks_for_date(date_str)
 
 				-- Check @at attribute (for specific time on a date)
 				if task.attributes.at and task.attributes.at:match("%d%d%d%d%-%d%d%-%d%d") then
-					local at_dt = parse_datetime(task.attributes.at)
+					local at_dt = Utils.parse_datetime(task.attributes.at)
 					if at_dt then
 						local at_str = string.format("%04d-%02d-%02d", at_dt.year, at_dt.month, at_dt.day)
 						if at_str == date_str then
@@ -337,8 +240,8 @@ function M.get_tasks_for_date(date_str)
 
 				-- Check date range (@from/@to)
 				if task.attributes.from or task.attributes.to then
-					local from_dt = task.attributes.from and parse_datetime(task.attributes.from)
-					local to_dt = task.attributes.to and parse_datetime(task.attributes.to)
+					local from_dt = task.attributes.from and Utils.parse_datetime(task.attributes.from)
+					local to_dt = task.attributes.to and Utils.parse_datetime(task.attributes.to)
 
 					if from_dt or to_dt then
 						local target_time = os.time(target_date)

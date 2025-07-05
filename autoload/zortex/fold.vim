@@ -200,7 +200,7 @@ function! s:contextual_indents(init_ind, line_start, line_end, ind_list)
         let ind = a:ind_list[curr_line] + len(n_headings)
         let line = getline(curr_line + a:line_start)
 
-        if line =~? '^[z:'
+        if line =~? '^@@' && curr_line > 5
             let n_headings = [0]
             let ind = 0
         endif

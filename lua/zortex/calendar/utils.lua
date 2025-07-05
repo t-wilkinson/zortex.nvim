@@ -7,7 +7,8 @@ local M = {}
 -- Constants
 -- =============================================================================
 
-local CALENDAR_FILE = "calendar.zortex"
+M.CALENDAR_FILE = "calendar.zortex"
+M.PROJECTS_FILE = "projects.zortex"
 
 -- Task status definitions. The parser will attach this information to an entry.
 M.TASK_STATUS = {
@@ -203,8 +204,8 @@ local function parse_notification_durations(notify_str)
 	return #durations > 0 and durations or { 0 }
 end
 
---- Get the full path to the calendar data file.
-function M.get_calendar_path()
+-- Get the full path to a zortex file.
+function M.get_file_path(file)
 	local notes_dir = vim.g.zortex_notes_dir
 	if not notes_dir then
 		vim.notify("g:zortex_notes_dir not set", vim.log.levels.ERROR)
@@ -213,7 +214,7 @@ function M.get_calendar_path()
 	if not notes_dir:match("/$") then
 		notes_dir = notes_dir .. "/"
 	end
-	return notes_dir .. CALENDAR_FILE
+	return notes_dir .. file
 end
 
 -- =============================================================================
@@ -335,7 +336,7 @@ end
 
 --- Loads and parses the calendar data from the file.
 function M.load()
-	local path = M.get_calendar_path()
+	local path = M.get_file_path(M.CALENDAR_FILE)
 	if not path then
 		return
 	end
@@ -375,7 +376,7 @@ end
 
 --- Saves the current calendar data to the file.
 function M.save()
-	local path = M.get_calendar_path()
+	local path = M.get_file_path(M.CALENDAR_FILE)
 	if not path then
 		return false
 	end

@@ -25,7 +25,6 @@ M.show_today_digest = notifications.show_today_digest
 M.show_digest_buffer = notifications.show_digest_buffer
 M.debug_notifications = notifications.debug_notifications
 M.show_today_digest_dialog = notifications.show_today_digest_dialog
-M.setup_help = notifications.setup_help
 M.test_notification = notifications.test_notification
 
 -- Projects functions
@@ -44,8 +43,8 @@ function M.setup()
 	local cmd = vim.api.nvim_create_user_command
 
 	-- Digests
-	cmd("ZortexTodayDigest", M.telescope_today_digest, { desc = "Show today's digest in Telescope" })
-	cmd("ZortexDigest", M.show_digest_buffer, { desc = "Show today's digest in a buffer" })
+	cmd("ZortexDigestTelescope", M.telescope_today_digest, { desc = "Show today's digest in Telescope" })
+	cmd("ZortexDigestBuffer", M.show_digest_buffer, { desc = "Show today's digest in a buffer" })
 	cmd("ZortexDigestNotify", M.show_today_digest, { desc = "Show today's digest as notification" })
 	cmd("ZortexDigestDialog", M.show_today_digest_dialog, { desc = "Show today's digest as dialog (macOS)" })
 
@@ -53,8 +52,8 @@ function M.setup()
 	cmd("ZortexTestNotify", M.test_notification, { desc = "Test notification system" })
 	cmd("ZortexDebugNotify", M.debug_notifications, { desc = "Debug notification methods" })
 
-	cmd("ZortexCalendarSearch", M.telescope_calendar, { desc = "Browse calendar chronologically" })
 	cmd("ZortexCalendar", M.open, { desc = "Browse Zortex calendar" })
+	cmd("ZortexCalendarSearch", M.telescope_calendar, { desc = "Browse calendar chronologically" })
 	cmd("ZortexProjects", M.telescope_projects, { desc = "Search projects with priority sorting" })
 
 	cmd("ZortexSetupNotifications", function()

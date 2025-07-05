@@ -61,19 +61,28 @@ function M.init()
 	local links = require("zortex.links")
 	local calendar = require("zortex.calendar")
 	local xp = require("zortex.xp")
-	local opts = M.options
+	local telescope = require("zortex.telescope")
 
-	vim.api.nvim_create_user_command("ZortexOpenLink", links.open_link, {})
-	vim.api.nvim_create_user_command("ZortexSearch", search.search, {})
+	local cmd = vim.api.nvim_create_user_command
+
+	-- Telescope functions
+	cmd("ZortexCalendarSearch", telescope.calendar, { desc = "Browse calendar chronologically" })
+	cmd("ZortexDigestTelescope", telescope.today_digest, { desc = "Show today's digest in Telescope" })
+	cmd("ZortexProjects", telescope.today_digest, { desc = "Show today's digest in Telescope" })
+
+	-- Searching
+	cmd("ZortexOpenLink", links.open_link, {})
+	cmd("ZortexSearch", search.search, {})
 
 	-- Create keymaps
 	vim.keymap.set("n", "Zc", calendar.open, { desc = "Open Zortex Calendar" })
 
 	-- Telescope keymaps
-	vim.keymap.set("n", "ZC", calendar.telescope_calendar, { desc = "Search calendar entries" })
-	vim.keymap.set("n", "Zp", calendar.telescope_projects, { desc = "Search projects" })
-	vim.keymap.set("n", "Zd", calendar.telescope_today_digest)
+	vim.keymap.set("n", "ZC", telescope.calendar, { desc = "Search calendar entries" })
+	vim.keymap.set("n", "Zp", telescope.projects, { desc = "Search projects" })
 
+	-- Digest
+	vim.keymap.set("n", "Zd", telescope.today_digest)
 	vim.keymap.set("n", "ZD", calendar.show_today_digest, {
 		desc = "Show Today's Digest",
 	})

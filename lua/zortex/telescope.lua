@@ -4,7 +4,7 @@
 local M = {}
 
 local Utils = require("zortex.calendar.utils")
-local projects = require("zortex.calendar.projects")
+local projects = require("zortex.projects")
 
 -- =============================================================================
 -- Helper Functions
@@ -135,7 +135,7 @@ end
 -- =============================================================================
 
 --- Create a telescope view for today's digest and upcoming events
-function M.telescope_today_digest(opts)
+function M.today_digest(opts)
 	opts = opts or {}
 
 	-- Load data
@@ -453,7 +453,7 @@ end
 -- =============================================================================
 
 --- Project search with intelligent sorting
-function M.telescope_projects(opts)
+function M.projects(opts)
 	opts = opts or {}
 
 	-- Load data
@@ -727,7 +727,7 @@ end
 -- =============================================================================
 
 --- Calendar view with chronological sorting
-function M.telescope_calendar(opts)
+function M.calendar(opts)
 	opts = opts or {}
 	Utils.load()
 
@@ -740,8 +740,6 @@ function M.telescope_calendar(opts)
 
 	local all_parsed = Utils.get_all_parsed_entries()
 	local entries = {}
-	local today = os.date("%Y-%m-%d")
-	local today_time = os.time()
 
 	-- Build entries with date information
 	for date_str, parsed_list in pairs(all_parsed) do

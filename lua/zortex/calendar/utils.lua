@@ -14,7 +14,6 @@ M.PROJECTS_FILE = "projects.zortex"
 M.TASK_STATUS = {
 	["[ ]"] = { symbol = "☐", name = "Incomplete", hl = "Comment" },
 	["[x]"] = { symbol = "☑", name = "Complete", hl = "String" },
-	["[!]"] = { symbol = "⚠", name = "Important", hl = "ErrorMsg" },
 	["[~]"] = { symbol = "◐", name = "In Progress", hl = "WarningMsg" },
 	["[@]"] = { symbol = "⏸", name = "Paused", hl = "Comment" },
 }

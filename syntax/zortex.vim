@@ -177,6 +177,8 @@ syntax match zAttribute / \@<=\zs@\w\+\(([^)]*)\)\?/    " @event, @due(2025-12-0
 
 syntax match zBullet /^\s*\zs[-+x*]\ze\s/            " Unordered lists
 syntax match zOperator /^\s*[A-Za-z0-9]\+\.\ze\s/  " Numbered lists
+syntax match zTask /\(- \)\@<=\zs\[[ x~X]]\ze / " - [x] Task
+
 
 syntax match zOperator /\d\d\?:\d\d/ " Times of day 
 syntax match zOperator /[A-Z]\S* \d\+:\d\+\(-\d\+\)/ " Scripture quotes
@@ -263,6 +265,7 @@ Hi zBullet          Tag
 Hi zListLabel       Underlined
 " hi zLabel gui=bold
 Hi zAttribute           Comment
+Hi zTask            Question
 
 let b:current_syntax = "zettel"
 if main_syntax ==# 'zettel'

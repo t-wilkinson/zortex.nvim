@@ -173,7 +173,7 @@ syntax match zOperator /\(- \)\@<=\zs[A-Z][A-Za-z0-9(), ]\+\ze: /      " - Label
 " syntax match String /\s[A-Za-z0-9() ]\+\ze: /      " - Label: Some text
 
 syntax match zOperator /- \zs#.*#\ze / " - #tag1#tag2# Text
-syntax match zAttribute / \@<=\zs@\w\+\(([^)]*)\)\?\ze\_s/    " @event, @due(2025-12-05), etc.
+syntax match zAttribute / \@<=\zs@\w\+\(([^)]*)\)\?/    " @event, @due(2025-12-05), etc.
 
 syntax match zBullet /^\s*\zs[-+x*]\ze\s/            " Unordered lists
 syntax match zOperator /^\s*[A-Za-z0-9]\+\.\ze\s/  " Numbered lists

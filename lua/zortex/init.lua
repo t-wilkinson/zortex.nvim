@@ -71,7 +71,7 @@ function M.init()
 
 	-- Telescope keymaps
 	vim.keymap.set("n", "ZC", calendar.telescope_calendar, { desc = "Search calendar entries" })
-	vim.keymap.set("n", "Zp", calendar.telescope_projects)
+	vim.keymap.set("n", "Zp", calendar.telescope_projects, { desc = "Search projects" })
 	vim.keymap.set("n", "Zd", calendar.telescope_today_digest)
 
 	vim.keymap.set("n", "ZD", calendar.show_today_digest, {

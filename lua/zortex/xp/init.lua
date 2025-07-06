@@ -1,439 +1,355 @@
--- Main entry point for Zortex XP system
+-- Zortex XP System - Neovim Commands and Integration
+-- Add this to your Neovim configuration to enable XP commands
+
 local M = {}
+local utils = require("utils")
+local config = require("config")
 
--- Load modules
-M.state = require("zortex.xp.state")
-M.parser = require("zortex.xp.parser")
-M.graph = require("zortex.xp.graph")
-M.calculator = require("zortex.xp.calculator")
-M.tracker = require("zortex.xp.tracker")
-M.ui = require("zortex.xp.ui")
-M.badges = require("zortex.xp.badges")
-M.audit = require("zortex.xp.audit")
-
--- Cache for file modification times
-M._file_cache = {}
-
--- Get config from main config module
-function M.get_config()
-	local config = require("zortex.config")
-	return config.get("xp") or config.defaults.xp
+-- Helper function to format XP with commas
+local function format_xp(xp)
+	local formatted = tostring(math.floor(xp))
+	return formatted:reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
 end
 
--- Check if graph needs rebuilding
-function M.needs_graph_rebuild()
-	local notes_dir = vim.g.zortex_notes_dir
-	local extension = vim.g.zortex_extension
-	local files = vim.fn.globpath(notes_dir, "**/*" .. extension, false, true)
-
-	local needs_rebuild = false
-
-	for _, filepath in ipairs(files) do
-		local stat = vim.loop.fs_stat(filepath)
-		if stat then
-			local cached_mtime = M._file_cache[filepath]
-			if not cached_mtime or cached_mtime < stat.mtime.sec then
-				needs_rebuild = true
-				M._file_cache[filepath] = stat.mtime.sec
-			end
-		end
-	end
-
-	return needs_rebuild
-end
-
--- Check if task was completed
-function M.check_task_completion()
-	local line_num = vim.api.nvim_win_get_cursor(0)[1]
+-- Command to show XP for current line (if it's a task)
+function M.show_task_xp()
 	local line = vim.api.nvim_get_current_line()
-	local filepath = vim.fn.expand("%:p")
+	local parsed = utils.parse_entry(line, os.date("%Y-%m-%d"))
 
-	-- Create unique key for this line
-	local line_key = string.format("%s:%d", filepath, line_num)
+	if parsed.task_status then
+		local xp = utils.calculate_task_xp(parsed)
+		local status = parsed.task_status.key == "[x]" and "Complete" or "Incomplete"
 
-	-- Debug: log what we're checking
-	if vim.g.zortex_debug then
-		vim.notify("Checking line: " .. line, "debug", { title = "Zortex XP Debug" })
+		local msg = string.format(
+			"Task XP: %s (%s) | Size: %s | Priority: %s",
+			format_xp(xp),
+			status,
+			parsed.attributes.size or config.get("xp.default_task_size") or "md",
+			parsed.attributes.priority or "none"
+		)
+
+		vim.notify(msg, vim.log.levels.INFO)
+	else
+		vim.notify("Current line is not a task", vim.log.levels.WARN)
+	end
+end
+
+-- Command to show XP summary for a date
+function M.show_daily_xp(date_str)
+	date_str = date_str or os.date("%Y-%m-%d")
+	local entries = utils.get_entries_for_date(date_str)
+
+	local total_xp = 0
+	local completed_tasks = 0
+	local pending_tasks = 0
+
+	for _, entry in ipairs(entries) do
+		if entry.task_status then
+			if entry.task_status.key == "[x]" then
+				total_xp = total_xp + utils.calculate_task_xp(entry)
+				completed_tasks = completed_tasks + 1
+			else
+				pending_tasks = pending_tasks + 1
+			end
+		end
 	end
 
-	-- First check if this is a checkbox line
-	local checkbox_pattern = "^%s*%- %[(.?)%]"
-	local checkbox_match = line:match(checkbox_pattern)
+	local msg = string.format(
+		"Date: %s\nCompleted: %d tasks\nPending: %d tasks\nTotal XP: %s",
+		date_str,
+		completed_tasks,
+		pending_tasks,
+		format_xp(total_xp)
+	)
 
-	if checkbox_match then
-		-- This is a checkbox line
-		local is_completed = checkbox_match ~= " " and checkbox_match ~= ""
-		local was_completed = M.state.get_line_state(line_key) or false
+	vim.notify(msg, vim.log.levels.INFO)
+end
 
-		if vim.g.zortex_debug then
-			vim.notify(
-				string.format(
-					"Checkbox: '%s', completed: %s, was: %s",
-					checkbox_match,
-					tostring(is_completed),
-					tostring(was_completed)
-				),
-				"debug",
-				{ title = "Zortex XP Debug" }
-			)
-		end
-
-		-- Check if status changed
-		if is_completed and not was_completed then
-			-- Task was just completed
-			local task_text = line:match("%- %[.?%]%s*(.+)")
-			if task_text then
-				task_text = task_text:gsub("^%s+", ""):gsub("%s+$", "")
-
-				if vim.g.zortex_debug then
-					vim.notify("Task completed: " .. task_text, "info", { title = "Zortex XP Debug" })
-				end
-
-				-- Process the completion
-				M.process_task_completion(filepath, line, line_num, task_text, true)
-			else
-				if vim.g.zortex_debug then
-					vim.notify("Warning: Could not extract task text from line", "warn", { title = "Zortex XP Debug" })
-				end
-			end
-		elseif not is_completed and was_completed then
-			-- Task was unchecked
-			if vim.g.zortex_debug then
-				vim.notify("Task unchecked", "debug", { title = "Zortex XP Debug" })
+-- Command to show project XP
+function M.show_project_xp(project_name)
+	if not project_name or project_name == "" then
+		-- Try to extract project name from current buffer
+		local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+		for _, line in ipairs(lines) do
+			local heading = line:match("^# (.+)$")
+			if heading then
+				project_name = heading:gsub("%s*@xp%(%d+%.?%d*%)%s*$", "")
+				break
 			end
 		end
+	end
 
-		-- Update state
-		M.state.set_line_state(line_key, is_completed)
+	if not project_name then
+		vim.notify("Could not determine project name", vim.log.levels.ERROR)
 		return
 	end
 
-	-- Check other completion patterns
-	local patterns = {
-		{ pattern = "^%s*%* DONE", extract = "%* DONE%s+(.+)" },
-		{ pattern = "^%s*✓", extract = "^%s*✓%s*(.+)" },
-		{ pattern = "@done", extract = "(.+)%s*@done" },
-		{ pattern = "@completed", extract = "(.+)%s*@completed" },
+	-- Load project file to get tasks
+	local content = utils.load_file(utils.PROJECTS_FILE)
+	if not content then
+		vim.notify("Could not load projects file", vim.log.levels.ERROR)
+		return
+	end
+
+	-- Find and parse project tasks
+	local in_project = false
+	local project_tasks = {}
+
+	for _, line in ipairs(content) do
+		local heading = line:match("^# (.+)$")
+		if heading then
+			local clean_heading = heading:gsub("%s*@xp%(%d+%.?%d*%)%s*$", "")
+			in_project = (clean_heading == project_name)
+		elseif in_project then
+			local parsed = utils.parse_entry(line, nil)
+			if parsed.task_status then
+				table.insert(project_tasks, parsed)
+			end
+		end
+	end
+
+	local project_xp = utils.calculate_project_xp(project_name, project_tasks)
+	local okr_connections = utils.find_connected_okrs(project_name)
+
+	local msg = string.format(
+		"Project: %s\nTotal XP: %s\nTasks: %d\nOKR Connections: %d",
+		project_name,
+		format_xp(project_xp),
+		#project_tasks,
+		#okr_connections
+	)
+
+	if #okr_connections > 0 then
+		msg = msg .. "\n\nConnected OKRs:"
+		for _, conn in ipairs(okr_connections) do
+			msg = msg
+				.. string.format(
+					"\n  • %s %s (%s)",
+					conn.objective.span,
+					conn.objective.title,
+					conn.objective.is_current and "Current" or "Past"
+				)
+		end
+	end
+
+	vim.notify(msg, vim.log.levels.INFO)
+end
+
+-- Command to archive a project
+function M.archive_project_interactive()
+	local project_name = vim.fn.input("Project name to archive: ")
+	if project_name and project_name ~= "" then
+		local success = utils.archive_project(project_name)
+		if success then
+			-- Reload current buffer if it's the projects file
+			local current_file = vim.fn.expand("%:t")
+			if current_file == utils.PROJECTS_FILE then
+				vim.cmd("edit!")
+			end
+		end
+	end
+end
+
+-- Command to show weekly XP summary
+function M.show_weekly_xp()
+	local total_xp = 0
+	local task_count = 0
+	local current_date = os.date("*t")
+
+	-- Go back 7 days
+	for i = 0, 6 do
+		local date = os.time(current_date) - (i * 86400)
+		local date_str = os.date("%Y-%m-%d", date)
+		local entries = utils.get_entries_for_date(date_str)
+
+		for _, entry in ipairs(entries) do
+			if entry.task_status and entry.task_status.key == "[x]" then
+				total_xp = total_xp + utils.calculate_task_xp(entry)
+				task_count = task_count + 1
+			end
+		end
+	end
+
+	local avg_xp = task_count > 0 and (total_xp / 7) or 0
+
+	local msg = string.format(
+		"Weekly Summary (Last 7 days)\nTotal XP: %s\nTasks Completed: %d\nDaily Average: %s XP",
+		format_xp(total_xp),
+		task_count,
+		format_xp(avg_xp)
+	)
+
+	vim.notify(msg, vim.log.levels.INFO)
+end
+
+-- Command to show OKR graph
+function M.show_okr_graph()
+	local graph = utils.build_okr_graph()
+	if not graph then
+		vim.notify("Could not build OKR graph", vim.log.levels.ERROR)
+		return
+	end
+
+	local lines = {
+		"OKR Structure:",
+		"",
+		"Current Objectives: " .. #graph.current_objectives,
+		"Previous Objectives: " .. #graph.previous_objectives,
+		"",
 	}
 
-	for _, p in ipairs(patterns) do
-		if line:match(p.pattern) then
-			local was_completed = M.state.get_line_state(line_key) or false
+	-- Show current objectives
+	if #graph.current_objectives > 0 then
+		table.insert(lines, "Current:")
+		for _, obj in ipairs(graph.current_objectives) do
+			table.insert(
+				lines,
+				string.format(
+					"  • %s %s - %s",
+					obj.span,
+					os.date("%B %Y", os.time({ year = obj.year, month = obj.month, day = 1 })),
+					obj.title
+				)
+			)
+			for _, kr in ipairs(obj.key_results) do
+				local project_count = #kr.projects
+				table.insert(
+					lines,
+					string.format(
+						"    - KR: %s (%d projects)",
+						kr.text:sub(1, 50) .. (string.len(kr.text) > 50 and "..." or ""),
+						project_count
+					)
+				)
+			end
+		end
+	end
 
-			if not was_completed then
-				-- Extract task text
-				local task_text = line:match(p.extract)
-				if task_text then
-					task_text = task_text:gsub("^%s+", ""):gsub("%s+$", "")
+	-- Create a floating window to display the graph
+	local buf = vim.api.nvim_create_buf(false, true)
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+	vim.api.nvim_buf_set_option(buf, "modifiable", false)
 
-					if vim.g.zortex_debug then
-						vim.notify("Task completed (pattern): " .. task_text, "info", { title = "Zortex XP Debug" })
-					end
+	local width = 80
+	local height = math.min(#lines + 2, 30)
 
-					-- Process the completion
-					M.process_task_completion(filepath, line, line_num, task_text, true)
-				end
+	local win = vim.api.nvim_open_win(buf, true, {
+		relative = "editor",
+		width = width,
+		height = height,
+		col = (vim.o.columns - width) / 2,
+		row = (vim.o.lines - height) / 2,
+		style = "minimal",
+		border = "rounded",
+		title = " OKR Graph ",
+		title_pos = "center",
+	})
 
-				-- Mark as completed
-				M.state.set_line_state(line_key, true)
+	-- Close with q or Esc
+	vim.api.nvim_buf_set_keymap(buf, "n", "q", ":close<CR>", { silent = true })
+	vim.api.nvim_buf_set_keymap(buf, "n", "<Esc>", ":close<CR>", { silent = true })
+end
+
+-- Command to recalculate XP in archive
+function M.recalculate_project_xp()
+	utils.recalculate_xp(false)
+end
+
+-- Command to recalculate all XP in archive
+function M.recalculate_all_xp()
+	utils.recalculate_xp(true)
+end
+
+-- Command to finalize project XP (never recalculate)
+function M.finalize_project_xp()
+	local filename = vim.fn.expand("%:t")
+	if filename ~= utils.ARCHIVE_PROJECTS_FILE then
+		vim.notify("This command only works in archive.projects.zortex", vim.log.levels.ERROR)
+		return
+	end
+
+	local cursor_line = vim.fn.line(".")
+	local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+
+	-- Find current project heading
+	local project_line = nil
+	for i = cursor_line, 1, -1 do
+		local level, heading = lines[i]:match("^(#+)%s+(.+)$")
+		if level then
+			project_line = i
+
+			-- Check if already finalized
+			if heading:match("@xp:final%(") then
+				vim.notify("Project XP is already finalized", vim.log.levels.WARN)
+				return
+			end
+
+			-- Convert @xp() to @xp:final()
+			local xp = heading:match("@xp%((%d+%.?%d*)%)")
+			if xp then
+				local new_heading = heading:gsub("@xp%(%d+%.?%d*%)", "@xp:final(" .. xp .. ")")
+				lines[i] = level .. " " .. new_heading
+				vim.api.nvim_buf_set_lines(0, project_line - 1, project_line, false, { lines[i] })
+				vim.notify(string.format("Finalized project XP: %s", xp), vim.log.levels.INFO)
+			else
+				vim.notify("No XP found to finalize", vim.log.levels.ERROR)
 			end
 			return
 		end
 	end
 end
 
--- Process a task completion
-function M.process_task_completion(filepath, line, line_num, task_text, completed)
-	-- Only rebuild graph if files have changed
-	if M.needs_graph_rebuild() then
-		M.graph.build()
-	else
-		M.graph.ensure_built()
-	end
-
-	-- Parse current file
-	local file_data = M.parser.parse_file(filepath)
-
-	if file_data then
-		-- Find matching task or create one
-		local task = nil
-
-		-- Look for exact match first
-		for _, t in ipairs(file_data.tasks) do
-			if t.text and t.text == task_text then
-				task = t
-				break
-			end
-		end
-
-		-- If no match in parsed tasks, create task from current context
-		if not task then
-			-- Get the current article context
-			local current_article = nil
-			local lines = vim.api.nvim_buf_get_lines(0, 0, line_num, false)
-
-			-- Find the most recent article header
-			for i = #lines, 1, -1 do
-				if lines[i]:match("^@@") then
-					current_article = lines[i]:match("^@@%s*(.+)")
-					break
-				end
-			end
-
-			task = {
-				type = "task",
-				text = task_text,
-				file = filepath,
-				line_number = line_num,
-				article = current_article,
-				completed = completed,
-				links = {},
-			}
-
-			-- Parse any metadata from the line
-			local inline_meta = M.parser.extract_inline_metadata(line)
-			for k, v in pairs(inline_meta) do
-				task[k] = v
-			end
-
-			-- For project files, add some context
-			if filepath:match("project") then
-				task.in_project = true
-				-- Try to find project name from article or filename
-				if current_article then
-					task.project_name = current_article
-				else
-					task.project_name = vim.fn.fnamemodify(filepath, ":t:r")
-				end
-			end
-		end
-
-		if task then
-			task.completed = completed
-			M.complete_task(task)
-		else
-			vim.notify("Could not create task for: " .. task_text, "warn", { title = "Zortex XP" })
-		end
-	else
-		vim.notify("Could not parse file: " .. filepath, "error", { title = "Zortex XP" })
-	end
+-- Command to reload configuration
+function M.reload_config()
+	config.load()
+	utils.clear_file_cache()
+	vim.notify("Zortex configuration reloaded", vim.log.levels.INFO)
 end
 
--- Complete a task and award XP
-function M.complete_task(task)
-	-- Calculate XP
-	local xp_breakdown = M.calculator.calculate_total_xp(task)
-	local total_xp = xp_breakdown.total
-
-	-- Update state
-	M.state.award_xp(total_xp, task, xp_breakdown)
-
-	-- Track task completion for habits/resources
-	M.tracker.track_completion(task)
-
-	-- Check for new badges
-	M.badges.check_all()
-
-	-- Save state
-	M.state.save()
-
-	-- Show notification
-	M.ui.notify_xp_gain(xp_breakdown)
-
-	return total_xp
-end
-
--- Setup function
+-- Set up commands
 function M.setup()
-	-- Initialize modules
-	M.state.load()
+	-- Load data on startup
+	utils.load()
 
-	-- Build graph in background to avoid blocking
-	vim.defer_fn(function()
-		M.graph.build()
-		vim.notify("Zortex XP system ready!", "info", { title = "Zortex XP" })
-	end, 100)
+	-- Task XP commands
+	vim.api.nvim_create_user_command("ZortexTaskXP", M.show_task_xp, {})
+	vim.api.nvim_create_user_command("ZortexDailyXP", function(opts)
+		M.show_daily_xp(opts.args ~= "" and opts.args or nil)
+	end, { nargs = "?" })
 
-	M.tracker.initialize()
+	-- Project commands
+	vim.api.nvim_create_user_command("ZortexProjectXP", function(opts)
+		M.show_project_xp(opts.args ~= "" and opts.args or nil)
+	end, { nargs = "?" })
+	vim.api.nvim_create_user_command("ZortexArchive", M.archive_project_interactive, {})
 
-	-- Create commands
-	local cmd = vim.api.nvim_create_user_command
+	-- Summary commands
+	vim.api.nvim_create_user_command("ZortexWeeklyXP", M.show_weekly_xp, {})
+	vim.api.nvim_create_user_command("ZortexOKRGraph", M.show_okr_graph, {})
 
-	cmd("ZortexXP", function()
-		M.graph.ensure_built()
-		M.ui.show_dashboard()
-	end, { desc = "Show Zortex XP Dashboard" })
+	-- XP recalculation commands
+	vim.api.nvim_create_user_command("ZortexRecalcXP", M.recalculate_project_xp, {})
+	vim.api.nvim_create_user_command("ZortexRecalcAllXP", M.recalculate_all_xp, {})
+	vim.api.nvim_create_user_command("ZortexFinalizeXP", M.finalize_project_xp, {})
 
-	cmd("ZortexAnalytics", function()
-		M.graph.ensure_built()
-		M.ui.show_analytics()
-	end, { desc = "Show Zortex Analytics" })
+	-- Config commands
+	vim.api.nvim_create_user_command("ZortexReload", M.reload_config, {})
 
-	cmd("ZortexAudit", function()
-		M.graph.ensure_built()
-		M.audit.run_audit()
-	end, { desc = "Audit tasks for optimization" })
-
-	cmd("ZortexHabits", function()
-		M.ui.show_habits()
-	end, { desc = "Show habit tracker" })
-
-	cmd("ZortexResources", function()
-		M.ui.show_resources()
-	end, { desc = "Show resource tracker" })
-
-	cmd("ZortexBudget", function()
-		M.ui.show_budget()
-	end, { desc = "Show budget tracker" })
-
-	cmd("ZortexRebuild", function()
-		-- Clear cache to force rebuild
-		M._file_cache = {}
-		M.graph.build()
-		vim.notify("Graph rebuilt successfully", "info", { title = "Zortex XP" })
-	end, { desc = "Rebuild the task graph" })
-
-	-- Debug command
-	cmd("ZortexDebug", function()
-		local old_debug = vim.g.zortex_debug
-		vim.g.zortex_debug = true
-		local line = vim.api.nvim_get_current_line()
-		local filepath = vim.fn.expand("%:p")
-		vim.notify("Current line: " .. line .. "\nFile: " .. filepath, "info", { title = "Zortex Debug" })
-		M.check_task_completion()
-		vim.g.zortex_debug = old_debug
-	end, { desc = "Debug current line" })
-
-	cmd("ZortexTaskInfo", function()
-		local line = vim.api.nvim_get_current_line()
-		local parser = require("zortex.xp.parser")
-		local metadata = parser.extract_inline_metadata(line)
-
-		print("Line: " .. line)
-		print("Metadata: " .. vim.inspect(metadata))
-
-		-- Check if it matches task patterns
-		local patterns = {
-			"^%s*%- %[x%]",
-			"^%s*%* DONE",
-			"^%s*✓",
-			"@done",
-			"@completed",
-		}
-
-		for _, pattern in ipairs(patterns) do
-			if line:match(pattern) then
-				print("Matches pattern: " .. pattern)
-			end
-		end
-	end, { desc = "Debug task info for current line" })
-
-	-- cmd("ZortexTestParser", function()
-	-- 	local filepath = vim.fn.expand("%:p")
-	-- 	local parser = require("zortex.xp.parser")
-	-- 	local file_data = parser.parse_file(filepath)
-	--
-	-- 	if file_data then
-	-- 		vim.notify(string.format("Parsed file: %s\nTasks found: %d\nArticles: %d",
-	-- 			filepath,
-	-- 			#file_data.tasks,
-	-- 			#file_data.articles),
-	-- 			"info",
-	-- 			{ title = "Parser Test" })
-	--
-	-- 		-- Show first few tasks
-	-- 		for i = 1, math.min(3, #file_data.tasks) do
-	-- 			local task = file_data.tasks[i]
-	-- 			vim.notify(string.format("Task %d: '%s' (completed: %s)",
-	-- 				i,
-	-- 				task.text or "NO TEXT",
-	-- 				tostring(task.completed)),
-	-- 				"info")
-	-- 		end
-	-- 	else
-	-- 		vim.notify("Failed to parse file", "error")
-	--   end, { title = "Parser Test" })
-	cmd("ZortexTestCompletion", function()
-		-- Create a test task in current buffer
-		local line_num = vim.api.nvim_win_get_cursor(0)[1]
-		vim.api.nvim_buf_set_lines(0, line_num - 1, line_num, false, { "- [ ] Test task for XP system" })
-
-		-- Wait a moment
-		vim.defer_fn(function()
-			-- Complete the task
-			vim.api.nvim_buf_set_lines(0, line_num - 1, line_num, false, { "- [x] Test task for XP system" })
-
-			-- Trigger check
-			vim.defer_fn(function()
-				M.check_task_completion()
-			end, 50)
-		end, 100)
-
-		vim.notify(
-			"Created and completed test task. You should see XP notification...",
-			"info",
-			{ title = "Zortex Test" }
-		)
-	end, { desc = "Test task completion" })
-
-	-- Autocmds for task detection
-	local augroup = vim.api.nvim_create_augroup("ZortexXP", { clear = true })
-
-	-- Monitor text changes
-	vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
-		group = augroup,
-		pattern = "*" .. vim.g.zortex_extension,
-		callback = function()
-			-- Use a shorter delay for better responsiveness
-			vim.defer_fn(function()
-				M.check_task_completion()
-			end, 10)
-		end,
-	})
-
-	-- Also check on cursor movement (for visual mode changes)
-	vim.api.nvim_create_autocmd("CursorMoved", {
-		group = augroup,
-		pattern = "*" .. vim.g.zortex_extension,
-		callback = function()
-			-- Only check if the line changed
-			local current_line = vim.api.nvim_win_get_cursor(0)[1]
-			if not M._last_line or M._last_line ~= current_line then
-				M._last_line = current_line
-				M.check_task_completion()
-			end
-		end,
-	})
-
-	-- Also check on save (for external edits)
-	vim.api.nvim_create_autocmd("BufWritePost", {
-		group = augroup,
-		pattern = "*" .. vim.g.zortex_extension,
-		callback = function()
-			M.check_task_completion()
-		end,
-	})
-
-	-- Mark graph as dirty when files change
-	vim.api.nvim_create_autocmd("BufWritePost", {
-		group = augroup,
-		pattern = "*" .. vim.g.zortex_extension,
-		callback = function()
-			M.graph.mark_dirty()
-		end,
-	})
-
-	-- Periodic updates
-	vim.fn.timer_start(300000, function() -- Every 5 minutes
-		M.tracker.update_heat()
-		M.tracker.check_habits()
-		M.state.save()
-	end, { ["repeat"] = -1 })
-
-	-- Daily reset
-	vim.fn.timer_start(60000, function() -- Check every minute
-		M.state.check_daily_reset()
-	end, { ["repeat"] = -1 })
+	-- Keybindings (optional - customize as needed)
+	vim.api.nvim_set_keymap("n", "<leader>zx", ":ZortexTaskXP<CR>", { silent = true, desc = "Show task XP" })
+	vim.api.nvim_set_keymap("n", "<leader>zd", ":ZortexDailyXP<CR>", { silent = true, desc = "Show daily XP" })
+	vim.api.nvim_set_keymap("n", "<leader>zp", ":ZortexProjectXP<CR>", { silent = true, desc = "Show project XP" })
+	vim.api.nvim_set_keymap("n", "<leader>za", ":ZortexArchive<CR>", { silent = true, desc = "Archive project" })
+	vim.api.nvim_set_keymap("n", "<leader>zw", ":ZortexWeeklyXP<CR>", { silent = true, desc = "Show weekly XP" })
+	vim.api.nvim_set_keymap("n", "<leader>zo", ":ZortexOKRGraph<CR>", { silent = true, desc = "Show OKR graph" })
+	vim.api.nvim_set_keymap(
+		"n",
+		"<leader>zr",
+		":ZortexRecalcXP<CR>",
+		{ silent = true, desc = "Recalculate current project XP" }
+	)
+	vim.api.nvim_set_keymap("n", "<leader>zR", ":ZortexRecalcAllXP<CR>", { silent = true, desc = "Recalculate all XP" })
+	vim.api.nvim_set_keymap("n", "<leader>zf", ":ZortexFinalizeXP<CR>", { silent = true, desc = "Finalize project XP" })
 end
 
 return M

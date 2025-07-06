@@ -60,7 +60,7 @@ function M.init()
 	local search = require("zortex.search")
 	local links = require("zortex.links")
 	local calendar = require("zortex.calendar")
-	local xp = require("zortex.xp")
+	-- local xp = require("zortex.xp")
 	local telescope = require("zortex.telescope")
 
 	local cmd = vim.api.nvim_create_user_command
@@ -89,7 +89,7 @@ function M.init()
 	vim.keymap.set("n", "ZB", calendar.show_digest_buffer)
 
 	calendar.setup()
-	xp.setup()
+	-- xp.setup()
 end
 
 M.setup()

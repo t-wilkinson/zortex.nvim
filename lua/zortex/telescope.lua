@@ -4,44 +4,14 @@
 local M = {}
 
 local Utils = require("zortex.calendar.utils")
-local projects = require("zortex.projects")
+local Projects = require("zortex.projects")
 
 -- =============================================================================
 -- Helper Functions
 -- =============================================================================
 
---- Parse OKR files to find linked projects
-local function parse_okr_links()
-	local linked_projects = {}
-	local notes_dir = vim.g.zortex_notes_dir
-	local extension = vim.g.zortex_extension or ".zortex"
-
-	-- Parse objectives.zortex and keyresults.zortex
-	local okr_files = { "objectives", "keyresults" }
-
-	for _, filename in ipairs(okr_files) do
-		local filepath = notes_dir .. "/" .. filename .. extension
-		if vim.fn.filereadable(filepath) == 1 then
-			for line in io.lines(filepath) do
-				-- Look for project links in various formats
-				-- [Projects/#ProjectName] or [P/#ProjectName]
-				local project_name = line:match("%[Projects?/#([^%]]+)%]")
-				if not project_name then
-					project_name = line:match("%[P/#([^%]]+)%]")
-				end
-
-				if project_name then
-					linked_projects[project_name] = true
-				end
-			end
-		end
-	end
-
-	return linked_projects
-end
-
 --- Calculate task priority score for sorting
-local function calculate_task_score(task, okr_linked_projects)
+local function calculate_task_score(task)
 	local score = 0
 
 	-- Priority scoring
@@ -78,11 +48,6 @@ local function calculate_task_score(task, okr_linked_projects)
 	-- Heat scoring (if available from XP system)
 	if task.heat then
 		score = score + (task.heat * 20)
-	end
-
-	-- OKR linkage scoring
-	if okr_linked_projects[task.project] then
-		score = score + 80
 	end
 
 	-- Task status penalty (completed tasks score lower)
@@ -140,7 +105,7 @@ function M.today_digest(opts)
 
 	-- Load data
 	Utils.load()
-	projects.load()
+	Projects.load()
 
 	local pickers = require("telescope.pickers")
 	local finders = require("telescope.finders")
@@ -156,7 +121,7 @@ function M.today_digest(opts)
 
 	-- Get today's entries
 	local today_entries = Utils.get_entries_for_date(today)
-	local today_tasks = projects.get_tasks_for_date(today)
+	local today_tasks = Projects.get_tasks_for_date(today)
 
 	-- Add section header for today
 	table.insert(entries, {
@@ -228,7 +193,7 @@ function M.today_digest(opts)
 	for _, date_str in ipairs(upcoming_dates) do
 		local date_info = get_date_display_info(date_str)
 		local date_entries = Utils.get_entries_for_date(date_str)
-		local date_tasks = projects.get_tasks_for_date(date_str)
+		local date_tasks = Projects.get_tasks_for_date(date_str)
 
 		-- Only add date header if there are entries
 		if #date_entries > 0 or #date_tasks > 0 then
@@ -457,7 +422,7 @@ function M.projects(opts)
 	opts = opts or {}
 
 	-- Load data
-	projects.load()
+	Projects.load()
 
 	local pickers = require("telescope.pickers")
 	local finders = require("telescope.finders")
@@ -466,12 +431,9 @@ function M.projects(opts)
 	local action_state = require("telescope.actions.state")
 	local previewers = require("telescope.previewers")
 
-	-- Get OKR-linked projects
-	local okr_linked = parse_okr_links()
-
 	-- Build entries with scoring
 	local entries = {}
-	local all_projects = projects.get_all_projects()
+	local all_projects = Projects.get_all_projects()
 
 	for _, area in ipairs(all_projects) do
 		for _, project in ipairs(area.projects) do
@@ -481,11 +443,10 @@ function M.projects(opts)
 			local completed_count = 0
 			local has_priority = false
 			local has_due_today = false
-			local is_okr_linked = okr_linked[project.name] or false
 
 			-- Analyze tasks
 			for _, task in ipairs(project.tasks) do
-				local task_score = calculate_task_score(task, okr_linked)
+				local task_score = calculate_task_score(task)
 				project_score = project_score + task_score
 
 				if task.task_status and task.task_status.key == "[x]" then
@@ -514,11 +475,6 @@ function M.projects(opts)
 				project_score = project_score / task_count
 			end
 
-			-- Boost for OKR linkage
-			if is_okr_linked then
-				project_score = project_score + 100
-			end
-
 			-- Penalty for mostly completed projects
 			if task_count > 0 then
 				local completion_ratio = completed_count / task_count
@@ -529,9 +485,6 @@ function M.projects(opts)
 
 			-- Build display string with indicators
 			local indicators = {}
-			if is_okr_linked then
-				table.insert(indicators, "OKR")
-			end
 			if has_priority then
 				table.insert(indicators, "PRIORITY")
 			end
@@ -555,7 +508,6 @@ function M.projects(opts)
 				score = project_score,
 				task_count = task_count,
 				completed_count = completed_count,
-				is_okr_linked = is_okr_linked,
 				has_priority = has_priority,
 				has_due_today = has_due_today,
 			})
@@ -596,9 +548,6 @@ function M.projects(opts)
 
 					-- Indicators
 					local status = {}
-					if e.is_okr_linked then
-						table.insert(status, "✓ Linked to OKR")
-					end
 					if e.has_priority then
 						table.insert(status, "⚡ Has priority tasks")
 					end
@@ -636,8 +585,7 @@ function M.projects(opts)
 						-- Sort tasks by score for preview
 						local sorted_tasks = vim.deepcopy(project.tasks)
 						for _, task in ipairs(sorted_tasks) do
-							task._score =
-								calculate_task_score(task, e.is_okr_linked and { [project.name] = true } or {})
+							task._score = calculate_task_score(task)
 						end
 						table.sort(sorted_tasks, function(a, b)
 							return a._score > b._score
@@ -879,8 +827,8 @@ function M.calendar(opts)
 					end
 
 					-- Also show project tasks for this date
-					projects.load()
-					local project_tasks = projects.get_tasks_for_date(entry.value.value)
+					Projects.load()
+					local project_tasks = Projects.get_tasks_for_date(entry.value.value)
 					if #project_tasks > 0 then
 						table.insert(lines, "")
 						table.insert(lines, "📁 Project Tasks:")

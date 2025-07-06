@@ -8,7 +8,12 @@ function! zortex#fold#init()
 
     call s:init_indent_list()
 
-    autocmd TextChanged,InsertLeave <buffer> call s:reload_folds()
+    " Refresh folds only when (a) you leave Insert mode or (b) the buffer is written.
+    augroup zortex_folds
+      autocmd!
+      autocmd InsertLeave,BufWritePost <buffer> call s:reload_folds()
+    augroup END
+    " autocmd TextChanged,InsertLeave <buffer> call s:reload_folds()
 
     call s:set_options()
 
@@ -30,6 +35,7 @@ function! zortex#fold#update_folds()
     unlockvar! b:anyfold_ind_contextual
 
     call s:init_indent_list()
+    normal! zx
 endfunction
 
 function! s:set_options()
@@ -188,34 +194,51 @@ endfunction
 "----------------------------------------------------------------------------/
 " get indent hierarchy from actual indents
 " indents depend on context
+" now also treats label blocks (e.g. 'Tasks:') as a folding block that
+" extends until a blank line or heading
 "----------------------------------------------------------------------------/
 function! s:contextual_indents(init_ind, line_start, line_end, ind_list)
-    let prev_ind = a:ind_list[0]
-    let hierind_list = [a:init_ind]
-    let ind_open_list = [a:ind_list[0]]
-    let n_headings = []
+    let prev_ind            = a:ind_list[0]
+    let hierind_list        = [a:init_ind]
+    let ind_open_list       = [a:ind_list[0]]
+    let n_headings          = []
+    let in_metadata_section = v:true
+
+    " Tracks whether we are currently inside a label block that was opened by a
+    " line matching '^[A-Z][A-Za-z0-9 -]*:$'.
+    let label_block_offset = 0
 
     let curr_line = 0
     while curr_line < len(a:ind_list)
-        let ind = a:ind_list[curr_line] + len(n_headings)
         let line = getline(curr_line + a:line_start)
 
-        if line =~? '^@@' && curr_line > 5
+        " A blank line or a heading terminates any active label block
+        if label_block_offset && (line ==# '' || line =~# '^#')
+            let label_block_offset = 0
+        endif
+
+        " Base indent: physical indent + heading depth + possible label‑block offset
+        let ind = a:ind_list[curr_line] + len(n_headings) + label_block_offset
+
+        if line ==# ''
+            let in_metadata_section = v:false
+        endif
+
+        if !in_metadata_section && line =~? '^@@'
             let n_headings = [0]
             let ind = 0
         endif
 
-        if line =~? '^#'
-            " headings
+        " --------------------------------------------------------------------|
+        " Headings (`#`, `##`, …)                                            |
+        " --------------------------------------------------------------------|
+        if line =~# '^#'
             let n_heading = len(matchstr(line, '^#\+'))
 
             if len(n_headings) == 0 || n_headings[-1] < n_heading
-                " n_heading is larger nesting level than n_headings
                 let n_headings += [n_heading]
             elseif n_headings[-1] > n_heading
-                " n_heading is smaller nesting level than n_headings
-                " remove headings smaller than n_heading
-                let prev_depth = n_headings[-1]
+                let prev_depth  = n_headings[-1]
                 let curr_heading = len(n_headings)
                 while curr_heading > 0
                     let curr_heading -= 1
@@ -232,42 +255,141 @@ function! s:contextual_indents(init_ind, line_start, line_end, ind_list)
                     let ind = a:ind_list[curr_line] + len(n_headings)
                 endif
             else
-                " n_heading is same nesting level
                 let ind = ind - 1
             endif
         endif
 
-        if ind > prev_ind
-            " this line starts a new block
+        " --------------------------------------------------------------------|
+        " Label blocks (e.g. 'Tasks:')                                        |
+        " --------------------------------------------------------------------|
+        let force_new_block = v:false
+        if line =~# '^[A-Z][A-Za-z0-9 -]*:$'
+            " Always start a new logical block
+            let force_new_block = v:true
+            " Following lines are considered to be indented one level deeper
+            " until a blank line or heading resets 'label_block_offset'.
+            let label_block_offset = 1
+        endif
+
+        " --------------------------------------------------------------------|
+        " Decide whether this line opens / continues / closes a block          |
+        " --------------------------------------------------------------------|
+        if force_new_block
+            " Explicitly open a new block even if physical indent hasn’t changed
+            let hierind_list += [hierind_list[-1] + 1]
+            let ind_open_list += [ind]
+        elseif ind > prev_ind
             let hierind_list += [hierind_list[-1] + 1]
             let ind_open_list += [ind]
         elseif ind == prev_ind
-            " this line continues a block
             let hierind_list += [hierind_list[-1]]
         elseif ind < prev_ind
-            " this line closes current block only if indent is less or equal to
-            " indent of the line starting the block (=ind_open_list[-2])
-            " line may close more than one block
             let n_closed = 0
             while len(ind_open_list) >= 2 && ind <= ind_open_list[-2]
-                " close block
                 let ind_open_list = ind_open_list[:-2]
                 let n_closed += 1
             endwhile
 
-            " update current block indent
             let ind_open_list[-1] = ind
-
-            let hierind_list += [hierind_list[-1]-n_closed]
+            let hierind_list += [hierind_list[-1] - n_closed]
         endif
 
         let prev_ind = ind
         let curr_line += 1
     endwhile
 
-    let hierind_list = hierind_list[1:]
-    return hierind_list
+    return hierind_list[1:]
 endfunction
+
+
+" "----------------------------------------------------------------------------/
+" " get indent hierarchy from actual indents
+" " indents depend on context
+" "----------------------------------------------------------------------------/
+" function! s:contextual_indents(init_ind, line_start, line_end, ind_list)
+"     let prev_ind = a:ind_list[0]
+"     let hierind_list = [a:init_ind]
+"     let ind_open_list = [a:ind_list[0]]
+"     let n_headings = []
+"     let in_metadata_section = v:true
+" 
+"     let curr_line = 0
+"     while curr_line < len(a:ind_list)
+"         let ind = a:ind_list[curr_line] + len(n_headings)
+"         let line = getline(curr_line + a:line_start)
+" 
+"         if line == ''
+"           let in_metadata_section = v:false
+"         endif
+" 
+"         if !in_metadata_section && line =~? '^@@'
+"             let n_headings = [0]
+"             let ind = 0
+"         endif
+" 
+"         if line =~? '^#'
+"             " headings
+"             let n_heading = len(matchstr(line, '^#\+'))
+" 
+"             if len(n_headings) == 0 || n_headings[-1] < n_heading
+"                 " n_heading is larger nesting level than n_headings
+"                 let n_headings += [n_heading]
+"             elseif n_headings[-1] > n_heading
+"                 " n_heading is smaller nesting level than n_headings
+"                 " remove headings smaller than n_heading
+"                 let prev_depth = n_headings[-1]
+"                 let curr_heading = len(n_headings)
+"                 while curr_heading > 0
+"                     let curr_heading -= 1
+"                     if n_headings[curr_heading] < n_heading
+"                         break
+"                     endif
+"                     call remove(n_headings, curr_heading)
+"                 endwhile
+" 
+"                 let n_headings = n_headings + [n_heading]
+"                 if n_headings[-1] <= prev_depth
+"                     let ind = a:ind_list[curr_line] + len(n_headings) - 1
+"                 else
+"                     let ind = a:ind_list[curr_line] + len(n_headings)
+"                 endif
+"             else
+"                 " n_heading is same nesting level
+"                 let ind = ind - 1
+"             endif
+"         endif
+" 
+"         if ind > prev_ind
+"             " this line starts a new block
+"             let hierind_list += [hierind_list[-1] + 1]
+"             let ind_open_list += [ind]
+"         elseif ind == prev_ind
+"             " this line continues a block
+"             let hierind_list += [hierind_list[-1]]
+"         elseif ind < prev_ind
+"             " this line closes current block only if indent is less or equal to
+"             " indent of the line starting the block (=ind_open_list[-2])
+"             " line may close more than one block
+"             let n_closed = 0
+"             while len(ind_open_list) >= 2 && ind <= ind_open_list[-2]
+"                 " close block
+"                 let ind_open_list = ind_open_list[:-2]
+"                 let n_closed += 1
+"             endwhile
+" 
+"             " update current block indent
+"             let ind_open_list[-1] = ind
+" 
+"             let hierind_list += [hierind_list[-1]-n_closed]
+"         endif
+" 
+"         let prev_ind = ind
+"         let curr_line += 1
+"     endwhile
+" 
+"     let hierind_list = hierind_list[1:]
+"     return hierind_list
+" endfunction
 
 "----------------------------------------------------------------------------/
 " fold expression

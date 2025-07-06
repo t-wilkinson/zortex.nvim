@@ -9,6 +9,9 @@ local M = {}
 
 M.CALENDAR_FILE = "calendar.zortex"
 M.PROJECTS_FILE = "projects.zortex"
+M.AREAS_FILE = "areas.zortex"
+M.OKR_FILE = "okr.zortex"
+M.ARCHIVE_PROJECTS_FILE = "z/archive.projects.zortex"
 
 -- Task status definitions. The parser will attach this information to an entry.
 M.TASK_STATUS = {

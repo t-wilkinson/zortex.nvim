@@ -169,6 +169,7 @@ syntax match String  /^\s\+[A-Za-z0-9][^.*:]\+\ze: /           " \s+Label: text
 syntax match zLabel /^\s\+[0-9A-Z][^.]\+\ze:$/           " \s+Label:\n
 syntax match zListLabel /\(\d\+\.\)\@<= \zs[^.]\+\ze:$/       " ^\d. Label text:$
 
+syntax match zOperator /\(- \)\@<=\zs[A-Z][A-Za-z0-9(), ]\+\ze:$/      " - Label:\n
 syntax match zOperator /\(- \)\@<=\zs[A-Z][A-Za-z0-9(), ]\+\ze: /      " - Label:\s
 " syntax match String /\s[A-Za-z0-9() ]\+\ze: /      " - Label: Some text
 

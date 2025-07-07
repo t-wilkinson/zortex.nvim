@@ -42,26 +42,26 @@ M.defaults = {
 		disable_filename = 0,
 		toc = {},
 	},
+	xp = {},
+	calendar = {},
 }
 
 M.options = {}
 
 function M.setup(opts)
 	M.options = vim.tbl_deep_extend("force", {}, M.defaults, opts or {})
-
 	for k, v in pairs(M.options) do
 		vim.g[k] = v
 	end
 
-	M.init()
-end
-
-function M.init()
+	local xp = require("zortex.xp")
+	local calendar = require("zortex.calendar")
 	local search = require("zortex.search")
 	local links = require("zortex.links")
-	local calendar = require("zortex.calendar")
-	local xp = require("zortex.xp")
 	local telescope = require("zortex.telescope")
+
+	xp.setup(M.options.xp)
+	calendar.setup()
 
 	local cmd = vim.api.nvim_create_user_command
 
@@ -87,9 +87,6 @@ function M.init()
 		desc = "Show Today's Digest",
 	})
 	vim.keymap.set("n", "ZB", calendar.show_digest_buffer)
-
-	calendar.setup()
-	xp.setup()
 end
 
 M.setup()

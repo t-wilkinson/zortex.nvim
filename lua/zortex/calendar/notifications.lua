@@ -1,5 +1,4 @@
 local Utils = require("zortex.calendar.utils")
-local Config = require("zortex.config")
 local Projects = require("zortex.projects")
 
 local M = {}
@@ -322,7 +321,7 @@ end
 
 --- Get daily digest time for a specific date
 local function get_digest_time(date_str)
-	local digest_time_str = Config.get("calendar.daily_digest") or "09:00"
+	local digest_time_str = "09:00"
 	local date_obj = Utils.parse_date(date_str)
 	if not date_obj then
 		return nil
@@ -483,80 +482,78 @@ function M.setup_notifications()
 	end
 
 	-- Schedule daily digests
-	if Config.get("calendar.enable_daily_digest") then
-		for digest_date, notifications in pairs(digest_notifications) do
-			local digest_time = get_digest_time(digest_date)
-			if digest_time and digest_time > now then
-				local delay = digest_time - now
+	for digest_date, notifications in pairs(digest_notifications) do
+		local digest_time = get_digest_time(digest_date)
+		if digest_time and digest_time > now then
+			local delay = digest_time - now
 
-				-- Build digest message
-				local lines = {}
+			-- Build digest message
+			local lines = {}
 
-				-- Sort notifications by event time
-				table.sort(notifications, function(a, b)
-					return a.event_time < b.event_time
-				end)
+			-- Sort notifications by event time
+			table.sort(notifications, function(a, b)
+				return a.event_time < b.event_time
+			end)
 
-				-- Group by how far in advance
-				local today_events = {}
-				local tomorrow_events = {}
-				local later_events = {}
+			-- Group by how far in advance
+			local today_events = {}
+			local tomorrow_events = {}
+			local later_events = {}
 
-				for _, notif in ipairs(notifications) do
-					local event_date = os.date("%Y-%m-%d", notif.event_time)
-					local days_until = math.floor((notif.event_time - digest_time) / 86400)
+			for _, notif in ipairs(notifications) do
+				local event_date = os.date("%Y-%m-%d", notif.event_time)
+				local days_until = math.floor((notif.event_time - digest_time) / 86400)
 
-					local event_info = {
-						time = os.date("%H:%M", notif.event_time),
-						text = notif.display_text,
-						date = event_date,
-					}
+				local event_info = {
+					time = os.date("%H:%M", notif.event_time),
+					text = notif.display_text,
+					date = event_date,
+				}
 
-					if days_until == 0 then
-						table.insert(today_events, event_info)
-					elseif days_until == 1 then
-						table.insert(tomorrow_events, event_info)
-					else
-						event_info.days = days_until
-						table.insert(later_events, event_info)
-					end
+				if days_until == 0 then
+					table.insert(today_events, event_info)
+				elseif days_until == 1 then
+					table.insert(tomorrow_events, event_info)
+				else
+					event_info.days = days_until
+					table.insert(later_events, event_info)
 				end
-
-				-- Schedule daily digests
-				local delay = digest_time - now
-
-				-- Build digest message (simplified for notifications)
-				local event_count = #today_events + #tomorrow_events + #later_events
-				local message = string.format("%d upcoming events", event_count)
-
-				-- Add first few events as preview
-				local preview_items = {}
-				if #today_events > 0 then
-					table.insert(preview_items, string.format("Today: %d", #today_events))
-				end
-				if #tomorrow_events > 0 then
-					table.insert(preview_items, string.format("Tomorrow: %d", #tomorrow_events))
-				end
-				if #later_events > 0 then
-					table.insert(preview_items, string.format("Later: %d", #later_events))
-				end
-
-				if #preview_items > 0 then
-					message = message .. " (" .. table.concat(preview_items, ", ") .. ")"
-				end
-
-				-- Add the next event as preview
-				if #today_events > 0 then
-					message = message .. ". Next: " .. today_events[1].text
-				elseif #tomorrow_events > 0 then
-					message = message .. ". Tomorrow: " .. tomorrow_events[1].text
-				end
-
-				local title = "Zortex Daily Digest"
-
-				schedule_notification(delay, title, message)
-				notifications_scheduled = notifications_scheduled + 1
 			end
+
+			-- Schedule daily digests
+			local delay = digest_time - now
+
+			-- Build digest message (simplified for notifications)
+			local event_count = #today_events + #tomorrow_events + #later_events
+			local message = string.format("%d upcoming events", event_count)
+
+			-- Add first few events as preview
+			local preview_items = {}
+			if #today_events > 0 then
+				table.insert(preview_items, string.format("Today: %d", #today_events))
+			end
+			if #tomorrow_events > 0 then
+				table.insert(preview_items, string.format("Tomorrow: %d", #tomorrow_events))
+			end
+			if #later_events > 0 then
+				table.insert(preview_items, string.format("Later: %d", #later_events))
+			end
+
+			if #preview_items > 0 then
+				message = message .. " (" .. table.concat(preview_items, ", ") .. ")"
+			end
+
+			-- Add the next event as preview
+			if #today_events > 0 then
+				message = message .. ". Next: " .. today_events[1].text
+			elseif #tomorrow_events > 0 then
+				message = message .. ". Tomorrow: " .. tomorrow_events[1].text
+			end
+
+			local title = "Zortex Daily Digest"
+
+			schedule_notification(delay, title, message)
+			notifications_scheduled = notifications_scheduled + 1
 		end
 	end
 

@@ -55,7 +55,7 @@ function M.extract_link(line, cursor_col_0idx)
 		offset = e
 	end
 
-	-- 3. Check for enhanced links [...] (existing functionality)
+	-- 3. Check for zortex-style links [...] (existing functionality)
 	offset = 0
 	while offset < #line do
 		local s, e = string.find(line, "%[([^%]]+)%]", offset + 1)
@@ -73,24 +73,12 @@ function M.extract_link(line, cursor_col_0idx)
 				goto continue
 			end
 
-			-- Check for pipe format: [Display Text|Link Definition]
-			local display_text, link_def = content:match("^([^|]*)%|(.+)$")
-			if display_text and link_def then
-				return {
-					type = "link",
-					display_text = display_text,
-					definition = link_def,
-					full_match_text = string.sub(line, s, e),
-				}
-			else
-				-- Simple format: [Link Definition]
-				return {
-					type = "link",
-					display_text = content,
-					definition = content,
-					full_match_text = string.sub(line, s, e),
-				}
-			end
+			return {
+				type = "link",
+				display_text = content,
+				definition = content,
+				full_match_text = string.sub(line, s, e),
+			}
 		end
 
 		::continue::
@@ -422,6 +410,69 @@ local function find_article_files(article_name)
 	return matches
 end
 
+--- Check if line is a bold heading (format: **text** or **text**:)
+local function is_bold_heading(line)
+	return line:match("^%*%*[^%*]+%*%*:?$") ~= nil
+end
+
+--- Get heading level from line
+local function get_heading_level(line)
+	local level = 0
+	for i = 1, #line do
+		if line:sub(i, i) == "#" then
+			level = level + 1
+		else
+			break
+		end
+	end
+	-- Only count as heading if followed by space or end of string
+	if level > 0 and (line:sub(level + 1, level + 1) == " " or level == #line) then
+		return level
+	end
+	return 0
+end
+
+--- Determine section end based on component type and current position
+local function get_section_end(lines, start_lnum, component)
+	local num_lines = #lines
+
+	if component.type == "heading" then
+		-- Get the level of the heading we found
+		local heading_level = get_heading_level(lines[start_lnum])
+
+		-- Section ends at next heading of same or higher level
+		for i = start_lnum + 1, num_lines do
+			local line_level = get_heading_level(lines[i])
+			if line_level > 0 and line_level <= heading_level then
+				return i - 1
+			end
+		end
+		return num_lines
+	elseif component.type == "tag" then
+		-- Tags don't create sections in the traditional sense
+		-- But we'll treat the tag line itself as the section
+		return start_lnum
+	elseif component.type == "label" then
+		-- Labels end at next heading, bold heading, or empty line
+		for i = start_lnum + 1, num_lines do
+			local line = lines[i]
+			if line:match("^%s*$") or get_heading_level(line) > 0 or is_bold_heading(line) then
+				return i - 1
+			end
+		end
+		return num_lines
+	elseif component.type == "listitem" then
+		-- List items are single lines
+		return start_lnum
+	elseif component.type == "highlight" or component.type == "query" then
+		-- These don't create sections, just match within current scope
+		return start_lnum
+	else
+		-- Default: no section
+		return start_lnum
+	end
+end
+
 -- Search Functions --
 
 --- Create search pattern for component
@@ -448,8 +499,8 @@ local function create_search_pattern(component)
 	end
 end
 
---- Search for component in files
-local function search_component_in_files(component, file_paths)
+--- Search for component in files with section boundaries
+local function search_component_in_files(component, file_paths, section_bounds)
 	local pattern = create_search_pattern(component)
 	if not pattern then
 		return {}
@@ -461,9 +512,24 @@ local function search_component_in_files(component, file_paths)
 	for _, file_path in ipairs(file_paths) do
 		local file = io.open(file_path, "r")
 		if file then
-			local lnum = 0
+			local lines = {}
 			for line in file:lines() do
-				lnum = lnum + 1
+				lines[#lines + 1] = line
+			end
+			file:close()
+
+			-- Determine search bounds for this file
+			local start_line = 1
+			local end_line = #lines
+
+			if section_bounds and section_bounds[file_path] then
+				start_line = section_bounds[file_path].start_line or 1
+				end_line = section_bounds[file_path].end_line or #lines
+			end
+
+			-- Search within bounds
+			for lnum = start_line, end_line do
+				local line = lines[lnum]
 				local search_line = case_sensitive and line or line:lower()
 				local search_pattern = case_sensitive and pattern or pattern:lower()
 
@@ -474,18 +540,18 @@ local function search_component_in_files(component, file_paths)
 						col = search_line:find(search_pattern),
 						text = line,
 						component = component,
+						lines = lines, -- Store lines for section determination
 					}
 				end
 			end
-			file:close()
 		end
 	end
 
 	return results
 end
 
---- Search in current buffer
-local function search_in_buffer(component)
+--- Search in current buffer with section boundaries
+local function search_in_buffer(component, start_line, end_line)
 	local pattern = create_search_pattern(component)
 	if not pattern then
 		return {}
@@ -496,7 +562,11 @@ local function search_in_buffer(component)
 	local case_sensitive = component.type == "query" and component.text:match("[A-Z]")
 	local current_file = vim.fn.expand("%:p")
 
-	for lnum, line in ipairs(lines) do
+	start_line = start_line or 1
+	end_line = end_line or #lines
+
+	for lnum = start_line, end_line do
+		local line = lines[lnum]
 		local search_line = case_sensitive and line or line:lower()
 		local search_pattern = case_sensitive and pattern or pattern:lower()
 
@@ -507,6 +577,7 @@ local function search_in_buffer(component)
 				col = search_line:find(search_pattern),
 				text = line,
 				component = component,
+				lines = lines,
 			}
 		end
 	end
@@ -559,16 +630,35 @@ end
 local function process_link(parsed_link)
 	local results = {}
 	local file_set = nil
+	local section_bounds = {} -- Track section boundaries per file
 
 	-- Determine initial file set based on scope
 	if parsed_link.scope == "local" then
 		-- Local scope - search only in current buffer
-		for _, component in ipairs(parsed_link.components) do
-			local component_results = search_in_buffer(component)
-			for _, r in ipairs(component_results) do
-				results[#results + 1] = r
+		local current_bounds = { start_line = 1, end_line = nil }
+
+		for i, component in ipairs(parsed_link.components) do
+			local component_results = search_in_buffer(component, current_bounds.start_line, current_bounds.end_line)
+
+			if i == #parsed_link.components then
+				-- Last component - return all matches
+				for _, r in ipairs(component_results) do
+					results[#results + 1] = r
+				end
+			else
+				-- Not last component - narrow search scope
+				if #component_results == 0 then
+					vim.notify("No matches found for: " .. component.original, vim.log.levels.INFO)
+					return {}
+				end
+
+				-- Use first match to determine new bounds
+				local first_match = component_results[1]
+				current_bounds.start_line = first_match.lnum
+				current_bounds.end_line = get_section_end(first_match.lines, first_match.lnum, component)
 			end
 		end
+
 		return results
 	else
 		-- Global scope - start with all files
@@ -584,6 +674,9 @@ local function process_link(parsed_link)
 				vim.notify("No article found: " .. component.text, vim.log.levels.INFO)
 				return {}
 			end
+			-- Reset section bounds for new file set
+			section_bounds = {}
+
 			-- If this is the last component and we found exactly one file, create a result
 			if i == #parsed_link.components and #file_set == 1 then
 				results[#results + 1] = {
@@ -595,8 +688,8 @@ local function process_link(parsed_link)
 				}
 			end
 		else
-			-- Search for component in current file set
-			local component_results = search_component_in_files(component, file_set)
+			-- Search for component in current file set with section bounds
+			local component_results = search_component_in_files(component, file_set, section_bounds)
 
 			if i == #parsed_link.components then
 				-- Last component - these are our final results
@@ -604,16 +697,33 @@ local function process_link(parsed_link)
 					results[#results + 1] = r
 				end
 			else
-				-- Not last component - narrow file set for next iteration
+				-- Not last component - update section bounds for next iteration
+				if #component_results == 0 then
+					vim.notify("No matches found for: " .. component.original, vim.log.levels.INFO)
+					return {}
+				end
+
+				-- Create new section bounds based on matches
 				local new_file_set = {}
+				local new_section_bounds = {}
 				local seen_files = {}
-				for _, r in ipairs(component_results) do
-					if not seen_files[r.file] then
-						seen_files[r.file] = true
-						new_file_set[#new_file_set + 1] = r.file
+
+				for _, match in ipairs(component_results) do
+					if not seen_files[match.file] then
+						seen_files[match.file] = true
+						new_file_set[#new_file_set + 1] = match.file
+
+						-- Calculate section bounds for this match
+						local section_end = get_section_end(match.lines, match.lnum, component)
+						new_section_bounds[match.file] = {
+							start_line = match.lnum,
+							end_line = section_end,
+						}
 					end
 				end
+
 				file_set = new_file_set
+				section_bounds = new_section_bounds
 
 				if #file_set == 0 then
 					vim.notify("No matches found for: " .. component.original, vim.log.levels.INFO)
@@ -660,7 +770,7 @@ function M.open_link()
 
 	-- Handle different link types
 	if link_info.type == "link" then
-		-- Enhanced link format - existing functionality
+		-- Zortex-style link format
 		local parsed = M.parse_link_definition(link_info.definition)
 		if not parsed then
 			vim.notify("Invalid link format", vim.log.levels.WARN)

@@ -17,6 +17,12 @@ We have different types of searches:
 Nesting:
 For all scopes, we can nest searches for increasingly "specific" links by separating them with a forward slash. For example, [/#Heading/#Sub heading/#Sub sub heading], [#Heading/:Label] or even [Article name/@Tag/#Heading/:Label/%Query]
 
+- Headings > Bold heading > Labels > List,Italic/Bold,Text
+- Headings create a "section" until the next heading its level or higher.
+- Bold headings of the format "^**<any text>**:\?$" create a "section" until the next heading or bold heading
+- Labels create a "section" until the next heading, bold heading, or empty line
+- Lists, italic/bold, and text are the smallest units
+
 So in the first example...
 
 ```
@@ -26,6 +32,21 @@ So in the first example...
 ## Sub heading
 ### Another heading
 #### Sub sub heading <- this line
+```
+
+This `[Article name/#Heading 1/:My Label/-Four]` links to...
+
+```zortex
+@@Article name
+
+## Heading 1
+Some text
+
+My Label:
+- One
+- Two
+- Three <- here
+- Four
 ```
 
 ## Arcticle example

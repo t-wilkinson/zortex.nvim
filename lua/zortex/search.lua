@@ -1,5 +1,7 @@
--- search.lua – incremental exact‑substring note search with smart sorting & enhanced caching
---   • Space separates tokens (logical AND across the entire file)
+-- search.lua – incremental exact‑substring note search with hierarchical context-aware sorting
+--   • Space separates tokens (logical AND with hierarchical context)
+--   • First token establishes context, subsequent tokens search within that context
+--   • Context hierarchy: Article/Tags > Headings > Bold headings > Labels > Text
 --   • Use underscore "_" instead of spaces for phrase search (hello_world ↔ "hello world")
 --   • Smart sorting based on: recency (30-day half-life), tags, length, word count, and more
 --   • Access tracking for intelligent ranking
@@ -10,6 +12,192 @@
 
 local M = {}
 local S = require("zortex.search_managers")
+
+--------------------------------------------------
+-- Section Types and Detection
+--------------------------------------------------
+local SectionType = {
+	ARTICLE = 1,
+	TAG = 2,
+	HEADING = 3,
+	BOLD_HEADING = 4,
+	LABEL = 5,
+	TEXT = 6,
+}
+
+local function detect_section_type(line)
+	if not line or line == "" then
+		return SectionType.TEXT
+	end
+
+	-- Article title (@@...)
+	if line:match("^@@") then
+		return SectionType.ARTICLE
+	end
+
+	-- Tags/aliases (@...)
+	if line:match("^@[^@]") then
+		return SectionType.TAG
+	end
+
+	-- Markdown headings (#...)
+	if line:match("^%s*#+%s") then
+		return SectionType.HEADING
+	end
+
+	-- Bold headings (**text** or **text**:)
+	if line:match("^%*%*[^%*]+%*%*:?$") then
+		return SectionType.BOLD_HEADING
+	end
+
+	-- Labels (word(s): ...)
+	if line:match("^%w[^:]+:") then
+		return SectionType.LABEL
+	end
+
+	return SectionType.TEXT
+end
+
+local function get_heading_level(line)
+	local hashes = line:match("^(#+)")
+	return hashes and #hashes or 0
+end
+
+--------------------------------------------------
+-- Section Boundary Detection
+--------------------------------------------------
+local function find_section_end(lines, start_idx, section_type)
+	if start_idx > #lines then
+		return #lines
+	end
+
+	local start_line = lines[start_idx]
+
+	-- Article/tag sections span the entire file
+	if section_type == SectionType.ARTICLE or section_type == SectionType.TAG then
+		return #lines
+	end
+
+	-- Heading sections end at next heading of same or higher level
+	if section_type == SectionType.HEADING then
+		local level = get_heading_level(start_line)
+		for i = start_idx + 1, #lines do
+			local line_type = detect_section_type(lines[i])
+			if line_type == SectionType.HEADING then
+				local next_level = get_heading_level(lines[i])
+				if next_level <= level then
+					return i - 1
+				end
+			end
+		end
+		return #lines
+	end
+
+	-- Bold heading sections end at next heading or bold heading
+	if section_type == SectionType.BOLD_HEADING then
+		for i = start_idx + 1, #lines do
+			local line_type = detect_section_type(lines[i])
+			if line_type == SectionType.HEADING or line_type == SectionType.BOLD_HEADING then
+				return i - 1
+			end
+		end
+		return #lines
+	end
+
+	-- Label sections end at next heading, bold heading, or empty line
+	if section_type == SectionType.LABEL then
+		for i = start_idx + 1, #lines do
+			if lines[i] == "" then
+				return i - 1
+			end
+			local line_type = detect_section_type(lines[i])
+			if line_type == SectionType.HEADING or line_type == SectionType.BOLD_HEADING then
+				return i - 1
+			end
+		end
+		return #lines
+	end
+
+	-- Text sections are single lines
+	return start_idx
+end
+
+--------------------------------------------------
+-- Hierarchical Search Functions
+--------------------------------------------------
+local function find_token_in_range(lines, token, start_idx, end_idx)
+	local tok_lower = token:lower()
+	local matches = {}
+
+	for i = math.max(1, start_idx), math.min(#lines, end_idx) do
+		if lines[i]:lower():find(tok_lower, 1, true) then
+			table.insert(matches, {
+				lnum = i,
+				line = lines[i],
+				section_type = detect_section_type(lines[i]),
+			})
+		end
+	end
+
+	-- Sort matches by section type priority
+	table.sort(matches, function(a, b)
+		return a.section_type < b.section_type
+	end)
+
+	return matches
+end
+
+local function hierarchical_search(lines, tokens)
+	if #tokens == 0 then
+		return true, nil, nil
+	end
+
+	-- Find first token anywhere in the file
+	local first_matches = find_token_in_range(lines, tokens[1], 1, #lines)
+	if #first_matches == 0 then
+		return false, nil, nil
+	end
+
+	-- For single token, return the best match
+	if #tokens == 1 then
+		local best = first_matches[1]
+		return true, best.lnum, best.line
+	end
+
+	-- For multiple tokens, search hierarchically
+	for _, first_match in ipairs(first_matches) do
+		local current_start = first_match.lnum
+		local current_end = find_section_end(lines, current_start, first_match.section_type)
+		local all_found = true
+		local match_chain = { first_match }
+
+		-- Search for remaining tokens within progressively narrower contexts
+		for i = 2, #tokens do
+			local token_matches = find_token_in_range(lines, tokens[i], current_start, current_end)
+
+			if #token_matches == 0 then
+				all_found = false
+				break
+			end
+
+			-- Use the best match for this token
+			local best_match = token_matches[1]
+			table.insert(match_chain, best_match)
+
+			-- Narrow the search range for the next token
+			current_start = best_match.lnum
+			current_end = find_section_end(lines, current_start, best_match.section_type)
+		end
+
+		if all_found then
+			-- Return the match info for the last token in the chain
+			local final_match = match_chain[#match_chain]
+			return true, final_match.lnum, final_match.line
+		end
+	end
+
+	return false, nil, nil
+end
 
 --------------------------------------------------
 -- Utilities
@@ -98,48 +286,6 @@ function Utils.generate_unique_filename()
 	return date .. "." .. os.time() .. ext
 end
 
----Return the (lnum, line, priority) of the first match for `token`.
----Priority order: 1‑article, 2‑tag, 3‑header, 4‑body. `nil` if not found.
----@param lines string[]             Buffer contents
----@param token string               Search token (already raw, *not* lower‑cased)
----@return integer|nil, string|nil, integer|nil
-function Utils.prioritized_match_line(lines, token)
-	if not token or token == "" then
-		return nil
-	end
-	local tok = token:lower()
-
-	-- 1 ▸ article title (line 1, strip the leading @@)
-	if lines[1] then
-		local art = Utils.extract_article_name(lines[1]):lower()
-		if art:find(tok, 1, true) then
-			return 1, lines[1], 1
-		end
-	end
-
-	-- 2 ▸ tags / aliases (first ~15 lines for cheap scan)
-	for i = 2, math.min(#lines, 15) do
-		local line = lines[i]
-		if line:match("^@+") and line:lower():find(tok, 1, true) then
-			return i, line, 2
-		end
-	end
-
-	-- 3 ▸ markdown headings
-	for i, line in ipairs(lines) do
-		if line:match("^%s*#+") and line:lower():find(tok, 1, true) then
-			return i, line, 3
-		end
-	end
-
-	-- 4 ▸ any other text
-	for i, line in ipairs(lines) do
-		if line:lower():find(tok, 1, true) then
-			return i, line, 4
-		end
-	end
-end
-
 --------------------------------------------------
 -- Smart Sorter with Scoring
 --------------------------------------------------
@@ -156,6 +302,7 @@ local function calculate_entry_score(entry, tokens, current_time)
 		structure = 0,
 		header_bonus = 0,
 		start_match_bonus = 0,
+		hierarchical_bonus = 0,
 	}
 
 	-- Recency score with 30-day half-life
@@ -169,6 +316,11 @@ local function calculate_entry_score(entry, tokens, current_time)
 	if #tokens == 0 then
 		-- When no search terms, heavily weight recency
 		return scores.recency * 10 + 1
+	end
+
+	-- Hierarchical matching bonus
+	if entry.hierarchical_match then
+		scores.hierarchical_bonus = 5.0
 	end
 
 	-- Relevance score based on token matches
@@ -293,6 +445,7 @@ local function calculate_entry_score(entry, tokens, current_time)
 		structure = 0.5,
 		header_bonus = 3.0,
 		start_match_bonus = 2.0,
+		hierarchical_bonus = 10.0,
 	}
 
 	local total = 0
@@ -409,42 +562,15 @@ local function locate_token(bufnr, token)
 	local token_lower = token:lower()
 	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
 
-	-- 1. Article title (first line – strip "@@")
-	if #lines > 0 then
-		local article_name = Utils.extract_article_name(lines[1])
-		local s = article_name:lower():find(token_lower, 1, true)
-		if s then
-			return 1, s
-		end
+	-- Use hierarchical search for single token
+	local found, lnum, _ = hierarchical_search(lines, { token })
+	if found then
+		local line = lines[lnum]
+		local col = line:lower():find(token_lower, 1, true)
+		return lnum, col
 	end
 
-	-- 2. Tags or aliases (lines that start with @ / @@)
-	for i, line in ipairs(lines) do
-		if line:match("^@+") then
-			local s = line:lower():find(token_lower, 1, true)
-			if s then
-				return i, s
-			end
-		end
-	end
-
-	-- 3. Markdown headers (#, ##, ### …)
-	for i, line in ipairs(lines) do
-		if line:match("^%s*#+") then
-			local s = line:lower():find(token_lower, 1, true)
-			if s then
-				return i, s
-			end
-		end
-	end
-
-	-- 4. Fallback: first occurrence anywhere in the note
-	for i, line in ipairs(lines) do
-		local s = line:lower():find(token_lower, 1, true)
-		if s then
-			return i, s
-		end
-	end
+	return nil
 end
 
 local function open_location(entry, cmd, tokens)
@@ -470,7 +596,7 @@ local function open_location(entry, cmd, tokens)
 	local fallback_lnum = entry.lnum or 1
 	vim.fn.cursor(fallback_lnum, 1)
 
-	-- 🔍 Single‑token smart jump using the priority order
+	-- 🔍 Single‑token smart jump using the priority order
 	if tokens and #tokens == 1 then
 		local l, c = locate_token(0, tokens[1])
 		if l then
@@ -519,35 +645,16 @@ function M.search(opts)
 			local date_str = Utils.extract_date_from_filename(path) or Utils.format_timestamp(data.mtime)
 			local tags_line = Utils.extract_aliases_and_tags(data.lines)
 
-			------------------------------------------------------------------------
-			-- 2.1 ▸ Resolve the *best* line for each token ------------------------
-			local seen_tok, first_idx, first_line, first_prio = {}, nil, nil, nil
-
-			for _, tok in ipairs(tokens) do
-				local lnum, line, prio = Utils.prioritized_match_line(data.lines, tok)
-				if lnum then
-					seen_tok[tok] = { lnum, line, prio }
-					if not first_prio or prio < first_prio then -- smaller = higher priority
-						first_idx, first_line, first_prio = lnum, line, prio
-					end
-				end
-			end
-
-			-- 2.2 ▸ Verify that *all* tokens matched (logical AND semantics) -------
-			local qualifies = empty
-			if not empty then
+			-- Use hierarchical search
+			local qualifies, match_lnum, match_line
+			if empty then
 				qualifies = true
-				for _, tok in ipairs(tokens) do
-					if not seen_tok[tok] then
-						qualifies = false
-						break
-					end
-				end
+			else
+				qualifies, match_lnum, match_line = hierarchical_search(data.lines, tokens)
 			end
 
 			if qualifies then
-				--------------------------------------------------------------------
-				-- 2.3 ▸ Build pretty display line ---------------------------------
+				-- Build pretty display line
 				local recency_indicator = ""
 				if S.AccessTracker.data[path] and #S.AccessTracker.data[path].times > 0 then
 					local last_access = S.AccessTracker.data[path].times[#S.AccessTracker.data[path].times]
@@ -561,44 +668,31 @@ function M.search(opts)
 					end
 				end
 
-				-- extra previews (excluding the main one)
-				local extras = {}
-				for _, v in pairs(seen_tok) do
-					local line = v[2]
-					if line ~= first_line then
-						extras[#extras + 1] = (line:gsub("^%s+", ""))
-					end
-				end
-				table.sort(extras) -- stable ordering
-
 				local parts = {
 					date_str,
 					recency_indicator .. article_name .. (tags_line ~= "" and (" " .. tags_line) or ""),
 				}
 
-				if first_line and (#extras > 0 or first_line ~= title) then
-					local preview = first_line
-					if #extras > 0 then
-						preview = preview .. " ∥ " .. table.concat(extras, " ∥ ")
-					end
-					parts[#parts + 1] = preview:gsub("^%s+", "")
+				if match_line and match_line ~= title then
+					parts[#parts + 1] = match_line:gsub("^%s+", "")
 				end
 
 				local display = table.concat(parts, " | ")
-				local ordinal = table.concat({ article_name, date_str, tags_line, first_line or "" }, " ")
+				local ordinal = table.concat({ article_name, date_str, tags_line, match_line or "" }, " ")
 
 				results[#results + 1] = {
-					value = path .. ":" .. (first_idx or 1),
+					value = path .. ":" .. (match_lnum or 1),
 					ordinal = ordinal,
 					display = display,
 					filename = path,
-					lnum = first_idx or 1,
+					lnum = match_lnum or 1,
 					article_name = article_name,
 					tags = tags_line,
-					matched_line = first_line,
+					matched_line = match_line,
 					mtime = data.mtime,
 					metadata = data.metadata,
 					line_count = #data.lines,
+					hierarchical_match = not empty and match_lnum ~= nil,
 					score_calculated = false,
 				}
 			end
@@ -640,7 +734,7 @@ function M.search(opts)
 	-- Create picker
 	pickers
 		.new(opts, {
-			prompt_title = "Zortex Smart Search",
+			prompt_title = "Zortex Hierarchical Search",
 			default_text = "",
 			finder = finder,
 			sorter = sorter,

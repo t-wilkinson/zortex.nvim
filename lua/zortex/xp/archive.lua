@@ -4,11 +4,7 @@ local M = {}
 -- Dependencies
 local utils = require("zortex.utils")
 local xp = require("zortex.xp")
-local attributes = require("zortex.attributes")
 local progress = require("zortex.progress")
-
--- Constants
-M.ARCHIVE_PATH = ".zortex/z/archive.projects.zortex"
 
 -- =============================================================================
 -- Project Completion Check
@@ -202,7 +198,7 @@ end
 --- Read the archive file
 -- @return table|nil Lines from the archive file, or nil if not found
 local function read_archive()
-	local archive_path = vim.fn.expand(vim.g.zortex_notes_dir .. "/" .. M.ARCHIVE_PATH)
+	local archive_path = vim.fn.expand(vim.g.zortex_notes_dir .. "/" .. utils.ARCHIVE_PROJECTS_FILE)
 	local dir = vim.fn.fnamemodify(archive_path, ":h")
 
 	-- Create directory if it doesn't exist

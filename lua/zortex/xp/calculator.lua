@@ -240,7 +240,7 @@ function M.calculate_project_total_xp(project_attrs, okr_connection)
 			okr_mult = okr_mult * (M.config.span_multipliers[okr_connection.span] or 1.0)
 		end
 		-- Apply temporal multiplier
-		okr_mult = okr_mult * calculate_temporal_multiplier(okr_connection)
+		okr_mult = okr_mult * M.calculate_temporal_multiplier(okr_connection)
 	end
 
 	return math.floor(base_xp * size_mult * priority_mult * importance_mult * okr_mult + 0.5)
@@ -288,7 +288,7 @@ function M.calculate_okr_objective_xp(okr_data)
 	local span_mult = M.config.okr_objective_multipliers[okr_data.span] or 1.0
 
 	-- Temporal multiplier
-	local temporal_mult = calculate_temporal_multiplier(okr_data)
+	local temporal_mult = M.calculate_temporal_multiplier(okr_data)
 
 	return math.floor(base_xp * span_mult * temporal_mult + 0.5)
 end
@@ -377,6 +377,12 @@ end
 -- @param task_data table Task data with attributes and metadata
 -- @return number Calculated XP value
 function M.calculate_xp(task_data)
+	-- Skip objectives and key results for base XP
+	-- They only give skill tree XP, not regular XP
+	if task_data.is_objective or task_data.is_key_result then
+		return 0
+	end
+
 	-- Allow custom calculation if provided
 	if M.config.custom_calculation then
 		return M.config.custom_calculation(task_data, M.config)
@@ -536,8 +542,5 @@ function M.create_task_data(line, project_heading, is_project)
 		okr_connection = okr_connection,
 	})
 end
-
--- Initialize with defaults
-M.config = M.defaults
 
 return M

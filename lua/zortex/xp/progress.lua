@@ -3,8 +3,8 @@ local M = {}
 
 -- Dependencies
 local utils = require("zortex.utils")
-local xp = require("zortex.xp")
 local links = require("zortex.links")
+local skill_tree = require("zortex.skill_tree")
 
 -- =============================================================================
 -- Project Progress Tracking
@@ -223,41 +223,58 @@ function M.update_okr_progress()
 
 	local modified = false
 	local current_objective_idx = nil
+	local current_objective_data = nil
 	local objective_kr_count = 0
 	local objective_kr_completed = 0
+	local objective_kr_newly_completed = {} -- Track which KRs were just completed
 
 	for i, line in ipairs(lines) do
 		-- Check if this is an objective
 		local okr_date = utils.parse_okr_date(line)
 		if okr_date then
 			-- Update previous objective if needed
-			if current_objective_idx then
+			if current_objective_idx and current_objective_data then
 				local old_line = lines[current_objective_idx]
 				local new_line = update_progress_attribute(old_line, objective_kr_completed, objective_kr_count)
 
-				-- Mark as done if all KRs completed
-				if
-					objective_kr_count > 0
-					and objective_kr_completed == objective_kr_count
-					and not old_line:match("@done%(")
-				then
+				-- Check if objective was just completed
+				local was_completed = old_line:match("@done%(") ~= nil
+				local is_completed = objective_kr_count > 0 and objective_kr_completed == objective_kr_count
+
+				if is_completed and not was_completed then
 					new_line = update_done_attribute(new_line, true)
 
-					-- Award XP for completing the objective
-					local xp_value = xp.calculate_okr_objective_xp(okr_date)
-					vim.notify(string.format("OKR Objective completed! +%d XP", xp_value), vim.log.levels.INFO)
+					-- Award skill tree XP for objective completion
+					current_objective_data.line_text = old_line
+					local skill_xp = skill_tree.process_objective_completion(current_objective_data)
+
+					vim.notify(string.format("OKR Objective completed! +%d Skill XP", skill_xp), vim.log.levels.INFO)
 				end
 
 				if new_line ~= old_line then
 					lines[current_objective_idx] = new_line
 					modified = true
 				end
+
+				-- Process any newly completed KRs
+				for _, kr_data in ipairs(objective_kr_newly_completed) do
+					current_objective_data.completed_krs = kr_data.completed_krs
+					current_objective_data.total_krs = objective_kr_count
+					current_objective_data.line_text = old_line
+
+					local skill_xp = skill_tree.process_kr_completion(current_objective_data, kr_data.line)
+					if skill_xp > 0 then
+						vim.notify(string.format("Key Result completed! +%d Skill XP", skill_xp), vim.log.levels.INFO)
+					end
+				end
 			end
 
 			-- Start tracking new objective
 			current_objective_idx = i
+			current_objective_data = okr_date
 			objective_kr_count = 0
 			objective_kr_completed = 0
+			objective_kr_newly_completed = {}
 		elseif line:match("^%s*- KR%-") then
 			-- This is a key result
 			if current_objective_idx then
@@ -280,27 +297,50 @@ function M.update_okr_progress()
 				-- Count as completed if has projects and all are done
 				if any_projects and all_completed then
 					objective_kr_completed = objective_kr_completed + 1
+
+					-- Track this as newly completed (we'll determine if it's actually new later)
+					table.insert(objective_kr_newly_completed, {
+						line = line,
+						completed_krs = objective_kr_completed,
+					})
 				end
 			end
 		end
 	end
 
 	-- Update last objective if needed
-	if current_objective_idx then
+	if current_objective_idx and current_objective_data then
 		local old_line = lines[current_objective_idx]
 		local new_line = update_progress_attribute(old_line, objective_kr_completed, objective_kr_count)
 
-		if
-			objective_kr_count > 0
-			and objective_kr_completed == objective_kr_count
-			and not old_line:match("@done%(")
-		then
+		local was_completed = old_line:match("@done%(") ~= nil
+		local is_completed = objective_kr_count > 0 and objective_kr_completed == objective_kr_count
+
+		if is_completed and not was_completed then
 			new_line = update_done_attribute(new_line, true)
+
+			-- Award skill tree XP for objective completion
+			current_objective_data.line_text = old_line
+			local skill_xp = skill_tree.process_objective_completion(current_objective_data)
+
+			vim.notify(string.format("OKR Objective completed! +%d Skill XP", skill_xp), vim.log.levels.INFO)
 		end
 
 		if new_line ~= old_line then
 			lines[current_objective_idx] = new_line
 			modified = true
+		end
+
+		-- Process any newly completed KRs
+		for _, kr_data in ipairs(objective_kr_newly_completed) do
+			current_objective_data.completed_krs = kr_data.completed_krs
+			current_objective_data.total_krs = objective_kr_count
+			current_objective_data.line_text = old_line
+
+			local skill_xp = skill_tree.process_kr_completion(current_objective_data, kr_data.line)
+			if skill_xp > 0 then
+				vim.notify(string.format("Key Result completed! +%d Skill XP", skill_xp), vim.log.levels.INFO)
+			end
 		end
 	end
 

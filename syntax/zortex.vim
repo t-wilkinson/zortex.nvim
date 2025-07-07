@@ -195,7 +195,7 @@ syntax match zOperator /: /
 syntax match zOperator /:$/
 
 syntax match zOperator /\w\zs\(\.\|?\)\ze\( \|$\)/ " Sentence period.
-syntax match zOperator /^[A-Z][^.?]\+?$/           " Sentence question?
+" syntax match zOperator /^[A-Z][^.?]\+?$/           " Sentence question?
 
 " syntax match zOperator /\w\+=\ze\(\w\|\/\|\.\)/ " Dunno
 " syntax match zOperator /\(\w\|*\)\zs: /

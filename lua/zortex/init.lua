@@ -1,6 +1,10 @@
 -- init.lua - Main entry point for integrated Zortex
 local M = {}
 
+local old = {}
+old.telescope = require("zortex.old.telescope")
+old.calendar = require("zortex.calendar")
+
 -- Core modules
 local config = require("zortex.config")
 local parser = require("zortex.core.parser")
@@ -83,6 +87,31 @@ M.defaults = {
 -- Module Setup
 -- =============================================================================
 
+function old.setup()
+	local cmd = vim.api.nvim_create_user_command
+
+	-- Telescope functions
+	cmd("ZortexCalendarSearch", old.telescope.calendar, { desc = "Browse calendar chronologically" })
+	cmd("ZortexDigestTelescope", old.telescope.today_digest, { desc = "Show today's digest in Telescope" })
+	cmd("ZortexProjects", old.telescope.today_digest, { desc = "Show today's digest in Telescope" })
+
+	-- Create keymaps
+	vim.keymap.set("n", "Zc", old.calendar.open, { desc = "Open Zortex Calendar" })
+
+	-- Telescope keymaps
+	vim.keymap.set("n", "ZC", old.telescope.calendar, { desc = "Search calendar entries" })
+	vim.keymap.set("n", "Zp", old.telescope.projects, { desc = "Search projects" })
+
+	-- Digest
+	vim.keymap.set("n", "Zd", old.telescope.today_digest)
+	vim.keymap.set("n", "ZD", old.calendar.show_today_digest, {
+		desc = "Show Today's Digest",
+	})
+	vim.keymap.set("n", "ZB", old.calendar.show_digest_buffer)
+
+	old.calendar.setup()
+end
+
 function M.setup(opts)
 	opts = opts or {}
 
@@ -95,6 +124,8 @@ function M.setup(opts)
 			vim.g[k] = v
 		end
 	end
+
+	old.setup()
 
 	-- Initialize configuration system
 	config.setup({

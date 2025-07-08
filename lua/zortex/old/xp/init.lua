@@ -2,7 +2,6 @@
 local M = {}
 
 -- Dependencies
-local calculator = require("zortex.xp.calculator")
 
 -- Current configuration
 M.config = {}

@@ -1,5 +1,5 @@
 local Utils = require("zortex.calendar.utils")
-local Projects = require("zortex.projects")
+local Projects = require("zortex.old.projects")
 
 local M = {}
 

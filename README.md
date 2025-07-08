@@ -323,3 +323,34 @@ macOS security restrictions on terminal apps.
 After installing, restart Neovim and try again.
 
 Alternative: Use :ZortexDigest for buffer view
+
+## IDK More stuff
+
+Files in our zortex:
+
+- vision.zortex: File that doesn't link to anything. Purely conceptual vision of who I want to be and what I want to focus on.
+- okr.zortex:
+  - Objectives:
+    - Objectives have a one to many (usually 1-4) relationship with key results.
+    - Each Objective will have the heading of "## <span code> YYYY MM Title"
+    - Span codes: M, Q, Y, 5Y, 10Y, <n>Y
+  - Key results:
+    - Will formatted as "- KR-<n>" so KR-1, KR-2, etc.
+    - Will link to a project via zortex link starting with "[Projects/...]" or "[P/...]"
+  - Current objectives will be under the heading "# Current"
+  - Previous objectives will be under the heading "# Previous", sorted by "YYYY MM" with most recent at the top.
+- projects.zortex:
+  - Projects are the first-class citizens of the XP system. That importance is delegated by connections to the okr system.
+  - Projects provide a grouping for tasks, notes, resources.
+- for now ignore files like areas.zortex
+
+**XP calculation**:
+`Total XP = (Base XP * Multipliers)`
+Base XP:
+
+- Connection to OKR: If a project is connected to a key result should increase base XP rewarded.
+  Multipliers:
+- Current OKR: Less XP the more distant the temporal colocation
+- Priority: Higher priority tasks @p1, @p2, @p3 get an XP multiplier.
+- Importance: @i1, @i2, @i3 get an XP multiplier
+- Size: tasks that have a size (@xs @sm @md @lg @xl) Larger tasks (@lg, @xl) or larger time estimation @est() or duration @2h are worth more. Let config.yaml specify defaults, but assume tasks to be a certain size/time duration. Let me know what you choose. Have an alignment for each task size to a specific duration.

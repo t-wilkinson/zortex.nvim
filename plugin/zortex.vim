@@ -149,29 +149,17 @@ let g:zortex_include_hidden = get(g:, 'zortex_include_hidden', 0) ? '--hidden' :
 let g:zortex_preview_width = exists('g:zortex_preview_width') ? string(float2nr(str2float(g:zortex_preview_width) / 100.0 * &columns)) : ''
 
 function! s:init_command() abort
-    " command! -nargs=* -bang ZortexSearch call zortex#search#search()
-    command! -nargs=* -bang ZortexSearchUnique call zortex#search#search_unique()
-
-    " command! ZortexCopyZettelId call zortex#article#copy_zettel_id()
-    " command! ZortexCopyZettel call zortex#article#copy_zettel()
-    " command! ZortexBranchToOutline call zortex#article#branch_to_outline()
-    " command! ZortexBranchToArticle call zortex#article#branch_to_article()
-    command! -range ZortexListitemToZettel <line1>,<line2> call zortex#article#listitem_to_zettel()
-    command! -range ZortexResourceToZettel <line1>,<line2> call zortex#article#resource_to_zettel(<q-args>)
-    command! -range ZortexZettelToMD <line1>,<line2> call zortex#article#zettel_to_markdown(<q-args>)
-    command! ZortexOpenStructure call zortex#article#open_structure()
-
     " Server management
-    command! ZortexStartServer call zortex#util#try_start_server()
-    command! ZortexStopServer call zortex#rpc#stop_server()
-    command! ZortexRestartServer call zortex#util#restart_server()
-    command! -buffer ZortexPreview call zortex#util#open_preview_page()
-    command! -buffer ZortexPreviewStop call zortex#util#stop_preview()
-    command! -buffer ZortexPreviewToggle call zortex#util#toggle_preview()
+    " command! ZortexStartServer call zortex#util#try_start_server()
+    " command! ZortexStopServer call zortex#rpc#stop_server()
+    " command! ZortexRestartServer call zortex#util#restart_server()
+    " command! -buffer ZortexPreview call zortex#util#open_preview_page()
+    " command! -buffer ZortexPreviewStop call zortex#util#stop_preview()
+    " command! -buffer ZortexPreviewToggle call zortex#util#toggle_preview()
 
-    command! ZortexStartRemoteServer call zortex#remote#start_server()
-    command! ZortexRestartRemoteServer call zortex#remote#restart_server()
-    command! ZortexSyncRemoteServer call zortex#remote#sync()
+    " command! ZortexStartRemoteServer call zortex#remote#start_server()
+    " command! ZortexRestartRemoteServer call zortex#remote#restart_server()
+    " command! ZortexSyncRemoteServer call zortex#remote#sync()
 
     command! ZortexReloadFolds call zortex#fold#update_folds()
 endfunction

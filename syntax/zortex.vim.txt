@@ -124,10 +124,7 @@ syn region mkdBlockquote   start=/^\s*|/                   end=/$/ contains=mkdL
 syn region mkdCode matchgroup=mkdCodeDelimiter start="^\s*\z(`\{3,\}\).*" end="^\s*\z1\ze\s*$" keepend
 " syn cluster markdownBlock contains=markdownH1,markdownH2,markdownH3,markdownH4,markdownH5,markdownH6,markdownBlockquote,markdownListMarker,markdownOrderedListMarker,markdownCodeBlock,markdownRule
 
-syntax region zHeading1 matchgroup=zHeading start=/^\s*#\{1,2}\s/ end=/$/ contains=@zInline,zAttribute,zLink,zBright,zBold,zBrightBold,htmlItalic,htmlBold,htmlBoldItalic,mkdInlineURL,mkdLink,mkdURL,mkdID,zTag,@Spell keepend
-syntax region zHeading2 matchgroup=zHeading start=/^\s*#\{3,4}\s/ end=/$/ contains=@zInline,zAttribute,zLink,zBright,zBold,zBrightBold,htmlItalic,htmlBold,htmlBoldItalic,mkdInlineURL,mkdLink,mkdURL,mkdID,zTag,@Spell keepend
-syntax region zHeading3 matchgroup=zHeading start=/^\s*#\{5,6}\s/ end=/$/ contains=@zInline,zAttribute,zLink,zBright,zBold,zBrightBold,htmlItalic,htmlBold,htmlBoldItalic,mkdInlineURL,mkdLink,mkdURL,mkdID,zTag,@Spell keepend
-
+" " Zettelkasten
 " syn region zettelTag start=" #"    end="# " conceal oneline cchar= "
 "             "\d\{4}\.\d\{3}\.\d\{5}]/
 " syn region zettelTag start="\[z:" end="\]" conceal cchar=▣
@@ -162,8 +159,8 @@ endif
 " Structures
 " syntax match zTag /^\d*@\{1,2}\ze\[/
 syntax match zTag /^[A-Za-z0-9]*@\{1,2}\([A-Za-z0-9()]\S*\s\?\)\+/  " @@Article names or @Tags or key@Value
-
-" syntax match zHeading /^#\{1,6} .*$/             " Headings
+" TODO: match only if there's a new line before
+syntax match zHeading /^#\{1,6} .*$/             " Headings
 " syntax match zSection /^\d\+\.\d\+ [A-Za-z0-9-: ()]\+$/
 
 syntax match String  /^[A-Za-z0-9][^.*:]\+\ze: /           " Label: text
@@ -198,7 +195,19 @@ syntax match zOperator /: /
 syntax match zOperator /:$/
 
 syntax match zOperator /\w\zs\(\.\|?\)\ze\( \|$\)/ " Sentence period.
+" syntax match zOperator /^[A-Z][^.?]\+?$/           " Sentence question?
 
+" syntax match zOperator /\w\+=\ze\(\w\|\/\|\.\)/ " Dunno
+" syntax match zOperator /\(\w\|*\)\zs: /
+" syntax match zOperator /#\([A-Z0-9]\S*\s\?\)\+#/
+" syntax match zOperator /^\d\{14}:/
+" syntax match zOperator /\$\d\+\.\d\+/ " Price
+" syntax match zOperator /z:\d\{4}\.\d\{5}\.\d\{5}/
+
+" syntax match Statement /|[^|]\+|/ " Search for tag
+" syntax match zTag /^\s*\zs%/ " queries
+
+" $HOME/.vim/plugged/vim/colors/dracula.vim
 command! -nargs=+ Hi hi def link <args>
 
 Hi mkdBlockquote    Comment
@@ -244,9 +253,6 @@ Hi mkdSurround      Statement
 " Hi zHeading         mkdBoldItalic
 " hi zHeading gui=bold guibg=#3e8fb0 guifg=#232136
 hi zHeading gui=bold,italic guifg=#eb6f92
-hi zHeading1 gui=bold,italic guifg=#eb6f92
-hi zHeading2 gui=bold,italic guifg=#ea9a97
-hi zHeading3 gui=bold,italic guifg=#f6c177
 hi zSection guifg=#eb6f92
 
 Hi zLink     Tag

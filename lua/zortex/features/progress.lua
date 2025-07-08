@@ -1,24 +1,19 @@
--- features/progress.lua - Progress tracking system for Zortex
+-- features/progress.lua - Progress tracking updated for new XP system
 local M = {}
 
 local parser = require("zortex.core.parser")
 local fs = require("zortex.core.filesystem")
 local buffer = require("zortex.core.buffer")
 local constants = require("zortex.constants")
-
--- Forward declaration - will be set after skills module loads
-local skills = nil
+local skills = require("zortex.features.skills")
 
 -- =============================================================================
 -- Progress Attribute Management
 -- =============================================================================
 
--- Update progress attribute on a heading line
 local function update_progress_attribute(line, completed, total)
-	-- Remove existing progress attribute
 	local cleaned = line:gsub(constants.PATTERNS.PROGRESS, "")
 
-	-- Add new progress attribute
 	if total > 0 then
 		return cleaned .. string.format(" @progress(%d/%d)", completed, total)
 	else
@@ -26,9 +21,7 @@ local function update_progress_attribute(line, completed, total)
 	end
 end
 
--- Update done attribute on a heading line
 local function update_done_attribute(line, done)
-	-- Remove existing done attribute
 	local cleaned = line:gsub(constants.PATTERNS.DONE_DATE, "")
 
 	if done then
@@ -43,10 +36,10 @@ end
 -- Project Progress Tracking
 -- =============================================================================
 
--- Count tasks in a project section
 local function count_project_tasks(lines, start_idx, end_idx, level)
 	local total = 0
 	local completed = 0
+	local task_positions = {}
 
 	for i = start_idx + 1, end_idx - 1 do
 		local line = lines[i]
@@ -54,7 +47,7 @@ local function count_project_tasks(lines, start_idx, end_idx, level)
 		-- Check if we've hit a subproject
 		local heading_level = parser.get_heading_level(line)
 
-		-- Only count immediate tasks (not in subprojects)
+		-- Only count immediate tasks
 		if heading_level == 0 or heading_level > level then
 			local is_task, is_completed = parser.is_task_line(line)
 			if is_task then
@@ -62,14 +55,19 @@ local function count_project_tasks(lines, start_idx, end_idx, level)
 				if is_completed then
 					completed = completed + 1
 				end
+				-- Store task position info
+				table.insert(task_positions, {
+					line_num = i,
+					position = total,
+					completed = is_completed,
+				})
 			end
 		end
 	end
 
-	return total, completed
+	return total, completed, task_positions
 end
 
--- Update progress for all projects in a buffer
 function M.update_project_progress(bufnr)
 	bufnr = bufnr or 0
 	local lines = buffer.get_lines(bufnr)
@@ -91,16 +89,35 @@ function M.update_project_progress(bufnr)
 			end
 		end
 
-		-- Count tasks
-		local total, completed = count_project_tasks(lines, lnum, end_idx, level)
+		-- Count tasks and get positions
+		local total, completed, task_positions = count_project_tasks(lines, lnum, end_idx, level)
+
+		-- Get area links for this project
+		local area_links = skills.get_project_area_links(lines, lnum)
+
+		-- Check for newly completed tasks
+		if #area_links > 0 then
+			for _, task_info in ipairs(task_positions) do
+				if task_info.completed then
+					-- Check if this task was just completed (would need state tracking)
+					-- For now, we'll handle this in the task completion command
+				end
+			end
+		end
 
 		-- Update the heading line
 		local old_line = lines[lnum]
 		local new_line = update_progress_attribute(old_line, completed, total)
 
-		-- Mark as done if all tasks completed and has tasks
+		-- Mark as done if all tasks completed
 		if total > 0 and completed == total and not old_line:match(constants.PATTERNS.DONE_DATE) then
 			new_line = update_done_attribute(new_line, true)
+
+			-- Award completion bonus if area links exist
+			if #area_links > 0 then
+				skills.process_task_completion(heading_info.text, total, total, area_links)
+				vim.notify(string.format("Project '%s' completed!", heading_info.text), vim.log.levels.INFO)
+			end
 		elseif total > 0 and completed < total and old_line:match(constants.PATTERNS.DONE_DATE) then
 			-- Remove done if tasks were added after completion
 			new_line = update_done_attribute(new_line, false)
@@ -123,7 +140,6 @@ end
 -- OKR Progress Tracking
 -- =============================================================================
 
--- Find all projects linked in a key result line
 local function extract_linked_projects(kr_line)
 	local projects = {}
 	local all_links = parser.extract_all_links(kr_line)
@@ -132,7 +148,6 @@ local function extract_linked_projects(kr_line)
 		if link_info.type == "link" then
 			local parsed = parser.parse_link_definition(link_info.definition)
 			if parsed and #parsed.components > 0 then
-				-- Look for article/project references
 				for _, component in ipairs(parsed.components) do
 					if component.type == "article" then
 						table.insert(projects, component.text)
@@ -145,9 +160,7 @@ local function extract_linked_projects(kr_line)
 	return projects
 end
 
--- Check if a project is completed (has @done attribute)
 local function is_project_completed(project_name)
-	-- Search in projects.zortex
 	local projects_file = fs.get_projects_file()
 	if not projects_file or not fs.file_exists(projects_file) then
 		return false, nil
@@ -158,11 +171,9 @@ local function is_project_completed(project_name)
 		return false, nil
 	end
 
-	-- Search for the project heading
 	for _, line in ipairs(lines) do
 		local heading = parser.parse_heading(line)
 		if heading then
-			-- Extract just the heading text without attributes
 			local heading_text = heading.text:gsub(" @%w+%([^%)]*%)", ""):gsub(" @%w+", "")
 			heading_text = parser.trim(heading_text)
 
@@ -173,7 +184,7 @@ local function is_project_completed(project_name)
 		end
 	end
 
-	-- Also check in archive
+	-- Check archive
 	local archive_file = fs.get_archive_file()
 	if archive_file and fs.file_exists(archive_file) then
 		lines = fs.read_lines(archive_file)
@@ -184,7 +195,7 @@ local function is_project_completed(project_name)
 					local heading_text = heading.text:gsub(" @%w+%([^%)]*%)", ""):gsub(" @%w+", "")
 					heading_text = parser.trim(heading_text)
 					if heading_text:lower() == project_name:lower() then
-						return true, nil -- Archived projects are always done
+						return true, nil
 					end
 				end
 			end
@@ -194,7 +205,6 @@ local function is_project_completed(project_name)
 	return false, nil
 end
 
--- Update OKR progress in the OKR file
 function M.update_okr_progress()
 	local okr_file = fs.get_okr_file()
 	if not okr_file or not fs.file_exists(okr_file) then
@@ -211,7 +221,6 @@ function M.update_okr_progress()
 	local current_objective_data = nil
 	local objective_kr_count = 0
 	local objective_kr_completed = 0
-	local objective_kr_newly_completed = {}
 
 	for i, line in ipairs(lines) do
 		-- Check if this is an objective
@@ -229,37 +238,20 @@ function M.update_okr_progress()
 				if is_completed and not was_completed then
 					new_line = update_done_attribute(new_line, true)
 
-					-- Award skill tree XP for objective completion
-					if skills then
-						current_objective_data.line_text = old_line
-						local skill_xp = skills.process_objective_completion(current_objective_data)
-						vim.notify(
-							string.format("OKR Objective completed! +%d Skill XP", skill_xp),
-							vim.log.levels.INFO
-						)
+					-- Award area XP for objective completion
+					local area_links = skills.get_area_links_for_heading(lines, current_objective_idx)
+					if #area_links > 0 then
+						current_objective_data.title = current_objective_data.title
+							or old_line:match("^## %w+ %d+ %d+ (.+)$")
+						local xp_awarded =
+							skills.process_objective_completion(current_objective_data, lines, current_objective_idx)
+						vim.notify(string.format("Objective completed! +%d Area XP", xp_awarded), vim.log.levels.INFO)
 					end
 				end
 
 				if new_line ~= old_line then
 					lines[current_objective_idx] = new_line
 					modified = true
-				end
-
-				-- Process any newly completed KRs
-				if skills then
-					for _, kr_data in ipairs(objective_kr_newly_completed) do
-						current_objective_data.completed_krs = kr_data.completed_krs
-						current_objective_data.total_krs = objective_kr_count
-						current_objective_data.line_text = old_line
-
-						local skill_xp = skills.process_kr_completion(current_objective_data, kr_data.line)
-						if skill_xp > 0 then
-							vim.notify(
-								string.format("Key Result completed! +%d Skill XP", skill_xp),
-								vim.log.levels.INFO
-							)
-						end
-					end
 				end
 			end
 
@@ -268,7 +260,6 @@ function M.update_okr_progress()
 			current_objective_data = okr_date
 			objective_kr_count = 0
 			objective_kr_completed = 0
-			objective_kr_newly_completed = {}
 		elseif line:match("^%s*- KR%-") then
 			-- This is a key result
 			if current_objective_idx then
@@ -291,12 +282,6 @@ function M.update_okr_progress()
 				-- Count as completed if has projects and all are done
 				if any_projects and all_completed then
 					objective_kr_completed = objective_kr_completed + 1
-
-					-- Track this as newly completed
-					table.insert(objective_kr_newly_completed, {
-						line = line,
-						completed_krs = objective_kr_completed,
-					})
 				end
 			end
 		end
@@ -313,31 +298,19 @@ function M.update_okr_progress()
 		if is_completed and not was_completed then
 			new_line = update_done_attribute(new_line, true)
 
-			-- Award skill tree XP for objective completion
-			if skills then
-				current_objective_data.line_text = old_line
-				local skill_xp = skills.process_objective_completion(current_objective_data)
-				vim.notify(string.format("OKR Objective completed! +%d Skill XP", skill_xp), vim.log.levels.INFO)
+			-- Award area XP
+			local area_links = skills.get_area_links_for_heading(lines, current_objective_idx)
+			if #area_links > 0 then
+				current_objective_data.title = current_objective_data.title or old_line:match("^## %w+ %d+ %d+ (.+)$")
+				local xp_awarded =
+					skills.process_objective_completion(current_objective_data, lines, current_objective_idx)
+				vim.notify(string.format("Objective completed! +%d Area XP", xp_awarded), vim.log.levels.INFO)
 			end
 		end
 
 		if new_line ~= old_line then
 			lines[current_objective_idx] = new_line
 			modified = true
-		end
-
-		-- Process any newly completed KRs
-		if skills then
-			for _, kr_data in ipairs(objective_kr_newly_completed) do
-				current_objective_data.completed_krs = kr_data.completed_krs
-				current_objective_data.total_krs = objective_kr_count
-				current_objective_data.line_text = old_line
-
-				local skill_xp = skills.process_kr_completion(current_objective_data, kr_data.line)
-				if skill_xp > 0 then
-					vim.notify(string.format("Key Result completed! +%d Skill XP", skill_xp), vim.log.levels.INFO)
-				end
-			end
 		end
 	end
 
@@ -349,23 +322,96 @@ function M.update_okr_progress()
 end
 
 -- =============================================================================
+-- Task Completion Command
+-- =============================================================================
+
+function M.complete_current_task()
+	local bufnr = 0
+	local line_num = vim.fn.line(".")
+	local lines = buffer.get_lines(bufnr)
+	local line = lines[line_num]
+
+	-- Check if it's a task
+	local is_task, is_completed = parser.is_task_line(line)
+	if not is_task then
+		vim.notify("Not on a task line", vim.log.levels.WARN)
+		return
+	end
+
+	if is_completed then
+		vim.notify("Task already completed", vim.log.levels.INFO)
+		return
+	end
+
+	-- Mark task as complete
+	local new_line = line:gsub("%[%s*%]", "[x]")
+	lines[line_num] = new_line
+	buffer.set_lines(bufnr, 0, -1, lines)
+
+	-- Find the project this task belongs to
+	local project_heading = nil
+	local project_line_num = nil
+	local task_position = 1
+	local total_tasks = 1
+
+	for i = line_num - 1, 1, -1 do
+		local heading = parser.parse_heading(lines[i])
+		if heading then
+			project_heading = heading
+			project_line_num = i
+
+			-- Count tasks in this project
+			local _, end_idx = buffer.find_section_bounds(lines, i)
+			local t, c, positions = count_project_tasks(lines, i, end_idx, heading.level)
+			total_tasks = t
+
+			-- Find our task position
+			for _, pos_info in ipairs(positions) do
+				if pos_info.line_num == line_num then
+					task_position = pos_info.position
+					break
+				end
+			end
+
+			break
+		end
+	end
+
+	if project_heading and project_line_num then
+		-- Get area links for the project
+		local area_links = skills.get_project_area_links(lines, project_line_num)
+
+		if #area_links > 0 then
+			-- Award XP for task completion
+			local xp_awarded =
+				skills.process_task_completion(project_heading.text, task_position, total_tasks, area_links)
+
+			vim.notify(string.format("Task complete! +%d XP", xp_awarded), vim.log.levels.INFO)
+
+			-- Update project progress
+			M.update_project_progress(bufnr)
+		else
+			vim.notify("Task completed (no area links for XP)", vim.log.levels.INFO)
+		end
+	else
+		vim.notify("Task completed", vim.log.levels.INFO)
+	end
+end
+
+-- =============================================================================
 -- Auto-update Setup
 -- =============================================================================
 
--- Setup autocmd for updating progress on buffer write
 function M.setup_autocmd()
 	vim.api.nvim_create_autocmd("BufWritePre", {
 		pattern = "*.zortex",
 		callback = function(args)
 			local filename = vim.fn.expand("%:t")
 
-			-- Update project progress for projects.zortex
 			if filename == "projects.zortex" then
 				M.update_project_progress(args.buf)
-				-- Also update OKR progress since projects may have changed
 				M.update_okr_progress()
 			elseif filename == "okr.zortex" then
-				-- Update OKR progress
 				M.update_okr_progress()
 			end
 		end,
@@ -377,7 +423,6 @@ end
 -- Manual Commands
 -- =============================================================================
 
--- Update all progress (projects and OKRs)
 function M.update_all_progress()
 	-- Find and update projects.zortex
 	local projects_file = fs.get_projects_file()
@@ -391,15 +436,6 @@ function M.update_all_progress()
 	M.update_okr_progress()
 
 	vim.notify("Updated progress for all projects and OKRs", vim.log.levels.INFO)
-end
-
--- =============================================================================
--- Module Setup
--- =============================================================================
-
--- Set skills module reference (called by init module to avoid circular dependency)
-function M.set_skills_module(skills_module)
-	skills = skills_module
 end
 
 return M

@@ -2,7 +2,7 @@
 local M = {}
 
 local old = {}
-old.telescope = require("zortex.old.telescope")
+old.telescope = require("zortex.ui.telescope")
 old.calendar = require("zortex.calendar")
 
 -- Core modules

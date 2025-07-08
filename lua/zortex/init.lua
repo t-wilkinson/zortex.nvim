@@ -152,12 +152,6 @@ function M.setup(opts)
 
 	-- Create keymaps
 	M.create_keymaps()
-
-	-- Load telescope extensions if available
-	pcall(function()
-		local telescope = require("zortex.telescope")
-		-- Register telescope commands
-	end)
 end
 
 -- =============================================================================
@@ -291,7 +285,7 @@ function M.create_commands()
 	cmd("ZortexStartSeason", function(opts)
 		local args = vim.split(opts.args, " ")
 		if #args < 2 then
-			vim.notify("Usage: ZortexStartSeason <name> <end-date>", vim.log.levels.ERROR)
+			vim.notify("Usage: ZortexStartSeason <name> <end-date YYYY-MM-DD>", vim.log.levels.ERROR)
 			vim.notify("Example: ZortexStartSeason Q1-2024 2024-03-31", vim.log.levels.INFO)
 			return
 		end
@@ -299,7 +293,7 @@ function M.create_commands()
 		local name = args[1]
 		local end_date = args[2]
 		xp.start_season(name, end_date)
-	end, { nargs = "+", desc = "Start a new season" })
+	end, { nargs = "*", desc = "Start a new season" })
 
 	cmd("ZortexEndSeason", function()
 		xp.end_season()
@@ -495,5 +489,6 @@ M.show_skill_tree = skill_tree_ui.show
 
 -- Initialize with default settings
 M.setup()
+-- require("zortex.completion_setup").setup()
 
 return M

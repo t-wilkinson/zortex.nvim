@@ -1,349 +1,391 @@
--- features/xp.lua - Experience Points system for Zortex
+-- features/xp.lua - Revamped XP System with Area and Project XP
 local M = {}
 
-local config = require("zortex.config")
+local xp_config = require("zortex.features.xp_config")
 local parser = require("zortex.core.parser")
 local fs = require("zortex.core.filesystem")
-local buffer = require("zortex.core.buffer")
 
 -- =============================================================================
--- XP Calculation Helpers
+-- State Management
 -- =============================================================================
 
--- Get XP percentage based on completion percentage
-local function get_xp_from_curve(completion_pct)
-	local curve = config.get("xp.completion_curve")
+local state = {
+	-- Area XP data: area_path -> { xp, level }
+	area_xp = {},
 
-	-- Find the two points to interpolate between
-	local lower_pct, lower_xp = 0, 0
-	local upper_pct, upper_xp = 1, 1
+	-- Project XP data: project_name -> { xp, level, task_count, completed_tasks }
+	project_xp = {},
 
-	for pct, xp in pairs(curve) do
-		if pct <= completion_pct and pct > lower_pct then
-			lower_pct = pct
-			lower_xp = xp
-		end
-		if pct >= completion_pct and pct < upper_pct then
-			upper_pct = pct
-			upper_xp = xp
-		end
+	-- Season data
+	current_season = nil,
+	season_xp = 0,
+	season_level = 1,
+}
+
+-- =============================================================================
+-- Area XP System
+-- =============================================================================
+
+-- Calculate level from XP
+function M.calculate_area_level(xp)
+	local level = 1
+	while xp >= xp_config.calculate_area_level_xp(level + 1) do
+		level = level + 1
 	end
-
-	-- Linear interpolation
-	if upper_pct == lower_pct then
-		return lower_xp
-	end
-
-	local t = (completion_pct - lower_pct) / (upper_pct - lower_pct)
-	return lower_xp + t * (upper_xp - lower_xp)
+	return level
 end
 
--- Calculate temporal multiplier based on OKR date
-local function calculate_temporal_multiplier(okr_info)
-	if not okr_info then
-		return 0.8
-	end
+-- Get area progress to next level
+function M.get_area_progress(xp)
+	local level = M.calculate_area_level(xp)
+	local current_threshold = xp_config.calculate_area_level_xp(level)
+	local next_threshold = xp_config.calculate_area_level_xp(level + 1)
 
-	if okr_info.is_current then
-		return 2.0
-	end
-
-	-- Calculate age in months
-	local current_date = os.date("*t")
-	local months_ago = parser.months_between(okr_info, current_date)
-
-	if months_ago <= 3 then
-		return 1.5
-	elseif months_ago <= 12 then
-		return 1.3
-	else
-		return 1.1
-	end
+	local progress = (xp - current_threshold) / (next_threshold - current_threshold)
+	return level, progress, next_threshold - xp
 end
 
--- =============================================================================
--- OKR Connection Detection
--- =============================================================================
-
--- Find OKR connection for a project
-local function find_okr_connection(project_heading)
-	local okr_file = fs.get_okr_file()
-	if not okr_file or not fs.file_exists(okr_file) then
-		return nil
+-- Add XP to area with bubbling
+function M.add_area_xp(area_path, xp_amount, parent_links)
+	-- Initialize if needed
+	if not state.area_xp[area_path] then
+		state.area_xp[area_path] = { xp = 0, level = 1 }
 	end
 
-	local lines = fs.read_lines(okr_file)
-	if not lines then
-		return nil
+	-- Add XP
+	local area = state.area_xp[area_path]
+	local old_level = area.level
+	area.xp = area.xp + xp_amount
+	area.level = M.calculate_area_level(area.xp)
+
+	-- Check for level up
+	if area.level > old_level then
+		vim.notify(string.format("Area Level Up! %s is now level %d", area_path, area.level), vim.log.levels.INFO)
 	end
 
-	local current_objective = nil
-	local in_current = false
-	local okr_info = nil
+	-- Bubble XP to parent areas
+	if parent_links and #parent_links > 0 then
+		local bubble_amount = math.floor(xp_amount * xp_config.get("area.bubble_percentage"))
 
-	for _, line in ipairs(lines) do
-		-- Check if we're in current objectives
-		if line:match("^# Current") then
-			in_current = true
-		elseif line:match("^# Previous") then
-			in_current = false
-		end
-
-		-- Parse objective line
-		local okr_date = parser.parse_okr_date(line)
-		if okr_date then
-			current_objective = vim.tbl_extend("force", okr_date, {
-				is_current = in_current,
-			})
-		end
-
-		-- Check for key result linking to our project
-		if current_objective and line:match("^%s*- KR%-") then
-			if parser.is_project_linked(line, project_heading) then
-				okr_info = current_objective
-				break
+		for _, parent_link in ipairs(parent_links) do
+			-- Parse the parent area link
+			local parsed = parser.parse_link_definition(parent_link)
+			if parsed and #parsed.components > 0 then
+				-- Build parent path from components
+				local parent_path = M.build_area_path(parsed.components)
+				if parent_path then
+					-- Recursive call without further parents to prevent infinite loops
+					M.add_area_xp(parent_path, bubble_amount, nil)
+				end
 			end
 		end
 	end
 
-	return okr_info
+	-- Save state
+	M.save_state()
 end
 
--- =============================================================================
--- Task XP Calculation
--- =============================================================================
+-- Build area path from link components
+function M.build_area_path(components)
+	local path_parts = {}
 
--- Create task data for XP calculation
-function M.create_task_data(line, project_heading, is_project)
-	local attrs = is_project and {} or parser.parse_task_attributes(line)
-	local okr_connection = project_heading and find_okr_connection(project_heading) or nil
-
-	return vim.tbl_extend("force", attrs, {
-		is_project = is_project,
-		size = is_project and "xl" or attrs.size,
-		okr_connection = okr_connection,
-	})
-end
-
--- Main XP calculation function
-function M.calculate_xp(task_data)
-	-- Skip objectives and key results for base XP
-	if task_data.is_objective or task_data.is_key_result then
-		return 0
-	end
-
-	local cfg = config.get("xp")
-
-	-- Base XP
-	local base_xp = task_data.is_project and cfg.base.project or cfg.base.task
-
-	-- OKR connection bonus
-	if task_data.okr_connection then
-		base_xp = base_xp * cfg.base.okr_connected_bonus
-	end
-
-	-- Size multiplier
-	local size_mult = task_data.is_project and cfg.project_sizes[task_data.size].multiplier
-		or cfg.task_sizes[task_data.size].multiplier
-
-	-- Priority multiplier
-	local priority_mult = task_data.priority and cfg.priority_multipliers[task_data.priority]
-		or cfg.priority_multipliers.default
-
-	-- Importance multiplier
-	local importance_mult = task_data.importance and cfg.importance_multipliers[task_data.importance]
-		or cfg.importance_multipliers.default
-
-	-- Temporal multiplier
-	local temporal_mult = calculate_temporal_multiplier(task_data.okr_connection)
-
-	-- Calculate total XP
-	local total_xp = base_xp * size_mult * priority_mult * importance_mult * temporal_mult
-
-	-- Apply penalties if needed
-	if task_data.is_overdue then
-		total_xp = total_xp * 0.9
-	end
-
-	return math.floor(total_xp + 0.5)
-end
-
--- =============================================================================
--- Project XP Calculation
--- =============================================================================
-
--- Calculate total project XP based on attributes
-function M.calculate_project_total_xp(project_attrs, okr_connection)
-	local cfg = config.get("xp")
-	local base_xp = cfg.base.project
-
-	-- Size multiplier
-	local size_mult = cfg.project_sizes[project_attrs.size].multiplier
-
-	-- Priority multiplier
-	local priority_mult = project_attrs.priority and cfg.priority_multipliers[project_attrs.priority]
-		or cfg.priority_multipliers.default
-
-	-- Importance multiplier
-	local importance_mult = project_attrs.importance and cfg.importance_multipliers[project_attrs.importance]
-		or cfg.importance_multipliers.default
-
-	-- OKR bonus
-	local okr_mult = 1.0
-	if okr_connection then
-		okr_mult = cfg.base.okr_connected_bonus
-		-- Also apply span multiplier
-		if okr_connection.span then
-			okr_mult = okr_mult * (cfg.span_multipliers[okr_connection.span] or 1.0)
+	for _, comp in ipairs(components) do
+		if comp.type == "article" and (comp.text == "A" or comp.text == "Areas") then
+			-- Skip the "A" or "Areas" prefix
+		elseif comp.type == "heading" or comp.type == "label" then
+			table.insert(path_parts, comp.text)
 		end
-		-- Apply temporal multiplier
-		okr_mult = okr_mult * calculate_temporal_multiplier(okr_connection)
 	end
 
-	return math.floor(base_xp * size_mult * priority_mult * importance_mult * okr_mult + 0.5)
-end
-
--- Calculate XP for completing a task within a project
-function M.calculate_task_xp_in_project(task_data, project_data)
-	-- First get base task XP
-	local base_task_xp = M.calculate_xp(task_data)
-
-	-- If project doesn't track completion, just return base XP
-	if not project_data.total_tasks or project_data.total_tasks == 0 then
-		return base_task_xp
+	if #path_parts > 0 then
+		return table.concat(path_parts, "/")
 	end
 
-	-- Calculate completion percentages before and after this task
-	local before_pct = (project_data.completed_tasks - 1) / project_data.total_tasks
-	local after_pct = project_data.completed_tasks / project_data.total_tasks
-
-	-- Get XP percentages from curve
-	local before_xp_pct = get_xp_from_curve(before_pct)
-	local after_xp_pct = get_xp_from_curve(after_pct)
-
-	-- Calculate the project XP portion for this task
-	local project_total_xp = M.calculate_project_total_xp(project_data.attrs, project_data.okr_connection)
-	local project_xp_portion = project_total_xp * (after_xp_pct - before_xp_pct)
-
-	return math.floor(base_task_xp + project_xp_portion + 0.5)
+	return nil
 end
 
 -- =============================================================================
--- OKR Objective XP
+-- Project XP System
 -- =============================================================================
 
--- Calculate XP for completing an OKR objective
-function M.calculate_okr_objective_xp(okr_data)
-	local cfg = config.get("xp")
-	local base_xp = cfg.base.okr_objective
+-- Calculate season level from XP
+function M.calculate_season_level(xp)
+	local level = 1
+	while xp >= xp_config.calculate_season_level_xp(level + 1) do
+		level = level + 1
+	end
+	return level
+end
 
-	-- Span multiplier
-	local span_mult = cfg.span_multipliers[okr_data.span] or 1.0
+-- Initialize project tracking
+function M.init_project(project_name)
+	if not state.project_xp[project_name] then
+		state.project_xp[project_name] = {
+			xp = 0,
+			level = 1,
+			task_count = 0,
+			completed_tasks = 0,
+		}
+	end
+end
 
-	-- Temporal multiplier
-	local temporal_mult = calculate_temporal_multiplier(okr_data)
+-- Add XP for completed task
+function M.complete_task(project_name, task_position, total_tasks, area_links)
+	M.init_project(project_name)
 
-	return math.floor(base_xp * span_mult * temporal_mult + 0.5)
+	local project = state.project_xp[project_name]
+	project.completed_tasks = project.completed_tasks + 1
+	project.task_count = math.max(project.task_count, total_tasks)
+
+	-- Calculate task XP
+	local task_xp = xp_config.calculate_task_xp(task_position, total_tasks)
+	project.xp = project.xp + task_xp
+
+	-- Add to season XP
+	if state.current_season then
+		state.season_xp = state.season_xp + task_xp
+		local old_level = state.season_level
+		state.season_level = M.calculate_season_level(state.season_xp)
+
+		-- Check for season level up
+		if state.season_level > old_level then
+			local tier = xp_config.get_season_tier(state.season_level)
+			vim.notify(
+				string.format("Season Level %d! Tier: %s", state.season_level, tier and tier.name or "Max"),
+				vim.log.levels.INFO
+			)
+		end
+	end
+
+	-- Transfer 10% to linked areas
+	if area_links and #area_links > 0 then
+		local transfer_rate = xp_config.get("project.area_transfer_rate")
+		local area_xp = math.floor(task_xp * transfer_rate)
+
+		-- Split evenly among linked areas
+		local xp_per_area = math.floor(area_xp / #area_links)
+		for _, area_link in ipairs(area_links) do
+			local parsed = parser.parse_link_definition(area_link)
+			if parsed then
+				local area_path = M.build_area_path(parsed.components)
+				if area_path then
+					M.add_area_xp(area_path, xp_per_area, nil)
+				end
+			end
+		end
+	end
+
+	-- Check for project completion
+	if task_position == total_tasks then
+		vim.notify(string.format("Project Complete! %s earned %d XP", project_name, project.xp), vim.log.levels.INFO)
+	end
+
+	-- Save state
+	M.save_state()
+
+	return task_xp
 end
 
 -- =============================================================================
--- Public API
+-- Objective Completion
 -- =============================================================================
 
--- Get XP for completing a task
-function M.get_task_xp(task_line, project_heading)
-	local attrs = parser.parse_task_attributes(task_line)
-	local okr_connection = project_heading and find_okr_connection(project_heading) or nil
+-- Complete an objective (awards area XP)
+function M.complete_objective(objective_text, time_horizon, area_links, created_date)
+	-- Calculate base XP with time multiplier
+	local base_xp = 500 -- Base objective XP
+	local time_mult = xp_config.get_time_multiplier(time_horizon)
 
-	local task_data = vim.tbl_extend("force", attrs, {
-		is_project = false,
-		okr_connection = okr_connection,
-	})
+	-- Calculate decay if objective is old
+	local decay_factor = 1.0
+	if created_date then
+		local days_old = math.floor((os.time() - created_date) / 86400)
+		decay_factor = xp_config.calculate_decay_factor(days_old)
+	end
 
-	return M.calculate_xp(task_data)
+	local total_xp = math.floor(base_xp * time_mult * decay_factor)
+
+	-- Award XP to linked areas
+	if area_links and #area_links > 0 then
+		-- Split evenly among areas
+		local xp_per_area = math.floor(total_xp / #area_links)
+
+		for _, area_link in ipairs(area_links) do
+			local parsed = parser.parse_link_definition(area_link)
+			if parsed then
+				local area_path = M.build_area_path(parsed.components)
+				if area_path then
+					-- Include parent links for bubbling
+					M.add_area_xp(area_path, xp_per_area, area_links)
+				end
+			end
+		end
+
+		vim.notify(string.format("Objective Complete! +%d Area XP", total_xp), vim.log.levels.INFO)
+	end
+
+	return total_xp
 end
 
--- Get XP for completing a project
-function M.get_project_xp(project_heading)
-	local okr_connection = find_okr_connection(project_heading)
+-- =============================================================================
+-- Season Management
+-- =============================================================================
 
-	local project_data = {
-		is_project = true,
-		size = "xl",
-		priority = nil,
-		importance = nil,
-		okr_connection = okr_connection,
+-- Start a new season
+function M.start_season(name, end_date)
+	state.current_season = {
+		name = name,
+		start_date = os.date("%Y-%m-%d"),
+		end_date = end_date,
+		start_time = os.time(),
+	}
+	state.season_xp = 0
+	state.season_level = 1
+
+	M.save_state()
+
+	vim.notify(string.format("Season '%s' started! Ends: %s", name, end_date), vim.log.levels.INFO)
+end
+
+-- End current season
+function M.end_season()
+	if not state.current_season then
+		vim.notify("No active season", vim.log.levels.WARN)
+		return
+	end
+
+	local season = state.current_season
+	local final_tier = xp_config.get_season_tier(state.season_level)
+
+	-- Archive season data
+	local season_data = {
+		name = season.name,
+		start_date = season.start_date,
+		end_date = os.date("%Y-%m-%d"),
+		final_level = state.season_level,
+		final_xp = state.season_xp,
+		final_tier = final_tier and final_tier.name or "None",
+		projects_completed = 0,
 	}
 
-	return M.calculate_xp(project_data)
+	-- Count completed projects
+	for _, project in pairs(state.project_xp) do
+		if project.completed_tasks == project.task_count and project.task_count > 0 then
+			season_data.projects_completed = season_data.projects_completed + 1
+		end
+	end
+
+	-- Reset season data
+	state.current_season = nil
+	state.season_xp = 0
+	state.season_level = 1
+
+	-- Reset project data for new season
+	state.project_xp = {}
+
+	M.save_state()
+
+	vim.notify(
+		string.format(
+			"Season '%s' ended! Final: Level %d (%s tier), %d projects completed",
+			season_data.name,
+			season_data.final_level,
+			season_data.final_tier,
+			season_data.projects_completed
+		),
+		vim.log.levels.INFO
+	)
+
+	return season_data
 end
 
--- Get estimated duration for a task
-function M.get_task_duration(task_line)
-	local attrs = parser.parse_task_attributes(task_line)
-	local cfg = config.get("xp")
+-- Get current season status
+function M.get_season_status()
+	if not state.current_season then
+		return nil
+	end
 
-	-- Use explicit duration/estimation if available
-	if attrs.duration then
-		return attrs.duration
-	elseif attrs.estimation then
-		return attrs.estimation
-	else
-		-- Use size-based default
-		return cfg.task_sizes[attrs.size].duration
+	local tier = xp_config.get_season_tier(state.season_level)
+	local next_tier = xp_config.get_next_tier(state.season_level)
+	local progress = xp_config.calculate_tier_progress(state.season_xp, state.season_level)
+
+	return {
+		season = state.current_season,
+		level = state.season_level,
+		xp = state.season_xp,
+		current_tier = tier,
+		next_tier = next_tier,
+		progress_to_next = progress,
+	}
+end
+
+-- =============================================================================
+-- State Persistence
+-- =============================================================================
+
+function M.save_state()
+	local data_file = fs.get_file_path(".zortex/xp_state.json")
+	if data_file then
+		fs.write_json(data_file, state)
 	end
 end
 
--- Get XP breakdown for display
-function M.get_xp_breakdown(task_data)
-	local cfg = config.get("xp")
-	local breakdown = {}
+function M.load_state()
+	local data_file = fs.get_file_path(".zortex/xp_state.json")
+	if data_file then
+		local loaded = fs.read_json(data_file)
+		if loaded then
+			state = loaded
+			return true
+		end
+	end
+	return false
+end
 
-	-- Base XP
-	local base_xp = task_data.is_project and cfg.base.project or cfg.base.task
-	table.insert(breakdown, string.format("Base XP: %d", base_xp))
+-- =============================================================================
+-- Query Functions
+-- =============================================================================
 
-	-- OKR connection
-	if task_data.okr_connection then
-		local bonus = cfg.base.okr_connected_bonus
-		table.insert(breakdown, string.format("OKR Connected: x%.1f", bonus))
+-- Get all area stats
+function M.get_area_stats()
+	local stats = {}
+
+	for path, data in pairs(state.area_xp) do
+		local level, progress, xp_needed = M.get_area_progress(data.xp)
+		stats[path] = {
+			xp = data.xp,
+			level = level,
+			progress = progress,
+			xp_to_next = xp_needed,
+		}
 	end
 
-	-- Size
-	local size_mult = task_data.is_project and cfg.project_sizes[task_data.size].multiplier
-		or cfg.task_sizes[task_data.size].multiplier
-	table.insert(breakdown, string.format("Size (%s): x%.1f", task_data.size, size_mult))
+	return stats
+end
 
-	-- Priority
-	if task_data.priority then
-		local priority_mult = cfg.priority_multipliers[task_data.priority]
-		table.insert(breakdown, string.format("Priority (%s): x%.1f", task_data.priority, priority_mult))
+-- Get project stats
+function M.get_project_stats()
+	local stats = {}
+
+	for name, data in pairs(state.project_xp) do
+		stats[name] = {
+			xp = data.xp,
+			completed_tasks = data.completed_tasks,
+			total_tasks = data.task_count,
+			completion_rate = data.task_count > 0 and (data.completed_tasks / data.task_count) or 0,
+		}
 	end
 
-	-- Importance
-	if task_data.importance then
-		local importance_mult = cfg.importance_multipliers[task_data.importance]
-		table.insert(breakdown, string.format("Importance (%s): x%.1f", task_data.importance, importance_mult))
-	end
+	return stats
+end
 
-	-- OKR span
-	if task_data.okr_connection and task_data.okr_connection.span then
-		local span_mult = cfg.span_multipliers[task_data.okr_connection.span]
-		table.insert(breakdown, string.format("OKR Span (%s): x%.1f", task_data.okr_connection.span, span_mult))
-	end
+-- =============================================================================
+-- Setup
+-- =============================================================================
 
-	-- Temporal
-	if task_data.okr_connection then
-		local temporal_mult = calculate_temporal_multiplier(task_data.okr_connection)
-		local status = task_data.okr_connection.is_current and "Current" or "Past"
-		table.insert(breakdown, string.format("Temporal (%s): x%.1f", status, temporal_mult))
-	end
-
-	-- Total
-	local total_xp = M.calculate_xp(task_data)
-	table.insert(breakdown, string.format("Total XP: %d", total_xp))
-
-	return breakdown
+function M.setup(opts)
+	xp_config.setup(opts)
+	M.load_state()
 end
 
 return M

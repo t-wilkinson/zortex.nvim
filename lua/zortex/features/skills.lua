@@ -1,29 +1,15 @@
--- features/skills.lua - Skill tree system for Zortex
+-- features/skills.lua - Revamped Skills System for Area progression
 local M = {}
 
-local config = require("zortex.config")
 local parser = require("zortex.core.parser")
 local fs = require("zortex.core.filesystem")
-
--- Cached data
-local area_tree = nil
-local area_tree_timestamp = nil
-local area_xp = {}
+local xp = require("zortex.features.xp")
 
 -- =============================================================================
--- Tree Node Type
+-- Area Tree Management
 -- =============================================================================
 
--- @class AreaNode
--- @field name string Display name
--- @field path string Full path in tree
--- @field level number Depth in tree (1 for root)
--- @field children table Array of child nodes
--- @field parent AreaNode|nil Parent node
--- @field xp number Current XP for this node
--- @field total_xp number Total XP including children
-
--- Create a new area node
+-- Tree node structure
 local function create_node(name, path, level, parent)
 	return {
 		name = name,
@@ -31,17 +17,12 @@ local function create_node(name, path, level, parent)
 		level = level,
 		children = {},
 		parent = parent,
-		xp = 0,
-		total_xp = 0,
+		xp_data = nil, -- Will be populated from XP system
 	}
 end
 
--- =============================================================================
--- Area Tree Parsing
--- =============================================================================
-
--- Parse areas.zortex and build tree structure
-local function parse_areas_file()
+-- Parse areas file to build tree
+function M.parse_areas_file()
 	local areas_file = fs.get_areas_file()
 	if not areas_file or not fs.file_exists(areas_file) then
 		return nil
@@ -67,7 +48,7 @@ local function parse_areas_file()
 		if heading_level > 0 then
 			local heading = parser.parse_heading(line)
 			if heading then
-				-- Clean text of attributes
+				-- Clean text
 				local text = heading.text:gsub(" @%w+%([^%)]*%)", ""):gsub(" @%w+", "")
 				text = parser.trim(text)
 
@@ -96,7 +77,7 @@ local function parse_areas_file()
 			-- Check for label
 			local label = line:match("^(%w[^:]*):$")
 			if label then
-				-- Find parent (most recent heading)
+				-- Find parent
 				local parent = nil
 				for level = 10, 0, -1 do
 					if current_nodes[level] then
@@ -109,7 +90,6 @@ local function parse_areas_file()
 					local path = parent.path .. "/" .. label
 					local node = create_node(label, path, parent.level + 1, parent)
 					table.insert(parent.children, node)
-					-- Labels can be parents too
 					current_nodes[parent.level + 1] = node
 				end
 			end
@@ -121,8 +101,30 @@ local function parse_areas_file()
 	return root
 end
 
--- Find node by path in tree
-local function find_node_by_path(root, path)
+-- Apply XP data to tree
+function M.apply_xp_to_tree(root)
+	if not root then
+		return
+	end
+
+	local area_stats = xp.get_area_stats()
+
+	-- Recursive function to apply XP data
+	local function apply_to_node(node)
+		if node.path and node.path ~= "" then
+			node.xp_data = area_stats[node.path]
+		end
+
+		for _, child in ipairs(node.children) do
+			apply_to_node(child)
+		end
+	end
+
+	apply_to_node(root)
+end
+
+-- Find node by path
+function M.find_node_by_path(root, path)
 	if not path or path == "" then
 		return nil
 	end
@@ -137,7 +139,7 @@ local function find_node_by_path(root, path)
 
 	-- Search children
 	for _, child in ipairs(root.children) do
-		local found = find_node_by_path(child, path)
+		local found = M.find_node_by_path(child, path)
 		if found then
 			return found
 		end
@@ -147,360 +149,164 @@ local function find_node_by_path(root, path)
 end
 
 -- =============================================================================
--- XP Distribution
+-- Area Link Extraction
 -- =============================================================================
 
--- Get XP percentage from completion curve
-local function get_xp_from_curve(completion_pct)
-	local cfg = config.get("skills")
-	local curve = cfg.objective_base_xp
+-- Extract area links from a line (space-separated zortex links)
+function M.extract_area_links(line)
+	local links = {}
 
-	local lower_pct, lower_xp = 0, 0
-	local upper_pct, upper_xp = 1, 1
-
-	-- Find appropriate points in curve
-	local sorted_pcts = {}
-	for pct, _ in pairs(curve) do
-		table.insert(sorted_pcts, pct)
-	end
-	table.sort(sorted_pcts)
-
-	for _, pct in ipairs(sorted_pcts) do
-		if pct <= completion_pct and pct > lower_pct then
-			lower_pct = pct
-			lower_xp = curve[pct]
-		end
-		if pct >= completion_pct and pct < upper_pct then
-			upper_pct = pct
-			upper_xp = curve[pct]
+	-- Look for zortex-style links
+	for link in line:gmatch("%[([^%]]+)%]") do
+		-- Skip if it's a task checkbox
+		if not link:match("^%s*[xX~@]?%s*$") then
+			table.insert(links, link)
 		end
 	end
 
-	-- Linear interpolation
-	if upper_pct == lower_pct then
-		return lower_xp
-	end
-
-	local t = (completion_pct - lower_pct) / (upper_pct - lower_pct)
-	return lower_xp + t * (upper_xp - lower_xp)
+	return links
 end
 
--- Distribute XP among areas based on distribution curve
-local function distribute_xp(total_xp, area_paths)
-	local cfg = config.get("skills")
-	local distribution = {}
-	local num_areas = #area_paths
-
-	if num_areas == 0 then
-		return distribution
+-- Extract area links from the line below a heading
+function M.get_area_links_for_heading(lines, heading_line_num)
+	if heading_line_num >= #lines then
+		return {}
 	end
 
-	if cfg.distribution_curve == "even" then
-		-- Even distribution
-		local xp_per_area = total_xp / num_areas
-		for _, path in ipairs(area_paths) do
-			distribution[path] = xp_per_area
-		end
-	elseif cfg.distribution_curve == "weighted" then
-		-- Weighted distribution
-		local weights = cfg.distribution_weights
-		if num_areas == 1 then
-			distribution[area_paths[1]] = total_xp
-		elseif num_areas == 2 then
-			distribution[area_paths[1]] = total_xp * weights.primary
-			distribution[area_paths[2]] = total_xp * (1 - weights.primary)
-		else
-			-- Primary gets primary weight
-			distribution[area_paths[1]] = total_xp * weights.primary
+	local next_line = lines[heading_line_num + 1]
 
-			-- Secondary areas share secondary weight
-			local secondary_count = math.min(2, num_areas - 1)
-			local secondary_xp = (total_xp * weights.secondary) / secondary_count
-			for i = 2, math.min(3, num_areas) do
-				distribution[area_paths[i]] = secondary_xp
-			end
-
-			-- Remaining share tertiary
-			if num_areas > 3 then
-				local tertiary_xp = (total_xp * weights.tertiary) / (num_areas - 3)
-				for i = 4, num_areas do
-					distribution[area_paths[i]] = tertiary_xp
-				end
-			end
-		end
-	else
-		-- Primary mode - all to first area
-		distribution[area_paths[1]] = total_xp
+	-- Check if next line contains links (not another heading or task)
+	if not parser.get_heading_level(next_line) and not parser.is_task_line(next_line) and next_line:match("%[.+%]") then
+		return M.extract_area_links(next_line)
 	end
 
-	return distribution
-end
-
--- Add XP to node and bubble up
-local function add_xp_to_node(node, xp_amount)
-	if not node or xp_amount <= 0 then
-		return
-	end
-
-	local cfg = config.get("skills")
-
-	-- Add to current node
-	node.xp = node.xp + xp_amount
-
-	-- Save to persistent storage
-	if not area_xp[node.path] then
-		area_xp[node.path] = 0
-	end
-	area_xp[node.path] = area_xp[node.path] + xp_amount
-
-	-- Save data after each update
-	M.save_xp_data()
-
-	-- Bubble up to parent with multiplier
-	if node.parent then
-		local bubbled_xp = xp_amount * cfg.bubble_multiplier
-		add_xp_to_node(node.parent, bubbled_xp)
-	end
+	return {}
 end
 
 -- =============================================================================
--- OKR Processing
+-- Integration with OKR/Project Systems
 -- =============================================================================
 
--- Process completed key result
-function M.process_kr_completion(objective_data, kr_line)
-	local cfg = config.get("skills")
+-- Process objective completion (from OKR file)
+function M.process_objective_completion(objective_data, lines, line_num)
+	-- Extract area links from line below objective
+	local area_links = M.get_area_links_for_heading(lines, line_num)
 
-	-- Get objective base XP
-	local base_xp = cfg.objective_base_xp[objective_data.span] or 100
+	if #area_links > 0 then
+		local time_horizon = objective_data.span or "quarterly"
+		local created_date = objective_data.created_date
 
-	-- Calculate completion percentage
-	local completed_krs = objective_data.completed_krs or 0
-	local total_krs = objective_data.total_krs or 1
-	local completion_pct = completed_krs / total_krs
-
-	-- Get XP for this completion level
-	local xp_pct = get_xp_from_curve(completion_pct)
-	local total_xp = base_xp * xp_pct
-
-	-- Get previous completion XP
-	local prev_pct = (completed_krs - 1) / total_krs
-	local prev_xp_pct = get_xp_from_curve(prev_pct)
-	local prev_xp = base_xp * prev_xp_pct
-
-	-- Calculate XP earned for this KR
-	local earned_xp = total_xp - prev_xp
-
-	-- Parse area links from objective
-	local area_paths = parser.extract_area_links(objective_data.line_text)
-
-	if #area_paths == 0 then
-		return 0
+		return xp.complete_objective(objective_data.title, time_horizon, area_links, created_date)
 	end
 
-	-- Ensure tree is loaded
-	M.ensure_tree_loaded()
-	if not area_tree then
-		return 0
-	end
-
-	-- Distribute XP among areas
-	local distribution = distribute_xp(earned_xp, area_paths)
-
-	-- Apply XP to each area
-	for path, xp_amount in pairs(distribution) do
-		local node = find_node_by_path(area_tree, path)
-		if node then
-			add_xp_to_node(node, xp_amount)
-		end
-	end
-
-	return earned_xp
+	return 0
 end
 
--- Process completed objective
-function M.process_objective_completion(objective_data)
-	local cfg = config.get("skills")
+-- Process task completion in a project
+function M.process_task_completion(project_name, task_position, total_tasks, project_area_links)
+	return xp.complete_task(project_name, task_position, total_tasks, project_area_links)
+end
 
-	-- Get total objective XP
-	local total_xp = cfg.objective_base_xp[objective_data.span] or 100
-
-	-- Parse area links
-	local area_paths = parser.extract_area_links(objective_data.line_text)
-
-	if #area_paths == 0 then
-		return 0
-	end
-
-	-- Ensure tree is loaded
-	M.ensure_tree_loaded()
-	if not area_tree then
-		return 0
-	end
-
-	-- Distribute XP among areas
-	local distribution = distribute_xp(total_xp, area_paths)
-
-	-- Apply XP to each area
-	for path, xp_amount in pairs(distribution) do
-		local node = find_node_by_path(area_tree, path)
-		if node then
-			add_xp_to_node(node, xp_amount)
-		end
-	end
-
-	return total_xp
+-- Get area links for a project
+function M.get_project_area_links(lines, project_line_num)
+	return M.get_area_links_for_heading(lines, project_line_num)
 end
 
 -- =============================================================================
--- Tree Management
+-- Tree Statistics
 -- =============================================================================
 
--- Ensure area tree is loaded and up to date
-function M.ensure_tree_loaded()
-	local areas_file = fs.get_areas_file()
-	if not areas_file then
-		return
+-- Calculate total XP for a node (including children)
+function M.calculate_total_xp(node)
+	local total = 0
+
+	-- Add own XP
+	if node.xp_data and node.xp_data.xp then
+		total = node.xp_data.xp
 	end
 
-	local current_mtime = vim.fn.getftime(areas_file)
-
-	-- Reload if file changed or not loaded
-	if not area_tree or not area_tree_timestamp or current_mtime > area_tree_timestamp then
-		area_tree = parse_areas_file()
-		area_tree_timestamp = current_mtime
-
-		-- Apply saved XP to tree
-		if area_tree then
-			M.apply_saved_xp()
-		end
+	-- Add children's XP
+	for _, child in ipairs(node.children) do
+		total = total + M.calculate_total_xp(child)
 	end
+
+	return total
 end
 
--- Apply saved XP data to tree
-function M.apply_saved_xp()
-	if not area_tree then
-		return
-	end
+-- Get top areas by XP
+function M.get_top_areas(root, limit)
+	limit = limit or 10
+	local areas = {}
 
-	-- Reset all XP in tree
-	local function reset_node(node)
-		node.xp = 0
-		node.total_xp = 0
+	-- Collect all areas with XP
+	local function collect_areas(node)
+		if node.xp_data and node.xp_data.xp > 0 then
+			table.insert(areas, {
+				path = node.path,
+				name = node.name,
+				xp = node.xp_data.xp,
+				level = node.xp_data.level,
+			})
+		end
+
 		for _, child in ipairs(node.children) do
-			reset_node(child)
-		end
-	end
-	reset_node(area_tree)
-
-	-- Apply saved XP
-	for path, xp in pairs(area_xp) do
-		local node = find_node_by_path(area_tree, path)
-		if node then
-			node.xp = xp
+			collect_areas(child)
 		end
 	end
 
-	-- Calculate total XP (including children)
-	local function calculate_totals(node)
-		node.total_xp = node.xp
-		for _, child in ipairs(node.children) do
-			calculate_totals(child)
-			node.total_xp = node.total_xp + child.total_xp
-		end
-	end
-	calculate_totals(area_tree)
-end
-
--- =============================================================================
--- Level Calculation
--- =============================================================================
-
--- Calculate level from XP
-function M.calculate_level(xp)
-	local cfg = config.get("skills")
-	local level = 0
-	local remaining_xp = xp
-
-	for i, threshold in ipairs(cfg.level_thresholds) do
-		if xp >= threshold then
-			level = i
-		else
-			break
-		end
+	if root then
+		collect_areas(root)
 	end
 
-	-- Calculate progress to next level
-	local current_threshold = level > 0 and cfg.level_thresholds[level] or 0
-	local next_threshold = cfg.level_thresholds[level + 1]
-	local progress = 0
+	-- Sort by XP
+	table.sort(areas, function(a, b)
+		return a.xp > b.xp
+	end)
 
-	if next_threshold then
-		local level_xp = xp - current_threshold
-		local level_requirement = next_threshold - current_threshold
-		progress = level_xp / level_requirement
-	else
-		-- Max level reached
-		progress = 1.0
+	-- Return top N
+	local result = {}
+	for i = 1, math.min(limit, #areas) do
+		table.insert(result, areas[i])
 	end
 
-	return level, progress, current_threshold, next_threshold
-end
-
--- =============================================================================
--- Data Persistence
--- =============================================================================
-
--- Save XP data to file
-function M.save_xp_data()
-	local data_file = fs.get_skill_data_file()
-	if not data_file then
-		return false
-	end
-
-	return fs.write_json(data_file, area_xp)
-end
-
--- Load XP data from file
-function M.load_xp_data()
-	local data_file = fs.get_skill_data_file()
-	if not data_file then
-		return false
-	end
-
-	local data = fs.read_json(data_file)
-	if data then
-		area_xp = data
-		return true
-	end
-
-	return false
+	return result
 end
 
 -- =============================================================================
 -- Public API
 -- =============================================================================
 
--- Get the area tree (ensure it's loaded first)
+-- Get the area tree with XP data
 function M.get_area_tree()
-	M.ensure_tree_loaded()
-	return area_tree
+	local tree = M.parse_areas_file()
+	if tree then
+		M.apply_xp_to_tree(tree)
+	end
+	return tree
 end
 
--- Manually add XP to an area (for debugging)
-function M.add_xp(area_path, xp_amount)
-	M.ensure_tree_loaded()
-	if not area_tree then
-		return false
-	end
+-- Manually add XP to an area
+function M.add_area_xp(area_path, xp_amount, parent_links)
+	return xp.add_area_xp(area_path, xp_amount, parent_links)
+end
 
-	local node = find_node_by_path(area_tree, area_path)
-	if node then
-		add_xp_to_node(node, xp_amount)
-		return true
-	end
+-- Get current season status
+function M.get_season_status()
+	return xp.get_season_status()
+end
 
-	return false
+-- Season management
+function M.start_season(name, end_date)
+	return xp.start_season(name, end_date)
+end
+
+function M.end_season()
+	return xp.end_season()
+end
+
+-- Get project statistics
+function M.get_project_stats()
+	return xp.get_project_stats()
 end
 
 return M

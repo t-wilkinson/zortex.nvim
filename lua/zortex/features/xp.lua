@@ -108,6 +108,12 @@ end
 -- Project XP System
 -- =============================================================================
 
+--- Return how many tasks the XP system has recorded as finished for a project.
+function M.get_project_completed_tasks(project_name)
+	local proj = state.project_xp[project_name]
+	return (proj and proj.completed_tasks) or 0
+end
+
 -- Calculate season level from XP
 function M.calculate_season_level(xp)
 	local level = 1
@@ -141,47 +147,73 @@ function M.complete_task(project_name, task_position, total_tasks, area_links)
 	local task_xp = xp_config.calculate_task_xp(task_position, total_tasks)
 	project.xp = project.xp + task_xp
 
+	-- Track old season level for notification
+	local old_season_level = state.season_level
+	local old_season_tier = nil
+
 	-- Add to season XP
 	if state.current_season then
+		old_season_tier = xp_config.get_season_tier(old_season_level)
 		state.season_xp = state.season_xp + task_xp
-		local old_level = state.season_level
 		state.season_level = M.calculate_season_level(state.season_xp)
-
-		-- Check for season level up
-		if state.season_level > old_level then
-			local tier = xp_config.get_season_tier(state.season_level)
-			vim.notify(
-				string.format("Season Level %d! Tier: %s", state.season_level, tier and tier.name or "Max"),
-				vim.log.levels.INFO
-			)
-		end
 	end
 
-	-- Transfer 10% to linked areas
+	-- Transfer to linked areas with detailed tracking
+	local area_transfers = {}
 	if area_links and #area_links > 0 then
 		local transfer_rate = xp_config.get("project.area_transfer_rate")
 		local area_xp = math.floor(task_xp * transfer_rate)
-
-		-- Split evenly among linked areas
 		local xp_per_area = math.floor(area_xp / #area_links)
+
 		for _, area_link in ipairs(area_links) do
 			local parsed = parser.parse_link_definition(area_link)
 			if parsed then
 				local area_path = M.build_area_path(parsed.components)
 				if area_path then
 					M.add_area_xp(area_path, xp_per_area, nil)
+					table.insert(area_transfers, {
+						path = area_path,
+						xp = xp_per_area,
+					})
 				end
 			end
 		end
 	end
 
-	-- Check for project completion
-	if task_position == total_tasks then
-		vim.notify(string.format("Project Complete! %s earned %d XP", project_name, project.xp), vim.log.levels.INFO)
+	-- Save state immediately
+	M.save_state()
+
+	-- Enhanced notification
+	local notifications = require("zortex.features.xp_notifications")
+	local details = {
+		project_name = project_name,
+		task_position = task_position,
+		total_tasks = total_tasks,
+		area_links = area_links,
+		area_transfers = area_transfers,
+	}
+
+	-- Add season info if applicable
+	if state.current_season then
+		local new_tier = xp_config.get_season_tier(state.season_level)
+		details.season_info = {
+			name = state.current_season.name,
+			level = state.season_level,
+			old_level = old_season_level,
+			tier = new_tier and new_tier.name,
+			level_up = state.season_level > old_season_level,
+		}
 	end
 
-	-- Save state
-	M.save_state()
+	notifications.notify_xp_earned("Project", task_xp, details)
+
+	-- Additional notification for project completion
+	if task_position == total_tasks then
+		vim.notify(
+			string.format("🎉 Project Complete! %s earned %d total XP", project_name, project.xp),
+			vim.log.levels.WARN
+		)
+	end
 
 	return task_xp
 end
@@ -193,7 +225,7 @@ end
 -- Complete an objective (awards area XP)
 function M.complete_objective(objective_text, time_horizon, area_links, created_date)
 	-- Calculate base XP with time multiplier
-	local base_xp = 500 -- Base objective XP
+	local base_xp = 500
 	local time_mult = xp_config.get_time_multiplier(time_horizon)
 
 	-- Calculate decay if objective is old
@@ -205,9 +237,11 @@ function M.complete_objective(objective_text, time_horizon, area_links, created_
 
 	local total_xp = math.floor(base_xp * time_mult * decay_factor)
 
+	-- Track area awards for notification
+	local area_awards = {}
+
 	-- Award XP to linked areas
 	if area_links and #area_links > 0 then
-		-- Split evenly among areas
 		local xp_per_area = math.floor(total_xp / #area_links)
 
 		for _, area_link in ipairs(area_links) do
@@ -215,14 +249,28 @@ function M.complete_objective(objective_text, time_horizon, area_links, created_
 			if parsed then
 				local area_path = M.build_area_path(parsed.components)
 				if area_path then
-					-- Include parent links for bubbling
 					M.add_area_xp(area_path, xp_per_area, area_links)
+					table.insert(area_awards, {
+						path = area_path,
+						xp = xp_per_area,
+					})
 				end
 			end
 		end
-
-		vim.notify(string.format("Objective Complete! +%d Area XP", total_xp), vim.log.levels.INFO)
 	end
+
+	-- Save state immediately
+	M.save_state()
+
+	-- Enhanced notification
+	local notifications = require("zortex.features.xp_notifications")
+	notifications.notify_xp_earned("Area", total_xp, {
+		objective_text = objective_text,
+		time_horizon = time_horizon,
+		area_links = area_links,
+		area_awards = area_awards,
+		decay_applied = decay_factor < 1.0,
+	})
 
 	return total_xp
 end
@@ -326,7 +374,12 @@ end
 function M.save_state()
 	local data_file = fs.get_file_path(".zortex/xp_state.json")
 	if data_file then
-		fs.write_json(data_file, state)
+		local success = fs.write_json(data_file, state)
+		if not success then
+			vim.notify("Failed to save XP state!", vim.log.levels.ERROR)
+		end
+	else
+		vim.notify("XP state file path not found!", vim.log.levels.ERROR)
 	end
 end
 
@@ -336,9 +389,22 @@ function M.load_state()
 		local loaded = fs.read_json(data_file)
 		if loaded then
 			state = loaded
+			-- Ensure all required fields exist
+			state.area_xp = state.area_xp or {}
+			state.project_xp = state.project_xp or {}
+			state.season_xp = state.season_xp or 0
+			state.season_level = state.season_level or 1
 			return true
 		end
 	end
+	-- Initialize with defaults if load fails
+	state = {
+		area_xp = {},
+		project_xp = {},
+		season_xp = 0,
+		season_level = 1,
+		current_season = nil,
+	}
 	return false
 end
 

@@ -3,8 +3,8 @@
 
 local M = {}
 
-local Utils = require("zortex.calendar.utils")
-local Projects = require("zortex.old.projects")
+local Utils = require("zortex.legacy.calendar.utils")
+local Projects = require("zortex.modules.projects")
 
 -- =============================================================================
 -- Helper Functions
@@ -855,7 +855,7 @@ function M.calendar(opts)
 					local selection = action_state.get_selected_entry()
 					if selection then
 						-- Open calendar UI at this date
-						local ui = require("zortex.calendar.ui")
+						local ui = require("zortex.legacy.calendar")
 						ui.open()
 						-- Set the current date to the selected date
 						local y, m, d = selection.value.value:match("(%d%d%d%d)%-(%d%d)%-(%d%d)")

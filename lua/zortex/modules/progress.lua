@@ -5,8 +5,8 @@ local parser = require("zortex.core.parser")
 local fs = require("zortex.core.filesystem")
 local buffer = require("zortex.core.buffer")
 local constants = require("zortex.constants")
-local skills = require("zortex.features.skills")
-local xp = require("zortex.features.xp")
+local skills = require("zortex.modules.skills")
+local xp = require("zortex.modules.xp")
 
 -- =============================================================================
 -- Progress Attribute Management
@@ -74,6 +74,16 @@ function M.update_project_progress(bufnr)
 	local lines = buffer.get_lines(bufnr)
 	local modified = false
 
+	-- Reload XP state to ensure we have the latest data
+	xp.load_state()
+
+	-- Batch XP awards to avoid notification spam
+	local xp_awards = {
+		tasks = {},
+		projects = {},
+		total_xp = 0,
+	}
+
 	-- Get all headings
 	local headings = buffer.get_all_headings(bufnr)
 
@@ -100,15 +110,28 @@ function M.update_project_progress(bufnr)
 
 		-- Get area links for this project
 		local area_links = skills.get_project_area_links(lines, lnum)
-		-- vim.notify(table.concat(area_links, ","), vim.log.levels.WARN)
 
 		-- Award XP for tasks that became "[x]" since the last save
 		local prev_completed = xp.get_project_completed_tasks(heading_info.text)
-		if completed > prev_completed then
+
+		-- Only process if there are new completions
+		if completed > prev_completed and total > 0 then
+			-- Calculate XP for all newly completed tasks
+			local project_xp = 0
 			for pos = prev_completed + 1, completed do
-				-- We don’t need to know the exact line – tasks are assumed to complete
-				-- sequentially; pos gives deterministic XP according to config.
-				skills.process_task_completion(heading_info.text, pos, total, area_links)
+				local task_xp = skills.process_task_completion(heading_info.text, pos, total, area_links, true) -- true = silent mode
+				project_xp = project_xp + (task_xp or 0)
+			end
+
+			-- Store for batch notification
+			if project_xp > 0 then
+				table.insert(xp_awards.tasks, {
+					project = heading_info.text,
+					count = completed - prev_completed,
+					xp = project_xp,
+					area_links = area_links,
+				})
+				xp_awards.total_xp = xp_awards.total_xp + project_xp
 			end
 		end
 
@@ -120,10 +143,13 @@ function M.update_project_progress(bufnr)
 		if total > 0 and completed == total and not old_line:match(constants.PATTERNS.DONE_DATE) then
 			new_line = update_done_attribute(new_line, true)
 
-			-- Award completion bonus if area links exist
-			if #area_links > 0 then
-				skills.process_task_completion(heading_info.text, total, total, area_links)
-				vim.notify(string.format("Project '%s' completed!", heading_info.text), vim.log.levels.INFO)
+			-- Award completion bonus if area links exist and project wasn't already completed
+			if #area_links > 0 and prev_completed < total then
+				local bonus_xp = skills.process_task_completion(heading_info.text, total, total, area_links, true)
+				table.insert(xp_awards.projects, {
+					name = heading_info.text,
+					xp = bonus_xp or 0,
+				})
 			end
 		elseif total > 0 and completed < total and old_line:match(constants.PATTERNS.DONE_DATE) then
 			-- Remove done if tasks were added after completion
@@ -134,11 +160,51 @@ function M.update_project_progress(bufnr)
 			lines[lnum] = new_line
 			modified = true
 		end
+
+		-- Update the XP system's completed task count to match reality
+		-- This ensures the count stays in sync even if state was corrupted
+		xp.sync_project_completed_tasks(heading_info.text, completed)
+	end
+
+	-- Show batch notification if any XP was earned
+	if xp_awards.total_xp > 0 then
+		local notification_lines = {}
+		table.insert(notification_lines, string.format("✨ Progress Update: +%d XP Total", xp_awards.total_xp))
+
+		if #xp_awards.tasks > 0 then
+			table.insert(notification_lines, "")
+			table.insert(notification_lines, "📋 Tasks Completed:")
+			for _, award in ipairs(xp_awards.tasks) do
+				table.insert(
+					notification_lines,
+					string.format(
+						"  • %s: %d task%s (+%d XP)",
+						award.project,
+						award.count,
+						award.count > 1 and "s" or "",
+						award.xp
+					)
+				)
+			end
+		end
+
+		if #xp_awards.projects > 0 then
+			table.insert(notification_lines, "")
+			table.insert(notification_lines, "🎉 Projects Completed:")
+			for _, project in ipairs(xp_awards.projects) do
+				table.insert(notification_lines, string.format("  • %s (+%d XP bonus)", project.name, project.xp))
+			end
+		end
+
+		vim.notify(table.concat(notification_lines, "\n"), vim.log.levels.INFO)
 	end
 
 	if modified then
 		buffer.set_lines(bufnr, 0, -1, lines)
 	end
+
+	-- Save XP state after all updates
+	xp.save_state()
 
 	return modified
 end

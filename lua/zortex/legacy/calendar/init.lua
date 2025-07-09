@@ -1,9 +1,9 @@
 local M = {}
 
 -- Load submodules
-local ui = require("zortex.calendar.ui")
-local utils = require("zortex.calendar.utils")
-local notifications = require("zortex.calendar.notifications")
+local ui = require("zortex.legacy.calendar.ui")
+local utils = require("zortex.legacy.calendar.utils")
+local notifications = require("zortex.legacy.calendar.notifications")
 
 -- Re-export main functions
 M.open = ui.open

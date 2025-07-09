@@ -1,11 +1,11 @@
 -- features/xp_notifications.lua - Enhanced XP notifications and preview commands
 local M = {}
 
-local xp = require("zortex.features.xp")
-local xp_config = require("zortex.features.xp_config")
+local xp = require("zortex.modules.xp")
+local xp_config = require("zortex.modules.xp_config")
 local parser = require("zortex.core.parser")
 local buffer = require("zortex.core.buffer")
-local skills = require("zortex.features.skills")
+local skills = require("zortex.modules.skills")
 
 -- =============================================================================
 -- Enhanced Notifications
@@ -299,28 +299,6 @@ function M.preview_project_xp()
 	end
 
 	vim.notify(table.concat(preview_lines, "\n"), vim.log.levels.INFO)
-end
-
--- =============================================================================
--- Commands
--- =============================================================================
-
-function M.setup_commands()
-	-- Preview commands
-	vim.api.nvim_create_user_command("ZortexPreviewTaskXP", M.preview_task_xp, {
-		desc = "Preview XP for completing current task",
-	})
-
-	vim.api.nvim_create_user_command("ZortexPreviewProjectXP", M.preview_project_xp, {
-		desc = "Preview XP for completing current project",
-	})
-
-	-- XP system info
-	vim.api.nvim_create_user_command("ZortexXPInfo", function()
-		M.show_xp_overview()
-	end, {
-		desc = "Show XP system overview",
-	})
 end
 
 -- =============================================================================

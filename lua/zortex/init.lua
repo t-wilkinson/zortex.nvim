@@ -1,9 +1,6 @@
+--[[
 -- init.lua - Main entry point for integrated Zortex
 local M = {}
-
-local old = {}
-old.telescope = require("zortex.ui.telescope")
-old.calendar = require("zortex.calendar")
 
 -- Core modules
 local config = require("zortex.config")
@@ -24,6 +21,357 @@ local projects = require("zortex.features.projects")
 local search = require("zortex.features.search")
 
 -- UI modules
+local telescope_ui = require("zortex.ui.telescope")
+local calendar_ui = require("zortex.ui.calendar")
+local skill_tree_ui = require("zortex.ui.skill_tree")
+
+-- =============================================================================
+-- Default Configuration
+-- =============================================================================
+
+M.defaults = {
+	-- Server settings
+	zortex_remote_server = "",
+	zortex_remote_server_dir = "/www/zortex",
+	zortex_remote_wiki_port = "8080",
+	zortex_auto_start_server = false,
+	zortex_auto_start_preview = true,
+	zortex_special_articles = { "structure", "inbox" },
+	zortex_auto_close = true,
+	zortex_refresh_slow = false,
+	zortex_command_for_global = false,
+	zortex_open_to_the_world = false,
+	zortex_open_ip = "",
+	zortex_echo_preview_url = false,
+	zortex_browserfunc = "",
+	zortex_browser = "",
+	zortex_markdown_css = "",
+	zortex_highlight_css = "",
+	zortex_port = "8080",
+	zortex_page_title = "「${name}」",
+
+	-- File settings
+	zortex_filetype = "zortex",
+	zortex_extension = ".zortex",
+	zortex_window_direction = "down",
+	zortex_window_width = "40%",
+	zortex_window_command = "",
+	zortex_preview_direction = "right",
+	zortex_preview_width = "",
+	zortex_root_dir = vim.fn.expand("$HOME/.zortex") .. "/",
+	zortex_notes_dir = vim.fn.expand("$HOME/.zortex") .. "/",
+
+	-- Preview options
+	zortex_preview_options = {
+		mkit = {},
+		katex = {},
+		uml = {},
+		maid = {},
+		disable_sync_scroll = 0,
+		sync_scroll_type = "middle",
+		hide_yaml_meta = 1,
+		sequence_diagrams = {},
+		flowchart_diagrams = {},
+		content_editable = false,
+		disable_filename = 0,
+		toc = {},
+	},
+
+	-- Feature configurations
+	xp = {},
+	skills = {},
+
+	-- UI configurations
+	ui = {
+		calendar = {
+			window = {
+				width = 0.8,
+				height = 0.8,
+			},
+			colors = {
+				today = "DiagnosticOk",
+				selected = "CursorLine",
+				weekend = "Comment",
+				has_entry = "DiagnosticInfo",
+			},
+		},
+		telescope = {
+			-- Optional telescope-specific config
+		},
+	},
+}
+
+-- =============================================================================
+-- Module Setup
+-- =============================================================================
+
+function M.setup(opts)
+	opts = opts or {}
+
+	-- Merge options with defaults
+	local full_opts = vim.tbl_deep_extend("force", M.defaults, opts)
+
+	-- Set vim globals for compatibility
+	for k, v in pairs(full_opts) do
+		if k:match("^zortex_") then
+			vim.g[k] = v
+		end
+	end
+
+	-- Initialize configuration system
+	config.setup({
+		xp = full_opts.xp,
+		skills = full_opts.skills,
+		ui = full_opts.ui,
+		archive = full_opts.archive,
+	})
+
+	-- Initialize XP system with configuration
+	xp.setup(full_opts.xp)
+	xp_config.setup(full_opts.xp)
+
+	-- Initialize UI modules
+	calendar_ui.setup(full_opts.ui.calendar)
+
+	-- Load saved data
+	xp.load_state()
+	calendar.load()
+	projects.load()
+
+	-- Set up autocmds
+	M.setup_autocmds()
+
+	-- Create user commands
+	M.create_commands()
+
+	-- Create keymaps
+	M.create_keymaps()
+
+	-- Load telescope extensions if available
+	pcall(function()
+		-- Register telescope commands are now handled in create_commands
+	end)
+end
+
+-- =============================================================================
+-- Autocmds
+-- =============================================================================
+
+function M.setup_autocmds()
+	local group = vim.api.nvim_create_augroup("Zortex", { clear = true })
+
+	-- Progress tracking
+	vim.api.nvim_create_autocmd("BufWritePre", {
+		pattern = "*.zortex",
+		callback = function(args)
+			local filename = vim.fn.expand("%:t")
+
+			if filename == "projects.zortex" then
+				progress.update_project_progress(args.buf)
+			elseif filename == "okr.zortex" then
+				progress.update_okr_progress(args.buf)
+			end
+		end,
+		group = group,
+	})
+
+	-- XP tracking for task completion
+	vim.api.nvim_create_autocmd("TextChanged", {
+		pattern = "*.zortex",
+		callback = function()
+			-- Debounced XP tracking could be added here
+		end,
+		group = group,
+	})
+
+	-- Calendar refresh on file changes
+	vim.api.nvim_create_autocmd("BufWritePost", {
+		pattern = "calendar.zortex",
+		callback = function()
+			calendar.load()
+		end,
+		group = group,
+	})
+
+	-- Projects refresh on file changes
+	vim.api.nvim_create_autocmd("BufWritePost", {
+		pattern = "projects.zortex",
+		callback = function()
+			projects.load()
+		end,
+		group = group,
+	})
+end
+
+-- =============================================================================
+-- Commands
+-- =============================================================================
+
+function M.create_commands()
+	local cmd = vim.api.nvim_create_user_command
+
+	-- Core commands
+	cmd("Zortex", function()
+		vim.notify("Zortex loaded. Use :help zortex for more information.", vim.log.levels.INFO)
+	end, { desc = "Show Zortex info" })
+
+	-- Navigation commands
+	cmd("ZortexSearch", function(opts)
+		search.search_interactive(opts.args)
+	end, { nargs = "*", desc = "Search Zortex notes" })
+
+	cmd("ZortexLink", function()
+		links.follow_link()
+	end, { desc = "Follow link under cursor" })
+
+	cmd("ZortexBack", function()
+		links.go_back()
+	end, { desc = "Go back in navigation history" })
+
+	-- Archive commands
+	cmd("ZortexArchiveProject", function()
+		archive.archive_current_project()
+	end, { desc = "Archive current project" })
+
+	-- XP commands
+	cmd("ZortexXP", function()
+		xp.show_stats()
+	end, { desc = "Show XP statistics" })
+
+	cmd("ZortexSeasonStart", function(opts)
+		xp.start_season(opts.args)
+	end, { nargs = "?", desc = "Start new XP season" })
+
+	cmd("ZortexSeasonEnd", function()
+		xp.end_season()
+	end, { desc = "End current XP season" })
+
+	-- Skill tree command
+	cmd("ZortexSkillTree", function()
+		skill_tree_ui.open()
+	end, { desc = "Open skill tree visualization" })
+
+	-- UI Commands - Telescope
+	cmd("ZortexCalendarSearch", telescope_ui.calendar, { desc = "Search calendar entries" })
+	cmd("ZortexProjects", telescope_ui.projects, { desc = "Browse projects" })
+	cmd("ZortexDigest", telescope_ui.today_digest, { desc = "Today's digest" })
+	cmd("ZortexAreas", telescope_ui.areas, { desc = "Area progress overview" })
+
+	-- UI Commands - Calendar
+	cmd("ZortexCalendar", calendar_ui.open, { desc = "Open visual calendar" })
+	cmd("ZortexCalendarToggle", calendar_ui.toggle, { desc = "Toggle calendar" })
+	cmd("ZortexDigestBuffer", calendar_ui.show_digest_buffer, { desc = "Show digest in buffer" })
+
+	-- Legacy compatibility (optional)
+	cmd("ZortexDigestTelescope", telescope_ui.today_digest, { desc = "Today's digest (telescope)" })
+end
+
+-- =============================================================================
+-- Keymaps
+-- =============================================================================
+
+function M.create_keymaps()
+	local keymap = vim.keymap.set
+
+	-- Leader key prefix for Zortex commands
+	local prefix = "<leader>z"
+
+	-- Navigation
+	-- keymap("n", prefix .. "l", links.follow_link, { desc = "Follow link" })
+	-- keymap("n", prefix .. "b", links.go_back, { desc = "Go back" })
+	-- keymap("n", prefix .. "s", ":ZortexSearch ", { desc = "Search notes" })
+
+	-- -- Calendar and scheduling
+	-- keymap("n", prefix .. "c", calendar_ui.toggle, { desc = "Toggle calendar" })
+	-- keymap("n", prefix .. "C", telescope_ui.calendar, { desc = "Search calendar" })
+	-- keymap("n", prefix .. "d", telescope_ui.today_digest, { desc = "Today's digest" })
+	-- keymap("n", prefix .. "D", calendar_ui.show_digest_buffer, { desc = "Digest buffer" })
+
+	-- -- Projects
+	-- keymap("n", prefix .. "p", telescope_ui.projects, { desc = "Browse projects" })
+	-- keymap("n", prefix .. "a", telescope_ui.areas, { desc = "Area progress" })
+
+	-- -- XP and skills
+	-- keymap("n", prefix .. "x", xp.show_stats, { desc = "Show XP stats" })
+	-- keymap("n", prefix .. "t", skill_tree_ui.open, { desc = "Skill tree" })
+
+	-- -- Archive
+	-- keymap("n", prefix .. "A", archive.archive_current_project, { desc = "Archive project" })
+
+	-- -- Quick actions
+	-- keymap("n", "<C-]>", links.follow_link, { desc = "Follow link" })
+	-- keymap("n", "<C-t>", links.go_back, { desc = "Go back" })
+end
+
+-- =============================================================================
+-- Public API
+-- =============================================================================
+
+-- Re-export commonly used functions
+M.search = search.search_interactive
+M.follow_link = links.follow_link
+M.calendar = calendar_ui.open
+M.projects = telescope_ui.projects
+M.digest = telescope_ui.today_digest
+
+-- Provide access to modules
+M.modules = {
+	calendar = calendar,
+	projects = projects,
+	xp = xp,
+	skills = skills,
+	links = links,
+	archive = archive,
+	progress = progress,
+}
+
+-- UI modules
+M.ui = {
+	telescope = telescope_ui,
+	calendar = calendar_ui,
+	skill_tree = skill_tree_ui,
+}
+
+-- Core modules (for extensions)
+M.core = {
+	parser = parser,
+	buffer = buffer,
+	filesystem = fs,
+	search = core_search,
+}
+
+return M
+]]
+
+-- init.lua - Main entry point for integrated Zortex
+local M = {}
+
+local old = {}
+old.telescope = require("zortex.ui.telescope")
+old.calendar = require("zortex.calendar")
+
+-- Core modules
+local config = require("zortex.config")
+local parser = require("zortex.core.parser")
+local fs = require("zortex.core.filesystem")
+local buffer = require("zortex.core.buffer")
+local core_search = require("zortex.core.search")
+
+-- Feature modules
+local xp_notifications = require("zortex.features.xp_notifications")
+local xp_config = require("zortex.features.xp_config")
+local xp = require("zortex.features.xp")
+local archive = require("zortex.features.archive")
+local progress = require("zortex.features.progress")
+local skills = require("zortex.features.skills")
+local links = require("zortex.features.links")
+local calendar = require("zortex.features.calendar")
+local projects = require("zortex.features.projects")
+local search = require("zortex.features.search")
+
+-- UI modules
+local telescope_ui = require("zortex.ui.telescope")
+local calendar_ui = require("zortex.ui.calendar")
 local skill_tree_ui = require("zortex.ui.skill_tree")
 
 -- =============================================================================
@@ -138,6 +486,7 @@ function M.setup(opts)
 	-- Initialize XP system with configuration
 	xp.setup(full_opts.xp)
 	xp_config.setup(full_opts.xp)
+	xp_notifications.setup_commands()
 
 	-- Load saved data
 	xp.load_state()

@@ -6,13 +6,14 @@ local fs = require("zortex.core.filesystem")
 local buffer = require("zortex.core.buffer")
 local constants = require("zortex.constants")
 local skills = require("zortex.features.skills")
+local xp = require("zortex.features.xp")
 
 -- =============================================================================
 -- Progress Attribute Management
 -- =============================================================================
 
 local function update_progress_attribute(line, completed, total)
-	local cleaned = line:gsub(constants.PATTERNS.PROGRESS, "")
+	local cleaned = line:gsub(" " .. constants.PATTERNS.PROGRESS, "")
 
 	if total > 0 then
 		return cleaned .. string.format(" @progress(%d/%d)", completed, total)
@@ -22,7 +23,7 @@ local function update_progress_attribute(line, completed, total)
 end
 
 local function update_done_attribute(line, done)
-	local cleaned = line:gsub(constants.PATTERNS.DONE_DATE, "")
+	local cleaned = line:gsub(" " .. constants.PATTERNS.DONE_DATE, "")
 
 	if done then
 		local date = os.date("%Y-%m-%d")
@@ -76,6 +77,11 @@ function M.update_project_progress(bufnr)
 	-- Get all headings
 	local headings = buffer.get_all_headings(bufnr)
 
+	local count = 0
+	for _ in pairs(headings) do
+		count = count + 1
+	end
+
 	for i, heading_info in ipairs(headings) do
 		local lnum = heading_info.lnum
 		local level = heading_info.level
@@ -94,14 +100,15 @@ function M.update_project_progress(bufnr)
 
 		-- Get area links for this project
 		local area_links = skills.get_project_area_links(lines, lnum)
+		-- vim.notify(table.concat(area_links, ","), vim.log.levels.WARN)
 
-		-- Check for newly completed tasks
-		if #area_links > 0 then
-			for _, task_info in ipairs(task_positions) do
-				if task_info.completed then
-					-- Check if this task was just completed (would need state tracking)
-					-- For now, we'll handle this in the task completion command
-				end
+		-- Award XP for tasks that became "[x]" since the last save
+		local prev_completed = xp.get_project_completed_tasks(heading_info.text)
+		if completed > prev_completed then
+			for pos = prev_completed + 1, completed do
+				-- We don’t need to know the exact line – tasks are assumed to complete
+				-- sequentially; pos gives deterministic XP according to config.
+				skills.process_task_completion(heading_info.text, pos, total, area_links)
 			end
 		end
 

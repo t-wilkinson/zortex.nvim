@@ -1,7 +1,7 @@
 -- features/xp.lua - Revamped XP System with Area and Project XP
 local M = {}
 
-local xp_config = require("zortex.features.xp_config")
+local xp_config = require("zortex.modules.xp_config")
 local parser = require("zortex.core.parser")
 local fs = require("zortex.core.filesystem")
 
@@ -114,6 +114,20 @@ function M.get_project_completed_tasks(project_name)
 	return (proj and proj.completed_tasks) or 0
 end
 
+--- Sync the completed task count with the actual count from the file
+function M.sync_project_completed_tasks(project_name, actual_completed)
+	if not state.project_xp[project_name] then
+		M.init_project(project_name)
+	end
+
+	local project = state.project_xp[project_name]
+	-- Only update if the actual count is higher (tasks can't be uncompleted)
+	if actual_completed > project.completed_tasks then
+		project.completed_tasks = actual_completed
+		-- Don't save here - let the caller handle saving after all updates
+	end
+end
+
 -- Calculate season level from XP
 function M.calculate_season_level(xp)
 	local level = 1
@@ -136,7 +150,7 @@ function M.init_project(project_name)
 end
 
 -- Add XP for completed task
-function M.complete_task(project_name, task_position, total_tasks, area_links)
+function M.complete_task(project_name, task_position, total_tasks, area_links, silent)
 	M.init_project(project_name)
 
 	local project = state.project_xp[project_name]
@@ -183,36 +197,39 @@ function M.complete_task(project_name, task_position, total_tasks, area_links)
 	-- Save state immediately
 	M.save_state()
 
-	-- Enhanced notification
-	local notifications = require("zortex.features.xp_notifications")
-	local details = {
-		project_name = project_name,
-		task_position = task_position,
-		total_tasks = total_tasks,
-		area_links = area_links,
-		area_transfers = area_transfers,
-	}
-
-	-- Add season info if applicable
-	if state.current_season then
-		local new_tier = xp_config.get_season_tier(state.season_level)
-		details.season_info = {
-			name = state.current_season.name,
-			level = state.season_level,
-			old_level = old_season_level,
-			tier = new_tier and new_tier.name,
-			level_up = state.season_level > old_season_level,
+	-- Only show notification if not in silent mode
+	if not silent then
+		-- Enhanced notification
+		local notifications = require("zortex.modules.xp_notifications")
+		local details = {
+			project_name = project_name,
+			task_position = task_position,
+			total_tasks = total_tasks,
+			area_links = area_links,
+			area_transfers = area_transfers,
 		}
-	end
 
-	notifications.notify_xp_earned("Project", task_xp, details)
+		-- Add season info if applicable
+		if state.current_season then
+			local new_tier = xp_config.get_season_tier(state.season_level)
+			details.season_info = {
+				name = state.current_season.name,
+				level = state.season_level,
+				old_level = old_season_level,
+				tier = new_tier and new_tier.name,
+				level_up = state.season_level > old_season_level,
+			}
+		end
 
-	-- Additional notification for project completion
-	if task_position == total_tasks then
-		vim.notify(
-			string.format("🎉 Project Complete! %s earned %d total XP", project_name, project.xp),
-			vim.log.levels.WARN
-		)
+		notifications.notify_xp_earned("Project", task_xp, details)
+
+		-- Additional notification for project completion
+		if task_position == total_tasks then
+			vim.notify(
+				string.format("🎉 Project Complete! %s earned %d total XP", project_name, project.xp),
+				vim.log.levels.WARN
+			)
+		end
 	end
 
 	return task_xp
@@ -263,7 +280,7 @@ function M.complete_objective(objective_text, time_horizon, area_links, created_
 	M.save_state()
 
 	-- Enhanced notification
-	local notifications = require("zortex.features.xp_notifications")
+	local notifications = require("zortex.modules.xp_notifications")
 	notifications.notify_xp_earned("Area", total_xp, {
 		objective_text = objective_text,
 		time_horizon = time_horizon,
@@ -374,6 +391,10 @@ end
 function M.save_state()
 	local data_file = fs.get_file_path(".zortex/xp_state.json")
 	if data_file then
+		-- Ensure directory exists
+		local dir = vim.fn.fnamemodify(data_file, ":h")
+		vim.fn.mkdir(dir, "p")
+
 		local success = fs.write_json(data_file, state)
 		if not success then
 			vim.notify("Failed to save XP state!", vim.log.levels.ERROR)
@@ -385,7 +406,7 @@ end
 
 function M.load_state()
 	local data_file = fs.get_file_path(".zortex/xp_state.json")
-	if data_file then
+	if data_file and vim.fn.filereadable(data_file) == 1 then
 		local loaded = fs.read_json(data_file)
 		if loaded then
 			state = loaded
@@ -394,6 +415,15 @@ function M.load_state()
 			state.project_xp = state.project_xp or {}
 			state.season_xp = state.season_xp or 0
 			state.season_level = state.season_level or 1
+
+			-- Ensure each project has all required fields
+			for project_name, project_data in pairs(state.project_xp) do
+				project_data.xp = project_data.xp or 0
+				project_data.level = project_data.level or 1
+				project_data.task_count = project_data.task_count or 0
+				project_data.completed_tasks = project_data.completed_tasks or 0
+			end
+
 			return true
 		end
 	end

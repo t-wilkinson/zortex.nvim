@@ -1,5 +1,5 @@
-local Utils = require("zortex.calendar.utils")
-local Projects = require("zortex.old.projects")
+local Utils = require("zortex.legacy.calendar.utils")
+local Projects = require("zortex.modules.projects")
 
 local M = {}
 

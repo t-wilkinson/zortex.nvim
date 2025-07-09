@@ -2,7 +2,7 @@
 -- Renders the calendar views, handles navigation, and user input.
 
 -- The data layer, responsible for all data operations.
-local Utils = require("zortex.calendar.utils")
+local Utils = require("zortex.legacy.calendar.utils")
 
 local M = {}
 
@@ -337,7 +337,7 @@ end
 
 --- Apply syntax highlighting to the calendar buffer.
 local function apply_highlights(lines)
-	local ns_id = api.nvim_create_namespace("zortex_calendar")
+	local ns_id = api.nvim_create_namespace("zortex.legacy.calendar")
 	api.nvim_buf_clear_namespace(ui_state.calendar_buf, ns_id, 0, -1)
 
 	for i, line in ipairs(lines) do
@@ -534,7 +534,7 @@ function M.open()
 
 	ui_state.calendar_buf = api.nvim_create_buf(false, true)
 	vim.bo[ui_state.calendar_buf].buftype = "nofile"
-	vim.bo[ui_state.calendar_buf].filetype = "zortex-calendar"
+	vim.bo[ui_state.calendar_buf].filetype = "zortex.legacy.calendar"
 
 	local width, height = 85, 30
 	ui_state.calendar_win = api.nvim_open_win(ui_state.calendar_buf, true, {

@@ -7,8 +7,8 @@ local buffer = require("zortex.core.buffer")
 local fs = require("zortex.core.filesystem")
 
 -- Feature dependencies
-local calendar = require("zortex.features.calendar")
-local projects = require("zortex.features.projects")
+local calendar = require("zortex.modules.calendar")
+local projects = require("zortex.modules.projects")
 
 -- UI dependencies
 local api = vim.api
@@ -319,7 +319,7 @@ function Renderer.render_month_view(date)
 end
 
 function Renderer.apply_highlights(bufnr, highlights)
-	local ns_id = api.nvim_create_namespace("zortex_calendar")
+	local ns_id = api.nvim_create_namespace("zortex.legacy.calendar")
 	api.nvim_buf_clear_namespace(bufnr, ns_id, 0, -1)
 
 	for _, hl in ipairs(highlights) do
@@ -723,6 +723,8 @@ function M.setup(opts)
 	if opts then
 		Config = vim.tbl_deep_extend("force", Config, opts)
 	end
+
+	calendar.load()
 end
 
 return M

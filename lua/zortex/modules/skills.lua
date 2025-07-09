@@ -3,7 +3,7 @@ local M = {}
 
 local parser = require("zortex.core.parser")
 local fs = require("zortex.core.filesystem")
-local xp = require("zortex.features.xp")
+local xp = require("zortex.modules.xp")
 
 -- =============================================================================
 -- Area Tree Management
@@ -203,8 +203,8 @@ function M.process_objective_completion(objective_data, lines, line_num)
 end
 
 -- Process task completion in a project
-function M.process_task_completion(project_name, task_position, total_tasks, project_area_links)
-	return xp.complete_task(project_name, task_position, total_tasks, project_area_links)
+function M.process_task_completion(project_name, task_position, total_tasks, project_area_links, silent)
+	return xp.complete_task(project_name, task_position, total_tasks, project_area_links, silent)
 end
 
 -- Get area links for a project

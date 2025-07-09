@@ -3,7 +3,7 @@ local M = {}
 
 local parser = require("zortex.core.parser")
 local fs = require("zortex.core.filesystem")
-local search_managers = require("zortex.features.search_managers")
+local search_managers = require("zortex.modules.search_managers")
 
 -- =============================================================================
 -- Search Token Parsing

@@ -1,11 +1,11 @@
 -- ui/skill_tree.lua - Revamped Skill Tree UI for dual progression system
 local M = {}
 
-local config = require("zortex.config")
+local config = require("zortex.core.config")
 local constants = require("zortex.constants")
-local skills = require("zortex.features.skills")
-local xp = require("zortex.features.xp")
-local xp_config = require("zortex.features.xp_config")
+local skills = require("zortex.modules.skills")
+local xp = require("zortex.modules.xp")
+local xp_config = require("zortex.modules.xp_config")
 
 -- =============================================================================
 -- Display Helpers

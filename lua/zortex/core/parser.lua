@@ -2,7 +2,7 @@
 local M = {}
 
 local constants = require("zortex.constants")
-local config = require("zortex.config")
+local config = require("zortex.core.config")
 
 -- =============================================================================
 -- Section Types (unified from search.lua)

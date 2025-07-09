@@ -13,19 +13,13 @@ lua require('zortex')
 
 let g:zortex_loaded = 1
 
-" TODO: would this be better in lua or vimscript?
-" Convert it to the most intuitive/natural and improve the overall structure
-" of the code.
-
-" TODO: use dictionaries to set default values instead
-" helper function to set the default value of a setting, prefixing it with
-" 'zortex_'
 function s:def_value(name, value)
     if !exists('g:zortex_' . a:name)
         let g:['zortex_' . a:name] = a:value
     endif
 endfunction
 
+call s:def_value('fenced_languages', ['python', 'javascript', 'bindzone', 'rust', 'bash', 'sh', 'json', 'sql'])
 call s:def_value('remote_server', '')
 call s:def_value('remote_server_dir', '/www/zortex')
 call s:def_value('remote_wiki_port', '8080')
@@ -176,16 +170,16 @@ function! s:init() abort
         autocmd!
         autocmd BufEnter * :call s:init_command()
 
-        if g:zortex_command_for_global
-        else
-            autocmd BufEnter,FileType * if index(g:zortex_filetypes, &filetype) !=# -1 | call s:init_command() | endif
-        endif
-        if g:zortex_auto_start_server
-            call zortex#util#try_start_server()
-        endif
-        if g:zortex_auto_start_preview
-            execute 'autocmd BufEnter *.{' . join(g:zortex_filetypes, ',') . '} call zortex#autocmd#init()'
-        endif
+        " if g:zortex_command_for_global
+        " else
+        "     autocmd BufEnter,FileType * if index(g:zortex_filetypes, &filetype) !=# -1 | call s:init_command() | endif
+        " endif
+        " if g:zortex_auto_start_server
+        "     call zortex#util#try_start_server()
+        " endif
+        " if g:zortex_auto_start_preview
+        "     execute 'autocmd BufEnter *.{' . join(g:zortex_filetypes, ',') . '} call zortex#autocmd#init()'
+        " endif
     augroup END
 endfunction
 

@@ -358,6 +358,75 @@ end
 -- Telescope Integration
 -- =============================================================================
 
+local function find_section_start(lines, lnum, section_type)
+	if not lines or lnum <= 1 then
+		return 1
+	end
+
+	-- For articles and tags, start from beginning
+	if section_type == parser.SectionType.ARTICLE or section_type == parser.SectionType.TAG then
+		return 1
+	end
+
+	-- For headings, find the heading line itself
+	if section_type == parser.SectionType.HEADING then
+		local target_level = parser.get_heading_level(lines[lnum])
+		-- If we're already on a heading, return current line
+		if target_level > 0 then
+			return lnum
+		end
+		-- Otherwise, search backwards for the heading that contains this line
+		for i = lnum - 1, 1, -1 do
+			local level = parser.get_heading_level(lines[i])
+			if level > 0 then
+				-- Check if this heading's section contains our line
+				local section_end = parser.find_section_end(lines, i, parser.SectionType.HEADING)
+				if section_end >= lnum then
+					return i
+				end
+			end
+		end
+	end
+
+	-- For bold headings, search backwards
+	if section_type == parser.SectionType.BOLD_HEADING then
+		if parser.is_bold_heading(lines[lnum]) then
+			return lnum
+		end
+		for i = lnum - 1, 1, -1 do
+			if parser.is_bold_heading(lines[i]) then
+				local section_end = parser.find_section_end(lines, i, parser.SectionType.BOLD_HEADING)
+				if section_end >= lnum then
+					return i
+				end
+			end
+		end
+	end
+
+	-- For labels, find the label line
+	if section_type == parser.SectionType.LABEL then
+		if lines[lnum]:match("^%w[^:]+:") then
+			return lnum
+		end
+		-- Search backwards for the label
+		for i = lnum - 1, 1, -1 do
+			if lines[i]:match("^%w[^:]+:") then
+				local section_end = parser.find_section_end(lines, i, parser.SectionType.LABEL)
+				if section_end >= lnum then
+					return i
+				end
+			end
+			-- Stop at headings or empty lines
+			if lines[i] == "" or parser.get_heading_level(lines[i]) > 0 or parser.is_bold_heading(lines[i]) then
+				break
+			end
+		end
+	end
+
+	-- Default: return current line
+	return lnum
+end
+
 local function create_smart_sorter()
 	local ts_sorters = require("telescope.sorters")
 	local ordinal_to_entry = {}
@@ -546,17 +615,33 @@ function M.search(opts)
 	local previewer = (vim.fn.executable("bat") == 1)
 			and previewers.new_termopen_previewer({
 				get_command = function(entry)
+					-- Determine section start
+					local section_start = 1
+					if entry.lnum and search_managers.IndexManager.cache[entry.filename] then
+						local cache_entry = search_managers.IndexManager.cache[entry.filename]
+						if cache_entry.lines then
+							-- Detect section type at matched line
+							local section_type = parser.detect_section_type(cache_entry.lines[entry.lnum] or "")
+							section_start = find_section_start(cache_entry.lines, entry.lnum, section_type)
+						end
+					end
+
 					local cmd = {
 						"bat",
 						"--style=numbers,changes",
 						"--color=always",
 						"--language=markdown",
+						"--line-range",
+						tostring(section_start) .. ":",
 						entry.filename,
 					}
+
+					-- Highlight the actual matched line
 					if entry.lnum then
 						table.insert(cmd, 5, "--highlight-line")
 						table.insert(cmd, 6, tostring(entry.lnum))
 					end
+
 					return cmd
 				end,
 			})

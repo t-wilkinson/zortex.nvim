@@ -54,7 +54,7 @@ function M.get_project_path(project)
 		table.insert(parts, 1, strip_attributes(p.name)) -- prepend so order is root ➜ leaf
 		p = p.parent
 	end
-	return table.concat(parts, " > ")
+	return table.concat(parts, " ‣ ") -- →·◦
 end
 
 -- =============================================================================

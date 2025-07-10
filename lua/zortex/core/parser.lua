@@ -315,12 +315,18 @@ function M.parse_duration(dur_str)
 	return nil
 end
 
--- Parse task attributes (enhanced)
+-- Parse task attributes
 function M.parse_task_attributes(line)
 	local cfg = config.get("xp") or config.defaults.xp
 
 	-- Define all possible attributes
 	local definitions = {
+		-- ID attribute (highest priority)
+		{
+			name = "id",
+			pattern = "@id%(([^)]+)%)",
+		},
+
 		-- XP-related attributes
 		{
 			name = "size",
@@ -391,14 +397,53 @@ function M.parse_task_attributes(line)
 		},
 	}
 
-	local attrs, _ = M.parse_attributes(line, definitions)
+	local attrs, remaining_text = M.parse_attributes(line, definitions)
 
 	-- Set default size if not found
 	if not attrs.size then
 		attrs.size = cfg.default_task_size or "md"
 	end
 
-	return attrs
+	return attrs, remaining_text
+end
+
+-- Add ID to task line if missing
+function M.add_task_id(line, id)
+	if not line or not id then
+		return line
+	end
+
+	-- Check if line already has an ID
+	if line:match("@id%(") then
+		return line
+	end
+
+	-- Add ID at the end
+	return line .. " @id(" .. id .. ")"
+end
+
+-- Extract task ID from line
+function M.extract_task_id(line)
+	if not line then
+		return nil
+	end
+
+	local id = line:match("@id%(([^)]+)%)")
+	return id
+end
+
+-- Update task ID in line
+function M.update_task_id(line, new_id)
+	if not line or not new_id then
+		return line
+	end
+
+	-- Replace existing ID or add new one
+	if line:match("@id%(") then
+		return line:gsub("@id%([^)]+%)", "@id(" .. new_id .. ")")
+	else
+		return M.add_task_id(line, new_id)
+	end
 end
 
 -- Parse project attributes

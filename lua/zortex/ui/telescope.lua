@@ -1,7 +1,6 @@
 -- ui/telescope.lua - Telescope integration for Zortex
 local M = {}
 
-local calendar = require("zortex.modules.calendar")
 local projects = require("zortex.modules.projects")
 local parser = require("zortex.core.parser")
 local xp = require("zortex.modules.xp")

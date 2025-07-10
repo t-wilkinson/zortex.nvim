@@ -156,10 +156,6 @@ function M.get_areas_file()
 	return M.get_file_path(constants.FILES.AREAS)
 end
 
-function M.get_skill_data_file()
-	return M.get_file_path(constants.FILES.SKILL_XP_DATA)
-end
-
 -- =============================================================================
 -- Archive File Operations
 -- =============================================================================

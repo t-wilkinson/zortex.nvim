@@ -248,32 +248,56 @@ function M.months_between(date1, date2)
 end
 
 -- =============================================================================
--- Attribute Parsing (unified)
+-- Attribute Parsing
 -- =============================================================================
 
 -- Generic attribute parser
+-- This new version is more robust. It repeatedly scans the string,
+-- applying the highest-priority definitions first, until no more attributes can be parsed.
 function M.parse_attributes(text, definitions)
 	local attrs = {}
 	local remaining_text = text
+	local found_in_pass = true
 
-	for _, def in ipairs(definitions) do
-		local captures = { string.match(remaining_text, def.pattern) }
-		if #captures > 0 then
-			local value
-			if def.transform then
-				value = def.transform(unpack(captures))
-			elseif def.value ~= nil then
-				value = def.value
-			else
-				value = captures[1]
-			end
+	-- Keep looping as long as we successfully parse an attribute in a full pass
+	while found_in_pass do
+		found_in_pass = false
+		for _, def in ipairs(definitions) do
+			-- Use gmatch to handle multiple occurrences of the same attribute type
+			local new_text, count = remaining_text:gsub(def.pattern, function(...)
+				local all_captures = { ... }
+				-- The last capture from gsub is the offset, so we only want the ones before it.
+				local captures = {}
+				for i = 1, #all_captures - 1 do
+					table.insert(captures, all_captures[i])
+				end
 
-			attrs[def.name] = value
+				if #captures > 0 and captures[1] ~= nil then
+					local value
+					if def.transform then
+						value = def.transform(unpack(captures))
+					elseif def.value ~= nil then
+						value = def.value
+					else
+						value = captures[1]
+					end
 
-			-- Remove matched pattern
-			local full_match = remaining_text:match(def.pattern)
-			if full_match then
-				remaining_text = remaining_text:gsub(M.escape_pattern(full_match), "", 1)
+					if value ~= nil then
+						-- For attributes that can appear multiple times (like context),
+						-- we could collect them in a table. For now, last one wins.
+						attrs[def.name] = value
+						found_in_pass = true -- Mark that we found something
+						return "" -- Remove the matched attribute from the string
+					end
+				end
+				-- If value is nil (transform failed), return the original match so it's not removed
+				return all_captures[0]
+			end)
+
+			if count > 0 and found_in_pass then
+				remaining_text = new_text
+				-- Restart the pass from the first definition to respect priority
+				break
 			end
 		end
 	end

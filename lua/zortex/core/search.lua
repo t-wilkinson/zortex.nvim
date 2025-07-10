@@ -56,18 +56,23 @@ function M.find_article_files(article_name)
 	for _, file_path in ipairs(files) do
 		local lines = fs.read_lines(file_path)
 		if lines then
-			local non_blank_count = 0
-			for _, line in ipairs(lines) do
-				if line:match("%S") then
-					non_blank_count = non_blank_count + 1
-					local title = line:match(constants.PATTERNS.ARTICLE_TITLE)
-					if title and parser.trim(title):lower() == search_name then
+			-- Check all article names/aliases at the start of the file
+			for i, line in ipairs(lines) do
+				local title = line:match(constants.PATTERNS.ARTICLE_TITLE)
+				if title then
+					-- Found an article name/alias
+					if parser.trim(title):lower() == search_name then
 						table.insert(matches, file_path)
 						break
 					end
-					if non_blank_count >= 5 then
-						break
-					end
+				else
+					-- Stop when we hit a non-article-title line
+					break
+				end
+
+				-- Safety limit
+				if i > 10 then
+					break
 				end
 			end
 		end

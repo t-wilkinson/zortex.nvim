@@ -32,6 +32,32 @@ local state = {
 }
 
 -- =============================================================================
+-- Helper Functions
+-- =============================================================================
+
+-- Strip attribute from a heading/project name.
+local function strip_attributes(text)
+	if not text then
+		return ""
+	end
+	-- Remove @word(...) first, then standalone @word
+	text = text:gsub("@%w+%b()", "")
+	text = text:gsub("@%w+", "")
+	return parser.trim(text)
+end
+
+-- Recursively build the full heading path for a project
+function M.get_project_path(project)
+	local parts = {}
+	local p = project
+	while p do
+		table.insert(parts, 1, strip_attributes(p.name)) -- prepend so order is root ➜ leaf
+		p = p.parent
+	end
+	return table.concat(parts, " > ")
+end
+
+-- =============================================================================
 -- Project Tree Building
 -- =============================================================================
 

@@ -1,18 +1,11 @@
 -- ui/calendar.lua - Calendar UI module for Zortex
 local M = {}
-
--- Core dependencies
-local parser = require("zortex.core.parser")
-local buffer = require("zortex.core.buffer")
-local fs = require("zortex.core.filesystem")
-
--- Feature dependencies
-local calendar = require("zortex.modules.calendar")
-local projects = require("zortex.modules.projects")
-
--- UI dependencies
 local api = vim.api
 local fn = vim.fn
+
+local parser = require("zortex.core.parser")
+local fs = require("zortex.core.filesystem")
+local calendar = require("zortex.modules.calendar")
 
 -- =============================================================================
 -- Calendar State and Configuration
@@ -45,12 +38,14 @@ local Config = {
 	},
 	keymaps = {
 		close = { "q", "<Esc>" },
-		next_month = { "l", "<Right>" },
-		prev_month = { "h", "<Left>" },
-		next_year = { "L" },
-		prev_year = { "H" },
+		next_day = { "l", "<Right>" },
+		prev_day = { "h", "<Left>" },
 		next_week = { "j", "<Down>" },
 		prev_week = { "k", "<Up>" },
+		next_month = { "J" },
+		prev_month = { "K" },
+		next_year = { "L" },
+		prev_year = { "H" },
 		today = { "t" },
 		add_entry = { "a", "i" },
 		view_entries = { "<CR>", "o" },
@@ -73,6 +68,7 @@ function DateUtil.get_current_date()
 		year = now.year,
 		month = now.month,
 		day = now.day,
+		wday = now.wday,
 	}
 end
 
@@ -123,6 +119,7 @@ function DateUtil.add_days(date, days)
 		year = new_date.year,
 		month = new_date.month,
 		day = new_date.day,
+		wday = new_date.wday,
 	}
 end
 
@@ -179,7 +176,7 @@ function Renderer.render_month_view(date)
 
 	-- Header
 	local header = DateUtil.format_month_year(date)
-	local nav_hint = "← h/l → | H/L year | j/k week | t today | a add | / search"
+	local nav_hint = "← h/j/k/l → | H/L year | J/K month | t today | a add | / search"
 	local header_line = string.format("  %s", header)
 	local padding = math.max(1, 80 - #header_line - #nav_hint)
 	header_line = header_line .. string.rep(" ", padding) .. nav_hint
@@ -278,14 +275,13 @@ function Renderer.render_month_view(date)
 	if CalendarState.current_date then
 		local date_str = DateUtil.format_date(CalendarState.current_date)
 		local entries = calendar.get_entries_for_date(date_str)
-		local project_tasks = calendar.get_project_tasks_for_date(date_str)
 
 		table.insert(
 			lines,
 			string.format(
 				"  %s - %s",
 				os.date("%A, %B %d, %Y", os.time(CalendarState.current_date)),
-				#entries + #project_tasks > 0 and string.format("%d items", #entries + #project_tasks) or "No items"
+				#entries > 0 and string.format("%d items", #entries) or "No items"
 			)
 		)
 		table.insert(lines, "")
@@ -309,22 +305,6 @@ function Renderer.render_month_view(date)
 				end
 
 				table.insert(lines, string.format("    %s %s%s", icon, time_str, entry.display_text))
-			end
-		end
-
-		-- Project tasks
-		if #project_tasks > 0 then
-			if #entries > 0 then
-				table.insert(lines, "")
-			end
-			table.insert(lines, "  Projects:")
-			for _, task in ipairs(project_tasks) do
-				local icon = task.status and task.status.symbol or "☐"
-				local time_str = task.attributes.at and (task.attributes.at .. " ") or ""
-				table.insert(
-					lines,
-					string.format("    %s %s%s [%s]", icon, time_str, task.display_text, task.project or "Unknown")
-				)
 			end
 		end
 	end
@@ -353,7 +333,6 @@ function Renderer.render_week_view(date)
 		local day_date = DateUtil.add_days(week_start, i)
 		local date_str = DateUtil.format_date(day_date)
 		local entries = calendar.get_entries_for_date(date_str)
-		local project_tasks = calendar.get_project_tasks_for_date(date_str)
 
 		-- Day header
 		local day_name = os.date("%A", os.time(day_date))
@@ -383,7 +362,7 @@ function Renderer.render_week_view(date)
 		end
 
 		-- Show entries
-		if #entries > 0 or #project_tasks > 0 then
+		if #entries > 0 then
 			for _, entry in ipairs(entries) do
 				local time_str = ""
 				if entry.attributes.from and entry.attributes.to then
@@ -392,11 +371,6 @@ function Renderer.render_week_view(date)
 					time_str = entry.attributes.at .. " "
 				end
 				table.insert(lines, string.format("    %s%s", time_str, entry.display_text))
-			end
-
-			for _, task in ipairs(project_tasks) do
-				local time_str = task.attributes.at and (task.attributes.at .. " ") or ""
-				table.insert(lines, string.format("    %s%s [%s]", time_str, task.display_text, task.project))
 			end
 		else
 			table.insert(lines, "    (no entries)")
@@ -437,6 +411,26 @@ function Navigation.move_to_date(date)
 	end
 end
 
+function Navigation.next_day()
+	local date = CalendarState.current_date or DateUtil.get_current_date()
+	Navigation.move_to_date(DateUtil.add_days(date, 1))
+end
+
+function Navigation.prev_day()
+	local date = CalendarState.current_date or DateUtil.get_current_date()
+	Navigation.move_to_date(DateUtil.add_days(date, -1))
+end
+
+function Navigation.next_week()
+	local date = CalendarState.current_date or DateUtil.get_current_date()
+	Navigation.move_to_date(DateUtil.add_days(date, 7))
+end
+
+function Navigation.prev_week()
+	local date = CalendarState.current_date or DateUtil.get_current_date()
+	Navigation.move_to_date(DateUtil.add_days(date, -7))
+end
+
 function Navigation.next_month()
 	local date = CalendarState.current_date or DateUtil.get_current_date()
 	date.month = date.month + 1
@@ -471,16 +465,6 @@ function Navigation.prev_year()
 	date.year = date.year - 1
 	date.day = math.min(date.day, DateUtil.get_days_in_month(date.year, date.month))
 	Navigation.move_to_date(date)
-end
-
-function Navigation.next_week()
-	local date = CalendarState.current_date or DateUtil.get_current_date()
-	Navigation.move_to_date(DateUtil.add_days(date, 7))
-end
-
-function Navigation.prev_week()
-	local date = CalendarState.current_date or DateUtil.get_current_date()
-	Navigation.move_to_date(DateUtil.add_days(date, -7))
 end
 
 function Navigation.go_to_today()
@@ -610,6 +594,18 @@ local function setup_keymaps(bufnr)
 	local opts = { buffer = bufnr, noremap = true, silent = true }
 
 	-- Navigation
+	for _, key in ipairs(Config.keymaps.next_day) do
+		vim.keymap.set("n", key, Navigation.next_day, opts)
+	end
+	for _, key in ipairs(Config.keymaps.prev_day) do
+		vim.keymap.set("n", key, Navigation.prev_day, opts)
+	end
+	for _, key in ipairs(Config.keymaps.next_week) do
+		vim.keymap.set("n", key, Navigation.next_week, opts)
+	end
+	for _, key in ipairs(Config.keymaps.prev_week) do
+		vim.keymap.set("n", key, Navigation.prev_week, opts)
+	end
 	for _, key in ipairs(Config.keymaps.next_month) do
 		vim.keymap.set("n", key, Navigation.next_month, opts)
 	end
@@ -621,12 +617,6 @@ local function setup_keymaps(bufnr)
 	end
 	for _, key in ipairs(Config.keymaps.prev_year) do
 		vim.keymap.set("n", key, Navigation.prev_year, opts)
-	end
-	for _, key in ipairs(Config.keymaps.next_week) do
-		vim.keymap.set("n", key, Navigation.next_week, opts)
-	end
-	for _, key in ipairs(Config.keymaps.prev_week) do
-		vim.keymap.set("n", key, Navigation.prev_week, opts)
 	end
 	for _, key in ipairs(Config.keymaps.today) do
 		vim.keymap.set("n", key, Navigation.go_to_today, opts)
@@ -733,11 +723,12 @@ function M.refresh()
 	Renderer.apply_highlights(CalendarState.bufnr, highlights)
 end
 
-function M.set_date(year, month, day)
+function M.set_date(year, month, day, wday)
 	CalendarState.current_date = {
 		year = year,
 		month = month,
 		day = day,
+		wday = wday,
 	}
 	if CalendarState.win_id then
 		M.refresh()
@@ -764,7 +755,6 @@ function M.show_digest_buffer()
 
 	-- Load data
 	calendar.load()
-	projects.load()
 
 	local lines = {}
 	local today = os.date("%Y-%m-%d")
@@ -790,22 +780,6 @@ function M.show_digest_buffer()
 			local icon = entry.type == "task" and (entry.task_status and entry.task_status.symbol or "☐") or "•"
 			local time = entry.attributes.at and (entry.attributes.at .. " - ") or ""
 			table.insert(lines, string.format("  %s %s%s", icon, time, entry.display_text))
-		end
-		table.insert(lines, "")
-	end
-
-	-- Today's project tasks
-	local project_tasks = calendar.get_project_tasks_for_date(today)
-	if #project_tasks > 0 then
-		table.insert(lines, "📁 PROJECT TASKS")
-		table.insert(lines, string.rep("─", 35))
-		for _, task in ipairs(project_tasks) do
-			local icon = task.status and task.status.symbol or "☐"
-			local time = task.attributes.at and (task.attributes.at .. " - ") or ""
-			table.insert(
-				lines,
-				string.format("  %s %s%s [%s]", icon, time, task.display_text, task.project or "Unknown")
-			)
 		end
 		table.insert(lines, "")
 	end

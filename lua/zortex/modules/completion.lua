@@ -13,6 +13,34 @@ local cache = {
 	last_update = 0,
 }
 
+-- Extract all article names/aliases from the start of a file
+local function extract_article_names(lines)
+	local names = {}
+
+	for i, line in ipairs(lines) do
+		local name = parser.extract_article_name(line)
+		if name then
+			table.insert(names, name)
+		else
+			-- Stop when we hit a non-article-name line
+			break
+		end
+
+		-- Safety limit
+		if i > 10 then
+			break
+		end
+	end
+
+	return names
+end
+
+-- Check if a line is an attribute (should be hidden from completions)
+local function is_attribute_line(line)
+	-- Match @word or @word(...)
+	return line:match("^@%w+$") or line:match("^@%w+%(.*%)$")
+end
+
 -- Update cache
 local function update_cache()
 	local now = vim.loop.now()
@@ -27,14 +55,20 @@ local function update_cache()
 	for _, file in ipairs(files) do
 		local lines = fs.read_lines(file)
 		if lines then
-			-- Extract article names and aliases
-			local article_name = parser.extract_article_name(lines[1])
-			if article_name then
-				table.insert(cache.articles, {
-					name = article_name,
-					file = file,
-					type = "article",
-				})
+			-- Extract all article names/aliases
+			local article_names = extract_article_names(lines)
+
+			if #article_names > 0 then
+				-- Add entry for each alias
+				for _, name in ipairs(article_names) do
+					table.insert(cache.articles, {
+						name = name,
+						file = file,
+						type = "article",
+						is_alias = name ~= article_names[1],
+						primary_name = article_names[1],
+					})
+				end
 
 				-- Cache file data for quick access
 				cache.article_data[file] = {
@@ -42,52 +76,56 @@ local function update_cache()
 					headings = {},
 					tags = {},
 					labels = {},
+					names = article_names,
 				}
 
 				-- Parse the file structure
 				for lnum, line in ipairs(lines) do
-					-- Tags
-					if line:match("^@[^@]") then
-						local tag = line:match("^@(.+)")
-						if tag then
-							table.insert(cache.article_data[file].tags, {
-								text = tag,
-								lnum = lnum,
-							})
+					-- Skip attributes
+					if not is_attribute_line(line) then
+						-- Tags (but not attributes)
+						if line:match("^@[^@]") and not line:match("^@%w+%(") then
+							local tag = line:match("^@(.+)")
+							if tag then
+								table.insert(cache.article_data[file].tags, {
+									text = tag,
+									lnum = lnum,
+								})
+							end
 						end
-					end
 
-					-- Headings
-					local heading = parser.parse_heading(line)
-					if heading then
-						table.insert(cache.article_data[file].headings, {
-							level = heading.level,
-							text = heading.text,
-							lnum = lnum,
-						})
-					end
-
-					-- Bold headings
-					if parser.is_bold_heading(line) then
-						local text = line:match("^%*%*([^%*]+)%*%*:?$")
-						if text then
+						-- Headings
+						local heading = parser.parse_heading(line)
+						if heading then
 							table.insert(cache.article_data[file].headings, {
-								level = 0, -- Bold headings are treated as special
-								text = text,
+								level = heading.level,
+								text = heading.text,
 								lnum = lnum,
-								is_bold = true,
 							})
 						end
-					end
 
-					-- Labels
-					if line:match("^%w[^:]+:") then
-						local label = line:match("^([^:]+):")
-						if label then
-							table.insert(cache.article_data[file].labels, {
-								text = label,
-								lnum = lnum,
-							})
+						-- Bold headings
+						if parser.is_bold_heading(line) then
+							local text = line:match("^%*%*([^%*]+)%*%*:?$")
+							if text then
+								table.insert(cache.article_data[file].headings, {
+									level = 0, -- Bold headings are treated as special
+									text = text,
+									lnum = lnum,
+									is_bold = true,
+								})
+							end
+						end
+
+						-- Labels
+						if line:match("^%w[^:]+:") then
+							local label = line:match("^([^:]+):")
+							if label then
+								table.insert(cache.article_data[file].labels, {
+									text = label,
+									lnum = lnum,
+								})
+							end
 						end
 					end
 				end
@@ -102,15 +140,25 @@ end
 local function get_article_completions()
 	update_cache()
 	local items = {}
+	local seen = {}
 
 	for _, article in ipairs(cache.articles) do
-		table.insert(items, {
-			label = article.name,
-			kind = 1, -- Text
-			detail = "Article",
-			sortText = "1_" .. article.name,
-		})
+		if not seen[article.name] then
+			seen[article.name] = true
+			local detail = article.is_alias and ("Alias for " .. article.primary_name) or "Article"
+			table.insert(items, {
+				label = article.name,
+				kind = 1, -- Text
+				detail = detail,
+				sortText = article.name:lower(), -- Sort alphabetically
+			})
+		end
 	end
+
+	-- Sort by sortText to ensure alphabetical order
+	table.sort(items, function(a, b)
+		return a.sortText < b.sortText
+	end)
 
 	return items
 end
@@ -129,17 +177,70 @@ local function get_tag_completions()
 					label = "@" .. tag.text,
 					kind = 14, -- Keyword
 					detail = "Tag",
-					sortText = "2_" .. tag.text,
+					sortText = tag.text:lower(), -- Sort alphabetically
 				})
 			end
 		end
 	end
 
+	-- Sort by sortText to ensure alphabetical order
+	table.sort(items, function(a, b)
+		return a.sortText < b.sortText
+	end)
+
 	return items
 end
 
+-- Get current section bounds based on cursor position
+local function get_cursor_section_bounds()
+	local cursor_line, _ = buffer.get_cursor_pos()
+	local lines = buffer.get_lines()
+
+	-- Find the nearest heading above cursor
+	local parent_heading = nil
+	local parent_level = 0
+	local parent_lnum = 1
+
+	for i = cursor_line, 1, -1 do
+		local heading = parser.parse_heading(lines[i])
+		if heading then
+			parent_heading = heading
+			parent_level = heading.level
+			parent_lnum = i
+			break
+		end
+
+		-- Check for bold heading
+		if parser.is_bold_heading(lines[i]) then
+			parent_level = 0
+			parent_lnum = i
+			break
+		end
+	end
+
+	-- Find where this section ends
+	local end_lnum = #lines
+	for i = parent_lnum + 1, #lines do
+		local heading = parser.parse_heading(lines[i])
+		if heading and heading.level <= parent_level then
+			end_lnum = i - 1
+			break
+		elseif parent_level == 0 and parser.is_bold_heading(lines[i]) then
+			-- Bold headings end at next bold heading
+			end_lnum = i - 1
+			break
+		end
+	end
+
+	return {
+		start_line = parent_lnum,
+		end_line = end_lnum,
+		parent_level = parent_level,
+	}
+end
+
 -- Get completions for current file
-local function get_current_file_completions(section_bounds)
+local function get_current_file_completions(section_bounds, type_filter)
 	local lines = buffer.get_lines()
 	local items = {}
 
@@ -150,47 +251,67 @@ local function get_current_file_completions(section_bounds)
 	for lnum = start_line, end_line do
 		local line = lines[lnum]
 
-		-- Headings
-		local heading = parser.parse_heading(line)
-		if heading then
-			-- Only include sub-headings if we're in a section
-			if not section_bounds or heading.level > (section_bounds.parent_level or 0) then
-				local prefix = string.rep("#", heading.level)
-				table.insert(items, {
-					label = "#" .. heading.text,
-					kind = 15, -- Snippet
-					detail = prefix .. " " .. heading.text,
-					sortText = "1_" .. string.format("%02d", heading.level) .. "_" .. heading.text,
-					data = { lnum = lnum, level = heading.level },
-				})
+		-- Skip attributes
+		if not is_attribute_line(line) then
+			-- Headings
+			local heading = parser.parse_heading(line)
+			if heading then
+				-- Only include sub-headings if we're in a section
+				if not section_bounds or heading.level > (section_bounds.parent_level or 0) then
+					-- Check type filter
+					if not type_filter or type_filter == "heading" then
+						local prefix = string.rep("#", heading.level)
+						table.insert(items, {
+							label = "#" .. heading.text,
+							kind = 15, -- Snippet
+							detail = prefix .. " " .. heading.text,
+							sortText = string.format("%05d", lnum), -- Sort by line number
+							data = { lnum = lnum, level = heading.level, type = "heading" },
+						})
+					end
+				end
 			end
-		end
 
-		-- Bold headings
-		if parser.is_bold_heading(line) then
-			local text = line:match("^%*%*([^%*]+)%*%*:?$")
-			if text then
-				table.insert(items, {
-					label = "*" .. text,
-					kind = 15,
-					detail = "**" .. text .. "**",
-					sortText = "2_" .. text,
-					data = { lnum = lnum, is_bold = true },
-				})
+			-- Bold headings
+			if parser.is_bold_heading(line) then
+				local text = line:match("^%*%*([^%*]+)%*%*:?$")
+				if text and (not type_filter or type_filter == "bold") then
+					table.insert(items, {
+						label = "*" .. text,
+						kind = 15,
+						detail = "**" .. text .. "**",
+						sortText = string.format("%05d", lnum),
+						data = { lnum = lnum, is_bold = true, type = "bold" },
+					})
+				end
 			end
-		end
 
-		-- Labels
-		if line:match("^%w[^:]+:") then
-			local label = line:match("^([^:]+):")
-			if label then
-				table.insert(items, {
-					label = ":" .. label,
-					kind = 12, -- Property
-					detail = label .. ":",
-					sortText = "3_" .. label,
-					data = { lnum = lnum },
-				})
+			-- Labels
+			if line:match("^%w[^:]+:") then
+				local label = line:match("^([^:]+):")
+				if label and (not type_filter or type_filter == "label") then
+					table.insert(items, {
+						label = ":" .. label,
+						kind = 12, -- Property
+						detail = label .. ":",
+						sortText = string.format("%05d", lnum),
+						data = { lnum = lnum, type = "label" },
+					})
+				end
+			end
+
+			-- List items (only if explicitly requested)
+			if type_filter == "listitem" then
+				local list_text = line:match("^%s*%- (.+)$")
+				if list_text then
+					table.insert(items, {
+						label = "-" .. list_text,
+						kind = 13, -- Enum
+						detail = "- " .. list_text,
+						sortText = string.format("%05d", lnum),
+						data = { lnum = lnum, type = "listitem" },
+					})
+				end
 			end
 		end
 	end
@@ -199,7 +320,7 @@ local function get_current_file_completions(section_bounds)
 end
 
 -- Get completions for a specific file
-local function get_file_completions(file, section_bounds)
+local function get_file_completions(file, section_bounds, type_filter)
 	update_cache()
 	local data = cache.article_data[file]
 	if not data then
@@ -210,50 +331,72 @@ local function get_file_completions(file, section_bounds)
 	local start_line = section_bounds and section_bounds.start_line or 1
 	local end_line = section_bounds and section_bounds.end_line or #data.lines
 
-	-- Headings
-	for _, heading in ipairs(data.headings) do
-		if heading.lnum >= start_line and heading.lnum <= end_line then
-			-- Only include sub-headings if we're in a section
-			if not section_bounds or heading.level > (section_bounds.parent_level or 0) then
-				local label = "#" .. heading.text
-				local detail = heading.is_bold and ("**" .. heading.text .. "**")
-					or (string.rep("#", heading.level) .. " " .. heading.text)
+	-- Process lines in order
+	for lnum = start_line, end_line do
+		local line = data.lines[lnum]
 
-				table.insert(items, {
-					label = label,
-					kind = 15,
-					detail = detail,
-					sortText = heading.is_bold and ("2_" .. heading.text)
-						or ("1_" .. string.format("%02d", heading.level) .. "_" .. heading.text),
-					data = { lnum = heading.lnum, level = heading.level },
-				})
+		-- Skip attributes
+		if not is_attribute_line(line) then
+			-- Headings
+			local heading = parser.parse_heading(line)
+			if heading then
+				-- Only include sub-headings if we're in a section
+				if not section_bounds or heading.level > (section_bounds.parent_level or 0) then
+					-- Check type filter
+					if not type_filter or type_filter == "heading" then
+						local prefix = string.rep("#", heading.level)
+						table.insert(items, {
+							label = "#" .. heading.text,
+							kind = 15, -- Snippet
+							detail = prefix .. " " .. heading.text,
+							sortText = string.format("%05d", lnum),
+							data = { lnum = lnum, level = heading.level, type = "heading" },
+						})
+					end
+				end
 			end
-		end
-	end
 
-	-- Bold headings
-	for _, heading in ipairs(data.headings) do
-		if heading.is_bold and heading.lnum >= start_line and heading.lnum <= end_line then
-			table.insert(items, {
-				label = "*" .. heading.text,
-				kind = 15,
-				detail = "**" .. heading.text .. "**",
-				sortText = "2_" .. heading.text,
-				data = { lnum = heading.lnum, is_bold = true },
-			})
-		end
-	end
+			-- Bold headings
+			if parser.is_bold_heading(line) then
+				local text = line:match("^%*%*([^%*]+)%*%*:?$")
+				if text and (not type_filter or type_filter == "bold") then
+					table.insert(items, {
+						label = "*" .. text,
+						kind = 15,
+						detail = "**" .. text .. "**",
+						sortText = string.format("%05d", lnum),
+						data = { lnum = lnum, is_bold = true, type = "bold" },
+					})
+				end
+			end
 
-	-- Labels
-	for _, label_data in ipairs(data.labels) do
-		if label_data.lnum >= start_line and label_data.lnum <= end_line then
-			table.insert(items, {
-				label = ":" .. label_data.text,
-				kind = 12,
-				detail = label_data.text .. ":",
-				sortText = "3_" .. label_data.text,
-				data = { lnum = label_data.lnum },
-			})
+			-- Labels
+			if line:match("^%w[^:]+:") then
+				local label = line:match("^([^:]+):")
+				if label and (not type_filter or type_filter == "label") then
+					table.insert(items, {
+						label = ":" .. label,
+						kind = 12, -- Property
+						detail = label .. ":",
+						sortText = string.format("%05d", lnum),
+						data = { lnum = lnum, type = "label" },
+					})
+				end
+			end
+
+			-- List items (only if explicitly requested)
+			if type_filter == "listitem" then
+				local list_text = line:match("^%s*%- (.+)$")
+				if list_text then
+					table.insert(items, {
+						label = "-" .. list_text,
+						kind = 13, -- Enum
+						detail = "- " .. list_text,
+						sortText = string.format("%05d", lnum),
+						data = { lnum = lnum, type = "listitem" },
+					})
+				end
+			end
 		end
 	end
 
@@ -368,11 +511,12 @@ function M.get_completions(line, col)
 
 	local items = {}
 
-	-- Initial "[" - show all articles
+	-- Initial "[" - show all articles or current file sections
 	if context.full_content == "" or (context.full_content == "/" and context.typing == "") then
 		if context.is_local then
-			-- Local scope - show current file sections
-			items = get_current_file_completions()
+			-- Local scope - show current file sections within cursor's section
+			local cursor_bounds = get_cursor_section_bounds()
+			items = get_current_file_completions(cursor_bounds)
 		else
 			-- Global scope - show articles
 			items = get_article_completions()
@@ -382,7 +526,8 @@ function M.get_completions(line, col)
 		items = get_tag_completions()
 	elseif context.typing:sub(1, 1) == "#" and #context.parts == 0 and not context.is_local then
 		-- Heading in current file (when not in article context)
-		items = get_current_file_completions()
+		local cursor_bounds = get_cursor_section_bounds()
+		items = get_current_file_completions(cursor_bounds, "heading")
 	else
 		-- Complex context
 		local target_file = nil
@@ -390,9 +535,21 @@ function M.get_completions(line, col)
 
 		if context.is_local then
 			-- Local scope - current file
-			section_bounds = get_section_bounds_for_context(context)
+			-- Start with cursor's section bounds
+			section_bounds = get_cursor_section_bounds()
+
+			-- Then narrow down based on link parts
+			if #context.parts > 0 then
+				local narrowed_bounds = get_section_bounds_for_context(context)
+				if narrowed_bounds then
+					-- Use the intersection of cursor bounds and narrowed bounds
+					section_bounds.start_line = math.max(section_bounds.start_line, narrowed_bounds.start_line)
+					section_bounds.end_line = math.min(section_bounds.end_line, narrowed_bounds.end_line)
+					section_bounds.parent_level = narrowed_bounds.parent_level or section_bounds.parent_level
+				end
+			end
 		elseif #context.parts > 0 then
-			-- Check if first part is an article
+			-- Check if first part is an article (including aliases)
 			local first_part = context.parts[1]
 			update_cache()
 
@@ -412,25 +569,36 @@ function M.get_completions(line, col)
 
 		-- Get completions based on context
 		if context.is_new_path or context.typing == "" then
-			-- Show sections (headings, bold headings, labels)
+			-- Show sections (headings, bold headings, labels) in file order
 			if target_file then
 				items = get_file_completions(target_file, section_bounds)
 			else
 				items = get_current_file_completions(section_bounds)
 			end
 		else
-			-- Filter based on what's being typed
+			-- Determine type filter based on prefix
 			local prefix = context.typing:sub(1, 1)
+			local type_filter = nil
 
-			if prefix == "#" or prefix == ":" or prefix == "*" or prefix == "-" then
-				-- Get appropriate completions
+			if prefix == "#" then
+				type_filter = "heading"
+			elseif prefix == ":" then
+				type_filter = "label"
+			elseif prefix == "*" then
+				type_filter = "bold"
+			elseif prefix == "-" then
+				type_filter = "listitem"
+			end
+
+			if type_filter then
+				-- Get appropriate completions with type filter
 				if target_file then
-					items = get_file_completions(target_file, section_bounds)
+					items = get_file_completions(target_file, section_bounds, type_filter)
 				else
-					items = get_current_file_completions(section_bounds)
+					items = get_current_file_completions(section_bounds, type_filter)
 				end
 
-				-- Filter by prefix
+				-- Filter by what's being typed
 				local filtered = {}
 				for _, item in ipairs(items) do
 					if item.label:sub(1, #context.typing) == context.typing then

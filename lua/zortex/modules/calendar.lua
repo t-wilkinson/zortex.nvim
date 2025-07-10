@@ -3,6 +3,7 @@ local M = {}
 
 local parser = require("zortex.core.parser")
 local fs = require("zortex.core.filesystem")
+local utils = require("zortex.core.utils")
 
 -- =============================================================================
 -- State
@@ -308,7 +309,7 @@ function M.get_entries_for_date(date_str)
 					end
 
 					if include then
-						local instance = vim.tbl_deepcopy(entry)
+						local instance = utils.deepcopy(entry)
 						instance.original_date = orig_date_str
 						instance.effective_date = date_str
 						table.insert(active_entries, instance)

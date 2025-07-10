@@ -27,17 +27,7 @@ local modules = {
 }
 
 -- UI modules
-local ui = {
-	calendar = require("zortex.ui.calendar"),
-	telescope = require("zortex.ui.telescope"),
-	skill_tree = require("zortex.ui.skill_tree"),
-}
-
--- Legacy modules
-local legacy = {
-	calendar = require("zortex.legacy.calendar"),
-	telescope = require("zortex.legacy.telescope"),
-}
+local ui = require("zortex.ui")
 
 -- =============================================================================
 -- User Commands
@@ -47,50 +37,35 @@ local function setup_commands()
 	local cmd = vim.api.nvim_create_user_command
 	local prefix = "Zortex"
 
-	-- Telescope functions
-	cmd(prefix .. "CalendarSearch", legacy.telescope.calendar, { desc = "Browse calendar chronologically" })
-	cmd(prefix .. "DigestTelescope", legacy.telescope.today_digest, { desc = "Show today's digest in Telescope" })
-	cmd(prefix .. "Projects", legacy.telescope.today_digest, { desc = "Show today's digest in Telescope" })
-
-	-- Search
+	-- Navigation
 	cmd(prefix .. "Search", function()
 		modules.search.search()
 	end, { desc = "Hierarchical search across all notes" })
-
-	-- Link navigation
 	cmd(prefix .. "OpenLink", function()
 		modules.links.open_link()
 	end, { desc = "Open link under cursor" })
 
 	-- Calendar
-	cmd("ZortexUICalendar", function()
+	cmd(prefix .. "Calendar", function()
 		ui.calendar.open()
 	end, { desc = "Open Zortex calendar" })
+	cmd(prefix .. "CalendarAdd", function()
+		ui.calendar.add_entry_interactive()
+	end, { desc = "Add calendar entry" })
 
-	cmd("ZortexUICalendarToggle", function()
-		ui.calendar.toggle()
-	end, { desc = "Toggle Zortex calendar" })
-
-	cmd(prefix .. "CalendarOpen", function()
-		local cal_path = core.filesystem.get_file_path("calendar.zortex")
-		if cal_path then
-			vim.cmd("edit " .. cal_path)
-		end
-	end, { desc = "Open calendar file" })
-
-	cmd(prefix .. "CalendarToday", function()
-		local today = os.date("%Y-%m-%d")
-		local entries = modules.calendar.get_entries_for_date(today)
-
-		if #entries == 0 then
-			vim.notify("No entries for today", vim.log.levels.INFO)
-		else
-			print("Today's entries:")
-			for i, entry in ipairs(entries) do
-				print(string.format("%d. %s", i, entry.display_text))
-			end
-		end
-	end, { desc = "Show today's calendar entries" })
+	-- Telescope
+	cmd("ZortexTelescope", function()
+		require("telescope").extensions.zortex.zortex()
+	end, { desc = "Open Zortex telescope picker" })
+	cmd("ZortexToday", function()
+		ui.telescope.today_digest()
+	end, { desc = "Show today's digest" })
+	cmd("ZortexProjects", function()
+		ui.telescope.projects()
+	end, { desc = "Browse projects with telescope" })
+	cmd("ZortexCalendarSearch", function()
+		ui.telescope.calendar()
+	end, { desc = "Search calendar with telescope" })
 
 	-- Projects
 	cmd(prefix .. "ProjectsOpen", function()
@@ -256,21 +231,6 @@ local function setup_commands()
 	end, { desc = "Test notification system" })
 
 	-- Search commands
-	cmd("ZortexSearch", function()
-		features.search.search()
-	end, { desc = "Search Zortex notes" })
-
-	cmd("ZortexSearchCalendar", function()
-		ui.telescope.calendar()
-	end, { desc = "Search calendar entries" })
-
-	cmd("ZortexSearchProjects", function()
-		ui.telescope.projects()
-	end, { desc = "Search projects" })
-
-	cmd("ZortexToday", function()
-		ui.telescope.today_digest()
-	end, { desc = "Show today's digest in Telescope" })
 
 	-- Progress commands
 	cmd("ZortexUpdateProgress", function()
@@ -373,9 +333,6 @@ function M.create_commands()
 	cmd("ZortexCalendar", calendar_ui.open, { desc = "Open visual calendar" })
 	cmd("ZortexCalendarToggle", calendar_ui.toggle, { desc = "Toggle calendar" })
 	cmd("ZortexDigestBuffer", calendar_ui.show_digest_buffer, { desc = "Show digest in buffer" })
-
-	-- Legacy compatibility (optional)
-	cmd("ZortexDigestTelescope", telescope_ui.today_digest, { desc = "Today's digest (telescope)" })
 end
 
 ]]
@@ -386,45 +343,36 @@ end
 
 local function setup_keymaps()
 	local opts = { noremap = true, silent = true }
+	local function add_opts(with_opts)
+		return vim.tbl_extend("force", opts, with_opts)
+	end
+
 	local prefix = "<leader>z"
-	local keymap = vim.keymap.set
+	local map = vim.keymap.set
 
-	-- Search
-	keymap("n", prefix .. "s", ":ZortexSearch<CR>", vim.tbl_extend("force", opts, { desc = "Zortex search" }))
-
-	-- Link navigation
-	-- keymap("n", "gx", ":ZortexOpenLink<CR>", vim.tbl_extend("force", opts, { desc = "Open Zortex link" }))
+	-- Navigation
+	map("n", prefix .. "s", ":ZortexSearch<CR>", add_opts({ desc = "Zortex search" }))
+	map("n", "gx", ":ZortexOpenLink<CR>", add_opts({ desc = "Open Zortex link" }))
 
 	-- Calendar
-	keymap("n", prefix .. "c", ":ZortexCalendarOpen<CR>", vim.tbl_extend("force", opts, { desc = "Open calendar" }))
-	keymap("n", prefix .. "t", ":ZortexCalendarToday<CR>", vim.tbl_extend("force", opts, { desc = "Today's entries" }))
+	map("n", prefix .. "c", "<cmd>ZortexCalendar<cr>", { desc = "Open calendar" })
+	-- map("n", prefix .. "a", "<cmd>ZortexCalendarAdd<cr>", { desc = "Add calendar entry" })
+
+	-- Telescope
+	map("n", prefix .. "t", "<cmd>ZortexToday<cr>", { desc = "Today's digest" })
+	map("n", prefix .. "p", "<cmd>ZortexProjects<cr>", { desc = "Browse projects" })
+	map("n", prefix .. "f", "<cmd>ZortexTelescope<cr>", { desc = "Zortex telescope" })
 
 	-- Projects
-	keymap("n", prefix .. "p", ":ZortexProjectsOpen<CR>", vim.tbl_extend("force", opts, { desc = "Open projects" }))
+	-- map("n", prefix .. "p", ":ZortexProjectsOpen<CR>", add_opts({ desc = "Open projects" }))
+	map("n", prefix .. "a", ":ZortexArchiveProject<CR>", add_opts({ desc = "Archive project" }))
+	map("n", prefix .. "x", ":ZortexCompleteTask<CR>", add_opts({ desc = "Complete current task" }))
 
-	-- Archive
-	keymap("n", prefix .. "a", ":ZortexArchiveProject<CR>", vim.tbl_extend("force", opts, { desc = "Archive project" }))
+	-- Progress
+	map("n", prefix .. "u", "<cmd>ZortexUpdateProgress<cr>", { desc = "Update progress" })
 
-	-- Skill tree
-	keymap("n", prefix .. "k", ":ZortexSkillTree<CR>", vim.tbl_extend("force", opts, { desc = "Show skill tree" }))
-
-	-- Task completion
-	keymap(
-		"n",
-		prefix .. "x",
-		":ZortexCompleteTask<CR>",
-		vim.tbl_extend("force", opts, { desc = "Complete current task" })
-	)
-
-	-- legacy commands
-	keymap("n", prefix .. "c", legacy.calendar.open, { desc = "Open Zortex Calendar" })
-	keymap("n", "ZC", legacy.telescope.calendar, { desc = "Search calendar entries" })
-	keymap("n", "Zp", legacy.telescope.projects, { desc = "Search projects" })
-	keymap("n", "Zd", legacy.telescope.today_digest)
-	keymap("n", "ZB", legacy.calendar.show_digest_buffer)
-	keymap("n", prefix .. "C", ":ZortexCalendarSearch<CR>", vim.tbl_extend("force", opts, { desc = "Search calendar" }))
-	keymap("n", prefix .. "P", ":ZortexProjects<CR>", vim.tbl_extend("force", opts, { desc = "Browse projects" }))
-	keymap("n", prefix .. "d", ":ZortexDigest<CR>", vim.tbl_extend("force", opts, { desc = "Today's digest" }))
+	-- XP System
+	map("n", prefix .. "k", ":ZortexSkillTree<CR>", add_opts({ desc = "Show skill tree" }))
 end
 
 --[[
@@ -604,9 +552,7 @@ function M.setup(opts)
 	-- Initialize modules
 	core.config.setup(opts)
 	modules.xp.setup(core.config.get("xp"))
-	legacy.calendar.setup()
-	-- require("zortex.completion_setup").setup()
-	-- ui.caldendar.setup(M.config.calendar)
+	ui.setup()
 
 	-- Setup autocmds, keymaps, and autocmds
 	setup_commands()
@@ -633,6 +579,5 @@ M.digest = ui.telescope.today_digest
 M.modules = modules
 M.ui = ui
 M.core = core
-M.legacy = legacy
 
 return M

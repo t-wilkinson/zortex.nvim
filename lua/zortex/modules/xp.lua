@@ -4,6 +4,7 @@ local M = {}
 local xp_config = require("zortex.modules.xp_config")
 local parser = require("zortex.core.parser")
 local fs = require("zortex.core.filesystem")
+local constants = require("zortex.constants")
 
 -- =============================================================================
 -- State Management
@@ -108,26 +109,6 @@ end
 -- Project XP System
 -- =============================================================================
 
---- Return how many tasks the XP system has recorded as finished for a project.
-function M.get_project_completed_tasks(project_name)
-	local proj = state.project_xp[project_name]
-	return (proj and proj.completed_tasks) or 0
-end
-
---- Sync the completed task count with the actual count from the file
-function M.sync_project_completed_tasks(project_name, actual_completed)
-	if not state.project_xp[project_name] then
-		M.init_project(project_name)
-	end
-
-	local project = state.project_xp[project_name]
-	-- Only update if the actual count is higher (tasks can't be uncompleted)
-	if actual_completed > project.completed_tasks then
-		project.completed_tasks = actual_completed
-		-- Don't save here - let the caller handle saving after all updates
-	end
-end
-
 -- Calculate season level from XP
 function M.calculate_season_level(xp)
 	local level = 1
@@ -137,28 +118,22 @@ function M.calculate_season_level(xp)
 	return level
 end
 
--- Initialize project tracking
-function M.init_project(project_name)
+function M.complete_task(project_name, task_position, total_tasks, area_links, silent)
+	-- Note: The actual task tracking is now handled by task_tracker
+	-- This function just handles the XP awarding
+
+	-- Calculate task XP
+	local task_xp = xp_config.calculate_task_xp(task_position, total_tasks)
+
+	-- Add to project XP (if we're still tracking project-level XP)
 	if not state.project_xp[project_name] then
 		state.project_xp[project_name] = {
 			xp = 0,
 			level = 1,
-			task_count = 0,
-			completed_tasks = 0,
 		}
 	end
-end
-
--- Add XP for completed task
-function M.complete_task(project_name, task_position, total_tasks, area_links, silent)
-	M.init_project(project_name)
 
 	local project = state.project_xp[project_name]
-	project.completed_tasks = project.completed_tasks + 1
-	project.task_count = math.max(project.task_count, total_tasks)
-
-	-- Calculate task XP
-	local task_xp = xp_config.calculate_task_xp(task_position, total_tasks)
 	project.xp = project.xp + task_xp
 
 	-- Track old season level for notification
@@ -233,6 +208,52 @@ function M.complete_task(project_name, task_position, total_tasks, area_links, s
 	end
 
 	return task_xp
+end
+
+-- Remove XP for uncompleted task
+function M.uncomplete_task(project_name, xp_to_remove, area_links, silent)
+	-- Remove from project XP
+	if state.project_xp[project_name] then
+		local project = state.project_xp[project_name]
+		project.xp = math.max(0, project.xp - xp_to_remove)
+	end
+
+	-- Remove from season XP
+	if state.current_season then
+		state.season_xp = math.max(0, state.season_xp - xp_to_remove)
+		state.season_level = M.calculate_season_level(state.season_xp)
+	end
+
+	-- Remove from linked areas
+	if area_links and #area_links > 0 then
+		local transfer_rate = xp_config.get("project.area_transfer_rate")
+		local area_xp = math.floor(xp_to_remove * transfer_rate)
+		local xp_per_area = math.floor(area_xp / #area_links)
+
+		for _, area_link in ipairs(area_links) do
+			local parsed = parser.parse_link_definition(area_link)
+			if parsed then
+				local area_path = M.build_area_path(parsed.components)
+				if area_path and state.area_xp[area_path] then
+					local area = state.area_xp[area_path]
+					area.xp = math.max(0, area.xp - xp_per_area)
+					area.level = M.calculate_area_level(area.xp)
+				end
+			end
+		end
+	end
+
+	-- Save state
+	M.save_state()
+
+	if not silent then
+		vim.notify(
+			string.format("⚠️ Task uncompleted: -%d XP from %s", xp_to_remove, project_name),
+			vim.log.levels.WARN
+		)
+	end
+
+	return -xp_to_remove
 end
 
 -- =============================================================================
@@ -389,7 +410,7 @@ end
 -- =============================================================================
 
 function M.save_state()
-	local data_file = fs.get_file_path(".zortex/xp_state.json")
+	local data_file = fs.get_file_path(constants.FILES.XP_STATE_DATA)
 	if data_file then
 		-- Ensure directory exists
 		local dir = vim.fn.fnamemodify(data_file, ":h")
@@ -405,7 +426,7 @@ function M.save_state()
 end
 
 function M.load_state()
-	local data_file = fs.get_file_path(".zortex/xp_state.json")
+	local data_file = fs.get_file_path(constants.FILES.XP_STATE_DATA)
 	if data_file and vim.fn.filereadable(data_file) == 1 then
 		local loaded = fs.read_json(data_file)
 		if loaded then

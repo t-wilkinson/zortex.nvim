@@ -7,8 +7,15 @@ M.FILES = {
 	PROJECTS = "projects.zortex",
 	AREAS = "areas.zortex",
 	OKR = "okr.zortex",
+
+	-- User library
+	USER_LIBRARY = "z",
 	ARCHIVE_PROJECTS = "z/archive.projects.zortex",
-	SKILL_XP_DATA = ".zortex/skill_xp.json",
+
+	-- System library
+	SYSTEM_LIBRARY = ".z",
+	XP_STATE_DATA = ".z/xp_state.json",
+	TASK_STATE_DATA = ".z/task_state.json",
 }
 
 -- Patterns
@@ -31,6 +38,7 @@ M.PATTERNS = {
 	DONE_DATE = "@done%((%d%d%d%d%-%d%d%-%d%d)%)",
 	PROGRESS = "@progress%((%d+)/(%d+)%)",
 	XP = "@xp%((%d+)%)",
+	ID = "@id%(([^)]+)%)",
 
 	-- Link patterns
 	LINK = "%[([^%]]+)%]",

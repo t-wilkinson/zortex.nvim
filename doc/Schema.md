@@ -2,6 +2,8 @@
 
 ## Links
 
+Think of links as a reference to a section(s). Link paths refer to a sectional area of a file, and the subsequent part looks in that area for its section.
+
 We have three scopes for links:
 [Article name] or [Alias] -- We find the article with the line "@@Article name" or "@@Alias". There may be multiple articles with the same name so populate the quickfix.
 [...] -- We have global link which searches all articles matching link.

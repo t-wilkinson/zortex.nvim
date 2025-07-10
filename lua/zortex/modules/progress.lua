@@ -1,4 +1,4 @@
--- modules/progress.lua - Progress tracking updated for new XP system
+-- modules/progress.lua - Progress tracking with individual task state management
 local M = {}
 
 local parser = require("zortex.core.parser")
@@ -7,6 +7,31 @@ local buffer = require("zortex.core.buffer")
 local constants = require("zortex.constants")
 local skills = require("zortex.modules.skills")
 local xp = require("zortex.modules.xp")
+local task_tracker = require("zortex.modules.task_tracker")
+
+-- =============================================================================
+-- Task ID Management
+-- =============================================================================
+
+-- Ensure all tasks have IDs
+local function ensure_task_ids(lines)
+	local modified = false
+
+	for i, line in ipairs(lines) do
+		local is_task = parser.is_task_line(line)
+		if is_task then
+			local id = parser.extract_task_id(line)
+			if not id then
+				-- Generate new ID
+				id = task_tracker.generate_unique_id()
+				lines[i] = parser.add_task_id(line, id)
+				modified = true
+			end
+		end
+	end
+
+	return modified
+end
 
 -- =============================================================================
 -- Progress Attribute Management
@@ -34,67 +59,77 @@ local function update_done_attribute(line, done)
 end
 
 -- =============================================================================
--- Project Progress Tracking
+-- Direct Task Counting (Excludes Children)
 -- =============================================================================
 
-local function count_project_tasks(lines, start_idx, end_idx, level)
-	local total = 0
-	local completed = 0
-	local task_positions = {}
+local function count_direct_tasks(lines, start_idx, end_idx, level)
+	local tasks = {}
+	local current_level = level
 
 	for i = start_idx + 1, end_idx - 1 do
 		local line = lines[i]
 
-		-- Check if we've hit a subproject
+		-- Check if we've hit a child project
 		local heading_level = parser.get_heading_level(line)
-
-		-- Only count immediate tasks
-		if heading_level == 0 or heading_level > level then
+		if heading_level > 0 then
+			if heading_level <= level then
+				-- We've exited the current project
+				break
+			else
+				-- Skip this entire child project
+				current_level = heading_level
+			end
+		elseif current_level == level then
+			-- We're at the direct level of the project
 			local is_task, is_completed = parser.is_task_line(line)
 			if is_task then
-				total = total + 1
-				if is_completed then
-					completed = completed + 1
+				local id = parser.extract_task_id(line)
+				if id then
+					table.insert(tasks, {
+						id = id,
+						line_num = i,
+						completed = is_completed,
+						line = line,
+					})
 				end
-				-- Store task position info
-				table.insert(task_positions, {
-					line_num = i,
-					position = total,
-					completed = is_completed,
-				})
 			end
 		end
 	end
 
-	return total, completed, task_positions
+	return tasks
 end
+
+-- =============================================================================
+-- Project Progress Tracking
+-- =============================================================================
 
 function M.update_project_progress(bufnr)
 	bufnr = bufnr or 0
 	local lines = buffer.get_lines(bufnr)
 	local modified = false
 
-	-- Reload XP state to ensure we have the latest data
-	xp.load_state()
+	-- First ensure all tasks have IDs
+	if ensure_task_ids(lines) then
+		modified = true
+	end
 
-	-- Batch XP awards to avoid notification spam
-	local xp_awards = {
-		tasks = {},
-		projects = {},
-		total_xp = 0,
+	-- Load task tracker state
+	task_tracker.load_state()
+
+	-- Batch XP changes
+	local xp_changes = {
+		total_delta = 0,
+		task_changes = {},
+		project_completions = {},
 	}
 
 	-- Get all headings
 	local headings = buffer.get_all_headings(bufnr)
 
-	local count = 0
-	for _ in pairs(headings) do
-		count = count + 1
-	end
-
 	for i, heading_info in ipairs(headings) do
 		local lnum = heading_info.lnum
 		local level = heading_info.level
+		local project_name = heading_info.text
 
 		-- Find the end of this section
 		local end_idx = #lines + 1
@@ -105,54 +140,65 @@ function M.update_project_progress(bufnr)
 			end
 		end
 
-		-- Count tasks and get positions
-		local total, completed, task_positions = count_project_tasks(lines, lnum, end_idx, level)
+		-- Get direct tasks only (not from child projects)
+		local tasks = count_direct_tasks(lines, lnum, end_idx, level)
 
 		-- Get area links for this project
 		local area_links = skills.get_project_area_links(lines, lnum)
 
-		-- Award XP for tasks that became "[x]" since the last save
-		local prev_completed = xp.get_project_completed_tasks(heading_info.text)
+		-- Process each task
+		local total_tasks = #tasks
+		local completed_tasks = 0
 
-		-- Only process if there are new completions
-		if completed > prev_completed and total > 0 then
-			-- Calculate XP for all newly completed tasks
-			local project_xp = 0
-			for pos = prev_completed + 1, completed do
-				local task_xp = skills.process_task_completion(heading_info.text, pos, total, area_links, true) -- true = silent mode
-				project_xp = project_xp + (task_xp or 0)
+		for position, task_info in ipairs(tasks) do
+			if task_info.completed then
+				completed_tasks = completed_tasks + 1
 			end
 
-			-- Store for batch notification
-			if project_xp > 0 then
-				table.insert(xp_awards.tasks, {
-					project = heading_info.text,
-					count = completed - prev_completed,
-					xp = project_xp,
-					area_links = area_links,
+			-- Register task with tracker
+			task_tracker.register_task(
+				task_info.id,
+				project_name,
+				parser.parse_task_attributes(task_info.line),
+				area_links
+			)
+
+			-- Update task status and get XP delta
+			local xp_delta = task_tracker.update_task_status(task_info.id, task_info.completed, position, total_tasks)
+
+			if xp_delta ~= 0 then
+				table.insert(xp_changes.task_changes, {
+					task_id = task_info.id,
+					project = project_name,
+					delta = xp_delta,
+					completed = task_info.completed,
+					position = position,
+					total = total_tasks,
 				})
-				xp_awards.total_xp = xp_awards.total_xp + project_xp
+				xp_changes.total_delta = xp_changes.total_delta + xp_delta
 			end
 		end
 
-		-- Update the heading line
+		-- Update the heading line with progress
 		local old_line = lines[lnum]
-		local new_line = update_progress_attribute(old_line, completed, total)
+		local new_line = update_progress_attribute(old_line, completed_tasks, total_tasks)
 
 		-- Mark as done if all tasks completed
-		if total > 0 and completed == total and not old_line:match(constants.PATTERNS.DONE_DATE) then
+		local was_done = old_line:match(constants.PATTERNS.DONE_DATE) ~= nil
+		local is_done = total_tasks > 0 and completed_tasks == total_tasks
+
+		if is_done and not was_done then
 			new_line = update_done_attribute(new_line, true)
 
-			-- Award completion bonus if area links exist and project wasn't already completed
-			if #area_links > 0 and prev_completed < total then
-				local bonus_xp = skills.process_task_completion(heading_info.text, total, total, area_links, true)
-				table.insert(xp_awards.projects, {
-					name = heading_info.text,
-					xp = bonus_xp or 0,
+			-- Track project completion
+			if #area_links > 0 then
+				table.insert(xp_changes.project_completions, {
+					name = project_name,
+					area_links = area_links,
 				})
 			end
-		elseif total > 0 and completed < total and old_line:match(constants.PATTERNS.DONE_DATE) then
-			-- Remove done if tasks were added after completion
+		elseif not is_done and was_done then
+			-- Remove done if project is no longer complete
 			new_line = update_done_attribute(new_line, false)
 		end
 
@@ -160,53 +206,101 @@ function M.update_project_progress(bufnr)
 			lines[lnum] = new_line
 			modified = true
 		end
-
-		-- Update the XP system's completed task count to match reality
-		-- This ensures the count stays in sync even if state was corrupted
-		xp.sync_project_completed_tasks(heading_info.text, completed)
 	end
 
-	-- Show batch notification if any XP was earned
-	if xp_awards.total_xp > 0 then
-		local notification_lines = {}
-		table.insert(notification_lines, string.format("✨ Progress Update: +%d XP Total", xp_awards.total_xp))
-
-		if #xp_awards.tasks > 0 then
-			table.insert(notification_lines, "")
-			table.insert(notification_lines, "📋 Tasks Completed:")
-			for _, award in ipairs(xp_awards.tasks) do
-				table.insert(
-					notification_lines,
-					string.format(
-						"  • %s: %d task%s (+%d XP)",
-						award.project,
-						award.count,
-						award.count > 1 and "s" or "",
-						award.xp
-					)
+	-- Apply XP changes through the XP system
+	if xp_changes.total_delta ~= 0 then
+		-- Apply task XP changes
+		for _, change in ipairs(xp_changes.task_changes) do
+			if change.delta > 0 then
+				-- Task completed
+				skills.process_task_completion(
+					change.project,
+					change.position,
+					change.total,
+					task_tracker.get_task(change.task_id).area_links,
+					true -- silent
 				)
 			end
+			-- Note: negative XP (task uncompleted) would need to be handled
+			-- by the XP system, which currently doesn't support it
 		end
 
-		if #xp_awards.projects > 0 then
-			table.insert(notification_lines, "")
-			table.insert(notification_lines, "🎉 Projects Completed:")
-			for _, project in ipairs(xp_awards.projects) do
-				table.insert(notification_lines, string.format("  • %s (+%d XP bonus)", project.name, project.xp))
-			end
-		end
-
-		vim.notify(table.concat(notification_lines, "\n"), vim.log.levels.INFO)
+		-- Show notification
+		M.show_xp_notification(xp_changes)
 	end
 
+	-- Save states
 	if modified then
 		buffer.set_lines(bufnr, 0, -1, lines)
 	end
 
-	-- Save XP state after all updates
+	task_tracker.save_state()
 	xp.save_state()
 
 	return modified
+end
+
+-- =============================================================================
+-- XP Notifications
+-- =============================================================================
+
+function M.show_xp_notification(xp_changes)
+	if xp_changes.total_delta == 0 then
+		return
+	end
+
+	local lines = {}
+
+	if xp_changes.total_delta > 0 then
+		table.insert(lines, string.format("✨ Progress Update: +%d XP", xp_changes.total_delta))
+	else
+		table.insert(lines, string.format("⚠️  Progress Reverted: %d XP", xp_changes.total_delta))
+	end
+
+	-- Group by project
+	local by_project = {}
+	for _, change in ipairs(xp_changes.task_changes) do
+		if not by_project[change.project] then
+			by_project[change.project] = {
+				completed = 0,
+				uncompleted = 0,
+				xp = 0,
+			}
+		end
+
+		local proj = by_project[change.project]
+		if change.completed then
+			proj.completed = proj.completed + 1
+		else
+			proj.uncompleted = proj.uncompleted + 1
+		end
+		proj.xp = proj.xp + change.delta
+	end
+
+	table.insert(lines, "")
+	table.insert(lines, "📋 Task Changes:")
+	for project, stats in pairs(by_project) do
+		local parts = {}
+		if stats.completed > 0 then
+			table.insert(parts, string.format("%d completed", stats.completed))
+		end
+		if stats.uncompleted > 0 then
+			table.insert(parts, string.format("%d uncompleted", stats.uncompleted))
+		end
+
+		table.insert(lines, string.format("  • %s: %s (%+d XP)", project, table.concat(parts, ", "), stats.xp))
+	end
+
+	if #xp_changes.project_completions > 0 then
+		table.insert(lines, "")
+		table.insert(lines, "🎉 Projects Completed:")
+		for _, proj in ipairs(xp_changes.project_completions) do
+			table.insert(lines, string.format("  • %s", proj.name))
+		end
+	end
+
+	vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO)
 end
 
 -- =============================================================================
@@ -395,80 +489,67 @@ function M.update_okr_progress()
 end
 
 -- =============================================================================
--- Task Completion Command
+-- Change current task
 -- =============================================================================
 
-function M.complete_current_task()
+-- Internal helper that flips or sets the completion state of the **current** task line.
+-- It handles validation, ID injection, checkbox toggle, buffer write, and downstream XP/XP updates.
+local function set_current_task_completion(should_complete)
 	local bufnr = 0
 	local line_num = vim.fn.line(".")
 	local lines = buffer.get_lines(bufnr)
 	local line = lines[line_num]
 
-	-- Check if it's a task
+	-- Validate task
 	local is_task, is_completed = parser.is_task_line(line)
 	if not is_task then
 		vim.notify("Not on a task line", vim.log.levels.WARN)
 		return
 	end
 
-	if is_completed then
-		vim.notify("Task already completed", vim.log.levels.INFO)
+	-- Determine desired end‑state
+	if should_complete == nil then
+		should_complete = not is_completed -- toggle
+	end
+	if is_completed == should_complete then
+		vim.notify(
+			string.format("Task already %s", should_complete and "completed" or "incomplete"),
+			vim.log.levels.INFO
+		)
 		return
 	end
 
-	-- Mark task as complete
-	local new_line = line:gsub("%[%s*%]", "[x]")
+	-- Guarantee ID
+	local id = parser.extract_task_id(line)
+	if not id then
+		id = task_tracker.generate_unique_id()
+		line = parser.add_task_id(line, id)
+	end
+
+	-- Toggle checkbox
+	local new_line
+	if should_complete then
+		new_line = line:gsub("%[%s*%]", "[x]") -- [ ] → [x]
+	else
+		new_line = line:gsub("%[.%]", "[ ]") -- [x] / [-] → [ ]
+	end
 	lines[line_num] = new_line
 	buffer.set_lines(bufnr, 0, -1, lines)
 
-	-- Find the project this task belongs to
-	local project_heading = nil
-	local project_line_num = nil
-	local task_position = 1
-	local total_tasks = 1
+	-- Delegate heavy lifting (XP, progress headers, etc.)
+	M.update_project_progress(bufnr)
+end
 
-	for i = line_num - 1, 1, -1 do
-		local heading = parser.parse_heading(lines[i])
-		if heading then
-			project_heading = heading
-			project_line_num = i
+function M.toggle_current_task()
+	set_current_task_completion(nil)
+end
 
-			-- Count tasks in this project
-			local _, end_idx = buffer.find_section_bounds(lines, i)
-			local t, c, positions = count_project_tasks(lines, i, end_idx, heading.level)
-			total_tasks = t
+function M.complete_current_task()
+	set_current_task_completion(true)
+end
 
-			-- Find our task position
-			for _, pos_info in ipairs(positions) do
-				if pos_info.line_num == line_num then
-					task_position = pos_info.position
-					break
-				end
-			end
-
-			break
-		end
-	end
-
-	if project_heading and project_line_num then
-		-- Get area links for the project
-		local area_links = skills.get_project_area_links(lines, project_line_num)
-
-		if #area_links > 0 then
-			-- Award XP for task completion
-			local xp_awarded =
-				skills.process_task_completion(project_heading.text, task_position, total_tasks, area_links)
-
-			vim.notify(string.format("Task complete! +%d XP", xp_awarded), vim.log.levels.INFO)
-
-			-- Update project progress
-			M.update_project_progress(bufnr)
-		else
-			vim.notify("Task completed (no area links for XP)", vim.log.levels.INFO)
-		end
-	else
-		vim.notify("Task completed", vim.log.levels.INFO)
-	end
+function M.uncomplete_current_task()
+	set_current_task_completion(false)
 end
 
 -- =============================================================================
@@ -509,6 +590,39 @@ function M.update_all_progress()
 	M.update_okr_progress()
 
 	vim.notify("Updated progress for all projects and OKRs", vim.log.levels.INFO)
+end
+
+-- =============================================================================
+-- Debug Commands
+-- =============================================================================
+
+function M.show_task_stats()
+	task_tracker.load_state()
+	local stats = task_tracker.get_stats()
+
+	local lines = {}
+	table.insert(lines, "📊 Task Tracking Statistics")
+	table.insert(lines, "")
+	table.insert(lines, string.format("Total Tasks: %d", stats.total_tasks))
+	table.insert(lines, string.format("Completed: %d", stats.completed_tasks))
+	table.insert(lines, string.format("Total XP Awarded: %d", stats.total_xp_awarded))
+	table.insert(lines, "")
+	table.insert(lines, "By Project:")
+
+	for project, proj_stats in pairs(stats.tasks_by_project) do
+		table.insert(
+			lines,
+			string.format(
+				"  • %s: %d/%d tasks, %d XP",
+				project,
+				proj_stats.completed,
+				proj_stats.total,
+				proj_stats.xp
+			)
+		)
+	end
+
+	vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO)
 end
 
 return M

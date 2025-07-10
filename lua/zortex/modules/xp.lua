@@ -95,6 +95,9 @@ function M.build_area_path(components)
 			-- Skip the "A" or "Areas" prefix
 		elseif comp.type == "heading" or comp.type == "label" then
 			table.insert(path_parts, comp.text)
+		elseif comp.type == "article" then
+			-- For non-Areas articles, include them in the path
+			table.insert(path_parts, comp.text)
 		end
 	end
 
@@ -393,7 +396,11 @@ function M.get_season_status()
 
 	local tier = xp_config.get_season_tier(state.season_level)
 	local next_tier = xp_config.get_next_tier(state.season_level)
-	local progress = xp_config.calculate_tier_progress(state.season_xp, state.season_level)
+
+	-- Calculate progress within current level
+	local current_level_xp = xp_config.calculate_season_level_xp(state.season_level)
+	local next_level_xp = xp_config.calculate_season_level_xp(state.season_level + 1)
+	local progress_in_level = (state.season_xp - current_level_xp) / (next_level_xp - current_level_xp)
 
 	return {
 		season = state.current_season,
@@ -401,7 +408,7 @@ function M.get_season_status()
 		xp = state.season_xp,
 		current_tier = tier,
 		next_tier = next_tier,
-		progress_to_next = progress,
+		progress_to_next = math.max(0, math.min(1, progress_in_level)),
 	}
 end
 
@@ -487,9 +494,9 @@ function M.get_project_stats()
 	for name, data in pairs(state.project_xp) do
 		stats[name] = {
 			xp = data.xp,
-			completed_tasks = data.completed_tasks,
-			total_tasks = data.task_count,
-			completion_rate = data.task_count > 0 and (data.completed_tasks / data.task_count) or 0,
+			completed_tasks = data.completed_tasks or 0,
+			total_tasks = data.task_count or 0,
+			completion_rate = (data.task_count or 0) > 0 and (data.completed_tasks / data.task_count) or 0,
 		}
 	end
 

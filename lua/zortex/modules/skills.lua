@@ -36,6 +36,8 @@ function M.parse_areas_file()
 	-- Root node
 	local root = create_node("Areas", "", 0, nil)
 	local current_nodes = { [0] = root }
+	local last_heading_node = nil
+	local last_heading_level = 0
 
 	for _, line in ipairs(lines) do
 		-- Skip empty lines
@@ -68,6 +70,10 @@ function M.parse_areas_file()
 				table.insert(parent.children, node)
 				current_nodes[heading_level] = node
 
+				-- Update last heading info
+				last_heading_node = node
+				last_heading_level = heading_level
+
 				-- Clear deeper levels
 				for level = heading_level + 1, 10 do
 					current_nodes[level] = nil
@@ -77,20 +83,14 @@ function M.parse_areas_file()
 			-- Check for label
 			local label = line:match("^(%w[^:]*):$")
 			if label then
-				-- Find parent
-				local parent = nil
-				for level = 10, 0, -1 do
-					if current_nodes[level] then
-						parent = current_nodes[level]
-						break
-					end
-				end
+				-- Labels should be children of the last heading, not nested under each other
+				local parent = last_heading_node
 
 				if parent then
 					local path = parent.path .. "/" .. label
-					local node = create_node(label, path, parent.level + 1, parent)
+					local node = create_node(label, path, last_heading_level + 1, parent)
 					table.insert(parent.children, node)
-					current_nodes[parent.level + 1] = node
+					-- Don't update current_nodes for labels to prevent nesting
 				end
 			end
 		end
@@ -152,15 +152,18 @@ end
 -- Area Link Extraction
 -- =============================================================================
 
--- Extract area links from a line (space-separated zortex links)
+-- Extract area links from a line (zortex-style links to areas)
 function M.extract_area_links(line)
 	local links = {}
 
 	-- Look for zortex-style links
 	for link in line:gmatch("%[([^%]]+)%]") do
 		-- Skip if it's a task checkbox
-		if not link:match("^%s*[xX~@]?%s*$") then
-			table.insert(links, link)
+		if not link:match("^%s*[xX~@%-%s]?%s*$") then
+			-- Check if it's an area link (starts with A/ or Areas/)
+			if link:match("^A/") or link:match("^Areas/") then
+				table.insert(links, link)
+			end
 		end
 	end
 

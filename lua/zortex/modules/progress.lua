@@ -111,6 +111,10 @@ function M.update_project_progress(bufnr)
 	-- First ensure all tasks have IDs
 	if ensure_task_ids(lines) then
 		modified = true
+		-- Write back the lines with IDs before continuing
+		buffer.set_lines(bufnr, 0, -1, lines)
+		-- Re-read to ensure we have the latest
+		lines = buffer.get_lines(bufnr)
 	end
 
 	-- Load task tracker state
@@ -174,6 +178,7 @@ function M.update_project_progress(bufnr)
 					completed = task_info.completed,
 					position = position,
 					total = total_tasks,
+					area_links = area_links, -- Include area links for XP processing
 				})
 				xp_changes.total_delta = xp_changes.total_delta + xp_delta
 			end
@@ -218,7 +223,7 @@ function M.update_project_progress(bufnr)
 					change.project,
 					change.position,
 					change.total,
-					task_tracker.get_task(change.task_id).area_links,
+					change.area_links, -- Use the area links we captured
 					true -- silent
 				)
 			end

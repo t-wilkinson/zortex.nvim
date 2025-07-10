@@ -121,12 +121,12 @@ end
 -- Area Tree Display
 -- =============================================================================
 
-local function render_area_node(node, lines, highlights, indent_level)
+local function render_area_node(node, lines, highlights, indent_level, skip_self)
 	indent_level = indent_level or 0
 	local indent = string.rep("  ", indent_level)
 
-	-- Skip root node in display
-	if node.level > 0 then
+	-- Skip root node and optionally skip self
+	if not skip_self and node.level > 0 then
 		-- Build line
 		local line_parts = { indent .. node.name }
 
@@ -170,9 +170,14 @@ local function render_area_node(node, lines, highlights, indent_level)
 		end
 	end
 
-	-- Render children
+	-- Render children with proper indentation
+	local child_indent = indent_level
+	if not skip_self and node.level > 0 then
+		child_indent = indent_level + 1
+	end
+
 	for _, child in ipairs(node.children) do
-		render_area_node(child, lines, highlights, node.level > 0 and indent_level + 1 or 0)
+		render_area_node(child, lines, highlights, child_indent, false)
 	end
 end
 

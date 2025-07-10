@@ -1,4 +1,4 @@
--- features/calendar.lua - Calendar functionality for Zortex
+-- modules/calendar.lua - Calendar functionality for Zortex
 local M = {}
 
 local parser = require("zortex.core.parser")

@@ -97,6 +97,14 @@ local function setup_commands()
 	end, { desc = "Open link under cursor" })
 
 	-- Calendar
+	cmd("ZortexUICalendar", function()
+		ui.calendar.open()
+	end, { desc = "Open Zortex calendar" })
+
+	cmd("ZortexUICalendarToggle", function()
+		ui.calendar.toggle()
+	end, { desc = "Toggle Zortex calendar" })
+
 	cmd(prefix .. "CalendarOpen", function()
 		local cal_path = core.filesystem.get_file_path("calendar.zortex")
 		if cal_path then
@@ -260,75 +268,53 @@ local function setup_commands()
 			print("No stats for this project yet")
 		end
 	end, { desc = "Show project statistics" })
-
-	-- Telescope integration
-	pcall(function()
-		local telescope = require("zortex.telescope")
-
-		cmd(prefix .. "CalendarSearch", telescope.calendar, { desc = "Browse calendar chronologically" })
-		cmd(prefix .. "Projects", telescope.projects, { desc = "Browse projects in Telescope" })
-		cmd(prefix .. "Digest", telescope.today_digest, { desc = "Show today's digest" })
-	end)
 end
 
 --[[
 local function setup_commands()
 	local cmd = vim.api.nvim_create_user_command
-	
-	-- Calendar commands
-	cmd("ZortexCalendar", function()
-		ui.calendar.open()
-	end, { desc = "Open Zortex calendar" })
-	
-	cmd("ZortexCalendarToggle", function()
-		ui.calendar.toggle()
-	end, { desc = "Toggle Zortex calendar" })
-	
+
 	-- Digest commands
-	cmd("ZortexDigest", function()
-		features.notifications.show_today_digest()
-	end, { desc = "Show today's digest as notification" })
-	
 	cmd("ZortexDigestBuffer", function()
 		features.notifications.show_digest_buffer()
 	end, { desc = "Show today's digest in buffer" })
-	
+
 	-- Notification commands
 	cmd("ZortexNotifySetup", function()
 		local count = features.notifications.setup_notifications()
 		vim.notify(string.format("Scheduled %d notifications", count), vim.log.levels.INFO)
 	end, { desc = "Setup calendar notifications" })
-	
+
 	cmd("ZortexNotifyTest", function()
 		features.notifications.test_notification()
 	end, { desc = "Test notification system" })
-	
+
 	-- Search commands
 	cmd("ZortexSearch", function()
 		features.search.search()
 	end, { desc = "Search Zortex notes" })
-	
+
 	cmd("ZortexSearchCalendar", function()
 		ui.telescope.calendar()
 	end, { desc = "Search calendar entries" })
-	
+
 	cmd("ZortexSearchProjects", function()
 		ui.telescope.projects()
 	end, { desc = "Search projects" })
-	
+
 	cmd("ZortexToday", function()
 		ui.telescope.today_digest()
 	end, { desc = "Show today's digest in Telescope" })
-	
+
 	-- Progress commands
 	cmd("ZortexUpdateProgress", function()
 		features.progress.update_all_progress()
 	end, { desc = "Update progress for all projects" })
-	
+
 	cmd("ZortexCompleteTask", function()
 		features.progress.complete_current_task()
 	end, { desc = "Complete task at cursor" })
-	
+
 	-- Skills commands (if module available)
 	if features.skills then
 		cmd("ZortexSkillsTree", function()
@@ -338,12 +324,12 @@ local function setup_commands()
 				vim.notify("Skills tree UI not available", vim.log.levels.WARN)
 			end
 		end, { desc = "Open skills tree" })
-		
+
 		cmd("ZortexSkillsStats", function()
 			features.skills.show_stats()
 		end, { desc = "Show skills statistics" })
 	end
-	
+
 	-- XP commands
 	cmd("ZortexXPStatus", function()
 		local xp = features.xp
@@ -360,7 +346,7 @@ local function setup_commands()
 			vim.notify("No active season", vim.log.levels.WARN)
 		end
 	end, { desc = "Show XP status" })
-	
+
 	cmd("ZortexStartSeason", function(opts)
 		local args = vim.split(opts.args, " ")
 		if #args < 2 then
@@ -371,11 +357,11 @@ local function setup_commands()
 		local end_date = args[2]
 		features.xp.start_season(name, end_date)
 	end, { nargs = "+", desc = "Start a new season" })
-	
+
 	cmd("ZortexEndSeason", function()
 		features.xp.end_season()
 	end, { desc = "End current season" })
-	
+
 	-- Other commands
 	cmd("ZortexOpen", function(opts)
 		features.links.open_link()
@@ -388,25 +374,6 @@ end
 
 function M.create_commands()
 	local cmd = vim.api.nvim_create_user_command
-
-	-- Core commands
-	cmd("Zortex", function()
-		vim.notify("Zortex loaded. Use :help zortex for more information.", vim.log.levels.INFO)
-	end, { desc = "Show Zortex info" })
-
-	-- Navigation commands
-	cmd("ZortexSearch", function(opts)
-		search.search_interactive(opts.args)
-	end, { nargs = "*", desc = "Search Zortex notes" })
-
-	cmd("ZortexLink", function()
-		links.follow_link()
-	end, { desc = "Follow link under cursor" })
-
-	cmd("ZortexBack", function()
-		links.go_back()
-	end, { desc = "Go back in navigation history" })
-
 	-- Archive commands
 	cmd("ZortexArchiveProject", function()
 		archive.archive_current_project()
@@ -456,16 +423,6 @@ local function setup_keymaps()
 	local prefix = "<leader>z"
 	local keymap = vim.keymap.set
 
-	-- legacy commands
-	keymap("n", prefix .. "c", legacy.calendar.open, { desc = "Open Zortex Calendar" })
-	keymap("n", "ZC", legacy.telescope.calendar, { desc = "Search calendar entries" })
-	keymap("n", "Zp", legacy.telescope.projects, { desc = "Search projects" })
-	keymap("n", "Zd", legacy.telescope.today_digest)
-	keymap("n", "ZD", legacy.calendar.show_today_digest, {
-		desc = "Show Today's Digest",
-	})
-	keymap("n", "ZB", legacy.calendar.show_digest_buffer)
-
 	-- Search
 	keymap("n", prefix .. "s", ":ZortexSearch<CR>", vim.tbl_extend("force", opts, { desc = "Zortex search" }))
 
@@ -493,17 +450,15 @@ local function setup_keymaps()
 		vim.tbl_extend("force", opts, { desc = "Complete current task" })
 	)
 
-	-- Telescope (if available)
-	pcall(function()
-		keymap(
-			"n",
-			prefix .. "C",
-			":ZortexCalendarSearch<CR>",
-			vim.tbl_extend("force", opts, { desc = "Search calendar" })
-		)
-		keymap("n", prefix .. "P", ":ZortexProjects<CR>", vim.tbl_extend("force", opts, { desc = "Browse projects" }))
-		keymap("n", prefix .. "d", ":ZortexDigest<CR>", vim.tbl_extend("force", opts, { desc = "Today's digest" }))
-	end)
+	-- legacy commands
+	keymap("n", prefix .. "c", legacy.calendar.open, { desc = "Open Zortex Calendar" })
+	keymap("n", "ZC", legacy.telescope.calendar, { desc = "Search calendar entries" })
+	keymap("n", "Zp", legacy.telescope.projects, { desc = "Search projects" })
+	keymap("n", "Zd", legacy.telescope.today_digest)
+	keymap("n", "ZB", legacy.calendar.show_digest_buffer)
+	keymap("n", prefix .. "C", ":ZortexCalendarSearch<CR>", vim.tbl_extend("force", opts, { desc = "Search calendar" }))
+	keymap("n", prefix .. "P", ":ZortexProjects<CR>", vim.tbl_extend("force", opts, { desc = "Browse projects" }))
+	keymap("n", prefix .. "d", ":ZortexDigest<CR>", vim.tbl_extend("force", opts, { desc = "Today's digest" }))
 end
 
 --[[
@@ -512,23 +467,23 @@ end
 local function setup_keymaps()
 	local keymap = vim.keymap.set
 	local opts = { noremap = true, silent = true }
-	
+
 	-- Calendar
 	keymap("n", "<leader>zc", "<cmd>ZortexCalendarToggle<CR>", opts)
 	keymap("n", "<leader>zt", "<cmd>ZortexToday<CR>", opts)
 	keymap("n", "<leader>zd", "<cmd>ZortexDigestBuffer<CR>", opts)
-	
+
 	-- Search
 	keymap("n", "<leader>zs", "<cmd>ZortexSearch<CR>", opts)
 	keymap("n", "<leader>zp", "<cmd>ZortexSearchProjects<CR>", opts)
-	
+
 	-- Links
 	keymap("n", "<CR>", "<cmd>ZortexOpen<CR>", opts)
 	keymap("n", "gd", "<cmd>ZortexOpen<CR>", opts)
-	
+
 	-- Tasks
 	keymap("n", "<leader>zx", "<cmd>ZortexCompleteTask<CR>", opts)
-	
+
 	-- Skills (if available)
 	if features.skills and ui.skills_tree then
 		keymap("n", "<leader>zk", "<cmd>ZortexSkillsTree<CR>", opts)
@@ -589,10 +544,10 @@ end
 
 local function setup_autocmds()
 	local group = vim.api.nvim_create_augroup("Zortex", { clear = true })
-	
+
 	-- Progress tracking
 	features.progress.setup_autocmd()
-	
+
 	-- Auto-save XP state
 	vim.api.nvim_create_autocmd("VimLeavePre", {
 		group = group,
@@ -600,7 +555,7 @@ local function setup_autocmds()
 			features.xp.save_state()
 		end,
 	})
-	
+
 	-- Track file access
 	vim.api.nvim_create_autocmd("BufEnter", {
 		group = group,
@@ -613,7 +568,7 @@ local function setup_autocmds()
 			end
 		end,
 	})
-	
+
 	-- Setup notifications on startup
 	vim.api.nvim_create_autocmd("VimEnter", {
 		group = group,

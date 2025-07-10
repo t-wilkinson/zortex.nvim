@@ -1,4 +1,4 @@
--- features/xp_notifications.lua - Enhanced XP notifications and preview commands
+-- modules/xp_notifications.lua - Enhanced XP notifications and preview commands
 local M = {}
 
 local xp = require("zortex.modules.xp")

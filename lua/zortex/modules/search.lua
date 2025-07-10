@@ -1,4 +1,4 @@
--- features/search.lua - Hierarchical search integrated with unified parser
+-- modules/search.lua - Hierarchical search integrated with unified parser
 local M = {}
 
 local parser = require("zortex.core.parser")

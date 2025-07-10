@@ -1,4 +1,4 @@
--- features/links.lua - Link navigation for Zortex
+-- modules/links.lua - Link navigation for Zortex
 local M = {}
 
 local parser = require("zortex.core.parser")

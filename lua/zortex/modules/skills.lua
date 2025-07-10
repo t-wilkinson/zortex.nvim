@@ -1,4 +1,4 @@
--- features/skills.lua - Revamped Skills System for Area progression
+-- modules/skills.lua - Revamped Skills System for Area progression
 local M = {}
 
 local parser = require("zortex.core.parser")

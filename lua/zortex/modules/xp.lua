@@ -1,4 +1,4 @@
--- features/xp.lua - Revamped XP System with Area and Project XP
+-- modules/xp.lua - Revamped XP System with Area and Project XP
 local M = {}
 
 local xp_config = require("zortex.modules.xp_config")

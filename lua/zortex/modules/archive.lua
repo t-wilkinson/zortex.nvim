@@ -1,4 +1,4 @@
--- features/archive.lua - Project archiving system for Zortex
+-- modules/archive.lua - Project archiving system for Zortex
 local M = {}
 
 local parser = require("zortex.core.parser")

@@ -1,4 +1,4 @@
--- features/progress.lua - Progress tracking updated for new XP system
+-- modules/progress.lua - Progress tracking updated for new XP system
 local M = {}
 
 local parser = require("zortex.core.parser")

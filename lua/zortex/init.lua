@@ -2,40 +2,6 @@
 local M = {}
 
 -- =============================================================================
--- Configuration
--- =============================================================================
-
-M.config = {
-	notes_dir = vim.g.zortex_notes_dir or vim.fn.expand("$HOME/.zortex") .. "/",
-	extension = vim.g.zortex_extension or ".zortex",
-	special_articles = vim.g.zortex_special_articles or {},
-	xp = {
-		enabled = true,
-	},
-	skills = {},
-	calendar = {
-		digest_time = "09:00",
-	},
-	ui = {
-		calendar = {
-			window = {
-				width = 0.8,
-				height = 0.8,
-			},
-			colors = {
-				today = "DiagnosticOk",
-				selected = "CursorLine",
-				weekend = "Comment",
-				has_entry = "DiagnosticInfo",
-			},
-		},
-		telescope = {
-			-- Optional telescope-specific config
-		},
-	},
-}
-
--- =============================================================================
 -- Module Loading
 -- =============================================================================
 
@@ -635,20 +601,9 @@ end
 -- =============================================================================
 
 function M.setup(opts)
-	-- Merge configuration
-	if opts then
-		M.config = vim.tbl_deep_extend("force", M.config, opts)
-	end
-
-	-- Set globals for backward compatibility
-	vim.g.zortex_notes_dir = M.config.notes_dir
-	vim.g.zortex_notes_dir = vim.fn.expand("~/.zortex")
-	vim.g.zortex_extension = M.config.extension
-	vim.g.zortex_special_articles = M.config.special_articles
-
 	-- Initialize modules
-	core.config.setup(M.config)
-	modules.xp.setup(M.config.xp)
+	core.config.setup(opts)
+	modules.xp.setup(core.config.get("xp"))
 	legacy.calendar.setup()
 	-- require("zortex.completion_setup").setup()
 	-- ui.caldendar.setup(M.config.calendar)
@@ -657,6 +612,11 @@ function M.setup(opts)
 	setup_commands()
 	setup_keymaps()
 	setup_autocmds()
+
+	-- Completion
+	local cmp = require("cmp")
+	local zortex_completion = require("zortex.modules.completion")
+	cmp.register_source("zortex", zortex_completion.new())
 end
 
 -- =============================================================================

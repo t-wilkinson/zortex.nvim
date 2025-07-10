@@ -1,9 +1,20 @@
 -- config.lua - Centralized configuration for Zortex
 local M = {}
 
+-- Using M.defaults and M.config helps with type checking
 M.defaults = {
+	notes_dir = vim.fn.expand("$HOME/.zortex") .. "/",
+	extension = ".zortex",
+	special_articles = { "structure" },
+
+	calendar = {
+		digest_time = "09:00",
+	},
+
 	-- XP System Configuration
 	xp = {
+		enabled = true,
+
 		-- Base XP values
 		base = {
 			task = 10,
@@ -110,10 +121,25 @@ M.defaults = {
 
 	-- UI Configuration
 	ui = {
-		skill_tree = {
-			width = 80,
-			height = 30,
-			border = "rounded",
+		calendar = {
+			window = {
+				width = 0.8,
+				height = 0.8,
+			},
+			colors = {
+				today = "DiagnosticOk",
+				selected = "CursorLine",
+				weekend = "Comment",
+				has_entry = "DiagnosticInfo",
+			},
+			skill_tree = {
+				width = 80,
+				height = 30,
+				border = "rounded",
+			},
+		},
+		telescope = {
+			-- Optional telescope-specific config
 		},
 	},
 
@@ -123,17 +149,16 @@ M.defaults = {
 	},
 }
 
--- Current configuration
 M.config = {}
 
 -- Initialize configuration
 function M.setup(opts)
 	M.config = vim.tbl_deep_extend("force", M.defaults, opts or {})
 
-	-- Validate required settings
-	if not vim.g.zortex_notes_dir then
-		error("g:zortex_notes_dir must be set")
-	end
+	-- Set globals for backward compatibility
+	vim.g.zortex_notes_dir = M.config.notes_dir
+	vim.g.zortex_extension = M.config.extension
+	vim.g.zortex_special_articles = M.config.special_articles
 
 	return M.config
 end

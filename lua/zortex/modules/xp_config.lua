@@ -1,4 +1,4 @@
--- features/xp_config.lua - XP System Configuration
+-- modules/xp_config.lua - XP System Configuration
 local M = {}
 
 -- =============================================================================

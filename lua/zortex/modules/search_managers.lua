@@ -1,4 +1,4 @@
--- features/search_managers.lua - Search index and access tracking
+-- modules/search_managers.lua - Search index and access tracking
 local M = {}
 
 local parser = require("zortex.core.parser")

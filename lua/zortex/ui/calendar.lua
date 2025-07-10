@@ -49,12 +49,15 @@ local Config = {
 		prev_month = { "h", "<Left>" },
 		next_year = { "L" },
 		prev_year = { "H" },
+		next_week = { "j", "<Down>" },
+		prev_week = { "k", "<Up>" },
 		today = { "t" },
 		add_entry = { "a", "i" },
 		view_entries = { "<CR>", "o" },
 		telescope_search = { "/" },
 		toggle_view = { "v" },
 		digest = { "d" },
+		go_to_file = { "g" },
 	},
 }
 
@@ -112,6 +115,17 @@ function DateUtil.format_month_year(date)
 	return string.format("%s %d", months[date.month], date.year)
 end
 
+function DateUtil.add_days(date, days)
+	local time = os.time(date)
+	local new_time = time + (days * 86400)
+	local new_date = os.date("*t", new_time)
+	return {
+		year = new_date.year,
+		month = new_date.month,
+		day = new_date.day,
+	}
+end
+
 -- =============================================================================
 -- Calendar Renderer
 -- =============================================================================
@@ -165,7 +179,7 @@ function Renderer.render_month_view(date)
 
 	-- Header
 	local header = DateUtil.format_month_year(date)
-	local nav_hint = "← h/l → | H/L year | t today | a add | / search"
+	local nav_hint = "← h/l → | H/L year | j/k week | t today | a add | / search"
 	local header_line = string.format("  %s", header)
 	local padding = math.max(1, 80 - #header_line - #nav_hint)
 	header_line = header_line .. string.rep(" ", padding) .. nav_hint
@@ -318,8 +332,84 @@ function Renderer.render_month_view(date)
 	return lines, highlights
 end
 
+function Renderer.render_week_view(date)
+	local lines = {}
+	local highlights = {}
+	local today = DateUtil.get_current_date()
+
+	-- Get week start (Monday)
+	local days_from_monday = (date.wday + 5) % 7
+	local week_start = DateUtil.add_days(date, -days_from_monday)
+
+	-- Header
+	local header = string.format("Week of %s", os.date("%B %d, %Y", os.time(week_start)))
+	table.insert(lines, "  " .. header)
+	table.insert(highlights, { line = 1, col = 2, end_col = 2 + #header, hl = Config.colors.header })
+	table.insert(lines, string.rep("─", 80))
+	table.insert(lines, "")
+
+	-- Render each day
+	for i = 0, 6 do
+		local day_date = DateUtil.add_days(week_start, i)
+		local date_str = DateUtil.format_date(day_date)
+		local entries = calendar.get_entries_for_date(date_str)
+		local project_tasks = calendar.get_project_tasks_for_date(date_str)
+
+		-- Day header
+		local day_name = os.date("%A", os.time(day_date))
+		local day_header = string.format("%s, %s %d", day_name, os.date("%B", os.time(day_date)), day_date.day)
+
+		local is_today = date_str == DateUtil.format_date(today)
+		local is_selected = CalendarState.current_date and date_str == DateUtil.format_date(CalendarState.current_date)
+
+		local line_num = #lines + 1
+		table.insert(lines, "  " .. day_header)
+
+		-- Apply highlight
+		if is_selected then
+			table.insert(highlights, {
+				line = line_num,
+				col = 0,
+				end_col = #day_header + 2,
+				hl = Config.colors.selected,
+			})
+		elseif is_today then
+			table.insert(highlights, {
+				line = line_num,
+				col = 0,
+				end_col = #day_header + 2,
+				hl = Config.colors.today,
+			})
+		end
+
+		-- Show entries
+		if #entries > 0 or #project_tasks > 0 then
+			for _, entry in ipairs(entries) do
+				local time_str = ""
+				if entry.attributes.from and entry.attributes.to then
+					time_str = string.format("%s-%s ", entry.attributes.from, entry.attributes.to)
+				elseif entry.attributes.at then
+					time_str = entry.attributes.at .. " "
+				end
+				table.insert(lines, string.format("    %s%s", time_str, entry.display_text))
+			end
+
+			for _, task in ipairs(project_tasks) do
+				local time_str = task.attributes.at and (task.attributes.at .. " ") or ""
+				table.insert(lines, string.format("    %s%s [%s]", time_str, task.display_text, task.project))
+			end
+		else
+			table.insert(lines, "    (no entries)")
+		end
+
+		table.insert(lines, "")
+	end
+
+	return lines, highlights
+end
+
 function Renderer.apply_highlights(bufnr, highlights)
-	local ns_id = api.nvim_create_namespace("zortex.legacy.calendar")
+	local ns_id = api.nvim_create_namespace("zortex_calendar")
 	api.nvim_buf_clear_namespace(bufnr, ns_id, 0, -1)
 
 	for _, hl in ipairs(highlights) do
@@ -337,11 +427,13 @@ function Navigation.move_to_date(date)
 	CalendarState.current_date = date
 	M.refresh()
 
-	-- Position cursor on the date
-	local date_str = DateUtil.format_date(date)
-	local mark = CalendarState.marks[date_str]
-	if mark then
-		api.nvim_win_set_cursor(CalendarState.win_id, { mark.line, mark.col })
+	-- Position cursor on the date in month view
+	if CalendarState.view_mode == "month" then
+		local date_str = DateUtil.format_date(date)
+		local mark = CalendarState.marks[date_str]
+		if mark then
+			api.nvim_win_set_cursor(CalendarState.win_id, { mark.line, mark.col })
+		end
 	end
 end
 
@@ -379,6 +471,16 @@ function Navigation.prev_year()
 	date.year = date.year - 1
 	date.day = math.min(date.day, DateUtil.get_days_in_month(date.year, date.month))
 	Navigation.move_to_date(date)
+end
+
+function Navigation.next_week()
+	local date = CalendarState.current_date or DateUtil.get_current_date()
+	Navigation.move_to_date(DateUtil.add_days(date, 7))
+end
+
+function Navigation.prev_week()
+	local date = CalendarState.current_date or DateUtil.get_current_date()
+	Navigation.move_to_date(DateUtil.add_days(date, -7))
 end
 
 function Navigation.go_to_today()
@@ -483,6 +585,23 @@ function Actions.show_digest()
 	require("zortex.ui.telescope").today_digest()
 end
 
+function Actions.toggle_view()
+	if CalendarState.view_mode == "month" then
+		CalendarState.view_mode = "week"
+	else
+		CalendarState.view_mode = "month"
+	end
+	M.refresh()
+end
+
+function Actions.go_to_file()
+	M.close()
+	local cal_file = fs.get_file_path("calendar.zortex")
+	if cal_file then
+		vim.cmd("edit " .. fn.fnameescape(cal_file))
+	end
+end
+
 -- =============================================================================
 -- Keymap Setup
 -- =============================================================================
@@ -503,6 +622,12 @@ local function setup_keymaps(bufnr)
 	for _, key in ipairs(Config.keymaps.prev_year) do
 		vim.keymap.set("n", key, Navigation.prev_year, opts)
 	end
+	for _, key in ipairs(Config.keymaps.next_week) do
+		vim.keymap.set("n", key, Navigation.next_week, opts)
+	end
+	for _, key in ipairs(Config.keymaps.prev_week) do
+		vim.keymap.set("n", key, Navigation.prev_week, opts)
+	end
 	for _, key in ipairs(Config.keymaps.today) do
 		vim.keymap.set("n", key, Navigation.go_to_today, opts)
 	end
@@ -519,6 +644,12 @@ local function setup_keymaps(bufnr)
 	end
 	for _, key in ipairs(Config.keymaps.digest) do
 		vim.keymap.set("n", key, Actions.show_digest, opts)
+	end
+	for _, key in ipairs(Config.keymaps.toggle_view) do
+		vim.keymap.set("n", key, Actions.toggle_view, opts)
+	end
+	for _, key in ipairs(Config.keymaps.go_to_file) do
+		vim.keymap.set("n", key, Actions.go_to_file, opts)
 	end
 
 	-- Close
@@ -585,8 +716,13 @@ function M.refresh()
 	-- Clear marks
 	CalendarState.marks = {}
 
-	-- Render calendar
-	local lines, highlights = Renderer.render_month_view(CalendarState.current_date or DateUtil.get_current_date())
+	-- Render calendar based on view mode
+	local lines, highlights
+	if CalendarState.view_mode == "month" then
+		lines, highlights = Renderer.render_month_view(CalendarState.current_date or DateUtil.get_current_date())
+	else
+		lines, highlights = Renderer.render_week_view(CalendarState.current_date or DateUtil.get_current_date())
+	end
 
 	-- Update buffer
 	api.nvim_buf_set_option(CalendarState.bufnr, "modifiable", true)
@@ -617,7 +753,7 @@ function M.toggle()
 	end
 end
 
--- Digest buffer integration
+-- Digest buffer integration (from legacy)
 function M.show_digest_buffer()
 	-- Create a new buffer for the digest
 	local bufnr = api.nvim_create_buf(false, true)

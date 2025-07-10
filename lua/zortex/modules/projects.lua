@@ -1,4 +1,4 @@
--- features/projects.lua - Project structure parser for Zortex
+-- modules/projects.lua - Project structure parser for Zortex
 local M = {}
 
 local parser = require("zortex.core.parser")

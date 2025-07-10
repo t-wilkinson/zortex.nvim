@@ -7,11 +7,12 @@ We have three scopes for links:
 [...] -- We have global link which searches all articles matching link.
 [/...] -- We have local link which only looks at the current buffer.
 
-We have different types of searches:
+We have different types of searches/sections:
 [@Tag] -- Any file containing a line "@Tag"
 [#Heading] -- Will find the line starting with "# Heading"
 [:Label] -- A line starting with "Label:"; It can have text after the label
-[*Highlight] -- Any text matching _Highlight_, **Highlight**, or **_Highlight_**
+[*Highlight] -- Any text matching `*Highlight*`, `**Highlight**`, or `***Highlight***`, or `^**Highlight**:$` and `^**Highlight:**$` (the last two are considered a bold heading)
+[-List] -- Any text matching `^\s*- `
 [%Query] -- Any text matching the Query
 
 Nesting:

@@ -145,7 +145,7 @@ function M.projects(opts)
 					local lines = {}
 					local e = entry.value
 					local project, stats = e.project, e.stats
-					table.insert(lines, "Project: " .. get_project_path(project))
+					table.insert(lines, "Project: " .. projects.get_project_path(project))
 					table.insert(lines, string.format("Score: %.1f", e.score))
 					if e.has_priority or e.has_due_today then
 						table.insert(lines, "")

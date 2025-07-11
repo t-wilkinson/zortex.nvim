@@ -2,6 +2,16 @@
 
 local M = {}
 
+-- More lightweight copy
+function M.clone(t)
+	local c = {}
+	for k, v in pairs(t) do
+		c[k] = type(v) == "table" and M.clone(v) or v
+	end
+	return c
+end
+
+-- Deepcopy, even copies keys
 function M.deepcopy(orig)
 	local orig_type = type(orig)
 	local copy

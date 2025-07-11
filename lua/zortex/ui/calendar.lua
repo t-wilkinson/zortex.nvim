@@ -3,7 +3,12 @@ local M = {}
 local api = vim.api
 local fn = vim.fn
 
-local parser = require("zortex.core.parser")
+local CELL_WIDTH = 7
+local CELL_MID_COL = math.floor(CELL_WIDTH / 2)
+local MARGIN_STR = "  "
+local GRID_WIDTH = 7 * CELL_WIDTH -- 7 days * 7 cols = 49
+local CONTENT_WIDTH = fn.strwidth(MARGIN_STR) + GRID_WIDTH -- 2 + 49 = 51
+
 local datetime = require("zortex.core.datetime")
 local fs = require("zortex.core.filesystem")
 local calendar = require("zortex.modules.calendar")
@@ -46,13 +51,21 @@ local Config = {
 	-- 	notification = "🔔",
 	-- 	has_items = "•", -- Default dot for days with any entry
 	-- },
+	-- icons = {
+	-- 	event = "◆",
+	-- 	task = "□",
+	-- 	task_done = "☑",
+	-- 	notification = "◉",
+	-- 	has_items = "•",
+	-- 	none = " ",
+	-- },
 	icons = {
-		event = "◆",
-		task = "□",
-		task_done = "☑",
-		notification = "◉",
-		has_items = "•",
-		none = " ",
+		event = "󰃰", -- nf-md-calendar_star
+		task = "󰄬", -- nf-md-checkbox_blank_circle_outline
+		task_done = "󰄱", -- nf-md-check_circle
+		notification = "󰍛", -- nf-md-bell_ring
+		has_items = "󰸞", -- nf-md-dots_circle
+		none = " ", -- keep cell width stable
 	},
 	compact_mode = true,
 	show_time_in_grid = false, -- Don't show times in calendar grid
@@ -187,32 +200,103 @@ function Renderer.create_window(bufnr)
 end
 
 -- Pretty‑print attributes
+-- Format attributes in pretty mode
 local function format_pretty_attrs(entry)
-	if not Config.pretty_attributes then
+	if not entry.attributes then
 		return ""
 	end
+
 	local parts = {}
+
+	-- Time attributes
 	if entry.attributes.at then
-		table.insert(parts, "🕑 " .. entry.attributes.at)
+		table.insert(parts, "🕐 " .. entry.attributes.at)
 	end
-	if entry.attributes.duration then
-		table.insert(parts, string.format("⏳ %sm", entry.attributes.duration))
+
+	-- Duration attributes
+	if entry.attributes.dur then
+		table.insert(parts, string.format("⏱ %dm", entry.attributes.dur))
+	elseif entry.attributes.est then
+		table.insert(parts, string.format("⏱ ~%dm", entry.attributes.est))
 	end
-	if entry.attributes.notification_enabled then
-		table.insert(parts, Config.icons.notify)
+
+	-- Notification
+	if entry.attributes.notify then
+		table.insert(parts, "🔔")
 	end
-	if entry.attributes.repeating then
-		table.insert(parts, "🔁" .. entry.attributes.repeating)
+
+	-- Repeat pattern
+	if entry.attributes["repeat"] then
+		table.insert(parts, "🔁 " .. entry.attributes["repeat"])
 	end
-	if entry.attributes.from and entry.attributes.to then
-		table.insert(parts, string.format("◂ %s %s ▸", entry.attributes.from, entry.attributes.to))
+
+	-- Date range
+	if entry.attributes.from or entry.attributes.to then
+		local range_parts = {}
+		if entry.attributes.from then
+			table.insert(range_parts, datetime.format_date(entry.attributes.from, "MM/DD"))
+		else
+			table.insert(range_parts, "...")
+		end
+		table.insert(range_parts, "→")
+		if entry.attributes.to then
+			table.insert(range_parts, datetime.format_date(entry.attributes.to, "MM/DD"))
+		else
+			table.insert(range_parts, "...")
+		end
+		table.insert(parts, table.concat(range_parts, " "))
 	end
 
 	if #parts > 0 then
 		return "  " .. table.concat(parts, "  ")
-	else
+	end
+	return ""
+end
+
+-- Format attributes in simple mode
+local function format_simple_attrs(entry)
+	if not entry.attributes then
 		return ""
 	end
+
+	local parts = {}
+
+	-- Compact time display
+	if entry.attributes.at then
+		table.insert(parts, entry.attributes.at)
+	end
+
+	-- Compact duration
+	if entry.attributes.dur then
+		table.insert(parts, entry.attributes.dur .. "m")
+	elseif entry.attributes.est then
+		table.insert(parts, "~" .. entry.attributes.est .. "m")
+	end
+
+	-- Simple indicators
+	if entry.attributes.notify then
+		table.insert(parts, "!")
+	end
+
+	if entry.attributes["repeat"] then
+		table.insert(parts, "R")
+	end
+
+	-- Compact date range
+	if entry.attributes.from and entry.attributes.to then
+		local from_str = datetime.format_date(entry.attributes.from, "MM/DD")
+		local to_str = datetime.format_date(entry.attributes.to, "MM/DD")
+		table.insert(parts, from_str .. "-" .. to_str)
+	elseif entry.attributes.from then
+		table.insert(parts, datetime.format_date(entry.attributes.from, "MM/DD") .. "+")
+	elseif entry.attributes.to then
+		table.insert(parts, "-" .. datetime.format_date(entry.attributes.to, "MM/DD"))
+	end
+
+	if #parts > 0 then
+		return " [" .. table.concat(parts, " ") .. "]"
+	end
+	return ""
 end
 
 function Renderer.render_month_view(date)
@@ -224,10 +308,6 @@ function Renderer.render_month_view(date)
 	local today = DateUtil.get_current_date()
 
 	-- Define layout constants
-	local MARGIN_STR = "  "
-	local CELL_WIDTH = 7 -- Each day cell is 7 columns wide
-	local GRID_WIDTH = 7 * CELL_WIDTH -- 7 days * 7 cols = 49
-	local CONTENT_WIDTH = fn.strwidth(MARGIN_STR) + GRID_WIDTH -- 2 + 49 = 51
 
 	-- Calculate centering padding based on the actual window width
 	local total_padding = win_width - CONTENT_WIDTH
@@ -415,15 +495,8 @@ function Renderer.render_month_view(date)
 					icon = Config.icons.notification
 				end
 
-				local time_str = ""
-				if entry.attributes.from and entry.attributes.to then
-					-- time_str = string.format("%s-%s ", entry.attributes.from, entry.attributes.to)
-				elseif entry.attributes.at then
-					-- time_str = entry.attributes.at .. " "
-				end
-
-				local attr_str = format_pretty_attrs(entry)
-				local entry_line = string.format("  %s %s%s%s", icon, time_str, entry.display_text, attr_str)
+				local attr_str = Config.pretty_attributes and format_pretty_attrs(entry) or format_simple_attrs(entry)
+				local entry_line = string.format("  %s %s%s", icon, entry.display_text, attr_str)
 				table.insert(lines, left_pad_str .. MARGIN_STR .. entry_line)
 			end
 		end
@@ -462,8 +535,8 @@ function Navigation.move_to_date(date)
 		local date_str = DateUtil.format_date(date)
 		local mark = CalendarState.marks[date_str]
 		if mark then
-			-- mark.col is the 0-based start of the date cell, move cursor near the middle
-			pcall(api.nvim_win_set_cursor, CalendarState.win_id, { mark.line, mark.col + 3 })
+			local target_col = mark.col + CELL_MID_COL
+			pcall(api.nvim_win_set_cursor, CalendarState.win_id, { mark.line, target_col })
 		end
 	end
 end

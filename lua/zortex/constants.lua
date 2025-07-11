@@ -38,9 +38,12 @@ M.PATTERNS = {
 	CALENDAR_TIME_PREFIX = "^(%d%d?:%d%d)%s+(.+)$",
 	CALENDAR_TIME_RANGE = "^(%d%d?:%d%d)%-(%d%d?:%d%d)%s+(.+)$",
 
-	DATETIME = "^(%d%d%d%d%-%d%d%-%d%d)%s+(.+)$", -- YYYY-MM-DD HH:MM
+	DATE_YMD = "^(%d%d%d%d)%-(%d%d)%-(%d%d)$", -- YYYY-MM-DD
+	DATE_MDY = "^(%d%d)%-(%d%d)%-(%d%d%d%d)$", -- MM-DD-YYYY
+	DATETIME_YMD = "^(%d%d%d%d%-%d%d%-%d%d)%s+(.+)$", -- YYYY-MM-DD HH:MM, YYYY-MM-DD HH:MM am
+	DATETIME_MDY = "^(%d%d-%d%d-%d%d%d%d)%s+(.+)$", -- MM-DD-YYYY HH:MM, MM-DD-YYYY HH:MM am
 	TIME_24H = "^(%d%d?):(%d%d)$", -- HH:MM
-	TIME_AMPM = "^(%d%d?):(%d%d)%s*([ap]m)$", -- HH:MMam / HH:MMpm
+	TIME_AMPM = "^(%d%d?):(%d%d)%s*([ap]m)$", -- HH:MMam, HH:MM pm
 
 	-- Link patterns
 	LINK = "%[([^%]]+)%]",

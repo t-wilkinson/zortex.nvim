@@ -4,10 +4,9 @@ local M = {}
 local parser = require("zortex.core.parser")
 local fs = require("zortex.core.filesystem")
 local buffer = require("zortex.core.buffer")
-local xp = require("zortex.modules.xp")
 local progress = require("zortex.modules.progress")
-local constants = require("zortex.constants")
 local attributes = require("zortex.core.attributes")
+local task_tracker = require("zortex.modules.task_tracker")
 
 -- =============================================================================
 -- Project Completion Check
@@ -29,98 +28,9 @@ end
 -- XP Calculation
 -- =============================================================================
 
--- Calculate XP for a project and all its subprojects
-local function calculate_project_xp(lines, start_idx, end_idx, project_heading)
-	local total_xp = 0
-	local immediate_task_xp = 0
-	local subproject_xp = 0
-
-	-- Get the project level and attributes
-	local project_line = lines[start_idx]
-	local project_level = parser.get_heading_level(project_line)
-
-	-- Parse project attributes
-	local project_attrs = attributes.parse_project_attributes(project_line)
-
-	-- Check for OKR connection
-	local okr_connection = nil -- This would be determined by checking OKR links
-
-	-- Count total tasks for completion percentage calculation
-	local total_tasks = 0
-	local completed_tasks = 0
-
-	-- First pass: count all immediate tasks
-	for i = start_idx + 1, end_idx - 1 do
-		local line = lines[i]
-		local level = parser.get_heading_level(line)
-
-		-- Only count immediate tasks
-		if level == 0 then
-			local is_task, is_completed = parser.is_task_line(line)
-			if is_task then
-				total_tasks = total_tasks + 1
-				if is_completed then
-					completed_tasks = completed_tasks + 1
-				end
-			end
-		end
-	end
-
-	-- Second pass: calculate XP
-	local i = start_idx + 1
-	while i < end_idx do
-		local line = lines[i]
-
-		-- Check if this is a subproject
-		local level = parser.get_heading_level(line)
-
-		if level > project_level then
-			-- This is a subproject - calculate its XP recursively
-			local sub_start, sub_end = buffer.find_section_bounds(lines, i)
-			local sub_heading = parser.parse_heading(line)
-			if sub_heading then
-				local sub_xp = calculate_project_xp(lines, sub_start, sub_end, sub_heading.text)
-				subproject_xp = subproject_xp + sub_xp
-			end
-			i = sub_end
-		else
-			-- Check if this is a task
-			local is_task, is_completed = parser.is_task_line(line)
-			if is_task and is_completed then
-				-- Create task data for XP calculation
-				local task_data = xp.create_task_data(line, project_heading, false)
-
-				-- Create project data with completion info
-				local project_data = {
-					attrs = project_attrs,
-					okr_connection = okr_connection,
-					total_tasks = total_tasks,
-					completed_tasks = completed_tasks,
-				}
-
-				-- Use the new calculation that includes project completion percentage
-				immediate_task_xp = immediate_task_xp + xp.calculate_task_xp_in_project(task_data, project_data)
-			end
-			i = i + 1
-		end
-	end
-
-	-- If this is a leaf project (no subprojects), the XP is already included in task XP
-	-- If it has subprojects, sum task XP and subproject XP
-	if subproject_xp > 0 then
-		total_xp = immediate_task_xp + subproject_xp
-	else
-		total_xp = immediate_task_xp
-	end
-
-	return total_xp
-end
-
--- Add XP attribute to a heading line
-local function add_xp_attribute(heading_line, xp_value)
-	-- Remove existing @xp attribute if present
-	local cleaned_line = heading_line:gsub(constants.PATTERNS.XP, "")
-	return cleaned_line .. string.format(" @xp(%d)", xp_value)
+-- Calculate XP for a project (only the project's own completion bonus)
+local function calculate_project_completion_xp(project_heading)
+	return 0
 end
 
 -- =============================================================================
@@ -142,7 +52,7 @@ local function get_heading_path(lines, project_idx)
 		if level > 0 and level < current_level then
 			local heading = parser.parse_heading(line)
 			if heading then
-				local heading_text = heading.text:gsub(constants.PATTERNS.XP, "")
+				local heading_text = attributes.strip_project_attributes(heading.text)
 				table.insert(path, 1, heading_text)
 				current_level = level
 			end
@@ -152,7 +62,7 @@ local function get_heading_path(lines, project_idx)
 	-- Add the project itself
 	local project_heading = parser.parse_heading(project_line)
 	if project_heading then
-		local project_text = project_heading.text:gsub(constants.PATTERNS.XP, "")
+		local project_text = attributes.strip_project_attributes(project_heading.text)
 		table.insert(path, project_text)
 	end
 
@@ -161,12 +71,26 @@ end
 
 -- Find the best insertion point for a heading path in the archive
 local function find_insertion_point(archive_lines, heading_path)
-	local best_match_idx = 2 -- After @XP tag and blank line
+	local best_match_idx = nil
 	local best_match_depth = 0
 	local common_path = {}
 
-	-- Start from line 3 (after @XP tag and blank line)
-	local i = 3
+	-- Find the first heading in the file (skip metadata)
+	local first_heading_idx = nil
+	for i = 1, #archive_lines do
+		if parser.get_heading_level(archive_lines[i]) > 0 then
+			first_heading_idx = i
+			break
+		end
+	end
+
+	-- If no headings found, insert after all metadata
+	if not first_heading_idx then
+		return #archive_lines + 1, {}
+	end
+
+	-- Start searching from first heading
+	local i = first_heading_idx
 	while i <= #archive_lines do
 		local line = archive_lines[i]
 		local level = parser.get_heading_level(line)
@@ -174,7 +98,7 @@ local function find_insertion_point(archive_lines, heading_path)
 		if level > 0 then
 			local heading = parser.parse_heading(line)
 			if heading then
-				local heading_text = heading.text:gsub(constants.PATTERNS.XP, "")
+				local heading_text = attributes.strip_project_attributes(heading.text)
 
 				-- Check if this matches our path at the appropriate level
 				if level <= #heading_path and heading_text == heading_path[level] then
@@ -213,67 +137,66 @@ local function find_insertion_point(archive_lines, heading_path)
 		return #archive_lines + 1, common_path
 	end
 
-	-- No common path found, insert at the beginning (after @XP tag)
-	return 3, {}
+	-- No common path found, insert before first heading
+	return first_heading_idx, {}
 end
 
--- Update XP values up the tree to the root @XP tag
-local function update_xp_bubble(lines)
-	-- First pass: calculate XP for all headings from bottom to top
-	local xp_values = {}
+-- Clean up task tracker after archiving
+local function cleanup_archived_tasks(project_name, lines, start_idx, end_idx)
+	-- Get all task IDs from this project section
+	local task_ids = {}
 
-	for i = #lines, 1, -1 do
-		local line = lines[i]
-		local level = parser.get_heading_level(line)
+	-- Recursively collect task IDs including from subprojects
+	local function collect_task_ids(start, end_pos, current_level)
+		for i = start, end_pos - 1 do
+			local line = lines[i]
+			local heading_level = parser.get_heading_level(line)
 
-		if level > 0 then
-			-- Extract existing XP if any
-			local existing_xp = tonumber(line:match(constants.PATTERNS.XP)) or 0
-			xp_values[i] = existing_xp
-
-			-- Find child headings and sum their XP
-			local child_xp = 0
-			for j = i + 1, #lines do
-				local child_line = lines[j]
-				local child_level = parser.get_heading_level(child_line)
-
-				-- If we hit a heading at same or higher level, stop
-				if child_level > 0 and child_level <= level then
-					break
+			if heading_level > 0 then
+				if heading_level <= current_level then
+					-- Exit this section
+					return i
+				else
+					-- Recurse into subsection
+					local sub_end = end_pos
+					for j = i + 1, end_pos - 1 do
+						local sub_level = parser.get_heading_level(lines[j])
+						if sub_level > 0 and sub_level <= heading_level then
+							sub_end = j
+							break
+						end
+					end
+					i = collect_task_ids(i + 1, sub_end, heading_level) - 1
 				end
-
-				-- If this is a direct child heading
-				if child_level == level + 1 then
-					child_xp = child_xp + (xp_values[j] or 0)
+			else
+				local is_task = parser.is_task_line(line)
+				if is_task then
+					local id = attributes.extract_task_id(line)
+					if id then
+						table.insert(task_ids, id)
+					end
 				end
 			end
-
-			-- Update the line with new XP value
-			if child_xp > 0 or existing_xp > 0 then
-				lines[i] = add_xp_attribute(line:gsub(constants.PATTERNS.XP, ""), math.max(child_xp, existing_xp))
-			end
 		end
+		return end_pos
 	end
 
-	-- Update the root @XP tag
-	local total_xp = 0
-	for i = 3, #lines do -- Start after @XP tag
-		local line = lines[i]
-		if line:match("^# ") then -- Top-level headings
-			local heading_xp = tonumber(line:match(constants.PATTERNS.XP)) or 0
-			total_xp = total_xp + heading_xp
-		end
-	end
+	collect_task_ids(start_idx + 1, end_idx, parser.get_heading_level(lines[start_idx]))
 
-	lines[1] = string.format("@XP(%d)", total_xp)
+	-- Remove tasks from tracker
+	task_tracker.load_state()
+	for _, id in ipairs(task_ids) do
+		task_tracker.remove_task(id)
+	end
+	task_tracker.save_state()
 end
 
 -- =============================================================================
 -- Archive Operations
 -- =============================================================================
 
--- Merge a project tree into the archive
-local function merge_into_archive(project_lines, heading_path, project_xp)
+-- Merge a project tree into the archive with proper XP attribution
+local function merge_into_archive(project_lines, heading_path, project_completion_xp)
 	local archive_lines = fs.read_archive()
 	if not archive_lines then
 		vim.notify("Failed to read archive file", vim.log.levels.ERROR)
@@ -292,16 +215,20 @@ local function merge_into_archive(project_lines, heading_path, project_xp)
 		local heading_text = heading_path[i]
 		local heading_line = string.rep("#", heading_level) .. " " .. heading_text
 
-		-- Add XP attribute if this is the project being archived
-		if i == #heading_path then
-			heading_line = add_xp_attribute(heading_line, project_xp)
+		-- Add project completion XP to the main project heading only
+		if i == #heading_path and project_completion_xp > 0 then
+			heading_line = attributes.update_xp_attribute(heading_line, project_completion_xp)
 		end
 
 		table.insert(lines_to_insert, heading_line)
 	end
 
-	-- Adjust heading levels in project_lines and add them
+	-- Load task tracker to get XP data
+	task_tracker.load_state()
+
+	-- Adjust heading levels and process tasks
 	local base_level = #heading_path
+
 	for _, line in ipairs(project_lines) do
 		local level = parser.get_heading_level(line)
 
@@ -314,8 +241,28 @@ local function merge_into_archive(project_lines, heading_path, project_xp)
 				table.insert(lines_to_insert, new_line)
 			end
 		else
-			-- Not a heading, add as-is
-			table.insert(lines_to_insert, line)
+			-- Check if it's a task
+			local is_task = parser.is_task_line(line)
+			if is_task then
+				local id = attributes.extract_task_id(line)
+				local task_line = line
+
+				-- Remove @id attribute
+				task_line = attributes.remove_attribute(task_line, "id")
+
+				-- Add @xp attribute if task had XP
+				if id then
+					local task = task_tracker.get_task(id)
+					if task and task.xp_awarded and task.xp_awarded > 0 then
+						task_line = attributes.update_xp_attribute(task_line, task.xp_awarded)
+					end
+				end
+
+				table.insert(lines_to_insert, task_line)
+			else
+				-- Other content
+				table.insert(lines_to_insert, line)
+			end
 		end
 	end
 
@@ -323,9 +270,6 @@ local function merge_into_archive(project_lines, heading_path, project_xp)
 	for i = #lines_to_insert, 1, -1 do
 		table.insert(archive_lines, insert_idx, lines_to_insert[i])
 	end
-
-	-- Update XP values throughout the tree
-	update_xp_bubble(archive_lines)
 
 	-- Write back to file
 	fs.write_archive(archive_lines)
@@ -367,17 +311,17 @@ function M.archive_current_project()
 	local start_idx, end_idx = buffer.find_section_bounds(lines, project_idx)
 
 	-- Check if all immediate tasks are completed
-	if not are_all_tasks_completed(lines, start_idx + 1, end_idx) then
-		vim.notify("Project has incomplete tasks and cannot be archived", vim.log.levels.WARN)
-		return
-	end
+	vim.notify("Project has incomplete tasks. Still archiving...", vim.log.levels.WARN)
 
 	-- Get project heading and path
 	local project_heading = parser.parse_heading(lines[project_idx])
 	local heading_path = get_heading_path(lines, project_idx)
 
 	-- Calculate total XP for the project
-	local total_xp = calculate_project_xp(lines, start_idx, end_idx, project_heading.text)
+	local project_xp = calculate_project_completion_xp(project_heading)
+
+	-- Get project name for cleanup
+	local project_name = attributes.strip_project_attributes(project_heading.text)
 
 	-- Extract project lines
 	local project_lines = {}
@@ -386,15 +330,18 @@ function M.archive_current_project()
 	end
 
 	-- Merge into archive
-	merge_into_archive(project_lines, heading_path, total_xp)
+	merge_into_archive(project_lines, heading_path, project_xp)
+
+	-- Clean up task tracker data
+	cleanup_archived_tasks(project_name, lines, start_idx, end_idx)
 
 	-- Remove project from current buffer
-	buffer.delete_lines(bufnr, start_idx, end_idx - 1)
+	buffer.delete_lines(bufnr, start_idx, end_idx)
 
 	-- Update OKR progress since a project was completed
 	progress.update_okr_progress()
 
-	vim.notify(string.format("Archived project '%s' with %d XP", project_heading.text, total_xp), vim.log.levels.INFO)
+	vim.notify(string.format("Archived project '%s' with %d XP", project_heading.text, project_xp), vim.log.levels.INFO)
 end
 
 -- Archive all completed projects in the current buffer

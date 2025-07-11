@@ -86,18 +86,22 @@ function M.add_area_xp(area_path, xp_amount, parent_links)
 	M.save_state()
 end
 
--- Build area path from link components
 function M.build_area_path(components)
 	local path_parts = {}
 
-	for _, comp in ipairs(components) do
-		if comp.type == "article" and (comp.text == "A" or comp.text == "Areas") then
-			-- Skip the "A" or "Areas" prefix
-			table.insert(path_parts, "Areas")
-		elseif comp.type == "heading" or comp.type == "label" then
-			table.insert(path_parts, comp.text)
-		elseif comp.type == "article" then
-			-- For non-Areas articles, include them in the path
+	-- Skip the leading article "A" / "Areas"
+	local start_idx = 1
+	if
+		#components > 0
+		and components[1].type == "article"
+		and (components[1].text == "A" or components[1].text == "Areas")
+	then
+		start_idx = 2
+	end
+
+	for i = start_idx, #components do
+		local comp = components[i]
+		if comp.type == "heading" or comp.type == "label" or comp.type == "article" then
 			table.insert(path_parts, comp.text)
 		end
 	end
@@ -105,7 +109,6 @@ function M.build_area_path(components)
 	if #path_parts > 0 then
 		return table.concat(path_parts, "/")
 	end
-
 	return nil
 end
 

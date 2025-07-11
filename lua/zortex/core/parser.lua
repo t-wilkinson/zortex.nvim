@@ -74,8 +74,16 @@ end
 -- Task Parsing
 -- =============================================================================
 
+---Return whether the line is a task and whether it is completed.
 function M.is_task_line(line)
-	return line:match(constants.PATTERNS.TASK_PREFIX) ~= nil
+	if not line then
+		return false, false
+	end
+	local mark = line:match(constants.PATTERNS.TASK_CHECKBOX)
+	if not mark then
+		return false, false
+	end
+	return true, (mark == "x" or mark == "X")
 end
 
 function M.parse_task_status(line)
@@ -332,37 +340,6 @@ function M.is_project_linked(text, project_name)
 	end
 
 	return false
-end
-
--- Extract area links from text
-function M.extract_area_links(text)
-	local area_paths = {}
-	local links = M.extract_all_links(text)
-
-	for _, link_info in ipairs(links) do
-		if link_info.type == "link" then
-			local parsed = M.parse_link_definition(link_info.definition)
-			if parsed and #parsed.components > 0 then
-				local first = parsed.components[1]
-				if first.type == "article" and (first.text == "A" or first.text == "Areas") then
-					local path_parts = {}
-					for i = 2, #parsed.components do
-						local comp = parsed.components[i]
-						if comp.type == "heading" or comp.type == "label" then
-							table.insert(path_parts, comp.text)
-						end
-					end
-
-					if #path_parts > 0 then
-						local path = table.concat(path_parts, "/")
-						table.insert(area_paths, path)
-					end
-				end
-			end
-		end
-	end
-
-	return area_paths
 end
 
 -- =============================================================================

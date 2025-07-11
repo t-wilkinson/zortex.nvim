@@ -39,13 +39,23 @@ local Config = {
 		header = "Title",
 		border = "FloatBorder",
 	},
+	-- icons = {
+	-- 	event = "🎉",
+	-- 	task = "📝",
+	-- 	task_done = "✔",
+	-- 	notification = "🔔",
+	-- 	has_items = "•", -- Default dot for days with any entry
+	-- },
 	icons = {
-		event = "🎉",
-		task = "📝",
-		task_done = "✔",
-		notification = "🔔",
-		has_items = "•", -- Default dot for days with any entry
+		event = "◆",
+		task = "□",
+		task_done = "☑",
+		notification = "◉",
+		has_items = "•",
+		none = " ",
 	},
+	compact_mode = true,
+	show_time_in_grid = false, -- Don't show times in calendar grid
 	pretty_attributes = true, -- Enable/disable pretty display of attributes
 	keymaps = {
 		close = { "q", "<Esc>" },
@@ -194,11 +204,8 @@ local function format_pretty_attrs(entry)
 	if entry.attributes.repeating then
 		table.insert(parts, "🔁" .. entry.attributes.repeating)
 	end
-	if entry.attributes.from then
-		table.insert(parts, string.format("◂", entry.attributes.from))
-	end
-	if entry.attributes.to then
-		table.insert(parts, string.format("▸", entry.attributes.to))
+	if entry.attributes.from and entry.attributes.to then
+		table.insert(parts, string.format("◂ %s %s ▸", entry.attributes.from, entry.attributes.to))
 	end
 
 	if #parts > 0 then
@@ -280,34 +287,48 @@ function Renderer.render_month_view(date)
 					and date.month == CalendarState.current_date.month
 					and day_num == CalendarState.current_date.day
 
-				-- Determine icon
-				local day_icon = " "
+				-- Determine icon with consistent width
+				local day_icon = Config.icons.none
 				if #entries > 0 then
 					day_icon = Config.icons.has_items
-					local has_task, has_event, has_notification = false, false, false
+
+					-- Prioritize icons by importance
+					local has_notification = false
+					local has_incomplete_task = false
+					local has_complete_task = false
+					local has_event = false
+
 					for _, entry in ipairs(entries) do
-						if entry.attributes.notification_enabled then
+						if entry.attributes.notify then
 							has_notification = true
 						end
-						if entry.type == "event" then
+						if entry.type == "task" then
+							if entry.task_status and entry.task_status.key == "[x]" then
+								has_complete_task = true
+							else
+								has_incomplete_task = true
+							end
+						elseif entry.type == "event" then
 							has_event = true
 						end
-						if entry.type == "task" then
-							has_task = true
-						end
 					end
+
+					-- Set icon by priority
 					if has_notification then
 						day_icon = Config.icons.notification
 					elseif has_event then
 						day_icon = Config.icons.event
-					elseif has_task then
+					elseif has_incomplete_task then
 						day_icon = Config.icons.task
+					elseif has_complete_task then
+						day_icon = Config.icons.task_done
 					end
 				end
 
 				-- Format the cell respecting icon width
-				local day_num_str = string.format("%2d", day_num)
-				local cell_content = day_icon .. " " .. day_num_str
+				-- local day_num_str = string.format("%2d", day_num)
+				-- local cell_content = day_icon .. " " .. day_num_str
+				local cell_content = string.format("%s %2d", day_icon, day_num)
 				local content_w = fn.strwidth(cell_content)
 				local padding_w = CELL_WIDTH - content_w
 				local lpad = string.rep(" ", math.max(0, math.floor(padding_w / 2)))
@@ -396,9 +417,9 @@ function Renderer.render_month_view(date)
 
 				local time_str = ""
 				if entry.attributes.from and entry.attributes.to then
-					time_str = string.format("%s-%s ", entry.attributes.from, entry.attributes.to)
+					-- time_str = string.format("%s-%s ", entry.attributes.from, entry.attributes.to)
 				elseif entry.attributes.at then
-					time_str = entry.attributes.at .. " "
+					-- time_str = entry.attributes.at .. " "
 				end
 
 				local attr_str = format_pretty_attrs(entry)

@@ -40,23 +40,33 @@ end
 
 local function count_direct_tasks(lines, start_idx, end_idx, level)
 	local tasks = {}
-	local current_level = level
+	local current_section_level = level
 
 	for i = start_idx + 1, end_idx - 1 do
 		local line = lines[i]
-
-		-- Check if we've hit a child project
 		local heading_level = parser.get_heading_level(line)
+
 		if heading_level > 0 then
 			if heading_level <= level then
 				-- We've exited the current project
 				break
 			else
-				-- Skip this entire child project
-				current_level = heading_level
+				-- We're entering a child section - skip it entirely
+				current_section_level = heading_level
+				-- Find the end of this child section
+				for j = i + 1, end_idx - 1 do
+					local next_level = parser.get_heading_level(lines[j])
+					if next_level > 0 and next_level <= heading_level then
+						i = j - 1 -- Skip to end of child section
+						break
+					elseif j == end_idx - 1 then
+						i = j -- Skip to end
+						break
+					end
+				end
 			end
-		elseif current_level == level then
-			-- We're at the direct level of the project
+		else
+			-- Only count tasks at the direct level
 			local is_task, is_completed = parser.is_task_line(line)
 			if is_task then
 				local id = attributes.extract_task_id(line)
@@ -173,8 +183,8 @@ function M.update_project_progress(bufnr)
 
 			-- Track project completion
 			if #area_links > 0 then
-				local proj_xp = task_tracker.get_project_total_xp(project_name) -- tiny util you already have
-				xp.complete_project(project_name, proj_xp, area_links) -- NEW
+				local proj_xp = task_tracker.get_project_total_xp(project_name)
+				xp.complete_project(project_name, proj_xp, area_links)
 			end
 		elseif not is_done and was_done then
 			-- Remove done if project is no longer complete
@@ -514,10 +524,15 @@ local function set_current_task_completion(should_complete)
 	else
 		new_line = line:gsub("%[.%]", "[ ]") -- [x] / [-] → [ ]
 	end
+
+	-- Update the specific line immediately
 	lines[line_num] = new_line
 	buffer.set_lines(bufnr, 0, -1, lines)
 
-	-- Delegate heavy lifting (XP, progress headers, etc.)
+	-- Force buffer write to ensure changes are saved
+	vim.cmd("silent! write")
+
+	-- Now update progress with fresh buffer data
 	M.update_project_progress(bufnr)
 end
 

@@ -167,7 +167,11 @@ syntax match zTag /^[A-Za-z0-9]*@\{1,2}\([A-Za-z0-9()]\S*\s\?\)\+/  " @@Article 
 " syntax match zSection /^\d\+\.\d\+ [A-Za-z0-9-: ()]\+$/
 
 syntax match String  /^[A-Za-z0-9][^.*:]\+\ze: /           " Label: text
+syntax match String  /^[^ ]\+\ze: /           " Label: text
+
 syntax match zLabel /^[0-9A-Z][^.]\+\ze:$/           " Label:\n
+syntax match zLabel /^[^ ]\+\ze:$/           " Label:\n
+
 syntax match String  /^\s\+[A-Za-z0-9][^.*:]\+\ze: /           " \s+Label: text
 syntax match zLabel /^\s\+[0-9A-Z][^.]\+\ze:$/           " \s+Label:\n
 syntax match zListLabel /\(\d\+\.\)\@<= \zs[^.]\+\ze:$/       " ^\d. Label text:$

@@ -98,6 +98,22 @@ function M.register_task(id, project_name, attributes, area_links)
 	return id
 end
 
+-- Remove a task from the tracker
+function M.remove_task(id)
+	local task = state.tasks[id]
+	if not task then
+		return
+	end
+
+	-- Remove from project mapping
+	if task.project and state.project_tasks[task.project] then
+		state.project_tasks[task.project][id] = nil
+	end
+
+	-- Remove from tasks
+	state.tasks[id] = nil
+end
+
 -- Update task completion status
 function M.update_task_status(id, completed, position, total_in_project)
 	local task = state.tasks[id]

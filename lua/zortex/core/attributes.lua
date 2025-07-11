@@ -3,6 +3,7 @@ local M = {}
 
 local datetime = require("zortex.core.datetime")
 local parser = require("zortex.core.parser")
+local constants = require("zortex.constants")
 
 -- =============================================================================
 -- Type Parsers
@@ -72,8 +73,7 @@ local type_parsers = {
 -- Attribute Schemas
 -- =============================================================================
 
--- Task-specific attributes
-local task_schema = {
+local S = {
 	-- Core attributes
 	id = { type = "string" },
 
@@ -101,9 +101,36 @@ local task_schema = {
 	},
 
 	-- Other
-	size = { type = "enum", values = { "xs", "sm", "md", "lg", "xl" } },
+	xp = { type = "number" },
 	["repeat"] = { type = "string" },
 	notify = { type = "boolean" },
+}
+
+-- Task-specific attributes
+local task_schema = {
+	-- Task size
+	size = { type = "enum", values = { "xs", "sm", "md", "lg", "xl" } },
+
+	-- Core attributes
+	id = S.id,
+
+	-- Priority/importance as enums
+	p = S.p,
+	i = S.i,
+
+	-- Time attributes
+	due = S.due,
+	at = S.at, -- Time like "14:30"
+	dur = S.dur,
+	est = S.est,
+
+	-- Status attributes
+	done = S.done,
+	progress = S.progress,
+
+	-- Other
+	["repeat"] = S["repeat"],
+	notify = S.notify,
 }
 
 -- Project-specific attributes
@@ -112,37 +139,26 @@ local project_schema = {
 	size = { type = "enum", values = { "xs", "sm", "md", "lg", "xl", "epic", "legendary", "mythic", "ultimate" } },
 
 	-- Priority/importance
-	p = { type = "enum", values = { "1", "2", "3" } },
-	i = { type = "enum", values = { "1", "2", "3" } },
-
-	-- Progress tracking
-	progress = {
-		type = "custom",
-		parse = function(v)
-			local completed, total = v:match("(%d+)/(%d+)")
-			if completed and total then
-				return { completed = tonumber(completed), total = tonumber(total) }
-			end
-			return nil
-		end,
-	},
+	p = S.p,
+	i = S.i,
 
 	-- Status
-	done = { type = "date" },
-	xp = { type = "number" },
+	progress = S.progress,
+	done = S.done,
+	xp = S.xp,
 
 	-- Time estimates
-	dur = { type = "duration" },
-	est = { type = "duration" },
+	dur = S.dur,
+	est = S.est,
 }
 
 -- Calendar event attributes
 local event_schema = {
-	at = { type = "string" },
-	from = { type = "string" },
-	to = { type = "string" },
-	notify = { type = "boolean" },
-	["repeat"] = { type = "string" },
+	at = S.at,
+	from = S.from,
+	to = S.to,
+	notify = S.notify,
+	["repeat"] = S["repeat"],
 }
 
 -- =============================================================================
@@ -365,6 +381,11 @@ function M.update_task_id(line, new_id)
 	return Param.update_attribute(line, "id", new_id)
 end
 
+-- @xp(<xp>) attribute
+function M.update_xp_attribute(line, xp)
+	return Param.update_attribute(line, "xp", xp)
+end
+
 -- =============================================================================
 -- Public API
 -- =============================================================================
@@ -391,16 +412,26 @@ function M.parse_event_attributes(line)
 	return M.parse_attributes(line, event_schema)
 end
 
+-- Remove all attributes
+function M.strip_project_attributes(line)
+	local _, text = M.parse_attributes(line, project_schema)
+	return text
+end
+function M.strip_task_attributes(line)
+	local _, text = M.parse_attributes(line, task_schema)
+	return text
+end
+
 -- Parse task status (checkbox state)
 function M.parse_task_status(line)
-	local status_key = line:match("^%s*%- (%[.%])")
+	local status_key = line:match(constants.PATTERNS.TASK_CHECKBOX)
 	if status_key then
 		local status_map = {
-			["[ ]"] = { symbol = "☐", name = "Incomplete", hl = "Comment" },
-			["[x]"] = { symbol = "☑", name = "Complete", hl = "String" },
-			["[X]"] = { symbol = "☑", name = "Complete", hl = "String" },
-			["[~]"] = { symbol = "◐", name = "In Progress", hl = "WarningMsg" },
-			["[@]"] = { symbol = "⏸", name = "Paused", hl = "Comment" },
+			[" "] = { symbol = "☐", name = "Incomplete", hl = "Comment" },
+			["x"] = { symbol = "☑", name = "Complete", hl = "String" },
+			["X"] = { symbol = "☑", name = "Complete", hl = "String" },
+			["~"] = { symbol = "◐", name = "In Progress", hl = "WarningMsg" },
+			["@"] = { symbol = "⏸", name = "Paused", hl = "Comment" },
 		}
 		local status = status_map[status_key]
 		if status then

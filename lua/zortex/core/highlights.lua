@@ -521,47 +521,60 @@ end
 --------------------------------------------------------------------------
 -- 4. Code block tracking -------------------------------------------------
 --------------------------------------------------------------------------
+-- Table keyed by bufnr → { {start_row, end_row}, ... }
 local code_block_ranges = {}
 
+--- Detect all fenced code‑blocks in the buffer.
+--  * opening fence  : INDENT … ```[lang]\n  (lang optional)
+--  * closing fence  : INDENT … ```        (same INDENT, no lang needed)
+--  The INDENT (any mix of spaces/tabs) **must match** for the fences to
+--  pair, mirroring GitHub‑flavoured Markdown behaviour inside lists.
 local function find_code_blocks(bufnr)
 	code_block_ranges[bufnr] = {}
 
 	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-	local in_block = false
-	local block_start_row = nil
-	local start_indent = 0 -- number of leading spaces of opening fence
 
-	for row, line in ipairs(lines) do
-		local indent, fence = line:match("^(%s*)```[%w_-]*%s*$")
-		if fence then
-			local indent_len = #indent
+	local in_block = false ---@type boolean
+	local block_start = nil ---@type integer|nil
+	local block_indent = "" ---@type string  -- stores the exact indent that opened the block
+
+	---@param line string
+	---@return string indent|nil, string lang
+	local function parse_fence(line)
+		-- capture leading whitespace + ```, optionally language id, then only
+		-- whitespace to EOL. eg: "    ```python   "
+		return line:match("^([ \t]*)```([%w%-%+_]*)%s*$")
+	end
+
+	for i, line in ipairs(lines) do
+		local indent, _ = parse_fence(line)
+		if indent then
 			if not in_block then
-				-- opening fence
+				-- Opening fence → start new block
 				in_block = true
-				start_indent = indent_len
-				block_start_row = row - 1 -- 0-based
+				block_start = i - 1 -- 0‑indexed row for nvim API
+				block_indent = indent
 			else
-				-- closing fence – must match indent level of opener
-				if indent_len == start_indent then
-					table.insert(code_block_ranges[bufnr], { block_start_row, row - 1 })
+				-- Potential closing fence: only accept if indent matches opener
+				if indent == block_indent then
 					in_block = false
+					table.insert(code_block_ranges[bufnr], { block_start, i - 1 })
+					block_start = nil
+					block_indent = ""
 				end
 			end
 		end
 	end
 
-	-- unterminated block at EOF
-	if in_block and block_start_row then
-		table.insert(code_block_ranges[bufnr], { block_start_row, #lines - 1 })
+	-- Handle unclosed fence at EOF
+	if in_block and block_start then
+		table.insert(code_block_ranges[bufnr], { block_start, #lines - 1 })
 	end
 end
 
+--- Return true if the given row is inside any recorded code‑block.
 local function is_in_code_block(bufnr, row)
-	if not code_block_ranges[bufnr] then
-		return false
-	end
-
-	for _, range in ipairs(code_block_ranges[bufnr]) do
+	for _, range in ipairs(code_block_ranges[bufnr] or {}) do
 		if row >= range[1] and row <= range[2] then
 			return true
 		end
@@ -576,14 +589,14 @@ function M.highlight_buffer(bufnr)
 	bufnr = bufnr or 0
 	local ns_id = vim.api.nvim_create_namespace("zortex_highlights")
 
-	-- Clear existing highlights
+	-- Clear
 	vim.api.nvim_buf_clear_namespace(bufnr, ns_id, 0, -1)
 
-	-- Find code blocks first
+	-- Re‑index fenced blocks *first*
 	find_code_blocks(bufnr)
 
-	-- Highlight code blocks
-	for _, range in ipairs(code_block_ranges[bufnr] or {}) do
+	-- Block background highlight
+	for _, range in ipairs(code_block_ranges[bufnr]) do
 		for row = range[1], range[2] do
 			vim.api.nvim_buf_add_highlight(bufnr, ns_id, "ZortexCodeBlock", row, 0, -1)
 		end
@@ -591,7 +604,7 @@ function M.highlight_buffer(bufnr)
 
 	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
 
-	-- Define processing order to ensure correct precedence
+	-- Ordered processing list (unchanged)
 	local processing_order = {
 		"Article",
 		"Tag",
@@ -623,10 +636,10 @@ function M.highlight_buffer(bufnr)
 	}
 
 	for lnum, line in ipairs(lines) do
-		local row = lnum - 1 -- 0-indexed
+		local row = lnum - 1 -- 0‑indexed
 
-		-- Skip if in code block (except for the ``` markers)
-		if is_in_code_block(bufnr, row) and not line:match("^```") then
+		-- Skip highlighting for lines *inside* fenced block (but *not* the fences)
+		if is_in_code_block(bufnr, row) and not line:match("^[ \t]*```") then
 			goto continue
 		end
 

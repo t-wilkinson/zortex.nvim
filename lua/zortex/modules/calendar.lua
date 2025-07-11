@@ -1,8 +1,11 @@
 -- modules/calendar.lua - Calendar functionality for Zortex
 local M = {}
 
+local datetime = require("zortex.core.datetime")
 local parser = require("zortex.core.parser")
 local fs = require("zortex.core.filesystem")
+local constants = require("zortex.constants")
+local attributes = require("zortex.core.attributes")
 
 -- =============================================================================
 -- State
@@ -29,21 +32,25 @@ local function parse_calendar_entry(entry_text, date_context)
 	local working_text = entry_text
 
 	-- 1. Check for task status
-	local status_key = working_text:match("^(%[.%])%s+")
-	if status_key then
-		parsed.task_status = parser.parse_task_status("- " .. working_text)
-		parsed.type = "task"
-		working_text = working_text:sub(#status_key + 2) -- +2 to account for space
+	if parser.is_task_line("- " .. working_text) then
+		parsed.task_status = attributes.parse_task_status("- " .. working_text)
+		if parsed.task_status then
+			parsed.type = "task"
+			-- Strip the status marker for further parsing
+			working_text = working_text:match("^%[.%]%s+(.+)$") or working_text
+		end
 	end
 
-	-- 2. Check for time prefix or range
-	local from_time, to_time, rest_of_line = working_text:match("^(%d%d?:%d%d)%-(%d%d?:%d%d)%s+(.+)$")
+	-- 2. Check for time prefix or range (specific to calendar format)
+	local from_time, to_time, rest_of_line = working_text:match(constants.PATTERNS.CALENDAR_TIME_RANGE)
 	if from_time and to_time then
-		parsed.attributes.from, parsed.attributes.to, parsed.attributes.at = from_time, to_time, from_time
+		parsed.attributes.from = from_time
+		parsed.attributes.to = to_time
+		parsed.attributes.at = from_time
 		parsed.type = "event"
 		working_text = rest_of_line
 	else
-		local time_prefix, rest_of_line_2 = working_text:match("^(%d%d?:%d%d)%s+(.+)$")
+		local time_prefix, rest_of_line_2 = working_text:match(constants.PATTERNS.CALENDAR_TIME_PREFIX)
 		if time_prefix then
 			parsed.attributes.at = time_prefix
 			parsed.type = "event"
@@ -51,83 +58,46 @@ local function parse_calendar_entry(entry_text, date_context)
 		end
 	end
 
-	-- 3. Parse attributes using unified parser
-	-- The order is important: more specific patterns must come before generic ones.
-	local attr_definitions = {
-		-- Time/date attributes with parentheses are most specific
-		{ name = "at", pattern = "@at%(([^)]+)%)" },
-		{ name = "due", pattern = "@due%(([^)]+)%)" },
-		{ name = "from", pattern = "@from%(([^)]+)%)" },
-		{ name = "to", pattern = "@to%(([^)]+)%)" },
-		{ name = "repeating", pattern = "@repeat%(([^)]+)%)" },
-		{
-			name = "notify",
-			pattern = "@notify%(([^)]+)%)",
-			transform = function(val)
-				parsed.attributes.notification_enabled = true
-				return val
-			end,
-		},
-		{
-			name = "n",
-			pattern = "@n%(([^)]+)%)",
-			transform = function(val)
-				parsed.attributes.notification_enabled = true
-				return val
-			end,
-		},
-		-- Other specific attributes
-		{ name = "duration", pattern = "@(%d+%.?%d*[hmd])", transform = parser.parse_duration },
-		{
-			name = "priority",
-			pattern = "@p([123])",
-			transform = function(p)
-				return "p" .. p
-			end,
-		},
-		-- Generic context pattern should be last as it's a fallback
-		{ name = "context", pattern = "@(%w+)" },
-	}
-
-	local attrs, remaining = parser.parse_attributes(working_text, attr_definitions)
+	-- 3. Use the new attribute parser for event attributes
+	local attrs, remaining_text = attributes.parse_event_attributes(working_text)
 	parsed.attributes = vim.tbl_extend("force", parsed.attributes, attrs)
+	parsed.display_text = remaining_text
 
-	-- Check for notification flags without parentheses (legacy)
-	if remaining:match("@n") or remaining:match("@notify") or remaining:match("@event") then
-		parsed.attributes.notification_enabled = true
+	-- 4. If notify attribute is set, mark as event
+	if parsed.attributes.notify then
 		parsed.type = "event"
-		remaining = remaining:gsub("@n", ""):gsub("@notify", ""):gsub("@event", "")
 	end
-
-	parsed.display_text = parser.trim(remaining)
 
 	return parsed
 end
 
 -- =============================================================================
--- The rest of the modules-calendar.lua file is unchanged...
+-- Data Access
 -- =============================================================================
 
 function M.load()
-	local path = fs.get_file_path("calendar.zortex")
+	local path = fs.get_file_path(constants.FILES.CALENDAR)
 	if not path or not fs.file_exists(path) then
 		return false
 	end
+
 	state.entries = {}
 	local lines = fs.read_lines(path)
 	if not lines then
 		return false
 	end
-	local current_date = nil
+
+	local current_date_str = nil
 	for _, line in ipairs(lines) do
-		local m, d, y = line:match("^(%d%d)%-(%d%d)%-(%d%d%d%d):$")
+		local m, d, y = line:match(constants.PATTERNS.CALENDAR_DATE_HEADING)
 		if m and d and y then
-			current_date = string.format("%04d-%02d-%02d", y, m, d)
-			state.entries[current_date] = {}
-		elseif current_date and (line:match("^%s+%- ") or line:match("^%s+%d%d?:%d%d ")) then
-			local entry_text = line:match("^%s+%-? (.+)$") or line:match("^%s+(.+)$")
+			current_date_str = datetime.format_date({ year = y, month = m, day = d }, "YYYY-MM-DD")
+			state.entries[current_date_str] = {}
+		elseif current_date_str then
+			local entry_text = line:match(constants.PATTERNS.CALENDAR_ENTRY_PREFIX)
 			if entry_text then
-				table.insert(state.entries[current_date], parse_calendar_entry(entry_text, current_date))
+				local entry = parse_calendar_entry(entry_text, current_date_str)
+				table.insert(state.entries[current_date_str], entry)
 			end
 		end
 	end
@@ -135,27 +105,31 @@ function M.load()
 end
 
 function M.save()
-	local path = fs.get_file_path("calendar.zortex")
+	local path = fs.get_file_path(constants.FILES.CALENDAR)
 	if not path then
 		return false
 	end
+
 	local lines = {}
 	local dates = {}
 	for date in pairs(state.entries) do
 		table.insert(dates, date)
 	end
 	table.sort(dates)
+
 	for _, date_str in ipairs(dates) do
 		local entries = state.entries[date_str]
 		if entries and #entries > 0 then
-			local y, m, d = date_str:match("(%d%d%d%d)%-(%d%d)%-(%d%d)")
-			table.insert(lines, string.format("%s-%s-%s:", m, d, y))
+			local date_tbl = datetime.parse_date(date_str)
+			table.insert(lines, datetime.format_date(date_tbl, "MM-DD-YYYY") .. ":")
 			for _, entry in ipairs(entries) do
+				-- Reconstruct the raw text for saving
 				table.insert(lines, "  - " .. entry.raw_text)
 			end
-			table.insert(lines, "")
+			table.insert(lines, "") -- Add a blank line for readability
 		end
 	end
+
 	return fs.write_lines(path, lines)
 end
 
@@ -168,20 +142,71 @@ function M.add_entry(date_str, entry_text)
 end
 
 function M.get_entries_for_date(date_str)
-	local target_date = parser.parse_date(date_str)
+	local target_date = datetime.parse_date(date_str)
 	if not target_date then
 		return {}
 	end
+	-- Normalize date to noon to avoid timezone/DST issues with os.time
+	target_date.hour, target_date.min, target_date.sec = 12, 0, 0
 	local target_time = os.time(target_date)
+
 	local active_entries = {}
-	local seen = {}
+	local seen = {} -- Keep track of entry raw_text to avoid duplicates
+
+	-- 1. Add entries specifically listed under the target date.
+	-- These are entries without ranges, or the "home" date of a ranged entry.
 	if state.entries[date_str] then
 		for _, entry in ipairs(state.entries[date_str]) do
-			table.insert(active_entries, entry)
-			seen[entry.raw_text] = true
+			if not seen[entry.raw_text] then
+				table.insert(active_entries, entry)
+				seen[entry.raw_text] = true
+			end
 		end
 	end
-	-- This can be expanded to include recurring entries
+
+	-- 2. Scan all entries in the calendar to find date ranges that include the target date.
+	for _, entries_on_date in pairs(state.entries) do
+		for _, entry in ipairs(entries_on_date) do
+			-- If we haven't already processed this entry
+			if not seen[entry.raw_text] then
+				local from_attr = entry.attributes and entry.attributes.from
+				local to_attr = entry.attributes and entry.attributes.to
+				local from_date = from_attr and datetime.parse_date(from_attr)
+				local to_date = to_attr and datetime.parse_date(to_attr)
+
+				-- Only proceed if there's at least one valid date range attribute
+				if from_date or to_date then
+					if from_date then
+						from_date.hour = 12
+					end
+					if to_date then
+						to_date.hour = 12
+					end
+
+					-- Safely get time values
+					local from_time = from_date and os.time(from_date)
+					local to_time = to_date and os.time(to_date)
+
+					local in_range = false
+					if from_time and to_time then
+						in_range = target_time >= from_time and target_time <= to_time
+					elseif from_time then
+						in_range = target_time >= from_time
+					elseif to_time then
+						in_range = target_time <= to_time
+					end
+
+					if in_range then
+						table.insert(active_entries, entry)
+						seen[entry.raw_text] = true
+					end
+				end
+			end
+		end
+	end
+
+	-- TODO: Implement repeating entries logic here.
+
 	return active_entries
 end
 

@@ -3,7 +3,7 @@ local M = {}
 
 local parser = require("zortex.core.parser")
 local fs = require("zortex.core.filesystem")
-local buffer = require("zortex.core.buffer")
+local attributes = require("zortex.core.attributes")
 
 -- =============================================================================
 -- Data Structure
@@ -66,7 +66,7 @@ local function create_project(heading, line_num)
 		name = heading.text,
 		level = heading.level,
 		line_num = line_num,
-		attributes = parser.parse_project_attributes(heading.raw),
+		attributes = attributes.parse_project_attributes(heading.raw),
 		parent = nil,
 		children = {},
 		tasks = {},
@@ -89,8 +89,8 @@ local function parse_task_line(line, line_num)
 		raw_text = line,
 		display_text = task_text,
 		completed = is_completed,
-		status = parser.parse_task_status(line),
-		attributes = parser.parse_task_attributes(task_text),
+		status = attributes.parse_task_status(line),
+		attributes = attributes.parse_task_attributes(task_text),
 		line_num = line_num,
 	}
 end

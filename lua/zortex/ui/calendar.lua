@@ -4,6 +4,7 @@ local api = vim.api
 local fn = vim.fn
 
 local parser = require("zortex.core.parser")
+local datetime = require("zortex.core.datetime")
 local fs = require("zortex.core.filesystem")
 local calendar = require("zortex.modules.calendar")
 
@@ -514,7 +515,7 @@ function Navigation.select_date_at_cursor()
 	for date_str, mark in pairs(CalendarState.marks) do
 		-- Check if the 0-based cursor column `col` is within the date cell's width
 		if mark.line == line and col >= mark.col and col < mark.col + 7 then -- 7 is CELL_WIDTH
-			local date = parser.parse_date(date_str)
+			local date = datetime.parse_date(date_str)
 			if date then
 				Navigation.move_to_date(date)
 				return true

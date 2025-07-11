@@ -93,6 +93,7 @@ function M.build_area_path(components)
 	for _, comp in ipairs(components) do
 		if comp.type == "article" and (comp.text == "A" or comp.text == "Areas") then
 			-- Skip the "A" or "Areas" prefix
+			table.insert(path_parts, "Areas")
 		elseif comp.type == "heading" or comp.type == "label" then
 			table.insert(path_parts, comp.text)
 		elseif comp.type == "article" then
@@ -119,6 +120,24 @@ function M.calculate_season_level(xp)
 		level = level + 1
 	end
 	return level
+end
+
+function M.complete_project(project_name, total_project_xp, area_links)
+	if not area_links or #area_links == 0 then
+		return
+	end
+	local transfer_rate = xp_config.get("project.area_transfer_rate")
+	local area_xp = math.floor(total_project_xp * transfer_rate)
+	local per_area = math.floor(area_xp / #area_links)
+	for _, link in ipairs(area_links) do
+		local parsed = parser.parse_link_definition(link)
+		if parsed then
+			local path = M.build_area_path(parsed.components)
+			if path then
+				M.add_area_xp(path, per_area)
+			end
+		end
+	end
 end
 
 function M.complete_task(project_name, task_position, total_tasks, area_links, silent)

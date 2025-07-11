@@ -8,6 +8,7 @@ local constants = require("zortex.constants")
 local skills = require("zortex.modules.skills")
 local xp = require("zortex.modules.xp")
 local task_tracker = require("zortex.modules.task_tracker")
+local attributes = require("zortex.core.attributes")
 
 -- =============================================================================
 -- Task ID Management
@@ -20,42 +21,17 @@ local function ensure_task_ids(lines)
 	for i, line in ipairs(lines) do
 		local is_task = parser.is_task_line(line)
 		if is_task then
-			local id = parser.extract_task_id(line)
+			local id = attributes.extract_task_id(line)
 			if not id then
 				-- Generate new ID
 				id = task_tracker.generate_unique_id()
-				lines[i] = parser.add_task_id(line, id)
+				lines[i] = attributes.add_task_id(line, id)
 				modified = true
 			end
 		end
 	end
 
 	return modified
-end
-
--- =============================================================================
--- Progress Attribute Management
--- =============================================================================
-
-local function update_progress_attribute(line, completed, total)
-	local cleaned = line:gsub(" " .. constants.PATTERNS.PROGRESS, "")
-
-	if total > 0 then
-		return cleaned .. string.format(" @progress(%d/%d)", completed, total)
-	else
-		return cleaned
-	end
-end
-
-local function update_done_attribute(line, done)
-	local cleaned = line:gsub(" " .. constants.PATTERNS.DONE_DATE, "")
-
-	if done then
-		local date = os.date("%Y-%m-%d")
-		return cleaned .. string.format(" @done(%s)", date)
-	else
-		return cleaned
-	end
 end
 
 -- =============================================================================
@@ -83,7 +59,7 @@ local function count_direct_tasks(lines, start_idx, end_idx, level)
 			-- We're at the direct level of the project
 			local is_task, is_completed = parser.is_task_line(line)
 			if is_task then
-				local id = parser.extract_task_id(line)
+				local id = attributes.extract_task_id(line)
 				if id then
 					table.insert(tasks, {
 						id = id,
@@ -163,7 +139,7 @@ function M.update_project_progress(bufnr)
 			task_tracker.register_task(
 				task_info.id,
 				project_name,
-				parser.parse_task_attributes(task_info.line),
+				attributes.parse_task_attributes(task_info.line),
 				area_links
 			)
 
@@ -186,25 +162,23 @@ function M.update_project_progress(bufnr)
 
 		-- Update the heading line with progress
 		local old_line = lines[lnum]
-		local new_line = update_progress_attribute(old_line, completed_tasks, total_tasks)
+		local new_line = attributes.update_progress_attribute(old_line, completed_tasks, total_tasks)
 
 		-- Mark as done if all tasks completed
-		local was_done = old_line:match(constants.PATTERNS.DONE_DATE) ~= nil
+		local was_done = attributes.was_done(old_line)
 		local is_done = total_tasks > 0 and completed_tasks == total_tasks
 
 		if is_done and not was_done then
-			new_line = update_done_attribute(new_line, true)
+			new_line = attributes.update_done_attribute(new_line, true)
 
 			-- Track project completion
 			if #area_links > 0 then
-				table.insert(xp_changes.project_completions, {
-					name = project_name,
-					area_links = area_links,
-				})
+				local proj_xp = task_tracker.get_project_total_xp(project_name) -- tiny util you already have
+				xp.complete_project(project_name, proj_xp, area_links) -- NEW
 			end
 		elseif not is_done and was_done then
 			-- Remove done if project is no longer complete
-			new_line = update_done_attribute(new_line, false)
+			new_line = attributes.update_done_attribute(new_line, false)
 		end
 
 		if new_line ~= old_line then
@@ -226,18 +200,19 @@ function M.update_project_progress(bufnr)
 					change.area_links, -- Use the area links we captured
 					true -- silent
 				)
+			elseif change.delta < 0 then
+				-- task reverted ➜ remove XP (project + areas)
+				xp.uncomplete_task(change.project, -change.delta, change.area_links, true)
 			end
-			-- Note: negative XP (task uncompleted) would need to be handled
-			-- by the XP system, which currently doesn't support it
+		end
+
+		-- Save states
+		if modified then
+			buffer.set_lines(bufnr, 0, -1, lines)
 		end
 
 		-- Show notification
 		M.show_xp_notification(xp_changes)
-	end
-
-	-- Save states
-	if modified then
-		buffer.set_lines(bufnr, 0, -1, lines)
 	end
 
 	task_tracker.save_state()
@@ -401,14 +376,15 @@ function M.update_okr_progress()
 			-- Update previous objective if needed
 			if current_objective_idx and current_objective_data then
 				local old_line = lines[current_objective_idx]
-				local new_line = update_progress_attribute(old_line, objective_kr_completed, objective_kr_count)
+				local new_line =
+					attributes.update_progress_attribute(old_line, objective_kr_completed, objective_kr_count)
 
 				-- Check if objective was just completed
 				local was_completed = old_line:match(constants.PATTERNS.DONE_DATE) ~= nil
 				local is_completed = objective_kr_count > 0 and objective_kr_completed == objective_kr_count
 
 				if is_completed and not was_completed then
-					new_line = update_done_attribute(new_line, true)
+					new_line = attributes.update_done_attribute(new_line, true)
 
 					-- Award area XP for objective completion
 					local area_links = skills.get_area_links_for_heading(lines, current_objective_idx)
@@ -462,13 +438,13 @@ function M.update_okr_progress()
 	-- Update last objective if needed
 	if current_objective_idx and current_objective_data then
 		local old_line = lines[current_objective_idx]
-		local new_line = update_progress_attribute(old_line, objective_kr_completed, objective_kr_count)
+		local new_line = attributes.update_progress_attribute(old_line, objective_kr_completed, objective_kr_count)
 
 		local was_completed = old_line:match(constants.PATTERNS.DONE_DATE) ~= nil
 		local is_completed = objective_kr_count > 0 and objective_kr_completed == objective_kr_count
 
 		if is_completed and not was_completed then
-			new_line = update_done_attribute(new_line, true)
+			new_line = attributes.update_done_attribute(new_line, true)
 
 			-- Award area XP
 			local area_links = skills.get_area_links_for_heading(lines, current_objective_idx)
@@ -525,10 +501,10 @@ local function set_current_task_completion(should_complete)
 	end
 
 	-- Guarantee ID
-	local id = parser.extract_task_id(line)
+	local id = attributes.extract_task_id(line)
 	if not id then
 		id = task_tracker.generate_unique_id()
-		line = parser.add_task_id(line, id)
+		line = attributes.add_task_id(line, id)
 	end
 
 	-- Toggle checkbox

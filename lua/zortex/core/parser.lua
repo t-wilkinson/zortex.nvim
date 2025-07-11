@@ -2,20 +2,32 @@
 local M = {}
 
 local constants = require("zortex.constants")
-local config = require("zortex.core.config")
 
 -- =============================================================================
--- Section Types (unified from search.lua)
+-- Section Types & Detection
 -- =============================================================================
 
-M.SectionType = {
-	ARTICLE = 1,
-	TAG = 2,
-	HEADING = 3,
-	BOLD_HEADING = 4,
-	LABEL = 5,
-	TEXT = 6,
-}
+function M.detect_section_type(line)
+	if not line or line == "" then
+		return constants.SECTION_TYPE.TEXT
+	end
+	if line:match(constants.PATTERNS.ARTICLE_TITLE) then
+		return constants.SECTION_TYPE.ARTICLE
+	end
+	if line:match(constants.PATTERNS.TAG_LINE) then
+		return constants.SECTION_TYPE.TAG
+	end
+	if line:match(constants.PATTERNS.HEADING) then
+		return constants.SECTION_TYPE.HEADING
+	end
+	if line:match(constants.PATTERNS.BOLD_HEADING) then
+		return constants.SECTION_TYPE.BOLD_HEADING
+	end
+	if line:match(constants.PATTERNS.LABEL) then
+		return constants.SECTION_TYPE.LABEL
+	end
+	return constants.SECTION_TYPE.TEXT
+end
 
 -- =============================================================================
 -- String Utilities
@@ -33,51 +45,16 @@ function M.escape_pattern(text)
 end
 
 -- =============================================================================
--- Section Detection (unified)
+-- Heading Parsing
 -- =============================================================================
 
-function M.detect_section_type(line)
-	if not line or line == "" then
-		return M.SectionType.TEXT
-	end
-
-	-- Article title (@@...)
-	if line:match("^@@") then
-		return M.SectionType.ARTICLE
-	end
-
-	-- Tags/aliases (@...)
-	if line:match("^@[^@]") then
-		return M.SectionType.TAG
-	end
-
-	-- Markdown headings (#...)
-	if line:match("^%s*#+%s") then
-		return M.SectionType.HEADING
-	end
-
-	-- Bold headings (**text** or **text**:)
-	if line:match("^%*%*[^%*]+%*%*:?$") then
-		return M.SectionType.BOLD_HEADING
-	end
-
-	-- Labels (word(s): ...)
-	if line:match("^%w[^:]+:") then
-		return M.SectionType.LABEL
-	end
-
-	return M.SectionType.TEXT
-end
-
--- Get heading level from line
 function M.get_heading_level(line)
-	local hashes = line:match("^(#+)")
+	local hashes = line:match(constants.PATTERNS.HEADING_LEVEL)
 	return hashes and #hashes or 0
 end
 
--- Parse heading (returns level and text)
 function M.parse_heading(line)
-	local level, text = line:match("^(#+)%s+(.+)$")
+	local level, text = line:match(constants.PATTERNS.HEADING)
 	if level and text then
 		return {
 			level = #level,
@@ -94,500 +71,25 @@ function M.is_bold_heading(line)
 end
 
 -- =============================================================================
--- Section Boundaries (unified)
--- =============================================================================
-
-function M.find_section_end(lines, start_idx, section_type)
-	if start_idx > #lines then
-		return #lines
-	end
-
-	local start_line = lines[start_idx]
-
-	-- Article/tag sections span the entire file
-	if section_type == M.SectionType.ARTICLE or section_type == M.SectionType.TAG then
-		return #lines
-	end
-
-	-- Heading sections end at next heading of same or higher level
-	if section_type == M.SectionType.HEADING then
-		local level = M.get_heading_level(start_line)
-		for i = start_idx + 1, #lines do
-			local line_type = M.detect_section_type(lines[i])
-			if line_type == M.SectionType.HEADING then
-				local next_level = M.get_heading_level(lines[i])
-				if next_level <= level then
-					return i - 1
-				end
-			end
-		end
-		return #lines
-	end
-
-	-- Bold heading sections end at next heading or bold heading
-	if section_type == M.SectionType.BOLD_HEADING then
-		for i = start_idx + 1, #lines do
-			local line_type = M.detect_section_type(lines[i])
-			if line_type == M.SectionType.HEADING or line_type == M.SectionType.BOLD_HEADING then
-				return i - 1
-			end
-		end
-		return #lines
-	end
-
-	-- Label sections end at next heading, bold heading, or empty line
-	if section_type == M.SectionType.LABEL then
-		for i = start_idx + 1, #lines do
-			if lines[i] == "" then
-				return i - 1
-			end
-			local line_type = M.detect_section_type(lines[i])
-			if line_type == M.SectionType.HEADING or line_type == M.SectionType.BOLD_HEADING then
-				return i - 1
-			end
-		end
-		return #lines
-	end
-
-	-- Text sections are single lines
-	return start_idx
-end
-
--- =============================================================================
--- Time/Date Parsing (unified from calendar/utils.lua)
--- =============================================================================
-
-function M.parse_date(date_str)
-	if not date_str then
-		return nil
-	end
-
-	-- YYYY-MM-DD
-	local y, m, d = date_str:match("^(%d%d%d%d)%-(%d%d)%-(%d%d)$")
-	if y then
-		return { year = tonumber(y), month = tonumber(m), day = tonumber(d) }
-	end
-
-	-- MM-DD-YYYY
-	local m2, d2, y2 = date_str:match("^(%d%d)%-(%d%d)%-(%d%d%d%d)$")
-	if m2 then
-		return { year = tonumber(y2), month = tonumber(m2), day = tonumber(d2) }
-	end
-
-	return nil
-end
-
-function M.parse_time(time_str)
-	if not time_str then
-		return nil
-	end
-
-	-- HH:MM format
-	local hour, min = time_str:match("^(%d%d?):(%d%d)$")
-	if hour then
-		return { hour = tonumber(hour), min = tonumber(min) }
-	end
-
-	-- HH:MM am/pm formats
-	hour, min = time_str:match("^(%d%d?):(%d%d)%s*([ap]m)$")
-	if hour then
-		local h = tonumber(hour)
-		local pm = time_str:match("pm$")
-		if pm and h ~= 12 then
-			h = h + 12
-		elseif not pm and h == 12 then
-			h = 0
-		end
-		return { hour = h, min = tonumber(min) }
-	end
-
-	return nil
-end
-
-function M.parse_datetime(dt_str, default_date)
-	if not dt_str then
-		return nil
-	end
-
-	-- Try date + time
-	local date_part, time_part = dt_str:match("^(%d%d%d%d%-%d%d%-%d%d)%s+(.+)$")
-	if date_part and time_part then
-		local date = M.parse_date(date_part)
-		local time = M.parse_time(time_part)
-		if date and time then
-			date.hour = time.hour
-			date.min = time.min
-			return date
-		end
-	end
-
-	-- Try date only
-	local date = M.parse_date(dt_str)
-	if date then
-		date.hour = 0
-		date.min = 0
-		return date
-	end
-
-	-- Try time only with default date
-	local time = M.parse_time(dt_str)
-	if time and default_date then
-		local date = M.parse_date(default_date)
-		if date then
-			date.hour = time.hour
-			date.min = time.min
-			return date
-		end
-	end
-
-	return nil
-end
-
-function M.months_between(date1, date2)
-	return (date2.year - date1.year) * 12 + (date2.month - date1.month)
-end
-
--- =============================================================================
--- Attribute Parsing
--- =============================================================================
-
--- Generic attribute parser
--- This new version is more robust. It repeatedly scans the string,
--- applying the highest-priority definitions first, until no more attributes can be parsed.
-function M.parse_attributes(text, definitions)
-	local attrs = {}
-	local remaining_text = text
-	local found_in_pass = true
-
-	-- Keep looping as long as we successfully parse an attribute in a full pass
-	while found_in_pass do
-		found_in_pass = false
-		for _, def in ipairs(definitions) do
-			-- Use gmatch to handle multiple occurrences of the same attribute type
-			local new_text, count = remaining_text:gsub(def.pattern, function(...)
-				local all_captures = { ... }
-				-- The last capture from gsub is the offset, so we only want the ones before it.
-				local captures = {}
-				for i = 1, #all_captures - 1 do
-					table.insert(captures, all_captures[i])
-				end
-
-				if #captures > 0 and captures[1] ~= nil then
-					local value
-					if def.transform then
-						value = def.transform(unpack(captures))
-					elseif def.value ~= nil then
-						value = def.value
-					else
-						value = captures[1]
-					end
-
-					if value ~= nil then
-						-- For attributes that can appear multiple times (like context),
-						-- we could collect them in a table. For now, last one wins.
-						attrs[def.name] = value
-						found_in_pass = true -- Mark that we found something
-						return "" -- Remove the matched attribute from the string
-					end
-				end
-				-- If value is nil (transform failed), return the original match so it's not removed
-				return all_captures[0]
-			end)
-
-			if count > 0 and found_in_pass then
-				remaining_text = new_text
-				-- Restart the pass from the first definition to respect priority
-				break
-			end
-		end
-	end
-
-	remaining_text = M.trim(remaining_text):gsub("%s%s+", " ")
-	return attrs, remaining_text
-end
-
--- Parse duration string (e.g., "1.5h", "30min", "2d")
-function M.parse_duration(dur_str)
-	if not dur_str then
-		return nil
-	end
-
-	local num, unit = dur_str:match("^(%d+%.?%d*)%s*(%w+)$")
-	if not num then
-		num, unit = dur_str:match("^(%d+%.?%d*)(%w+)$")
-	end
-
-	if num then
-		num = tonumber(num)
-		unit = unit:lower()
-
-		-- Convert to minutes
-		if unit == "m" or unit == "min" or unit == "mins" or unit == "minute" or unit == "minutes" then
-			return num
-		elseif unit == "h" or unit == "hr" or unit == "hrs" or unit == "hour" or unit == "hours" then
-			return num * 60
-		elseif unit == "d" or unit == "day" or unit == "days" then
-			return num * 60 * 24
-		end
-	end
-
-	-- Special case for "0"
-	if dur_str == "0" then
-		return 0
-	end
-
-	return nil
-end
-
--- Parse task attributes
-function M.parse_task_attributes(line)
-	local cfg = config.get("xp") or config.defaults.xp
-
-	-- Define all possible attributes
-	local definitions = {
-		-- ID attribute (highest priority)
-		{
-			name = "id",
-			pattern = "@id%(([^)]+)%)",
-		},
-
-		-- XP-related attributes
-		{
-			name = "size",
-			pattern = "@(%w+)",
-			transform = function(size)
-				return (cfg.task_sizes and cfg.task_sizes[size]) and size or nil
-			end,
-		},
-		{
-			name = "priority",
-			pattern = "@p([123])",
-			transform = function(p)
-				return "p" .. p
-			end,
-		},
-		{
-			name = "importance",
-			pattern = "@i([123])",
-			transform = function(i)
-				return "i" .. i
-			end,
-		},
-		{
-			name = "duration",
-			pattern = "@(%d+%.?%d*[hmd])",
-			transform = function(dur)
-				return M.parse_duration(dur)
-			end,
-		},
-		{
-			name = "estimation",
-			pattern = "@est%(([^)]+)%)",
-			transform = function(dur)
-				return M.parse_duration(dur)
-			end,
-		},
-
-		-- Time/date attributes
-		{
-			name = "at",
-			pattern = "@at%(([^)]+)%)",
-		},
-		{
-			name = "due",
-			pattern = "@due%(([^)]+)%)",
-		},
-		{
-			name = "from",
-			pattern = "@from%(([^)]+)%)",
-		},
-		{
-			name = "to",
-			pattern = "@to%(([^)]+)%)",
-		},
-		{
-			name = "repeating",
-			pattern = "@repeat%(([^)]+)%)",
-		},
-
-		-- Other attributes
-		{
-			name = "done_date",
-			pattern = "@done%((%d%d%d%d%-%d%d%-%d%d)%)",
-		},
-		{
-			name = "context",
-			pattern = "@(%w+)",
-		},
-	}
-
-	local attrs, remaining_text = M.parse_attributes(line, definitions)
-
-	-- Set default size if not found
-	if not attrs.size then
-		attrs.size = cfg.default_task_size or "md"
-	end
-
-	return attrs, remaining_text
-end
-
--- Add ID to task line if missing
-function M.add_task_id(line, id)
-	if not line or not id then
-		return line
-	end
-
-	-- Check if line already has an ID
-	if line:match("@id%(") then
-		return line
-	end
-
-	-- Add ID at the end
-	return line .. " @id(" .. id .. ")"
-end
-
--- Extract task ID from line
-function M.extract_task_id(line)
-	if not line then
-		return nil
-	end
-
-	local id = line:match("@id%(([^)]+)%)")
-	return id
-end
-
--- Update task ID in line
-function M.update_task_id(line, new_id)
-	if not line or not new_id then
-		return line
-	end
-
-	-- Replace existing ID or add new one
-	if line:match("@id%(") then
-		return line:gsub("@id%([^)]+%)", "@id(" .. new_id .. ")")
-	else
-		return M.add_task_id(line, new_id)
-	end
-end
-
--- Parse project attributes
-function M.parse_project_attributes(line)
-	local cfg = config.get("xp") or config.defaults.xp
-
-	local definitions = {
-		-- Size
-		{
-			name = "size",
-			pattern = "@(%w+)",
-			transform = function(size)
-				return (cfg.project_sizes and cfg.project_sizes[size]) and size or nil
-			end,
-		},
-		-- Priority
-		{
-			name = "priority",
-			pattern = "@p([123])",
-			transform = function(p)
-				return "p" .. p
-			end,
-		},
-		-- Importance
-		{
-			name = "importance",
-			pattern = "@i([123])",
-			transform = function(i)
-				return "i" .. i
-			end,
-		},
-		-- Duration
-		{
-			name = "duration",
-			pattern = "@(%d+%.?%d*[hmd])",
-			transform = function(dur)
-				return M.parse_duration(dur)
-			end,
-		},
-		-- Estimation
-		{
-			name = "estimation",
-			pattern = "@est%(([^)]+)%)",
-			transform = function(dur)
-				return M.parse_duration(dur)
-			end,
-		},
-		-- Done date
-		{
-			name = "done_date",
-			pattern = "@done%((%d%d%d%d%-%d%d%-%d%d)%)",
-		},
-		-- Progress
-		{
-			name = "progress",
-			pattern = "@progress%((%d+)/(%d+)%)",
-			transform = function(completed, total)
-				return {
-					completed = tonumber(completed),
-					total = tonumber(total),
-				}
-			end,
-		},
-		-- XP
-		{
-			name = "xp",
-			pattern = "@xp%((%d+)%)",
-		},
-	}
-
-	local attrs, _ = M.parse_attributes(line, definitions)
-
-	-- Set default size if not found
-	if not attrs.size then
-		attrs.size = cfg.default_project_size or "md"
-	end
-
-	return attrs
-end
-
--- =============================================================================
 -- Task Parsing
 -- =============================================================================
 
 function M.is_task_line(line)
-	local unchecked = line:match("^%s*%- %[ %]")
-	local checked = line:match("^%s*%- %[[xX]%]")
-	return (unchecked or checked) ~= nil, checked ~= nil
+	return line:match(constants.PATTERNS.TASK_PREFIX) ~= nil
 end
-
-function M.get_task_text(line)
-	return line:match("^%s*%- %[.%] (.+)$")
-end
-
-function M.get_task_state(line)
-	if line:match("^%s*%- %[ %]") then
-		return "todo"
-	elseif line:match("^%s*%- %[[xX]%]") then
-		return "done"
-	else
-		return "not_task"
-	end
-end
-
--- Parse task status (enhanced from calendar)
-M.TASK_STATUS = {
-	["[ ]"] = { symbol = "☐", name = "Incomplete", hl = "Comment" },
-	["[x]"] = { symbol = "☑", name = "Complete", hl = "String" },
-	["[X]"] = { symbol = "☑", name = "Complete", hl = "String" },
-	["[~]"] = { symbol = "◐", name = "In Progress", hl = "WarningMsg" },
-	["[@]"] = { symbol = "⏸", name = "Paused", hl = "Comment" },
-}
 
 function M.parse_task_status(line)
-	local status_key = line:match("^%s*%- (%[.%])")
-	if status_key and M.TASK_STATUS[status_key] then
-		local status = vim.tbl_extend("force", M.TASK_STATUS[status_key], { key = status_key })
+	local status_key = line:match(constants.PATTERNS.TASK_STATUS_KEY)
+	if status_key and constants.TASK_STATUS[status_key] then
+		local status = vim.tbl_extend("force", {}, constants.TASK_STATUS[status_key])
+		status.key = status_key
 		return status
 	end
 	return nil
+end
+
+function M.get_task_text(line)
+	return line:match(constants.PATTERNS.TASK_TEXT)
 end
 
 -- =============================================================================
@@ -628,7 +130,7 @@ function M.extract_link_at(line, cursor_col)
 				full_match_text = string.sub(line, s, e),
 			}
 		end
-		offset = e
+		offset = e or 0
 	end
 
 	-- 2. Check for markdown-style links
@@ -646,7 +148,7 @@ function M.extract_link_at(line, cursor_col)
 				full_match_text = string.sub(line, s, e),
 			}
 		end
-		offset = e
+		offset = e or 0
 	end
 
 	-- 3. Check for zortex-style links
@@ -662,7 +164,7 @@ function M.extract_link_at(line, cursor_col)
 
 			-- Skip if this is a footnote
 			if content:sub(1, 1) == "^" then
-				offset = e
+				offset = e or 0
 				goto continue
 			end
 
@@ -675,7 +177,7 @@ function M.extract_link_at(line, cursor_col)
 		end
 
 		::continue::
-		offset = e
+		offset = e or 0
 	end
 
 	-- 4. Check for URLs
@@ -694,7 +196,7 @@ function M.extract_link_at(line, cursor_col)
 				full_match_text = url,
 			}
 		end
-		offset = e
+		offset = e or 0
 	end
 
 	-- 5. Check for file paths
@@ -715,7 +217,7 @@ function M.extract_link_at(line, cursor_col)
 				full_match_text = path,
 			}
 		end
-		offset = e
+		offset = e or 0
 	end
 
 	return nil

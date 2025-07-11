@@ -1,6 +1,8 @@
 -- core/datetime.lua - Date and time utilities for Zortex
 local M = {}
 
+local constants = require("zortex.constants")
+
 --- Parses a date string into a table.
 -- Supports YYYY-MM-DD and MM-DD-YYYY formats.
 -- @param date_str string The date string to parse.
@@ -11,13 +13,13 @@ function M.parse_date(date_str)
 	end
 
 	-- YYYY-MM-DD
-	local y, m, d = date_str:match("^(%d%d%d%d)%-(%d%d)%-(%d%d)$")
+	local y, m, d = date_str:match(constants.PATTERNS.DATE_YMD)
 	if y then
 		return { year = tonumber(y), month = tonumber(m), day = tonumber(d) }
 	end
 
 	-- MM-DD-YYYY
-	local m2, d2, y2 = date_str:match("^(%d%d)%-(%d%d)%-(%d%d%d%d)$")
+	local m2, d2, y2 = date_str:match(constants.PATTERNS.DATE_MDY)
 	if m2 then
 		return { year = tonumber(y2), month = tonumber(m2), day = tonumber(d2) }
 	end
@@ -37,13 +39,13 @@ function M.parse_time(time_str)
 	local hour, min, ampm = nil, nil, nil
 
 	-- HH:MM format (24-hour)
-	hour, min = time_str:match("^(%d%d?):(%d%d)$")
+	hour, min = time_str:match(constants.PATTERNS.TIME_24H)
 	if hour then
 		return { hour = tonumber(hour), min = tonumber(min) }
 	end
 
 	-- HH:MM am/pm formats
-	hour, min, ampm = time_str:match("^(%d%d?):(%d%d)%s*([ap]m)$")
+	hour, min, ampm = time_str:match(constants.PATTERNS.TIME_AMPM)
 	if hour then
 		local h = tonumber(hour)
 		if ampm == "pm" and h ~= 12 then
@@ -67,7 +69,7 @@ function M.parse_datetime(dt_str, default_date_str)
 	end
 
 	-- Try date + time
-	local date_part, time_part = dt_str:match("^(%d%d%d%d%-%d%d%-%d%d)%s+(.+)$")
+	local date_part, time_part = dt_str:match(constants.PATTERNS.DATETIME_YMD)
 	if date_part and time_part then
 		local date = M.parse_date(date_part)
 		local time = M.parse_time(time_part)

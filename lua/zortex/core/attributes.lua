@@ -1,6 +1,7 @@
 -- core/attributes.lua
 local M = {}
 
+local clone = require("zortex.core.utils").clone
 local datetime = require("zortex.core.datetime")
 local parser = require("zortex.core.parser")
 local constants = require("zortex.constants")
@@ -25,7 +26,9 @@ local type_parsers = {
 		return datetime.parse_date(v)
 	end,
 
-	datetime = function(v) end,
+	datetime = function(v)
+		return datetime.parse_datetime(v)
+	end,
 
 	-- Duration: flexible format (2h, 30m, 1d, 1h30m, etc.)
 	duration = function(v)
@@ -75,7 +78,7 @@ local type_parsers = {
 -- Attribute Schemas
 -- =============================================================================
 
-local S = {
+local base_schema = {
 	-- Core attributes
 	id = { type = "string" },
 
@@ -89,8 +92,8 @@ local S = {
 	dur = { type = "duration" },
 	est = { type = "duration" },
 
-	from = { type = "date" },
-	to = { type = "date" },
+	from = { type = "datetime" },
+	to = { type = "datetime" },
 
 	-- Status attributes
 	done = { type = "date" },
@@ -106,65 +109,39 @@ local S = {
 	},
 
 	-- Other
+	size = { type = "enum", values = { "xs", "sm", "md", "lg", "xl" } },
 	xp = { type = "number" },
 	["repeat"] = { type = "string" },
 	notify = { type = "boolean" },
 }
 
--- Task-specific attributes
-local task_schema = {
-	-- Task size
-	size = { type = "enum", values = { "xs", "sm", "md", "lg", "xl" } },
+local function build_schema(keys, overrides)
+	if type(keys) == "string" then
+		keys = vim.split(keys, ",", { trimempty = true })
+	end
 
-	-- Core attributes
-	id = S.id,
+	local result = {}
+	for _, k in ipairs(keys) do
+		assert(base_schema[k], string.format("Unknown attribute '%s'", k))
+		result[k] = clone(base_schema[k])
+	end
 
-	-- Priority/importance as enums
-	p = S.p,
-	i = S.i,
+	if overrides then
+		for k, v in pairs(overrides) do
+			result[k] = v
+		end
+	end
 
-	-- Time attributes
-	due = S.due,
-	at = S.at, -- Time like "14:30"
-	dur = S.dur,
-	est = S.est,
+	return result
+end
 
-	-- Status attributes
-	done = S.done,
-	progress = S.progress,
-
-	-- Other
-	["repeat"] = S["repeat"],
-	notify = S.notify,
-}
-
--- Project-specific attributes
-local project_schema = {
-	-- Sizes for projects
+local habit_schema = build_schema("repeat,at")
+local calendar_entry_schema = build_schema("id,p,i,due,at,dur,est,from,to,repeat,notify")
+local task_schema = build_schema("size,id,p,i,due,at,dur,est,done,progress,repeat,notify")
+local project_schema = build_schema("p,i,progress,done,xp,dur,est", {
 	size = { type = "enum", values = { "xs", "sm", "md", "lg", "xl", "epic", "legendary", "mythic", "ultimate" } },
-
-	-- Priority/importance
-	p = S.p,
-	i = S.i,
-
-	-- Status
-	progress = S.progress,
-	done = S.done,
-	xp = S.xp,
-
-	-- Time estimates
-	dur = S.dur,
-	est = S.est,
-}
-
--- Calendar event attributes
-local event_schema = {
-	at = S.at,
-	from = S.from,
-	to = S.to,
-	notify = S.notify,
-	["repeat"] = S["repeat"],
-}
+})
+local event_schema = build_schema("at,from,to,notify,repeat")
 
 -- =============================================================================
 -- Core Parsing Logic
@@ -217,10 +194,11 @@ local function parse_bare_attribute(key, schema)
 	end
 
 	-- Check for size shortcuts
-	local sizes = { "xs", "sm", "md", "lg", "xl", "epic", "legendary", "mythic", "ultimate" }
-	for _, size in ipairs(sizes) do
-		if key == size then
-			return "size", size
+	if schema.size then
+		for _, size in ipairs(schema.size) do
+			if key == size then
+				return "size", size
+			end
 		end
 	end
 
@@ -397,9 +375,12 @@ end
 
 -- Export schemas for external use
 M.schemas = {
+	base = base_schema,
 	task = task_schema,
 	project = project_schema,
 	event = event_schema,
+	habit = habit_schema,
+	calendar_entry = calendar_entry_schema,
 }
 
 -- Parse task attributes

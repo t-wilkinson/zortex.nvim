@@ -7,6 +7,7 @@ local buffer = require("zortex.core.buffer")
 local xp = require("zortex.modules.xp")
 local progress = require("zortex.modules.progress")
 local constants = require("zortex.constants")
+local attributes = require("zortex.core.attributes")
 
 -- =============================================================================
 -- Project Completion Check
@@ -39,7 +40,7 @@ local function calculate_project_xp(lines, start_idx, end_idx, project_heading)
 	local project_level = parser.get_heading_level(project_line)
 
 	-- Parse project attributes
-	local project_attrs = parser.parse_project_attributes(project_line)
+	local project_attrs = attributes.parse_project_attributes(project_line)
 
 	-- Check for OKR connection
 	local okr_connection = nil -- This would be determined by checking OKR links

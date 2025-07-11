@@ -1,6 +1,7 @@
 -- modules/search.lua - Hierarchical search integrated with unified parser
 local M = {}
 
+local constants = require("zortex.constants")
 local parser = require("zortex.core.parser")
 local fs = require("zortex.core.filesystem")
 local search_managers = require("zortex.modules.search_managers")
@@ -364,12 +365,12 @@ local function find_section_start(lines, lnum, section_type)
 	end
 
 	-- For articles and tags, start from beginning
-	if section_type == parser.SectionType.ARTICLE or section_type == parser.SectionType.TAG then
+	if section_type == constants.SECTION_TYPE.ARTICLE or section_type == constants.SECTION_TYPE.TAG then
 		return 1
 	end
 
 	-- For headings, find the heading line itself
-	if section_type == parser.SectionType.HEADING then
+	if section_type == constants.SECTION_TYPE.HEADING then
 		local target_level = parser.get_heading_level(lines[lnum])
 		-- If we're already on a heading, return current line
 		if target_level > 0 then
@@ -380,7 +381,7 @@ local function find_section_start(lines, lnum, section_type)
 			local level = parser.get_heading_level(lines[i])
 			if level > 0 then
 				-- Check if this heading's section contains our line
-				local section_end = parser.find_section_end(lines, i, parser.SectionType.HEADING)
+				local section_end = parser.find_section_end(lines, i, constants.SECTION_TYPE.HEADING)
 				if section_end >= lnum then
 					return i
 				end
@@ -389,13 +390,13 @@ local function find_section_start(lines, lnum, section_type)
 	end
 
 	-- For bold headings, search backwards
-	if section_type == parser.SectionType.BOLD_HEADING then
+	if section_type == constants.SECTION_TYPE.BOLD_HEADING then
 		if parser.is_bold_heading(lines[lnum]) then
 			return lnum
 		end
 		for i = lnum - 1, 1, -1 do
 			if parser.is_bold_heading(lines[i]) then
-				local section_end = parser.find_section_end(lines, i, parser.SectionType.BOLD_HEADING)
+				local section_end = parser.find_section_end(lines, i, constants.SECTION_TYPE.BOLD_HEADING)
 				if section_end >= lnum then
 					return i
 				end
@@ -404,14 +405,14 @@ local function find_section_start(lines, lnum, section_type)
 	end
 
 	-- For labels, find the label line
-	if section_type == parser.SectionType.LABEL then
+	if section_type == constants.SECTION_TYPE.LABEL then
 		if lines[lnum]:match("^%w[^:]+:") then
 			return lnum
 		end
 		-- Search backwards for the label
 		for i = lnum - 1, 1, -1 do
 			if lines[i]:match("^%w[^:]+:") then
-				local section_end = parser.find_section_end(lines, i, parser.SectionType.LABEL)
+				local section_end = parser.find_section_end(lines, i, constants.SECTION_TYPE.LABEL)
 				if section_end >= lnum then
 					return i
 				end

@@ -185,6 +185,15 @@ function M.update_task_area_links(id, area_links)
 	task.area_links = area_links
 end
 
+-- Return the sum of XP awarded to every task in a project
+function M.get_project_total_xp(project_name)
+	local total = 0
+	for _, task in ipairs(M.get_project_tasks(project_name)) do
+		total = total + (task.xp_awarded or 0)
+	end
+	return total
+end
+
 -- Get all tasks for a project
 function M.get_project_tasks(project_name)
 	local task_ids = state.project_tasks[project_name] or {}

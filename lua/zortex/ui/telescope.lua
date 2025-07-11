@@ -1,6 +1,7 @@
 -- ui/telescope.lua - Telescope integration for Zortex
 local M = {}
 
+local datetime = require("zortex.core.datetime")
 local projects = require("zortex.modules.projects")
 local parser = require("zortex.core.parser")
 local xp = require("zortex.modules.xp")
@@ -19,7 +20,7 @@ local function calculate_task_score(task)
 	end
 	-- Due‑date scoring
 	if task.attributes and task.attributes.due then
-		local due_dt = parser.parse_datetime(task.attributes.due)
+		local due_dt = datetime.parse_datetime(task.attributes.due)
 		if due_dt then
 			local due_time = os.time(due_dt)
 			local now = os.time()
@@ -78,7 +79,7 @@ function M.projects(opts)
 				has_priority = true
 			end
 			if task.attributes and task.attributes.due then
-				local due_dt = parser.parse_datetime(task.attributes.due)
+				local due_dt = datetime.parse_datetime(task.attributes.due)
 				if due_dt then
 					local due_date = os.date("%Y-%m-%d", os.time(due_dt))
 					if due_date == os.date("%Y-%m-%d") then

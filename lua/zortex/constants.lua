@@ -18,27 +18,24 @@ M.FILES = {
 	TASK_STATE_DATA = ".z/task_state.json",
 }
 
--- Patterns
+-- Core patterns
 M.PATTERNS = {
 	-- Task patterns
+	TASK_PREFIX = "^%s*%-",
 	TASK_UNCHECKED = "^%s*%- %[ %]",
 	TASK_CHECKED = "^%s*%- %[[xX]%]",
+	TASK_STATUS_KEY = "^%s*%- (%[.%])",
 	TASK_TEXT = "^%s*%- %[.%] (.+)$",
 
 	-- Heading patterns
 	HEADING = "^(#+)%s+(.+)$",
 	HEADING_LEVEL = "^#+",
 
-	-- Attribute patterns
-	SIZE = "@(%w+)",
-	PRIORITY = "@p(%d)",
-	IMPORTANCE = "@i(%d)",
-	DURATION = "@(%d+)([hm])",
-	ESTIMATION = "@est%((%d+)([hm])%)",
-	DONE_DATE = "@done%((%d%d%d%d%-%d%d%-%d%d)%)",
-	PROGRESS = "@progress%((%d+)/(%d+)%)",
-	XP = "@xp%((%d+)%)",
-	ID = "@id%(([^)]+)%)",
+	-- Calendar-specific patterns
+	CALENDAR_DATE_HEADING = "^(%d%d)%-(%d%d)%-(%d%d%d%d):$",
+	CALENDAR_ENTRY_PREFIX = "^%s+%-? (.+)$",
+	CALENDAR_TIME_PREFIX = "^(%d%d?:%d%d)%s+(.+)$",
+	CALENDAR_TIME_RANGE = "^(%d%d?:%d%d)%-(%d%d?:%d%d)%s+(.+)$",
 
 	-- Link patterns
 	LINK = "%[([^%]]+)%]",
@@ -50,9 +47,20 @@ M.PATTERNS = {
 
 	-- Other patterns
 	ARTICLE_TITLE = "^@@(.+)",
+	TAG_LINE = "^@[^@]",
 	BOLD_HEADING = "^%*%*[^%*]+%*%*:?$",
+	LABEL = "^%w[^:]+:",
 	OKR_DATE = "^## ([%w]+) (%d+) (%d+) (.+)$",
 	KEY_RESULT = "^%s*- KR%-",
+}
+
+M.SECTION_TYPE = {
+	ARTICLE = 1,
+	TAG = 2,
+	HEADING = 3,
+	BOLD_HEADING = 4,
+	LABEL = 5,
+	TEXT = 6,
 }
 
 -- Highlight groups

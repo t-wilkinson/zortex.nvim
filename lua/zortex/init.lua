@@ -16,6 +16,7 @@ local core = {
 
 -- Feature modules
 local modules = {
+	archive = require("zortex.modules.archive"),
 	links = require("zortex.modules.links"),
 	progress = require("zortex.modules.progress"),
 	projects = require("zortex.modules.projects"),

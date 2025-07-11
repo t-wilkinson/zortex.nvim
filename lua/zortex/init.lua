@@ -7,6 +7,7 @@ local M = {}
 
 -- Core modules
 local core = {
+	highlights = require("zortex.core.highlights"),
 	parser = require("zortex.core.parser"),
 	buffer = require("zortex.core.buffer"),
 	filesystem = require("zortex.core.filesystem"),
@@ -285,7 +286,6 @@ end
 
 local function setup_autocmds()
 	local group = vim.api.nvim_create_augroup("Zortex", { clear = true })
-
 	-- Progress tracking
 	vim.api.nvim_create_autocmd("BufWritePre", {
 		pattern = "*.zortex",
@@ -426,6 +426,8 @@ function M.setup(opts)
 	core.config.setup(opts)
 	modules.xp.setup(core.config.get("xp"))
 	ui.setup()
+	core.highlights.setup_autocmd()
+	core.highlights.setup_highlights()
 
 	-- Setup autocmds, keymaps, and autocmds
 	setup_commands()

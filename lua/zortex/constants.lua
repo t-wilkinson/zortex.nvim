@@ -38,6 +38,10 @@ M.PATTERNS = {
 	CALENDAR_TIME_PREFIX = "^(%d%d?:%d%d)%s+(.+)$",
 	CALENDAR_TIME_RANGE = "^(%d%d?:%d%d)%-(%d%d?:%d%d)%s+(.+)$",
 
+	DATETIME = "^(%d%d%d%d%-%d%d%-%d%d)%s+(.+)$", -- YYYY-MM-DD HH:MM
+	TIME_24H = "^(%d%d?):(%d%d)$", -- HH:MM
+	TIME_AMPM = "^(%d%d?):(%d%d)%s*([ap]m)$", -- HH:MMam / HH:MMpm
+
 	-- Link patterns
 	LINK = "%[([^%]]+)%]",
 	MARKDOWN_LINK = "%[([^%]]*)%]%(([^%)]+)%)",

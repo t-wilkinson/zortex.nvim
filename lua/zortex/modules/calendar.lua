@@ -41,7 +41,7 @@ local function parse_calendar_entry(entry_text, date_context)
 		end
 	end
 
-	local task_attributes = attributes.parse_task_attributes(working_text)
+	-- local task_attributes = attributes.parse_task_attributes(working_text)
 
 	-- 2. Check for time prefix or range (specific to calendar format)
 	local from_time, to_time, rest_of_line = working_text:match(constants.PATTERNS.CALENDAR_TIME_RANGE)

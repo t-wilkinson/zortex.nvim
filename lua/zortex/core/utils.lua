@@ -17,4 +17,16 @@ function M.deepcopy(orig)
 	return copy
 end
 
+function M.wrap(fn, error_msg)
+	return function(...)
+		local ok, result = pcall(fn, ...)
+		if not ok then
+			vim.notify(error_msg .. ": " .. tostring(result), vim.log.levels.ERROR, {
+				title = "Zortex Error",
+			})
+			return nil
+		end
+		return result
+	end
+end
 return M

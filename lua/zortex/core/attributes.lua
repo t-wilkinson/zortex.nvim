@@ -25,6 +25,8 @@ local type_parsers = {
 		return datetime.parse_date(v)
 	end,
 
+	datetime = function(v) end,
+
 	-- Duration: flexible format (2h, 30m, 1d, 1h30m, etc.)
 	duration = function(v)
 		local total = 0
@@ -86,6 +88,9 @@ local S = {
 	at = { type = "string" }, -- Time like "14:30"
 	dur = { type = "duration" },
 	est = { type = "duration" },
+
+	from = { type = "date" },
+	to = { type = "date" },
 
 	-- Status attributes
 	done = { type = "date" },

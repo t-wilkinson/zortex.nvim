@@ -113,6 +113,13 @@ function M.apply_xp_to_tree(root)
 	local function apply_to_node(node)
 		if node.path and node.path ~= "" then
 			node.xp_data = area_stats[node.path]
+			-- Ensure we have valid data
+			if node.xp_data then
+				-- Ensure XP is never negative
+				node.xp_data.xp = math.max(0, node.xp_data.xp or 0)
+				node.xp_data.level = node.xp_data.level or 1
+				node.xp_data.progress = node.xp_data.progress or 0
+			end
 		end
 
 		for _, child in ipairs(node.children) do
@@ -156,18 +163,76 @@ end
 function M.extract_area_links(line)
 	local links = {}
 
-	-- Look for zortex-style links
+	-- Look for all zortex-style links
 	for link in line:gmatch("%[([^%]]+)%]") do
-		-- Skip if it's a task checkbox
-		if not link:match("^%s*[xX~@%-%s]?%s*$") then
-			-- Check if it's an area link (starts with A/ or Areas/)
-			if link:match("^A/") or link:match("^Areas/") then
+		-- Parse the link to check if it's an area link
+		local parsed = parser.parse_link_definition(link)
+		if parsed and #parsed.components > 0 then
+			local first = parsed.components[1]
+			-- Check if first component is Areas or A
+			if first.type == "article" and (first.text == "A" or first.text == "Areas") then
+				-- This is an area link - store the full link definition
 				table.insert(links, link)
 			end
 		end
 	end
 
 	return links
+end
+
+-- Resolve a potentially shortened area link to its full path
+function M.resolve_area_link(area_link)
+	local parsed = parser.parse_link_definition(area_link)
+	if not parsed or #parsed.components == 0 then
+		return nil
+	end
+
+	-- If it's a local link or doesn't start with Areas/A, return as-is
+	if parsed.scope == "local" then
+		return M.build_area_path(parsed.components)
+	end
+
+	-- Check if this is an area link
+	local first = parsed.components[1]
+	if first.type ~= "article" or (first.text ~= "A" and first.text ~= "Areas") then
+		return M.build_area_path(parsed.components)
+	end
+
+	-- If we only have the Areas component, return nil
+	if #parsed.components == 1 then
+		return nil
+	end
+
+	-- Get the area tree to find the full path
+	local tree = M.parse_areas_file()
+	if not tree then
+		return M.build_area_path(parsed.components)
+	end
+
+	-- Build a partial path from the components
+	local partial_path = M.build_area_path(parsed.components)
+	if not partial_path then
+		return nil
+	end
+
+	-- Search for a node that ends with this partial path
+	local function find_matching_node(node, target)
+		if node.path and node.path:lower():find(target:lower() .. "$") then
+			return node.path
+		end
+
+		for _, child in ipairs(node.children) do
+			local found = find_matching_node(child, target)
+			if found then
+				return found
+			end
+		end
+
+		return nil
+	end
+
+	local full_path = find_matching_node(tree, partial_path)
+	return full_path or partial_path
 end
 
 -- Extract area links from the line below a heading
@@ -178,11 +243,21 @@ function M.get_area_links_for_heading(lines, heading_line_num)
 
 	local next_line = lines[heading_line_num + 1]
 
-	-- Check if next line contains links (not another heading or task)
-	if not parser.get_heading_level(next_line) and not parser.is_task_line(next_line) and next_line:match("%[.+%]") then
-		return M.extract_area_links(next_line)
-	end
+	-- Check if next line contains links
+	if string.sub(next_line, 1, 1) == "[" then
+		local raw_links = M.extract_area_links(next_line)
+		local resolved_links = {}
 
+		for _, link in ipairs(raw_links) do
+			local resolved = M.resolve_area_link(link)
+			if resolved then
+				-- Convert back to link format with full path
+				table.insert(resolved_links, "A/" .. resolved)
+			end
+		end
+
+		return resolved_links
+	end
 	return {}
 end
 

@@ -23,9 +23,10 @@ M.PATTERNS = {
 	-- Task patterns
 	TASK_PREFIX = "^%s*%-",
 	TASK_UNCHECKED = "^%s*%- %[ %]",
-	TASK_CHECKED = "^%s*%- %[[xX]%]",
 	TASK_STATUS_KEY = "^%s*%- (%[.%])",
 	TASK_TEXT = "^%s*%- %[.%] (.+)$",
+	-- TASK_CHECKBOX = "^%s*[-*%u·]?%s*%[([ xX‑])%]%s+",
+	TASK_CHECKBOX = "^%s*%- %[(.)%]",
 
 	-- Heading patterns
 	HEADING = "^(#+)%s+(.+)$",

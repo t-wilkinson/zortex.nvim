@@ -446,6 +446,19 @@ local Syntax = {
 			{ regex = "%s(=>)%s", capture = 1 },
 			{ regex = "%s(~>)%s", capture = 1 },
 			{ regex = "%s(!=)%s", capture = 1 },
+			{ regex = "%s(+)%s", capture = 1 },
+			{ regex = "%s(vs.)%s", capture = 1 },
+		},
+	},
+
+	Punctuation = {
+		opts = { fg = "#ea9a97" },
+		patterns = {
+			{ regex = "(%.)%s", capture = 1 },
+			{ regex = "(%.)$", capture = 1 },
+			{ regex = "(,)%s", capture = 1 },
+			{ regex = "(?)%s", capture = 1 },
+			{ regex = "(?)$", capture = 1 },
 		},
 	},
 
@@ -632,6 +645,7 @@ function M.highlight_buffer(bufnr)
 		"Time",
 		"Percent",
 		"Operator",
+		"Punctuation",
 		"Quote",
 	}
 

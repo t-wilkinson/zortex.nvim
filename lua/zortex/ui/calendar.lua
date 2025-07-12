@@ -11,8 +11,8 @@ local CONTENT_WIDTH = fn.strwidth(MARGIN_STR) + GRID_WIDTH -- 2 + 49 = 51
 local datetime = require("zortex.core.datetime")
 local fs = require("zortex.core.filesystem")
 local calendar = require("zortex.modules.calendar")
-local digest = require("zortex.modules.digest") -- We'll create this
-local notifications = require("zortex.modules.notifications") -- We'll create this
+local digest = require("zortex.modules.digest")
+local notifications = require("zortex.modules.notifications")
 
 -- =============================================================================
 -- Calendar State and Configuration
@@ -48,11 +48,28 @@ local Config = {
 		key_hint = "NonText",
 		digest_header = "Title",
 		notification = "DiagnosticWarn",
-		-- today_selected = "IncSearch", -- When today is selected
-		selected = "CursorLine", -- Changed to Search for better block highlight
-		today_selected = "CursorLineNr",
-		selected_text = "CursorLineNr",
+		-- "IncSearch" "CursorLine" "CursorLineNr"
+		selected = "IncSearch", -- Changed to Search for better block highlight
+		today_selected = "IncSearch",
+		selected_text = "IncSearch",
 	},
+	-- icons = {
+	-- 	event = "🎉",
+	-- 	task = "📝",
+	-- 	task_done = "✔",
+	-- 	notification = "🔔",
+	-- 	has_items = "•", -- Default dot for days with any entry
+	-- },
+	-- icons = {
+	-- 	event = "◆",
+	-- 	task = "□",
+	-- 	task_done = "☑",
+	-- 	notification = "◉",
+	-- 	has_items = "•",
+	-- 	none = " ",
+	-- },
+	pretty_attributes = true, -- Enable/disable pretty display of attributes
+	icon_width = 3, -- Unfortunately necessary atm for calculating how much an icon will shift text in the terminal (fn.strwidth doesn't calculate it correctly).
 	icons = {
 		event = "󰃰", -- nf-md-calendar_star
 		task = "󰄬", -- nf-md-checkbox_blank_circle_outline
@@ -221,8 +238,8 @@ function Renderer.create_window(bufnr)
 	return win_id
 end
 
--- Format attributes
-local function format_entry_attributes(entry)
+-- Pretty‑print attributes
+local function format_pretty_attrs(entry)
 	if not entry.attributes then
 		return ""
 	end
@@ -274,11 +291,73 @@ local function format_entry_attributes(entry)
 	return ""
 end
 
+-- Format attributes in simple mode
+local function format_simple_attrs(entry)
+	if not entry.attributes then
+		return ""
+	end
+
+	local parts = {}
+
+	-- Compact time display
+	if entry.attributes.at then
+		table.insert(parts, entry.attributes.at)
+	end
+
+	-- Compact duration
+	if entry.attributes.dur then
+		table.insert(parts, entry.attributes.dur .. "m")
+	elseif entry.attributes.est then
+		table.insert(parts, "~" .. entry.attributes.est .. "m")
+	end
+
+	-- Simple indicators
+	if entry.attributes.notify then
+		table.insert(parts, "!")
+	end
+
+	if entry.attributes["repeat"] then
+		table.insert(parts, "R")
+	end
+
+	-- Compact date range
+	if entry.attributes.from and entry.attributes.to then
+		local from_str = datetime.format_date(entry.attributes.from, "MM/DD")
+		local to_str = datetime.format_date(entry.attributes.to, "MM/DD")
+		table.insert(parts, from_str .. "-" .. to_str)
+	elseif entry.attributes.from then
+		table.insert(parts, datetime.format_date(entry.attributes.from, "MM/DD") .. "+")
+	elseif entry.attributes.to then
+		table.insert(parts, "-" .. datetime.format_date(entry.attributes.to, "MM/DD"))
+	end
+
+	if #parts > 0 then
+		return " [" .. table.concat(parts, " ") .. "]"
+	end
+	return ""
+end
+
+function Renderer.center(win_width, text)
+	local win_margin = win_width - CONTENT_WIDTH
+
+	local content_padding = (CONTENT_WIDTH - fn.strwidth(text) + win_margin) / 2
+	local left_padding = string.rep(" ", math.max(1, content_padding))
+	local line = left_padding .. text
+
+	return {
+		line = line,
+		col = content_padding,
+		end_col = content_padding + fn.strwidth(text),
+	}
+end
+
 function Renderer.render_month_view(date)
 	local win_width = CalendarState.win_id and api.nvim_win_get_width(CalendarState.win_id) or Config.window.width
 	local lines = {}
 	local highlights = {}
 	local today = DateUtil.get_current_date()
+
+	table.insert(lines, "")
 
 	-- Calculate centering
 	local total_padding = win_width - CONTENT_WIDTH
@@ -286,44 +365,39 @@ function Renderer.render_month_view(date)
 
 	-- Header with navigation hints
 	local header_text = DateUtil.format_month_year(date)
-	local nav_hint = CalendarState.view_mode == "month" and "Month View" or "Week View"
-	local header_space = win_width - (fn.strwidth(left_pad_str) + fn.strwidth(header_text) + fn.strwidth(nav_hint))
-	local header_padding = string.rep(" ", math.max(1, header_space))
-	local header_line = left_pad_str .. header_text .. header_padding .. nav_hint
+	local view_mode_text = CalendarState.view_mode == "month" and "Month View" or "Week View"
+	local space_between = CONTENT_WIDTH - (fn.strwidth(header_text) + fn.strwidth(view_mode_text))
+	local header_padding = string.rep(" ", math.max(1, space_between))
+	local header_line = left_pad_str .. header_text .. header_padding .. view_mode_text
 
 	table.insert(lines, header_line)
 	table.insert(highlights, {
-		line = 1,
+		line = 2,
 		col = fn.strwidth(left_pad_str),
-		end_col = fn.strwidth(left_pad_str) + fn.strwidth(header_text),
+		end_col = fn.strwidth(header_line),
 		hl = Config.colors.header,
 	})
 
-	-- ── Navigation help (top) ────────────────────────────────────────────────
-	table.insert(lines, "←/→/↑/↓ move • H/L year • J/K month • g today • q quit")
-	-- local nav_hint = "←/→/↑/↓ move | H/L year | J/K month | t today"
-	-- local header_space = win_width - (fn.strwidth(left_pad_str) + fn.strwidth(header_text) + fn.strwidth(nav_hint))
-	-- local header_padding = string.rep(" ", math.max(1, header_space))
-	-- local header_line = left_pad_str .. header_text .. header_padding .. nav_hint
+	table.insert(lines, "")
 
-	-- table.insert(lines, header_line)
-	-- table.insert(highlights, {
-	-- 	line = 1,
-	-- 	col = fn.strwidth(left_pad_str),
-	-- 	end_col = fn.strwidth(left_pad_str) + fn.strwidth(header_text),
-	-- 	hl = Config.colors.header,
-	-- })
+	-- ── Navigation help (top) ────────────────────────────────────────────────
+	local nav_hint = "←/→/↑/↓ move • H/L year • J/K • g today • q quit"
+	local nav_center = Renderer.center(win_width, nav_hint)
+
+	table.insert(lines, nav_center.line)
 
 	-- Separator
 	table.insert(lines, left_pad_str .. MARGIN_STR .. string.rep("─", GRID_WIDTH))
+	table.insert(lines, "")
 
 	-- Day headers
 	local day_header_parts = {}
 	for _, name in ipairs({ "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" }) do
 		table.insert(day_header_parts, "  " .. name .. "  ")
 	end
+
 	table.insert(lines, left_pad_str .. MARGIN_STR .. table.concat(day_header_parts, ""))
-	table.insert(lines, "") -- Blank line
+	table.insert(lines, "")
 
 	-- Load calendar data
 	calendar.load()
@@ -342,10 +416,12 @@ function Renderer.render_month_view(date)
 			break
 		end
 
+		local shift_hl = 0 -- Variable for tracking how much the text has shifted by icon unusual icon widths
 		local week_line_parts = { left_pad_str, MARGIN_STR }
 
 		for weekday = 1, 7 do
 			local day_cell_str
+
 			if (week == 1 and weekday >= first_weekday) or (week > 1 and current_day <= days_in_month) then
 				local day_num = current_day
 				local date_str = string.format("%04d-%02d-%02d", date.year, date.month, day_num)
@@ -357,7 +433,9 @@ function Renderer.render_month_view(date)
 					and day_num == CalendarState.current_date.day
 
 				-- Determine icon
+				local hl_group = nil
 				local day_icon = Config.icons.none
+
 				if #entries > 0 then
 					day_icon = Config.icons.has_items
 
@@ -407,30 +485,36 @@ function Renderer.render_month_view(date)
 				local base_col_0based = fn.strwidth(left_pad_str) + fn.strwidth(MARGIN_STR) + (weekday - 1) * CELL_WIDTH
 
 				-- Add highlight for whole cell (but not for selected - we'll use extmark)
-				local hl_group = nil
 				if is_today and not is_selected then
 					hl_group = Config.colors.today
 				elseif weekday == 1 or weekday == 7 then
 					hl_group = Config.colors.weekend
 				end
 
-				if hl_group then
-					table.insert(highlights, {
-						line = line_num,
-						col = base_col_0based,
-						end_col = base_col_0based + CELL_WIDTH,
-						hl = hl_group,
-					})
-				end
-
 				-- Highlight icon if entries exist
+				-- Icons
 				if #entries > 0 and not is_today then
 					local icon_col_start = base_col_0based + fn.strwidth(lpad)
 					table.insert(highlights, {
 						line = line_num,
-						col = icon_col_start,
-						end_col = icon_col_start + fn.strwidth(day_icon),
+						col = icon_col_start + shift_hl,
+						end_col = icon_col_start + fn.strwidth(day_icon) + shift_hl,
 						hl = Config.colors.has_entry,
+					})
+				end
+
+				-- Shift highlighting by new icon
+				if day_icon ~= Config.icons.none then
+					shift_hl = shift_hl + Config.icon_width
+				end
+
+				-- Date highlights
+				if hl_group then
+					table.insert(highlights, {
+						line = line_num,
+						col = base_col_0based + shift_hl,
+						end_col = base_col_0based + CELL_WIDTH + shift_hl,
+						hl = hl_group,
 					})
 				end
 
@@ -495,7 +579,7 @@ function Renderer.render_month_view(date)
 					icon = Config.icons.notification
 				end
 
-				local attr_str = format_entry_attributes(entry)
+				local attr_str = Config.pretty_attributes and format_pretty_attrs(entry) or format_simple_attrs(entry)
 				local entry_line = string.format("  %s %s%s", icon, entry.display_text, attr_str)
 				table.insert(lines, left_pad_str .. MARGIN_STR .. entry_line)
 			end
@@ -513,8 +597,14 @@ function Renderer.render_month_view(date)
 	end
 
 	-- ── Footer key‑hints (bottom) ───────────────────────────────────────────
+	-- Separator
 	table.insert(lines, "")
-	table.insert(lines, "Enter: open  a: add‑event  d: delete  r: rename  ?: help")
+	table.insert(lines, left_pad_str .. MARGIN_STR .. string.rep("─", GRID_WIDTH))
+
+	local footer_text = "enter open • a add‑event • d delete • r rename • ? help"
+	local footer_center = Renderer.center(win_width, footer_text)
+
+	table.insert(lines, footer_center.line)
 
 	-- Add footer with key hints
 	-- local footer_lines = {

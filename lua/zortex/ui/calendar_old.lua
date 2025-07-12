@@ -44,21 +44,6 @@ local Config = {
 		header = "Title",
 		border = "FloatBorder",
 	},
-	-- icons = {
-	-- 	event = "🎉",
-	-- 	task = "📝",
-	-- 	task_done = "✔",
-	-- 	notification = "🔔",
-	-- 	has_items = "•", -- Default dot for days with any entry
-	-- },
-	-- icons = {
-	-- 	event = "◆",
-	-- 	task = "□",
-	-- 	task_done = "☑",
-	-- 	notification = "◉",
-	-- 	has_items = "•",
-	-- 	none = " ",
-	-- },
 	icons = {
 		event = "󰃰", -- nf-md-calendar_star
 		task = "󰄬", -- nf-md-checkbox_blank_circle_outline
@@ -200,7 +185,6 @@ function Renderer.create_window(bufnr)
 end
 
 -- Pretty‑print attributes
--- Format attributes in pretty mode
 local function format_pretty_attrs(entry)
 	if not entry.attributes then
 		return ""

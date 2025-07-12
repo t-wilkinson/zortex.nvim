@@ -16,6 +16,7 @@ M.FILES = {
 	SYSTEM_LIBRARY = ".z",
 	XP_STATE_DATA = ".z/xp_state.json",
 	TASK_STATE_DATA = ".z/task_state.json",
+	ARCHIVE_TASK_STATE = ".z/archive.task_state.json",
 }
 
 -- Core patterns

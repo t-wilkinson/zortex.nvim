@@ -4,6 +4,7 @@ local api = vim.api
 local fn = vim.fn
 
 local CELL_WIDTH = 7
+local CELL_MID_COL = math.floor(CELL_WIDTH / 2)
 local MARGIN_STR = "  "
 local GRID_WIDTH = 7 * CELL_WIDTH -- 7 days * 7 cols = 49
 local CONTENT_WIDTH = fn.strwidth(MARGIN_STR) + GRID_WIDTH -- 2 + 49 = 51
@@ -11,8 +12,6 @@ local CONTENT_WIDTH = fn.strwidth(MARGIN_STR) + GRID_WIDTH -- 2 + 49 = 51
 local datetime = require("zortex.core.datetime")
 local fs = require("zortex.core.filesystem")
 local calendar = require("zortex.modules.calendar")
-local digest = require("zortex.modules.digest") -- We'll create this
-local notifications = require("zortex.modules.notifications") -- We'll create this
 
 -- =============================================================================
 -- Calendar State and Configuration
@@ -22,50 +21,55 @@ local CalendarState = {
 	bufnr = nil,
 	win_id = nil,
 	current_date = nil,
-	view_mode = "month", -- month, week, day, digest
-	marks = {}, -- Date marks for navigation
-	ns_id = nil, -- Namespace for extmarks
-	selected_extmark_id = nil, -- Current selection extmark
+	view_mode = "month", -- month, week, day
+	marks = {}, -- Date marks for highlighting
 }
 
--- Default configuration
+-- Default configuration, can be overridden in main config
 local Config = {
 	window = {
 		relative = "editor",
-		width = 82,
-		height = 0.85,
+		width = 82, -- Default width if unable to get from window
+		height = 0.8,
 		border = "rounded",
 		title = " 📅 Zortex Calendar ",
 		title_pos = "center",
 	},
 	colors = {
 		today = "DiagnosticOk",
+		selected = "Visual", -- Use a block highlight instead of CursorLine
+		today_selected = "DiffAdd", -- Special highlight for when today is also selected
 		weekend = "Comment",
 		has_entry = "DiagnosticInfo",
 		header = "Title",
 		border = "FloatBorder",
-		footer = "Comment",
-		key_hint = "NonText",
-		digest_header = "Title",
-		notification = "DiagnosticWarn",
-		-- today_selected = "IncSearch", -- When today is selected
-		selected = "CursorLine", -- Changed to Search for better block highlight
-		today_selected = "CursorLineNr",
-		selected_text = "CursorLineNr",
 	},
+	-- icons = {
+	-- 	event = "🎉",
+	-- 	task = "📝",
+	-- 	task_done = "✔",
+	-- 	notification = "🔔",
+	-- 	has_items = "•", -- Default dot for days with any entry
+	-- },
+	-- icons = {
+	-- 	event = "◆",
+	-- 	task = "□",
+	-- 	task_done = "☑",
+	-- 	notification = "◉",
+	-- 	has_items = "•",
+	-- 	none = " ",
+	-- },
 	icons = {
 		event = "󰃰", -- nf-md-calendar_star
 		task = "󰄬", -- nf-md-checkbox_blank_circle_outline
 		task_done = "󰄱", -- nf-md-check_circle
 		notification = "󰍛", -- nf-md-bell_ring
 		has_items = "󰸞", -- nf-md-dots_circle
-		none = " ",
+		none = " ", -- keep cell width stable
 	},
-	digest = {
-		show_upcoming_days = 7, -- Show events for next 7 days
-		show_high_priority = true, -- Show high priority/importance projects
-		position = "right", -- right, bottom, or floating
-	},
+	compact_mode = true,
+	show_time_in_grid = false, -- Don't show times in calendar grid
+	pretty_attributes = true, -- Enable/disable pretty display of attributes
 	keymaps = {
 		close = { "q", "<Esc>" },
 		next_day = { "l", "<Right>" },
@@ -76,18 +80,13 @@ local Config = {
 		prev_month = { "K" },
 		next_year = { "L" },
 		prev_year = { "H" },
-		today = { "t", "T" },
+		today = { "t" },
 		add_entry = { "a", "i" },
 		view_entries = { "<CR>", "o" },
-		edit_entry = { "e" },
-		delete_entry = { "x" },
 		telescope_search = { "/" },
 		toggle_view = { "v" },
-		digest = { "d", "D" },
-		refresh = { "r", "R" },
-		go_to_file = { "gf" },
-		sync_notifications = { "n" },
-		help = { "?" },
+		digest = { "d" },
+		go_to_file = { "g" },
 	},
 }
 
@@ -149,25 +148,6 @@ function DateUtil.add_days(date, days)
 	return { year = new_date.year, month = new_date.month, day = new_date.day, wday = new_date.wday }
 end
 
-function DateUtil.format_relative_date(date)
-	local today = DateUtil.get_current_date()
-	local today_time = os.time(today)
-	local date_time = os.time(date)
-	local diff_days = math.floor((date_time - today_time) / 86400)
-
-	if diff_days == 0 then
-		return "Today"
-	elseif diff_days == 1 then
-		return "Tomorrow"
-	elseif diff_days == -1 then
-		return "Yesterday"
-	elseif diff_days > 0 and diff_days <= 7 then
-		return os.date("%A", date_time) -- Day name
-	else
-		return os.date("%b %d", date_time)
-	end
-end
-
 -- =============================================================================
 -- Calendar Renderer
 -- =============================================================================
@@ -186,9 +166,11 @@ end
 
 function Renderer.create_window(bufnr)
 	-- Calculate window dimensions
-	local width = Config.window.width
-	if width <= 1 then
-		width = math.floor(vim.o.columns * width)
+	local width
+	if Config.window.width <= 1 then -- Treat as percentage if <= 1
+		width = math.floor(vim.o.columns * Config.window.width)
+	else -- Treat as fixed column count
+		width = Config.window.width
 	end
 	local height = math.floor(vim.o.lines * Config.window.height)
 	local row = math.floor((vim.o.lines - height) / 2)
@@ -212,17 +194,14 @@ function Renderer.create_window(bufnr)
 	api.nvim_win_set_option(win_id, "relativenumber", false)
 	api.nvim_win_set_option(win_id, "signcolumn", "no")
 	api.nvim_win_set_option(win_id, "wrap", false)
-	api.nvim_win_set_option(win_id, "cursorline", false)
 	api.nvim_win_set_option(win_id, "winhl", "Normal:Normal,FloatBorder:" .. Config.colors.border)
-
-	-- Hide cursor
-	api.nvim_win_set_option(win_id, "guicursor", "a:block-Cursor/lCursor-blinkon0")
 
 	return win_id
 end
 
--- Format attributes
-local function format_entry_attributes(entry)
+-- Pretty‑print attributes
+-- Format attributes in pretty mode
+local function format_pretty_attrs(entry)
 	if not entry.attributes then
 		return ""
 	end
@@ -274,19 +253,69 @@ local function format_entry_attributes(entry)
 	return ""
 end
 
+-- Format attributes in simple mode
+local function format_simple_attrs(entry)
+	if not entry.attributes then
+		return ""
+	end
+
+	local parts = {}
+
+	-- Compact time display
+	if entry.attributes.at then
+		table.insert(parts, entry.attributes.at)
+	end
+
+	-- Compact duration
+	if entry.attributes.dur then
+		table.insert(parts, entry.attributes.dur .. "m")
+	elseif entry.attributes.est then
+		table.insert(parts, "~" .. entry.attributes.est .. "m")
+	end
+
+	-- Simple indicators
+	if entry.attributes.notify then
+		table.insert(parts, "!")
+	end
+
+	if entry.attributes["repeat"] then
+		table.insert(parts, "R")
+	end
+
+	-- Compact date range
+	if entry.attributes.from and entry.attributes.to then
+		local from_str = datetime.format_date(entry.attributes.from, "MM/DD")
+		local to_str = datetime.format_date(entry.attributes.to, "MM/DD")
+		table.insert(parts, from_str .. "-" .. to_str)
+	elseif entry.attributes.from then
+		table.insert(parts, datetime.format_date(entry.attributes.from, "MM/DD") .. "+")
+	elseif entry.attributes.to then
+		table.insert(parts, "-" .. datetime.format_date(entry.attributes.to, "MM/DD"))
+	end
+
+	if #parts > 0 then
+		return " [" .. table.concat(parts, " ") .. "]"
+	end
+	return ""
+end
+
 function Renderer.render_month_view(date)
+	-- Get the actual window width. Fallback to config if window not ready.
 	local win_width = CalendarState.win_id and api.nvim_win_get_width(CalendarState.win_id) or Config.window.width
+
 	local lines = {}
 	local highlights = {}
 	local today = DateUtil.get_current_date()
 
-	-- Calculate centering
+	-- Define layout constants
+
+	-- Calculate centering padding based on the actual window width
 	local total_padding = win_width - CONTENT_WIDTH
 	local left_pad_str = string.rep(" ", math.max(0, math.floor(total_padding / 2)))
 
-	-- Header with navigation hints
+	-- Header
 	local header_text = DateUtil.format_month_year(date)
-	local nav_hint = CalendarState.view_mode == "month" and "Month View" or "Week View"
+	local nav_hint = "←/→/↑/↓ move | H/L year | J/K month | t today"
 	local header_space = win_width - (fn.strwidth(left_pad_str) + fn.strwidth(header_text) + fn.strwidth(nav_hint))
 	local header_padding = string.rep(" ", math.max(1, header_space))
 	local header_line = left_pad_str .. header_text .. header_padding .. nav_hint
@@ -299,31 +328,16 @@ function Renderer.render_month_view(date)
 		hl = Config.colors.header,
 	})
 
-	-- ── Navigation help (top) ────────────────────────────────────────────────
-	table.insert(lines, "←/→/↑/↓ move • H/L year • J/K month • g today • q quit")
-	-- local nav_hint = "←/→/↑/↓ move | H/L year | J/K month | t today"
-	-- local header_space = win_width - (fn.strwidth(left_pad_str) + fn.strwidth(header_text) + fn.strwidth(nav_hint))
-	-- local header_padding = string.rep(" ", math.max(1, header_space))
-	-- local header_line = left_pad_str .. header_text .. header_padding .. nav_hint
-
-	-- table.insert(lines, header_line)
-	-- table.insert(highlights, {
-	-- 	line = 1,
-	-- 	col = fn.strwidth(left_pad_str),
-	-- 	end_col = fn.strwidth(left_pad_str) + fn.strwidth(header_text),
-	-- 	hl = Config.colors.header,
-	-- })
-
 	-- Separator
 	table.insert(lines, left_pad_str .. MARGIN_STR .. string.rep("─", GRID_WIDTH))
 
 	-- Day headers
 	local day_header_parts = {}
 	for _, name in ipairs({ "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" }) do
-		table.insert(day_header_parts, "  " .. name .. "  ")
+		table.insert(day_header_parts, "  " .. name .. "  ") -- Center "Sun" in 7 spaces
 	end
 	table.insert(lines, left_pad_str .. MARGIN_STR .. table.concat(day_header_parts, ""))
-	table.insert(lines, "") -- Blank line
+	table.insert(lines, "") -- Blank line for spacing
 
 	-- Load calendar data
 	calendar.load()
@@ -333,9 +347,6 @@ function Renderer.render_month_view(date)
 	local first_weekday = DateUtil.get_first_weekday(date.year, date.month)
 	local current_day = 1
 	local line_num = #lines + 1
-
-	-- Clear marks for rebuilding
-	CalendarState.marks = {}
 
 	for week = 1, 6 do
 		if current_day > days_in_month then
@@ -356,12 +367,12 @@ function Renderer.render_month_view(date)
 					and date.month == CalendarState.current_date.month
 					and day_num == CalendarState.current_date.day
 
-				-- Determine icon
+				-- Determine icon with consistent width
 				local day_icon = Config.icons.none
 				if #entries > 0 then
 					day_icon = Config.icons.has_items
 
-					-- Prioritize icons
+					-- Prioritize icons by importance
 					local has_notification = false
 					local has_incomplete_task = false
 					local has_complete_task = false
@@ -394,21 +405,26 @@ function Renderer.render_month_view(date)
 					end
 				end
 
-				-- Format day number with brackets if selected
-				local day_num_str = is_selected and string.format("[%02d]", day_num) or string.format(" %2d ", day_num)
-				local cell_content = day_icon .. day_num_str
+				-- Format the cell respecting icon width
+				-- local day_num_str = string.format("%2d", day_num)
+				-- local cell_content = day_icon .. " " .. day_num_str
+				local cell_content = string.format("%s %2d", day_icon, day_num)
 				local content_w = fn.strwidth(cell_content)
 				local padding_w = CELL_WIDTH - content_w
 				local lpad = string.rep(" ", math.max(0, math.floor(padding_w / 2)))
 				local rpad = string.rep(" ", math.max(0, math.ceil(padding_w / 2)))
 				day_cell_str = lpad .. cell_content .. rpad
 
-				-- Calculate position
+				-- Calculate 0-based column position for highlights
 				local base_col_0based = fn.strwidth(left_pad_str) + fn.strwidth(MARGIN_STR) + (weekday - 1) * CELL_WIDTH
 
-				-- Add highlight for whole cell (but not for selected - we'll use extmark)
+				-- Add highlights for the whole cell
 				local hl_group = nil
-				if is_today and not is_selected then
+				if is_selected and is_today then
+					hl_group = Config.colors.today_selected
+				elseif is_selected then
+					hl_group = Config.colors.selected
+				elseif is_today then
 					hl_group = Config.colors.today
 				elseif weekday == 1 or weekday == 7 then
 					hl_group = Config.colors.weekend
@@ -423,8 +439,8 @@ function Renderer.render_month_view(date)
 					})
 				end
 
-				-- Highlight icon if entries exist
-				if #entries > 0 and not is_today then
+				-- Highlight icon separately if there are entries but no other highlight
+				if #entries > 0 and not (is_selected or is_today) then
 					local icon_col_start = base_col_0based + fn.strwidth(lpad)
 					table.insert(highlights, {
 						line = line_num,
@@ -434,17 +450,12 @@ function Renderer.render_month_view(date)
 					})
 				end
 
-				-- Store position for navigation and extmark
-				CalendarState.marks[date_str] = {
-					line = line_num,
-					col = base_col_0based,
-					day = day_num,
-					end_col = base_col_0based + CELL_WIDTH,
-				}
+				-- Store position for navigation (0-based column)
+				CalendarState.marks[date_str] = { line = line_num, col = base_col_0based, day = day_num }
 
 				current_day = current_day + 1
 			else
-				day_cell_str = string.rep(" ", CELL_WIDTH)
+				day_cell_str = string.rep(" ", CELL_WIDTH) -- Empty cell
 			end
 			table.insert(week_line_parts, day_cell_str)
 		end
@@ -462,25 +473,14 @@ function Renderer.render_month_view(date)
 	if CalendarState.current_date then
 		local date_str = DateUtil.format_date(CalendarState.current_date)
 		local entries = calendar.get_entries_for_date(date_str)
-		local pending_notifications = notifications and notifications.get_pending_for_date(date_str) or {}
 
 		local summary_header = string.format(
 			"%s - %s",
 			os.date("%A, %B %d, %Y", os.time(CalendarState.current_date)),
 			#entries > 0 and string.format("%d items", #entries) or "No items"
 		)
-		if #pending_notifications > 0 then
-			summary_header = summary_header .. string.format(" • %d notifications", #pending_notifications)
-		end
-
 		table.insert(lines, left_pad_str .. MARGIN_STR .. summary_header)
-		table.insert(highlights, {
-			line = #lines,
-			col = fn.strwidth(left_pad_str .. MARGIN_STR),
-			end_col = fn.strwidth(left_pad_str .. MARGIN_STR .. summary_header),
-			hl = Config.colors.digest_header,
-		})
-		table.insert(lines, left_pad_str)
+		table.insert(lines, left_pad_str) -- Blank line
 
 		if #entries > 0 then
 			for _, entry in ipairs(entries) do
@@ -491,236 +491,33 @@ function Renderer.render_month_view(date)
 				elseif entry.type == "event" then
 					icon = Config.icons.event
 				end
-				if entry.attributes.notify then
+				if entry.attributes.notification_enabled then
 					icon = Config.icons.notification
 				end
 
-				local attr_str = format_entry_attributes(entry)
+				local attr_str = Config.pretty_attributes and format_pretty_attrs(entry) or format_simple_attrs(entry)
 				local entry_line = string.format("  %s %s%s", icon, entry.display_text, attr_str)
 				table.insert(lines, left_pad_str .. MARGIN_STR .. entry_line)
 			end
 		end
-
-		-- Show pending notifications
-		if #pending_notifications > 0 then
-			table.insert(lines, "")
-			table.insert(lines, left_pad_str .. MARGIN_STR .. "Pending Notifications:")
-			for _, notif in ipairs(pending_notifications) do
-				local notif_line = string.format("  %s %s - %s", Config.icons.notification, notif.time, notif.title)
-				table.insert(lines, left_pad_str .. MARGIN_STR .. notif_line)
-			end
-		end
 	end
-
-	-- ── Footer key‑hints (bottom) ───────────────────────────────────────────
-	table.insert(lines, "")
-	table.insert(lines, "Enter: open  a: add‑event  d: delete  r: rename  ?: help")
-
-	-- Add footer with key hints
-	-- local footer_lines = {
-	-- 	"",
-	-- 	string.rep("─", win_width),
-	-- 	"",
-	-- }
-
-	-- local key_hints = {
-	-- 	{ keys = "h/l", desc = "prev/next day" },
-	-- 	{ keys = "j/k", desc = "prev/next week" },
-	-- 	{ keys = "J/K", desc = "prev/next month" },
-	-- 	{ keys = "t", desc = "today" },
-	-- 	{ keys = "a", desc = "add" },
-	-- 	{ keys = "d", desc = "digest" },
-	-- 	{ keys = "n", desc = "sync notif" },
-	-- 	{ keys = "?", desc = "help" },
-	-- }
-
-	-- local hint_parts = {}
-	-- for _, hint in ipairs(key_hints) do
-	-- 	table.insert(hint_parts, string.format("%s:%s", hint.keys, hint.desc))
-	-- end
-	-- local hint_line = table.concat(hint_parts, "  ")
-
-	-- -- Center the hint line
-	-- local hint_padding = math.max(0, math.floor((win_width - fn.strwidth(hint_line)) / 2))
-	-- table.insert(footer_lines, string.rep(" ", hint_padding) .. hint_line)
-
-	-- -- Add footer lines
-	-- for _, line in ipairs(footer_lines) do
-	-- 	table.insert(lines, line)
-	-- 	if line:match("%w") then -- Only highlight text lines
-	-- 		table.insert(highlights, {
-	-- 			line = #lines,
-	-- 			col = 0,
-	-- 			end_col = fn.strwidth(line),
-	-- 			hl = Config.colors.key_hint,
-	-- 		})
-	-- 	end
-	-- end
 
 	return lines, highlights
 end
 
-function Renderer.render_digest_view()
-	local lines = {}
-	local highlights = {}
-	local today = DateUtil.get_current_date()
-	local win_width = CalendarState.win_id and api.nvim_win_get_width(CalendarState.win_id) or Config.window.width
-
-	-- Header
-	table.insert(lines, "")
-	local header = "📋 Today's Digest & Upcoming Week"
-	local header_padding = math.max(0, math.floor((win_width - fn.strwidth(header)) / 2))
-	table.insert(lines, string.rep(" ", header_padding) .. header)
-	table.insert(highlights, {
-		line = 2,
-		col = header_padding,
-		end_col = header_padding + fn.strwidth(header),
-		hl = Config.colors.header,
-	})
-	table.insert(lines, string.rep("─", win_width))
-	table.insert(lines, "")
-
-	-- Load necessary data
-	calendar.load()
-
-	-- Show entries for today and next 7 days
-	for i = 0, Config.digest.show_upcoming_days do
-		local date = DateUtil.add_days(today, i)
-		local date_str = DateUtil.format_date(date)
-		local entries = calendar.get_entries_for_date(date_str)
-
-		if #entries > 0 then
-			-- Date header
-			local date_header = DateUtil.format_relative_date(date)
-			if i > 1 then
-				date_header = date_header .. string.format(" (%s)", os.date("%b %d", os.time(date)))
-			end
-			table.insert(lines, string.format("  %s", date_header))
-			table.insert(highlights, {
-				line = #lines,
-				col = 2,
-				end_col = 2 + fn.strwidth(date_header),
-				hl = Config.colors.digest_header,
-			})
-
-			-- Entries
-			for _, entry in ipairs(entries) do
-				local icon = Config.icons.has_items
-				if entry.type == "task" then
-					icon = (entry.task_status and entry.task_status.key == "[x]") and Config.icons.task_done
-						or Config.icons.task
-				elseif entry.type == "event" then
-					icon = Config.icons.event
-				end
-				if entry.attributes.notify then
-					icon = Config.icons.notification
-				end
-
-				local time_str = entry.attributes.at and (" @ " .. entry.attributes.at) or ""
-				local entry_line = string.format("    %s %s%s", icon, entry.display_text, time_str)
-				table.insert(lines, entry_line)
-			end
-			table.insert(lines, "")
-		end
-	end
-
-	-- Show high priority projects
-	if Config.digest.show_high_priority then
-		local projects = require("zortex.modules.projects")
-		projects.load()
-
-		local high_priority = {}
-		for _, project in ipairs(projects.get_all_projects()) do
-			if project.attributes.p == "1" or project.attributes.i == "1" then
-				table.insert(high_priority, project)
-			end
-		end
-
-		if #high_priority > 0 then
-			table.insert(lines, string.rep("─", win_width))
-			table.insert(lines, "")
-			table.insert(lines, "  🎯 High Priority Projects")
-			table.insert(highlights, {
-				line = #lines,
-				col = 2,
-				end_col = 2 + fn.strwidth("🎯 High Priority Projects"),
-				hl = Config.colors.digest_header,
-			})
-			table.insert(lines, "")
-
-			for _, project in ipairs(high_priority) do
-				local priority_str = ""
-				if project.attributes.p == "1" then
-					priority_str = priority_str .. " [P1]"
-				end
-				if project.attributes.i == "1" then
-					priority_str = priority_str .. " [I1]"
-				end
-
-				local project_line = string.format(
-					"    • %s%s",
-					project.name:gsub("@%w+%b()", ""):gsub("@%w+", ""):gsub("^%s*(.-)%s*$", "%1"),
-					priority_str
-				)
-				table.insert(lines, project_line)
-			end
-		end
-	end
-
+function Renderer.render_week_view(date)
+	-- This view can be enhanced similarly if needed
+	local lines, highlights = {}, {}
+	table.insert(lines, "Week view not yet implemented with new renderer.")
 	return lines, highlights
 end
 
 function Renderer.apply_highlights(bufnr, highlights)
-	local ns_id = CalendarState.ns_id or api.nvim_create_namespace("zortex_calendar")
+	local ns_id = api.nvim_create_namespace("zortex_calendar")
+	api.nvim_buf_clear_namespace(bufnr, ns_id, 0, -1)
 
 	for _, hl in ipairs(highlights) do
 		api.nvim_buf_add_highlight(bufnr, ns_id, hl.hl, hl.line - 1, hl.col, hl.end_col)
-	end
-end
-
-function Renderer.update_selected_extmark()
-	if not CalendarState.current_date or not CalendarState.bufnr then
-		return
-	end
-
-	local date_str = DateUtil.format_date(CalendarState.current_date)
-	local mark = CalendarState.marks[date_str]
-	if not mark then
-		return
-	end
-
-	-- Clear previous highlight (if any)
-	if CalendarState.selected_extmark_id then
-		pcall(vim.api.nvim_buf_del_extmark, CalendarState.bufnr, CalendarState.ns_id, CalendarState.selected_extmark_id)
-		CalendarState.selected_extmark_id = nil
-	end
-
-	-- Convert *screen* columns → *byte* columns so multi‑byte icons don’t skew
-	local line_txt = vim.api.nvim_buf_get_lines(CalendarState.bufnr, mark.line - 1, mark.line, false)[1] or ""
-	local byte_start = vim.str_byteindex(line_txt, "utf-32", mark.col)
-	local byte_end = vim.str_byteindex(line_txt, "utf-32", mark.end_col)
-
-	-- Whole‑cell background
-	CalendarState.selected_extmark_id =
-		vim.api.nvim_buf_set_extmark(CalendarState.bufnr, CalendarState.ns_id, mark.line - 1, byte_start, {
-			end_col = byte_end,
-			hl_group = (date_str == DateUtil.format_date(DateUtil.get_current_date())) and Config.colors.today_selected
-				or Config.colors.selected,
-			priority = 100,
-		})
-
-	-- Foreground for the digits so they pop even on a bright bg
-	local cell_txt = line_txt:sub(byte_start + 1, byte_end)
-	local rel_s, rel_e = cell_txt:find("%d%d?")
-	if rel_s then
-		vim.api.nvim_buf_add_highlight(
-			CalendarState.bufnr,
-			CalendarState.ns_id,
-			Config.colors.selected_text,
-			mark.line - 1,
-			byte_start + rel_s - 1,
-			byte_start + rel_e
-		)
 	end
 end
 
@@ -733,6 +530,15 @@ local Navigation = {}
 function Navigation.move_to_date(date)
 	CalendarState.current_date = date
 	M.refresh()
+
+	if CalendarState.view_mode == "month" then
+		local date_str = DateUtil.format_date(date)
+		local mark = CalendarState.marks[date_str]
+		if mark then
+			local target_col = mark.col + CELL_MID_COL
+			pcall(api.nvim_win_set_cursor, CalendarState.win_id, { mark.line, target_col })
+		end
+	end
 end
 
 function Navigation.next_day()
@@ -797,18 +603,12 @@ function Navigation.select_date_at_cursor()
 	if not CalendarState.win_id or not api.nvim_win_is_valid(CalendarState.win_id) then
 		return false
 	end
-
-	-- Get mouse position
-	local mouse_pos = fn.getmousepos()
-	if mouse_pos.winid ~= CalendarState.win_id then
-		return false
-	end
-
-	local line = mouse_pos.line
-	local col = mouse_pos.column - 1 -- Convert to 0-based
+	local cursor = api.nvim_win_get_cursor(CalendarState.win_id)
+	local line, col = cursor[1], cursor[2] -- line is 1-based, col is 0-based
 
 	for date_str, mark in pairs(CalendarState.marks) do
-		if mark.line == line and col >= mark.col and col < mark.end_col then
+		-- Check if the 0-based cursor column `col` is within the date cell's width
+		if mark.line == line and col >= mark.col and col < mark.col + 7 then -- 7 is CELL_WIDTH
 			local date = datetime.parse_date(date_str)
 			if date then
 				Navigation.move_to_date(date)
@@ -846,8 +646,10 @@ end
 
 function Actions.view_entries()
 	if not CalendarState.current_date then
-		vim.notify("Please select a date first", vim.log.levels.WARN)
-		return
+		if not Navigation.select_date_at_cursor() then
+			vim.notify("Please select a date first", vim.log.levels.WARN)
+			return
+		end
 	end
 	local date_str = DateUtil.format_date(CalendarState.current_date)
 	M.close()
@@ -871,13 +673,13 @@ function Actions.telescope_search()
 end
 
 function Actions.show_digest()
-	CalendarState.view_mode = "digest"
-	M.refresh()
+	M.close()
+	require("zortex.ui.telescope").today_digest()
 end
 
 function Actions.toggle_view()
 	if CalendarState.view_mode == "month" then
-		CalendarState.view_mode = "digest"
+		CalendarState.view_mode = "week"
 	else
 		CalendarState.view_mode = "month"
 	end
@@ -892,85 +694,13 @@ function Actions.go_to_file()
 	end
 end
 
-function Actions.sync_notifications()
-	if notifications then
-		notifications.sync()
-		vim.notify("Notifications synced", vim.log.levels.INFO)
-		M.refresh()
-	else
-		vim.notify("Notification module not available", vim.log.levels.WARN)
-	end
-end
-
-function Actions.show_help()
-	local help_lines = {
-		"Zortex Calendar - Key Bindings",
-		"",
-		"Navigation:",
-		"  h/← - Previous day",
-		"  l/→ - Next day",
-		"  j/↓ - Previous week",
-		"  k/↑ - Next week",
-		"  J   - Previous month",
-		"  K   - Next month",
-		"  H   - Previous year",
-		"  L   - Next year",
-		"  t/T - Go to today",
-		"",
-		"Actions:",
-		"  a/i     - Add entry",
-		"  <CR>/o  - View/edit entries",
-		"  e       - Edit selected entry",
-		"  x       - Delete selected entry",
-		"  d/D     - Show digest view",
-		"  v       - Toggle view mode",
-		"  gf      - Go to calendar file",
-		"  n       - Sync notifications",
-		"  r/R     - Refresh",
-		"  /       - Search with Telescope",
-		"  ?       - Show this help",
-		"  q/<Esc> - Close calendar",
-		"",
-		"Mouse:",
-		"  Click        - Select date",
-		"  Double-click - View entries",
-	}
-
-	local width = 40
-	local height = #help_lines + 2
-	local buf = api.nvim_create_buf(false, true)
-	api.nvim_buf_set_lines(buf, 0, -1, false, help_lines)
-	api.nvim_buf_set_option(buf, "modifiable", false)
-
-	local win = api.nvim_open_win(buf, true, {
-		relative = "editor",
-		width = width,
-		height = height,
-		row = math.floor((vim.o.lines - height) / 2),
-		col = math.floor((vim.o.columns - width) / 2),
-		border = "rounded",
-		title = " Help ",
-		title_pos = "center",
-		style = "minimal",
-	})
-
-	-- Close on any key
-	vim.keymap.set("n", "<Esc>", function()
-		api.nvim_win_close(win, true)
-	end, { buffer = buf })
-	vim.keymap.set("n", "q", function()
-		api.nvim_win_close(win, true)
-	end, { buffer = buf })
-end
-
 -- =============================================================================
 -- Keymap Setup
 -- =============================================================================
 
 local function setup_keymaps(bufnr)
 	local opts = { buffer = bufnr, noremap = true, silent = true }
-
-	local keymap_actions = {
+	for name, func in pairs({
 		next_day = Navigation.next_day,
 		prev_day = Navigation.prev_day,
 		next_week = Navigation.next_week,
@@ -986,22 +716,12 @@ local function setup_keymaps(bufnr)
 		digest = Actions.show_digest,
 		toggle_view = Actions.toggle_view,
 		go_to_file = Actions.go_to_file,
-		sync_notifications = Actions.sync_notifications,
-		help = Actions.show_help,
-		refresh = M.refresh,
 		close = M.close,
-	}
-
-	for action, func in pairs(keymap_actions) do
-		local keys = Config.keymaps[action]
-		if keys then
-			for _, key in ipairs(keys) do
-				vim.keymap.set("n", key, func, opts)
-			end
+	}) do
+		for _, key in ipairs(Config.keymaps[name]) do
+			vim.keymap.set("n", key, func, opts)
 		end
 	end
-
-	-- Mouse support
 	vim.keymap.set("n", "<LeftMouse>", Navigation.select_date_at_cursor, opts)
 	vim.keymap.set("n", "<2-LeftMouse>", function()
 		if Navigation.select_date_at_cursor() then
@@ -1019,20 +739,14 @@ function M.open()
 		api.nvim_set_current_win(CalendarState.win_id)
 		return
 	end
-
 	CalendarState.bufnr = Renderer.create_buffer()
 	CalendarState.win_id = Renderer.create_window(CalendarState.bufnr)
-	CalendarState.ns_id = api.nvim_create_namespace("zortex_calendar")
-
 	if not CalendarState.current_date then
 		CalendarState.current_date = DateUtil.get_current_date()
 	end
-
 	setup_keymaps(CalendarState.bufnr)
 	M.refresh()
-
-	-- Position cursor out of the way
-	api.nvim_win_set_cursor(CalendarState.win_id, { 1, 0 })
+	Navigation.move_to_date(CalendarState.current_date)
 end
 
 function M.close()
@@ -1042,37 +756,23 @@ function M.close()
 	CalendarState.win_id = nil
 	CalendarState.bufnr = nil
 	CalendarState.marks = {}
-	CalendarState.selected_extmark_id = nil
 end
 
 function M.refresh()
 	if not CalendarState.bufnr or not api.nvim_buf_is_valid(CalendarState.bufnr) then
 		return
 	end
-
 	CalendarState.marks = {}
 	local lines, highlights
-
-	if CalendarState.view_mode == "digest" then
-		lines, highlights = Renderer.render_digest_view()
-	else
+	if CalendarState.view_mode == "month" then
 		lines, highlights = Renderer.render_month_view(CalendarState.current_date or DateUtil.get_current_date())
+	else
+		lines, highlights = Renderer.render_week_view(CalendarState.current_date or DateUtil.get_current_date())
 	end
-
 	api.nvim_buf_set_option(CalendarState.bufnr, "modifiable", true)
 	api.nvim_buf_set_lines(CalendarState.bufnr, 0, -1, false, lines)
 	api.nvim_buf_set_option(CalendarState.bufnr, "modifiable", false)
-
-	-- Clear all highlights
-	api.nvim_buf_clear_namespace(CalendarState.bufnr, CalendarState.ns_id, 0, -1)
-
-	-- Apply highlights
 	Renderer.apply_highlights(CalendarState.bufnr, highlights)
-
-	-- Update selected date extmark
-	if CalendarState.view_mode == "month" then
-		Renderer.update_selected_extmark()
-	end
 end
 
 function M.toggle()

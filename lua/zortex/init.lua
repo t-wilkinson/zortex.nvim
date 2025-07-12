@@ -17,6 +17,7 @@ local core = {
 
 -- Feature modules
 local modules = {
+	notifications = require("zortex.modules.notifications"),
 	archive = require("zortex.modules.archive"),
 	links = require("zortex.modules.links"),
 	progress = require("zortex.modules.progress"),
@@ -26,6 +27,7 @@ local modules = {
 	skills = require("zortex.modules.skills"),
 	xp = require("zortex.modules.xp"),
 	xp_notifications = require("zortex.modules.xp_notifications"),
+	digest = require("zortex.modules.digest"),
 }
 
 -- UI modules
@@ -428,6 +430,8 @@ function M.setup(opts)
 	ui.setup()
 	core.highlights.setup_autocmd()
 	core.highlights.setup_highlights()
+	modules.notifications.setup()
+	modules.digest.setup()
 
 	-- Setup autocmds, keymaps, and autocmds
 	setup_commands()

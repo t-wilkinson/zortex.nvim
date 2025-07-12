@@ -4,275 +4,285 @@ local M = {}
 local parser = require("zortex.core.parser")
 local fs = require("zortex.core.filesystem")
 local buffer = require("zortex.core.buffer")
-local progress = require("zortex.modules.progress")
 local attributes = require("zortex.core.attributes")
 local task_tracker = require("zortex.modules.task_tracker")
+local xp = require("zortex.modules.xp")
+local constants = require("zortex.constants")
 
 -- =============================================================================
--- Project Completion Check
+-- Path Building
 -- =============================================================================
 
--- Check if all immediate tasks in a project are completed
-local function are_all_tasks_completed(lines, start_idx, end_idx)
-	for i = start_idx, end_idx - 1 do
-		local line = lines[i]
-		local is_task, is_completed = parser.is_task_line(line)
-		if is_task and not is_completed then
-			return false
-		end
-	end
-	return true
-end
-
--- =============================================================================
--- XP Calculation
--- =============================================================================
-
--- Calculate XP for a project (only the project's own completion bonus)
-local function calculate_project_completion_xp(project_heading)
-	return 0
-end
-
--- =============================================================================
--- Archive Tree Management
--- =============================================================================
-
--- Parse heading path from a project and its ancestors
-local function get_heading_path(lines, project_idx)
+-- Build heading path from root to given line
+local function build_heading_path(lines, target_idx)
 	local path = {}
-	local project_line = lines[project_idx]
-	local project_level = parser.get_heading_level(project_line)
+	local target_level = parser.get_heading_level(lines[target_idx])
 
 	-- Work backwards to find parent headings
-	local current_level = project_level
-	for i = project_idx, 1, -1 do
+	local current_level = target_level
+	for i = target_idx, 1, -1 do
 		local line = lines[i]
 		local level = parser.get_heading_level(line)
 
 		if level > 0 and level < current_level then
+			-- This is a parent heading
 			local heading = parser.parse_heading(line)
 			if heading then
-				local heading_text = attributes.strip_project_attributes(heading.text)
-				table.insert(path, 1, heading_text)
+				-- Strip attributes to get clean heading text
+				local clean_text = attributes.strip_project_attributes(heading.text)
+				table.insert(path, 1, clean_text)
 				current_level = level
+
+				-- Stop at level 1 (top-level heading)
+				if level == 1 then
+					break
+				end
 			end
 		end
 	end
 
-	-- Add the project itself
-	local project_heading = parser.parse_heading(project_line)
-	if project_heading then
-		local project_text = attributes.strip_project_attributes(project_heading.text)
-		table.insert(path, project_text)
+	-- Add the target heading itself
+	local target_heading = parser.parse_heading(lines[target_idx])
+	if target_heading then
+		local clean_text = attributes.strip_project_attributes(target_heading.text)
+		table.insert(path, clean_text)
 	end
 
 	return path
 end
 
--- Find the best insertion point for a heading path in the archive
-local function find_insertion_point(archive_lines, heading_path)
-	local best_match_idx = nil
+-- =============================================================================
+-- Archive Tree Navigation
+-- =============================================================================
+
+-- Find the best insertion point in archive for given path
+local function find_archive_insertion_point(archive_lines, path)
+	if #path == 0 then
+		return 1, 0
+	end
+
+	local best_match_line = 1
 	local best_match_depth = 0
-	local common_path = {}
 
-	-- Find the first heading in the file (skip metadata)
-	local first_heading_idx = nil
+	-- Track current position in path matching
+	local current_depth = 0
+
 	for i = 1, #archive_lines do
-		if parser.get_heading_level(archive_lines[i]) > 0 then
-			first_heading_idx = i
-			break
-		end
-	end
-
-	-- If no headings found, insert after all metadata
-	if not first_heading_idx then
-		return #archive_lines + 1, {}
-	end
-
-	-- Start searching from first heading
-	local i = first_heading_idx
-	while i <= #archive_lines do
 		local line = archive_lines[i]
 		local level = parser.get_heading_level(line)
 
 		if level > 0 then
-			local heading = parser.parse_heading(line)
-			if heading then
-				local heading_text = attributes.strip_project_attributes(heading.text)
+			-- Check if this heading matches our path at the current depth
+			if level <= #path then
+				local heading = parser.parse_heading(line)
+				if heading then
+					local clean_text = attributes.strip_project_attributes(heading.text)
 
-				-- Check if this matches our path at the appropriate level
-				if level <= #heading_path and heading_text == heading_path[level] then
-					-- This is a match at this level
-					if level > best_match_depth then
-						best_match_depth = level
-						best_match_idx = i
-						common_path = {}
-						for k = 1, level do
-							common_path[k] = heading_path[k]
+					-- Check if this matches our path at this level
+					if level <= current_depth + 1 and clean_text == path[level] then
+						-- We found a match
+						if level > best_match_depth then
+							best_match_depth = level
+							best_match_line = i
+							current_depth = level
 						end
+					elseif level <= current_depth then
+						-- We've exited the matching section
+						if current_depth == best_match_depth and current_depth > 0 then
+							-- Return position after the last match's section
+							return i, best_match_depth
+						end
+						-- Reset tracking for new section
+						current_depth = 0
 					end
 				end
 			end
 		end
-		i = i + 1
 	end
 
-	-- If we found a common path, find where to insert within that section
+	-- If we matched something, insert at end of file
 	if best_match_depth > 0 then
-		local section_level = best_match_depth
-		i = best_match_idx + 1
+		return #archive_lines + 1, best_match_depth
+	end
 
-		while i <= #archive_lines do
-			local line = archive_lines[i]
-			local level = parser.get_heading_level(line)
-
-			-- If we hit a heading at the same level or higher, insert before it
-			if level > 0 and level <= section_level then
-				return i, common_path
-			end
-			i = i + 1
+	-- No matches, insert at beginning after any metadata
+	local insert_line = 1
+	for i = 1, #archive_lines do
+		if parser.get_heading_level(archive_lines[i]) > 0 then
+			return i, 0
 		end
-
-		-- Insert at the end of the file
-		return #archive_lines + 1, common_path
-	end
-
-	-- No common path found, insert before first heading
-	return first_heading_idx, {}
-end
-
--- Clean up task tracker after archiving
-local function cleanup_archived_tasks(project_name, lines, start_idx, end_idx)
-	-- Get all task IDs from this project section
-	local task_ids = {}
-
-	-- Recursively collect task IDs including from subprojects
-	local function collect_task_ids(start, end_pos, current_level)
-		for i = start, end_pos - 1 do
-			local line = lines[i]
-			local heading_level = parser.get_heading_level(line)
-
-			if heading_level > 0 then
-				if heading_level <= current_level then
-					-- Exit this section
-					return i
-				else
-					-- Recurse into subsection
-					local sub_end = end_pos
-					for j = i + 1, end_pos - 1 do
-						local sub_level = parser.get_heading_level(lines[j])
-						if sub_level > 0 and sub_level <= heading_level then
-							sub_end = j
-							break
-						end
-					end
-					i = collect_task_ids(i + 1, sub_end, heading_level) - 1
-				end
-			else
-				local is_task = parser.is_task_line(line)
-				if is_task then
-					local id = attributes.extract_task_id(line)
-					if id then
-						table.insert(task_ids, id)
-					end
-				end
-			end
+		-- Skip metadata lines (dates, tags, etc)
+		if
+			not archive_lines[i]:match("^%s*$")
+			and not archive_lines[i]:match("^@")
+			and not archive_lines[i]:match("^%d%d%d%d%-%d%d%-%d%d")
+		then
+			return i, 0
 		end
-		return end_pos
 	end
 
-	collect_task_ids(start_idx + 1, end_idx, parser.get_heading_level(lines[start_idx]))
-
-	-- Remove tasks from tracker
-	task_tracker.load_state()
-	for _, id in ipairs(task_ids) do
-		task_tracker.remove_task(id)
-	end
-	task_tracker.save_state()
+	return #archive_lines + 1, 0
 end
 
 -- =============================================================================
--- Archive Operations
+-- Task Archiving
 -- =============================================================================
 
--- Merge a project tree into the archive with proper XP attribution
-local function merge_into_archive(project_lines, heading_path, project_completion_xp)
-	local archive_lines = fs.read_archive()
-	if not archive_lines then
-		vim.notify("Failed to read archive file", vim.log.levels.ERROR)
+-- Archive tasks to .z/archive.task_state.json
+local function archive_tasks_to_json(task_ids)
+	if #task_ids == 0 then
 		return
 	end
 
-	-- Find where to insert
-	local insert_idx, common_path = find_insertion_point(archive_lines, heading_path)
+	-- Load current archive state
+	local archive_file = fs.get_file_path(constants.FILES.ARCHIVE_TASK_STATE)
+	local archive_data = {}
 
-	-- Prepare the lines to insert
-	local lines_to_insert = {}
+	if archive_file and fs.file_exists(archive_file) then
+		archive_data = fs.read_json(archive_file) or {}
+	end
 
-	-- Add any missing path components
-	for i = #common_path + 1, #heading_path do
-		local heading_level = i
-		local heading_text = heading_path[i]
-		local heading_line = string.rep("#", heading_level) .. " " .. heading_text
+	-- Get current season
+	local season_status = xp.get_season_status()
+	local season_key = season_status.active and season_status.current_season.name or "no_season"
 
-		-- Add project completion XP to the main project heading only
-		if i == #heading_path and project_completion_xp > 0 then
-			heading_line = attributes.update_xp_attribute(heading_line, project_completion_xp)
+	-- Initialize season data if needed
+	if not archive_data[season_key] then
+		archive_data[season_key] = {
+			tasks = {},
+			archived_at = os.date("%Y-%m-%d %H:%M:%S"),
+		}
+	end
+
+	-- Archive each task
+	task_tracker.load_state()
+	for _, id in ipairs(task_ids) do
+		local task = task_tracker.get_task(id)
+		if task then
+			-- Store task data
+			archive_data[season_key].tasks[id] = {
+				id = id,
+				project = task.project,
+				completed = task.completed,
+				created_at = task.created_at,
+				completed_at = task.completed_at,
+				archived_at = os.time(),
+				attributes = task.attributes or {},
+			}
+		end
+	end
+
+	-- Save archive data
+	if archive_file then
+		fs.ensure_directory(archive_file)
+		fs.write_json(archive_file, archive_data)
+	end
+end
+
+-- Process tasks for archiving - remove @id
+local function process_task_line_for_archive(line, task_id)
+	if not task_id then
+		return line
+	end
+
+	-- Get task data
+	local task = task_tracker.get_task(task_id)
+	if not task then
+		return line
+	end
+
+	-- Remove @id attribute
+	return attributes.Param.remove_attribute(line, "id")
+end
+
+-- Collect all task IDs from a section (including subsections)
+local function collect_task_ids(lines, start_idx, end_idx)
+	local task_ids = {}
+
+	for i = start_idx, end_idx - 1 do
+		local line = lines[i]
+		-- Check both the line itself and the text part of headings
+		local text_to_check = line
+		local heading = parser.parse_heading(line)
+		if heading then
+			text_to_check = heading.text
 		end
 
+		local is_task = parser.is_task_line(text_to_check)
+		if is_task then
+			local id = attributes.extract_task_id(text_to_check)
+			if id then
+				table.insert(task_ids, id)
+			end
+		end
+	end
+
+	return task_ids
+end
+
+-- =============================================================================
+-- Archive Merging
+-- =============================================================================
+
+-- Merge project content into archive
+local function merge_project_into_archive(project_lines, path, archive_lines, insert_pos, match_depth)
+	local lines_to_insert = {}
+
+	-- Calculate how many path components we need to add
+	local components_to_add = #path - match_depth
+
+	-- Add missing path components as headings
+	for i = match_depth + 1, #path do
+		local heading_level = i
+		local heading_text = path[i]
+		local heading_line = string.rep("#", heading_level) .. " " .. heading_text
 		table.insert(lines_to_insert, heading_line)
 	end
 
-	-- Load task tracker to get XP data
-	task_tracker.load_state()
-
-	-- Adjust heading levels and process tasks
-	local base_level = #heading_path
+	-- Process project content
+	-- Base level is the level of the project heading in the archive
+	local base_level = #path
 
 	for _, line in ipairs(project_lines) do
 		local level = parser.get_heading_level(line)
 
 		if level > 0 then
-			-- This is a heading - adjust its level
+			-- It's a heading. Re-level it and process its text for tasks.
+			local new_level = base_level + level - 1
 			local heading = parser.parse_heading(line)
 			if heading then
-				local new_level = base_level + level - 1
-				local new_line = string.rep("#", new_level) .. " " .. heading.text
+				local text_part = heading.text
+				-- Check if the text of the heading is ALSO a task
+				if parser.is_task_line(text_part) then
+					local task_id = attributes.extract_task_id(text_part)
+					text_part = process_task_line_for_archive(text_part, task_id)
+				end
+				local new_line = string.rep("#", new_level) .. " " .. text_part
 				table.insert(lines_to_insert, new_line)
+			else
+				-- Keep malformed headings as-is to prevent data loss.
+				table.insert(lines_to_insert, line)
 			end
 		else
-			-- Check if it's a task
+			-- It's not a heading, process as a potential task or plain text.
 			local is_task = parser.is_task_line(line)
 			if is_task then
-				local id = attributes.extract_task_id(line)
-				local task_line = line
-
-				-- Remove @id attribute
-				task_line = attributes.remove_attribute(task_line, "id")
-
-				-- Add @xp attribute if task had XP
-				if id then
-					local task = task_tracker.get_task(id)
-					if task and task.xp_awarded and task.xp_awarded > 0 then
-						task_line = attributes.update_xp_attribute(task_line, task.xp_awarded)
-					end
-				end
-
-				table.insert(lines_to_insert, task_line)
+				local task_id = attributes.extract_task_id(line)
+				local processed_line = process_task_line_for_archive(line, task_id)
+				table.insert(lines_to_insert, processed_line)
 			else
-				-- Other content
+				-- Keep other lines as-is
 				table.insert(lines_to_insert, line)
 			end
 		end
 	end
 
-	-- Insert the lines
+	-- Insert lines into archive
 	for i = #lines_to_insert, 1, -1 do
-		table.insert(archive_lines, insert_idx, lines_to_insert[i])
+		table.insert(archive_lines, insert_pos, lines_to_insert[i])
 	end
 
-	-- Write back to file
-	fs.write_archive(archive_lines)
+	return archive_lines
 end
 
 -- =============================================================================
@@ -285,17 +295,14 @@ function M.archive_current_project()
 	local current_line = vim.fn.line(".")
 	local lines = buffer.get_lines(bufnr)
 
-	-- Find the project heading
+	-- Find project heading
 	local project_idx = nil
-
-	-- Check if current line is a heading
-	local current_heading = parser.parse_heading(lines[current_line])
-	if current_heading then
+	if parser.get_heading_level(lines[current_line]) > 0 then
 		project_idx = current_line
 	else
-		-- Search backwards for a heading
+		-- Search backwards for heading
 		for i = current_line - 1, 1, -1 do
-			if parser.parse_heading(lines[i]) then
+			if parser.get_heading_level(lines[i]) > 0 then
 				project_idx = i
 				break
 			end
@@ -303,87 +310,118 @@ function M.archive_current_project()
 	end
 
 	if not project_idx then
-		vim.notify("No project found at or above current line", vim.log.levels.WARN)
+		vim.notify("No project found at cursor position", vim.log.levels.WARN)
 		return
 	end
 
 	-- Get project bounds
 	local start_idx, end_idx = buffer.find_section_bounds(lines, project_idx)
 
-	-- Check if all immediate tasks are completed
-	vim.notify("Project has incomplete tasks. Still archiving...", vim.log.levels.WARN)
+	-- Build path to project
+	local path = build_heading_path(lines, project_idx)
+	local project_name = path[#path] or "Unknown Project"
 
-	-- Get project heading and path
-	local project_heading = parser.parse_heading(lines[project_idx])
-	local heading_path = get_heading_path(lines, project_idx)
+	-- Collect all task IDs before archiving
+	local task_ids = collect_task_ids(lines, start_idx, end_idx)
 
-	-- Calculate total XP for the project
-	local project_xp = calculate_project_completion_xp(project_heading)
-
-	-- Get project name for cleanup
-	local project_name = attributes.strip_project_attributes(project_heading.text)
-
-	-- Extract project lines
+	-- Extract project content (excluding the heading line)
 	local project_lines = {}
 	for i = start_idx + 1, end_idx - 1 do
 		table.insert(project_lines, lines[i])
 	end
 
-	-- Merge into archive
-	merge_into_archive(project_lines, heading_path, project_xp)
+	-- Read archive file
+	local archive_lines = fs.read_archive()
+	if not archive_lines then
+		vim.notify("Failed to read archive file", vim.log.levels.ERROR)
+		return
+	end
 
-	-- Clean up task tracker data
-	cleanup_archived_tasks(project_name, lines, start_idx, end_idx)
+	-- Find insertion point
+	local insert_pos, match_depth = find_archive_insertion_point(archive_lines, path)
+
+	-- Merge into archive
+	archive_lines = merge_project_into_archive(project_lines, path, archive_lines, insert_pos, match_depth)
+
+	-- Write back archive
+	fs.write_archive(archive_lines)
+
+	-- Archive task data to JSON
+	archive_tasks_to_json(task_ids)
+
+	-- Remove tasks from active tracker
+	task_tracker.load_state()
+	for _, id in ipairs(task_ids) do
+		task_tracker.remove_task(id)
+	end
+	task_tracker.save_state()
 
 	-- Remove project from current buffer
 	buffer.delete_lines(bufnr, start_idx, end_idx)
 
-	-- Update OKR progress since a project was completed
-	progress.update_okr_progress()
-
-	vim.notify(string.format("Archived project '%s' with %d XP", project_heading.text, project_xp), vim.log.levels.INFO)
+	vim.notify(string.format("Archived project '%s' with %d tasks", project_name, #task_ids), vim.log.levels.INFO)
 end
 
--- Archive all completed projects in the current buffer
+-- Archive all completed projects
 function M.archive_all_completed_projects()
 	local bufnr = 0
 	local lines = buffer.get_lines(bufnr)
 	local archived_count = 0
-	local total_xp_archived = 0
+	local total_tasks_archived = 0
 
-	-- Work backwards so line numbers don't shift as we delete
+	-- Work backwards to avoid line number shifts
 	local i = #lines
 	while i >= 1 do
 		local heading = parser.parse_heading(lines[i])
 		if heading then
-			local start_idx, end_idx = buffer.find_section_bounds(lines, i)
+			-- Check if project is marked as done
+			if attributes.was_done(lines[i]) then
+				local start_idx, end_idx = buffer.find_section_bounds(lines, i)
 
-			-- Check if this is a top-level completed project
-			if are_all_tasks_completed(lines, start_idx + 1, end_idx) then
-				-- Calculate XP
-				local project_xp = calculate_project_xp(lines, start_idx, end_idx, heading.text)
-				total_xp_archived = total_xp_archived + project_xp
+				-- Build path
+				local path = build_heading_path(lines, i)
+				local project_name = path[#path] or "Unknown Project"
 
-				-- Get heading path
-				local heading_path = get_heading_path(lines, i)
+				-- Collect task IDs
+				local task_ids = collect_task_ids(lines, start_idx, end_idx)
+				total_tasks_archived = total_tasks_archived + #task_ids
 
-				-- Extract project lines
+				-- Extract project content
 				local project_lines = {}
 				for j = start_idx + 1, end_idx - 1 do
 					table.insert(project_lines, lines[j])
 				end
 
-				-- Merge into archive
-				merge_into_archive(project_lines, heading_path, project_xp)
+				-- Read archive
+				local archive_lines = fs.read_archive()
+				if archive_lines then
+					-- Find insertion point and merge
+					local insert_pos, match_depth = find_archive_insertion_point(archive_lines, path)
+					archive_lines =
+						merge_project_into_archive(project_lines, path, archive_lines, insert_pos, match_depth)
+					fs.write_archive(archive_lines)
 
-				-- Remove from current buffer
-				buffer.delete_lines(bufnr, start_idx, end_idx - 1)
+					-- Archive task data
+					archive_tasks_to_json(task_ids)
 
-				archived_count = archived_count + 1
+					-- Remove tasks from tracker
+					task_tracker.load_state()
+					for _, id in ipairs(task_ids) do
+						task_tracker.remove_task(id)
+					end
+					task_tracker.save_state()
 
-				-- Update lines array after deletion
-				lines = buffer.get_lines(bufnr)
-				i = start_idx - 1
+					-- Remove from buffer
+					buffer.delete_lines(bufnr, start_idx, end_idx)
+
+					archived_count = archived_count + 1
+
+					-- Update lines array after deletion
+					lines = buffer.get_lines(bufnr)
+					i = start_idx - 1
+				else
+					i = i - 1
+				end
 			else
 				i = i - 1
 			end
@@ -393,11 +431,8 @@ function M.archive_all_completed_projects()
 	end
 
 	if archived_count > 0 then
-		-- Update OKR progress since projects were completed
-		progress.update_okr_progress()
-
 		vim.notify(
-			string.format("Archived %d projects with total %d XP", archived_count, total_xp_archived),
+			string.format("Archived %d projects with %d total tasks", archived_count, total_tasks_archived),
 			vim.log.levels.INFO
 		)
 	else

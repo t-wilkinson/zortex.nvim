@@ -189,13 +189,13 @@ function M.resolve_area_link(area_link)
 
 	-- If it's a local link or doesn't start with Areas/A, return as-is
 	if parsed.scope == "local" then
-		return M.build_area_path(parsed.components)
+		return xp.build_area_path(parsed.components)
 	end
 
 	-- Check if this is an area link
 	local first = parsed.components[1]
 	if first.type ~= "article" or (first.text ~= "A" and first.text ~= "Areas") then
-		return M.build_area_path(parsed.components)
+		return xp.build_area_path(parsed.components)
 	end
 
 	-- If we only have the Areas component, return nil
@@ -206,11 +206,11 @@ function M.resolve_area_link(area_link)
 	-- Get the area tree to find the full path
 	local tree = M.parse_areas_file()
 	if not tree then
-		return M.build_area_path(parsed.components)
+		return xp.build_area_path(parsed.components)
 	end
 
 	-- Build a partial path from the components
-	local partial_path = M.build_area_path(parsed.components)
+	local partial_path = xp.build_area_path(parsed.components)
 	if not partial_path then
 		return nil
 	end

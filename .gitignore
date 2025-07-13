@@ -1,4 +1,7 @@
 .direnv
+.envrc
+.venv
+.terraform
 
 app/.env.remote
 app/lib

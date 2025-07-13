@@ -354,3 +354,26 @@ Base XP:
 - Priority: Higher priority tasks @p1, @p2, @p3 get an XP multiplier.
 - Importance: @i1, @i2, @i3 get an XP multiplier
 - Size: tasks that have a size (@xs @sm @md @lg @xl) Larger tasks (@lg, @xl) or larger time estimation @est() or duration @2h are worth more. Let config.yaml specify defaults, but assume tasks to be a certain size/time duration. Let me know what you choose. Have an alignment for each task size to a specific duration.
+
+## Notifications
+
+```
+┌──────────────┐     ┌─────────────┐     ┌──────────────┐     ┌─────────────┐
+│ Zortex.nvim  │────▶│ API Gateway │────▶│    Lambda    │────▶│  DynamoDB   │
+│   (Client)   │     │   (HTTPS)   │     │  (Manifest   │     │   (State)   │
+└──────────────┘     └─────────────┘     │  Processor)  │     └─────────────┘
+                                         └──────────────┘              │
+                                                   │                   │
+                                                   ▼                   ▼
+                                          ┌──────────────┐     ┌──────────────┐
+                                          │ EventBridge  │────▶│   Lambda     │
+                                          │ (Scheduler)  │     │(Notification │
+                                          └──────────────┘     │   Sender)    │
+                                                               └──────┬───────┘
+                                                                      │
+                                                                      ▼
+                                                              ┌──────────────┐
+                                                              │  ntfy.sh     │
+                                                              │   (Push)     │
+                                                              └──────────────┘
+```

@@ -601,7 +601,7 @@ function Renderer.render_month_view(date)
 	table.insert(lines, "")
 	table.insert(lines, left_pad_str .. MARGIN_STR .. string.rep("─", GRID_WIDTH))
 
-	local footer_text = "enter open • a add‑event • d delete • r rename • ? help"
+	local footer_text = "↵ open • a add‑event • d delete • r rename • ? help"
 	local footer_center = Renderer.center(win_width, footer_text)
 
 	table.insert(lines, footer_center.line)

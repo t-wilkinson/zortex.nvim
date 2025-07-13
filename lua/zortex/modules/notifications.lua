@@ -20,6 +20,19 @@ local config = {
 		linux = "notify-send -u normal -t 10000 '%s' '%s'",
 		termux = "termux-notification --title '%s' --content '%s'",
 	},
+	ntfy = {
+		enabled = true,
+		server_url = "http://zortex.treywilkinson.com", -- or your self-hosted server
+		topic = "zortex-notify-tcgcp",
+		priority = "default", -- min, low, default, high, urgent
+		tags = { "calendar", "zortex" },
+		auth_token = nil, -- optional, for authenticated topics
+	},
+	aws = {
+		enabled = true,
+		api_endpoint = "https://qd5wcnxpn8.execute-api.us-east-1.amazonaws.com/prod/manifest",
+		user_id = 229817327380,
+	},
 }
 
 -- =============================================================================
@@ -75,6 +88,200 @@ local function send_system_notification(title, message)
 	local success = os.execute(cmd)
 
 	return success == 0
+end
+
+local function send_ntfy_notification(title, message, options)
+	if not config.ntfy.enabled then
+		return false
+	end
+
+	options = options or {}
+	local priority = options.priority or config.ntfy.priority
+	local tags = options.tags or config.ntfy.tags
+	local click_url = options.click_url or nil
+
+	-- Build curl command
+	local cmd_parts = {
+		"curl",
+		"-s", -- silent
+		"-X",
+		"POST",
+		"-H",
+		string.format('"Title: %s"', title:gsub('"', '\\"')),
+		"-H",
+		string.format('"Priority: %s"', priority),
+	}
+
+	-- Add tags
+	if tags and #tags > 0 then
+		table.insert(cmd_parts, "-H")
+		table.insert(cmd_parts, string.format('"Tags: %s"', table.concat(tags, ",")))
+	end
+
+	-- Add click URL if provided
+	if click_url then
+		table.insert(cmd_parts, "-H")
+		table.insert(cmd_parts, string.format('"Click: %s"', click_url))
+	end
+
+	-- Add auth token if configured
+	if config.ntfy.auth_token then
+		table.insert(cmd_parts, "-H")
+		table.insert(cmd_parts, string.format('"Authorization: Bearer %s"', config.ntfy.auth_token))
+	end
+
+	-- Add message data
+	table.insert(cmd_parts, "-d")
+	table.insert(cmd_parts, string.format('"%s"', message:gsub('"', '\\"')))
+
+	-- Add server URL and topic
+	table.insert(cmd_parts, string.format('"%s/%s"', config.ntfy.server_url, config.ntfy.topic))
+
+	local cmd = table.concat(cmd_parts, " ")
+	local handle = io.popen(cmd .. " 2>&1")
+	if handle then
+		local result = handle:read("*a")
+		local success = handle:close()
+
+		if not success then
+			vim.notify("ntfy error: " .. result, vim.log.levels.ERROR)
+			return false
+		end
+		return true
+	end
+
+	return false
+end
+
+-- AWS Integration Functions
+local function send_manifest_to_server(operation, data)
+	local aws_config = config.aws
+	if not aws_config.enabled or not aws_config.api_endpoint or not aws_config.user_id then
+		return false
+	end
+
+	local manifest = {
+		user_id = aws_config.user_id,
+		operation = operation,
+	}
+
+	if operation == "sync" then
+		manifest.notifications = data
+	elseif operation == "add" or operation == "update" then
+		manifest.notification = data
+	elseif operation == "remove" then
+		manifest.entry_id = data
+	end
+
+	local json_data = vim.fn.json_encode(manifest)
+	local cmd = string.format(
+		'curl -s -X POST -H "Content-Type: application/json" -H "Accept: application/json" -d %s %s',
+		vim.fn.shellescape(json_data),
+		vim.fn.shellescape(aws_config.api_endpoint)
+	)
+
+	local handle = io.popen(cmd .. " 2>&1")
+	if handle then
+		local result = handle:read("*a")
+		local success = handle:close()
+
+		if success then
+			local ok, decoded = pcall(vim.fn.json_decode, result)
+			if ok and decoded and decoded.success then
+				return true
+			else
+				vim.notify(
+					"AWS notification sync failed: " .. (decoded and decoded.error or result),
+					vim.log.levels.ERROR
+				)
+			end
+		else
+			vim.notify("Failed to send manifest to AWS: " .. result, vim.log.levels.ERROR)
+		end
+	end
+
+	return false
+end
+
+-- Convert calendar entry to AWS notification format
+local function entry_to_notification(entry, date_str)
+	local notification = {
+		entry_id = string.format("%s_%s", date_str, vim.fn.sha256(entry.raw_text):sub(1, 8)),
+		title = entry.display_text,
+		message = entry.display_text,
+		date = date_str,
+		ntfy_topic = config.ntfy.topic or ("zortex-" .. config.aws.user_id),
+	}
+
+	-- Time (default to 9:00 if not specified)
+	notification.time = entry.attributes.at or "09:00"
+
+	-- Notify settings
+	if entry.attributes.notify then
+		if type(entry.attributes.notify) == "string" then
+			-- Parse duration: "30m", "1h", etc.
+			local num, unit = entry.attributes.notify:match("^(%d+)([mh]?)$")
+			if num then
+				local minutes = tonumber(num)
+				if unit == "h" then
+					minutes = minutes * 60
+				end
+				notification.notify_minutes = minutes
+			else
+				notification.notify_minutes = 15 -- default
+			end
+		elseif entry.attributes.notify == true then
+			notification.notify_minutes = 15 -- default
+		elseif type(entry.attributes.notify) == "number" then
+			notification.notify_minutes = entry.attributes.notify
+		end
+	else
+		notification.notify_minutes = 15 -- default
+	end
+
+	-- Date range
+	if entry.attributes.from then
+		notification.from_date = datetime.format_date(entry.attributes.from, "YYYY-MM-DD")
+	end
+	if entry.attributes.to then
+		notification.to_date = datetime.format_date(entry.attributes.to, "YYYY-MM-DD")
+	end
+
+	-- Repeat pattern
+	if entry.attributes["repeat"] then
+		notification.repeat_pattern = entry.attributes["repeat"]
+	end
+
+	-- Priority based on p attribute
+	if entry.attributes.p == "1" then
+		notification.priority = "urgent"
+	elseif entry.attributes.p == "2" then
+		notification.priority = "high"
+	elseif entry.attributes.p == "3" then
+		notification.priority = "default"
+	else
+		notification.priority = "default"
+	end
+
+	-- Tags
+	notification.tags = { "calendar" }
+	if entry.type == "task" then
+		table.insert(notification.tags, "task")
+		if entry.task_status and entry.task_status.key == "[x]" then
+			table.insert(notification.tags, "completed")
+		end
+	elseif entry.type == "event" then
+		table.insert(notification.tags, "event")
+	end
+
+	-- Add custom tags from attributes
+	if entry.attributes.tags then
+		for _, tag in ipairs(entry.attributes.tags) do
+			table.insert(notification.tags, tag)
+		end
+	end
+
+	return notification
 end
 
 -- =============================================================================
@@ -216,6 +423,14 @@ function M.check_and_send_notifications()
 								})
 							end)
 						end
+						-- Send ntfy notification
+						if config.ntfy.enabled then
+							send_ntfy_notification(title, message, {
+								priority = "high",
+								tags = { "calendar", "reminder", time_str:gsub(" ", "-") },
+								click_url = string.format("zortex://calendar/%s", date_str),
+							})
+						end
 					end
 				end
 			end
@@ -282,6 +497,14 @@ end
 -- =============================================================================
 
 function M.sync()
+	if config.aws.enabled then
+		return M.sync_to_aws()
+	else
+		return M.sync_local()
+	end
+end
+
+function M.sync_local()
 	-- Load calendar data
 	calendar.load()
 
@@ -377,6 +600,46 @@ function M.sync()
 	return upcoming_notifications
 end
 
+-- AWS sync function
+function M.sync_to_aws()
+	-- Load calendar data
+	calendar.load()
+
+	local notifications = {}
+	local today = datetime.get_current_date()
+	local scan_days = 365 -- Scan a full year ahead
+
+	-- Scan future dates for entries with notifications
+	for day_offset = 0, scan_days do
+		local check_date = datetime.add_days(today, day_offset)
+		local date_str = datetime.format_date(check_date, "YYYY-MM-DD")
+		local entries = calendar.get_entries_for_date(date_str)
+
+		for _, entry in ipairs(entries) do
+			if entry.attributes.notify then
+				local notification = entry_to_notification(entry, date_str)
+				if notification then
+					table.insert(notifications, notification)
+				end
+			end
+		end
+	end
+
+	-- Send full sync to AWS
+	local success = send_manifest_to_server("sync", notifications)
+
+	if success then
+		vim.notify(string.format("Synced %d notifications to AWS", #notifications), vim.log.levels.INFO, {
+			title = "Zortex AWS Sync",
+			timeout = 5000,
+		})
+	else
+		vim.notify("Failed to sync notifications to AWS", vim.log.levels.ERROR)
+	end
+
+	return success
+end
+
 function M.get_pending_for_date(date_str)
 	local pending = {}
 
@@ -464,6 +727,77 @@ function M.test_notification()
 		vim.notify("Test notification sent successfully!", vim.log.levels.INFO)
 	else
 		vim.notify("Failed to send test notification. Check your system configuration.", vim.log.levels.ERROR)
+	end
+
+	return success
+end
+
+function M.test_ntfy_notification()
+	-- Send a test notification via ntfy
+	local success = send_ntfy_notification(
+		"Zortex Test Notification",
+		"This is a test notification from Zortex Calendar via ntfy",
+		{
+			priority = "high",
+			tags = { "test", "zortex" },
+		}
+	)
+
+	return success
+end
+
+-- Add single notification to AWS
+function M.add_notification(entry, date_str)
+	if not config.aws.enabled then
+		return false
+	end
+
+	local notification = entry_to_notification(entry, date_str)
+	return send_manifest_to_server("add", notification)
+end
+
+-- Update notification in AWS
+function M.update_notification(entry, date_str)
+	if not config.aws.enabled then
+		return false
+	end
+
+	local notification = entry_to_notification(entry, date_str)
+	return send_manifest_to_server("update", notification)
+end
+
+-- Remove notification from AWS
+function M.remove_notification(entry, date_str)
+	if not config.aws.enabled then
+		return false
+	end
+
+	local entry_id = string.format("%s_%s", date_str, vim.fn.sha256(entry.raw_text):sub(1, 8))
+	return send_manifest_to_server("remove", entry_id)
+end
+
+-- Test AWS connection
+function M.test_aws_connection()
+	if not config.aws.enabled then
+		vim.notify("AWS notifications not enabled", vim.log.levels.WARN)
+		return false
+	end
+
+	-- Send a test notification
+	local test_notification = {
+		entry_id = "test_" .. os.time(),
+		title = "Zortex AWS Test",
+		message = "This is a test notification from Zortex",
+		date = datetime.format_date(datetime.get_current_date(), "YYYY-MM-DD"),
+		time = os.date("%H:%M"),
+		notify_minutes = 0, -- Send immediately
+		priority = "high",
+		tags = { "test", "zortex" },
+	}
+
+	local success = send_manifest_to_server("add", test_notification)
+	if success then
+		vim.notify("AWS test notification sent successfully!", vim.log.levels.INFO)
 	end
 
 	return success

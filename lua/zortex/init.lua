@@ -41,6 +41,29 @@ local function setup_commands()
 	local cmd = vim.api.nvim_create_user_command
 	local prefix = "Zortex"
 
+	-- Ntfy commands
+	cmd(prefix .. "NtfyTest", function()
+		local success = modules.notifications.test_ntfy_notification()
+		if success then
+			vim.notify("Ntfy test notification sent!", vim.log.levels.INFO)
+		else
+			vim.notify("Failed to send ntfy notification", vim.log.levels.ERROR)
+		end
+	end, { desc = "Test ntfy notification" })
+
+	cmd(prefix .. "NtfySetup", function()
+		modules.notifications.setup_ntfy_listener()
+	end, { desc = "Setup ntfy listener service" })
+
+	-- AWS Notification commands
+	cmd(prefix .. "SyncNotifications", function()
+		modules.notifications.sync()
+	end, { desc = "Sync all notifications to AWS" })
+
+	cmd(prefix .. "TestAWS", function()
+		modules.notifications.test_aws_connection()
+	end, { desc = "Test AWS notification connection" })
+
 	-- Navigation
 	cmd(prefix .. "Search", function()
 		modules.search.search()

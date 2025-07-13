@@ -3,6 +3,7 @@ local M = {}
 
 local parser = require("zortex.core.parser")
 local fs = require("zortex.core.filesystem")
+local constants = require("zortex.constants")
 
 -- =============================================================================
 -- Constants
@@ -98,6 +99,7 @@ function M.FileAnalyzer.extract_metadata(lines)
 		avg_line_length = 0,
 		complexity_score = 0,
 		headers = {},
+		section_hierarchy = {}, -- Added for normalized sections
 	}
 
 	local total_length = 0
@@ -109,15 +111,46 @@ function M.FileAnalyzer.extract_metadata(lines)
 		metadata.word_count = metadata.word_count + select(2, line:gsub("%S+", ""))
 		total_length = total_length + #line
 
-		-- Extract headers using parser
-		local heading = parser.parse_heading(line)
-		if heading then
-			table.insert(metadata.headers, {
-				line_num = i,
-				level = heading.level,
-				text = heading.text,
-				full_line = line,
-			})
+		-- Detect section type using normalized parser
+		local section_type = parser.detect_section_type(line)
+
+		-- Build section hierarchy
+		if section_type ~= constants.SECTION_TYPE.TEXT and section_type ~= constants.SECTION_TYPE.TAG then
+			local section_info = {
+				lnum = i,
+				type = section_type,
+				line = line,
+			}
+
+			-- Add type-specific information
+			if section_type == constants.SECTION_TYPE.HEADING then
+				local heading = parser.parse_heading(line)
+				if heading then
+					section_info.level = heading.level
+					section_info.text = heading.text
+					-- Also add to headers for backward compatibility
+					table.insert(metadata.headers, {
+						line_num = i,
+						level = heading.level,
+						text = heading.text,
+						full_line = line,
+					})
+				end
+			elseif section_type == constants.SECTION_TYPE.ARTICLE then
+				section_info.text = parser.extract_article_name(line)
+			elseif section_type == constants.SECTION_TYPE.BOLD_HEADING then
+				local bold = parser.parse_bold_heading(line)
+				if bold then
+					section_info.text = bold.text
+				end
+			elseif section_type == constants.SECTION_TYPE.LABEL then
+				local label = parser.parse_label(line)
+				if label then
+					section_info.text = label.text
+				end
+			end
+
+			table.insert(metadata.section_hierarchy, section_info)
 		end
 
 		-- Detect code blocks

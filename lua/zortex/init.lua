@@ -41,13 +41,15 @@ local ui = {
 -- =============================================================================
 
 local function setup_commands(prefix)
-	local cmd = vim.api.nvim_create_user_command
+	local function cmd(name, command, options)
+		vim.api.nvim_create_user_command(prefix .. name, command, options)
+	end
 
 	-- ===========================================================================
 	-- Notifications
 	-- ===========================================================================
 	-- Ntfy commands
-	cmd(prefix .. "NtfyTest", function()
+	cmd("NtfyTest", function()
 		local success = modules.notifications.test_ntfy_notification()
 		if success then
 			vim.notify("Ntfy test notification sent!", vim.log.levels.INFO)
@@ -57,66 +59,72 @@ local function setup_commands(prefix)
 	end, { desc = "Test ntfy notification" })
 
 	-- AWS Notification commands
-	cmd(prefix .. "SyncNotifications", function()
+	cmd("SyncNotifications", function()
 		modules.notifications.sync()
 	end, { desc = "Sync all notifications to AWS" })
 
-	cmd(prefix .. "TestAWS", function()
+	cmd("TestAWS", function()
 		modules.notifications.test_aws_connection()
 	end, { desc = "Test AWS notification connection" })
 
 	-- System notifications
-	cmd("ZortexNotifyTest", function()
+	cmd("NotifyTest", function()
 		modules.notifications.test_notification()
 	end, { desc = "Test notification system" })
 
 	-- ===========================================================================
 	-- Navigation
 	-- ===========================================================================
-	cmd(prefix .. "Search", function()
-		modules.search.search()
-	end, { desc = "Hierarchical search across all notes" })
-	cmd(prefix .. "OpenLink", function()
+	cmd("OpenLink", function()
 		modules.links.open_link()
 	end, { desc = "Open link under cursor" })
+	cmd("Search", function()
+		modules.search.search({ search_type = "section" })
+	end, { desc = "Section-based search with breadcrumbs" })
+	cmd("SearchArticles", function()
+		modules.search.search({ search_type = "article" })
+	end, { desc = "Article-based search" })
+	cmd("SearchSections", function()
+		modules.search.search({ search_type = "section" })
+	end, { desc = "Section-based search" })
 
 	-- ===========================================================================
 	-- Calendar
 	-- ===========================================================================
-	cmd(prefix .. "Calendar", function()
+	cmd("Calendar", function()
 		ui.calendar.open()
 	end, { desc = "Open Zortex calendar" })
-	cmd(prefix .. "CalendarAdd", function()
+	cmd("CalendarAdd", function()
 		ui.calendar.add_entry_interactive()
 	end, { desc = "Add calendar entry" })
 
 	-- ===========================================================================
 	-- Telescope
 	-- ===========================================================================
-	cmd(prefix .. "Telescope", function()
+	cmd("Telescope", function()
 		require("telescope").extensions.zortex.zortex()
 	end, { desc = "Open Zortex telescope picker" })
-	cmd(prefix .. "Today", function()
+	cmd("Today", function()
 		ui.telescope.today_digest()
 	end, { desc = "Show today's digest" })
-	cmd(prefix .. "Projects", function()
+	cmd("Projects", function()
 		ui.telescope.projects()
 	end, { desc = "Browse projects with telescope" })
-	cmd(prefix .. "CalendarSearch", function()
+	cmd("CalendarSearch", function()
 		ui.telescope.calendar()
 	end, { desc = "Search calendar with telescope" })
 
 	-- ===========================================================================
 	-- Project management & archive
 	-- ===========================================================================
-	cmd(prefix .. "ProjectsOpen", function()
+	cmd("ProjectsOpen", function()
 		local proj_path = core.filesystem.get_projects_file()
 		if proj_path then
 			vim.cmd("edit " .. proj_path)
 		end
 	end, { desc = "Open projects file" })
 
-	cmd(prefix .. "ProjectsStats", function()
+	cmd("ProjectsStats", function()
 		local stats = modules.projects.get_all_stats()
 		print(string.format("Projects: %d", stats.project_count))
 		print(string.format("Total tasks: %d", stats.total_tasks))
@@ -130,28 +138,28 @@ local function setup_commands(prefix)
 	end, { desc = "Show project statistics" })
 
 	-- Update all project progress
-	cmd(prefix .. "UpdateProgress", function()
+	cmd("UpdateProgress", function()
 		modules.progress.update_all_progress()
 	end, { desc = "Update progress for all projects and OKRs" })
 
 	-- Archive
-	cmd(prefix .. "ArchiveProject", function()
+	cmd("ArchiveProject", function()
 		modules.archive.archive_current_project()
 	end, { desc = "Archive current project" })
 
-	cmd(prefix .. "ArchiveAllCompleted", function()
+	cmd("ArchiveAllCompleted", function()
 		modules.archive.archive_all_completed_projects()
 	end, { desc = "Archive all completed projects" })
 
 	-- ===========================================================================
 	-- XP & Skill tree
 	-- ===========================================================================
-	cmd(prefix .. "SkillTree", function()
+	cmd("SkillTree", function()
 		ui.skill_tree.show()
 	end, { desc = "Show skill tree and season progress" })
 
 	-- XP system info
-	cmd(prefix .. "XPInfo", function()
+	cmd("XPInfo", function()
 		modules.xp_notifications.show_xp_overview()
 	end, {
 		desc = "Show XP system overview",
@@ -160,7 +168,7 @@ local function setup_commands(prefix)
 	-- ===========================================================================
 	-- Season management
 	-- ===========================================================================
-	cmd(prefix .. "StartSeason", function(opts)
+	cmd("StartSeason", function(opts)
 		local args = vim.split(opts.args, " ")
 		if #args < 2 then
 			vim.notify("Usage: ZortexStartSeason <name> <end-date YYYY-MM-DD>", vim.log.levels.ERROR)
@@ -173,11 +181,11 @@ local function setup_commands(prefix)
 		modules.xp.start_season(name, end_date)
 	end, { nargs = "*", desc = "Start a new season" })
 
-	cmd(prefix .. "EndSeason", function()
+	cmd("EndSeason", function()
 		modules.xp.end_season()
 	end, { desc = "End the current season" })
 
-	cmd(prefix .. "SeasonStatus", function()
+	cmd("SeasonStatus", function()
 		local status = modules.xp.get_season_status()
 		if status then
 			print("Current Season: " .. status.season.name)
@@ -197,13 +205,13 @@ local function setup_commands(prefix)
 	-- ===========================================================================
 	-- Task management
 	-- ===========================================================================
-	cmd(prefix .. "ToggleTask", function()
+	cmd("ToggleTask", function()
 		modules.progress.toggle_current_task()
 	end, { desc = "Toggle the task on current line" })
-	cmd(prefix .. "CompleteTask", function()
+	cmd("CompleteTask", function()
 		modules.progress.complete_current_task()
 	end, { desc = "Complete the task on current line" })
-	cmd(prefix .. "UncompleteTask", function()
+	cmd("UncompleteTask", function()
 		modules.progress.uncomplete_current_task()
 	end, { desc = "Uncomplete the task on current line" })
 end
@@ -213,37 +221,39 @@ end
 -- =============================================================================
 
 local function setup_keymaps(key_prefix, cmd_prefix)
-	local opts = { noremap = true, silent = true }
+	local default_opts = { noremap = true, silent = true }
 	local function add_opts(with_opts)
-		return vim.tbl_extend("force", opts, with_opts)
+		return vim.tbl_extend("force", default_opts, with_opts)
 	end
 
-	local map = vim.keymap.set
+	local map = function(modes, key, cmd, opts)
+		vim.keymap.set(modes, key_prefix .. key, "<cmd>" .. cmd_prefix .. cmd .. "<cr>", opts)
+	end
 
 	-- Navigation
-	map("n", key_prefix .. "s", "<cmd>" .. cmd_prefix .. "Search<CR>", add_opts({ desc = "Zortex search" }))
-	map("n", "gx", "<cmd>" .. cmd_prefix .. "OpenLink<CR>", add_opts({ desc = "Open Zortex link" }))
-	-- map("n", "<CR>", "<cmd>" .. cmd_prefix .. "OpenLink<CR>", add_opts({ desc = "Open Zortex link" }))
+	map("n", "s", "Search", add_opts({ desc = "Zortex search" }))
+	map("n", "gx", "OpenLink", add_opts({ desc = "Open Zortex link" }))
+	-- map("n", "<CR>", "OpenLink", add_opts({ desc = "Open Zortex link" }))
 
 	-- Calendar
-	map("n", key_prefix .. "c", "<cmd>" .. cmd_prefix .. "Calendar<cr>", { desc = "Open calendar" })
-	map("n", key_prefix .. "A", "<cmd>" .. cmd_prefix .. "CalendarAdd<cr>", { desc = "Add calendar entry" })
+	map("n", "c", "Calendar", { desc = "Open calendar" })
+	map("n", "A", "CalendarAdd", { desc = "Add calendar entry" })
 
 	-- Telescope
-	map("n", key_prefix .. "t", "<cmd>" .. cmd_prefix .. "Today<cr>", { desc = "Today's digest" })
-	map("n", key_prefix .. "p", "<cmd>" .. cmd_prefix .. "Projects<cr>", { desc = "Browse projects" })
-	map("n", key_prefix .. "f", "<cmd>" .. cmd_prefix .. "Telescope<cr>", { desc = "Zortex telescope" })
+	map("n", "t", "Today", { desc = "Today's digest" })
+	map("n", "p", "Projects", { desc = "Browse projects" })
+	map("n", "f", "Telescope", { desc = "Zortex telescope" })
 
 	-- Projects
-	map("n", key_prefix .. "P", ":ZortexProjectsOpen<CR>", add_opts({ desc = "Open projects" }))
-	map("n", key_prefix .. "a", "<cmd>" .. cmd_prefix .. "ArchiveProject<CR>", add_opts({ desc = "Archive project" }))
-	map("n", key_prefix .. "x", "<cmd>" .. cmd_prefix .. "ToggleTask<CR>", add_opts({ desc = "Complete current task" }))
+	map("n", "P", "ProjectsOpen", add_opts({ desc = "Open projects" }))
+	map("n", "a", "ArchiveProject", add_opts({ desc = "Archive project" }))
+	map("n", "x", "ToggleTask", add_opts({ desc = "Complete current task" }))
 
 	-- Progress
-	map("n", key_prefix .. "u", "<cmd>" .. cmd_prefix .. "UpdateProgress<cr>", { desc = "Update progress" })
+	map("n", "u", "UpdateProgress", { desc = "Update progress" })
 
 	-- XP System
-	map("n", key_prefix .. "k", "<cmd>" .. cmd_prefix .. "SkillTree<CR>", add_opts({ desc = "Show skill tree" }))
+	map("n", "k", "SkillTree", add_opts({ desc = "Show skill tree" }))
 end
 
 -- =============================================================================

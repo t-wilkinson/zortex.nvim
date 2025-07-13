@@ -1,4 +1,4 @@
--- core/parser.lua - Unified parsing logic for Zortex
+-- core/parser.lua - Unified parsing logic for Zortex with normalized section handling
 local M = {}
 
 local constants = require("zortex.constants")
@@ -20,13 +20,27 @@ function M.detect_section_type(line)
 	if line:match(constants.PATTERNS.HEADING) then
 		return constants.SECTION_TYPE.HEADING
 	end
-	if line:match(constants.PATTERNS.BOLD_HEADING) then
+	if line:match(constants.PATTERNS.BOLD_HEADING) or line:match(constants.PATTERNS.BOLD_HEADING_ALT) then
 		return constants.SECTION_TYPE.BOLD_HEADING
 	end
-	if line:match(constants.PATTERNS.LABEL) then
+	-- Label pattern must not contain sentence periods (". ")
+	local potential_label = line:match("^([^:]+):$")
+	if potential_label and not potential_label:match("%.%s") then
 		return constants.SECTION_TYPE.LABEL
 	end
 	return constants.SECTION_TYPE.TEXT
+end
+
+-- Get the effective priority of a section
+function M.get_section_priority(line)
+	local section_type = M.detect_section_type(line)
+	local heading_level = nil
+
+	if section_type == constants.SECTION_TYPE.HEADING then
+		heading_level = M.get_heading_level(line)
+	end
+
+	return constants.SECTION_HIERARCHY.get_priority(section_type, heading_level)
 end
 
 -- =============================================================================
@@ -67,7 +81,149 @@ end
 
 -- Check if line is a bold heading
 function M.is_bold_heading(line)
-	return line:match("^%*%*[^%*]+%*%*:?$") ~= nil
+	return line:match(constants.PATTERNS.BOLD_HEADING) ~= nil or line:match(constants.PATTERNS.BOLD_HEADING_ALT) ~= nil
+end
+
+-- Parse bold heading
+function M.parse_bold_heading(line)
+	local text = line:match(constants.PATTERNS.BOLD_HEADING)
+	if not text then
+		text = line:match(constants.PATTERNS.BOLD_HEADING_ALT)
+	end
+	if text then
+		return {
+			text = M.trim(text),
+			raw = line,
+		}
+	end
+	return nil
+end
+
+-- Parse label
+function M.parse_label(line)
+	local text = line:match("^([^:]+):$")
+	if text and not text:match("%.%s") then
+		return {
+			text = M.trim(text),
+			raw = line,
+		}
+	end
+	return nil
+end
+
+-- =============================================================================
+-- Section Boundary Detection (Unified)
+-- =============================================================================
+
+-- Find where a section ends based on hierarchy rules
+function M.find_section_end(lines, start_lnum, section_type, heading_level)
+	local num_lines = #lines
+	local start_priority = constants.SECTION_HIERARCHY.get_priority(section_type, heading_level)
+
+	-- Articles go to end of file
+	if section_type == constants.SECTION_TYPE.ARTICLE then
+		return num_lines
+	end
+
+	-- Tags are single-line
+	if section_type == constants.SECTION_TYPE.TAG then
+		return start_lnum
+	end
+
+	-- For other sections, find the next section of equal or higher priority
+	for i = start_lnum + 1, num_lines do
+		local line = lines[i]
+		local line_section_type = M.detect_section_type(line)
+
+		if line_section_type ~= constants.SECTION_TYPE.TEXT and line_section_type ~= constants.SECTION_TYPE.TAG then
+			local line_heading_level = nil
+			if line_section_type == constants.SECTION_TYPE.HEADING then
+				line_heading_level = M.get_heading_level(line)
+			end
+
+			local line_priority = constants.SECTION_HIERARCHY.get_priority(line_section_type, line_heading_level)
+
+			-- If we found a section of equal or higher priority, the current section ends here
+			if line_priority <= start_priority then
+				return i - 1
+			end
+		end
+	end
+
+	return num_lines
+end
+
+-- =============================================================================
+-- Section Path Building (for breadcrumbs)
+-- =============================================================================
+
+-- Build complete section path from start to target line
+function M.build_section_path(lines, target_lnum)
+	local path = {}
+	local section_stack = {} -- Stack of active sections with their priorities
+
+	for lnum = 1, target_lnum do
+		local line = lines[lnum]
+		local section_type = M.detect_section_type(line)
+
+		if section_type ~= constants.SECTION_TYPE.TEXT and section_type ~= constants.SECTION_TYPE.TAG then
+			local heading_level = nil
+			if section_type == constants.SECTION_TYPE.HEADING then
+				heading_level = M.get_heading_level(line)
+			end
+
+			local priority = constants.SECTION_HIERARCHY.get_priority(section_type, heading_level)
+
+			-- Pop sections from stack that this section would close
+			while #section_stack > 0 and section_stack[#section_stack].priority >= priority do
+				table.remove(section_stack)
+			end
+
+			-- Create section info
+			local section_info = {
+				type = section_type,
+				priority = priority,
+				lnum = lnum,
+				raw = line,
+			}
+
+			-- Add type-specific info
+			if section_type == constants.SECTION_TYPE.ARTICLE then
+				section_info.text = M.extract_article_name(line)
+				section_info.display = section_info.text
+			elseif section_type == constants.SECTION_TYPE.HEADING then
+				local heading = M.parse_heading(line)
+				section_info.level = heading.level
+				section_info.text = heading.text
+				section_info.display = string.rep("#", heading.level) .. " " .. heading.text
+			elseif section_type == constants.SECTION_TYPE.BOLD_HEADING then
+				local bold = M.parse_bold_heading(line)
+				section_info.text = bold.text
+				section_info.display = "**" .. bold.text .. "**"
+			elseif section_type == constants.SECTION_TYPE.LABEL then
+				local label = M.parse_label(line)
+				section_info.text = label.text
+				section_info.display = label.text .. ":"
+			end
+
+			-- Add to stack
+			table.insert(section_stack, section_info)
+		end
+	end
+
+	-- Convert stack to path
+	for _, section in ipairs(section_stack) do
+		table.insert(path, {
+			type = section.type,
+			text = section.text,
+			display = section.display,
+			lnum = section.lnum,
+			level = section.level, -- for headings
+			priority = section.priority,
+		})
+	end
+
+	return path
 end
 
 -- =============================================================================

@@ -1,4 +1,4 @@
--- core/search.lua - Search functionality for Zortex
+-- core/search.lua - Search functionality for Zortex with normalized section handling
 local M = {}
 
 local parser = require("zortex.core.parser")
@@ -82,41 +82,39 @@ function M.find_article_files(article_name)
 end
 
 -- =============================================================================
--- Section Boundaries
+-- Section Boundaries (Using Normalized Parser)
 -- =============================================================================
 
 function M.get_section_end(lines, start_lnum, component)
-	local num_lines = #lines
+	-- Map component type to section type
+	local section_type = constants.SECTION_TYPE.TEXT
+	local heading_level = nil
 
-	if component.type == "heading" then
-		local heading_level = parser.get_heading_level(lines[start_lnum])
-
-		-- Section ends at next heading of same or higher level
-		for i = start_lnum + 1, num_lines do
-			local line_level = parser.get_heading_level(lines[i])
-			if line_level > 0 and line_level <= heading_level then
-				return i - 1
-			end
-		end
-		return num_lines
+	if component.type == "article" then
+		section_type = constants.SECTION_TYPE.ARTICLE
+	elseif component.type == "heading" then
+		section_type = constants.SECTION_TYPE.HEADING
+		-- Extract heading level from the line
+		heading_level = parser.get_heading_level(lines[start_lnum])
 	elseif component.type == "tag" then
-		return start_lnum
+		section_type = constants.SECTION_TYPE.TAG
 	elseif component.type == "label" then
-		-- Labels end at next heading, bold heading, or empty line
-		for i = start_lnum + 1, num_lines do
-			local line = lines[i]
-			if line:match("^%s*$") or parser.get_heading_level(line) > 0 or parser.is_bold_heading(line) then
-				return i - 1
-			end
+		section_type = constants.SECTION_TYPE.LABEL
+	elseif component.type == "highlight" then
+		-- Bold headings in search context
+		if parser.is_bold_heading(lines[start_lnum]) then
+			section_type = constants.SECTION_TYPE.BOLD_HEADING
+		else
+			-- Just a highlighted text, single line
+			return start_lnum
 		end
-		return num_lines
-	elseif component.type == "listitem" then
-		return start_lnum
-	elseif component.type == "highlight" or component.type == "query" then
-		return start_lnum
-	else
+	elseif component.type == "listitem" or component.type == "query" then
+		-- These don't create sections, just single line matches
 		return start_lnum
 	end
+
+	-- Use the unified parser function
+	return parser.find_section_end(lines, start_lnum, section_type, heading_level)
 end
 
 -- =============================================================================

@@ -1,10 +1,11 @@
--- modules/links.lua - Link navigation for Zortex
+-- modules/links.lua - Link navigation for Zortex with normalized section handling
 local M = {}
 
 local parser = require("zortex.core.parser")
 local search = require("zortex.core.search")
 local buffer = require("zortex.core.buffer")
 local fs = require("zortex.core.filesystem")
+local constants = require("zortex.constants")
 
 -- =============================================================================
 -- External Link Handling
@@ -90,7 +91,7 @@ function M.open_link()
 			return
 		end
 
-		-- Process the link
+		-- Process the link using core search functionality
 		local results = search.process_link(parsed)
 
 		if #results == 0 then
@@ -166,12 +167,111 @@ function M.open_link()
 end
 
 -- =============================================================================
--- Exposed Parsing Functions (for other modules)
+-- Navigation Helpers
 -- =============================================================================
 
--- These are exposed for backward compatibility
+-- Navigate to next/previous section at same or higher level
+function M.navigate_section(direction)
+	local lines = buffer.get_lines()
+	local current_lnum, _ = buffer.get_cursor_pos()
+
+	-- Get current section info
+	local current_section_type = parser.detect_section_type(lines[current_lnum])
+	local current_heading_level = nil
+	if current_section_type == constants.SECTION_TYPE.HEADING then
+		current_heading_level = parser.get_heading_level(lines[current_lnum])
+	end
+	local current_priority = constants.SECTION_HIERARCHY.get_priority(current_section_type, current_heading_level)
+
+	-- If we're not on a section header, find the containing section
+	if current_section_type == constants.SECTION_TYPE.TEXT or current_section_type == constants.SECTION_TYPE.TAG then
+		-- Build section path to current position
+		local section_path = parser.build_section_path(lines, current_lnum)
+		if #section_path > 0 then
+			local last_section = section_path[#section_path]
+			current_priority = last_section.priority
+		end
+	end
+
+	-- Search for next/previous section of same or higher priority
+	local target_lnum = nil
+	if direction == "next" then
+		for i = current_lnum + 1, #lines do
+			local section_type = parser.detect_section_type(lines[i])
+			if section_type ~= constants.SECTION_TYPE.TEXT and section_type ~= constants.SECTION_TYPE.TAG then
+				local heading_level = nil
+				if section_type == constants.SECTION_TYPE.HEADING then
+					heading_level = parser.get_heading_level(lines[i])
+				end
+				local priority = constants.SECTION_HIERARCHY.get_priority(section_type, heading_level)
+				if priority <= current_priority then
+					target_lnum = i
+					break
+				end
+			end
+		end
+	else -- previous
+		for i = current_lnum - 1, 1, -1 do
+			local section_type = parser.detect_section_type(lines[i])
+			if section_type ~= constants.SECTION_TYPE.TEXT and section_type ~= constants.SECTION_TYPE.TAG then
+				local heading_level = nil
+				if section_type == constants.SECTION_TYPE.HEADING then
+					heading_level = parser.get_heading_level(lines[i])
+				end
+				local priority = constants.SECTION_HIERARCHY.get_priority(section_type, heading_level)
+				if priority <= current_priority then
+					target_lnum = i
+					break
+				end
+			end
+		end
+	end
+
+	if target_lnum then
+		buffer.set_cursor_pos(target_lnum, 0)
+		vim.cmd("normal! zz")
+	else
+		vim.notify("No " .. direction .. " section found", vim.log.levels.INFO)
+	end
+end
+
+-- Navigate to parent section
+function M.navigate_parent()
+	local lines = buffer.get_lines()
+	local current_lnum, _ = buffer.get_cursor_pos()
+
+	-- Build section path to current position
+	local section_path = parser.build_section_path(lines, current_lnum)
+
+	if #section_path > 1 then
+		-- Go to parent section (second to last in path)
+		local parent = section_path[#section_path - 1]
+		buffer.set_cursor_pos(parent.lnum, 0)
+		vim.cmd("normal! zz")
+	elseif #section_path == 1 then
+		-- Already at top level, go to start of file
+		buffer.set_cursor_pos(1, 0)
+	else
+		vim.notify("No parent section found", vim.log.levels.INFO)
+	end
+end
+
+-- =============================================================================
+-- Exposed Functions (for backward compatibility and other modules)
+-- =============================================================================
+
+-- These delegate to the normalized parser functions
 M.extract_link = parser.extract_link_at
 M.parse_link_definition = parser.parse_link_definition
 M.parse_component = parser.parse_link_component
+
+-- Additional navigation commands
+M.next_section = function()
+	M.navigate_section("next")
+end
+M.prev_section = function()
+	M.navigate_section("previous")
+end
+M.parent_section = M.navigate_parent
 
 return M

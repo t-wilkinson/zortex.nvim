@@ -1,4 +1,4 @@
--- constants.lua - Centralized constants for Zortex
+-- constants.lua - Centralized constants for Zortex with normalized section hierarchy
 local M = {}
 
 -- File names
@@ -26,12 +26,15 @@ M.PATTERNS = {
 	TASK_UNCHECKED = "^%s*%- %[ %]",
 	TASK_STATUS_KEY = "^%s*%- (%[.%])",
 	TASK_TEXT = "^%s*%- %[.%] (.+)$",
-	-- TASK_CHECKBOX = "^%s*[-*%u·]?%s*%[([ xX‑])%]%s+",
 	TASK_CHECKBOX = "^%s*%- %[(.)%]",
 
-	-- Heading patterns
+	-- Section patterns (in hierarchical order)
+	ARTICLE_TITLE = "^@@(.+)",
 	HEADING = "^(#+)%s+(.+)$",
 	HEADING_LEVEL = "^#+",
+	BOLD_HEADING = "^%*%*(.+)%*%*:$",
+	BOLD_HEADING_ALT = "^%*%*(.+):%*%*$",
+	LABEL = "^([^%.]+):$", -- No sentence period (". ") allowed
 
 	-- Calendar-specific patterns
 	CALENDAR_DATE_HEADING = "^(%d%d)%-(%d%d)%-(%d%d%d%d):$",
@@ -55,21 +58,66 @@ M.PATTERNS = {
 	FILEPATH = "([~%.]/[^%s]+)",
 
 	-- Other patterns
-	ARTICLE_TITLE = "^@@(.+)",
 	TAG_LINE = "^@[^@]",
-	BOLD_HEADING = "^%*%*[^%*]+%*%*:?$",
-	LABEL = "^%w[^:]+:",
 	OKR_DATE = "^## ([%w]+) (%d+) (%d+) (.+)$",
 	KEY_RESULT = "^%s*- KR%-",
 }
 
+-- Section types with hierarchical priorities
+-- Lower numbers = higher priority (can contain higher numbers)
 M.SECTION_TYPE = {
-	ARTICLE = 1,
-	TAG = 2,
-	HEADING = 3,
-	BOLD_HEADING = 4,
-	LABEL = 5,
-	TEXT = 6,
+	ARTICLE = 1, -- Highest priority, contains all
+	HEADING = 2, -- Variable priority based on level (1-6)
+	BOLD_HEADING = 7, -- After all headings, before labels
+	LABEL = 8, -- Lowest priority section type
+	TAG = 9, -- Tags don't create sections, just markers
+	TEXT = 10, -- Plain text, not a section header
+}
+
+-- Section hierarchy helper
+M.SECTION_HIERARCHY = {
+	-- Returns effective priority for comparison
+	-- Articles always have priority 1
+	-- Headings have priority 2-7 based on level
+	-- Bold headings have priority 8
+	-- Labels have priority 9
+	get_priority = function(section_type, heading_level)
+		if section_type == M.SECTION_TYPE.ARTICLE then
+			return 1
+		elseif section_type == M.SECTION_TYPE.HEADING then
+			-- Heading level 1 = priority 2, level 6 = priority 7
+			return 1 + (heading_level or 1)
+		elseif section_type == M.SECTION_TYPE.BOLD_HEADING then
+			return 8
+		elseif section_type == M.SECTION_TYPE.LABEL then
+			return 9
+		else
+			return 999 -- Non-section types
+		end
+	end,
+
+	-- Check if section A can contain section B
+	can_contain = function(type_a, level_a, type_b, level_b)
+		local priority_a = M.SECTION_HIERARCHY.get_priority(type_a, level_a)
+		local priority_b = M.SECTION_HIERARCHY.get_priority(type_b, level_b)
+		return priority_a < priority_b
+	end,
+}
+
+-- Task status definitions
+M.TASK_STATUS = {
+	[" "] = { symbol = " ", name = "todo", tags = { "@todo" } },
+	["."] = { symbol = ".", name = "in_progress", tags = { "@inprogress", "@wip" } },
+	["o"] = { symbol = "o", name = "ongoing", tags = { "@ongoing" } },
+	["x"] = { symbol = "x", name = "done", tags = { "@done" } },
+	["X"] = { symbol = "X", name = "done", tags = { "@done" } },
+	["-"] = { symbol = "-", name = "cancelled", tags = { "@cancelled" } },
+	["‑"] = { symbol = "‑", name = "cancelled", tags = { "@cancelled" } },
+	["?"] = { symbol = "?", name = "unclear", tags = { "@unclear" } },
+	["!"] = { symbol = "!", name = "urgent", tags = { "@urgent" } },
+	["*"] = { symbol = "*", name = "delegated", tags = { "@delegated" } },
+	["l"] = { symbol = "l", name = "later", tags = { "@later" } },
+	["L"] = { symbol = "L", name = "later", tags = { "@later" } },
 }
 
 -- Highlight groups

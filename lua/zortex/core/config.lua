@@ -14,6 +14,21 @@ M.defaults = {
 		prefix = "<leader>z",
 	},
 
+	search = {
+		default_mode = "section", -- or "article"
+		breadcrumb_display = {
+			one_token = { "article" },
+			two_tokens = { "article", "heading_1_2" },
+			three_plus_tokens = { "article", "heading", "bold_heading", "label" },
+		},
+		history = {
+			enabled = true,
+			max_entries = 50,
+			score_decay = 0.1, -- per day
+			propagation_decay = 0.7,
+		},
+	},
+
 	notifications = {
 		default_advance_minutes = 15, -- Default notification time before event
 		check_interval_minutes = 5, -- How often to check for notifications
@@ -37,6 +52,92 @@ M.defaults = {
 			enabled = true,
 			api_endpoint = nil,
 			user_id = nil,
+		},
+	},
+
+	ui = {
+		calendar = {
+			window = {
+				relative = "editor",
+				width = 82,
+				height = 0.85,
+				border = "rounded",
+				title = " 📅 Zortex Calendar ",
+				title_pos = "center",
+			},
+			colors = {
+				today = "DiagnosticOk",
+				weekend = "Comment",
+				has_entry = "DiagnosticInfo",
+				header = "Title",
+				border = "FloatBorder",
+				footer = "Comment",
+				key_hint = "NonText",
+				digest_header = "Title",
+				notification = "DiagnosticWarn",
+				-- "IncSearch" "CursorLine" "CursorLineNr"
+				selected = "MiniHipatternsTodo",
+				today_selected = "MiniHipatternsTodo",
+				selected_text = "MiniHipatternsTodo",
+				-- selected_icon = "@variable.builtin",
+				selected_icon = "MiniHipatternsTodo",
+			},
+			-- icons = {
+			-- 	event = "🎉",
+			-- 	task = "📝",
+			-- 	task_done = "✔",
+			-- 	notification = "🔔",
+			-- 	has_items = "•", -- Default dot for days with any entry
+			-- },
+			-- icons = {
+			-- 	event = "◆",
+			-- 	task = "□",
+			-- 	task_done = "☑",
+			-- 	notification = "◉",
+			-- 	has_items = "•",
+			-- 	none = " ",
+			-- },
+			pretty_attributes = true, -- Enable/disable pretty display of attributes
+			icon_width = 3, -- Unfortunately necessary atm for calculating how much an icon will shift text in the terminal (fn.strwidth doesn't calculate it correctly).
+			icons = {
+				event = "󰃰", -- nf-md-calendar_star
+				task = "󰄬", -- nf-md-checkbox_blank_circle_outline
+				task_done = "󰄱", -- nf-md-check_circle
+				notification = "󰍛", -- nf-md-bell_ring
+				has_items = "󰸞", -- nf-md-dots_circle
+				none = " ",
+			},
+			digest = {
+				show_upcoming_days = 7, -- Show events for next 7 days
+				show_high_priority = true, -- Show high priority/importance projects
+				position = "right", -- right, bottom, or floating
+			},
+			keymaps = {
+				close = { "q", "<Esc>" },
+				next_day = { "l", "<Right>" },
+				prev_day = { "h", "<Left>" },
+				next_week = { "j", "<Down>" },
+				prev_week = { "k", "<Up>" },
+				next_month = { "J" },
+				prev_month = { "K" },
+				next_year = { "L" },
+				prev_year = { "H" },
+				today = { "t", "T" },
+				add_entry = { "a", "i" },
+				view_entries = { "<CR>", "o" },
+				edit_entry = { "e" },
+				delete_entry = { "x" },
+				telescope_search = { "/" },
+				toggle_view = { "v" },
+				digest = { "d", "D" },
+				refresh = { "r", "R" },
+				go_to_file = { "gf" },
+				sync_notifications = { "n" },
+				help = { "?" },
+			},
+		},
+		telescope = {
+			-- Optional telescope-specific config
 		},
 	},
 
@@ -232,93 +333,6 @@ M.defaults = {
   },
 
 --]]
-	},
-
-	-- UI Configuration
-	ui = {
-		calendar = {
-			window = {
-				relative = "editor",
-				width = 82,
-				height = 0.85,
-				border = "rounded",
-				title = " 📅 Zortex Calendar ",
-				title_pos = "center",
-			},
-			colors = {
-				today = "DiagnosticOk",
-				weekend = "Comment",
-				has_entry = "DiagnosticInfo",
-				header = "Title",
-				border = "FloatBorder",
-				footer = "Comment",
-				key_hint = "NonText",
-				digest_header = "Title",
-				notification = "DiagnosticWarn",
-				-- "IncSearch" "CursorLine" "CursorLineNr"
-				selected = "MiniHipatternsTodo",
-				today_selected = "MiniHipatternsTodo",
-				selected_text = "MiniHipatternsTodo",
-				-- selected_icon = "@variable.builtin",
-				selected_icon = "MiniHipatternsTodo",
-			},
-			-- icons = {
-			-- 	event = "🎉",
-			-- 	task = "📝",
-			-- 	task_done = "✔",
-			-- 	notification = "🔔",
-			-- 	has_items = "•", -- Default dot for days with any entry
-			-- },
-			-- icons = {
-			-- 	event = "◆",
-			-- 	task = "□",
-			-- 	task_done = "☑",
-			-- 	notification = "◉",
-			-- 	has_items = "•",
-			-- 	none = " ",
-			-- },
-			pretty_attributes = true, -- Enable/disable pretty display of attributes
-			icon_width = 3, -- Unfortunately necessary atm for calculating how much an icon will shift text in the terminal (fn.strwidth doesn't calculate it correctly).
-			icons = {
-				event = "󰃰", -- nf-md-calendar_star
-				task = "󰄬", -- nf-md-checkbox_blank_circle_outline
-				task_done = "󰄱", -- nf-md-check_circle
-				notification = "󰍛", -- nf-md-bell_ring
-				has_items = "󰸞", -- nf-md-dots_circle
-				none = " ",
-			},
-			digest = {
-				show_upcoming_days = 7, -- Show events for next 7 days
-				show_high_priority = true, -- Show high priority/importance projects
-				position = "right", -- right, bottom, or floating
-			},
-			keymaps = {
-				close = { "q", "<Esc>" },
-				next_day = { "l", "<Right>" },
-				prev_day = { "h", "<Left>" },
-				next_week = { "j", "<Down>" },
-				prev_week = { "k", "<Up>" },
-				next_month = { "J" },
-				prev_month = { "K" },
-				next_year = { "L" },
-				prev_year = { "H" },
-				today = { "t", "T" },
-				add_entry = { "a", "i" },
-				view_entries = { "<CR>", "o" },
-				edit_entry = { "e" },
-				delete_entry = { "x" },
-				telescope_search = { "/" },
-				toggle_view = { "v" },
-				digest = { "d", "D" },
-				refresh = { "r", "R" },
-				go_to_file = { "gf" },
-				sync_notifications = { "n" },
-				help = { "?" },
-			},
-		},
-		telescope = {
-			-- Optional telescope-specific config
-		},
 	},
 }
 

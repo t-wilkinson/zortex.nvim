@@ -1,10 +1,61 @@
--- modules/search.lua - Hierarchical search integrated with unified parser
+-- modules/search.lua - Enhanced hierarchical search with proper breadcrumb support
 local M = {}
 
 local constants = require("zortex.constants")
 local parser = require("zortex.core.parser")
 local fs = require("zortex.core.filesystem")
 local search_managers = require("zortex.modules.search_managers")
+local core_search = require("zortex.core.search")
+
+-- =============================================================================
+-- Search History Management
+-- =============================================================================
+
+M.SearchHistory = {}
+M.SearchHistory.entries = {}
+M.SearchHistory.max_entries = 50
+
+function M.SearchHistory.add(entry)
+	table.insert(M.SearchHistory.entries, 1, {
+		timestamp = os.time(),
+		tokens = entry.tokens,
+		selected_file = entry.selected_file,
+		selected_section = entry.selected_section,
+		section_path = entry.section_path,
+		score_contribution = entry.score_contribution or {},
+	})
+
+	-- Limit history size
+	while #M.SearchHistory.entries > M.SearchHistory.max_entries do
+		table.remove(M.SearchHistory.entries)
+	end
+
+	-- Propagate score to parent sections
+	M.SearchHistory.propagate_scores(entry)
+end
+
+function M.SearchHistory.propagate_scores(entry)
+	if not entry.section_path or not entry.selected_file then
+		return
+	end
+
+	-- Base score that diminishes as we go up the hierarchy
+	local base_score = 1.0
+	local decay_factor = 0.7
+
+	-- Update scores for each level in the section path
+	for i = #entry.section_path, 1, -1 do
+		local section = entry.section_path[i]
+		local score_key = entry.selected_file .. ":" .. section.type .. ":" .. section.text
+
+		if not entry.score_contribution[score_key] then
+			entry.score_contribution[score_key] = 0
+		end
+
+		entry.score_contribution[score_key] = entry.score_contribution[score_key] + base_score
+		base_score = base_score * decay_factor
+	end
+end
 
 -- =============================================================================
 -- Search Token Parsing
@@ -17,6 +68,41 @@ local function parse_tokens(prompt)
 		tokens[#tokens + 1] = token:gsub("_", " ")
 	end
 	return tokens
+end
+
+-- =============================================================================
+-- Breadcrumb Generation
+-- =============================================================================
+
+local function format_breadcrumb(section_path, num_tokens)
+	if not section_path or #section_path == 0 then
+		return ""
+	end
+
+	local parts = {}
+
+	-- Determine what to include based on number of tokens
+	for _, section in ipairs(section_path) do
+		local include = false
+
+		if num_tokens == 1 then
+			-- Only article
+			include = (section.type == constants.SECTION_TYPE.ARTICLE)
+		elseif num_tokens == 2 then
+			-- Article + level 1/2 headings
+			include = (section.type == constants.SECTION_TYPE.ARTICLE)
+				or (section.type == constants.SECTION_TYPE.HEADING and section.level and section.level <= 2)
+		else
+			-- Everything
+			include = true
+		end
+
+		if include then
+			table.insert(parts, section.display or section.text)
+		end
+	end
+
+	return table.concat(parts, " > ")
 end
 
 -- =============================================================================
@@ -65,7 +151,11 @@ local function hierarchical_search(lines, tokens)
 	-- For multiple tokens, search hierarchically
 	for _, first_match in ipairs(first_matches) do
 		local current_start = first_match.lnum
-		local current_end = parser.find_section_end(lines, current_start, first_match.section_type)
+		local heading_level = nil
+		if first_match.section_type == constants.SECTION_TYPE.HEADING then
+			heading_level = parser.get_heading_level(first_match.line)
+		end
+		local current_end = parser.find_section_end(lines, current_start, first_match.section_type, heading_level)
 		local all_found = true
 		local match_chain = { first_match }
 
@@ -84,7 +174,11 @@ local function hierarchical_search(lines, tokens)
 
 			-- Narrow the search range for the next token
 			current_start = best_match.lnum
-			current_end = parser.find_section_end(lines, current_start, best_match.section_type)
+			heading_level = nil
+			if best_match.section_type == constants.SECTION_TYPE.HEADING then
+				heading_level = parser.get_heading_level(best_match.line)
+			end
+			current_end = parser.find_section_end(lines, current_start, best_match.section_type, heading_level)
 		end
 
 		if all_found then
@@ -114,6 +208,7 @@ local function calculate_entry_score(entry, tokens, current_time)
 		header_bonus = 0,
 		start_match_bonus = 0,
 		hierarchical_bonus = 0,
+		historical = 0,
 	}
 
 	-- Recency score with 30-day half-life
@@ -122,9 +217,12 @@ local function calculate_entry_score(entry, tokens, current_time)
 		entry.recency_score = scores.recency
 	end
 
+	-- Historical score from search history
+	scores.historical = entry.historical_score or 0
+
 	-- Base score for all entries
 	if #tokens == 0 then
-		return scores.recency * 10 + 1
+		return scores.recency * 10 + scores.historical * 5 + 1
 	end
 
 	-- Hierarchical matching bonus
@@ -252,6 +350,7 @@ local function calculate_entry_score(entry, tokens, current_time)
 		header_bonus = 3.0,
 		start_match_bonus = 2.0,
 		hierarchical_bonus = 10.0,
+		historical = 3.0,
 	}
 
 	local total = 0
@@ -356,6 +455,98 @@ local function open_location(entry, cmd, tokens)
 end
 
 -- =============================================================================
+-- Entry Creation
+-- =============================================================================
+
+local function create_search_entry(path, data, tokens, match_info, search_type)
+	local title = data.lines[1] or ""
+	local article_name = parser.extract_article_name(title)
+	local date_str = search_managers.Utils.extract_date_from_filename(path) or os.date("%Y-%m-%d", data.mtime)
+	local tags_line = table.concat(parser.extract_tags_from_lines(data.lines), " ")
+
+	-- Build section path if we have a match
+	local section_path = {}
+	local breadcrumb = ""
+	if match_info.lnum and search_type == "section" then
+		section_path = parser.build_section_path(data.lines, match_info.lnum)
+		breadcrumb = format_breadcrumb(section_path, #tokens)
+	end
+
+	-- Get historical score contribution
+	local historical_score = 0
+	for _, hist_entry in ipairs(M.SearchHistory.entries) do
+		if hist_entry.selected_file == path then
+			for key, score in pairs(hist_entry.score_contribution) do
+				if key:match("^" .. parser.escape_pattern(path)) then
+					historical_score = historical_score
+						+ score * math.exp(-0.1 * (os.time() - hist_entry.timestamp) / 86400)
+				end
+			end
+		end
+	end
+
+	-- Build display with breadcrumb or traditional format
+	local recency_indicator = ""
+	if search_managers.AccessTracker.data[path] and #search_managers.AccessTracker.data[path].times > 0 then
+		local last_access =
+			search_managers.AccessTracker.data[path].times[#search_managers.AccessTracker.data[path].times]
+		local age_days = (os.time() - last_access) / 86400
+		if age_days < 1 then
+			recency_indicator = "● "
+		elseif age_days < 3 then
+			recency_indicator = "◐ "
+		elseif age_days < 7 then
+			recency_indicator = "○ "
+		end
+	end
+
+	local display_parts = { date_str }
+
+	-- Add breadcrumb or article name based on search type
+	if search_type == "section" and breadcrumb ~= "" then
+		table.insert(display_parts, recency_indicator .. breadcrumb)
+	else
+		table.insert(
+			display_parts,
+			recency_indicator .. (article_name or "Untitled") .. (tags_line ~= "" and (" " .. tags_line) or "")
+		)
+	end
+
+	-- Add matched line if different from title
+	if match_info.line and match_info.line ~= title then
+		table.insert(display_parts, parser.trim(match_info.line))
+	end
+
+	local display = table.concat(display_parts, " | ")
+	local ordinal = table.concat({
+		article_name or "",
+		date_str,
+		tags_line,
+		breadcrumb,
+		match_info.line or "",
+	}, " ")
+
+	return {
+		value = path .. ":" .. (match_info.lnum or 1),
+		ordinal = ordinal,
+		display = display,
+		filename = path,
+		lnum = match_info.lnum or 1,
+		article_name = article_name,
+		tags = tags_line,
+		matched_line = match_info.line,
+		section_path = section_path,
+		breadcrumb = breadcrumb,
+		mtime = data.mtime,
+		metadata = data.metadata,
+		line_count = #data.lines,
+		hierarchical_match = match_info.hierarchical,
+		historical_score = historical_score,
+		score_calculated = false,
+	}
+end
+
+-- =============================================================================
 -- Telescope Integration
 -- =============================================================================
 
@@ -381,7 +572,7 @@ local function find_section_start(lines, lnum, section_type)
 			local level = parser.get_heading_level(lines[i])
 			if level > 0 then
 				-- Check if this heading's section contains our line
-				local section_end = parser.find_section_end(lines, i, constants.SECTION_TYPE.HEADING)
+				local section_end = parser.find_section_end(lines, i, constants.SECTION_TYPE.HEADING, level)
 				if section_end >= lnum then
 					return i
 				end
@@ -406,12 +597,12 @@ local function find_section_start(lines, lnum, section_type)
 
 	-- For labels, find the label line
 	if section_type == constants.SECTION_TYPE.LABEL then
-		if lines[lnum]:match("^%w[^:]+:") then
+		if lines[lnum]:match("^%w[^:]+:") and not lines[lnum]:match("%.%s") then
 			return lnum
 		end
 		-- Search backwards for the label
 		for i = lnum - 1, 1, -1 do
-			if lines[i]:match("^%w[^:]+:") then
+			if lines[i]:match("^%w[^:]+:") and not lines[i]:match("%.%s") then
 				local section_end = parser.find_section_end(lines, i, constants.SECTION_TYPE.LABEL)
 				if section_end >= lnum then
 					return i
@@ -504,6 +695,7 @@ end
 
 function M.search(opts)
 	opts = opts or {}
+	local search_type = opts.search_type or "section" -- Default to section search
 
 	local notes_dir = fs.get_notes_dir()
 	if not notes_dir then
@@ -535,11 +727,6 @@ function M.search(opts)
 		local empty = #tokens == 0
 
 		for path, data in pairs(search_managers.IndexManager.cache) do
-			local title = data.lines[1] or ""
-			local article_name = parser.extract_article_name(title)
-			local date_str = search_managers.Utils.extract_date_from_filename(path) or os.date("%Y-%m-%d", data.mtime)
-			local tags_line = table.concat(parser.extract_tags_from_lines(data.lines), " ")
-
 			-- Use hierarchical search
 			local qualifies, match_lnum, match_line
 			if empty then
@@ -549,53 +736,14 @@ function M.search(opts)
 			end
 
 			if qualifies then
-				-- Build display
-				local recency_indicator = ""
-				if search_managers.AccessTracker.data[path] and #search_managers.AccessTracker.data[path].times > 0 then
-					local last_access =
-						search_managers.AccessTracker.data[path].times[#search_managers.AccessTracker.data[path].times]
-					local age_days = (os.time() - last_access) / 86400
-					if age_days < 1 then
-						recency_indicator = "● "
-					elseif age_days < 3 then
-						recency_indicator = "◐ "
-					elseif age_days < 7 then
-						recency_indicator = "○ "
-					end
-				end
-
-				local parts = {
-					date_str,
-					recency_indicator .. (article_name or "Untitled") .. (tags_line ~= "" and (" " .. tags_line) or ""),
+				local match_info = {
+					lnum = match_lnum,
+					line = match_line,
+					hierarchical = not empty and match_lnum ~= nil,
 				}
 
-				if match_line and match_line ~= title then
-					parts[#parts + 1] = parser.trim(match_line)
-				end
-
-				local display = table.concat(parts, " | ")
-				local ordinal = table.concat({
-					article_name or "",
-					date_str,
-					tags_line,
-					match_line or "",
-				}, " ")
-
-				results[#results + 1] = {
-					value = path .. ":" .. (match_lnum or 1),
-					ordinal = ordinal,
-					display = display,
-					filename = path,
-					lnum = match_lnum or 1,
-					article_name = article_name,
-					tags = tags_line,
-					matched_line = match_line,
-					mtime = data.mtime,
-					metadata = data.metadata,
-					line_count = #data.lines,
-					hierarchical_match = not empty and match_lnum ~= nil,
-					score_calculated = false,
-				}
+				local entry = create_search_entry(path, data, tokens, match_info, search_type)
+				table.insert(results, entry)
 			end
 		end
 
@@ -648,10 +796,13 @@ function M.search(opts)
 			})
 		or conf.grep_previewer(opts)
 
+	-- Determine prompt title
+	local prompt_title = search_type == "section" and "Zortex Section Search (Breadcrumbs)" or "Zortex Article Search"
+
 	-- Create picker
 	pickers
 		.new(opts, {
-			prompt_title = "Zortex Hierarchical Search",
+			prompt_title = prompt_title,
 			default_text = "",
 			finder = finder,
 			sorter = sorter,
@@ -661,6 +812,17 @@ function M.search(opts)
 				actions.select_default:replace(function()
 					local sel = action_state.get_selected_entry()
 					actions.close(bufnr)
+
+					-- Save to history if section search
+					if search_type == "section" and sel and sel.filename and sel.section_path then
+						M.SearchHistory.add({
+							tokens = current_tokens,
+							selected_file = sel.filename,
+							selected_section = sel.lnum,
+							section_path = sel.section_path,
+						})
+					end
+
 					open_location(sel, nil, current_tokens)
 				end)
 
@@ -679,6 +841,17 @@ function M.search(opts)
 				map({ "i", "n" }, "<C-x>", function()
 					local sel = action_state.get_selected_entry()
 					actions.close(bufnr)
+
+					-- Save to history if section search
+					if search_type == "section" and sel and sel.filename and sel.section_path then
+						M.SearchHistory.add({
+							tokens = current_tokens,
+							selected_file = sel.filename,
+							selected_section = sel.lnum,
+							section_path = sel.section_path,
+						})
+					end
+
 					open_location(sel, "split", current_tokens)
 				end)
 
@@ -686,6 +859,17 @@ function M.search(opts)
 				map({ "i", "n" }, "<C-v>", function()
 					local sel = action_state.get_selected_entry()
 					actions.close(bufnr)
+
+					-- Save to history if section search
+					if search_type == "section" and sel and sel.filename and sel.section_path then
+						M.SearchHistory.add({
+							tokens = current_tokens,
+							selected_file = sel.filename,
+							selected_section = sel.lnum,
+							section_path = sel.section_path,
+						})
+					end
+
 					open_location(sel, "vsplit", current_tokens)
 				end)
 
@@ -693,6 +877,22 @@ function M.search(opts)
 			end,
 		})
 		:find()
+end
+
+-- =============================================================================
+-- Search Type Variants
+-- =============================================================================
+
+function M.search_sections(opts)
+	opts = opts or {}
+	opts.search_type = "section"
+	M.search(opts)
+end
+
+function M.search_articles(opts)
+	opts = opts or {}
+	opts.search_type = "article"
+	M.search(opts)
 end
 
 return M

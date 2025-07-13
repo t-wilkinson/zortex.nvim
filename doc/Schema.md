@@ -73,3 +73,15 @@ Label: with text following
 *Italics*
 **Bold**
 ```
+
+## Sections
+
+Articles: first couple of lines of each file with the lines that start by "@@"
+
+Headings: lines that start with 1-6 # followed by a space and text
+
+Bold headings: lines that match the pattern "^\*\*._\*\*:$" or "^\*\*._:\*\*$"
+
+Labels: lines that match "^my text:$" and the text cannot contain a sentence period (a period followed by a space ". ").
+
+Each of these create a section. Each section gets priority in choosing when their section begins, ending previous sections up to their tier, creating a new section that contains all the tiers below them until a section of equal or higher precedence occurs in the file. So, labels create a new section, but a bold heading will end the label's section and create a new one. A level-3 heading will end all level-3 through 6 headings, bold headings, and labels when it occurs, containing all level-4 through 6 headings, bold headings, and labels.

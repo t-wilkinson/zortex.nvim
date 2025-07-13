@@ -49,9 +49,10 @@ local Config = {
 		digest_header = "Title",
 		notification = "DiagnosticWarn",
 		-- "IncSearch" "CursorLine" "CursorLineNr"
-		selected = "IncSearch", -- Changed to Search for better block highlight
-		today_selected = "IncSearch",
-		selected_text = "IncSearch",
+		selected = "MiniHipatternsTodo",
+		today_selected = "MiniHipatternsTodo",
+		selected_text = "MiniHipatternsTodo",
+		selected_icon = "@variable.builtin",
 	},
 	-- icons = {
 	-- 	event = "🎉",
@@ -340,14 +341,14 @@ end
 function Renderer.center(win_width, text)
 	local win_margin = win_width - CONTENT_WIDTH
 
-	local content_padding = (CONTENT_WIDTH - fn.strwidth(text) + win_margin) / 2
+	local content_padding = math.floor((CONTENT_WIDTH - fn.strwidth(text) + win_margin) / 2)
 	local left_padding = string.rep(" ", math.max(1, content_padding))
 	local line = left_padding .. text
 
 	return {
 		line = line,
 		col = content_padding,
-		end_col = content_padding + fn.strwidth(text),
+		end_col = 2 * content_padding + fn.strwidth(text),
 	}
 end
 
@@ -385,9 +386,17 @@ function Renderer.render_month_view(date)
 	local nav_center = Renderer.center(win_width, nav_hint)
 
 	table.insert(lines, nav_center.line)
+	table.insert(highlights, {
+		line = #lines,
+		col = nav_center.col,
+		end_col = nav_center.end_col,
+		hl = Config.colors.footer,
+	})
 
 	-- Separator
-	table.insert(lines, left_pad_str .. MARGIN_STR .. string.rep("─", GRID_WIDTH))
+	-- table.insert(lines, left_pad_str .. MARGIN_STR .. string.rep("─", GRID_WIDTH))
+	table.insert(lines, "")
+	table.insert(lines, string.rep("─", win_width))
 	table.insert(lines, "")
 
 	-- Day headers
@@ -434,6 +443,7 @@ function Renderer.render_month_view(date)
 
 				-- Determine icon
 				local hl_group = nil
+				local hl_group_icon = nil
 				local day_icon = Config.icons.none
 
 				if #entries > 0 then
@@ -473,7 +483,8 @@ function Renderer.render_month_view(date)
 				end
 
 				-- Format day number with brackets if selected
-				local day_num_str = is_selected and string.format("[%02d]", day_num) or string.format(" %2d ", day_num)
+				-- local day_num_str = is_selected and string.format("[%02d]", day_num) or string.format(" %2d ", day_num)
+				local day_num_str = is_selected and string.format("%02d", day_num) or string.format(" %2d ", day_num)
 				local cell_content = day_icon .. day_num_str
 				local content_w = fn.strwidth(cell_content)
 				local padding_w = CELL_WIDTH - content_w
@@ -499,7 +510,7 @@ function Renderer.render_month_view(date)
 						line = line_num,
 						col = icon_col_start + shift_hl,
 						end_col = icon_col_start + fn.strwidth(day_icon) + shift_hl,
-						hl = Config.colors.has_entry,
+						hl = is_selected and Config.colors.selected_icon or Config.colors.has_entry,
 					})
 				end
 
@@ -585,6 +596,12 @@ function Renderer.render_month_view(date)
 			end
 		end
 
+		if #entries < 10 then
+			for _ = 0, 10 - #entries do
+				table.insert(lines, "")
+			end
+		end
+
 		-- Show pending notifications
 		if #pending_notifications > 0 then
 			table.insert(lines, "")
@@ -599,53 +616,28 @@ function Renderer.render_month_view(date)
 	-- ── Footer key‑hints (bottom) ───────────────────────────────────────────
 	-- Separator
 	table.insert(lines, "")
-	table.insert(lines, left_pad_str .. MARGIN_STR .. string.rep("─", GRID_WIDTH))
+	-- table.insert(lines, left_pad_str .. MARGIN_STR .. string.rep("─", GRID_WIDTH))
+	table.insert(lines, string.rep("─", win_width))
+	-- table.insert(highlights, {
+	-- 	line = #lines,
+	-- 	col = 0,
+	-- 	end_col = win_width * 2,
+	-- 	hl = Config.colors.key_hint,
+	-- })
+	table.insert(lines, "")
 
 	local footer_text = "↵ open • a add‑event • d delete • r rename • ? help"
 	local footer_center = Renderer.center(win_width, footer_text)
 
 	table.insert(lines, footer_center.line)
-
-	-- Add footer with key hints
-	-- local footer_lines = {
-	-- 	"",
-	-- 	string.rep("─", win_width),
-	-- 	"",
-	-- }
-
-	-- local key_hints = {
-	-- 	{ keys = "h/l", desc = "prev/next day" },
-	-- 	{ keys = "j/k", desc = "prev/next week" },
-	-- 	{ keys = "J/K", desc = "prev/next month" },
-	-- 	{ keys = "t", desc = "today" },
-	-- 	{ keys = "a", desc = "add" },
-	-- 	{ keys = "d", desc = "digest" },
-	-- 	{ keys = "n", desc = "sync notif" },
-	-- 	{ keys = "?", desc = "help" },
-	-- }
-
-	-- local hint_parts = {}
-	-- for _, hint in ipairs(key_hints) do
-	-- 	table.insert(hint_parts, string.format("%s:%s", hint.keys, hint.desc))
-	-- end
-	-- local hint_line = table.concat(hint_parts, "  ")
-
-	-- -- Center the hint line
-	-- local hint_padding = math.max(0, math.floor((win_width - fn.strwidth(hint_line)) / 2))
-	-- table.insert(footer_lines, string.rep(" ", hint_padding) .. hint_line)
-
-	-- -- Add footer lines
-	-- for _, line in ipairs(footer_lines) do
-	-- 	table.insert(lines, line)
-	-- 	if line:match("%w") then -- Only highlight text lines
-	-- 		table.insert(highlights, {
-	-- 			line = #lines,
-	-- 			col = 0,
-	-- 			end_col = fn.strwidth(line),
-	-- 			hl = Config.colors.key_hint,
-	-- 		})
-	-- 	end
-	-- end
+	table.insert(highlights, {
+		line = #lines,
+		col = footer_center.col,
+		end_col = footer_center.end_col,
+		hl = Config.colors.key_hint,
+		-- 			col = 0,
+		-- 			end_col = fn.strwidth(line),
+	})
 
 	return lines, highlights
 end

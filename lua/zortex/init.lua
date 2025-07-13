@@ -289,7 +289,7 @@ function M.setup(opts)
 	local config = core.config.setup(opts)
 
 	modules.xp.setup(core.config.get("xp"))
-	ui.setup()
+	ui.setup(config)
 	core.highlights.setup_autocmd()
 	core.highlights.setup_highlights()
 	modules.notifications.setup(config.notifications)

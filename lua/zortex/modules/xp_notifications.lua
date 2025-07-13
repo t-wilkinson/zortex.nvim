@@ -2,7 +2,7 @@
 local M = {}
 
 local xp = require("zortex.modules.xp")
-local xp_config = require("zortex.modules.xp_config")
+local config = require("zortex.core.config")
 local parser = require("zortex.core.parser")
 
 -- =============================================================================
@@ -37,7 +37,7 @@ function M.notify_xp_earned(xp_type, amount, details)
 					-- Calculate area XP if applicable
 					local area_xp = 0
 					if xp_type == "Project" then
-						local transfer_rate = xp_config.get("project.area_transfer_rate")
+						local transfer_rate = config.get("xp.project.area_transfer_rate")
 						area_xp = math.floor(amount * transfer_rate / #details.area_links)
 					elseif xp_type == "Area" then
 						area_xp = math.floor(amount / #details.area_links)

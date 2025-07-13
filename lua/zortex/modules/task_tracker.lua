@@ -3,7 +3,7 @@ local M = {}
 
 local fs = require("zortex.core.filesystem")
 local constants = require("zortex.constants")
-local xp_config = require("zortex.modules.xp_config")
+local xp = require("zortex.modules.xp")
 
 -- =============================================================================
 -- ID Generation
@@ -136,7 +136,7 @@ function M.update_task_status(id, completed, position, total_in_project)
 			task.completed_at = os.time()
 
 			-- Calculate XP for this task
-			local task_xp = xp_config.calculate_task_xp(position, total_in_project)
+			local task_xp = xp.calculate_task_xp(position, total_in_project)
 			task.xp_awarded = task_xp
 			xp_delta = task_xp
 		else

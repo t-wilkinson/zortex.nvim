@@ -13,9 +13,6 @@ M.defaults = {
 	keymaps = {
 		prefix = "<leader>z",
 	},
-	calendar = {
-		digest_time = "09:00",
-	},
 
 	notifications = {
 		default_advance_minutes = 15, -- Default notification time before event
@@ -30,7 +27,6 @@ M.defaults = {
 		},
 		ntfy = {
 			enabled = true,
-			-- server_url = "http://zortex.treywilkinson.com", -- or your self-hosted server
 			server_url = "http://ntfy.sh", -- or your self-hosted server
 			topic = "zortex-notify-tcgcp",
 			priority = "default", -- min, low, default, high, urgent
@@ -39,16 +35,91 @@ M.defaults = {
 		},
 		aws = {
 			enabled = true,
-			api_endpoint = "https://qd5wcnxpn8.execute-api.us-east-1.amazonaws.com/prod/manifest",
-			user_id = 229817327380,
+			api_endpoint = nil,
+			user_id = nil,
 		},
 	},
 
-	-- XP System Configuration
 	xp = {
-		enabled = true,
+		-- Area XP System (Long-term Mastery)
+		area = {
+			-- Exponential curve: XP = base * level^exponent
+			level_curve = {
+				base = 1000,
+				exponent = 2.5,
+			},
 
-		-- Base XP values
+			-- XP bubbling to parent areas
+			bubble_percentage = 0.75, -- 75% of XP bubbles up
+
+			-- Time horizon multipliers for objectives
+			time_multipliers = {
+				daily = 0.1, -- Very short term
+				weekly = 0.25,
+				monthly = 0.5,
+				quarterly = 1.0,
+				yearly = 3.0, -- Long-term goals worth more
+				["5year"] = 10.0,
+			},
+
+			-- Relevance decay (per day)
+			decay_rate = 0.001, -- 0.1% per day
+			decay_grace_days = 30, -- No decay for first 30 days
+		},
+
+		-- Project XP System (Seasonal Momentum)
+		project = {
+			-- Polynomial curve for seasonal levels: XP = base * level^exponent
+			season_curve = {
+				base = 100,
+				exponent = 1.2,
+			},
+
+			-- 3-stage task reward structure
+			task_rewards = {
+				-- Initiation stage (first N tasks)
+				initiation = {
+					task_count = 3,
+					base_xp = 50,
+					curve = "logarithmic", -- Front-loaded rewards
+					multiplier = 2.0,
+				},
+
+				-- Execution stage (main body)
+				execution = {
+					base_xp = 20,
+					curve = "linear",
+				},
+
+				-- Completion bonus (final task)
+				completion = {
+					multiplier = 5.0, -- 5x the execution XP
+					bonus_xp = 200, -- Plus flat bonus
+				},
+			},
+
+			-- Integration with Area system
+			area_transfer_rate = 0.10, -- 10% of project XP goes to area
+		},
+
+		-- Season Configuration
+		seasons = {
+			-- Default season length (days)
+			default_length = 90, -- Quarterly
+
+			-- Battle pass tiers
+			tiers = {
+				{ name = "Bronze", required_level = 1 },
+				{ name = "Silver", required_level = 5 },
+				{ name = "Gold", required_level = 10 },
+				{ name = "Platinum", required_level = 15 },
+				{ name = "Diamond", required_level = 20 },
+				{ name = "Master", required_level = 30 },
+			},
+		},
+
+		-- Old system to migrate back in
+		--[[
 		base = {
 			task = 10,
 			project = 50,
@@ -116,8 +187,6 @@ M.defaults = {
 			[0.9] = 0.76,
 			[1.0] = 1.00,
 		},
-	},
-
 	-- Skill Tree Configuration
 	skills = {
 		distribution_curve = "even", -- "even", "weighted", "primary"
@@ -152,33 +221,104 @@ M.defaults = {
 		},
 	},
 
+  -- Skills configuration
+  skills = {
+    categories = {
+      technical = { color = "#61afef", icon = "💻" },
+      creative = { color = "#c678dd", icon = "🎨" },
+      business = { color = "#98c379", icon = "💼" },
+      personal = { color = "#e06c75", icon = "🌟" },
+    },
+  },
+
+--]]
+	},
+
 	-- UI Configuration
 	ui = {
 		calendar = {
 			window = {
-				width = 0.8,
-				height = 0.8,
+				relative = "editor",
+				width = 82,
+				height = 0.85,
+				border = "rounded",
+				title = " 📅 Zortex Calendar ",
+				title_pos = "center",
 			},
 			colors = {
 				today = "DiagnosticOk",
-				selected = "CursorLine",
 				weekend = "Comment",
 				has_entry = "DiagnosticInfo",
+				header = "Title",
+				border = "FloatBorder",
+				footer = "Comment",
+				key_hint = "NonText",
+				digest_header = "Title",
+				notification = "DiagnosticWarn",
+				-- "IncSearch" "CursorLine" "CursorLineNr"
+				selected = "MiniHipatternsTodo",
+				today_selected = "MiniHipatternsTodo",
+				selected_text = "MiniHipatternsTodo",
+				-- selected_icon = "@variable.builtin",
+				selected_icon = "MiniHipatternsTodo",
 			},
-			skill_tree = {
-				width = 80,
-				height = 30,
-				border = "rounded",
+			-- icons = {
+			-- 	event = "🎉",
+			-- 	task = "📝",
+			-- 	task_done = "✔",
+			-- 	notification = "🔔",
+			-- 	has_items = "•", -- Default dot for days with any entry
+			-- },
+			-- icons = {
+			-- 	event = "◆",
+			-- 	task = "□",
+			-- 	task_done = "☑",
+			-- 	notification = "◉",
+			-- 	has_items = "•",
+			-- 	none = " ",
+			-- },
+			pretty_attributes = true, -- Enable/disable pretty display of attributes
+			icon_width = 3, -- Unfortunately necessary atm for calculating how much an icon will shift text in the terminal (fn.strwidth doesn't calculate it correctly).
+			icons = {
+				event = "󰃰", -- nf-md-calendar_star
+				task = "󰄬", -- nf-md-checkbox_blank_circle_outline
+				task_done = "󰄱", -- nf-md-check_circle
+				notification = "󰍛", -- nf-md-bell_ring
+				has_items = "󰸞", -- nf-md-dots_circle
+				none = " ",
+			},
+			digest = {
+				show_upcoming_days = 7, -- Show events for next 7 days
+				show_high_priority = true, -- Show high priority/importance projects
+				position = "right", -- right, bottom, or floating
+			},
+			keymaps = {
+				close = { "q", "<Esc>" },
+				next_day = { "l", "<Right>" },
+				prev_day = { "h", "<Left>" },
+				next_week = { "j", "<Down>" },
+				prev_week = { "k", "<Up>" },
+				next_month = { "J" },
+				prev_month = { "K" },
+				next_year = { "L" },
+				prev_year = { "H" },
+				today = { "t", "T" },
+				add_entry = { "a", "i" },
+				view_entries = { "<CR>", "o" },
+				edit_entry = { "e" },
+				delete_entry = { "x" },
+				telescope_search = { "/" },
+				toggle_view = { "v" },
+				digest = { "d", "D" },
+				refresh = { "r", "R" },
+				go_to_file = { "gf" },
+				sync_notifications = { "n" },
+				help = { "?" },
 			},
 		},
 		telescope = {
 			-- Optional telescope-specific config
 		},
-	},
-
-	-- Archive Configuration
-	archive = {
-		bubble_xp = true,
 	},
 }
 

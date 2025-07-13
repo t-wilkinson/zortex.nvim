@@ -16,6 +16,8 @@ vim.bo.shiftwidth = 4 -- Indent width
 vim.wo.wrap = true -- Enable line wrapping
 vim.wo.breakindent = true -- Indent wrapped lines
 
+vim.bo.comments = ""
+
 -- Additional useful settings for note-taking
 vim.bo.expandtab = true -- Use spaces instead of tabs
 vim.bo.textwidth = 0 -- No automatic line breaking

@@ -27,19 +27,21 @@ local modules = {
 	skills = require("zortex.modules.skills"),
 	xp = require("zortex.modules.xp"),
 	xp_notifications = require("zortex.modules.xp_notifications"),
-	digest = require("zortex.modules.digest"),
 }
 
 -- UI modules
-local ui = require("zortex.ui")
+local ui = {
+	calendar = require("zortex.ui.calendar"),
+	telescope = require("zortex.ui.telescope"),
+	skill_tree = require("zortex.ui.skill_tree"),
+}
 
 -- =============================================================================
 -- User Commands
 -- =============================================================================
 
-local function setup_commands()
+local function setup_commands(prefix)
 	local cmd = vim.api.nvim_create_user_command
-	local prefix = "Zortex"
 
 	-- ===========================================================================
 	-- Notifications
@@ -91,16 +93,16 @@ local function setup_commands()
 	-- ===========================================================================
 	-- Telescope
 	-- ===========================================================================
-	cmd("ZortexTelescope", function()
+	cmd(prefix .. "Telescope", function()
 		require("telescope").extensions.zortex.zortex()
 	end, { desc = "Open Zortex telescope picker" })
-	cmd("ZortexToday", function()
+	cmd(prefix .. "Today", function()
 		ui.telescope.today_digest()
 	end, { desc = "Show today's digest" })
-	cmd("ZortexProjects", function()
+	cmd(prefix .. "Projects", function()
 		ui.telescope.projects()
 	end, { desc = "Browse projects with telescope" })
-	cmd("ZortexCalendarSearch", function()
+	cmd(prefix .. "CalendarSearch", function()
 		ui.telescope.calendar()
 	end, { desc = "Search calendar with telescope" })
 
@@ -210,39 +212,38 @@ end
 -- Keymaps
 -- =============================================================================
 
-local function setup_keymaps()
+local function setup_keymaps(key_prefix, cmd_prefix)
 	local opts = { noremap = true, silent = true }
 	local function add_opts(with_opts)
 		return vim.tbl_extend("force", opts, with_opts)
 	end
 
-	local prefix = "<leader>z"
 	local map = vim.keymap.set
 
 	-- Navigation
-	map("n", prefix .. "s", ":ZortexSearch<CR>", add_opts({ desc = "Zortex search" }))
-	map("n", "gx", "<cmd>ZortexOpenLink<CR>", add_opts({ desc = "Open Zortex link" }))
-	-- map("n", "<CR>", "<cmd>ZortexOpenLink<CR>", add_opts({ desc = "Open Zortex link" }))
+	map("n", key_prefix .. "s", "<cmd>" .. cmd_prefix .. "Search<CR>", add_opts({ desc = "Zortex search" }))
+	map("n", "gx", "<cmd>" .. cmd_prefix .. "OpenLink<CR>", add_opts({ desc = "Open Zortex link" }))
+	-- map("n", "<CR>", "<cmd>" .. cmd_prefix .. "OpenLink<CR>", add_opts({ desc = "Open Zortex link" }))
 
 	-- Calendar
-	map("n", prefix .. "c", "<cmd>ZortexCalendar<cr>", { desc = "Open calendar" })
-	map("n", prefix .. "A", "<cmd>ZortexCalendarAdd<cr>", { desc = "Add calendar entry" })
+	map("n", key_prefix .. "c", "<cmd>" .. cmd_prefix .. "Calendar<cr>", { desc = "Open calendar" })
+	map("n", key_prefix .. "A", "<cmd>" .. cmd_prefix .. "CalendarAdd<cr>", { desc = "Add calendar entry" })
 
 	-- Telescope
-	map("n", prefix .. "t", "<cmd>ZortexToday<cr>", { desc = "Today's digest" })
-	map("n", prefix .. "p", "<cmd>ZortexProjects<cr>", { desc = "Browse projects" })
-	map("n", prefix .. "f", "<cmd>ZortexTelescope<cr>", { desc = "Zortex telescope" })
+	map("n", key_prefix .. "t", "<cmd>" .. cmd_prefix .. "Today<cr>", { desc = "Today's digest" })
+	map("n", key_prefix .. "p", "<cmd>" .. cmd_prefix .. "Projects<cr>", { desc = "Browse projects" })
+	map("n", key_prefix .. "f", "<cmd>" .. cmd_prefix .. "Telescope<cr>", { desc = "Zortex telescope" })
 
 	-- Projects
-	map("n", prefix .. "P", ":ZortexProjectsOpen<CR>", add_opts({ desc = "Open projects" }))
-	map("n", prefix .. "a", "<cmd>ZortexArchiveProject<CR>", add_opts({ desc = "Archive project" }))
-	map("n", prefix .. "x", "<cmd>ZortexToggleTask<CR>", add_opts({ desc = "Complete current task" }))
+	map("n", key_prefix .. "P", ":ZortexProjectsOpen<CR>", add_opts({ desc = "Open projects" }))
+	map("n", key_prefix .. "a", "<cmd>" .. cmd_prefix .. "ArchiveProject<CR>", add_opts({ desc = "Archive project" }))
+	map("n", key_prefix .. "x", "<cmd>" .. cmd_prefix .. "ToggleTask<CR>", add_opts({ desc = "Complete current task" }))
 
 	-- Progress
-	map("n", prefix .. "u", "<cmd>ZortexUpdateProgress<cr>", { desc = "Update progress" })
+	map("n", key_prefix .. "u", "<cmd>" .. cmd_prefix .. "UpdateProgress<cr>", { desc = "Update progress" })
 
 	-- XP System
-	map("n", prefix .. "k", "<cmd>ZortexSkillTree<CR>", add_opts({ desc = "Show skill tree" }))
+	map("n", key_prefix .. "k", "<cmd>" .. cmd_prefix .. "SkillTree<CR>", add_opts({ desc = "Show skill tree" }))
 end
 
 -- =============================================================================
@@ -288,17 +289,20 @@ function M.setup(opts)
 	-- Initialize modules
 	local config = core.config.setup(opts)
 
-	modules.xp.setup(core.config.get("xp"))
-	ui.setup(config)
+	-- Call setup functions
+	-- ui.telescope.setup()
+	ui.calendar.setup(config.ui.calendar)
+
+	modules.xp.setup(config.xp)
+	modules.notifications.setup(config.notifications)
+	-- modules.projects.load() -- Not sure if this is necessary
+
 	core.highlights.setup_autocmd()
 	core.highlights.setup_highlights()
-	modules.notifications.setup(config.notifications)
-	modules.digest.setup()
-	modules.projects.load() -- Not sure if this is necessary
 
 	-- Setup autocmds, keymaps, and autocmds
-	setup_commands()
-	setup_keymaps()
+	setup_commands(config.commands.prefix)
+	setup_keymaps(config.keymaps.prefix, config.commands.prefix)
 	setup_autocmds()
 
 	-- Random seed for generating ids

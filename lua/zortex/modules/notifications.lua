@@ -773,7 +773,6 @@ end
 function M.setup(opts)
 	cfg = opts
 
-	-- Load initial state
 	M.load_state()
 end
 

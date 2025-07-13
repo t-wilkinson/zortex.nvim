@@ -1,7 +1,6 @@
 -- modules/xp.lua - Revamped XP System with Area and Project XP
 local M = {}
 
-local xp_config = require("zortex.modules.xp_config")
 local parser = require("zortex.core.parser")
 local fs = require("zortex.core.filesystem")
 local constants = require("zortex.constants")
@@ -9,6 +8,8 @@ local constants = require("zortex.constants")
 -- =============================================================================
 -- State Management
 -- =============================================================================
+
+local cfg = {}
 
 local state = {
 	-- Area XP data: area_path -> { xp, level }
@@ -24,13 +25,113 @@ local state = {
 }
 
 -- =============================================================================
+-- XP Calculation Functions
+-- =============================================================================
+
+-- Calculate XP required for area level
+function M.calculate_area_level_xp(level)
+	local curve = cfg.area.level_curve
+	return math.floor(curve.base * math.pow(level, curve.exponent))
+end
+
+-- Calculate XP required for season level
+function M.calculate_season_level_xp(level)
+	local curve = cfg.project.season_curve
+	return math.floor(curve.base * math.pow(level, curve.exponent))
+end
+
+-- Calculate time horizon multiplier
+function M.get_time_multiplier(time_horizon)
+	local multipliers = cfg.area.time_multipliers
+	return multipliers[time_horizon:lower()] or 1.0
+end
+
+-- Calculate relevance decay
+function M.calculate_decay_factor(days_old)
+	local decay = cfg.area.decay
+	if days_old <= decay.grace_days then
+		return 1.0
+	end
+
+	local days_decaying = days_old - decay.grace_days
+	return math.max(0.1, 1.0 - (decay.rate * days_decaying))
+end
+
+-- Calculate task XP based on position in project
+function M.calculate_task_xp(task_position, total_tasks)
+	local rewards = cfg.project.task_rewards
+
+	-- Completion bonus for final task
+	if task_position == total_tasks and total_tasks > 1 then
+		local base = rewards.execution.base_xp
+		return math.floor(base * rewards.completion.multiplier + rewards.completion.bonus_xp)
+	end
+
+	-- Initiation stage
+	if task_position <= rewards.initiation.task_count then
+		local base = rewards.initiation.base_xp
+		if rewards.initiation.curve == "logarithmic" then
+			-- Front-loaded: more XP for first tasks
+			local factor = math.log(rewards.initiation.task_count - task_position + 2)
+			return math.floor(base * rewards.initiation.multiplier * factor)
+		end
+		return math.floor(base * rewards.initiation.multiplier)
+	end
+
+	-- Execution stage
+	return rewards.execution.base_xp
+end
+
+-- =============================================================================
+-- Season Management
+-- =============================================================================
+
+-- Get current tier based on level
+function M.get_season_tier(level)
+	local tiers = cfg.seasons.tiers
+	local current_tier = nil
+
+	for _, tier in ipairs(tiers) do
+		if level >= tier.required_level then
+			current_tier = tier
+		else
+			break
+		end
+	end
+
+	return current_tier
+end
+
+-- Get next tier
+function M.get_next_tier(level)
+	local tiers = cfg.seasons.tiers
+
+	for _, tier in ipairs(tiers) do
+		if level < tier.required_level then
+			return tier
+		end
+	end
+
+	return nil -- Max tier reached
+end
+
+-- Calculate progress to next tier
+function M.calculate_tier_progress(current_xp, current_level)
+	local current_required = M.calculate_season_level_xp(current_level)
+	local next_required = M.calculate_season_level_xp(current_level + 1)
+
+	local progress = (current_xp - current_required) / (next_required - current_required)
+	return math.max(0, math.min(1, progress))
+end
+
+-- =============================================================================
 -- Area XP System
 -- =============================================================================
 
 -- Calculate level from XP
 function M.calculate_area_level(xp)
 	local level = 1
-	while xp >= xp_config.calculate_area_level_xp(level + 1) do
+	while xp >= M.calculate_area_level_xp(level + 1) do
 		level = level + 1
 	end
 	return level
@@ -39,8 +140,8 @@ end
 -- Get area progress to next level
 function M.get_area_progress(xp)
 	local level = M.calculate_area_level(xp)
-	local current_threshold = xp_config.calculate_area_level_xp(level)
-	local next_threshold = xp_config.calculate_area_level_xp(level + 1)
+	local current_threshold = M.calculate_area_level_xp(level)
+	local next_threshold = M.calculate_area_level_xp(level + 1)
 
 	local progress = (xp - current_threshold) / (next_threshold - current_threshold)
 	return level, progress, next_threshold - xp
@@ -66,7 +167,7 @@ function M.add_area_xp(area_path, xp_amount, parent_links)
 
 	-- Bubble XP to parent areas
 	if parent_links and #parent_links > 0 then
-		local bubble_amount = math.floor(xp_amount * xp_config.get("area.bubble_percentage"))
+		local bubble_amount = math.floor(xp_amount * cfg.area.bubble_percentage)
 
 		for _, parent_link in ipairs(parent_links) do
 			-- Parse the parent area link
@@ -119,7 +220,7 @@ end
 -- Calculate season level from XP
 function M.calculate_season_level(xp)
 	local level = 1
-	while xp >= xp_config.calculate_season_level_xp(level + 1) do
+	while xp >= M.calculate_season_level_xp(level + 1) do
 		level = level + 1
 	end
 	return level
@@ -129,7 +230,7 @@ function M.complete_project(project_name, total_project_xp, area_links)
 	if not area_links or #area_links == 0 then
 		return
 	end
-	local transfer_rate = xp_config.get("project.area_transfer_rate")
+	local transfer_rate = cfg.project.area_transfer_rate
 	local area_xp = math.floor(total_project_xp * transfer_rate)
 	local per_area = math.floor(area_xp / #area_links)
 	for _, link in ipairs(area_links) do
@@ -148,7 +249,7 @@ function M.complete_task(project_name, task_position, total_tasks, area_links, s
 	-- This function just handles the XP awarding
 
 	-- Calculate task XP
-	local task_xp = xp_config.calculate_task_xp(task_position, total_tasks)
+	local task_xp = M.calculate_task_xp(task_position, total_tasks)
 
 	-- Add to project XP (if we're still tracking project-level XP)
 	if not state.project_xp[project_name] then
@@ -167,7 +268,7 @@ function M.complete_task(project_name, task_position, total_tasks, area_links, s
 
 	-- Add to season XP
 	if state.current_season then
-		old_season_tier = xp_config.get_season_tier(old_season_level)
+		old_season_tier = M.get_season_tier(old_season_level)
 		state.season_xp = state.season_xp + task_xp
 		state.season_level = M.calculate_season_level(state.season_xp)
 	end
@@ -175,7 +276,7 @@ function M.complete_task(project_name, task_position, total_tasks, area_links, s
 	-- Transfer to linked areas with detailed tracking
 	local area_transfers = {}
 	if area_links and #area_links > 0 then
-		local transfer_rate = xp_config.get("project.area_transfer_rate")
+		local transfer_rate = cfg.project.area_transfer_rate
 		local area_xp = math.floor(task_xp * transfer_rate)
 		local xp_per_area = math.floor(area_xp / #area_links)
 
@@ -211,7 +312,7 @@ function M.complete_task(project_name, task_position, total_tasks, area_links, s
 
 		-- Add season info if applicable
 		if state.current_season then
-			local new_tier = xp_config.get_season_tier(state.season_level)
+			local new_tier = M.get_season_tier(state.season_level)
 			details.season_info = {
 				name = state.current_season.name,
 				level = state.season_level,
@@ -251,7 +352,7 @@ function M.uncomplete_task(project_name, xp_to_remove, area_links, silent)
 
 	-- Remove from linked areas
 	if area_links and #area_links > 0 then
-		local transfer_rate = xp_config.get("project.area_transfer_rate")
+		local transfer_rate = cfg.project.area_transfer_rate
 		local area_xp = math.floor(xp_to_remove * transfer_rate)
 		local xp_per_area = math.floor(area_xp / #area_links)
 
@@ -289,13 +390,13 @@ end
 function M.complete_objective(objective_text, time_horizon, area_links, created_date)
 	-- Calculate base XP with time multiplier
 	local base_xp = 500
-	local time_mult = xp_config.get_time_multiplier(time_horizon)
+	local time_mult = M.get_time_multiplier(time_horizon)
 
 	-- Calculate decay if objective is old
 	local decay_factor = 1.0
 	if created_date then
 		local days_old = math.floor((os.time() - created_date) / 86400)
-		decay_factor = xp_config.calculate_decay_factor(days_old)
+		decay_factor = M.calculate_decay_factor(days_old)
 	end
 
 	local total_xp = math.floor(base_xp * time_mult * decay_factor)
@@ -366,7 +467,7 @@ function M.end_season()
 	end
 
 	local season = state.current_season
-	local final_tier = xp_config.get_season_tier(state.season_level)
+	local final_tier = M.get_season_tier(state.season_level)
 
 	-- Archive season data
 	local season_data = {
@@ -416,12 +517,12 @@ function M.get_season_status()
 		return nil
 	end
 
-	local tier = xp_config.get_season_tier(state.season_level)
-	local next_tier = xp_config.get_next_tier(state.season_level)
+	local tier = M.get_season_tier(state.season_level)
+	local next_tier = M.get_next_tier(state.season_level)
 
 	-- Calculate progress within current level
-	local current_level_xp = xp_config.calculate_season_level_xp(state.season_level)
-	local next_level_xp = xp_config.calculate_season_level_xp(state.season_level + 1)
+	local current_level_xp = M.calculate_season_level_xp(state.season_level)
+	local next_level_xp = M.calculate_season_level_xp(state.season_level + 1)
 	local progress_in_level = (state.season_xp - current_level_xp) / (next_level_xp - current_level_xp)
 
 	return {
@@ -530,7 +631,7 @@ end
 -- =============================================================================
 
 function M.setup(opts)
-	xp_config.setup(opts)
+	cfg = opts
 	M.load_state()
 end
 

@@ -4,8 +4,6 @@ local M = {}
 local config = require("zortex.core.config")
 local constants = require("zortex.constants")
 local skills = require("zortex.modules.skills")
-local xp = require("zortex.modules.xp")
-local xp_config = require("zortex.modules.xp_config")
 
 -- =============================================================================
 -- Display Helpers
@@ -89,12 +87,6 @@ local function render_season_section(lines, highlights)
 			lines,
 			string.format("Next: %s Tier (Level %d)", status.next_tier.name, status.next_tier.required_level)
 		)
-
-		-- Show reward if configured
-		local rewards = xp_config.get("seasons.tier_rewards")
-		if rewards and rewards[status.next_tier.name] then
-			table.insert(lines, string.format("Reward: %s", rewards[status.next_tier.name]))
-		end
 	else
 		table.insert(lines, "")
 		table.insert(lines, "MAX TIER REACHED! 🏆")

@@ -9,6 +9,12 @@ data "archive_file" "manifest_processor" {
   output_path = "${path.module}/manifest_processor.zip"
 }
 
+data "archive_file" "notification_sender" {
+  type        = "zip"
+  source_file = "${path.module}/notification_sender.py"
+  output_path = "${path.module}/notification_sender.zip"
+}
+
 # DynamoDB Table
 resource "aws_dynamodb_table" "notifications" {
   name         = "zortex-notifications"
@@ -68,12 +74,13 @@ resource "aws_lambda_function" "manifest_processor" {
 }
 
 resource "aws_lambda_function" "notification_sender" {
-  filename      = "notification_sender.zip"
-  function_name = "zortex-notification-sender"
-  role          = aws_iam_role.lambda_role.arn
-  handler       = "notification_sender.handler"
-  runtime       = "python3.9"
-  timeout       = 30
+  function_name    = "zortex-notification-sender"
+  filename         = data.archive_file.manifest_processor.output_path
+  source_code_hash = data.archive_file.manifest_processor.output_base64sha256
+  role             = aws_iam_role.lambda_role.arn
+  handler          = "notification_sender.handler"
+  runtime          = "python3.9"
+  timeout          = 30
 }
 
 # API Gateway
@@ -133,7 +140,10 @@ resource "aws_iam_role_policy" "lambda_policy" {
           "dynamodb:Query",
           "dynamodb:Scan"
         ]
-        Resource = aws_dynamodb_table.notifications.arn
+        Resource = [
+          aws_dynamodb_table.notifications.arn,
+          "${aws_dynamodb_table.notifications.arn}/index/*"
+        ]
       },
       {
         Effect = "Allow"

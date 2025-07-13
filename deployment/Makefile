@@ -1,17 +1,49 @@
-zip := manifest_processor.zip
-lambda := zortex-manifest-processor
+LAMBDA_PROCESSOR_NAME := zortex-manifest-processor
+LAMBDA_SENDER_NAME    := zortex-notification-sender
 
-HANDLER_PACKAGES = $(wildcard manifest_processor_packages/*)
+PROCESSOR_ZIP := manifest_processor.zip
+SENDER_ZIP    := notification_sender.zip
+PROCESSOR_SRC_FILES := $(wildcard manifest_processor/*.py)
 
-$(zip): handler.py notification_sender.py requirements.txt
-	uv pip install --quiet --target build -r requirements.txt
-	cd manifest_processor_packages && zip -rq ../$@ .
-	zip -g $@ handler.py notification_sender.py
+VENDOR_DIR := manifest_processor/vendor
 
-.PHONY: deploy
-deploy: $(zip)
-	aws lambda update-function-code --function-name $(lambda) --zip-file fileb://$(zip)
+.PHONY: all deploy deploy-processor deploy-sender vendor clean
 
-freeze: $(HANDLER_PACKAGES)
-	PYTHON_PATH=./manifest_processor_packages uv pip freeze > requirements.txt
+all: $(PROCESSOR_ZIP) $(SENDER_ZIP)
 
+$(VENDOR_DIR): requirements.txt
+	@echo "--> Installing dependencies from requirements.txt into $(VENDOR_DIR)"
+	@uv pip install --system --quiet --target $(VENDOR_DIR) -r requirements.txt
+
+vendor: $(VENDOR_DIR)
+
+
+$(PROCESSOR_ZIP): requirements.txt $(PROCESSOR_SRC_FILES)
+	@echo "--> Creating processor package: $@"
+	@cd manifest_processor && zip -rq ../$(PROCESSOR_ZIP) *.py
+	@cd $(VENDOR_DIR) && zip -g -r -q ../../$(PROCESSOR_ZIP) .
+
+$(SENDER_ZIP): notification_sender.py
+	@echo "--> Creating sender package: $@"
+	@zip -q $(SENDER_ZIP) notification_sender.py
+
+zip: manifest_processor notification_sender requirements.txt
+
+freeze: $(PROCESSOR_SRC_FILES)
+	PYTHON_PATH=./manifest_processor/vendor uv pip freeze > requirements.txt
+
+deploy: deploy-processor
+
+deploy-processor: $(PROCESSOR_ZIP)
+	@echo "--> Deploying $(PROCESSOR_ZIP) to Lambda function: $(LAMBDA_PROCESSOR_NAME)"
+	@aws lambda update-function-code --function-name $(LAMBDA_PROCESSOR_NAME) --zip-file fileb://$(PROCESSOR_ZIP)
+	@echo "--> Deployment successful!"
+
+deploy-sender: $(SENDER_ZIP)
+	@echo "--> Deploying $(SENDER_ZIP) to Lambda function: $(LAMBDA_SENDER_NAME)"
+	@aws lambda update-function-code --function-name $(LAMBDA_SENDER_NAME) --zip-file fileb://$(SENDER_ZIP)
+	@echo "--> Deployment successful!"
+
+clean:
+	@echo "--> Cleaning up generated files"
+	@rm -f $(PROCESSOR_ZIP) $(SENDER_ZIP)

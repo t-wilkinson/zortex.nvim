@@ -1,4 +1,4 @@
-# handler.py
+# manifest_processor/handler.py
 import json
 import boto3
 import uuid
@@ -37,12 +37,12 @@ def calculate_next_trigger(notification):
     notify_delta = timedelta(minutes=notification.get("notify_minutes", 15))
 
     # Check date range
-    if "from_date" in notification:
+    if "from_date" in notification and notification["from_date"]:
         from_date = date_parser.parse(notification["from_date"]).date()
         if base_datetime.date() < from_date:
             base_datetime = datetime.combine(from_date, base_datetime.time())
 
-    if "to_date" in notification:
+    if "to_date" in notification and notification["to_date"]:
         to_date = date_parser.parse(notification["to_date"]).date()
         if base_datetime.date() > to_date:
             return None  # Outside date range
@@ -67,7 +67,7 @@ def calculate_next_trigger(notification):
         notify_time = occurrence - notify_delta
         if notify_time > now:
             # Check if within date range
-            if "to_date" in notification:
+            if "to_date" in notification and notification["to_date"]:
                 if (
                     occurrence.date()
                     > date_parser.parse(notification["to_date"]).date()
@@ -119,21 +119,30 @@ def handler(event, context):
         notifications = body["notifications"]
 
         # Mark existing as inactive
+        # FIX: Added ExpressionAttributeNames to handle reserved keyword 'status'
         response = table.query(
             IndexName="user-status-index",
-            KeyConditionExpression="user_id = :uid AND status = :status",
+            KeyConditionExpression="user_id = :uid AND #s = :status",
+            ExpressionAttributeNames={"#s": "status"},
             ExpressionAttributeValues={":uid": user_id, ":status": "active"},
         )
 
         for item in response["Items"]:
             # Cancel EventBridge rule
             if "schedule_rule_arn" in item:
-                events.delete_rule(Name=f"zortex-notify-{item['id']}")
+                try:
+                    events.delete_rule(Name=f"zortex-notify-{item['id']}")
+                except events.exceptions.ResourceNotFoundException:
+                    print(
+                        f"Rule zortex-notify-{item['id']} not found, skipping delete."
+                    )
 
             # Mark as completed
+            # FIX: Added ExpressionAttributeNames to handle reserved keyword 'status'
             table.update_item(
                 Key={"id": item["id"]},
-                UpdateExpression="SET status = :status",
+                UpdateExpression="SET #s = :status",
+                ExpressionAttributeNames={"#s": "status"},
                 ExpressionAttributeValues={":status": "completed"},
             )
 
@@ -160,7 +169,12 @@ def handler(event, context):
             # Cancel old rule
             old_item = response["Items"][0]
             if "schedule_rule_arn" in old_item:
-                events.delete_rule(Name=f"zortex-notify-{old_item['id']}")
+                try:
+                    events.delete_rule(Name=f"zortex-notify-{old_item['id']}")
+                except events.exceptions.ResourceNotFoundException:
+                    print(
+                        f"Rule zortex-notify-{old_item['id']} not found, skipping delete."
+                    )
 
             # Update with new data
             process_notification(user_id, notification, notification_id=old_item["id"])
@@ -177,11 +191,19 @@ def handler(event, context):
 
         for item in response["Items"]:
             if "schedule_rule_arn" in item:
-                events.delete_rule(Name=f"zortex-notify-{item['id']}")
+                try:
+                    events.delete_rule(Name=f"zortex-notify-{item['id']}")
+                except events.exceptions.ResourceNotFoundException:
+                    print(
+                        f"Rule zortex-notify-{item['id']} not found, skipping delete."
+                    )
 
+            # Mark as completed
+            # FIX: Added ExpressionAttributeNames to handle reserved keyword 'status'
             table.update_item(
                 Key={"id": item["id"]},
-                UpdateExpression="SET status = :status",
+                UpdateExpression="SET #s = :status",
+                ExpressionAttributeNames={"#s": "status"},
                 ExpressionAttributeValues={":status": "completed"},
             )
 
@@ -196,6 +218,9 @@ def process_notification(user_id, notification, notification_id=None):
     # Calculate next trigger
     next_trigger = calculate_next_trigger(notification)
     if not next_trigger:
+        print(
+            f"No future trigger for notification {notification.get('entry_id')}. Skipping."
+        )
         return  # No future triggers
 
     # Create EventBridge rule

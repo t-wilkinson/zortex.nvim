@@ -51,10 +51,6 @@ local function setup_commands()
 		end
 	end, { desc = "Test ntfy notification" })
 
-	cmd(prefix .. "NtfySetup", function()
-		modules.notifications.setup_ntfy_listener()
-	end, { desc = "Setup ntfy listener service" })
-
 	-- AWS Notification commands
 	cmd(prefix .. "SyncNotifications", function()
 		modules.notifications.sync()

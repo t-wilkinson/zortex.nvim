@@ -22,7 +22,8 @@ local config = {
 	},
 	ntfy = {
 		enabled = true,
-		server_url = "http://zortex.treywilkinson.com", -- or your self-hosted server
+		-- server_url = "http://zortex.treywilkinson.com", -- or your self-hosted server
+		server_url = "http://ntfy.sh", -- or your self-hosted server
 		topic = "zortex-notify-tcgcp",
 		priority = "default", -- min, low, default, high, urgent
 		tags = { "calendar", "zortex" },

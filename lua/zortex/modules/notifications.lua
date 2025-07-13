@@ -9,32 +9,7 @@ local datetime = require("zortex.core.datetime")
 -- Configuration
 -- =============================================================================
 
-local config = {
-	default_advance_minutes = 15, -- Default notification time before event
-	check_interval_minutes = 5, -- How often to check for notifications
-	notification_file = ".z/notifications.json",
-	notification_log = ".z/notification_log.json",
-	enable_system_notifications = true,
-	commands = {
-		macos = "terminal-notifier -title '%s' -message '%s' -sound default",
-		linux = "notify-send -u normal -t 10000 '%s' '%s'",
-		termux = "termux-notification --title '%s' --content '%s'",
-	},
-	ntfy = {
-		enabled = true,
-		-- server_url = "http://zortex.treywilkinson.com", -- or your self-hosted server
-		server_url = "http://ntfy.sh", -- or your self-hosted server
-		topic = "zortex-notify-tcgcp",
-		priority = "default", -- min, low, default, high, urgent
-		tags = { "calendar", "zortex" },
-		auth_token = nil, -- optional, for authenticated topics
-	},
-	aws = {
-		enabled = true,
-		api_endpoint = "https://qd5wcnxpn8.execute-api.us-east-1.amazonaws.com/prod/manifest",
-		user_id = 229817327380,
-	},
-}
+local cfg = {}
 
 -- =============================================================================
 -- State Management
@@ -70,12 +45,12 @@ local function get_os()
 end
 
 local function send_system_notification(title, message)
-	if not config.enable_system_notifications then
+	if not cfg.enable_system_notifications then
 		return false
 	end
 
 	local os_type = get_os()
-	local cmd_template = config.commands[os_type]
+	local cmd_template = cfg.commands[os_type]
 
 	if not cmd_template then
 		return false
@@ -92,13 +67,13 @@ local function send_system_notification(title, message)
 end
 
 local function send_ntfy_notification(title, message, options)
-	if not config.ntfy.enabled then
+	if not cfg.ntfy.enabled then
 		return false
 	end
 
 	options = options or {}
-	local priority = options.priority or config.ntfy.priority
-	local tags = options.tags or config.ntfy.tags
+	local priority = options.priority or cfg.ntfy.priority
+	local tags = options.tags or cfg.ntfy.tags
 	local click_url = options.click_url or nil
 
 	-- Build curl command
@@ -126,9 +101,9 @@ local function send_ntfy_notification(title, message, options)
 	end
 
 	-- Add auth token if configured
-	if config.ntfy.auth_token then
+	if cfg.ntfy.auth_token then
 		table.insert(cmd_parts, "-H")
-		table.insert(cmd_parts, string.format('"Authorization: Bearer %s"', config.ntfy.auth_token))
+		table.insert(cmd_parts, string.format('"Authorization: Bearer %s"', cfg.ntfy.auth_token))
 	end
 
 	-- Add message data
@@ -136,7 +111,7 @@ local function send_ntfy_notification(title, message, options)
 	table.insert(cmd_parts, string.format('"%s"', message:gsub('"', '\\"')))
 
 	-- Add server URL and topic
-	table.insert(cmd_parts, string.format('"%s/%s"', config.ntfy.server_url, config.ntfy.topic))
+	table.insert(cmd_parts, string.format('"%s/%s"', cfg.ntfy.server_url, cfg.ntfy.topic))
 
 	local cmd = table.concat(cmd_parts, " ")
 	local handle = io.popen(cmd .. " 2>&1")
@@ -156,7 +131,7 @@ end
 
 -- AWS Integration Functions
 local function send_manifest_to_server(operation, data)
-	local aws_config = config.aws
+	local aws_config = cfg.aws
 	if not aws_config.enabled or not aws_config.api_endpoint or not aws_config.user_id then
 		return false
 	end
@@ -211,7 +186,7 @@ local function entry_to_notification(entry, date_str)
 		title = entry.display_text,
 		message = entry.display_text,
 		date = date_str,
-		ntfy_topic = config.ntfy.topic or ("zortex-" .. config.aws.user_id),
+		ntfy_topic = cfg.ntfy.topic or ("zortex-" .. cfg.aws.user_id),
 	}
 
 	-- Time (default to 9:00 if not specified)
@@ -292,7 +267,7 @@ end
 local function parse_notify_value(notify_value)
 	-- Parse notification timing: "15m", "1h", "30", etc.
 	if not notify_value or notify_value == true then
-		return config.default_advance_minutes
+		return cfg.default_advance_minutes
 	end
 
 	if type(notify_value) == "string" then
@@ -310,7 +285,7 @@ local function parse_notify_value(notify_value)
 		return notify_value
 	end
 
-	return config.default_advance_minutes
+	return cfg.default_advance_minutes
 end
 
 local function get_notification_time(entry, event_datetime)
@@ -425,7 +400,7 @@ function M.check_and_send_notifications()
 							end)
 						end
 						-- Send ntfy notification
-						if config.ntfy.enabled then
+						if cfg.ntfy.enabled then
 							send_ntfy_notification(title, message, {
 								priority = "high",
 								tags = { "calendar", "reminder", time_str:gsub(" ", "-") },
@@ -454,7 +429,7 @@ end
 -- =============================================================================
 
 function M.load_state()
-	local notification_file = fs.get_file_path(config.notification_file)
+	local notification_file = fs.get_file_path(cfg.notification_file)
 	if notification_file then
 		local data = fs.read_json(notification_file)
 		if data then
@@ -466,7 +441,7 @@ function M.load_state()
 end
 
 function M.save_state()
-	local notification_file = fs.get_file_path(config.notification_file)
+	local notification_file = fs.get_file_path(cfg.notification_file)
 	if notification_file then
 		fs.write_json(notification_file, {
 			pending = state.pending,
@@ -498,7 +473,7 @@ end
 -- =============================================================================
 
 function M.sync()
-	if config.aws.enabled then
+	if cfg.aws.enabled then
 		return M.sync_to_aws()
 	else
 		return M.sync_local()
@@ -710,15 +685,6 @@ end
 -- Public API
 -- =============================================================================
 
-function M.setup(opts)
-	if opts then
-		config = vim.tbl_deep_extend("force", config, opts)
-	end
-
-	-- Load initial state
-	M.load_state()
-end
-
 function M.test_notification()
 	-- Send a test notification
 	local success =
@@ -749,7 +715,7 @@ end
 
 -- Add single notification to AWS
 function M.add_notification(entry, date_str)
-	if not config.aws.enabled then
+	if not cfg.aws.enabled then
 		return false
 	end
 
@@ -759,7 +725,7 @@ end
 
 -- Update notification in AWS
 function M.update_notification(entry, date_str)
-	if not config.aws.enabled then
+	if not cfg.aws.enabled then
 		return false
 	end
 
@@ -769,7 +735,7 @@ end
 
 -- Remove notification from AWS
 function M.remove_notification(entry, date_str)
-	if not config.aws.enabled then
+	if not cfg.aws.enabled then
 		return false
 	end
 
@@ -779,7 +745,7 @@ end
 
 -- Test AWS connection
 function M.test_aws_connection()
-	if not config.aws.enabled then
+	if not cfg.aws.enabled then
 		vim.notify("AWS notifications not enabled", vim.log.levels.WARN)
 		return false
 	end
@@ -802,6 +768,13 @@ function M.test_aws_connection()
 	end
 
 	return success
+end
+
+function M.setup(opts)
+	cfg = opts
+
+	-- Load initial state
+	M.load_state()
 end
 
 return M

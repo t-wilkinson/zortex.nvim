@@ -487,14 +487,19 @@ end
 -- It handles validation, ID injection, checkbox toggle, buffer write, and downstream XP/XP updates.
 local function set_current_task_completion(should_complete)
 	local bufnr = 0
-	local line_num = vim.fn.line(".")
-	local lines = buffer.get_lines(bufnr)
-	local line = lines[line_num]
+	local row = vim.fn.line(".") - 1
+	local line = vim.api.nvim_get_current_line()
 
 	-- Validate task
 	local is_task, is_completed = parser.is_task_line(line)
 	if not is_task then
-		vim.notify("Not on a task line", vim.log.levels.WARN)
+		-- If line is a list then convert it to a task, otherwise fail
+		local indent, line_content = line:match("(%s*)- (.*)")
+		if indent and line_content then
+			vim.api.nvim_buf_set_lines(bufnr, row, row + 1, false, { indent .. "- [ ] " .. line_content })
+		else
+			vim.notify("Not on a task line", vim.log.levels.WARN)
+		end
 		return
 	end
 
@@ -526,8 +531,7 @@ local function set_current_task_completion(should_complete)
 	end
 
 	-- Update the specific line immediately
-	lines[line_num] = new_line
-	buffer.set_lines(bufnr, 0, -1, lines)
+	vim.api.nvim_buf_set_lines(bufnr, row, row + 1, false, { new_line })
 
 	-- Force buffer write to ensure changes are saved
 	vim.cmd("silent! write")
@@ -546,27 +550,6 @@ end
 
 function M.uncomplete_current_task()
 	set_current_task_completion(false)
-end
-
--- =============================================================================
--- Auto-update Setup
--- =============================================================================
-
-function M.setup_autocmd()
-	vim.api.nvim_create_autocmd("BufWritePre", {
-		pattern = "*.zortex",
-		callback = function(args)
-			local filename = vim.fn.expand("%:t")
-
-			if filename == "projects.zortex" then
-				M.update_project_progress(args.buf)
-				M.update_okr_progress()
-			elseif filename == "okr.zortex" then
-				M.update_okr_progress()
-			end
-		end,
-		group = vim.api.nvim_create_augroup("ZortexProgress", { clear = true }),
-	})
 end
 
 -- =============================================================================

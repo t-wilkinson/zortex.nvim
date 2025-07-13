@@ -377,3 +377,30 @@ Base XP:
                                                               │   (Push)     │
                                                               └──────────────┘
 ```
+
+## XP Overview
+
+**📊 Dual XP System**:
+
+1️⃣. **Area XP (Long-term Mastery)**
+
+- Earned from completing objectives
+- Uses exponential level curve (1000 \* level^2.5)
+- 75% bubbles up to parent areas
+- Time horizon multipliers:
+  - Daily: 0.1x
+  - Weekly: 0.25x
+  - Monthly: 0.5x
+  - Quarterly: 1.0x
+  - Yearly: 3.0x
+  - 5-Year: 10.0x
+
+2️⃣. **Project XP (Seasonal Momentum)**
+
+- Earned from completing tasks
+- 3-stage reward structure:
+  - Initiation (tasks 1-3): 100 XP with 2x multiplier
+  - Execution (middle tasks): 20 XP each
+  - Completion (final task): 5x multiplier + 200 XP bonus
+- 10% transfers to linked areas
+- Seasonal levels: 100 \* level^1.2

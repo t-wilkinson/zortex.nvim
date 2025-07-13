@@ -7,8 +7,41 @@ M.defaults = {
 	extension = ".zortex",
 	special_articles = { "structure" },
 
+	commands = {
+		prefix = "Zortex",
+	},
+	keymaps = {
+		prefix = "<leader>z",
+	},
 	calendar = {
 		digest_time = "09:00",
+	},
+
+	notifications = {
+		default_advance_minutes = 15, -- Default notification time before event
+		check_interval_minutes = 5, -- How often to check for notifications
+		notification_file = ".z/notifications.json",
+		notification_log = ".z/notification_log.json",
+		enable_system_notifications = true,
+		commands = {
+			macos = "terminal-notifier -title '%s' -message '%s' -sound default",
+			linux = "notify-send -u normal -t 10000 '%s' '%s'",
+			termux = "termux-notification --title '%s' --content '%s'",
+		},
+		ntfy = {
+			enabled = true,
+			-- server_url = "http://zortex.treywilkinson.com", -- or your self-hosted server
+			server_url = "http://ntfy.sh", -- or your self-hosted server
+			topic = "zortex-notify-tcgcp",
+			priority = "default", -- min, low, default, high, urgent
+			tags = { "calendar", "zortex" },
+			auth_token = nil, -- optional, for authenticated topics
+		},
+		aws = {
+			enabled = true,
+			api_endpoint = "https://qd5wcnxpn8.execute-api.us-east-1.amazonaws.com/prod/manifest",
+			user_id = 229817327380,
+		},
 	},
 
 	-- XP System Configuration
@@ -150,6 +183,14 @@ M.defaults = {
 }
 
 M.config = {}
+
+M.cmd = function(name, command, opts)
+	vim.api.nvim_create_user_command(M.config.commands.prefix .. name, command, opts or {})
+end
+
+M.map = function(mode, lhs, rhs, opts)
+	vim.keymap.set(mode, M.config.keymaps.prefix .. lhs, rhs, opts or {})
+end
 
 -- Initialize configuration
 function M.setup(opts)

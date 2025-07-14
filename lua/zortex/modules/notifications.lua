@@ -682,10 +682,10 @@ function M.setup_cron()
 end
 
 -- =============================================================================
--- Public API
+-- Tests
 -- =============================================================================
 
-function M.test_notification()
+function M.test_system_notification()
 	-- Send a test notification
 	local success =
 		send_system_notification("Zortex Test Notification", "This is a test notification from Zortex Calendar")
@@ -694,6 +694,33 @@ function M.test_notification()
 		vim.notify("Test notification sent successfully!", vim.log.levels.INFO)
 	else
 		vim.notify("Failed to send test notification. Check your system configuration.", vim.log.levels.ERROR)
+	end
+
+	return success
+end
+
+-- Test AWS connection
+function M.test_aws_connection()
+	if not cfg.aws.enabled then
+		vim.notify("AWS notifications not enabled", vim.log.levels.WARN)
+		return false
+	end
+
+	-- Send a test notification
+	local test_notification = {
+		entry_id = "test_" .. os.time(),
+		title = "Zortex AWS Test",
+		message = "This is a test notification from Zortex",
+		date = datetime.format_date(datetime.get_current_date(), "YYYY-MM-DD"),
+		time = os.date("%H:%M"),
+		notify_minutes = 0, -- Send immediately
+		priority = "high",
+		tags = { "test", "zortex" },
+	}
+
+	local success = send_manifest_to_server("add", test_notification)
+	if success then
+		vim.notify("AWS test notification sent successfully!", vim.log.levels.INFO)
 	end
 
 	return success
@@ -712,6 +739,10 @@ function M.test_ntfy_notification()
 
 	return success
 end
+
+-- =============================================================================
+-- Public API
+-- =============================================================================
 
 -- Add single notification to AWS
 function M.add_notification(entry, date_str)
@@ -741,33 +772,6 @@ function M.remove_notification(entry, date_str)
 
 	local entry_id = string.format("%s_%s", date_str, vim.fn.sha256(entry.raw_text):sub(1, 8))
 	return send_manifest_to_server("remove", entry_id)
-end
-
--- Test AWS connection
-function M.test_aws_connection()
-	if not cfg.aws.enabled then
-		vim.notify("AWS notifications not enabled", vim.log.levels.WARN)
-		return false
-	end
-
-	-- Send a test notification
-	local test_notification = {
-		entry_id = "test_" .. os.time(),
-		title = "Zortex AWS Test",
-		message = "This is a test notification from Zortex",
-		date = datetime.format_date(datetime.get_current_date(), "YYYY-MM-DD"),
-		time = os.date("%H:%M"),
-		notify_minutes = 0, -- Send immediately
-		priority = "high",
-		tags = { "test", "zortex" },
-	}
-
-	local success = send_manifest_to_server("add", test_notification)
-	if success then
-		vim.notify("AWS test notification sent successfully!", vim.log.levels.INFO)
-	end
-
-	return success
 end
 
 function M.setup(opts)

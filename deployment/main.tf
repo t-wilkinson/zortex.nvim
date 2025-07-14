@@ -3,6 +3,15 @@ provider "aws" {
   region = "us-east-1"
 }
 
+variable "region" {
+  type    = string
+  default = "us-east-1"
+}
+
+variable "user_id" {
+  type = string
+}
+
 data "archive_file" "manifest_processor" {
   type        = "zip"
   source_dir  = "${path.module}/manifest_processor" # handler.py + libs
@@ -153,7 +162,7 @@ resource "aws_iam_role_policy" "lambda_policy" {
           "events:PutTargets",
           "events:RemoveTargets"
         ]
-        Resource = "arn:aws:events:us-east-1:229817327380:rule/zortex-notify-*"
+        Resource = "arn:aws:events:${var.region}:${var.user_id}:rule/zortex-notify-*"
       },
       {
         Effect = "Allow"
@@ -189,10 +198,23 @@ resource "aws_lambda_permission" "eventbridge" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.notification_sender.function_name
   principal     = "events.amazonaws.com"
-  source_arn    = "arn:aws:events:us-east-1:229817327380:rule/zortex-notify-*"
+  source_arn    = "arn:aws:events:${var.region}:${var.user_id}:rule/zortex-notify-*"
 }
 
-# Output API endpoint
+
+# ----------------------------
+#  Outputs
+# ----------------------------
 output "api_endpoint" {
   value = "${aws_apigatewayv2_stage.main.invoke_url}/manifest"
 }
+
+# output "nameservers_to_set_at_namecheap" {
+#   description = "NS records to copy into Namecheap. Set these as custom nameservers for your domain."
+#   value       = aws_route53_zone.primary.name_servers
+# }
+# 
+# output "test_endpoint" {
+#   description = "CloudFront URL (should redirect to your custom domain once DNS propagates)"
+#   value       = aws_cloudfront_distribution.ntfy.domain_name
+# }

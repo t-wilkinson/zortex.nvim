@@ -407,6 +407,10 @@ function M.strip_task_attributes(line)
 	local _, text = M.parse_attributes(line, task_schema)
 	return text
 end
+function M.strip_attributes(line)
+	local attrs, text = M.parse_attributes(line, base_schema)
+	return text, attrs
+end
 
 -- Parse task status (checkbox state)
 function M.parse_task_status(line)

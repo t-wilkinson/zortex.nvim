@@ -193,21 +193,49 @@ function M.build_section_path(lines, target_lnum)
 				section_info.display = section_info.text
 			elseif section_type == constants.SECTION_TYPE.HEADING then
 				local heading = M.parse_heading(line)
+				if heading == nil then
+					goto continue
+				end
 				section_info.level = heading.level
 				section_info.text = heading.text
-				section_info.display = string.rep("#", heading.level) .. " " .. heading.text
+
+				if heading.text:find("@") then
+					local attributes = require("zortex.core.attributes")
+					local stripped_text, attrs = attributes.strip_attributes(heading.text)
+					if attrs.progress then
+						section_info.display = string.rep("#", heading.level)
+							.. " "
+							.. stripped_text
+							.. " ("
+							.. attrs.progress.completed
+							.. "/"
+							.. attrs.progress.total
+							.. ")"
+					else
+						section_info.display = string.rep("#", heading.level) .. " " .. stripped_text
+					end
+				else
+					section_info.display = string.rep("#", heading.level) .. " " .. heading.text
+				end
 			elseif section_type == constants.SECTION_TYPE.BOLD_HEADING then
 				local bold = M.parse_bold_heading(line)
+				if bold == nil then
+					goto continue
+				end
 				section_info.text = bold.text
 				section_info.display = "**" .. bold.text .. "**"
 			elseif section_type == constants.SECTION_TYPE.LABEL then
 				local label = M.parse_label(line)
+				if label == nil then
+					goto continue
+				end
 				section_info.text = label.text
 				section_info.display = label.text .. ":"
 			end
 
 			-- Add to stack
 			table.insert(section_stack, section_info)
+			::continue::
 		end
 	end
 

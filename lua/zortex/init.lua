@@ -48,8 +48,15 @@ local function setup_commands(prefix)
 	-- ===========================================================================
 	-- Notifications
 	-- ===========================================================================
-	-- Ntfy commands
-	cmd("NtfyTest", function()
+	cmd("SyncNotifications", function()
+		modules.notifications.sync()
+	end, { desc = "Sync notification manifest to AWS handler" })
+
+	-- Test notifications
+	cmd("TestSystemNotifications", function()
+		modules.notifications.test_notification()
+	end, { desc = "Test notification system" })
+	cmd("TestNtfy", function()
 		local success = modules.notifications.test_ntfy_notification()
 		if success then
 			vim.notify("Ntfy test notification sent!", vim.log.levels.INFO)
@@ -57,20 +64,9 @@ local function setup_commands(prefix)
 			vim.notify("Failed to send ntfy notification", vim.log.levels.ERROR)
 		end
 	end, { desc = "Test ntfy notification" })
-
-	-- AWS Notification commands
-	cmd("SyncNotifications", function()
-		modules.notifications.sync()
-	end, { desc = "Sync all notifications to AWS" })
-
 	cmd("TestAWS", function()
 		modules.notifications.test_aws_connection()
 	end, { desc = "Test AWS notification connection" })
-
-	-- System notifications
-	cmd("NotifyTest", function()
-		modules.notifications.test_notification()
-	end, { desc = "Test notification system" })
 
 	-- ===========================================================================
 	-- Navigation
@@ -315,7 +311,7 @@ function M.setup(opts)
 	setup_keymaps(config.keymaps.prefix, config.commands.prefix)
 	setup_autocmds()
 
-	-- Random seed for generating ids
+	-- Random seed for generating task ids
 	if not _G.__id_rng_seeded then
 		local bit = require("bit")
 		local seed = bit.bxor(vim.loop.hrtime(), os.time(), vim.loop.getpid())

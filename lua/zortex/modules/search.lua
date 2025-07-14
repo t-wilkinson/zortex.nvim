@@ -1,4 +1,4 @@
--- modules/search.lua - Enhanced hierarchical search with proper breadcrumb support
+-- modules/search.lua - Enhanced hierarchical search with unique breadcrumbs and improved matching
 local M = {}
 
 local constants = require("zortex.constants")
@@ -6,6 +6,8 @@ local parser = require("zortex.core.parser")
 local fs = require("zortex.core.filesystem")
 local search_managers = require("zortex.modules.search_managers")
 local core_search = require("zortex.core.search")
+
+local BREADCRUMB_SEP = " ∙ "
 
 -- =============================================================================
 -- Search History Management
@@ -22,7 +24,7 @@ function M.SearchHistory.add(entry)
 		selected_file = entry.selected_file,
 		selected_section = entry.selected_section,
 		section_path = entry.section_path,
-		score_contribution = entry.score_contribution or {},
+		score_contribution = {},
 	})
 
 	-- Limit history size
@@ -31,7 +33,7 @@ function M.SearchHistory.add(entry)
 	end
 
 	-- Propagate score to parent sections
-	M.SearchHistory.propagate_scores(entry)
+	M.SearchHistory.propagate_scores(M.SearchHistory.entries[1])
 end
 
 function M.SearchHistory.propagate_scores(entry)
@@ -41,12 +43,12 @@ function M.SearchHistory.propagate_scores(entry)
 
 	-- Base score that diminishes as we go up the hierarchy
 	local base_score = 1.0
-	local decay_factor = 0.7
+	local decay_factor = 0.8 -- Higher than before to give more weight to parents
 
 	-- Update scores for each level in the section path
 	for i = #entry.section_path, 1, -1 do
 		local section = entry.section_path[i]
-		local score_key = entry.selected_file .. ":" .. section.type .. ":" .. section.text
+		local score_key = entry.selected_file .. ":" .. section.lnum
 
 		if not entry.score_contribution[score_key] then
 			entry.score_contribution[score_key] = 0
@@ -71,124 +73,256 @@ local function parse_tokens(prompt)
 end
 
 -- =============================================================================
+-- Section Detection Helpers
+-- =============================================================================
+
+local function is_section_header(line)
+	local section_type = parser.detect_section_type(line)
+	return section_type == constants.SECTION_TYPE.ARTICLE
+		or section_type == constants.SECTION_TYPE.HEADING
+		or section_type == constants.SECTION_TYPE.BOLD_HEADING
+		or section_type == constants.SECTION_TYPE.LABEL
+end
+
+-- Check if a section should be included based on token count
+local function should_include_section(section_type, heading_level, token_count)
+	if token_count == 1 then
+		-- Only articles or level 1 headings
+		return section_type == constants.SECTION_TYPE.ARTICLE
+			or (section_type == constants.SECTION_TYPE.HEADING and heading_level and heading_level <= 1)
+	elseif token_count == 2 then
+		-- Articles and level 1-2 headings
+		return section_type == constants.SECTION_TYPE.ARTICLE
+			or (section_type == constants.SECTION_TYPE.HEADING and heading_level and heading_level <= 3)
+	else
+		-- All section types
+		return true
+	end
+end
+
+-- =============================================================================
 -- Breadcrumb Generation
 -- =============================================================================
 
-local function format_breadcrumb(section_path, num_tokens)
+local function format_breadcrumb(section_path)
 	if not section_path or #section_path == 0 then
 		return ""
 	end
 
 	local parts = {}
-
-	-- Determine what to include based on number of tokens
 	for _, section in ipairs(section_path) do
-		local include = false
-
-		if num_tokens == 1 then
-			-- Only article
-			include = (section.type == constants.SECTION_TYPE.ARTICLE)
-		elseif num_tokens == 2 then
-			-- Article + level 1/2 headings
-			include = (section.type == constants.SECTION_TYPE.ARTICLE)
-				or (section.type == constants.SECTION_TYPE.HEADING and section.level and section.level <= 2)
-		else
-			-- Everything
-			include = true
-		end
-
-		if include then
-			table.insert(parts, section.display or section.text)
-		end
+		table.insert(parts, section.display or section.text)
 	end
 
-	return table.concat(parts, " > ")
+	return table.concat(parts, BREADCRUMB_SEP)
+end
+
+-- Format breadcrumb with highlights
+local function format_breadcrumb_with_highlights(section_path)
+	if not section_path or #section_path == 0 then
+		return {}
+	end
+
+	local highlights = {}
+	local text = ""
+
+	for i, section in ipairs(section_path) do
+		if i > 1 then
+			-- Add separator
+			table.insert(highlights, { BREADCRUMB_SEP, "Comment" })
+			text = text .. BREADCRUMB_SEP
+		end
+
+		local section_text = section.display or section.text
+		local hl_group = "Normal"
+
+		-- Determine highlight group based on section type
+		if section.type == constants.SECTION_TYPE.ARTICLE then
+			hl_group = "ZortexArticle"
+		elseif section.type == constants.SECTION_TYPE.HEADING then
+			hl_group = "ZortexHeading" .. math.min(section.level or 1, 3)
+		elseif section.type == constants.SECTION_TYPE.BOLD_HEADING then
+			hl_group = "ZortexBoldHeading"
+		elseif section.type == constants.SECTION_TYPE.LABEL then
+			hl_group = "ZortexLabel"
+		end
+
+		table.insert(highlights, { section_text, hl_group })
+		text = text .. section_text
+	end
+
+	return highlights, text
 end
 
 -- =============================================================================
--- Hierarchical Search
+-- Enhanced Hierarchical Search
 -- =============================================================================
 
-local function find_token_in_range(lines, token, start_idx, end_idx)
-	local tok_lower = token:lower()
+-- Check if token matches at start of section text
+local function token_matches_section_start(section, token)
+	if not section.text then
+		return false
+	end
+
+	local section_lower = section.text:lower()
+	local token_lower = token:lower()
+
+	-- Check if token appears at the start of the section text
+	return section_lower:sub(1, #token_lower) == token_lower
+end
+
+-- Find all occurrences of a token in a given range (only section headers)
+local function find_all_token_matches(lines, token, start_idx, end_idx, num_tokens)
 	local matches = {}
 
 	for i = math.max(1, start_idx), math.min(#lines, end_idx) do
-		if lines[i]:lower():find(tok_lower, 1, true) then
-			table.insert(matches, {
+		local line = lines[i]
+		local section_type = parser.detect_section_type(line)
+
+		if section_type ~= constants.SECTION_TYPE.TEXT and section_type ~= constants.SECTION_TYPE.TAG then
+			-- Parse section info
+			local section_info = {
 				lnum = i,
-				line = lines[i],
-				section_type = parser.detect_section_type(lines[i]),
-			})
+				line = line,
+				section_type = section_type,
+			}
+
+			-- Extract section details
+			if section_type == constants.SECTION_TYPE.ARTICLE then
+				section_info.text = parser.extract_article_name(line)
+			elseif section_type == constants.SECTION_TYPE.HEADING then
+				local heading = parser.parse_heading(line)
+				if heading then
+					section_info.text = heading.text
+					section_info.level = heading.level
+				end
+			elseif section_type == constants.SECTION_TYPE.BOLD_HEADING then
+				local bold = parser.parse_bold_heading(line)
+				if bold then
+					section_info.text = bold.text
+				end
+			elseif section_type == constants.SECTION_TYPE.LABEL then
+				local label = parser.parse_label(line)
+				if label then
+					section_info.text = label.text
+				end
+			end
+
+			-- Check if this section should be included based on token count
+			if should_include_section(section_type, section_info.level, num_tokens) then
+				-- Check if token matches at start of section text
+				if token_matches_section_start(section_info, token) then
+					table.insert(matches, section_info)
+				end
+			end
 		end
 	end
-
-	-- Sort matches by section type priority (lower values = higher priority)
-	table.sort(matches, function(a, b)
-		return a.section_type < b.section_type
-	end)
 
 	return matches
 end
 
-local function hierarchical_search(lines, tokens)
+-- Find all possible hierarchical matches
+local function find_all_hierarchical_matches(lines, tokens)
 	if #tokens == 0 then
-		return true, nil, nil
+		return {}
 	end
 
-	-- Find first token anywhere in the file
-	local first_matches = find_token_in_range(lines, tokens[1], 1, #lines)
-	if #first_matches == 0 then
-		return false, nil, nil
-	end
+	local all_results = {}
+	local seen_breadcrumbs = {} -- Track unique breadcrumbs
 
-	-- For single token, return the best match
+	-- For single token, only search article names
 	if #tokens == 1 then
-		local best = first_matches[1]
-		return true, best.lnum, best.line
+		local matches = find_all_token_matches(lines, tokens[1], 1, #lines, #tokens)
+		for _, match in ipairs(matches) do
+			local section_path = parser.build_section_path(lines, match.lnum)
+			local breadcrumb = format_breadcrumb(section_path)
+
+			-- Only add if we haven't seen this breadcrumb
+			if not seen_breadcrumbs[breadcrumb] then
+				seen_breadcrumbs[breadcrumb] = true
+				table.insert(all_results, {
+					lnum = match.lnum,
+					line = match.line,
+					path = { match },
+				})
+			end
+		end
+		return all_results
 	end
 
-	-- For multiple tokens, search hierarchically
+	-- For multiple tokens, find all possible hierarchical paths
+	-- First, find all matches for the first token
+	local first_matches = find_all_token_matches(lines, tokens[1], 1, #lines, #tokens)
+
 	for _, first_match in ipairs(first_matches) do
-		local current_start = first_match.lnum
-		local heading_level = nil
-		if first_match.section_type == constants.SECTION_TYPE.HEADING then
-			heading_level = parser.get_heading_level(first_match.line)
-		end
-		local current_end = parser.find_section_end(lines, current_start, first_match.section_type, heading_level)
-		local all_found = true
-		local match_chain = { first_match }
+		-- Only consider matches that are section headers
+		if is_section_header(first_match.line) then
+			local paths = {}
 
-		-- Search for remaining tokens within progressively narrower contexts
-		for i = 2, #tokens do
-			local token_matches = find_token_in_range(lines, tokens[i], current_start, current_end)
+			-- Determine search bounds
+			local search_start = first_match.lnum
+			local heading_level = first_match.level
+			local search_end = parser.find_section_end(lines, search_start, first_match.section_type, heading_level)
 
-			if #token_matches == 0 then
-				all_found = false
-				break
+			-- Recursively find matches for remaining tokens
+			local function find_paths(current_start, current_end, token_idx, current_path)
+				if token_idx > #tokens then
+					-- Found a complete path
+					table.insert(paths, vim.deepcopy(current_path))
+					return
+				end
+
+				local token_matches =
+					find_all_token_matches(lines, tokens[token_idx], current_start, current_end, #tokens)
+
+				for _, match in ipairs(token_matches) do
+					-- Add this match to the path
+					table.insert(current_path, match)
+
+					if token_idx == #tokens then
+						-- This is the last token, add the complete path
+						table.insert(paths, vim.deepcopy(current_path))
+					else
+						-- Continue searching for next tokens
+						local next_start = match.lnum
+						local next_end = current_end
+
+						if is_section_header(match.line) then
+							local heading_level = match.level
+							next_end = parser.find_section_end(lines, next_start, match.section_type, heading_level)
+						end
+
+						find_paths(next_start, next_end, token_idx + 1, current_path)
+					end
+
+					-- Remove this match from the path (backtrack)
+					table.remove(current_path)
+				end
 			end
 
-			-- Use the best match for this token
-			local best_match = token_matches[1]
-			table.insert(match_chain, best_match)
+			find_paths(search_start, search_end, 2, { first_match })
 
-			-- Narrow the search range for the next token
-			current_start = best_match.lnum
-			heading_level = nil
-			if best_match.section_type == constants.SECTION_TYPE.HEADING then
-				heading_level = parser.get_heading_level(best_match.line)
+			-- Add all found paths to results, but only unique breadcrumbs
+			for _, path in ipairs(paths) do
+				if #path > 0 then
+					local last_match = path[#path]
+					local section_path = parser.build_section_path(lines, last_match.lnum)
+					local breadcrumb = format_breadcrumb(section_path)
+
+					if not seen_breadcrumbs[breadcrumb] then
+						seen_breadcrumbs[breadcrumb] = true
+						table.insert(all_results, {
+							lnum = last_match.lnum,
+							line = last_match.line,
+							path = path,
+						})
+					end
+				end
 			end
-			current_end = parser.find_section_end(lines, current_start, best_match.section_type, heading_level)
-		end
-
-		if all_found then
-			-- Return the match info for the last token in the chain
-			local final_match = match_chain[#match_chain]
-			return true, final_match.lnum, final_match.line
 		end
 	end
 
-	return false, nil, nil
+	return all_results
 end
 
 -- =============================================================================
@@ -202,155 +336,87 @@ local function calculate_entry_score(entry, tokens, current_time)
 
 	local scores = {
 		recency = 0,
-		relevance = 0,
-		richness = 0,
-		structure = 0,
-		header_bonus = 0,
-		start_match_bonus = 0,
-		hierarchical_bonus = 0,
+		section_type = 0,
+		match_quality = 0,
 		historical = 0,
+		depth_penalty = 0,
 	}
 
 	-- Recency score with 30-day half-life
 	if entry.filename then
 		scores.recency = search_managers.AccessTracker.get_score(entry.filename, current_time)
-		entry.recency_score = scores.recency
 	end
 
 	-- Historical score from search history
 	scores.historical = entry.historical_score or 0
 
-	-- Base score for all entries
+	-- Base score for empty search
 	if #tokens == 0 then
 		return scores.recency * 10 + scores.historical * 5 + 1
 	end
 
-	-- Hierarchical matching bonus
-	if entry.hierarchical_match then
-		scores.hierarchical_bonus = 5.0
+	-- Section type score - prioritize higher-tier sections
+	if entry.section_path and #entry.section_path > 0 then
+		-- Check what types of sections are in the path
+		local has_article = false
+		local highest_heading_level = 999
+		local has_bold_heading = false
+		local has_label = false
+
+		for _, section in ipairs(entry.section_path) do
+			if section.type == constants.SECTION_TYPE.ARTICLE then
+				has_article = true
+			elseif section.type == constants.SECTION_TYPE.HEADING then
+				highest_heading_level = math.min(highest_heading_level, section.level or 1)
+			elseif section.type == constants.SECTION_TYPE.BOLD_HEADING then
+				has_bold_heading = true
+			elseif section.type == constants.SECTION_TYPE.LABEL then
+				has_label = true
+			end
+		end
+
+		-- Assign scores based on section types
+		if has_article then
+			scores.section_type = 200
+		end
+		if highest_heading_level < 999 then
+			scores.section_type = scores.section_type + (50 / highest_heading_level)
+		end
+		if has_bold_heading then
+			scores.section_type = scores.section_type + 20
+		end
+		if has_label then
+			scores.section_type = scores.section_type + 10
+		end
+	else
+		-- Plain text match - very low score
+		scores.section_type = 1
 	end
 
-	-- Relevance score based on token matches
-	local relevance_multiplier = 1
-	local has_any_match = false
-
-	for _, token in ipairs(tokens) do
-		local tok_lower = token:lower()
-		local found_in_header = false
-		local found_at_start = false
-
-		-- Check for header matches
-		if entry.metadata and entry.metadata.headers then
-			for _, header in ipairs(entry.metadata.headers) do
-				local header_lower = header.text:lower()
-				if header_lower:find(tok_lower, 1, true) then
-					found_in_header = true
-					-- Header bonus: inversely proportional to header level
-					local header_multiplier = 10 / header.level
-					relevance_multiplier = relevance_multiplier * header_multiplier
-
-					-- Extra bonus for start-of-header match
-					if header_lower:sub(1, #tok_lower) == tok_lower then
-						found_at_start = true
-						relevance_multiplier = relevance_multiplier * 2
-					end
-
-					has_any_match = true
+	-- Match quality score - check if tokens match section headers
+	local matched_headers = 0
+	if entry.section_path then
+		for _, token in ipairs(tokens) do
+			for _, section in ipairs(entry.section_path) do
+				if token_matches_section_start(section, token) then
+					matched_headers = matched_headers + 1
 					break
 				end
 			end
 		end
-
-		-- Article match (highest priority)
-		if not found_in_header and entry.article_name then
-			local article_lower = entry.article_name:lower()
-			if article_lower:find(tok_lower, 1, true) then
-				relevance_multiplier = relevance_multiplier * 20
-				has_any_match = true
-
-				if article_lower:sub(1, #tok_lower) == tok_lower then
-					found_at_start = true
-					relevance_multiplier = relevance_multiplier * 3
-				end
-				goto continue
-			end
-		end
-
-		-- Tag/alias match
-		if not found_in_header and entry.tags then
-			local tags_lower = entry.tags:lower()
-			if tags_lower:find(tok_lower, 1, true) then
-				relevance_multiplier = relevance_multiplier * 3
-				has_any_match = true
-
-				for tag in entry.tags:gmatch("@%S+") do
-					if tag:lower():sub(2, #tok_lower + 1) == tok_lower then
-						found_at_start = true
-						relevance_multiplier = relevance_multiplier * 2
-						break
-					end
-				end
-				goto continue
-			end
-		end
-
-		-- Content match
-		if not found_in_header and entry.matched_line and entry.matched_line:lower():find(tok_lower, 1, true) then
-			relevance_multiplier = relevance_multiplier * 1.5
-			has_any_match = true
-			goto continue
-		end
-
-		-- Track bonuses
-		if found_in_header then
-			scores.header_bonus = scores.header_bonus + 1
-		end
-		if found_at_start then
-			scores.start_match_bonus = scores.start_match_bonus + 1
-		end
-
-		::continue::
 	end
+	scores.match_quality = matched_headers * 50
 
-	-- If no matches found, return very low score
-	if not has_any_match and #tokens > 0 then
-		return 0.001
-	end
-
-	scores.relevance = relevance_multiplier
-
-	-- Content richness score
-	local meta = entry.metadata
-	if meta then
-		scores.richness = (
-			math.min(#(meta.tags or {}), 5) * 0.4
-			+ math.log(math.max(1, (meta.word_count or 0) / 100)) * 0.3
-			+ (entry.line_count and math.log(entry.line_count + 1) * 0.2 or 0)
-			+ ((meta.has_code or meta.has_links) and 0.5 or 0)
-			+ (#(meta.headers or {}) > 0 and 1 or 0)
-		)
-	end
-
-	-- Structure quality score
-	if meta then
-		scores.structure = (
-			((meta.avg_line_length or 0) > 20 and (meta.avg_line_length or 0) < 80 and 1 or 0)
-			+ (meta.has_lists and 0.5 or 0)
-			+ ((meta.complexity_score or 0) > 2 and 0.5 or 0)
-			+ (#(meta.headers or {}) > 3 and 1 or 0)
-		)
-	end
+	-- Depth penalty - prefer shallower matches
+	scores.depth_penalty = -((#(entry.section_path or {}) - 1) * 5)
 
 	-- Calculate weighted total
 	local weights = {
-		recency = 5.0,
-		relevance = 5.0,
-		richness = 1.5,
-		structure = 0.5,
-		header_bonus = 3.0,
-		start_match_bonus = 2.0,
-		hierarchical_bonus = 10.0,
-		historical = 3.0,
+		recency = 3.0,
+		section_type = 5.0,
+		match_quality = 4.0,
+		historical = 2.0,
+		depth_penalty = 1.0,
 	}
 
 	local total = 0
@@ -404,24 +470,6 @@ end
 -- Entry Opening
 -- =============================================================================
 
-local function locate_token(bufnr, token)
-	if not token or token == "" then
-		return nil
-	end
-	local token_lower = token:lower()
-	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-
-	-- Use hierarchical search for single token
-	local found, lnum, _ = hierarchical_search(lines, { token })
-	if found then
-		local line = lines[lnum]
-		local col = line:lower():find(token_lower, 1, true)
-		return lnum, col
-	end
-
-	return nil
-end
-
 local function open_location(entry, cmd, tokens)
 	cmd = cmd or "edit"
 	if not (entry and entry.filename) then
@@ -441,15 +489,14 @@ local function open_location(entry, cmd, tokens)
 		vim.cmd(string.format("%s %s", cmd, entry.filename))
 	end
 
-	-- Position cursor
-	local fallback_lnum = entry.lnum or 1
-	vim.fn.cursor(fallback_lnum, 1)
+	-- Jump directly to the matched line
+	if entry.lnum then
+		vim.fn.cursor(entry.lnum, 1)
+		vim.cmd("normal! zz")
 
-	-- Single-token smart jump
-	if tokens and #tokens == 1 then
-		local l, c = locate_token(0, tokens[1])
-		if l then
-			vim.fn.cursor(l, c)
+		-- If we have a specific column (from token match), jump there too
+		if entry.col then
+			vim.fn.cursor(entry.lnum, entry.col)
 		end
 	end
 end
@@ -459,88 +506,62 @@ end
 -- =============================================================================
 
 local function create_search_entry(path, data, tokens, match_info, search_type)
-	local title = data.lines[1] or ""
-	local article_name = parser.extract_article_name(title)
-	local date_str = search_managers.Utils.extract_date_from_filename(path) or os.date("%Y-%m-%d", data.mtime)
-	local tags_line = table.concat(parser.extract_tags_from_lines(data.lines), " ")
-
 	-- Build section path if we have a match
 	local section_path = {}
 	local breadcrumb = ""
+	local breadcrumb_highlights = {}
+
 	if match_info.lnum and search_type == "section" then
 		section_path = parser.build_section_path(data.lines, match_info.lnum)
-		breadcrumb = format_breadcrumb(section_path, #tokens)
+		breadcrumb = format_breadcrumb(section_path)
+		breadcrumb_highlights = format_breadcrumb_with_highlights(section_path)
 	end
 
 	-- Get historical score contribution
 	local historical_score = 0
 	for _, hist_entry in ipairs(M.SearchHistory.entries) do
-		if hist_entry.selected_file == path then
-			for key, score in pairs(hist_entry.score_contribution) do
-				if key:match("^" .. parser.escape_pattern(path)) then
-					historical_score = historical_score
-						+ score * math.exp(-0.1 * (os.time() - hist_entry.timestamp) / 86400)
-				end
+		if hist_entry.selected_file == path and hist_entry.score_contribution then
+			-- Check scores for this specific line and its parents
+			local score_key = path .. ":" .. match_info.lnum
+			historical_score = historical_score + (hist_entry.score_contribution[score_key] or 0)
+
+			-- Also check parent sections
+			for _, section in ipairs(section_path) do
+				local parent_key = path .. ":" .. section.lnum
+				historical_score = historical_score + (hist_entry.score_contribution[parent_key] or 0) * 0.5
 			end
+
+			-- Apply time decay
+			historical_score = historical_score * math.exp(-0.1 * (os.time() - hist_entry.timestamp) / 86400)
 		end
 	end
 
-	-- Build display with breadcrumb or traditional format
-	local recency_indicator = ""
-	if search_managers.AccessTracker.data[path] and #search_managers.AccessTracker.data[path].times > 0 then
-		local last_access =
-			search_managers.AccessTracker.data[path].times[#search_managers.AccessTracker.data[path].times]
-		local age_days = (os.time() - last_access) / 86400
-		if age_days < 1 then
-			recency_indicator = "● "
-		elseif age_days < 3 then
-			recency_indicator = "◐ "
-		elseif age_days < 7 then
-			recency_indicator = "○ "
+	-- Display is just the breadcrumb for section search
+	local display = breadcrumb
+	if search_type ~= "section" or breadcrumb == "" then
+		-- Fallback for article search or no breadcrumb
+		local article_name = parser.extract_article_name(data.lines[1] or "")
+		display = article_name or "Untitled"
+		local tags_line = table.concat(parser.extract_tags_from_lines(data.lines), " ")
+		if tags_line ~= "" then
+			display = display .. " " .. tags_line
 		end
 	end
-
-	local display_parts = { date_str }
-
-	-- Add breadcrumb or article name based on search type
-	if search_type == "section" and breadcrumb ~= "" then
-		table.insert(display_parts, recency_indicator .. breadcrumb)
-	else
-		table.insert(
-			display_parts,
-			recency_indicator .. (article_name or "Untitled") .. (tags_line ~= "" and (" " .. tags_line) or "")
-		)
-	end
-
-	-- Add matched line if different from title
-	if match_info.line and match_info.line ~= title then
-		table.insert(display_parts, parser.trim(match_info.line))
-	end
-
-	local display = table.concat(display_parts, " | ")
-	local ordinal = table.concat({
-		article_name or "",
-		date_str,
-		tags_line,
-		breadcrumb,
-		match_info.line or "",
-	}, " ")
 
 	return {
 		value = path .. ":" .. (match_info.lnum or 1),
-		ordinal = ordinal,
+		ordinal = breadcrumb .. " " .. (match_info.line or ""),
 		display = display,
+		display_highlights = breadcrumb_highlights,
 		filename = path,
 		lnum = match_info.lnum or 1,
-		article_name = article_name,
-		tags = tags_line,
+		col = match_info.col,
 		matched_line = match_info.line,
 		section_path = section_path,
 		breadcrumb = breadcrumb,
 		mtime = data.mtime,
 		metadata = data.metadata,
 		line_count = #data.lines,
-		hierarchical_match = match_info.hierarchical,
 		historical_score = historical_score,
 		score_calculated = false,
 	}
@@ -549,75 +570,6 @@ end
 -- =============================================================================
 -- Telescope Integration
 -- =============================================================================
-
-local function find_section_start(lines, lnum, section_type)
-	if not lines or lnum <= 1 then
-		return 1
-	end
-
-	-- For articles and tags, start from beginning
-	if section_type == constants.SECTION_TYPE.ARTICLE or section_type == constants.SECTION_TYPE.TAG then
-		return 1
-	end
-
-	-- For headings, find the heading line itself
-	if section_type == constants.SECTION_TYPE.HEADING then
-		local target_level = parser.get_heading_level(lines[lnum])
-		-- If we're already on a heading, return current line
-		if target_level > 0 then
-			return lnum
-		end
-		-- Otherwise, search backwards for the heading that contains this line
-		for i = lnum - 1, 1, -1 do
-			local level = parser.get_heading_level(lines[i])
-			if level > 0 then
-				-- Check if this heading's section contains our line
-				local section_end = parser.find_section_end(lines, i, constants.SECTION_TYPE.HEADING, level)
-				if section_end >= lnum then
-					return i
-				end
-			end
-		end
-	end
-
-	-- For bold headings, search backwards
-	if section_type == constants.SECTION_TYPE.BOLD_HEADING then
-		if parser.is_bold_heading(lines[lnum]) then
-			return lnum
-		end
-		for i = lnum - 1, 1, -1 do
-			if parser.is_bold_heading(lines[i]) then
-				local section_end = parser.find_section_end(lines, i, constants.SECTION_TYPE.BOLD_HEADING)
-				if section_end >= lnum then
-					return i
-				end
-			end
-		end
-	end
-
-	-- For labels, find the label line
-	if section_type == constants.SECTION_TYPE.LABEL then
-		if lines[lnum]:match("^%w[^:]+:") and not lines[lnum]:match("%.%s") then
-			return lnum
-		end
-		-- Search backwards for the label
-		for i = lnum - 1, 1, -1 do
-			if lines[i]:match("^%w[^:]+:") and not lines[i]:match("%.%s") then
-				local section_end = parser.find_section_end(lines, i, constants.SECTION_TYPE.LABEL)
-				if section_end >= lnum then
-					return i
-				end
-			end
-			-- Stop at headings or empty lines
-			if lines[i] == "" or parser.get_heading_level(lines[i]) > 0 or parser.is_bold_heading(lines[i]) then
-				break
-			end
-		end
-	end
-
-	-- Default: return current line
-	return lnum
-end
 
 local function create_smart_sorter()
 	local ts_sorters = require("telescope.sorters")
@@ -652,8 +604,7 @@ local function create_smart_sorter()
 			end
 
 			-- Lower scores rank higher in Telescope
-			local score = 1000 / (actual_entry.total_score + 1)
-			return score
+			return actual_entry.total_score
 		end,
 
 		highlighter = function(_, prompt, display)
@@ -689,6 +640,80 @@ local function create_smart_sorter()
 	})
 end
 
+-- Custom previewer using highlights.lua
+local function create_zortex_previewer()
+	local previewers = require("telescope.previewers")
+	local highlights = require("zortex.core.highlights")
+
+	return previewers.new_buffer_previewer({
+		title = "Zortex Preview",
+
+		define_preview = function(self, entry, status)
+			if not entry or not entry.filename then
+				return
+			end
+
+			-- Read the file
+			local lines = fs.read_lines(entry.filename)
+			if not lines then
+				return
+			end
+
+			-- Determine preview range
+			local start_line = 1
+			local target_line = entry.lnum or 1
+
+			-- Find the section start if we have section info
+			if entry.section_path and #entry.section_path > 0 then
+				-- Use the top-most section in the path for preview start
+				start_line = entry.section_path[1].lnum or 1
+			end
+
+			-- Calculate preview window
+			local preview_height = vim.api.nvim_win_get_height(status.preview_win)
+			local context_lines = math.floor(preview_height / 3)
+
+			-- Adjust start to show some context before target
+			local preview_start = math.max(1, target_line - context_lines)
+			local preview_end = math.min(#lines, preview_start + preview_height - 1)
+
+			-- Extract preview lines
+			local preview_lines = {}
+			for i = preview_start, preview_end do
+				table.insert(preview_lines, lines[i])
+			end
+
+			-- Set the buffer content
+			vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, preview_lines)
+
+			-- Apply Zortex highlighting
+			vim.schedule(function()
+				if vim.api.nvim_buf_is_valid(self.state.bufnr) then
+					highlights.highlight_buffer(self.state.bufnr)
+
+					-- Highlight the target line
+					local relative_target = target_line - preview_start + 1
+					if relative_target > 0 and relative_target <= #preview_lines then
+						local ns_id = vim.api.nvim_create_namespace("zortex_preview_highlight")
+						vim.api.nvim_buf_add_highlight(
+							self.state.bufnr,
+							ns_id,
+							"CursorLine",
+							relative_target - 1,
+							0,
+							-1
+						)
+					end
+				end
+			end)
+		end,
+
+		get_buffer_by_name = function(_, entry)
+			return entry.filename
+		end,
+	})
+end
+
 -- =============================================================================
 -- Main Search Function
 -- =============================================================================
@@ -710,6 +735,7 @@ function M.search(opts)
 	local action_state = require("telescope.actions.state")
 	local conf = require("telescope.config").values
 	local previewers = require("telescope.previewers")
+	local entry_display = require("telescope.pickers.entry_display")
 
 	-- Update index
 	search_managers.IndexManager.update_sync()
@@ -724,36 +750,59 @@ function M.search(opts)
 		current_tokens = tokens
 
 		local results = {}
-		local empty = #tokens == 0
 
 		for path, data in pairs(search_managers.IndexManager.cache) do
-			-- Use hierarchical search
-			local qualifies, match_lnum, match_line
-			if empty then
-				qualifies = true
+			if #tokens == 0 then
+				-- Empty search - return one entry per file
+				local article_name = parser.extract_article_name(data.lines[1] or "")
+				if article_name then
+					local entry = create_search_entry(path, data, tokens, { lnum = 1 }, search_type)
+					table.insert(results, entry)
+				end
 			else
-				qualifies, match_lnum, match_line = hierarchical_search(data.lines, tokens)
-			end
+				-- Find all hierarchical matches based on token count
+				local matches = find_all_hierarchical_matches(data.lines, tokens)
 
-			if qualifies then
-				local match_info = {
-					lnum = match_lnum,
-					line = match_line,
-					hierarchical = not empty and match_lnum ~= nil,
-				}
+				-- Create an entry for each unique match
+				for _, match in ipairs(matches) do
+					-- Find where the last token appears in the line
+					local col = nil
+					if #tokens > 0 then
+						local last_token = tokens[#tokens]:lower()
+						local match_text = match.text or ""
+						if match_text:lower():sub(1, #last_token) == last_token then
+							col = 1
+						end
+					end
 
-				local entry = create_search_entry(path, data, tokens, match_info, search_type)
-				table.insert(results, entry)
+					local entry = create_search_entry(path, data, tokens, {
+						lnum = match.lnum,
+						line = match.line,
+						col = col,
+					}, search_type)
+					table.insert(results, entry)
+				end
 			end
 		end
 
 		return results
 	end
 
-	-- Create finder and sorter
+	-- Create finder with custom entry maker
 	local finder = finders.new_dynamic({
 		fn = gather,
 		entry_maker = function(e)
+			if e.display_highlights and #e.display_highlights > 0 then
+				-- Use entry_display to handle highlights
+				local displayer = entry_display.create({
+					separator = "",
+					items = e.display_highlights,
+				})
+
+				e.display = function(entry)
+					return displayer(e.display_highlights)
+				end
+			end
 			return e
 		end,
 	})
@@ -761,49 +810,22 @@ function M.search(opts)
 	local sorter = create_smart_sorter()
 
 	-- Create previewer
-	local previewer = (vim.fn.executable("bat") == 1)
-			and previewers.new_termopen_previewer({
-				get_command = function(entry)
-					-- Determine section start
-					local section_start = 1
-					if entry.lnum and search_managers.IndexManager.cache[entry.filename] then
-						local cache_entry = search_managers.IndexManager.cache[entry.filename]
-						if cache_entry.lines then
-							-- Detect section type at matched line
-							local section_type = parser.detect_section_type(cache_entry.lines[entry.lnum] or "")
-							section_start = find_section_start(cache_entry.lines, entry.lnum, section_type)
-						end
-					end
-
-					local cmd = {
-						"bat",
-						"--style=numbers,changes",
-						"--color=always",
-						"--language=markdown",
-						"--line-range",
-						tostring(section_start) .. ":",
-						entry.filename,
-					}
-
-					-- Highlight the actual matched line
-					if entry.lnum then
-						table.insert(cmd, 5, "--highlight-line")
-						table.insert(cmd, 6, tostring(entry.lnum))
-					end
-
-					return cmd
-				end,
-			})
-		or conf.grep_previewer(opts)
+	local previewer = create_zortex_previewer()
 
 	-- Determine prompt title
-	local prompt_title = search_type == "section" and "Zortex Section Search (Breadcrumbs)" or "Zortex Article Search"
+	local prompt_title = search_type == "section" and "Zortex Section Search" or "Zortex Article Search"
 
 	-- Create picker
 	pickers
 		.new(opts, {
 			prompt_title = prompt_title,
 			default_text = "",
+			layout_strategy = "flex",
+			layout_config = {
+				flex = { flip_columns = 120 },
+				horizontal = { preview_width = 0.60 },
+				vertical = { preview_height = 0.40 },
+			},
 			finder = finder,
 			sorter = sorter,
 			previewer = previewer,
@@ -871,6 +893,15 @@ function M.search(opts)
 					end
 
 					open_location(sel, "vsplit", current_tokens)
+				end)
+
+				-- Scroll preview
+				map({ "i", "n" }, "<C-f>", function()
+					actions.preview_scrolling_down(bufnr)
+				end)
+
+				map({ "i", "n" }, "<C-b>", function()
+					actions.preview_scrolling_up(bufnr)
 				end)
 
 				return true

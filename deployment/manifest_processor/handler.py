@@ -2,8 +2,14 @@
 import json
 import boto3
 import uuid
-import os
 from datetime import datetime, timedelta
+
+import os, sys, pathlib
+
+# add vendor to path
+root = pathlib.Path(__file__).parent
+sys.path.insert(0, str(root / "vendor"))
+
 from dateutil import parser as date_parser
 from dateutil.rrule import rrule, DAILY, WEEKLY, MONTHLY
 
@@ -111,7 +117,8 @@ def create_eventbridge_rule(notification_id, trigger_time):
 def handler(event, context):
     """Process notification manifest from Zortex"""
     body = json.loads(event["body"])
-    user_id = body["user_id"]
+    # Ensure user_id is always a string to match DynamoDB schema
+    user_id = str(body["user_id"])
     operation = body["operation"]  # add|update|remove|sync
 
     if operation == "sync":
@@ -119,7 +126,6 @@ def handler(event, context):
         notifications = body["notifications"]
 
         # Mark existing as inactive
-        # FIX: Added ExpressionAttributeNames to handle reserved keyword 'status'
         response = table.query(
             IndexName="user-status-index",
             KeyConditionExpression="user_id = :uid AND #s = :status",
@@ -131,14 +137,16 @@ def handler(event, context):
             # Cancel EventBridge rule
             if "schedule_rule_arn" in item:
                 try:
-                    events.delete_rule(Name=f"zortex-notify-{item['id']}")
+                    # We need to remove targets before deleting the rule
+                    rule_name = f"zortex-notify-{item['id']}"
+                    events.remove_targets(Rule=rule_name, Ids=["1"], Force=True)
+                    events.delete_rule(Name=rule_name)
                 except events.exceptions.ResourceNotFoundException:
                     print(
                         f"Rule zortex-notify-{item['id']} not found, skipping delete."
                     )
 
             # Mark as completed
-            # FIX: Added ExpressionAttributeNames to handle reserved keyword 'status'
             table.update_item(
                 Key={"id": item["id"]},
                 UpdateExpression="SET #s = :status",
@@ -170,7 +178,9 @@ def handler(event, context):
             old_item = response["Items"][0]
             if "schedule_rule_arn" in old_item:
                 try:
-                    events.delete_rule(Name=f"zortex-notify-{old_item['id']}")
+                    rule_name = f"zortex-notify-{old_item['id']}"
+                    events.remove_targets(Rule=rule_name, Ids=["1"], Force=True)
+                    events.delete_rule(Name=rule_name)
                 except events.exceptions.ResourceNotFoundException:
                     print(
                         f"Rule zortex-notify-{old_item['id']} not found, skipping delete."
@@ -192,26 +202,62 @@ def handler(event, context):
         for item in response["Items"]:
             if "schedule_rule_arn" in item:
                 try:
-                    events.delete_rule(Name=f"zortex-notify-{item['id']}")
+                    rule_name = f"zortex-notify-{item['id']}"
+                    events.remove_targets(Rule=rule_name, Ids=["1"], Force=True)
+                    events.delete_rule(Name=rule_name)
                 except events.exceptions.ResourceNotFoundException:
                     print(
                         f"Rule zortex-notify-{item['id']} not found, skipping delete."
                     )
 
             # Mark as completed
-            # FIX: Added ExpressionAttributeNames to handle reserved keyword 'status'
             table.update_item(
                 Key={"id": item["id"]},
                 UpdateExpression="SET #s = :status",
                 ExpressionAttributeNames={"#s": "status"},
                 ExpressionAttributeValues={":status": "completed"},
             )
+    elif operation == "test":
+        lambda_client = boto3.client("lambda")
+        notification = body["notification"]
+
+        # For a test, we don't use the scheduling logic.
+        # We just save the item to the DB and invoke the sender directly.
+        notification_id = str(uuid.uuid4())
+        item = {
+            "id": notification_id,
+            "user_id": user_id,
+            "entry_id": notification.get("entry_id", f"test-{notification_id}"),
+            "status": "active",
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+            "title": notification.get("title", ""),
+            "message": notification.get("message", ""),
+            "date": notification["date"],
+            "time": notification.get("time", "09:00"),
+            "from_date": notification.get("from_date"),
+            "to_date": notification.get("to_date"),
+            "notify_minutes": notification.get("notify_minutes", 15),
+            "repeat_pattern": notification.get("repeat_pattern"),
+            "repeat_interval": notification.get("repeat_interval"),
+            "ntfy_topic": notification.get("ntfy_topic", f"zortex-{user_id}"),
+            "ntfy_priority": notification.get("priority", "default"),
+            "ntfy_tags": notification.get("tags", ["calendar"]),
+        }
+        table.put_item(Item=item)
+
+        # Fire-and-forget invocation so it doesn’t block API GW
+        lambda_client.invoke(
+            FunctionName=os.environ["NOTIFICATION_SENDER_ARN"],
+            InvocationType="Event",
+            Payload=json.dumps({"notification_id": notification_id}).encode(),
+        )
 
     return {"statusCode": 200, "body": json.dumps({"success": True})}
 
 
 def process_notification(user_id, notification, notification_id=None):
-    """Process a single notification"""
+    """Process and schedule a single notification"""
     if not notification_id:
         notification_id = str(uuid.uuid4())
 
@@ -251,3 +297,5 @@ def process_notification(user_id, notification, notification_id=None):
     }
 
     table.put_item(Item=item)
+
+    return notification_id

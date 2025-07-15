@@ -6,6 +6,8 @@ local parser = require("zortex.core.parser")
 local fs = require("zortex.core.filesystem")
 local search_managers = require("zortex.modules.search_managers")
 local core_search = require("zortex.core.search")
+local projects = require("zortex.modules.projects")
+local datetime = require("zortex.core.datetime")
 
 local BREADCRUMB_SEP = " ∙ "
 
@@ -57,6 +59,92 @@ function M.SearchHistory.propagate_scores(entry)
 		entry.score_contribution[score_key] = entry.score_contribution[score_key] + base_score
 		base_score = base_score * decay_factor
 	end
+end
+
+-- =============================================================================
+-- Project Scoring (from telescope.lua)
+-- =============================================================================
+
+local function calculate_task_score(task)
+	local score = 0
+	-- Priority scoring
+	if task.attributes and task.attributes.p then
+		local priority_scores = { ["1"] = 100, ["2"] = 50, ["3"] = 25 }
+		score = score + (priority_scores[task.attributes.p] or 0)
+	end
+	-- Due-date scoring
+	if task.attributes and task.attributes.due then
+		local due_dt = datetime.parse_date(task.attributes.due)
+		if due_dt then
+			local due_time = os.time(due_dt)
+			local now = os.time()
+			local days_until = (due_time - now) / 86400
+			if days_until < 0 then
+				score = score + 200 -- Overdue
+			elseif days_until < 1 then
+				score = score + 150 -- Due today
+			elseif days_until < 3 then
+				score = score + 75 -- Due soon
+			elseif days_until < 7 then
+				score = score + 30 -- Due this week
+			end
+		end
+	end
+	-- Completed tasks score lower
+	if task.completed then
+		score = score - 100
+	end
+	return score
+end
+
+local function calculate_project_score(project)
+	local project_score = 0
+	local stats = projects.get_project_stats(project)
+
+	-- Analyze tasks
+	for _, task in ipairs(project.tasks) do
+		local task_score = calculate_task_score(task)
+		project_score = project_score + task_score
+	end
+
+	-- Average task score
+	if stats.total_tasks > 0 then
+		project_score = project_score / stats.total_tasks
+	end
+
+	-- Penalty for mostly completed projects
+	if stats.completion_rate > 0.8 then
+		project_score = project_score * 0.5
+	end
+
+	return project_score
+end
+
+-- =============================================================================
+-- Utility Functions
+-- =============================================================================
+
+local function is_projects_file(filepath)
+	if not filepath then
+		return false
+	end
+
+	-- Check by filename
+	local filename = vim.fn.fnamemodify(filepath, ":t")
+	if filename == "projects.zortex" then
+		return true
+	end
+
+	-- Check by article name
+	local lines = fs.read_lines(filepath)
+	if lines and #lines > 0 then
+		local article_name = parser.extract_article_name(lines[1])
+		if article_name and (article_name:lower() == "projects" or article_name:lower() == "p") then
+			return true
+		end
+	end
+
+	return false
 end
 
 -- =============================================================================
@@ -340,7 +428,11 @@ local function calculate_entry_score(entry, tokens, current_time)
 		match_quality = 0,
 		historical = 0,
 		depth_penalty = 0,
+		project_score = 0,
 	}
+
+	-- Check if this is a projects file
+	local is_projects = entry.filename and is_projects_file(entry.filename)
 
 	-- Recency score with 30-day half-life
 	if entry.filename then
@@ -410,6 +502,11 @@ local function calculate_entry_score(entry, tokens, current_time)
 	-- Depth penalty - prefer shallower matches
 	scores.depth_penalty = -((#(entry.section_path or {}) - 1) * 5)
 
+	-- Project-specific scoring
+	if is_projects and entry.project_data then
+		scores.project_score = entry.project_data.score or 0
+	end
+
 	-- Calculate weighted total
 	local weights = {
 		recency = 3.0,
@@ -417,6 +514,7 @@ local function calculate_entry_score(entry, tokens, current_time)
 		match_quality = 4.0,
 		historical = 2.0,
 		depth_penalty = 1.0,
+		project_score = is_projects and 10.0 or 0, -- High weight for project scores
 	}
 
 	local total = 0
@@ -536,6 +634,20 @@ local function create_search_entry(path, data, tokens, match_info, search_type)
 		end
 	end
 
+	-- Extract project data if this is a projects file
+	local project_data = nil
+	if is_projects_file(path) and match_info.lnum then
+		-- Load projects data
+		projects.load()
+		local project = projects.get_project_at_line(match_info.lnum)
+		if project then
+			project_data = {
+				project = project,
+				score = calculate_project_score(project),
+			}
+		end
+	end
+
 	-- Display is just the breadcrumb for section search
 	local display = breadcrumb
 	if search_type ~= "section" or breadcrumb == "" then
@@ -563,6 +675,7 @@ local function create_search_entry(path, data, tokens, match_info, search_type)
 		metadata = data.metadata,
 		line_count = #data.lines,
 		historical_score = historical_score,
+		project_data = project_data,
 		score_calculated = false,
 	}
 end
@@ -604,43 +717,17 @@ local function create_smart_sorter()
 			end
 
 			-- Lower scores rank higher in Telescope
-			return actual_entry.total_score
+			return 1000 / (actual_entry.total_score + 1)
 		end,
 
+		-- Disable highlighting by returning empty highlights
 		highlighter = function(_, prompt, display)
-			if not prompt or prompt == "" then
-				return {}
-			end
-
-			local tokens = parse_tokens(prompt)
-			local highlights = {}
-			local disp_lower = display:lower()
-
-			for _, tok in ipairs(tokens) do
-				local tok_lower = tok:lower()
-				local start = 1
-
-				while true do
-					local s, e = disp_lower:find(tok_lower, start, true)
-					if not s then
-						break
-					end
-
-					highlights[#highlights + 1] = { start = s, finish = e }
-					start = e + 1
-				end
-			end
-
-			table.sort(highlights, function(a, b)
-				return a.start < b.start
-			end)
-
-			return highlights
+			return {}
 		end,
 	})
 end
 
--- Custom previewer using highlights.lua
+-- Custom previewer using highlights.lua with full file scrolling
 local function create_zortex_previewer()
 	local previewers = require("telescope.previewers")
 	local highlights = require("zortex.core.highlights")
@@ -653,56 +740,30 @@ local function create_zortex_previewer()
 				return
 			end
 
-			-- Read the file
+			-- Read the entire file
 			local lines = fs.read_lines(entry.filename)
 			if not lines then
 				return
 			end
 
-			-- Determine preview range
-			local start_line = 1
-			local target_line = entry.lnum or 1
-
-			-- Find the section start if we have section info
-			if entry.section_path and #entry.section_path > 0 then
-				-- Use the top-most section in the path for preview start
-				start_line = entry.section_path[1].lnum or 1
-			end
-
-			-- Calculate preview window
-			local preview_height = vim.api.nvim_win_get_height(status.preview_win)
-			local context_lines = math.floor(preview_height / 3)
-
-			-- Adjust start to show some context before target
-			local preview_start = math.max(1, target_line - context_lines)
-			local preview_end = math.min(#lines, preview_start + preview_height - 1)
-
-			-- Extract preview lines
-			local preview_lines = {}
-			for i = preview_start, preview_end do
-				table.insert(preview_lines, lines[i])
-			end
-
-			-- Set the buffer content
-			vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, preview_lines)
+			-- Set the entire buffer content
+			vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
 
 			-- Apply Zortex highlighting
 			vim.schedule(function()
 				if vim.api.nvim_buf_is_valid(self.state.bufnr) then
 					highlights.highlight_buffer(self.state.bufnr)
 
-					-- Highlight the target line
-					local relative_target = target_line - preview_start + 1
-					if relative_target > 0 and relative_target <= #preview_lines then
+					-- Highlight the target line if we have one
+					if entry.lnum then
 						local ns_id = vim.api.nvim_create_namespace("zortex_preview_highlight")
-						vim.api.nvim_buf_add_highlight(
-							self.state.bufnr,
-							ns_id,
-							"CursorLine",
-							relative_target - 1,
-							0,
-							-1
-						)
+						vim.api.nvim_buf_add_highlight(self.state.bufnr, ns_id, "CursorLine", entry.lnum - 1, 0, -1)
+
+						-- Scroll to the target line with some context
+						vim.api.nvim_win_call(status.preview_win, function()
+							vim.fn.cursor(entry.lnum, 1)
+							vim.cmd("normal! zz")
+						end)
 					end
 				end
 			end)

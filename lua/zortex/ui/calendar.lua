@@ -160,105 +160,6 @@ function Renderer.create_window(bufnr)
 	return win_id
 end
 
--- Pretty‑print attributes
-local function format_pretty_attrs(entry)
-	if not entry.attributes then
-		return ""
-	end
-
-	local parts = {}
-
-	-- Time attributes
-	if entry.attributes.at then
-		table.insert(parts, "🕐 " .. entry.attributes.at)
-	end
-
-	-- Duration attributes
-	if entry.attributes.dur then
-		table.insert(parts, string.format("⏱ %dm", entry.attributes.dur))
-	elseif entry.attributes.est then
-		table.insert(parts, string.format("⏱ ~%dm", entry.attributes.est))
-	end
-
-	-- Notification
-	if entry.attributes.notify then
-		table.insert(parts, "🔔")
-	end
-
-	-- Repeat pattern
-	if entry.attributes["repeat"] then
-		table.insert(parts, "🔁 " .. entry.attributes["repeat"])
-	end
-
-	-- Date range
-	if entry.attributes.from or entry.attributes.to then
-		local range_parts = {}
-		if entry.attributes.from then
-			table.insert(range_parts, datetime.format_date(entry.attributes.from, "MM/DD"))
-		else
-			table.insert(range_parts, "...")
-		end
-		table.insert(range_parts, "→")
-		if entry.attributes.to then
-			table.insert(range_parts, datetime.format_date(entry.attributes.to, "MM/DD"))
-		else
-			table.insert(range_parts, "...")
-		end
-		table.insert(parts, table.concat(range_parts, " "))
-	end
-
-	if #parts > 0 then
-		return "  " .. table.concat(parts, "  ")
-	end
-	return ""
-end
-
--- Format attributes in simple mode
-local function format_simple_attrs(entry)
-	if not entry.attributes then
-		return ""
-	end
-
-	local parts = {}
-
-	-- Compact time display
-	if entry.attributes.at then
-		table.insert(parts, entry.attributes.at)
-	end
-
-	-- Compact duration
-	if entry.attributes.dur then
-		table.insert(parts, entry.attributes.dur .. "m")
-	elseif entry.attributes.est then
-		table.insert(parts, "~" .. entry.attributes.est .. "m")
-	end
-
-	-- Simple indicators
-	if entry.attributes.notify then
-		table.insert(parts, "!")
-	end
-
-	if entry.attributes["repeat"] then
-		table.insert(parts, "R")
-	end
-
-	-- Compact date range
-	if entry.attributes.from and entry.attributes.to then
-		local from_str = datetime.format_date(entry.attributes.from, "MM/DD")
-		local to_str = datetime.format_date(entry.attributes.to, "MM/DD")
-		table.insert(parts, from_str .. "-" .. to_str)
-	elseif entry.attributes.from then
-		table.insert(parts, datetime.format_date(entry.attributes.from, "MM/DD") .. "+")
-	elseif entry.attributes.to then
-		table.insert(parts, "-" .. datetime.format_date(entry.attributes.to, "MM/DD"))
-	end
-
-	if #parts > 0 then
-		return " [" .. table.concat(parts, " ") .. "]"
-	end
-	return ""
-end
-
 function Renderer.center(win_width, text)
 	local win_margin = win_width - CONTENT_WIDTH
 
@@ -511,8 +412,8 @@ function Renderer.render_month_view(date)
 					icon = cfg.icons.notification
 				end
 
-				local attr_str = cfg.pretty_attributes and format_pretty_attrs(entry) or format_simple_attrs(entry)
-				local entry_line = string.format("  %s %s%s", icon, entry.display_text, attr_str)
+				local entry_str = calendar.format_entry(entry)
+				local entry_line = string.format("  %s %s%s", icon, entry.display_text, entry_str)
 				table.insert(lines, left_pad_str .. MARGIN_STR .. entry_line)
 			end
 		end

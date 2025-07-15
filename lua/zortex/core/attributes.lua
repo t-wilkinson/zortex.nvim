@@ -30,7 +30,7 @@ local type_parsers = {
 		return datetime.parse_datetime(v)
 	end,
 
-	-- Duration: flexible format (2h, 30m, 1d, 1h30m, etc.)
+	-- Duration: flexible format (2h, 30m, 1d, 1h30m, etc.) to base minutes
 	duration = function(v)
 		local total = 0
 		-- Match patterns like "2h", "30m", "1d", "1w"
@@ -48,7 +48,7 @@ local type_parsers = {
 	end,
 
 	-- Boolean: presence indicates true
-	boolean = function(v)
+	boolean = function(_)
 		return true
 	end,
 
@@ -87,13 +87,24 @@ local base_schema = {
 	i = { type = "enum", values = { "1", "2", "3" } },
 
 	-- Time attributes
-	due = { type = "date" },
+	due = { type = "datetime" },
 	at = { type = "string" }, -- Time like "14:30"
 	dur = { type = "duration" },
 	est = { type = "duration" },
 
 	from = { type = "datetime" },
 	to = { type = "datetime" },
+	notify = {
+		type = "custom",
+		-- Process list of (2h, 1h30m, 1d, 12)
+		parse = function(v)
+			local durations = {}
+			for duration in v:gmatch("([^,]+)") do
+				table.insert(durations, type_parsers.duration(duration))
+			end
+			return durations
+		end,
+	},
 
 	-- Status attributes
 	done = { type = "date" },
@@ -112,7 +123,6 @@ local base_schema = {
 	size = { type = "enum", values = { "xs", "sm", "md", "lg", "xl" } },
 	xp = { type = "number" },
 	["repeat"] = { type = "string" },
-	notify = { type = "boolean" },
 }
 
 local function build_schema(keys, overrides)
@@ -138,7 +148,7 @@ end
 local habit_schema = build_schema("repeat,at")
 local calendar_entry_schema = build_schema("id,p,i,due,at,dur,est,from,to,repeat,notify")
 local task_schema = build_schema("size,id,p,i,due,at,dur,est,done,progress,repeat,notify")
-local project_schema = build_schema("p,i,progress,done,xp,dur,est", {
+local project_schema = build_schema("p,i,progress,due,done,xp,dur,est", {
 	size = { type = "enum", values = { "xs", "sm", "md", "lg", "xl", "epic", "legendary", "mythic", "ultimate" } },
 })
 local event_schema = build_schema("at,from,to,notify,repeat")

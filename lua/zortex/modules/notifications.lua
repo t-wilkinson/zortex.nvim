@@ -147,6 +147,8 @@ local function send_manifest_to_server(operation, data)
 		manifest.notification = data
 	elseif operation == "remove" then
 		manifest.entry_id = data
+	elseif operation == "test" then
+		manifest.notification = data
 	end
 
 	local json_data = vim.fn.json_encode(manifest)
@@ -184,7 +186,7 @@ local function entry_to_notification(entry, date_str)
 	local notification = {
 		entry_id = string.format("%s_%s", date_str, vim.fn.sha256(entry.raw_text):sub(1, 8)),
 		title = entry.display_text,
-		message = entry.display_text,
+		message = calendar.format_entry(entry),
 		date = date_str,
 		ntfy_topic = cfg.ntfy.topic or ("zortex-" .. cfg.aws.user_id),
 	}
@@ -323,11 +325,7 @@ local function format_notification_message(entry, minutes_until)
 		time_str = string.format("in %d hours", math.floor(minutes_until / 60))
 	end
 
-	local message = entry.display_text
-	if entry.attributes.at then
-		message = message .. " at " .. entry.attributes.at
-	end
-
+	local message = calendar.format_entry(entry)
 	return message, time_str
 end
 
@@ -684,6 +682,20 @@ end
 -- =============================================================================
 -- Tests
 -- =============================================================================
+
+function M.test_notifications_ete()
+	if not cfg.aws.enabled then
+		vim.notify("AWS notifications not enabled", vim.log.levels.ERROR)
+		return false
+	end
+	local cur = datetime.get_current_date()
+	local entry = calendar.parse_calendar_entry("- [ ] Test", datetime.format_date(cur, "MM-DD-YYYY"))
+	local notification = entry_to_notification(entry, datetime.format_date(cur, "YYYY-MM-DD"))
+	notification.notify_minutes = 0
+	notification.priority = "high"
+	vim.notify(vim.inspect(notification), 3)
+	return send_manifest_to_server("test", notification)
+end
 
 function M.test_system_notification()
 	-- Send a test notification

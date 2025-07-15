@@ -53,6 +53,9 @@ local function setup_commands(prefix)
 	end, { desc = "Sync notification manifest to AWS handler" })
 
 	-- Test notifications
+	cmd("TestNotifications", function()
+		modules.notifications.test_notifications_ete()
+	end, { desc = "Test notifications end to end" })
 	cmd("TestSystemNotifications", function()
 		modules.notifications.test_notification()
 	end, { desc = "Test notification system" })

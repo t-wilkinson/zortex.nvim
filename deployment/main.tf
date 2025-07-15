@@ -12,19 +12,23 @@ variable "user_id" {
   type = string
 }
 
+# --- Packaging ---
+# We create separate source directories for each lambda
+# to manage their dependencies independently.
+
 data "archive_file" "manifest_processor" {
   type        = "zip"
-  source_dir  = "${path.module}/manifest_processor" # handler.py + libs
-  output_path = "${path.module}/manifest_processor.zip"
+  source_dir  = "${path.module}/manifest_processor" # This dir should contain handler.py + its libs
+  output_path = "${path.module}/dist/manifest_processor.zip"
 }
 
 data "archive_file" "notification_sender" {
   type        = "zip"
-  source_file = "${path.module}/notification_sender.py"
-  output_path = "${path.module}/notification_sender.zip"
+  source_dir  = "${path.module}/notification_sender" # This dir should contain handler.py + its libs
+  output_path = "${path.module}/dist/notification_sender.zip"
 }
 
-# DynamoDB Table
+# --- DynamoDB ---
 resource "aws_dynamodb_table" "notifications" {
   name         = "zortex-notifications"
   billing_mode = "PAY_PER_REQUEST"
@@ -65,7 +69,7 @@ resource "aws_dynamodb_table" "notifications" {
   }
 }
 
-# Lambda Functions
+# --- Lambda Functions ---
 resource "aws_lambda_function" "manifest_processor" {
   function_name    = "zortex-manifest-processor"
   filename         = data.archive_file.manifest_processor.output_path
@@ -84,15 +88,15 @@ resource "aws_lambda_function" "manifest_processor" {
 
 resource "aws_lambda_function" "notification_sender" {
   function_name    = "zortex-notification-sender"
-  filename         = data.archive_file.manifest_processor.output_path
-  source_code_hash = data.archive_file.manifest_processor.output_base64sha256
+  filename         = data.archive_file.notification_sender.output_path
+  source_code_hash = data.archive_file.notification_sender.output_base64sha256
   role             = aws_iam_role.lambda_role.arn
-  handler          = "notification_sender.handler"
+  handler          = "handler.handler"
   runtime          = "python3.9"
   timeout          = 30
 }
 
-# API Gateway
+# --- API Gateway ---
 resource "aws_apigatewayv2_api" "main" {
   name          = "zortex-notifications-api"
   protocol_type = "HTTP"
@@ -116,7 +120,9 @@ resource "aws_apigatewayv2_stage" "main" {
   auto_deploy = true
 }
 
-# IAM Role for Lambda
+# --- IAM ---
+data "aws_caller_identity" "current" {}
+
 resource "aws_iam_role" "lambda_role" {
   name = "zortex-lambda-role"
 
@@ -132,7 +138,6 @@ resource "aws_iam_role" "lambda_role" {
   })
 }
 
-# IAM Policies
 resource "aws_iam_role_policy" "lambda_policy" {
   name = "zortex-lambda-policy"
   role = aws_iam_role.lambda_role.id
@@ -162,7 +167,7 @@ resource "aws_iam_role_policy" "lambda_policy" {
           "events:PutTargets",
           "events:RemoveTargets"
         ]
-        Resource = "arn:aws:events:${var.region}:${var.user_id}:rule/zortex-notify-*"
+        Resource = "arn:aws:events:${var.region}:${data.aws_caller_identity.current.account_id}:rule/zortex-notify-*"
       },
       {
         Effect = "Allow"
@@ -179,12 +184,17 @@ resource "aws_iam_role_policy" "lambda_policy" {
           "logs:PutLogEvents"
         ]
         Resource = "arn:aws:logs:*:*:*"
+      },
+      {
+        Effect   = "Allow",
+        Action   = "sts:GetCallerIdentity",
+        Resource = "*"
       }
     ]
   })
 }
 
-# Lambda Permissions
+# --- Permissions ---
 resource "aws_lambda_permission" "api_gateway" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
@@ -198,23 +208,11 @@ resource "aws_lambda_permission" "eventbridge" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.notification_sender.function_name
   principal     = "events.amazonaws.com"
-  source_arn    = "arn:aws:events:${var.region}:${var.user_id}:rule/zortex-notify-*"
+  source_arn    = "arn:aws:events:${var.region}:${data.aws_caller_identity.current.account_id}:rule/zortex-notify-*"
 }
 
 
-# ----------------------------
-#  Outputs
-# ----------------------------
+# --- Outputs ---
 output "api_endpoint" {
   value = "${aws_apigatewayv2_stage.main.invoke_url}/manifest"
 }
-
-# output "nameservers_to_set_at_namecheap" {
-#   description = "NS records to copy into Namecheap. Set these as custom nameservers for your domain."
-#   value       = aws_route53_zone.primary.name_servers
-# }
-# 
-# output "test_endpoint" {
-#   description = "CloudFront URL (should redirect to your custom domain once DNS propagates)"
-#   value       = aws_cloudfront_distribution.ntfy.domain_name
-# }

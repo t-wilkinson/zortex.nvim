@@ -1,28 +1,17 @@
--- modules/projects.lua - Project structure parser for Zortex
+-- modules/projects.lua - Project management with progress tracking
 local M = {}
 
 local parser = require("zortex.core.parser")
+local buffer = require("zortex.core.buffer")
 local fs = require("zortex.core.filesystem")
+local tasks = require("zortex.modules.tasks")
+local areas = require("zortex.modules.areas")
+local xp_projects = require("zortex.xp.projects")
+local xp_notifs = require("zortex.xp.notifications")
 local attributes = require("zortex.core.attributes")
 
 -- =============================================================================
--- Data Structure
--- =============================================================================
-
--- Project structure:
--- {
---   name = "Project Name",
---   level = 2,  -- heading level
---   line_num = 42,
---   attributes = { ... },  -- parsed attributes
---   parent = <parent_project>,
---   children = { <child_projects> },
---   tasks = { <tasks> },
---   content = { <other_content> }
--- }
-
--- =============================================================================
--- State
+-- Project Tree Structure
 -- =============================================================================
 
 local state = {
@@ -31,72 +20,23 @@ local state = {
 	file_info = {}, -- Article name, tags, etc.
 }
 
--- =============================================================================
--- Helper Functions
--- =============================================================================
-
--- Strip attribute from a heading/project name.
-local function strip_attributes(text)
-	if not text then
-		return ""
-	end
-	-- Remove @word(...) first, then standalone @word
-	text = text:gsub("@%w+%b()", "")
-	text = text:gsub("@%w+", "")
-	return parser.trim(text)
-end
-
--- Recursively build the full heading path for a project
-function M.get_project_path(project)
-	local parts = {}
-	local p = project
-	while p do
-		table.insert(parts, 1, strip_attributes(p.name)) -- prepend so order is root ➜ leaf
-		p = p.parent
-	end
-	return table.concat(parts, " ‣ ") -- →·◦
-end
-
--- =============================================================================
--- Project Tree Building
--- =============================================================================
-
+-- Create a project node
 local function create_project(heading, line_num)
 	return {
 		name = heading.text,
 		level = heading.level,
 		line_num = line_num,
-		attributes = attributes.parse_project_attributes(heading.raw),
+		attributes = parser.parse_attributes(heading.text, attributes.project),
 		parent = nil,
 		children = {},
 		tasks = {},
 		content = {},
-	}
-end
-
-local function parse_task_line(line, line_num)
-	local is_task, is_completed = parser.is_task_line(line)
-	if not is_task then
-		return nil
-	end
-
-	local task_text = parser.get_task_text(line)
-	if not task_text then
-		return nil
-	end
-
-	return {
-		raw_text = line,
-		display_text = task_text,
-		completed = is_completed,
-		status = attributes.parse_task_status(line),
-		attributes = attributes.parse_task_attributes(task_text),
-		line_num = line_num,
+		area_links = {},
 	}
 end
 
 -- =============================================================================
--- Loading and Parsing
+-- Loading Projects
 -- =============================================================================
 
 function M.load()
@@ -115,14 +55,14 @@ function M.load()
 		return false
 	end
 
-	-- Extract file info (article name, tags)
+	-- Extract file info
 	if #lines > 0 then
 		state.file_info.article = parser.extract_article_name(lines[1])
 		state.file_info.tags = parser.extract_tags_from_lines(lines)
 	end
 
 	-- Build project tree
-	local project_stack = {} -- Stack to track parent projects
+	local project_stack = {}
 	local current_project = nil
 
 	for i, line in ipairs(lines) do
@@ -132,6 +72,11 @@ function M.load()
 			-- Create new project
 			local project = create_project(heading, i)
 			table.insert(state.projects, project)
+
+			-- Get area links for this project
+			if i < #lines then
+				project.area_links = areas.extract_area_links(lines[i + 1])
+			end
 
 			-- Find parent based on heading level
 			while #project_stack > 0 and project_stack[#project_stack].level >= heading.level do
@@ -155,17 +100,11 @@ function M.load()
 			table.insert(project_stack, project)
 			current_project = project
 		elseif current_project then
-			-- Parse content under current project
-			local task = parse_task_line(line, i)
-			if task then
-				table.insert(current_project.tasks, task)
-			elseif line:match("%S") then -- Non-empty line
-				table.insert(current_project.content, {
-					text = line,
-					line_num = i,
-					type = parser.detect_section_type(line),
-				})
-			end
+			-- Add content to current project
+			table.insert(current_project.content, {
+				text = line,
+				line_num = i,
+			})
 		end
 	end
 
@@ -173,75 +112,149 @@ function M.load()
 end
 
 -- =============================================================================
+-- Progress Tracking
+-- =============================================================================
+
+function M.update_progress(bufnr)
+	bufnr = bufnr or 0
+	local lines = buffer.get_lines(bufnr)
+	local modified = false
+
+	-- First ensure all tasks have IDs
+	if tasks.ensure_task_ids(bufnr) then
+		modified = true
+		lines = buffer.get_lines(bufnr)
+	end
+
+	-- Track XP changes for notification
+	local total_xp_changes = {}
+	local projects_completed = {}
+
+	-- Process each project
+	local headings = buffer.get_all_headings(bufnr)
+
+	for i, heading_info in ipairs(headings) do
+		local lnum = heading_info.lnum
+		local level = heading_info.level
+		local project_name = heading_info.text
+
+		-- Find section bounds
+		local end_idx = #lines + 1
+		for j = i + 1, #headings do
+			if headings[j].level <= level then
+				end_idx = headings[j].lnum
+				break
+			end
+		end
+
+		-- Get area links
+		local area_links = {}
+		if lnum < #lines then
+			area_links = areas.extract_area_links(lines[lnum + 1])
+		end
+
+		-- Process tasks in this project
+		local project_tasks, xp_changes = tasks.process_project_tasks(lines, project_name, lnum, end_idx, area_links)
+
+		-- Aggregate XP changes
+		for _, change in ipairs(xp_changes) do
+			table.insert(total_xp_changes, change)
+		end
+
+		-- Update project heading with progress
+		local completed_count = 0
+		local total_count = #project_tasks
+
+		for _, task in ipairs(project_tasks) do
+			if task.completed then
+				completed_count = completed_count + 1
+			end
+		end
+
+		local old_line = lines[lnum]
+		local new_line =
+			parser.update_attribute(old_line, "progress", string.format("%d/%d", completed_count, total_count))
+
+		-- Check for project completion
+		local was_done = parser.extract_attribute(old_line, "done") ~= nil
+		local is_done = total_count > 0 and completed_count == total_count
+
+		if is_done and not was_done then
+			new_line = parser.update_attribute(new_line, "done", os.date("%Y-%m-%d"))
+
+			-- Calculate total project XP
+			local total_project_xp = 0
+			for _, task in ipairs(project_tasks) do
+				total_project_xp = total_project_xp + task.xp_awarded
+			end
+
+			-- Mark project as completed
+			if #area_links > 0 then
+				xp_projects.complete_project(project_name, total_project_xp, area_links)
+			end
+
+			table.insert(projects_completed, {
+				name = project_name,
+				xp = total_project_xp,
+			})
+		elseif not is_done and was_done then
+			new_line = parser.remove_attribute(new_line, "done")
+		end
+
+		if new_line ~= old_line then
+			lines[lnum] = new_line
+			modified = true
+		end
+	end
+
+	-- Save changes
+	if modified then
+		buffer.set_lines(bufnr, 0, -1, lines)
+	end
+
+	-- Show notification if XP changed
+	if #total_xp_changes > 0 then
+		xp_notifs.notify_progress_update(total_xp_changes, projects_completed)
+	end
+
+	return modified
+end
+
+-- =============================================================================
 -- Query Functions
 -- =============================================================================
 
--- Get all projects (flat list)
 function M.get_all_projects()
 	return state.projects
 end
 
--- Get project tree
 function M.get_project_tree()
 	return state.tree
 end
 
--- Get projects at a specific level
-function M.get_projects_at_level(level)
-	local projects = {}
-	for _, project in ipairs(state.projects) do
-		if project.level == level then
-			table.insert(projects, project)
-		end
+function M.get_project_path(project)
+	local parts = {}
+	local p = project
+	while p do
+		-- Strip attributes from name for display
+		local clean_name = parser.parse_attributes(p.name)
+		table.insert(parts, 1, clean_name)
+		p = p.parent
 	end
-	return projects
+	return table.concat(parts, " › ")
 end
 
--- Get all tasks across all projects
-function M.get_all_tasks()
-	local tasks = {}
-	for _, project in ipairs(state.projects) do
-		for _, task in ipairs(project.tasks) do
-			-- Add project reference to task
-			local task_with_project = vim.tbl_extend("force", task, {
-				project = project.name,
-				project_level = project.level,
-			})
-			table.insert(tasks, task_with_project)
-		end
-	end
-	return tasks
-end
-
--- Get incomplete tasks
-function M.get_incomplete_tasks()
-	local tasks = {}
-	for _, project in ipairs(state.projects) do
-		for _, task in ipairs(project.tasks) do
-			if not task.completed then
-				local task_with_project = vim.tbl_extend("force", task, {
-					project = project.name,
-					project_level = project.level,
-				})
-				table.insert(tasks, task_with_project)
-			end
-		end
-	end
-	return tasks
-end
-
--- Find project by name
 function M.find_project(name)
 	local name_lower = name:lower()
 	for _, project in ipairs(state.projects) do
-		if project.name:lower() == name_lower then
+		local clean_name = parser.parse_attributes(project.name)
+		if clean_name:lower() == name_lower then
 			return project
 		end
 	end
 	return nil
 end
 
--- Get project at line number
 function M.get_project_at_line(line_num)
 	local best_project = nil
 	for _, project in ipairs(state.projects) do
@@ -254,32 +267,30 @@ function M.get_project_at_line(line_num)
 	return best_project
 end
 
--- Get file info
-function M.get_file_info()
-	return state.file_info
-end
-
 -- =============================================================================
 -- Project Statistics
 -- =============================================================================
 
 function M.get_project_stats(project)
+	-- Get tasks from task store
+	local project_tasks = require("zortex.models.task").get_project_tasks(project.name)
+
 	local stats = {
-		total_tasks = #project.tasks,
+		total_tasks = #project_tasks,
 		completed_tasks = 0,
+		total_xp = 0,
 		completion_rate = 0,
 		has_children = #project.children > 0,
 		child_count = #project.children,
 	}
 
-	-- Count completed tasks
-	for _, task in ipairs(project.tasks) do
+	for _, task in ipairs(project_tasks) do
 		if task.completed then
 			stats.completed_tasks = stats.completed_tasks + 1
+			stats.total_xp = stats.total_xp + task.xp_awarded
 		end
 	end
 
-	-- Calculate completion rate
 	if stats.total_tasks > 0 then
 		stats.completion_rate = stats.completed_tasks / stats.total_tasks
 	end
@@ -287,12 +298,12 @@ function M.get_project_stats(project)
 	return stats
 end
 
--- Get stats for all projects
 function M.get_all_stats()
 	local total_stats = {
 		project_count = #state.projects,
 		total_tasks = 0,
 		completed_tasks = 0,
+		total_xp = 0,
 		projects_by_level = {},
 	}
 
@@ -300,6 +311,7 @@ function M.get_all_stats()
 		local stats = M.get_project_stats(project)
 		total_stats.total_tasks = total_stats.total_tasks + stats.total_tasks
 		total_stats.completed_tasks = total_stats.completed_tasks + stats.completed_tasks
+		total_stats.total_xp = total_stats.total_xp + stats.total_xp
 
 		-- Count by level
 		local level = project.level
@@ -309,48 +321,5 @@ function M.get_all_stats()
 	return total_stats
 end
 
--- =============================================================================
--- Integration Helpers
--- =============================================================================
-
--- Check if a project is referenced in OKRs
-function M.is_project_in_okr(project_name)
-	local okr_file = fs.get_okr_file()
-	if not okr_file or not fs.file_exists(okr_file) then
-		return false
-	end
-
-	local lines = fs.read_lines(okr_file)
-	if not lines then
-		return false
-	end
-
-	for _, line in ipairs(lines) do
-		if parser.is_project_linked(line, project_name) then
-			return true
-		end
-	end
-
-	return false
-end
-
--- Get projects with specific attributes
-function M.find_projects_with_attribute(attr_name, attr_value)
-	local matches = {}
-	for _, project in ipairs(state.projects) do
-		if attr_value then
-			-- Match specific value
-			if project.attributes[attr_name] == attr_value then
-				table.insert(matches, project)
-			end
-		else
-			-- Just check if attribute exists
-			if project.attributes[attr_name] ~= nil then
-				table.insert(matches, project)
-			end
-		end
-	end
-	return matches
-end
-
 return M
+

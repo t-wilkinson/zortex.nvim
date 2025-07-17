@@ -7,33 +7,56 @@ local M = {}
 
 -- Core modules
 local core = {
-	highlights = require("zortex.core.highlights"),
-	parser = require("zortex.core.parser"),
+	config = require("zortex.config"),
+	constants = require("zortex.constants"),
+	attributes = require("zortex.core.attributes"),
 	buffer = require("zortex.core.buffer"),
+	datetime = require("zortex.core.datetime"),
 	filesystem = require("zortex.core.filesystem"),
-	search = require("zortex.core.search"),
-	config = require("zortex.core.config"),
+	parser = require("zortex.core.parser"),
 }
 
--- Feature modules
+local features = {
+	-- archive = require("zortex.features.archive"),
+	calendar = require("zortex.features.calendar"),
+	completion = require("zortex.features.completion"),
+	highlights = require("zortex.core.highlights"),
+	links = require("zortex.features.links"),
+	notifications = require("zortex.features.notifications"),
+}
+
+local models = {
+	task = require("zortex.models.task"),
+}
+
 local modules = {
-	notifications = require("zortex.modules.notifications"),
-	archive = require("zortex.modules.archive"),
-	links = require("zortex.modules.links"),
+	areas = require("zortex.modules.areas"),
+	objectives = require("zortex.modules.objectives"),
 	progress = require("zortex.modules.progress"),
 	projects = require("zortex.modules.projects"),
-	calendar = require("zortex.modules.calendar"),
-	search = require("zortex.modules.search"),
-	skills = require("zortex.modules.skills"),
-	xp = require("zortex.modules.xp"),
-	xp_notifications = require("zortex.modules.xp_notifications"),
+	tasks = require("zortex.modules.tasks"),
 }
 
--- UI modules
+local stores = {
+	areas = require("zortex.stores.areas"),
+	base = require("zortex.stores.base"),
+	tasks = require("zortex.stores.tasks"),
+	xp = require("zortex.stores.xp"),
+}
+
 local ui = {
 	calendar = require("zortex.ui.calendar"),
-	telescope = require("zortex.ui.telescope"),
+	projects = require("zortex.ui.projects"),
+	search = require("zortex.ui.search"),
 	skill_tree = require("zortex.ui.skill_tree"),
+	telescope = require("zortex.ui.telescope"),
+}
+
+local xp = {
+	areas = require("zortex.xp.areas"),
+	core = require("zortex.xp.core"),
+	notifications = require("zortex.xp.notifications"),
+	projects = require("zortex.xp.projects"),
 }
 
 -- =============================================================================
@@ -49,18 +72,18 @@ local function setup_commands(prefix)
 	-- Notifications
 	-- ===========================================================================
 	cmd("SyncNotifications", function()
-		modules.notifications.sync()
+		features.notifications.sync()
 	end, { desc = "Sync notification manifest to AWS handler" })
 
 	-- Test notifications
 	cmd("TestNotifications", function()
-		modules.notifications.test_notifications_ete()
+		features.notifications.test_notifications_ete()
 	end, { desc = "Test notifications end to end" })
 	cmd("TestSystemNotifications", function()
-		modules.notifications.test_notification()
+		features.notifications.test_notification()
 	end, { desc = "Test notification system" })
 	cmd("TestNtfy", function()
-		local success = modules.notifications.test_ntfy_notification()
+		local success = features.notifications.test_ntfy_notification()
 		if success then
 			vim.notify("Ntfy test notification sent!", vim.log.levels.INFO)
 		else
@@ -68,23 +91,23 @@ local function setup_commands(prefix)
 		end
 	end, { desc = "Test ntfy notification" })
 	cmd("TestAWS", function()
-		modules.notifications.test_aws_connection()
+		features.notifications.test_aws_connection()
 	end, { desc = "Test AWS notification connection" })
 
 	-- ===========================================================================
 	-- Navigation
 	-- ===========================================================================
 	cmd("OpenLink", function()
-		modules.links.open_link()
+		features.links.open_link()
 	end, { desc = "Open link under cursor" })
 	cmd("Search", function()
-		modules.search.search({ search_type = "section" })
+		ui.search.search({ search_type = "section" })
 	end, { desc = "Section-based search with breadcrumbs" })
 	cmd("SearchArticles", function()
-		modules.search.search({ search_type = "article" })
+		ui.search.search({ search_type = "article" })
 	end, { desc = "Article-based search" })
 	cmd("SearchSections", function()
-		modules.search.search({ search_type = "section" })
+		ui.search.search({ search_type = "section" })
 	end, { desc = "Section-based search" })
 
 	-- ===========================================================================
@@ -100,18 +123,18 @@ local function setup_commands(prefix)
 	-- ===========================================================================
 	-- Telescope
 	-- ===========================================================================
-	cmd("Telescope", function()
-		require("telescope").extensions.zortex.zortex()
-	end, { desc = "Open Zortex telescope picker" })
-	cmd("Today", function()
-		ui.telescope.today_digest()
-	end, { desc = "Show today's digest" })
-	cmd("Projects", function()
-		ui.telescope.projects()
-	end, { desc = "Browse projects with telescope" })
-	cmd("CalendarSearch", function()
-		ui.telescope.calendar()
-	end, { desc = "Search calendar with telescope" })
+	-- cmd("Telescope", function()
+	-- 	require("telescope").extensions.zortex.zortex()
+	-- end, { desc = "Open Zortex telescope picker" })
+	-- cmd("Today", function()
+	-- 	ui.telescope.today_digest()
+	-- end, { desc = "Show today's digest" })
+	-- cmd("Projects", function()
+	-- 	ui.telescope.projects()
+	-- end, { desc = "Browse projects with telescope" })
+	-- cmd("CalendarSearch", function()
+	-- 	ui.telescope.calendar()
+	-- end, { desc = "Search calendar with telescope" })
 
 	-- ===========================================================================
 	-- Project management & archive
@@ -142,13 +165,13 @@ local function setup_commands(prefix)
 	end, { desc = "Update progress for all projects and OKRs" })
 
 	-- Archive
-	cmd("ArchiveProject", function()
-		modules.archive.archive_current_project()
-	end, { desc = "Archive current project" })
+	-- cmd("ArchiveProject", function()
+	-- 	features.archive.archive_current_project()
+	-- end, { desc = "Archive current project" })
 
-	cmd("ArchiveAllCompleted", function()
-		modules.archive.archive_all_completed_projects()
-	end, { desc = "Archive all completed projects" })
+	-- cmd("ArchiveAllCompleted", function()
+	-- 	features.archive.archive_all_completed_projects()
+	-- end, { desc = "Archive all completed projects" })
 
 	-- ===========================================================================
 	-- XP & Skill tree
@@ -159,7 +182,7 @@ local function setup_commands(prefix)
 
 	-- XP system info
 	cmd("XPInfo", function()
-		modules.xp_notifications.show_xp_overview()
+		xp.notifications.show_xp_overview()
 	end, {
 		desc = "Show XP system overview",
 	})
@@ -177,15 +200,15 @@ local function setup_commands(prefix)
 
 		local name = args[1]
 		local end_date = args[2]
-		modules.xp.start_season(name, end_date)
+		xp.projects.start_season(name, end_date)
 	end, { nargs = "*", desc = "Start a new season" })
 
 	cmd("EndSeason", function()
-		modules.xp.end_season()
+		xp.projects.end_season()
 	end, { desc = "End the current season" })
 
 	cmd("SeasonStatus", function()
-		local status = modules.xp.get_season_status()
+		local status = xp.projects.get_season_status()
 		if status then
 			print("Current Season: " .. status.season.name)
 			print(
@@ -268,10 +291,10 @@ local function setup_autocmds()
 			local filename = vim.fn.expand("%:t")
 
 			if filename == "projects.zortex" then
-				modules.progress.update_project_progress(args.buf)
-				modules.progress.update_okr_progress()
+				modules.projects.update_project_progress(args.buf)
+				modules.objectives.update_okr_progress()
 			elseif filename == "okr.zortex" then
-				modules.progress.update_okr_progress()
+				modules.objectives.update_okr_progress()
 			elseif filename == "calendar.zortex" then
 				-- Reload calendar on save
 				modules.calendar.load()
@@ -300,10 +323,10 @@ function M.setup(opts)
 
 	-- Call setup functions
 	-- ui.telescope.setup()
-	ui.calendar.setup(config.ui.calendar)
+	ui.calendar.setup(config.calendar)
 
 	modules.xp.setup(config.xp)
-	modules.notifications.setup(config.notifications)
+	features.notifications.setup(config.notifications)
 	-- modules.projects.load() -- Not sure if this is necessary
 
 	core.highlights.setup_autocmd()
@@ -333,13 +356,16 @@ end
 -- =============================================================================
 
 -- Re-export commonly used functions
-M.search = modules.search.search
-M.open_link = modules.links.open_link
+M.search = ui.search.search
+M.open_link = features.links.open_link
 M.calendar = ui.calendar.open
-M.projects = ui.telescope.projects
 
 M.modules = modules
+M.features = features
+M.models = models
+M.stores = stores
 M.ui = ui
 M.core = core
+M.xp = xp
 
 return M

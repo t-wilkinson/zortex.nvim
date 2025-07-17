@@ -153,7 +153,7 @@ function! s:init_autocommands()
 
   augroup zortex_init
       autocmd!
-      autocmd BufEnter * :call s:init_command()
+      autocmd BufEnter * :call s:init_commands()
 
       " if g:zortex_command_for_global
       " else
@@ -169,7 +169,7 @@ function! s:init_autocommands()
 endfunction
 
 function! zortex#legacy#init()
-  call s:init_variables()
+  " call s:init_variables()
   call s:init_commands()
   call s:init_autocommands()
 endfunction

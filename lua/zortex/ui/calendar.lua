@@ -10,8 +10,8 @@ local CONTENT_WIDTH = fn.strwidth(MARGIN_STR) + GRID_WIDTH -- 2 + 49 = 51
 
 local datetime = require("zortex.core.datetime")
 local fs = require("zortex.core.filesystem")
-local calendar = require("zortex.modules.calendar")
-local notifications = require("zortex.modules.notifications")
+local calendar = require("zortex.features.calendar")
+local notifications = require("zortex.features.notifications")
 
 -- =============================================================================
 -- Calendar State and cfguration

@@ -110,14 +110,9 @@ M.TASK_STATUS = {
 	["."] = { symbol = ".", name = "in_progress", tags = { "@inprogress", "@wip" } },
 	["o"] = { symbol = "o", name = "ongoing", tags = { "@ongoing" } },
 	["x"] = { symbol = "x", name = "done", tags = { "@done" } },
-	["X"] = { symbol = "X", name = "done", tags = { "@done" } },
 	["-"] = { symbol = "-", name = "cancelled", tags = { "@cancelled" } },
-	["‑"] = { symbol = "‑", name = "cancelled", tags = { "@cancelled" } },
 	["?"] = { symbol = "?", name = "unclear", tags = { "@unclear" } },
-	["!"] = { symbol = "!", name = "urgent", tags = { "@urgent" } },
 	["*"] = { symbol = "*", name = "delegated", tags = { "@delegated" } },
-	["l"] = { symbol = "l", name = "later", tags = { "@later" } },
-	["L"] = { symbol = "L", name = "later", tags = { "@later" } },
 }
 
 -- Highlight groups

@@ -4,4 +4,4 @@ lua require('zortex')
 
 let g:zortex_loaded = 1
 
-" call zortex#legacy#init()
+call zortex#legacy#init()

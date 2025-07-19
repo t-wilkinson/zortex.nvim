@@ -33,7 +33,6 @@ function M:load()
 		if loaded then
 			self.data = loaded
 			self.loaded = true
-			self:migrate()
 			return true
 		end
 	end
@@ -58,11 +57,6 @@ function M:init_empty()
 	self.loaded = true
 end
 
--- Migrate old data formats (override in subclasses)
-function M:migrate()
-	-- Override in subclasses if needed
-end
-
 -- Ensure the store is loaded
 function M:ensure_loaded()
 	if not self.loaded then
@@ -71,4 +65,3 @@ function M:ensure_loaded()
 end
 
 return M
-

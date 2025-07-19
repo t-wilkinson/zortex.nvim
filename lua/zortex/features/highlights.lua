@@ -1,4 +1,4 @@
--- core/highlights.lua - Complete syntax highlighting for Zortex
+-- features/highlights.lua - Complete syntax highlighting for Zortex
 local M = {}
 
 --------------------------------------------------------------------------

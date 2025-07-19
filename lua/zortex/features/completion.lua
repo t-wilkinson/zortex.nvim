@@ -1,8 +1,8 @@
--- modules/completion.lua - Context-aware completion for Zortex links
+-- features/completion.lua - Context-aware completion for Zortex links
 local M = {}
 
 local parser = require("zortex.core.parser")
-local search = require("zortex.core.search")
+local search = require("zortex.core.resolver")
 local fs = require("zortex.core.filesystem")
 local buffer = require("zortex.core.buffer")
 
@@ -12,9 +12,6 @@ local cache = {
 	article_data = {},
 	last_update = 0,
 }
-
--- local CMP_KIND = nil -- assign all entries for nvim-cmp to "text"
--- local CMP_KIND = 14 -- assign all entries for nvim-cmp to "keyword"
 
 -- Extract all article names/aliases from the start of a file
 local function extract_article_names(lines)

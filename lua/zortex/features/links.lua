@@ -1,8 +1,8 @@
--- modules/links.lua - Link navigation for Zortex with normalized section handling
+-- features/links.lua - Link navigation for Zortex with normalized section handling
 local M = {}
 
 local parser = require("zortex.core.parser")
-local search = require("zortex.core.search")
+local search = require("zortex.core.resolver")
 local buffer = require("zortex.core.buffer")
 local fs = require("zortex.core.filesystem")
 local constants = require("zortex.constants")

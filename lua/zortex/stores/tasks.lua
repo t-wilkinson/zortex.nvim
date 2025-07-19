@@ -17,32 +17,6 @@ function store:init_empty()
 	self.loaded = true
 end
 
--- Migrate old data formats
-function store:migrate()
-	-- Convert old project_tasks format (sets) to arrays if needed
-	if self.data.project_tasks then
-		for project, task_data in pairs(self.data.project_tasks) do
-			-- If it's a table with numeric indices, it's already an array
-			local is_array = false
-			for k, v in pairs(task_data) do
-				if type(k) == "number" then
-					is_array = true
-					break
-				end
-			end
-
-			-- Convert set to array
-			if not is_array then
-				local task_list = {}
-				for task_id in pairs(task_data) do
-					table.insert(task_list, task_id)
-				end
-				self.data.project_tasks[project] = task_list
-			end
-		end
-	end
-end
-
 -- Task CRUD operations
 function M.get_task(id)
 	store:ensure_loaded()
@@ -242,4 +216,3 @@ function M.save()
 end
 
 return M
-

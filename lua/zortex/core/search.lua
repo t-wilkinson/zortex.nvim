@@ -1,4 +1,4 @@
--- core/search.lua - Search functionality for Zortex with normalized section handling
+-- core/resolver.lua - Search functionality for Zortex with normalized section handling
 local M = {}
 
 local parser = require("zortex.core.parser")

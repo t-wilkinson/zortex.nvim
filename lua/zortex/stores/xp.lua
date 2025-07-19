@@ -24,35 +24,6 @@ function store:init_empty()
 	self.loaded = true
 end
 
--- Migrate old data formats
-function store:migrate()
-	-- Ensure all required fields exist
-	self.data.area_xp = self.data.area_xp or {}
-	self.data.project_xp = self.data.project_xp or {}
-	self.data.season_xp = self.data.season_xp or 0
-	self.data.season_level = self.data.season_level or 1
-	self.data.completed_objectives = self.data.completed_objectives or {}
-	self.data.completed_projects = self.data.completed_projects or {}
-	self.data.season_history = self.data.season_history or {}
-
-	-- Ensure each area has required fields
-	for path, area_data in pairs(self.data.area_xp) do
-		if type(area_data) == "number" then
-			-- Old format was just XP number
-			self.data.area_xp[path] = { xp = area_data, level = 1 }
-		else
-			area_data.xp = area_data.xp or 0
-			area_data.level = area_data.level or 1
-		end
-	end
-
-	-- Ensure each project has required fields
-	for name, project_data in pairs(self.data.project_xp) do
-		project_data.xp = project_data.xp or 0
-		project_data.level = project_data.level or 1
-	end
-end
-
 -- Area XP methods
 function M.get_area_xp(path)
 	store:ensure_loaded()
@@ -185,4 +156,3 @@ function M.save()
 end
 
 return M
-

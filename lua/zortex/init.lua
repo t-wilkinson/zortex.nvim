@@ -20,7 +20,7 @@ local features = {
 	-- archive = require("zortex.features.archive"),
 	calendar = require("zortex.features.calendar"),
 	completion = require("zortex.features.completion"),
-	highlights = require("zortex.core.highlights"),
+	highlights = require("zortex.features.highlights"),
 	links = require("zortex.features.links"),
 	notifications = require("zortex.features.notifications"),
 }
@@ -297,7 +297,7 @@ local function setup_autocmds()
 				modules.objectives.update_okr_progress()
 			elseif filename == "calendar.zortex" then
 				-- Reload calendar on save
-				modules.calendar.load()
+				features.calendar.load()
 			end
 		end,
 		group = group,
@@ -323,7 +323,7 @@ function M.setup(opts)
 
 	-- Call setup functions
 	-- ui.telescope.setup()
-	ui.calendar.setup(config.calendar)
+	ui.calendar.setup(config.ui.calendar)
 
 	modules.xp.setup(config.xp)
 	features.notifications.setup(config.notifications)

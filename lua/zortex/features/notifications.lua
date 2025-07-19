@@ -2,7 +2,7 @@
 local M = {}
 
 local fs = require("zortex.core.filesystem")
-local calendar = require("zortex.modules.calendar")
+local calendar = require("zortex.features.calendar")
 local datetime = require("zortex.core.datetime")
 
 -- =============================================================================
@@ -266,30 +266,6 @@ end
 -- Notification Logic
 -- =============================================================================
 
-local function parse_notify_value(notify_value)
-	-- Parse notification timing: "15m", "1h", "30", etc.
-	if not notify_value or notify_value == true then
-		return cfg.default_advance_minutes
-	end
-
-	if type(notify_value) == "string" then
-		-- Try to parse duration format
-		local num, unit = notify_value:match("^(%d+)([mh]?)$")
-		if num then
-			num = tonumber(num)
-			if unit == "h" then
-				return num * 60
-			else
-				return num
-			end
-		end
-	elseif type(notify_value) == "number" then
-		return notify_value
-	end
-
-	return cfg.default_advance_minutes
-end
-
 local function get_notification_time(entry, event_datetime)
 	-- Calculate when to send notification based on event time and notify setting
 	local advance_minutes = parse_notify_value(entry.attributes.notify)
@@ -505,10 +481,10 @@ function M.sync_local()
 				})
 
 				if entry.attributes.at then
-					local hour, min = entry.attributes.at:match("^(%d+):(%d+)")
-					if hour and min then
-						event_datetime.hour = tonumber(hour)
-						event_datetime.min = tonumber(min)
+					local time = datetime.parse_time(entry.attributes.at)
+					if time then
+						event_datetime.hour = time.hour
+						event_datetime.min = time.min
 					end
 				end
 

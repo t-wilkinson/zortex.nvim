@@ -22,6 +22,7 @@ M.schemas = {
 		progress = { type = "progress" },
 		["repeat"] = { type = "string" },
 		notify = { type = "list" },
+		depends = { types = "string" }, -- Specifies task dependence
 	},
 
 	-- Project attributes
@@ -55,7 +56,7 @@ M.schemas = {
 		at = { type = "string" },
 		from = { type = "datetime" },
 		to = { type = "datetime" },
-		notify = { type = "list" },
+		notify = { type = "duration" },
 		["repeat"] = { type = "string" },
 	},
 
@@ -172,21 +173,8 @@ function M.was_done(line)
 	return parser.extract_attribute(line, "done") ~= nil
 end
 
-function M.get_done_date(line)
-	return parser.extract_attribute(line, "done")
-end
-
--- ID attribute helpers
-function M.add_task_id(line, id)
-	return M.add_attribute(line, "id", id)
-end
-
 function M.extract_task_id(line)
 	return parser.extract_attribute(line, "id")
-end
-
-function M.update_task_id(line, new_id)
-	return parser.update_attribute(line, "id", new_id)
 end
 
 -- XP attribute helpers
@@ -208,18 +196,6 @@ end
 -- Duration Helpers
 -- =============================================================================
 
--- Parse duration string to minutes
-function M.parse_duration(dur_str)
-	if not dur_str then
-		return nil
-	end
-
-	local attrs = parser.parse_attributes("@dur(" .. dur_str .. ")", {
-		dur = { type = "duration" },
-	})
-	return attrs.dur
-end
-
 -- Format minutes to duration string
 function M.format_duration(minutes)
 	if not minutes or minutes <= 0 then
@@ -239,4 +215,3 @@ function M.format_duration(minutes)
 end
 
 return M
-

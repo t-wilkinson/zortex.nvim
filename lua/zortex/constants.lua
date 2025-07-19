@@ -108,7 +108,6 @@ M.SECTION_HIERARCHY = {
 M.TASK_STATUS = {
 	[" "] = { symbol = " ", name = "todo", tags = { "@todo" } },
 	["."] = { symbol = ".", name = "in_progress", tags = { "@inprogress", "@wip" } },
-	["o"] = { symbol = "o", name = "ongoing", tags = { "@ongoing" } },
 	["x"] = { symbol = "x", name = "done", tags = { "@done" } },
 	["-"] = { symbol = "-", name = "cancelled", tags = { "@cancelled" } },
 	["?"] = { symbol = "?", name = "unclear", tags = { "@unclear" } },

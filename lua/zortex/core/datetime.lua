@@ -143,6 +143,30 @@ function M.parse_datetime(dt_str, default_date_str)
 	return nil
 end
 
+local duration_multipliers = {
+	m = 1, -- minutes
+	h = 60, -- hours to minutes
+	d = 60 * 24, -- days to minutes
+	w = 60 * 24 * 7, -- weeks to minutes
+}
+
+-- Parse duration and units and return in minutes
+function M.parse_duration(duration)
+	local num, unit = duration:match("(%d+%.?%d*)%s*([hdmw])")
+	local total = num * (duration_multipliers[unit] or 0)
+	return total > 0 and total or nil
+end
+
+-- Parse multiple duration num+unit pairs
+function M.parse_durations(durations)
+	local total = 0
+	for num, unit in durations:gmatch("(%d+%.?%d*)%s*([hdmw])") do
+		num = tonumber(num)
+		total = total + (num * (duration_multipliers[unit] or 0))
+	end
+	return total > 0 and total or nil
+end
+
 --- Formats a date table into a string.
 -- @param date_tbl table A table with {year, month, day, [hour], [min]}.
 -- @param format_str string The format string (e.g., "YYYY-MM-DD").

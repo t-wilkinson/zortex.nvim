@@ -8,6 +8,12 @@ local tasks = require("zortex.modules.tasks")
 local xp_core = require("zortex.xp.core")
 
 -- =============================================================================
+-- Configuration
+-- =============================================================================
+
+local config = nil
+
+-- =============================================================================
 -- Project Progress
 -- =============================================================================
 
@@ -20,6 +26,34 @@ function M.update_all_projects()
 		return projects.update_progress(bufnr)
 	end
 	return false
+end
+
+-- =============================================================================
+-- OKR Progress
+-- =============================================================================
+
+-- Update OKR progress
+function M.update_okr_progress()
+	return objectives.update_okr_progress()
+end
+
+-- =============================================================================
+-- Task Operations
+-- =============================================================================
+
+-- Toggle current task
+function M.toggle_current_task()
+	tasks.toggle_current_task()
+end
+
+-- Complete current task
+function M.complete_current_task()
+	tasks.complete_current_task()
+end
+
+-- Uncomplete current task
+function M.uncomplete_current_task()
+	tasks.uncomplete_current_task()
 end
 
 -- =============================================================================
@@ -144,9 +178,29 @@ function M.show_stats()
 	vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO)
 end
 
+-- Show XP overview
+function M.show_xp_overview()
+	require("zortex.xp.notifications").show_xp_overview()
+end
+
+-- Show task stats
+function M.show_task_stats()
+	tasks.show_stats()
+end
+
+-- Show area stats
+function M.show_area_stats()
+	require("zortex.modules.areas").show_area_stats()
+end
+
 -- =============================================================================
 -- Maintenance
 -- =============================================================================
+
+-- Archive old tasks
+function M.archive_old_tasks(days)
+	return tasks.archive_old_tasks(days)
+end
 
 -- Force reload all data
 function M.reload_all()
@@ -158,6 +212,17 @@ function M.reload_all()
 	projects.load()
 
 	vim.notify("Reloaded all progress data", vim.log.levels.INFO)
+end
+
+-- =============================================================================
+-- Setup
+-- =============================================================================
+
+function M.setup(opts)
+	config = opts or {}
+
+	-- Setup XP core with config
+	xp_core.setup(config.xp or {})
 end
 
 -- =============================================================================

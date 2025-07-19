@@ -2,6 +2,7 @@
 local M = {}
 
 local constants = require("zortex.constants")
+local datetime = require("zortex.core.datetime")
 
 -- =============================================================================
 -- String Utilities
@@ -152,29 +153,13 @@ local attribute_parsers = {
 		return true
 	end,
 
-	duration = function(v)
-		local total = 0
-		for num, unit in v:gmatch("(%d+%.?%d*)%s*([hdmw])") do
-			num = tonumber(num)
-			local multipliers = {
-				m = 1, -- minutes
-				h = 60, -- hours to minutes
-				d = 60 * 24, -- days to minutes
-				w = 60 * 24 * 7, -- weeks to minutes
-			}
-			total = total + (num * (multipliers[unit] or 0))
-		end
-		return total > 0 and total or nil
-	end,
+	duration = datetime.parse_durations,
 
-	date = function(v)
-		-- Simple date parsing - extend as needed
-		local y, m, d = v:match("(%d%d%d%d)-(%d%d)-(%d%d)")
-		if y then
-			return { year = tonumber(y), month = tonumber(m), day = tonumber(d) }
-		end
-		return nil
-	end,
+	date = datetime.parse_date,
+
+	time = datetime.parse_time,
+
+	datetime = datetime.parse_datetime,
 
 	progress = function(v)
 		local completed, total = v:match("(%d+)/(%d+)")
@@ -582,4 +567,3 @@ function M.find_section_end(lines, start_lnum, section_type, heading_level)
 end
 
 return M
-

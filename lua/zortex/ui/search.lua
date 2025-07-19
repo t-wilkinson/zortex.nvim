@@ -5,7 +5,6 @@ local constants = require("zortex.constants")
 local parser = require("zortex.core.parser")
 local fs = require("zortex.core.filesystem")
 local search_managers = require("zortex.modules.search_managers")
-local core_search = require("zortex.core.resolver")
 local projects = require("zortex.modules.projects")
 local datetime = require("zortex.core.datetime")
 

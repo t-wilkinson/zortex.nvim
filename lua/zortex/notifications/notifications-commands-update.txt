@@ -1,0 +1,191 @@
+-- Add these commands to init.lua setup_commands function
+
+-- ===========================================================================
+-- Notifications - General
+-- ===========================================================================
+cmd("Notify", function(opts)
+	local args = vim.split(opts.args, " ", { plain = false, trimempty = true })
+	if #args < 2 then
+		vim.notify("Usage: ZortexNotify <title> <message>", vim.log.levels.ERROR)
+		return
+	end
+	local title = args[1]
+	local message = table.concat(vim.list_slice(args, 2), " ")
+	features.notifications.notify(title, message)
+end, { nargs = "+", desc = "Send a notification" })
+
+cmd("NotificationList", function()
+	local scheduled = features.notifications.list_scheduled()
+	if #scheduled == 0 then
+		vim.notify("No scheduled notifications", vim.log.levels.INFO)
+	else
+		local lines = { "Scheduled notifications:" }
+		for _, notif in ipairs(scheduled) do
+			table.insert(lines, string.format(
+				"  %s: %s - %s",
+				os.date("%m/%d %H:%M", notif.scheduled_time),
+				notif.title,
+				notif.message:sub(1, 50)
+			))
+		end
+		vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO)
+	end
+end, { desc = "List scheduled notifications" })
+
+-- ===========================================================================
+-- Pomodoro Commands
+-- ===========================================================================
+cmd("PomodoroStart", function(opts)
+	local phase = opts.args ~= "" and opts.args or nil
+	features.notifications.pomodoro.start(phase)
+end, { nargs = "?", desc = "Start pomodoro timer" })
+
+cmd("PomodoroStop", function()
+	features.notifications.pomodoro.stop()
+end, { desc = "Stop pomodoro timer" })
+
+cmd("PomodoroPause", function()
+	if features.notifications.pomodoro.pause() then
+		vim.notify("Pomodoro paused", vim.log.levels.INFO)
+	else
+		vim.notify("No active pomodoro to pause", vim.log.levels.WARN)
+	end
+end, { desc = "Pause pomodoro timer" })
+
+cmd("PomodoroResume", function()
+	if features.notifications.pomodoro.resume() then
+		vim.notify("Pomodoro resumed", vim.log.levels.INFO)
+	else
+		vim.notify("No paused pomodoro to resume", vim.log.levels.WARN)
+	end
+end, { desc = "Resume pomodoro timer" })
+
+cmd("PomodoroStatus", function()
+	local status = features.notifications.pomodoro.status()
+	if status.phase == "stopped" then
+		vim.notify("Pomodoro is not running", vim.log.levels.INFO)
+	else
+		vim.notify(string.format(
+			"Pomodoro: %s - %s remaining (Session %d)",
+			status.phase_name,
+			status.remaining_formatted,
+			status.work_count
+		), vim.log.levels.INFO)
+	end
+end, { desc = "Show pomodoro status" })
+
+cmd("PomodoroSkip", function()
+	if features.notifications.pomodoro.skip() then
+		vim.notify("Skipping to next phase...", vim.log.levels.INFO)
+	else
+		vim.notify("No active pomodoro session", vim.log.levels.WARN)
+	end
+end, { desc = "Skip to next pomodoro phase" })
+
+-- ===========================================================================
+-- Timer Commands
+-- ===========================================================================
+cmd("TimerStart", function(opts)
+	local args = vim.split(opts.args, " ", { plain = false, trimempty = true })
+	if #args < 1 then
+		vim.notify("Usage: ZortexTimerStart <duration> [name]", vim.log.levels.ERROR)
+		vim.notify("Examples: ZortexTimerStart 25 'Work timer'", vim.log.levels.INFO)
+		vim.notify("         ZortexTimerStart 5m 'Quick break'", vim.log.levels.INFO)
+		return
+	end
+	local duration = args[1]
+	local name = args[2] and table.concat(vim.list_slice(args, 2), " ") or nil
+	local id = features.notifications.timer.start(duration, name)
+	if id then
+		vim.notify("Timer started: " .. id:sub(1, 16), vim.log.levels.INFO)
+	end
+end, { nargs = "+", desc = "Start a timer" })
+
+cmd("TimerStop", function(opts)
+	if opts.args == "" then
+		vim.notify("Usage: ZortexTimerStop <timer_id or name>", vim.log.levels.ERROR)
+		return
+	end
+	local success, err = features.notifications.timer.stop(opts.args)
+	if success then
+		vim.notify("Timer stopped", vim.log.levels.INFO)
+	else
+		vim.notify("Error: " .. (err or "Unknown error"), vim.log.levels.ERROR)
+	end
+end, { nargs = 1, desc = "Stop a timer" })
+
+cmd("TimerList", function()
+	local timers = features.notifications.timer.list()
+	if #timers == 0 then
+		vim.notify("No active timers", vim.log.levels.INFO)
+	else
+		local lines = { "Active timers:" }
+		for _, timer in ipairs(timers) do
+			table.insert(lines, string.format("  %s: %s - %s remaining (%.0f%%)",
+				timer.id:sub(1, 16),
+				timer.name,
+				timer.remaining_formatted,
+				timer.progress * 100
+			))
+		end
+		vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO)
+	end
+end, { desc = "List active timers" })
+
+cmd("AlarmSet", function(opts)
+	local args = vim.split(opts.args, " ", { plain = false, trimempty = true })
+	if #args < 1 then
+		vim.notify("Usage: ZortexAlarmSet <time> [name]", vim.log.levels.ERROR)
+		vim.notify("Examples: ZortexAlarmSet 14:30 'Meeting'", vim.log.levels.INFO)
+		vim.notify("         ZortexAlarmSet 9:00am 'Standup'", vim.log.levels.INFO)
+		return
+	end
+	local time = args[1]
+	local name = args[2] and table.concat(vim.list_slice(args, 2), " ") or nil
+	local id = features.notifications.timer.alarm(time, name)
+	if id then
+		vim.notify("Alarm set: " .. id:sub(1, 16), vim.log.levels.INFO)
+	end
+end, { nargs = "+", desc = "Set an alarm for a specific time" })
+
+-- ===========================================================================
+-- Calendar Notifications
+-- ===========================================================================
+cmd("NotificationSync", function()
+	features.notifications.calendar.sync()
+end, { desc = "Sync calendar notifications" })
+
+cmd("NotificationCheck", function()
+	local count = features.notifications.calendar.check()
+	vim.notify(string.format("Checked calendar: %d notifications sent", count), vim.log.levels.INFO)
+end, { desc = "Check and send due calendar notifications" })
+
+-- ===========================================================================
+-- Test Commands
+-- ===========================================================================
+cmd("TestNotifications", function()
+	features.notifications.test.all()
+end, { desc = "Test all notification providers" })
+
+cmd("TestSystemNotification", function()
+	features.notifications.test.system()
+end, { desc = "Test system notification" })
+
+cmd("TestNtfy", function()
+	features.notifications.test.ntfy()
+end, { desc = "Test ntfy notification" })
+
+cmd("TestAWS", function()
+	features.notifications.test.aws()
+end, { desc = "Test AWS notification" })
+
+-- ===========================================================================
+-- Keymaps (add to setup_keymaps function)
+-- ===========================================================================
+-- Pomodoro
+map("n", "zp", "PomodoroStart", { desc = "Start pomodoro" })
+map("n", "zP", "PomodoroStatus", { desc = "Pomodoro status" })
+
+-- Timers
+map("n", "zt", "TimerStart 25", { desc = "Start 25min timer" })
+map("n", "zT", "TimerList", { desc = "List timers" })

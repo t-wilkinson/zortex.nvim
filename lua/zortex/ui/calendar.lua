@@ -9,9 +9,10 @@ local GRID_WIDTH = 7 * CELL_WIDTH -- 7 days * 7 cols = 49
 local CONTENT_WIDTH = fn.strwidth(MARGIN_STR) + GRID_WIDTH -- 2 + 49 = 51
 
 local datetime = require("zortex.core.datetime")
+local calendar_store = require("zortex.stores.calendar")
 local fs = require("zortex.core.filesystem")
 local calendar = require("zortex.features.calendar")
-local notifications = require("zortex.features.notifications")
+local notifications = require("zortex.notifications")
 
 -- =============================================================================
 -- Calendar State and cfguration
@@ -29,83 +30,6 @@ local CalendarState = {
 
 -- Default configuration
 local cfg = {}
-
--- =============================================================================
--- Date Utilities
--- =============================================================================
-
-local DateUtil = {}
-
-function DateUtil.get_current_date()
-	local now = os.date("*t")
-	return {
-		year = now.year,
-		month = now.month,
-		day = now.day,
-		wday = now.wday,
-	}
-end
-
-function DateUtil.get_days_in_month(year, month)
-	local days = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 }
-	if month == 2 and (year % 4 == 0 and (year % 100 ~= 0 or year % 400 == 0)) then
-		return 29
-	end
-	return days[month]
-end
-
-function DateUtil.get_first_weekday(year, month)
-	local time = os.time({ year = year, month = month, day = 1 })
-	return os.date("*t", time).wday
-end
-
-function DateUtil.format_date(date)
-	return string.format("%04d-%02d-%02d", date.year, date.month, date.day)
-end
-
-function DateUtil.format_month_year(date)
-	local months = {
-		"January",
-		"February",
-		"March",
-		"April",
-		"May",
-		"June",
-		"July",
-		"August",
-		"September",
-		"October",
-		"November",
-		"December",
-	}
-	return string.format("%s %d", months[date.month], date.year)
-end
-
-function DateUtil.add_days(date, days)
-	local time = os.time(date)
-	local new_time = time + (days * 86400)
-	local new_date = os.date("*t", new_time)
-	return { year = new_date.year, month = new_date.month, day = new_date.day, wday = new_date.wday }
-end
-
-function DateUtil.format_relative_date(date)
-	local today = DateUtil.get_current_date()
-	local today_time = os.time(today)
-	local date_time = os.time(date)
-	local diff_days = math.floor((date_time - today_time) / 86400)
-
-	if diff_days == 0 then
-		return "Today"
-	elseif diff_days == 1 then
-		return "Tomorrow"
-	elseif diff_days == -1 then
-		return "Yesterday"
-	elseif diff_days > 0 and diff_days <= 7 then
-		return os.date("%A", date_time) -- Day name
-	else
-		return os.date("%b %d", date_time)
-	end
-end
 
 -- =============================================================================
 -- Calendar Renderer
@@ -178,7 +102,7 @@ function Renderer.render_month_view(date)
 	local win_width = CalendarState.win_id and api.nvim_win_get_width(CalendarState.win_id) or cfg.window.width
 	local lines = {}
 	local highlights = {}
-	local today = DateUtil.get_current_date()
+	local today = datetime.get_current_date()
 
 	table.insert(lines, "")
 
@@ -187,7 +111,7 @@ function Renderer.render_month_view(date)
 	local left_pad_str = string.rep(" ", math.max(0, math.floor(total_padding / 2)))
 
 	-- Header with navigation hints
-	local header_text = DateUtil.format_month_year(date)
+	local header_text = datetime.format_month_year(date)
 	local view_mode_text = CalendarState.view_mode == "month" and "Month View" or "Week View"
 	local space_between = CONTENT_WIDTH - (fn.strwidth(header_text) + fn.strwidth(view_mode_text))
 	local header_padding = string.rep(" ", math.max(1, space_between))
@@ -231,11 +155,11 @@ function Renderer.render_month_view(date)
 	table.insert(lines, "")
 
 	-- Load calendar data
-	calendar.load()
+	calendar_store.load()
 
 	-- Build calendar grid
-	local days_in_month = DateUtil.get_days_in_month(date.year, date.month)
-	local first_weekday = DateUtil.get_first_weekday(date.year, date.month)
+	local days_in_month = datetime.get_days_in_month(date.year, date.month)
+	local first_weekday = datetime.get_first_weekday(date.year, date.month)
 	local current_day = 1
 	local line_num = #lines + 1
 
@@ -256,7 +180,7 @@ function Renderer.render_month_view(date)
 			if (week == 1 and weekday >= first_weekday) or (week > 1 and current_day <= days_in_month) then
 				local day_num = current_day
 				local date_str = string.format("%04d-%02d-%02d", date.year, date.month, day_num)
-				local entries = calendar.get_entries_for_date(date_str)
+				local entries = calendar_store.get_entries_for_date(date_str)
 				local is_today = date.year == today.year and date.month == today.month and day_num == today.day
 				local is_selected = CalendarState.current_date
 					and date.year == CalendarState.current_date.year
@@ -377,9 +301,9 @@ function Renderer.render_month_view(date)
 
 	-- Show entries for selected date
 	if CalendarState.current_date then
-		local date_str = DateUtil.format_date(CalendarState.current_date)
-		local entries = calendar.get_entries_for_date(date_str)
-		local pending_notifications = notifications and notifications.get_pending_for_date(date_str) or {}
+		local date_str = datetime.format_date(CalendarState.current_date)
+		local entries = calendar_store.get_entries_for_date(date_str)
+		local pending_notifications = notifications.calendar.get_pending_for_date(date_str)
 
 		local summary_header = string.format(
 			"%s - %s",
@@ -412,7 +336,7 @@ function Renderer.render_month_view(date)
 					icon = cfg.icons.notification
 				end
 
-				local entry_str = calendar.format_entry(entry)
+				local entry_str = entry:format()
 				local entry_line = string.format("  %s %s%s", icon, entry.display_text, entry_str)
 				table.insert(lines, left_pad_str .. MARGIN_STR .. entry_line)
 			end
@@ -467,7 +391,7 @@ end
 function Renderer.render_digest_view()
 	local lines = {}
 	local highlights = {}
-	local today = DateUtil.get_current_date()
+	local today = datetime.get_current_date()
 	local win_width = CalendarState.win_id and api.nvim_win_get_width(CalendarState.win_id) or cfg.window.width
 
 	-- Header
@@ -489,13 +413,13 @@ function Renderer.render_digest_view()
 
 	-- Show entries for today and next 7 days
 	for i = 0, cfg.digest.show_upcoming_days do
-		local date = DateUtil.add_days(today, i)
-		local date_str = DateUtil.format_date(date)
+		local date = datetime.add_days(today, i)
+		local date_str = datetime.format_date(date)
 		local entries = calendar.get_entries_for_date(date_str)
 
 		if #entries > 0 then
 			-- Date header
-			local date_header = DateUtil.format_relative_date(date)
+			local date_header = datetime.format_relative_date(date)
 			if i > 1 then
 				date_header = date_header .. string.format(" (%s)", os.date("%b %d", os.time(date)))
 			end
@@ -587,7 +511,7 @@ function Renderer.update_selected_extmark()
 		return
 	end
 
-	local date_str = DateUtil.format_date(CalendarState.current_date)
+	local date_str = datetime.format_date(CalendarState.current_date)
 	local mark = CalendarState.marks[date_str]
 	if not mark then
 		return
@@ -608,7 +532,7 @@ function Renderer.update_selected_extmark()
 	CalendarState.selected_extmark_id =
 		vim.api.nvim_buf_set_extmark(CalendarState.bufnr, CalendarState.ns_id, mark.line - 1, byte_start, {
 			end_col = byte_end,
-			hl_group = (date_str == DateUtil.format_date(DateUtil.get_current_date())) and cfg.colors.today_selected
+			hl_group = (date_str == datetime.format_date(datetime.get_current_date())) and cfg.colors.today_selected
 				or cfg.colors.selected,
 			priority = 100,
 		})
@@ -640,61 +564,61 @@ function Navigation.move_to_date(date)
 end
 
 function Navigation.next_day()
-	local date = CalendarState.current_date or DateUtil.get_current_date()
-	Navigation.move_to_date(DateUtil.add_days(date, 1))
+	local date = CalendarState.current_date or datetime.get_current_date()
+	Navigation.move_to_date(datetime.add_days(date, 1))
 end
 
 function Navigation.prev_day()
-	local date = CalendarState.current_date or DateUtil.get_current_date()
-	Navigation.move_to_date(DateUtil.add_days(date, -1))
+	local date = CalendarState.current_date or datetime.get_current_date()
+	Navigation.move_to_date(datetime.add_days(date, -1))
 end
 
 function Navigation.next_week()
-	local date = CalendarState.current_date or DateUtil.get_current_date()
-	Navigation.move_to_date(DateUtil.add_days(date, 7))
+	local date = CalendarState.current_date or datetime.get_current_date()
+	Navigation.move_to_date(datetime.add_days(date, 7))
 end
 
 function Navigation.prev_week()
-	local date = CalendarState.current_date or DateUtil.get_current_date()
-	Navigation.move_to_date(DateUtil.add_days(date, -7))
+	local date = CalendarState.current_date or datetime.get_current_date()
+	Navigation.move_to_date(datetime.add_days(date, -7))
 end
 
 function Navigation.next_month()
-	local date = CalendarState.current_date or DateUtil.get_current_date()
+	local date = CalendarState.current_date or datetime.get_current_date()
 	date.month = date.month + 1
 	if date.month > 12 then
 		date.month, date.year = 1, date.year + 1
 	end
-	date.day = math.min(date.day, DateUtil.get_days_in_month(date.year, date.month))
+	date.day = math.min(date.day, datetime.get_days_in_month(date.year, date.month))
 	Navigation.move_to_date(date)
 end
 
 function Navigation.prev_month()
-	local date = CalendarState.current_date or DateUtil.get_current_date()
+	local date = CalendarState.current_date or datetime.get_current_date()
 	date.month = date.month - 1
 	if date.month < 1 then
 		date.month, date.year = 12, date.year - 1
 	end
-	date.day = math.min(date.day, DateUtil.get_days_in_month(date.year, date.month))
+	date.day = math.min(date.day, datetime.get_days_in_month(date.year, date.month))
 	Navigation.move_to_date(date)
 end
 
 function Navigation.next_year()
-	local date = CalendarState.current_date or DateUtil.get_current_date()
+	local date = CalendarState.current_date or datetime.get_current_date()
 	date.year = date.year + 1
-	date.day = math.min(date.day, DateUtil.get_days_in_month(date.year, date.month))
+	date.day = math.min(date.day, datetime.get_days_in_month(date.year, date.month))
 	Navigation.move_to_date(date)
 end
 
 function Navigation.prev_year()
-	local date = CalendarState.current_date or DateUtil.get_current_date()
+	local date = CalendarState.current_date or datetime.get_current_date()
 	date.year = date.year - 1
-	date.day = math.min(date.day, DateUtil.get_days_in_month(date.year, date.month))
+	date.day = math.min(date.day, datetime.get_days_in_month(date.year, date.month))
 	Navigation.move_to_date(date)
 end
 
 function Navigation.go_to_today()
-	Navigation.move_to_date(DateUtil.get_current_date())
+	Navigation.move_to_date(datetime.get_current_date())
 end
 
 function Navigation.select_date_at_cursor()
@@ -734,7 +658,7 @@ function Actions.add_entry()
 		vim.notify("Please select a date first", vim.log.levels.WARN)
 		return
 	end
-	local date_str = DateUtil.format_date(CalendarState.current_date)
+	local date_str = datetime.format_date(CalendarState.current_date)
 	M.close()
 	vim.ui.input({ prompt = string.format("Add entry for %s: ", date_str), default = "" }, function(input)
 		if input and input ~= "" then
@@ -753,7 +677,7 @@ function Actions.view_entries()
 		vim.notify("Please select a date first", vim.log.levels.WARN)
 		return
 	end
-	local date_str = DateUtil.format_date(CalendarState.current_date)
+	local date_str = datetime.format_date(CalendarState.current_date)
 	M.close()
 	local cal_file = fs.get_file_path("calendar.zortex")
 	if cal_file then
@@ -929,7 +853,7 @@ function M.open()
 	CalendarState.ns_id = api.nvim_create_namespace("zortex_calendar")
 
 	if not CalendarState.current_date then
-		CalendarState.current_date = DateUtil.get_current_date()
+		CalendarState.current_date = datetime.get_current_date()
 	end
 
 	setup_keymaps(CalendarState.bufnr)
@@ -960,7 +884,7 @@ function M.refresh()
 	if CalendarState.view_mode == "digest" then
 		lines, highlights = Renderer.render_digest_view()
 	else
-		lines, highlights = Renderer.render_month_view(CalendarState.current_date or DateUtil.get_current_date())
+		lines, highlights = Renderer.render_month_view(CalendarState.current_date or datetime.get_current_date())
 	end
 
 	api.nvim_buf_set_option(CalendarState.bufnr, "modifiable", true)

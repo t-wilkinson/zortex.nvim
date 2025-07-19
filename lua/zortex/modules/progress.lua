@@ -29,6 +29,13 @@ function M.update_all_projects()
 end
 
 -- =============================================================================
+-- Season status
+-- =============================================================================
+function M.get_season_status()
+	return require("zortex.xp.projects").get_season_status()
+end
+
+-- =============================================================================
 -- OKR Progress
 -- =============================================================================
 
@@ -151,7 +158,7 @@ function M.show_stats()
 	end
 
 	-- Season status
-	local season_status = require("zortex.xp.projects").get_season_status()
+	local season_status = M.get_season_status()
 	if season_status then
 		table.insert(lines, "🏆 Current Season:")
 		table.insert(lines, string.format("   Name: %s", season_status.season.name))

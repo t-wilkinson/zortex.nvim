@@ -17,6 +17,10 @@ M.FILES = {
 	XP_STATE_DATA = ".z/xp_state.json",
 	TASK_STATE_DATA = ".z/task_state.json",
 	ARCHIVE_TASK_STATE = ".z/archive.task_state.json",
+	-- State persistence
+	NOTIFICATIONS_STATE = ".z/notifications_state.json",
+	NOTIFICATIONS_LOG = ".z/notifications_log.json",
+	POMODORO = ".z/pomodoro_state.json",
 }
 
 -- Core patterns

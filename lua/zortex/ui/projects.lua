@@ -4,7 +4,6 @@ local M = {}
 local datetime = require("zortex.core.datetime")
 local projects = require("zortex.modules.projects")
 local parser = require("zortex.core.parser")
-local xp = require("zortex.modules.xp")
 
 -- =============================================================================
 -- Helper Functions
@@ -36,9 +35,6 @@ local function calculate_task_score(task)
 			end
 		end
 	end
-	-- Heat scoring from XP system
-	local heat = xp.get_task_heat and xp.get_task_heat(task) or 0
-	score = score + (heat * 20)
 	-- Completed tasks score lower
 	if task.completed then
 		score = score - 100

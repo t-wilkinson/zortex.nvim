@@ -5,7 +5,6 @@ local constants = require("zortex.constants")
 local datetime = require("zortex.core.datetime")
 local fs = require("zortex.core.filesystem")
 local attributes = require("zortex.core.attributes")
-local config = require("zortex.config")
 local parser = require("zortex.core.parser")
 
 -- =============================================================================
@@ -194,7 +193,7 @@ function M.parse_calendar_entry(entry_text, date_context)
 	end
 
 	-- 2. Parse attributes from the remaining text
-	local attrs, remaining_text = attributes.parse_attributes(working_text, attributes.schemas.calendar_entry)
+	local attrs, remaining_text = parser.parse_attributes(working_text, attributes.schemas.calendar_entry)
 	parsed.attributes = attrs or {}
 	parsed.display_text = remaining_text
 
@@ -207,115 +206,6 @@ function M.parse_calendar_entry(entry_text, date_context)
 
 	return parsed
 end
-
--- =============================================================================
--- Format calendar entry
--- =============================================================================
-
--- Format entry depending on calendar pretty_attributes setting
-function M.format_entry(entry)
-	return config.get("calendar.pretty_attributes") and M.format_entry_pretty(entry) or M.format_entry_simple(entry)
-end
-
--- Pretty‑print attributes
-function M.format_entry_pretty(entry)
-	if not entry.attributes then
-		return ""
-	end
-
-	local parts = {}
-
-	-- Time attributes
-	if entry.attributes.at then
-		table.insert(parts, "🕐 " .. entry.attributes.at)
-	end
-
-	-- Duration attributes
-	if entry.attributes.dur then
-		table.insert(parts, string.format("⏱ %dm", entry.attributes.dur))
-	elseif entry.attributes.est then
-		table.insert(parts, string.format("⏱ ~%dm", entry.attributes.est))
-	end
-
-	-- Notification
-	if entry.attributes.notify then
-		table.insert(parts, "🔔")
-	end
-
-	-- Repeat pattern
-	if entry.attributes["repeat"] then
-		table.insert(parts, "🔁 " .. entry.attributes["repeat"])
-	end
-
-	-- Date range
-	if entry.attributes.from or entry.attributes.to then
-		local range_parts = {}
-		if entry.attributes.from then
-			table.insert(range_parts, datetime.format_date(entry.attributes.from, "MM/DD"))
-		else
-			table.insert(range_parts, "...")
-		end
-		table.insert(range_parts, "→")
-		if entry.attributes.to then
-			table.insert(range_parts, datetime.format_date(entry.attributes.to, "MM/DD"))
-		else
-			table.insert(range_parts, "...")
-		end
-		table.insert(parts, table.concat(range_parts, " "))
-	end
-
-	if #parts > 0 then
-		return entry.display_text .. "  " .. table.concat(parts, "  ")
-	end
-	return entry.display_text
-end
-
--- Format attributes in simple mode
-function M.format_entry_simple(entry)
-	if not entry.attributes then
-		return ""
-	end
-
-	local parts = {}
-
-	-- Compact time display
-	if entry.attributes.at then
-		table.insert(parts, entry.attributes.at)
-	end
-
-	-- Compact duration
-	if entry.attributes.dur then
-		table.insert(parts, entry.attributes.dur .. "m")
-	elseif entry.attributes.est then
-		table.insert(parts, "~" .. entry.attributes.est .. "m")
-	end
-
-	-- Simple indicators
-	if entry.attributes.notify then
-		table.insert(parts, "!")
-	end
-
-	if entry.attributes["repeat"] then
-		table.insert(parts, "R")
-	end
-
-	-- Compact date range
-	if entry.attributes.from and entry.attributes.to then
-		local from_str = datetime.format_date(entry.attributes.from, "MM/DD")
-		local to_str = datetime.format_date(entry.attributes.to, "MM/DD")
-		table.insert(parts, from_str .. "-" .. to_str)
-	elseif entry.attributes.from then
-		table.insert(parts, datetime.format_date(entry.attributes.from, "MM/DD") .. "+")
-	elseif entry.attributes.to then
-		table.insert(parts, "-" .. datetime.format_date(entry.attributes.to, "MM/DD"))
-	end
-
-	if #parts > 0 then
-		return " [" .. table.concat(parts, " ") .. "]"
-	end
-	return ""
-end
-
 -- =============================================================================
 -- Data Access
 -- =============================================================================

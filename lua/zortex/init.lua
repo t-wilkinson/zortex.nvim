@@ -22,7 +22,6 @@ local features = {
 	completion = require("zortex.features.completion"),
 	highlights = require("zortex.features.highlights"),
 	links = require("zortex.features.links"),
-	notifications = require("zortex.features.notifications"),
 }
 
 local models = {
@@ -52,6 +51,8 @@ local ui = {
 	telescope = require("zortex.ui.telescope"),
 }
 
+local notifications = require("zortex.notifications")
+
 local xp = {
 	areas = require("zortex.xp.areas"),
 	core = require("zortex.xp.core"),
@@ -71,28 +72,78 @@ local function setup_commands(prefix)
 	-- ===========================================================================
 	-- Notifications
 	-- ===========================================================================
-	cmd("SyncNotifications", function()
-		features.notifications.sync()
-	end, { desc = "Sync notification manifest to AWS handler" })
+	cmd("Notify", function(opts)
+		local args = vim.split(opts.args, " ", { plain = false, trimempty = true })
+		if #args < 2 then
+			vim.notify("Usage: ZortexNotify <title> <message>", vim.log.levels.ERROR)
+			return
+		end
+		local title = args[1]
+		local message = table.concat(vim.list_slice(args, 2), " ")
+		notifications.notify(title, message)
+	end, { nargs = "+", desc = "Send a notification" })
+
+	-- Pomodoro
+	cmd("PomodoroStart", function()
+		notifications.pomodoro.start()
+	end, { desc = "Start pomodoro timer" })
+
+	cmd("PomodoroStop", function()
+		notifications.pomodoro.stop()
+	end, { desc = "Stop pomodoro timer" })
+
+	cmd("PomodoroStatus", function()
+		local status = notifications.pomodoro.status()
+		if status.phase == "stopped" then
+			vim.notify("Pomodoro is not running", vim.log.levels.INFO)
+		else
+			vim.notify(
+				string.format("Pomodoro: %s - %s remaining", status.phase:gsub("_", " "), status.remaining_formatted),
+				vim.log.levels.INFO
+			)
+		end
+	end, { desc = "Show pomodoro status" })
+
+	-- Timers
+	cmd("TimerStart", function(opts)
+		local args = vim.split(opts.args, " ", { plain = false, trimempty = true })
+		if #args < 1 then
+			vim.notify("Usage: ZortexTimerStart <duration> [name]", vim.log.levels.ERROR)
+			return
+		end
+		local duration = args[1]
+		local name = args[2] and table.concat(vim.list_slice(args, 2), " ") or nil
+		local id = notifications.timer.start(duration, name)
+		if id then
+			vim.notify("Timer started: " .. id, vim.log.levels.INFO)
+		end
+	end, { nargs = "+", desc = "Start a timer" })
+
+	cmd("TimerList", function()
+		local timers = notifications.timer.list()
+		if #timers == 0 then
+			vim.notify("No active timers", vim.log.levels.INFO)
+		else
+			local lines = { "Active timers:" }
+			for _, timer in ipairs(timers) do
+				table.insert(
+					lines,
+					string.format("  %s: %s - %s remaining", timer.id:sub(1, 8), timer.name, timer.remaining_formatted)
+				)
+			end
+			vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO)
+		end
+	end, { desc = "List active timers" })
+
+	-- Calendar sync
+	cmd("NotificationSync", function()
+		notifications.calendar.sync()
+	end, { desc = "Sync calendar notifications" })
 
 	-- Test notifications
 	cmd("TestNotifications", function()
-		features.notifications.test_notifications_ete()
-	end, { desc = "Test notifications end to end" })
-	cmd("TestSystemNotifications", function()
-		features.notifications.test_notification()
-	end, { desc = "Test notification system" })
-	cmd("TestNtfy", function()
-		local success = features.notifications.test_ntfy_notification()
-		if success then
-			vim.notify("Ntfy test notification sent!", vim.log.levels.INFO)
-		else
-			vim.notify("Failed to send ntfy notification", vim.log.levels.ERROR)
-		end
-	end, { desc = "Test ntfy notification" })
-	cmd("TestAWS", function()
-		features.notifications.test_aws_connection()
-	end, { desc = "Test AWS notification connection" })
+		notifications.test.all()
+	end, { desc = "Test all notification providers" })
 
 	-- ===========================================================================
 	-- Navigation
@@ -322,15 +373,11 @@ function M.setup(opts)
 	local config = core.config.setup(opts)
 
 	-- Call setup functions
-	-- ui.telescope.setup()
 	ui.calendar.setup(config.ui.calendar)
-
-	modules.xp.setup(config.xp)
-	features.notifications.setup(config.notifications)
-	-- modules.projects.load() -- Not sure if this is necessary
-
-	core.highlights.setup_autocmd()
-	core.highlights.setup_highlights()
+	modules.progress.setup(config.xp)
+	notifications.setup(config.notifications)
+	features.highlights.setup_autocmd()
+	features.highlights.setup_highlights()
 
 	-- Setup autocmds, keymaps, and autocmds
 	setup_commands(config.commands.prefix)
@@ -347,8 +394,7 @@ function M.setup(opts)
 
 	-- Completion
 	local cmp = require("cmp")
-	local zortex_completion = require("zortex.modules.completion")
-	cmp.register_source("zortex", zortex_completion.new())
+	cmp.register_source("zortex", features.completion.new())
 end
 
 -- =============================================================================

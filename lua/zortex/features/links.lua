@@ -2,7 +2,7 @@
 local M = {}
 
 local parser = require("zortex.core.parser")
-local search = require("zortex.core.resolver")
+local link_resolver = require("zortex.core.link_resolver")
 local buffer = require("zortex.core.buffer")
 local fs = require("zortex.core.filesystem")
 local constants = require("zortex.constants")
@@ -91,8 +91,8 @@ function M.open_link()
 			return
 		end
 
-		-- Process the link using core search functionality
-		local results = search.process_link(parsed)
+		-- Process the link using core link resolver functionality
+		local results = link_resolver.process_link(parsed)
 
 		if #results == 0 then
 			-- Already notified by process_link
@@ -103,12 +103,12 @@ function M.open_link()
 		else
 			-- Multiple results - jump to first and populate quickfix
 			jump_to_location(results[1], true)
-			search.populate_quickfix(results)
+			link_resolver.populate_quickfix(results)
 			vim.notify(string.format("Found %d matches. Quickfix list populated.", #results), vim.log.levels.INFO)
 		end
 	elseif link_info.type == "footnote" then
 		-- Handle footnote reference
-		local footnote_loc = search.search_footnote(link_info.ref_id)
+		local footnote_loc = link_resolver.search_footnote(link_info.ref_id)
 		if footnote_loc then
 			buffer.set_cursor_pos(footnote_loc.lnum, footnote_loc.col - 1)
 			vim.cmd("normal! zz")

@@ -30,28 +30,62 @@ M.defaults = {
 	},
 
 	notifications = {
-		default_advance_minutes = 15, -- Default notification time before event
-		check_interval_minutes = 5, -- How often to check for notifications
-		notification_file = ".z/notifications.json",
-		notification_log = ".z/notification_log.json",
-		enable_system_notifications = true,
-		commands = {
-			macos = "terminal-notifier -title '%s' -message '%s' -sound default",
-			linux = "notify-send -u normal -t 10000 '%s' '%s'",
-			termux = "termux-notification --title '%s' --content '%s'",
+		-- Global settings
+		enabled = true,
+		check_interval_minutes = 5,
+		default_advance_minutes = 15,
+
+		-- Provider configuration
+		providers = {
+			system = {
+				enabled = true,
+				commands = {
+					macos = "terminal-notifier -title '%s' -message '%s' -sound default",
+					linux = "notify-send -u normal -t 10000 '%s' '%s'",
+					termux = "termux-notification --title '%s' --content '%s'",
+				},
+			},
+			ntfy = {
+				enabled = true,
+				server_url = "http://ntfy.sh",
+				topic = "zortex-notify",
+				priority = "default",
+				tags = { "zortex" },
+				auth_token = nil,
+			},
+			aws = {
+				enabled = false,
+				api_endpoint = nil,
+				user_id = nil,
+			},
+			vim = {
+				enabled = true,
+				timeout = 5000,
+				level = vim.log.levels.INFO,
+			},
 		},
-		ntfy = {
-			enabled = true,
-			server_url = "http://ntfy.sh", -- or your self-hosted server
-			topic = "zortex-notify-tcgcp",
-			priority = "default", -- min, low, default, high, urgent
-			tags = { "calendar", "zortex" },
-			auth_token = nil, -- optional, for authenticated topics
+
+		-- Default providers for different notification types
+		default_providers = { "vim", "system" },
+		calendar_providers = { "vim", "system", "ntfy" },
+		timer_providers = { "vim", "system" },
+		pomodoro_providers = { "vim", "system" },
+
+		-- Pomodoro settings
+		pomodoro = {
+			work_duration = 25, -- minutes
+			short_break = 5, -- minutes
+			long_break = 15, -- minutes
+			long_break_after = 4, -- number of work sessions
+			auto_start_break = true,
+			auto_start_work = false,
+			sound = "default",
 		},
-		aws = {
-			enabled = true,
-			api_endpoint = nil,
-			user_id = nil,
+
+		-- Timer settings
+		timers = {
+			default_sound = "default",
+			allow_multiple = true,
 		},
 	},
 

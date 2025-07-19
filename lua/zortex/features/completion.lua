@@ -2,7 +2,7 @@
 local M = {}
 
 local parser = require("zortex.core.parser")
-local search = require("zortex.core.resolver")
+local link_resolver = require("zortex.core.link_resolver")
 local fs = require("zortex.core.filesystem")
 local buffer = require("zortex.core.buffer")
 
@@ -387,7 +387,7 @@ local function get_section_bounds_for_context(context, file)
 						local heading = parser.parse_heading(lines[lnum])
 						if heading and heading.text:lower() == component.text:lower() then
 							current_bounds.start_line = lnum
-							current_bounds.end_line = search.get_section_end(lines, lnum, component)
+							current_bounds.end_line = link_resolver.get_section_end(lines, lnum, component)
 							current_bounds.parent_level = heading.level
 							found = true
 							break
@@ -398,7 +398,7 @@ local function get_section_bounds_for_context(context, file)
 					for lnum = current_bounds.start_line, current_bounds.end_line do
 						if lines[lnum]:match("^" .. parser.escape_pattern(component.text) .. ":") then
 							current_bounds.start_line = lnum
-							current_bounds.end_line = search.get_section_end(lines, lnum, component)
+							current_bounds.end_line = link_resolver.get_section_end(lines, lnum, component)
 							found = true
 							break
 						end

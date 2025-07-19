@@ -6,7 +6,7 @@ local fs = require("zortex.core.filesystem")
 local buffer = require("zortex.core.buffer")
 local attributes = require("zortex.core.attributes")
 local task_tracker = require("zortex.modules.task_tracker")
-local xp = require("zortex.modules.xp")
+local progress = require("zortex.modules.progress")
 local constants = require("zortex.constants")
 
 -- =============================================================================
@@ -143,7 +143,7 @@ local function archive_tasks_to_json(task_ids)
 	end
 
 	-- Get current season
-	local season_status = xp.get_season_status()
+	local season_status = progress.get_season_status()
 	local season_key = season_status.active and season_status.current_season.name or "no_season"
 
 	-- Initialize season data if needed

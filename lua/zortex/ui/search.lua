@@ -729,7 +729,7 @@ end
 -- Custom previewer using highlights.lua with full file scrolling
 local function create_zortex_previewer()
 	local previewers = require("telescope.previewers")
-	local highlights = require("zortex.core.highlights")
+	local highlights = require("zortex.features.highlights")
 
 	return previewers.new_buffer_previewer({
 		title = "Zortex Preview",

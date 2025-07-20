@@ -45,12 +45,12 @@ function M.from_text(entry_text, date_context)
 		if data.task_status then
 			data.type = "task"
 			-- Strip the checkbox pattern
-			working_text = working_text:match("^%[.%]%s+(.+)$") or working_text
+			working_text = working_text:match("%[.%]%s+(.+)$") or working_text
 		end
 	end
 
 	-- Parse attributes
-	local attrs, remaining_text = parser.parse_attributes(working_text, attributes.schemas.calendar_entry)
+	local attrs, remaining_text = attributes.parse_calendar_attributes(working_text)
 	data.attributes = attrs or {}
 	data.display_text = remaining_text
 

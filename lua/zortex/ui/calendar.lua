@@ -301,7 +301,7 @@ function Renderer.render_month_view(date)
 
 	-- Show entries for selected date
 	if CalendarState.current_date then
-		local date_str = datetime.format_date(CalendarState.current_date)
+		local date_str = datetime.format_date(CalendarState.current_date, "YYYY-MM-DD")
 		local entries = calendar_store.get_entries_for_date(date_str)
 		local pending_notifications = notifications.calendar.get_pending_for_date(date_str)
 
@@ -337,11 +337,12 @@ function Renderer.render_month_view(date)
 				end
 
 				local entry_str = entry:format()
-				local entry_line = string.format("  %s %s%s", icon, entry.display_text, entry_str)
+				local entry_line = string.format("  %s %s", icon, entry_str)
 				table.insert(lines, left_pad_str .. MARGIN_STR .. entry_line)
 			end
 		end
 
+		-- Minimum height of 10 lines
 		if #entries < 10 then
 			for _ = 0, 10 - #entries do
 				table.insert(lines, "")
@@ -414,7 +415,7 @@ function Renderer.render_digest_view()
 	-- Show entries for today and next 7 days
 	for i = 0, cfg.digest.show_upcoming_days do
 		local date = datetime.add_days(today, i)
-		local date_str = datetime.format_date(date)
+		local date_str = datetime.format_date(date, "YYYY-MM-DD")
 		local entries = calendar.get_entries_for_date(date_str)
 
 		if #entries > 0 then
@@ -511,7 +512,7 @@ function Renderer.update_selected_extmark()
 		return
 	end
 
-	local date_str = datetime.format_date(CalendarState.current_date)
+	local date_str = datetime.format_date(CalendarState.current_date, "YYYY-MM-DD")
 	local mark = CalendarState.marks[date_str]
 	if not mark then
 		return
@@ -532,7 +533,8 @@ function Renderer.update_selected_extmark()
 	CalendarState.selected_extmark_id =
 		vim.api.nvim_buf_set_extmark(CalendarState.bufnr, CalendarState.ns_id, mark.line - 1, byte_start, {
 			end_col = byte_end,
-			hl_group = (date_str == datetime.format_date(datetime.get_current_date())) and cfg.colors.today_selected
+			hl_group = (date_str == datetime.format_date(datetime.get_current_date(), "YYYY-MM-DD"))
+					and cfg.colors.today_selected
 				or cfg.colors.selected,
 			priority = 100,
 		})
@@ -658,7 +660,7 @@ function Actions.add_entry()
 		vim.notify("Please select a date first", vim.log.levels.WARN)
 		return
 	end
-	local date_str = datetime.format_date(CalendarState.current_date)
+	local date_str = datetime.format_date(CalendarState.current_date, "YYYY-MM-DD")
 	M.close()
 	vim.ui.input({ prompt = string.format("Add entry for %s: ", date_str), default = "" }, function(input)
 		if input and input ~= "" then
@@ -677,7 +679,7 @@ function Actions.view_entries()
 		vim.notify("Please select a date first", vim.log.levels.WARN)
 		return
 	end
-	local date_str = datetime.format_date(CalendarState.current_date)
+	local date_str = datetime.format_date(CalendarState.current_date, "YYYY-MM-DD")
 	M.close()
 	local cal_file = fs.get_file_path("calendar.zortex")
 	if cal_file then

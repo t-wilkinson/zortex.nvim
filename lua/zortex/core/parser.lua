@@ -529,6 +529,89 @@ function M.parse_okr_date(line)
 	return nil
 end
 
+-- =============================================================================
+-- Sections
+-- =============================================================================
+
+--  Build the section “breadcrumb” that leads to a given buffer line
+---Return an ordered list of section‑objects that enclose `target_lnum`.
+---Each element contains everything the rest of the code already expects:
+---• `lnum`  – where the section starts
+---• `type`  – one of constants.SECTION_TYPE.*
+---• `priority`– numeric hierarchy value (lower ⇒ higher level)
+---• `level`  – heading level (only for `HEADING`)
+---• `text`    – raw text that represents the section (article title, heading,
+---               bold heading, or label)
+---• `display` – text to show in breadcrumbs / Telescope lists
+---@param lines        string[]  -- full buffer ‑ 1‑indexed
+---@param target_lnum  integer   -- line the user/caller is interested in
+---@return table[]               -- top‑down path  (article → … → innermost)
+function M.build_section_path(lines, target_lnum)
+	if not lines or not target_lnum or target_lnum < 1 then
+		return {}
+	end
+
+	local path = {} ---@type table[]   -- final result (ordered)
+	local stack = {} ---@type table[]   -- working stack while we scan
+	local insert = table.insert
+	local remove = table.remove
+
+	for lnum = 1, math.min(target_lnum, #lines) do
+		local line = lines[lnum]
+		local section_type = M.detect_section_type(line)
+
+		-- Skip plain text / tag‑only lines
+		if section_type ~= constants.SECTION_TYPE.TEXT and section_type ~= constants.SECTION_TYPE.TAG then
+			local heading_level = nil
+			if section_type == constants.SECTION_TYPE.HEADING then
+				heading_level = M.get_heading_level(line)
+			end
+
+			local priority = constants.SECTION_HIERARCHY.get_priority(section_type, heading_level)
+
+			-- Maintain a proper hierarchy: pop anything that is at the same
+			-- or deeper level than the current header we just met
+			while #stack > 0 and stack[#stack].priority >= priority do
+				remove(stack)
+			end
+
+			-- Build a section object recognised by the rest of the codebase
+			local section = {
+				lnum = lnum,
+				type = section_type,
+				priority = priority,
+				level = heading_level,
+				text = nil, -- filled in below
+			}
+
+			if section_type == constants.SECTION_TYPE.ARTICLE then
+				section.text = M.extract_article_name(line) or "Article"
+			elseif section_type == constants.SECTION_TYPE.HEADING then
+				local h = M.parse_heading(line)
+				section.text = h and h.text or M.trim(line:gsub("^#+%s*", ""))
+				section.level = h and h.level or heading_level
+			elseif section_type == constants.SECTION_TYPE.BOLD_HEADING then
+				local bh = M.parse_bold_heading(line)
+				section.text = bh and bh.text or M.trim(line:gsub("%*+", ""))
+			elseif section_type == constants.SECTION_TYPE.LABEL then
+				local lbl = M.parse_label(line)
+				section.text = lbl and lbl.text or line:gsub(":$", "")
+			end
+
+			-- Fallback so that `format_breadcrumb()` always has something to show
+			section.display = section.text or ("<unknown@" .. lnum .. ">")
+
+			insert(stack, section)
+		end
+	end
+
+	-- The stack already holds the correct order (outer → inner)
+	for i, s in ipairs(stack) do
+		path[i] = s
+	end
+	return path
+end
+
 function M.find_section_end(lines, start_lnum, section_type, heading_level)
 	local num_lines = #lines
 	local start_priority = constants.SECTION_HIERARCHY.get_priority(section_type, heading_level)

@@ -110,20 +110,49 @@ end
 -- Current Task Operations
 -- =============================================================================
 
+---Convert an arbitrary line into a task.
+---@param line string  The raw buffer line.
+---@return string|nil      new_line   The rewritten task line (`- [ ] foo … @id(abc)`)
+---@return table|nil   task       Parsed **Task** model (already has an id & saved).
+local function convert_line_to_task(line)
+	-- Preserve leading indentation so list nesting still looks right.
+	local indent, content = line:match("^(%s*)(.-)%s*$")
+	if content == "" then -- ignore empty lines
+		return nil, nil
+	end
+
+	-- 1. Construct checkbox list item.
+	local task_line = string.format("%s- [ ] %s", indent, content)
+
+	-- 2. Ensure the line contains an @id attribute.
+	task_line = Task.ensure_id_in_line(task_line)
+
+	-- 3. Parse back into a Task model so downstream logic can reuse it.
+	local task = Task.from_line(task_line, vim.fn.line("."))
+	if task then
+		task:save()
+	end
+
+	return task_line, task
+end
+
 -- Toggle current task completion
 function M.toggle_current_task()
+	local bufnr = 0
+	local line_num = vim.fn.line(".") -- 1‑based (matches existing buffer helpers)
 	local line = buffer.get_current_line()
-	local task = Task.from_line(line, vim.fn.line("."))
+	local task = Task.from_line(line, line_num)
 
+	-- If the cursor isn't on a task yet, turn the line into one
 	if not task then
-		-- Try to convert list item to task
-		local indent, content = line:match("^(%s*)- (.+)$")
-		if indent and content then
-			local new_line = indent .. "- [ ] " .. content
-			buffer.update_line(0, vim.fn.line("."), new_line)
-		else
+		local new_line, _ = convert_line_to_task(line)
+		if not new_line then
 			vim.notify("Not on a task line", vim.log.levels.WARN)
+			return
 		end
+		buffer.update_line(bufnr, line_num, new_line)
+		vim.cmd("silent! write")
+		require("zortex.modules.projects").update_progress()
 		return
 	end
 
@@ -144,7 +173,7 @@ function M.toggle_current_task()
 
 	-- Update line with ID
 	new_line = parser.update_attribute(new_line, "id", task.id)
-	buffer.update_line(0, vim.fn.line("."), new_line)
+	buffer.update_line(bufnr, line_num, new_line)
 
 	-- Trigger project progress update
 	vim.cmd("silent! write")
@@ -275,4 +304,3 @@ function M.archive_old_tasks(days)
 end
 
 return M
-

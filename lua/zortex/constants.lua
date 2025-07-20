@@ -110,12 +110,12 @@ M.SECTION_HIERARCHY = {
 
 -- Task status definitions
 M.TASK_STATUS = {
-	[" "] = { symbol = " ", name = "todo", tags = { "@todo" } },
-	["."] = { symbol = ".", name = "in_progress", tags = { "@inprogress", "@wip" } },
-	["x"] = { symbol = "x", name = "done", tags = { "@done" } },
-	["-"] = { symbol = "-", name = "cancelled", tags = { "@cancelled" } },
-	["?"] = { symbol = "?", name = "unclear", tags = { "@unclear" } },
-	["*"] = { symbol = "*", name = "delegated", tags = { "@delegated" } },
+	["[ ]"] = { symbol = " ", name = "todo", tags = { "@todo" } },
+	["[.]"] = { symbol = ".", name = "in_progress", tags = { "@inprogress", "@wip" } },
+	["[x]"] = { symbol = "x", name = "done", tags = { "@done" } },
+	["[-]"] = { symbol = "-", name = "cancelled", tags = { "@cancelled" } },
+	["[?]"] = { symbol = "?", name = "unclear", tags = { "@unclear" } },
+	["[*]"] = { symbol = "*", name = "delegated", tags = { "@delegated" } },
 }
 
 -- Highlight groups

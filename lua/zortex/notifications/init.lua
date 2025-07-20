@@ -5,6 +5,7 @@ local manager = require("zortex.notifications.manager")
 local pomodoro = require("zortex.notifications.types.pomodoro")
 local timer = require("zortex.notifications.types.timer")
 local calendar = require("zortex.notifications.types.calendar")
+local digest = require("zortex.notifications.types.digest")
 
 -- Initialize the notification system
 function M.setup(config)
@@ -12,6 +13,7 @@ function M.setup(config)
 	pomodoro.setup(config.pomodoro)
 	timer.setup(config.timers)
 	calendar.setup(config)
+	digest.setup(config.digest)
 end
 
 -- Send a notification immediately
@@ -59,6 +61,8 @@ M.calendar = {
 	get_pending_for_date = calendar.get_pending_for_date,
 }
 
+M.digest = digest
+
 -- Test functions
 M.test = {
 	system = function()
@@ -69,6 +73,9 @@ M.test = {
 	end,
 	aws = function()
 		return M.notify("Test", "AWS notification test", { providers = { "aws" } })
+	end,
+	ses = function()
+		return M.notify("Test", "AWS SES email test", { providers = { "ses" } })
 	end,
 	all = function()
 		return M.notify("Test", "Testing all providers")
@@ -82,4 +89,3 @@ function M.cleanup()
 end
 
 return M
-

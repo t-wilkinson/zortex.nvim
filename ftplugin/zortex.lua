@@ -5,7 +5,7 @@ local zortex = require("zortex")
 -- require('zortex.core.fold').init()
 
 -- Apply syntax highlighting
-require("zortex.highlights").highlight_buffer()
+require("zortex.features.highlights").highlight_buffer()
 
 -- Buffer-local options
 vim.bo.iskeyword = vim.bo.iskeyword .. ",-" -- Add dash to word characters

@@ -63,6 +63,14 @@ M.defaults = {
 				timeout = 5000,
 				level = vim.log.levels.INFO,
 			},
+			ses = {
+				enabled = true,
+				region = "us-east-1", -- Your AWS region
+				from_email = "noreply@yourdomain.com",
+				default_to_email = "your-email@example.com",
+				domain = "yourdomain.com",
+				use_api = false, -- Use AWS CLI for now
+			},
 		},
 
 		-- Default providers for different notification types
@@ -70,6 +78,17 @@ M.defaults = {
 		calendar_providers = { "vim", "system", "ntfy" },
 		timer_providers = { "vim", "system" },
 		pomodoro_providers = { "vim", "system" },
+		digest_providers = { "ses" },
+
+		-- Daily digest settings
+		digest = {
+			enabled = true,
+			auto_send = true,
+			days_ahead = 7,
+			send_hour = 7, -- 7 AM
+			check_interval_minutes = 60,
+			digest_email = "your-email@example.com", -- Can be different from default
+		},
 
 		-- Pomodoro settings
 		pomodoro = {

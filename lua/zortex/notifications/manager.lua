@@ -13,6 +13,7 @@ local function load_providers()
 	providers.ntfy = require("zortex.notifications.providers.ntfy")
 	providers.aws = require("zortex.notifications.providers.aws")
 	providers.vim = require("zortex.notifications.providers.vim")
+	providers.ses = require("zortex.notifications.providers.ses")
 end
 
 -- Get active providers for a notification type
@@ -179,3 +180,4 @@ function M.stop()
 end
 
 return M
+

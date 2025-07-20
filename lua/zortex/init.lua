@@ -22,6 +22,7 @@ local features = {
 	completion = require("zortex.features.completion"),
 	highlights = require("zortex.features.highlights"),
 	links = require("zortex.features.links"),
+	ical = require("zortex.features.ical"),
 }
 
 local models = {
@@ -144,6 +145,29 @@ local function setup_commands(prefix)
 	cmd("TestNotifications", function()
 		notifications.test.all()
 	end, { desc = "Test all notification providers" })
+
+	-- ===========================================================================
+	-- Daily Digest
+	-- ===========================================================================
+	cmd("DigestSend", function()
+		local success, msg = notifications.digest.send_now()
+		vim.notify(msg, success and vim.log.levels.INFO or vim.log.levels.ERROR)
+	end, { desc = "Send daily digest email now" })
+
+	cmd("DigestPreview", function()
+		notifications.digest.preview()
+	end, { desc = "Preview daily digest" })
+
+	-- ===========================================================================
+	-- iCal Import/Export
+	-- ===========================================================================
+	cmd("IcalImport", function()
+		features.ical.import_interactive()
+	end, { desc = "Import iCal file or URL" })
+
+	cmd("IcalExport", function()
+		features.ical.export_interactive()
+	end, { desc = "Export calendar to iCal file" })
 
 	-- ===========================================================================
 	-- Navigation

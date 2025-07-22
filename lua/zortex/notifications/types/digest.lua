@@ -4,7 +4,7 @@ local M = {}
 local manager = require("zortex.notifications.manager")
 local calendar_store = require("zortex.stores.calendar")
 local datetime = require("zortex.core.datetime")
-local state = require("zortex.notifications.state")
+local store = require("zortex.stores.notifications")
 
 local config = {}
 
@@ -38,7 +38,6 @@ end
 local function format_digest_content(entries_by_date)
 	local text_parts = {}
 	local html_parts = {}
-	local datetime = require("zortex.core.datetime")
 
 	-- Summary
 	local total_tasks = 0
@@ -222,73 +221,70 @@ end
 
 -- Send daily digest
 function M.send_digest(options)
-	options = options or {}
+	return false, "TODO"
+	-- options = options or {}
 
-	-- Load calendar data
-	calendar_store.load()
+	-- -- Load calendar data
+	-- calendar_store.load()
 
-	-- Generate digest
-	local entries_by_date = generate_digest(options.days_ahead or config.days_ahead or 7)
+	-- -- Generate digest
+	-- local entries_by_date = generate_digest(options.days_ahead or config.days_ahead or 7)
 
-	if not entries_by_date then
-		if options.force then
-			manager.send_notification(
-				"Zortex Daily Digest - No Events",
-				"You have no calendar entries for the next " .. (options.days_ahead or 7) .. " days.",
-				{
-					type = "digest",
-					providers = { "ses" },
-				}
-			)
-		end
-		return false, "No calendar entries to include in digest"
-	end
+	-- if not entries_by_date then
+	-- 	if options.force then
+	-- 		manager.send_notification(
+	-- 			"Zortex Daily Digest - No Events",
+	-- 			"You have no calendar entries for the next " .. (options.days_ahead or 7) .. " days.",
+	-- 			{
+	-- 				type = "digest",
+	-- 				providers = { "ses" },
+	-- 			}
+	-- 		)
+	-- 	end
+	-- 	return false, "No calendar entries to include in digest"
+	-- end
 
-	-- Format content (get both text and HTML versions)
-	local text_content, html_content = format_digest_content(entries_by_date)
+	-- -- Format content (get both text and HTML versions)
+	-- local text_content, html_content = format_digest_content(entries_by_date)
 
-	-- Send via SES - pass the raw HTML content, let the provider handle the wrapper
-	local results = manager.send_notification(
-		"Zortex Daily Digest - " .. os.date("%B %d, %Y"),
-		text_content, -- Plain text version as the message
-		{
-			type = "digest",
-			providers = { "ses" },
-			format = "digest",
-			html = html_content, -- Raw HTML content without wrapper
-			domain = config.domain,
-		}
-	)
+	-- -- Send via SES - pass the raw HTML content, let the provider handle the wrapper
+	-- local results = manager.send_notification(
+	-- 	"Zortex Daily Digest - " .. os.date("%B %d, %Y"),
+	-- 	text_content, -- Plain text version as the message
+	-- 	{
+	-- 		type = "digest",
+	-- 		providers = { "ses" },
+	-- 		format = "digest",
+	-- 		html = html_content, -- Raw HTML content without wrapper
+	-- 		domain = config.domain,
+	-- 	}
+	-- )
 
-	-- Check results
-	local sent = false
-	local error_msg = nil
-	for _, result in ipairs(results) do
-		if result.provider == "ses" then
-			if result.success then
-				sent = true
-				break
-			else
-				error_msg = result.error
-			end
-		end
-	end
+	-- -- Check results
+	-- local sent = false
+	-- local error_msg = nil
+	-- for _, result in ipairs(results) do
+	-- 	if result.provider == "ses" then
+	-- 		if result.success then
+	-- 			sent = true
+	-- 			break
+	-- 		else
+	-- 			error_msg = result.error
+	-- 		end
+	-- 	end
+	-- end
 
-	if sent then
-		-- Record last sent time
-		local digest_state = state.load_scheduled() or {}
-		digest_state.last_digest_sent = os.time()
-		state.save_scheduled(digest_state)
-
-		return true, "Daily digest sent successfully"
-	else
-		return false, "Failed to send daily digest" .. (error_msg and ": " .. error_msg or "")
-	end
+	-- if sent then
+	-- 	store.update_digest_state({ last_digest_sent = os.time() })
+	-- 	return true, "Daily digest sent successfully"
+	-- else
+	-- 	return false, "Failed to send daily digest" .. (error_msg and ": " .. error_msg or "")
+	-- end
 end
 
 -- Check if digest should be sent
 local function should_send_digest()
-	local digest_state = state.load_scheduled() or {}
+	local digest_state = store.get_digest_state()
 	local last_sent = digest_state.last_digest_sent
 
 	if not last_sent then
@@ -332,10 +328,6 @@ end
 -- Setup
 function M.setup(cfg)
 	config = cfg or {}
-	config.days_ahead = config.days_ahead or 7
-	config.send_hour = config.send_hour or 7
-	config.check_interval_minutes = config.check_interval_minutes or 60
-	config.auto_send = config.auto_send ~= false
 
 	-- Schedule automatic digest if enabled
 	if config.auto_send then

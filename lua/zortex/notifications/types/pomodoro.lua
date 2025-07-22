@@ -2,9 +2,9 @@
 local M = {}
 
 local manager = require("zortex.notifications.manager")
-local state = require("zortex.notifications.state")
+local store = require("zortex.stores.notifications")
 
-local config = {}
+local cfg = {}
 local current_session = nil
 local timer_handle = nil
 
@@ -24,7 +24,7 @@ local function get_next_phase()
 
 	if current_session.phase == PHASE.WORK then
 		current_session.work_count = (current_session.work_count or 0) + 1
-		if current_session.work_count % config.long_break_after == 0 then
+		if current_session.work_count % cfg.long_break_after == 0 then
 			return PHASE.LONG_BREAK
 		else
 			return PHASE.SHORT_BREAK
@@ -37,11 +37,11 @@ end
 -- Get duration for phase
 local function get_phase_duration(phase)
 	if phase == PHASE.WORK then
-		return config.work_duration * 60
+		return cfg.work_duration * 60
 	elseif phase == PHASE.SHORT_BREAK then
-		return config.short_break * 60
+		return cfg.short_break * 60
 	elseif phase == PHASE.LONG_BREAK then
-		return config.long_break * 60
+		return cfg.long_break * 60
 	end
 	return 0
 end
@@ -84,7 +84,7 @@ local function tick()
 
 		manager.send_notification("Pomodoro - " .. phase_name .. " Complete", phase_name .. " session completed!", {
 			type = "pomodoro",
-			sound = config.sound,
+			sound = cfg.sound,
 			priority = "high",
 		})
 
@@ -93,8 +93,8 @@ local function tick()
 		local next_name = get_phase_name(next_phase)
 
 		-- Check auto-start settings
-		local should_auto_start = (completed_phase == PHASE.WORK and config.auto_start_break)
-			or (completed_phase ~= PHASE.WORK and config.auto_start_work)
+		local should_auto_start = (completed_phase == PHASE.WORK and cfg.auto_start_break)
+			or (completed_phase ~= PHASE.WORK and cfg.auto_start_work)
 
 		if should_auto_start then
 			current_session.phase = next_phase
@@ -115,7 +115,7 @@ local function tick()
 			)
 		end
 
-		state.save_pomodoro(current_session)
+		store.save_pomodoro(current_session)
 	end
 end
 
@@ -136,7 +136,7 @@ function M.start(phase)
 		work_count = work_count,
 	}
 
-	state.save_pomodoro(current_session)
+	store.save_pomodoro(current_session)
 
 	if not timer_handle then
 		timer_handle = vim.loop.new_timer()
@@ -157,7 +157,7 @@ end
 function M.stop()
 	if current_session then
 		current_session.phase = PHASE.STOPPED
-		state.save_pomodoro(current_session)
+		store.save_pomodoro(current_session)
 	end
 
 	if timer_handle then
@@ -175,7 +175,7 @@ function M.pause()
 		current_session.previous_phase = current_session.phase
 		current_session.phase = PHASE.PAUSED
 		current_session.paused_at = os.time()
-		state.save_pomodoro(current_session)
+		store.save_pomodoro(current_session)
 
 		manager.send_notification("Pomodoro Paused", "Session paused", { type = "pomodoro" })
 		return true
@@ -188,7 +188,7 @@ function M.resume()
 		current_session.phase = current_session.previous_phase or PHASE.WORK
 		current_session.paused_at = nil
 		current_session.previous_phase = nil
-		state.save_pomodoro(current_session)
+		store.save_pomodoro(current_session)
 
 		manager.send_notification(
 			"Pomodoro Resumed",
@@ -227,18 +227,11 @@ function M.skip_to_next()
 end
 
 -- Setup
-function M.setup(cfg)
-	config = cfg or {}
-	config.work_duration = config.work_duration or 25
-	config.short_break = config.short_break or 5
-	config.long_break = config.long_break or 15
-	config.long_break_after = config.long_break_after or 4
-	config.auto_start_break = config.auto_start_break ~= false
-	config.auto_start_work = config.auto_start_work == true
-	config.sound = config.sound or "default"
+function M.setup(config)
+	cfg = config
 
 	-- Load saved session
-	current_session = state.load_pomodoro()
+	current_session = store.get_pomodoro()
 
 	-- Restart timer if session is active
 	if
@@ -254,3 +247,4 @@ function M.setup(cfg)
 end
 
 return M
+

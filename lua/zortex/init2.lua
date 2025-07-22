@@ -1,9 +1,14 @@
--- init.lua - Main entry point for Zortex
+-- init.lua - Main entry point for Zortex (Service Architecture)
 local M = {}
 
 -- =============================================================================
 -- Module Loading
 -- =============================================================================
+
+-- Core systems (new architecture)
+local Core = require("zortex.core.init")
+local EventBus = require("zortex.core.event_bus")
+local DocumentManager = require("zortex.core.document_manager")
 
 -- Core modules
 local core = {
@@ -14,6 +19,12 @@ local core = {
 	datetime = require("zortex.core.datetime"),
 	filesystem = require("zortex.core.filesystem"),
 	parser = require("zortex.core.parser"),
+}
+
+-- Services (new architecture)
+local services = {
+	task = require("zortex.services.task_service"),
+	xp = require("zortex.services.xp_service"),
 }
 
 local features = {
@@ -42,6 +53,7 @@ local stores = {
 	base = require("zortex.stores.base"),
 	tasks = require("zortex.stores.tasks"),
 	xp = require("zortex.stores.xp"),
+	persistence = require("zortex.stores.persistence_manager"),
 }
 
 local ui = {
@@ -62,7 +74,7 @@ local xp = {
 }
 
 -- =============================================================================
--- User Commands
+-- User Commands (Updated to use Services)
 -- =============================================================================
 
 local function setup_commands(prefix)
@@ -300,17 +312,105 @@ local function setup_commands(prefix)
 	end, { desc = "Show current season status" })
 
 	-- ===========================================================================
-	-- Task management
+	-- Task management (UPDATED TO USE SERVICES)
 	-- ===========================================================================
 	cmd("ToggleTask", function()
-		modules.progress.toggle_current_task()
+		Core.toggle_current_task()
 	end, { desc = "Toggle the task on current line" })
+	
 	cmd("CompleteTask", function()
-		modules.progress.complete_current_task()
+		local bufnr = vim.api.nvim_get_current_buf()
+		local lnum = vim.api.nvim_win_get_cursor(0)[1]
+		
+		-- Get document and find task
+		local doc = DocumentManager.get_buffer(bufnr)
+		if not doc then
+			vim.notify("No document found for current buffer", vim.log.levels.ERROR)
+			return
+		end
+		
+		local section = doc:get_section_at_line(lnum)
+		if not section then
+			vim.notify("No section found at current line", vim.log.levels.ERROR)
+			return
+		end
+		
+		-- Find task at this line
+		local task = nil
+		for _, t in ipairs(section.tasks) do
+			if t.line == lnum then
+				task = t
+				break
+			end
+		end
+		
+		if not task then
+			-- Try to convert line to task
+			services.task.convert_line_to_task({ bufnr = bufnr, lnum = lnum })
+			return
+		end
+		
+		-- Complete the task
+		if task.attributes and task.attributes.id then
+			services.task.complete_task(task.attributes.id, { bufnr = bufnr })
+		else
+			vim.notify("Task has no ID", vim.log.levels.ERROR)
+		end
 	end, { desc = "Complete the task on current line" })
+	
 	cmd("UncompleteTask", function()
-		modules.progress.uncomplete_current_task()
+		local bufnr = vim.api.nvim_get_current_buf()
+		local lnum = vim.api.nvim_win_get_cursor(0)[1]
+		
+		-- Get document and find task
+		local doc = DocumentManager.get_buffer(bufnr)
+		if not doc then
+			vim.notify("No document found for current buffer", vim.log.levels.ERROR)
+			return
+		end
+		
+		local section = doc:get_section_at_line(lnum)
+		if not section then
+			vim.notify("No section found at current line", vim.log.levels.ERROR)
+			return
+		end
+		
+		-- Find task at this line
+		local task = nil
+		for _, t in ipairs(section.tasks) do
+			if t.line == lnum then
+				task = t
+				break
+			end
+		end
+		
+		if not task or not task.completed then
+			vim.notify("No completed task at current line", vim.log.levels.WARN)
+			return
+		end
+		
+		-- Uncomplete the task
+		if task.attributes and task.attributes.id then
+			services.task.uncomplete_task(task.attributes.id, { bufnr = bufnr })
+		else
+			vim.notify("Task has no ID", vim.log.levels.ERROR)
+		end
 	end, { desc = "Uncomplete the task on current line" })
+	
+	-- ===========================================================================
+	-- System Status (NEW)
+	-- ===========================================================================
+	cmd("SystemStatus", function()
+		Core.print_status()
+	end, { desc = "Show Zortex system status" })
+	
+	cmd("SaveStores", function()
+		local results = stores.persistence.save_all()
+		vim.notify(
+			string.format("Saved %d stores", #results.saved),
+			vim.log.levels.INFO
+		)
+	end, { desc = "Force save all stores" })
 end
 
 -- =============================================================================
@@ -344,7 +444,7 @@ local function setup_keymaps(key_prefix, cmd_prefix)
 	-- Projects
 	map("n", "P", "ProjectsOpen", add_opts({ desc = "Open projects" }))
 	map("n", "a", "ArchiveProject", add_opts({ desc = "Archive project" }))
-	map("n", "x", "ToggleTask", add_opts({ desc = "Complete current task" }))
+	map("n", "x", "ToggleTask", add_opts({ desc = "Toggle current task" }))
 
 	-- Progress
 	map("n", "u", "UpdateProgress", { desc = "Update progress" })
@@ -354,11 +454,12 @@ local function setup_keymaps(key_prefix, cmd_prefix)
 end
 
 -- =============================================================================
--- Autocmds
+-- Autocmds (Updated with EventBus integration)
 -- =============================================================================
 
 local function setup_autocmds()
 	local group = vim.api.nvim_create_augroup("Zortex", { clear = true })
+	
 	-- Progress tracking
 	vim.api.nvim_create_autocmd("BufWritePre", {
 		pattern = "*.zortex",
@@ -377,12 +478,15 @@ local function setup_autocmds()
 		end,
 		group = group,
 	})
-
-	-- Save XP state on exit
-	vim.api.nvim_create_autocmd("VimLeavePre", {
-		pattern = "*",
-		callback = function()
-			modules.xp.save_state()
+	
+	-- Process all tasks in zortex files on save
+	vim.api.nvim_create_autocmd("BufWritePost", {
+		pattern = "*.zortex",
+		callback = function(args)
+			-- Process tasks to ensure they have IDs
+			vim.schedule(function()
+				services.task.process_buffer_tasks(args.buf)
+			end)
 		end,
 		group = group,
 	})
@@ -393,19 +497,21 @@ end
 -- =============================================================================
 
 function M.setup(opts)
-	-- Initialize modules
+	-- Initialize configuration
 	local config = core.config.setup(opts)
+	
+	-- Initialize core systems (EventBus, DocumentManager, Services)
+	Core.init(config)
 
-	-- Call setup functions
+	-- Call legacy setup functions
 	require("zortex.stores.xp").setup()
 	ui.calendar.setup(config.ui.calendar)
 	modules.progress.setup(config.xp)
 	notifications.setup(config.notifications)
 	features.highlights.setup_autocmd()
 	features.highlights.setup_highlights()
-	-- xp.core.setup(config.)
 
-	-- Setup autocmds, keymaps, and autocmds
+	-- Setup commands, keymaps, and autocmds
 	setup_commands(config.commands.prefix)
 	setup_keymaps(config.keymaps.prefix, config.commands.prefix)
 	setup_autocmds()
@@ -421,6 +527,14 @@ function M.setup(opts)
 	-- Completion
 	local cmp = require("cmp")
 	cmp.register_source("zortex", features.completion.new())
+	
+	-- Listen for core initialization complete
+	EventBus.on("core:initialized", function(data)
+		vim.notify("Zortex initialized", vim.log.levels.INFO)
+	end, {
+		priority = 10,
+		name = "main_init_notify"
+	})
 end
 
 -- =============================================================================
@@ -432,12 +546,18 @@ M.search = ui.search.search
 M.open_link = features.links.open_link
 M.calendar = ui.calendar.open
 
+-- Export new service architecture
+M.services = services
+M.core = Core
+M.event_bus = EventBus
+M.document_manager = DocumentManager
+
+-- Legacy exports for backward compatibility
 M.modules = modules
 M.features = features
 M.models = models
 M.stores = stores
 M.ui = ui
-M.core = core
 M.xp = xp
 
 return M

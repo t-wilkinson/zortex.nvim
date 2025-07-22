@@ -155,4 +155,8 @@ function M.save()
 	return store:save()
 end
 
+function M.setup()
+	store:load()
+end
+
 return M

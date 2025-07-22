@@ -99,24 +99,16 @@ local function send(title, message, options, config)
 		}
 	end
 
-	-- 1. Encode the Lua table to a JSON string.
 	local json_data = vim.fn.json_encode(email_json)
-
-	-- 2. Create a temporary file to hold the JSON.
 	local tmpfile = vim.fn.tempname()
-
-	-- 3. Write the JSON data to the temporary file.
 	vim.fn.writefile(vim.split(json_data, "\n"), tmpfile)
 
-	-- 4. Build the AWS CLI command to read from the file.
-	-- Note: We still shellescape the region, but not the JSON path.
 	local cmd = string.format(
 		"aws ses send-email --region %s --cli-input-json %s",
 		vim.fn.shellescape(config.region),
 		"file://" .. tmpfile -- Use the file URI scheme
 	)
 
-	-- 5. Defer the cleanup of the temporary file.
 	local success, result
 	local cleanup = function()
 		vim.fn.delete(tmpfile)

@@ -612,6 +612,33 @@ function M.build_section_path(lines, target_lnum)
 	return path
 end
 
+--- Find the start of a section by searching backwards from a line.
+--- Searches upwards from `start_lnum` to find the first line that defines a
+--- section with a priority that is less than or equal to (i.e., higher than
+--- or the same level as) the given `priority`.
+function M.find_section_start(lines, start_lnum, section_type, heading_level)
+	local priority = constants.SECTION_HIERARCHY.get_priority(section_type, heading_level)
+	if not lines or not start_lnum or not priority then
+		return nil
+	end
+
+	for lnum = start_lnum, 1, -1 do
+		local line = lines[lnum]
+		if line then
+			local line_priority = M.get_section_priority(line)
+
+			-- `get_section_priority` returns 999 for non-section lines,
+			-- so this check correctly ignores them unless a very high
+			-- priority is passed in.
+			if line_priority <= priority then
+				return lnum
+			end
+		end
+	end
+
+	return nil -- No containing section found
+end
+
 function M.find_section_end(lines, start_lnum, section_type, heading_level)
 	local num_lines = #lines
 	local start_priority = constants.SECTION_HIERARCHY.get_priority(section_type, heading_level)

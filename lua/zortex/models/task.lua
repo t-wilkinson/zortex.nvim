@@ -4,6 +4,7 @@ local M_mt = { __index = M }
 
 local task_store = require("zortex.stores.tasks")
 local parser = require("zortex.core.parser")
+local attributes = require("zortex.core.attributes")
 
 local CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 local BASE = #CHARS
@@ -155,21 +156,13 @@ function M.from_line(line, line_num)
 	local id = parser.extract_attribute(line, "id")
 
 	-- Parse attributes
-	local attributes = parser.parse_attributes(task_text, {
-		id = { type = "string" },
-		size = { type = "enum", values = { "xs", "sm", "md", "lg", "xl" } },
-		p = { type = "enum", values = { "1", "2", "3" } },
-		i = { type = "enum", values = { "1", "2", "3" } },
-		due = { type = "date" },
-		dur = { type = "duration" },
-		est = { type = "duration" },
-	})
+	local task_attributes = attributes.parse_task_attributes(task_text)
 
 	return M:new({
 		id = id,
 		text = task_text,
 		completed = is_completed,
-		attributes = attributes,
+		attributes = task_attributes,
 		line_num = line_num,
 	})
 end

@@ -1,7 +1,7 @@
 -- notifications/manager.lua - Core notification manager
 local M = {}
 
-local state = require("zortex.notifications.state")
+local store = require("zortex.stores.notifications")
 local providers = {}
 local config = {}
 local scheduled = {}
@@ -56,7 +56,7 @@ function M.send_notification(title, message, options)
 	end
 
 	-- Log notification
-	state.log_notification({
+	store.log_notification({
 		title = title,
 		message = message,
 		options = options,
@@ -98,7 +98,7 @@ function M.schedule_notification(title, message, when, options)
 	}
 
 	scheduled[id] = notification
-	state.save_scheduled(scheduled)
+	store.save_scheduled(scheduled)
 
 	return id
 end
@@ -107,7 +107,7 @@ end
 function M.cancel_notification(id)
 	if scheduled[id] then
 		scheduled[id] = nil
-		state.save_scheduled(scheduled)
+		store.save_scheduled(scheduled)
 		return true
 	end
 	return false
@@ -143,7 +143,7 @@ local function check_scheduled()
 	end
 
 	if #sent > 0 then
-		state.save_scheduled(scheduled)
+		store.save_scheduled(scheduled)
 	end
 end
 
@@ -160,7 +160,7 @@ function M.setup(cfg)
 	end
 
 	-- Load scheduled notifications
-	scheduled = state.load_scheduled() or {}
+	scheduled = store.get_scheduled() or {}
 
 	-- Start timer for checking scheduled notifications
 	if config.enabled ~= false then
@@ -180,4 +180,3 @@ function M.stop()
 end
 
 return M
-

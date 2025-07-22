@@ -162,60 +162,60 @@ function M.update_progress(bufnr)
 		end
 
 		-- Update project heading with progress
-		local completed_count = 0
-		local total_count = #project_tasks
+		-- local completed_count = 0
+		-- local total_count = #project_tasks
 
-		for _, task in ipairs(project_tasks) do
-			if task.completed then
-				completed_count = completed_count + 1
-			end
-		end
+		-- for _, task in ipairs(project_tasks) do
+		-- 	if task.completed then
+		-- 		completed_count = completed_count + 1
+		-- 	end
+		-- end
 
-		local old_line = lines[lnum]
-		local new_line =
-			parser.update_attribute(old_line, "progress", string.format("%d/%d", completed_count, total_count))
+		-- local old_line = lines[lnum]
+		-- local new_line =
+		-- 	parser.update_attribute(old_line, "progress", string.format("%d/%d", completed_count, total_count))
 
-		-- Check for project completion
-		local was_done = parser.extract_attribute(old_line, "done") ~= nil
-		local is_done = total_count > 0 and completed_count == total_count
+		-- -- Check for project completion
+		-- local was_done = parser.extract_attribute(old_line, "done") ~= nil
+		-- local is_done = total_count > 0 and completed_count == total_count
 
-		if is_done and not was_done then
-			new_line = parser.update_attribute(new_line, "done", os.date("%Y-%m-%d"))
+		-- if is_done and not was_done then
+		-- 	new_line = parser.update_attribute(new_line, "done", os.date("%Y-%m-%d"))
 
-			-- Calculate total project XP
-			local total_project_xp = 0
-			for _, task in ipairs(project_tasks) do
-				total_project_xp = total_project_xp + task.xp_awarded
-			end
+		-- 	-- Calculate total project XP
+		-- 	local total_project_xp = 0
+		-- 	for _, task in ipairs(project_tasks) do
+		-- 		total_project_xp = total_project_xp + task.xp_awarded
+		-- 	end
 
-			-- Mark project as completed
-			if #area_links > 0 then
-				xp_projects.complete_project(project_name, total_project_xp, area_links)
-			end
+		-- 	-- Mark project as completed
+		-- 	if #area_links > 0 then
+		-- 		xp_projects.complete_project(project_name, total_project_xp, area_links)
+		-- 	end
 
-			table.insert(projects_completed, {
-				name = project_name,
-				xp = total_project_xp,
-			})
-		elseif not is_done and was_done then
-			new_line = parser.remove_attribute(new_line, "done")
-		end
+		-- 	table.insert(projects_completed, {
+		-- 		name = project_name,
+		-- 		xp = total_project_xp,
+		-- 	})
+		-- elseif not is_done and was_done then
+		-- 	new_line = parser.remove_attribute(new_line, "done")
+		-- end
 
-		if new_line ~= old_line then
-			lines[lnum] = new_line
-			modified = true
-		end
+		-- if new_line ~= old_line then
+		-- 	lines[lnum] = new_line
+		-- 	modified = true
+		-- end
 	end
 
 	-- Save changes
-	if modified then
-		buffer.set_lines(bufnr, 0, -1, lines)
-	end
+	-- if modified then
+	-- 	buffer.set_lines(bufnr, 0, -1, lines)
+	-- end
 
-	-- Show notification if XP changed
-	if #total_xp_changes > 0 then
-		xp_notifs.notify_progress_update(total_xp_changes, projects_completed)
-	end
+	-- -- Show notification if XP changed
+	-- if #total_xp_changes > 0 then
+	-- 	xp_notifs.notify_progress_update(total_xp_changes, projects_completed)
+	-- end
 
 	return modified
 end
@@ -322,4 +322,3 @@ function M.get_all_stats()
 end
 
 return M
-

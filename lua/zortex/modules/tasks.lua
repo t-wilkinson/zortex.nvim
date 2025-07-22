@@ -116,18 +116,18 @@ end
 ---@return table|nil   task       Parsed **Task** model (already has an id & saved).
 local function convert_line_to_task(line)
 	-- Preserve leading indentation so list nesting still looks right.
-	local indent, content = line:match("^(%s*)(.-)%s*$")
+	local indent, content = line:match("^(%s*)-%s*(.-)%s*$")
 	if content == "" then -- ignore empty lines
 		return nil, nil
 	end
 
-	-- 1. Construct checkbox list item.
+	-- Construct checkbox list item.
 	local task_line = string.format("%s- [ ] %s", indent, content)
 
-	-- 2. Ensure the line contains an @id attribute.
+	-- Ensure the line contains an @id attribute.
 	task_line = Task.ensure_id_in_line(task_line)
 
-	-- 3. Parse back into a Task model so downstream logic can reuse it.
+	-- Parse back into a Task model so downstream logic can reuse it.
 	local task = Task.from_line(task_line, vim.fn.line("."))
 	if task then
 		task:save()
@@ -145,14 +145,36 @@ function M.toggle_current_task()
 
 	-- If the cursor isn't on a task yet, turn the line into one
 	if not task then
-		local new_line, _ = convert_line_to_task(line)
+		local new_line, new_task = convert_line_to_task(line)
 		if not new_line then
-			vim.notify("Not on a task line", vim.log.levels.WARN)
+			vim.notify("Cannot convert empty line to task", vim.log.levels.WARN)
 			return
 		end
+
+		-- Update the buffer line
 		buffer.update_line(bufnr, line_num, new_line)
-		vim.cmd("silent! write")
-		require("zortex.modules.projects").update_progress()
+
+		-- Get project context for the new task
+		local lines = buffer.get_lines(bufnr)
+		local headings = buffer.get_all_headings(bufnr)
+
+		-- Find which project this task belongs to
+		for i = #headings, 1, -1 do
+			if headings[i].lnum < line_num then
+				local project_name = headings[i].text
+				if new_task then
+					new_task.project = project_name
+					new_task:save()
+				end
+				break
+			end
+		end
+
+		-- Schedule the update to avoid blocking
+		vim.schedule(function()
+			-- vim.cmd("silent! noautocmd write")
+			require("zortex.modules.projects").update_progress()
+		end)
 		return
 	end
 
@@ -175,9 +197,11 @@ function M.toggle_current_task()
 	new_line = parser.update_attribute(new_line, "id", task.id)
 	buffer.update_line(bufnr, line_num, new_line)
 
-	-- Trigger project progress update
-	vim.cmd("silent! write")
-	require("zortex.modules.projects").update_progress()
+	-- Schedule the update to avoid blocking
+	vim.schedule(function()
+		-- vim.cmd("silent! noautocmd write")
+		require("zortex.modules.projects").update_progress()
+	end)
 end
 
 -- Complete current task

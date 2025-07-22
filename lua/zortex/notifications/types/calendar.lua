@@ -4,9 +4,9 @@ local M = {}
 local manager = require("zortex.notifications.manager")
 local calendar = require("zortex.features.calendar")
 local datetime = require("zortex.core.datetime")
-local state = require("zortex.notifications.state")
+local store = require("zortex.stores.notifications")
 
-local config = {}
+local cfg = {}
 local sent_notifications = {}
 
 -- Create notification ID for deduplication
@@ -22,16 +22,16 @@ end
 -- Parse notify attribute value
 local function parse_notify_value(notify_attr)
 	if not notify_attr then
-		return config.default_advance_minutes or 15
+		return cfg.default_advance_minutes or 15
 	end
 
 	if type(notify_attr) == "boolean" then
-		return config.default_advance_minutes or 15
+		return cfg.default_advance_minutes or 15
 	elseif type(notify_attr) == "number" then
 		return notify_attr
 	elseif type(notify_attr) == "string" then
 		local minutes = datetime.parse_duration(notify_attr)
-		return minutes or config.default_advance_minutes or 15
+		return minutes or cfg.default_advance_minutes or 15
 	elseif type(notify_attr) == "table" then
 		-- Support multiple notification times
 		local times = {}
@@ -44,7 +44,7 @@ local function parse_notify_value(notify_attr)
 		return times
 	end
 
-	return config.default_advance_minutes or 15
+	return cfg.default_advance_minutes or 15
 end
 
 -- Format notification message
@@ -111,6 +111,7 @@ function M.check_and_notify()
 	local now = os.time()
 	local sent_count = 0
 	local today = datetime.get_current_date()
+	local did_send = false
 
 	-- Check next 2 days
 	for day_offset = 0, 1 do
@@ -141,7 +142,7 @@ function M.check_and_notify()
 							local title = "Calendar Reminder - " .. time_str
 
 							-- Send notification
-							local results = manager.send_notification(title, message, {
+							manager.send_notification(title, message, {
 								type = "calendar",
 								priority = notification.priority,
 								tags = notification.tags,
@@ -154,11 +155,16 @@ function M.check_and_notify()
 								event_time = notification.event_time,
 							}
 							sent_count = sent_count + 1
+							did_send = true
 						end
 					end
 				end
 			end
 		end
+	end
+
+	if did_send then
+		store.save_calendar_sent(sent_notifications)
 	end
 
 	-- Clean old sent notifications
@@ -174,7 +180,7 @@ function M.sync()
 
 	local notifications = {}
 	local today = datetime.get_current_date()
-	local scan_days = config.sync_days or 365
+	local scan_days = cfg.sync_days or 365
 
 	-- Scan future dates
 	for day_offset = 0, scan_days do
@@ -200,7 +206,7 @@ function M.sync()
 	end
 
 	-- Send to AWS if enabled
-	local aws = config.providers and config.providers.aws
+	local aws = cfg.providers and cfg.providers.aws
 	if aws and aws.enabled and aws.sync then
 		local aws_provider = require("zortex.notifications.providers.aws")
 		local success = aws_provider.sync(notifications, aws)
@@ -227,11 +233,17 @@ end
 function M.clean_old_notifications()
 	local now = os.time()
 	local cutoff = now - (48 * 60 * 60) -- 48 hours
+	local did_clean = false
 
 	for id, notif in pairs(sent_notifications) do
 		if notif.sent_at < cutoff then
 			sent_notifications[id] = nil
+			did_clean = true
 		end
+	end
+
+	if did_clean then
+		store.save_calendar_sent(sent_notifications)
 	end
 end
 
@@ -264,16 +276,12 @@ function M.get_pending_for_date(date_str)
 end
 
 -- Setup
-function M.setup(cfg)
-	config = cfg or {}
-	config.default_advance_minutes = config.default_advance_minutes or 15
-	config.sync_days = config.sync_days or 365
+function M.setup(config)
+	cfg = config
 
 	-- Load sent notifications from state
-	local saved_state = state.load_scheduled()
-	if saved_state and saved_state.calendar_sent then
-		sent_notifications = saved_state.calendar_sent
-	end
+	sent_notifications = store.get_calendar_sent()
 end
 
 return M
+

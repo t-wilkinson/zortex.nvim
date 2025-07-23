@@ -1,4 +1,4 @@
--- xp/core.lua - Core XP calculations and formulas
+-- domain/xp/core.lua - Core XP calculations and formulas
 local M = {}
 
 -- Configuration (will be set by setup)
@@ -236,4 +236,3 @@ function M.get_level_color(level, max_level)
 end
 
 return M
-

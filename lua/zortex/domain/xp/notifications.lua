@@ -1,4 +1,4 @@
--- xp/notifications.lua - Enhanced XP notifications
+-- domain/xp/notifications.lua - Enhanced XP notifications
 local M = {}
 
 local xp_projects = require("zortex.xp.projects")
@@ -205,4 +205,3 @@ function M.notify_season_level_up(new_level, tier_info)
 end
 
 return M
-

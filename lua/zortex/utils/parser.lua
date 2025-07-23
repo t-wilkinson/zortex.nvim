@@ -1,4 +1,4 @@
--- core/parser.lua - Consolidated parsing logic for Zortex
+-- utils/parser.lua - Consolidated parsing logic for Zortex
 local M = {}
 
 local constants = require("zortex.constants")

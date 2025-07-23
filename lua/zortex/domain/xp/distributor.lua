@@ -1,5 +1,4 @@
--- domain/xp_distributor.lua
--- Handles XP distribution logic and rules
+-- domain/xp/distributor.lua - Handles XP distribution logic and rules
 local M = {}
 
 local EventBus = require("zortex.core.event_bus")
@@ -309,4 +308,3 @@ function M.validate_targets(source_type, targets)
 end
 
 return M
-

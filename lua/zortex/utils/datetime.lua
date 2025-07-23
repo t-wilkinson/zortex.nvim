@@ -1,4 +1,4 @@
--- core/datetime.lua - Date and time utilities for Zortex
+-- utils/datetime.lua - Date and time utilities for Zortex
 local M = {}
 
 local constants = require("zortex.constants")

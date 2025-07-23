@@ -1,3 +1,5 @@
+-- ui/telescope/core.lua - assimilates telescope searches
+
 local M = {}
 
 local projects = require("zortex.ui.projects")

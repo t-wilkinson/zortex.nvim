@@ -1,265 +1,293 @@
--- stores/calendar.lua - Calendar store
+-- features/calendar.lua - Calendar features using CalendarService
 local M = {}
 
-local constants = require("zortex.constants")
+local CalendarService = require("zortex.services.calendar_service")
+local EventBus = require("zortex.core.event_bus")
+local Logger = require("zortex.core.logger")
 local datetime = require("zortex.core.datetime")
 local fs = require("zortex.core.filesystem")
-local attributes = require("zortex.core.attributes")
-local parser = require("zortex.core.parser")
+local constants = require("zortex.constants")
 
 -- =============================================================================
--- Store
+-- Calendar Data Access (Using Service)
 -- =============================================================================
 
-local state = {
-	entries = {}, -- entries[date_str] = { entries }
-}
-
+-- Load calendar data
 function M.load()
-	local path = fs.get_file_path(constants.FILES.CALENDAR)
-	if not path or not fs.file_exists(path) then
-		return false
-	end
-
-	state.entries = {}
-	local lines = fs.read_lines(path)
-	if not lines then
-		return false
-	end
-
-	local current_date_str = nil
-	for _, line in ipairs(lines) do
-		local m, d, y = line:match(constants.PATTERNS.CALENDAR_DATE_HEADING)
-		if m and d and y then
-			current_date_str = datetime.format_date({ year = y, month = m, day = d }, "YYYY-MM-DD")
-			state.entries[current_date_str] = {}
-		elseif current_date_str then
-			local entry_text = line:match(constants.PATTERNS.CALENDAR_ENTRY_PREFIX)
-			if entry_text then
-				local entry = M.parse_calendar_entry(entry_text, current_date_str)
-				table.insert(state.entries[current_date_str], entry)
-			end
-		end
-	end
-	return true
+	return CalendarService.load()
 end
 
+-- Save calendar data
 function M.save()
-	local path = fs.get_file_path(constants.FILES.CALENDAR)
-	if not path then
-		return false
-	end
-
-	local lines = {}
-	local dates = {}
-	for date in pairs(state.entries) do
-		table.insert(dates, date)
-	end
-	table.sort(dates)
-
-	for _, date_str in ipairs(dates) do
-		local entries = state.entries[date_str]
-		if entries and #entries > 0 then
-			local date_tbl = datetime.parse_date(date_str)
-			table.insert(lines, datetime.format_date(date_tbl, "MM-DD-YYYY") .. ":")
-			for _, entry in ipairs(entries) do
-				-- Reconstruct the raw text for saving
-				table.insert(lines, "  - " .. entry.raw_text)
-			end
-			table.insert(lines, "") -- Add a blank line for readability
-		end
-	end
-
-	return fs.write_lines(path, lines)
+	return CalendarService.save()
 end
 
+-- Add calendar entry
 function M.add_entry(date_str, entry_text)
-	if not state.entries[date_str] then
-		state.entries[date_str] = {}
+	local entry, err = CalendarService.add_entry(date_str, entry_text)
+
+	if entry then
+		Logger.info("calendar", "Entry added", { date = date_str })
+		return true
+	else
+		Logger.error("calendar", "Failed to add entry", { date = date_str, error = err })
+		return false
 	end
-	table.insert(state.entries[date_str], M.parse_calendar_entry(entry_text, date_str))
-	return M.save()
 end
 
+-- Get entries for date
 function M.get_entries_for_date(date_str)
-	local target_date = datetime.parse_date(date_str)
-	if not target_date then
-		return {}
-	end
-	-- Normalize date to noon to avoid timezone/DST issues
-	target_date.hour, target_date.min, target_date.sec = 12, 0, 0
-	local target_time = os.time(target_date)
-
-	local active_entries = {}
-	local seen = {} -- Track processed entries by raw_text
-
-	-- 1. Add entries specifically on this date
-	if state.entries[date_str] then
-		for _, entry in ipairs(state.entries[date_str]) do
-			if not seen[entry.raw_text] then
-				table.insert(active_entries, entry)
-				seen[entry.raw_text] = true
-			end
-		end
-	end
-
-	-- 2. Check all entries for date ranges that include target date
-	for entry_date_str, entries_on_date in pairs(state.entries) do
-		for _, entry in ipairs(entries_on_date) do
-			if not seen[entry.raw_text] and entry.attributes then
-				local from_date = entry.attributes.from
-				local to_date = entry.attributes.to
-
-				-- Only check if at least one range attribute exists
-				if from_date or to_date then
-					local in_range = false
-
-					-- Normalize times to noon for comparison
-					if from_date then
-						from_date = vim.tbl_extend("force", {}, from_date)
-						from_date.hour, from_date.min, from_date.sec = 12, 0, 0
-					end
-					if to_date then
-						to_date = vim.tbl_extend("force", {}, to_date)
-						to_date.hour, to_date.min, to_date.sec = 12, 0, 0
-					end
-
-					if from_date and to_date then
-						-- Both dates present: check if target is between them
-						local from_time = os.time(from_date)
-						local to_time = os.time(to_date)
-						in_range = target_time >= from_time and target_time <= to_time
-					elseif from_date then
-						-- Only from date: check if target is after it
-						local from_time = os.time(from_date)
-						in_range = target_time >= from_time
-					elseif to_date then
-						-- Only to date: check if target is before it
-						local to_time = os.time(to_date)
-						in_range = target_time <= to_time
-					end
-
-					if in_range then
-						table.insert(active_entries, entry)
-						seen[entry.raw_text] = true
-					end
-				end
-			end
-		end
-	end
-
-	-- 3. Handle repeating entries
-	for entry_date_str, entries_on_date in pairs(state.entries) do
-		for _, entry in ipairs(entries_on_date) do
-			if not seen[entry.raw_text] and entry.attributes and entry.attributes["repeat"] then
-				local repeat_pattern = entry.attributes["repeat"]
-				local entry_date = datetime.parse_date(entry.date_context or entry_date_str)
-
-				if entry_date and M.is_repeat_active(entry_date, target_date, repeat_pattern) then
-					table.insert(active_entries, entry)
-					seen[entry.raw_text] = true
-				end
-			end
-		end
-	end
-
-	return active_entries
+	return CalendarService.get_entries_for_date(date_str)
 end
 
 -- =============================================================================
--- Entry Parsing
+-- Calendar UI Integration
 -- =============================================================================
 
-function M.parse_calendar_entry(entry_text, date_context)
-	local parsed = {
-		raw_text = entry_text,
-		display_text = entry_text,
-		date_context = date_context,
-		type = "note",
-		attributes = {},
-		task_status = nil,
-	}
+-- Add entry with interactive prompt
+function M.add_entry_interactive(date_str)
+	date_str = date_str or datetime.format_date(datetime.get_current_date(), "YYYY-MM-DD")
 
-	local working_text = entry_text
-
-	-- 1. Check for task status
-	if parser.is_task_line("- " .. working_text) then
-		parsed.task_status = attributes.parse_task_status("- " .. working_text)
-		if parsed.task_status then
-			parsed.type = "task"
-			-- Strip the checkbox pattern: [x], [ ], etc.
-			working_text = working_text:match("^%[.%]%s+(.+)$") or working_text
+	vim.ui.input({
+		prompt = string.format("Add entry for %s: ", date_str),
+		default = "",
+	}, function(input)
+		if input and input ~= "" then
+			if M.add_entry(date_str, input) then
+				vim.notify(string.format("Added entry for %s", date_str), vim.log.levels.INFO)
+			else
+				vim.notify("Failed to add entry", vim.log.levels.ERROR)
+			end
 		end
-	end
-
-	-- 2. Parse attributes from the remaining text
-	local attrs, remaining_text = parser.parse_attributes(working_text, attributes.schemas.calendar_entry)
-	parsed.attributes = attrs or {}
-	parsed.display_text = remaining_text
-
-	-- 3. Determine type based on attributes if not already a task
-	if parsed.type ~= "task" then
-		if attrs.from or attrs.to or attrs.at then
-			parsed.type = "event"
-		end
-	end
-
-	return parsed
+	end)
 end
+
+-- Delete entry with confirmation
+function M.delete_entry_interactive(date_str)
+	local entries = M.get_entries_for_date(date_str)
+
+	if not entries or #entries == 0 then
+		vim.notify("No entries for " .. date_str, vim.log.levels.WARN)
+		return
+	end
+
+	-- Build selection list
+	local items = {}
+	for i, entry in ipairs(entries) do
+		table.insert(items, string.format("%d. %s", i, entry:format()))
+	end
+
+	vim.ui.select(items, {
+		prompt = "Select entry to delete:",
+	}, function(choice, idx)
+		if choice and idx then
+			local success, err = CalendarService.remove_entry(date_str, idx)
+			if success then
+				vim.notify("Entry deleted", vim.log.levels.INFO)
+			else
+				vim.notify("Failed to delete entry: " .. (err or "unknown error"), vim.log.levels.ERROR)
+			end
+		end
+	end)
+end
+
 -- =============================================================================
--- Data Access
+-- Calendar Search
 -- =============================================================================
 
-function M.is_repeat_active(start_date, target_date, repeat_pattern)
-	-- Normalize dates to noon
-	start_date = vim.tbl_extend("force", {}, start_date)
-	start_date.hour, start_date.min, start_date.sec = 12, 0, 0
-	target_date = vim.tbl_extend("force", {}, target_date)
-	target_date.hour, target_date.min, target_date.sec = 12, 0, 0
+-- Search calendar entries
+function M.search(query)
+	local results = CalendarService.search(query)
 
-	local start_time = os.time(start_date)
-	local target_time = os.time(target_date)
+	if #results == 0 then
+		vim.notify("No entries found matching: " .. query, vim.log.levels.INFO)
+		return
+	end
 
-	-- Don't show repeats before the start date
-	if target_time < start_time then
+	-- Format results
+	local lines = { string.format("Search Results for '%s':", query), "" }
+
+	for _, result in ipairs(results) do
+		table.insert(lines, string.format("%s:", result.date))
+		table.insert(lines, "  " .. result.entry:format())
+		table.insert(lines, "")
+	end
+
+	-- Show in buffer
+	local buf = vim.api.nvim_create_buf(false, true)
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+	vim.api.nvim_buf_set_option(buf, "modifiable", false)
+	vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
+	vim.api.nvim_buf_set_name(buf, "Calendar Search Results")
+
+	vim.cmd("split")
+	vim.api.nvim_win_set_buf(0, buf)
+end
+
+-- =============================================================================
+-- Calendar Statistics
+-- =============================================================================
+
+-- Show calendar statistics
+function M.show_stats()
+	local stats = CalendarService.get_stats()
+	local lines = { "Calendar Statistics", "==================", "" }
+
+	-- Overall stats
+	table.insert(lines, string.format("Total entries: %d", stats.total_entries))
+	table.insert(lines, "")
+
+	-- By type
+	table.insert(lines, "By Type:")
+	for type_name, count in pairs(stats.entries_by_type) do
+		table.insert(lines, string.format("  %s: %d", type_name, count))
+	end
+	table.insert(lines, "")
+
+	-- Special entries
+	table.insert(lines, string.format("With notifications: %d", stats.entries_with_notifications))
+	table.insert(lines, string.format("Recurring: %d", stats.recurring_entries))
+	table.insert(lines, "")
+
+	-- Task stats
+	if stats.entries_by_type.task > 0 then
+		table.insert(lines, "Tasks:")
+		table.insert(lines, string.format("  Completed: %d", stats.completed_tasks))
+		table.insert(lines, string.format("  Incomplete: %d", stats.incomplete_tasks))
+		table.insert(lines, "")
+	end
+
+	-- By month
+	if vim.tbl_count(stats.entries_by_month) > 0 then
+		table.insert(lines, "By Month:")
+		local months = vim.tbl_keys(stats.entries_by_month)
+		table.sort(months)
+
+		for _, month in ipairs(months) do
+			table.insert(lines, string.format("  %s: %d", month, stats.entries_by_month[month]))
+		end
+	end
+
+	-- Show in buffer
+	local buf = vim.api.nvim_create_buf(false, true)
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+	vim.api.nvim_buf_set_option(buf, "modifiable", false)
+	vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
+	vim.api.nvim_buf_set_name(buf, "Calendar Statistics")
+
+	vim.cmd("split")
+	vim.api.nvim_win_set_buf(0, buf)
+end
+
+-- =============================================================================
+-- Calendar Notifications
+-- =============================================================================
+
+-- Get pending notifications
+function M.get_pending_notifications(lookahead_minutes)
+	return CalendarService.get_pending_notifications(lookahead_minutes)
+end
+
+-- Check and show notifications
+function M.check_notifications()
+	local pending = M.get_pending_notifications(15) -- 15 minute lookahead
+
+	if #pending == 0 then
+		return
+	end
+
+	for _, notif in ipairs(pending) do
+		local msg = string.format("Reminder in %d minutes: %s", notif.minutes_until, notif.entry.display_text)
+
+		vim.notify(msg, vim.log.levels.INFO)
+
+		-- Also emit event for notification system
+		EventBus.emit("calendar:notification_pending", {
+			entry = notif.entry,
+			time = notif.time,
+			minutes_until = notif.minutes_until,
+		})
+	end
+end
+
+-- =============================================================================
+-- Calendar File Operations
+-- =============================================================================
+
+-- Open calendar file
+function M.open_file()
+	local calendar_file = fs.get_file_path(constants.FILES.CALENDAR)
+	if calendar_file then
+		vim.cmd("edit " .. calendar_file)
+		return true
+	end
+	return false
+end
+
+-- Jump to date in calendar file
+function M.goto_date(date_str)
+	-- Ensure file is open
+	if not M.open_file() then
 		return false
 	end
 
-	-- Parse repeat patterns: daily, weekly, monthly, yearly, or custom like "3d", "2w"
-	if repeat_pattern == "daily" then
-		return true
-	elseif repeat_pattern == "weekly" then
-		local days_diff = math.floor((target_time - start_time) / 86400)
-		return days_diff % 7 == 0
-	elseif repeat_pattern == "monthly" then
-		return target_date.day == start_date.day
-	elseif repeat_pattern == "yearly" then
-		return target_date.month == start_date.month and target_date.day == start_date.day
-	else
-		-- Handle patterns like "3d", "2w", "1m"
-		local num, unit = repeat_pattern:match("^(%d+)([dwmy])$")
-		if num and unit then
-			num = tonumber(num)
-			local days_diff = math.floor((target_time - start_time) / 86400)
+	-- Format date for search
+	local date = datetime.parse_date(date_str)
+	if not date then
+		return false
+	end
 
-			if unit == "d" then
-				return days_diff % num == 0
-			elseif unit == "w" then
-				return days_diff % (num * 7) == 0
-			elseif unit == "m" then
-				-- Simple month calculation (not perfect for all edge cases)
-				local month_diff = (target_date.year - start_date.year) * 12 + (target_date.month - start_date.month)
-				return month_diff % num == 0 and target_date.day == start_date.day
-			elseif unit == "y" then
-				local year_diff = target_date.year - start_date.year
-				return year_diff % num == 0
-					and target_date.month == start_date.month
-					and target_date.day == start_date.day
-			end
-		end
+	local search_pattern = string.format("%02d-%02d-%04d:", date.month, date.day, date.year)
+
+	-- Search for date
+	local found = vim.fn.search(search_pattern, "w")
+	if found > 0 then
+		vim.cmd("normal! zz")
+		return true
 	end
 
 	return false
+end
+
+-- =============================================================================
+-- Event Listeners
+-- =============================================================================
+
+-- Listen for calendar changes
+EventBus.on("calendar:loaded", function(data)
+	Logger.debug("calendar", "Calendar loaded", data)
+end, {
+	priority = 30,
+	name = "calendar_features.loaded",
+})
+
+EventBus.on("calendar:entry_added", function(data)
+	-- Could trigger UI refresh here
+	Logger.debug("calendar", "Entry added", data)
+end, {
+	priority = 30,
+	name = "calendar_features.entry_added",
+})
+
+-- =============================================================================
+-- Initialization
+-- =============================================================================
+
+-- Initialize calendar features
+function M.init()
+	-- Set up auto-notification checking
+	if vim.g.zortex_calendar_notifications ~= false then
+		vim.fn.timer_start(60000, function() -- Check every minute
+			vim.schedule(function()
+				M.check_notifications()
+			end)
+		end, { ["repeat"] = -1 })
+	end
+
+	-- Load calendar on startup
+	M.load()
+
+	Logger.info("calendar", "Calendar features initialized")
 end
 
 return M

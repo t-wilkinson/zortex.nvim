@@ -1,131 +1,181 @@
--- constants.lua - Centralized constants for Zortex with normalized section hierarchy
+-- constants.lua - Shared constants for Zortex
 local M = {}
 
--- File names
+-- Default configuration values
+M.DEFAULT_NOTES_DIR = vim.fn.expand("$HOME/.zortex")
+M.DEFAULT_EXTENSION = ".zortex"
+
+-- File paths (relative to notes_dir)
 M.FILES = {
-	CALENDAR = "calendar.zortex",
-	PROJECTS = "projects.zortex",
-	AREAS = "areas.zortex",
-	OKR = "okr.zortex",
+	-- State files
+	XP_STATE_DATA = ".zortex/xp_state.json",
+	TASK_STATE_DATA = ".zortex/task_state.json",
+	ARCHIVE_TASK_STATE = ".zortex/archive/task_state.json",
+	CALENDAR_STATE = ".zortex/calendar_state.json",
+	TIMER_STATE = ".zortex/timer_state.json",
 
-	-- User library
-	USER_LIBRARY = "z",
-	ARCHIVE_PROJECTS = "z/archive.projects.zortex",
+	-- History files
+	SEARCH_HISTORY = ".zortex/search_history.json",
+	COMMAND_HISTORY = ".zortex/command_history.json",
 
-	-- System library
-	SYSTEM_LIBRARY = ".z",
-	XP_STATE_DATA = ".z/xp_state.json",
-	TASK_STATE_DATA = ".z/task_state.json",
-	ARCHIVE_TASK_STATE = ".z/archive.task_state.json",
-	-- State persistence
-	NOTIFICATIONS_STATE = ".z/notifications_state.json",
-	NOTIFICATIONS_LOG = ".z/notifications_log.json",
-	POMODORO = ".z/pomodoro_state.json",
+	-- Configuration
+	USER_CONFIG = ".zortex/config.json",
+	PROJECT_TEMPLATES = ".zortex/templates/",
 }
 
--- Core patterns
-M.PATTERNS = {
-	-- Task patterns
-	TASK_PREFIX = "^%s*%-",
-	TASK_UNCHECKED = "^%s*%- %[ %]",
-	TASK_STATUS_KEY = "^%s*%- (%[.%])",
-	TASK_TEXT = "^%s*%- %[.%] (.+)$",
-	TASK_CHECKBOX = "^%s*%- %[(.)%]",
-
-	-- Section patterns (in hierarchical order)
-	ARTICLE_TITLE = "^@@(.+)",
-	HEADING = "^(#+)%s+(.+)$",
-	HEADING_LEVEL = "^#+",
-	BOLD_HEADING = "^%*%*(.+)%*%*:$",
-	BOLD_HEADING_ALT = "^%*%*(.+):%*%*$",
-	LABEL = "^([^%.]+):$", -- No sentence period (". ") allowed
-
-	-- Calendar-specific patterns
-	CALENDAR_DATE_HEADING = "^(%d%d)%-(%d%d)%-(%d%d%d%d):$",
-	CALENDAR_ENTRY_PREFIX = "^%s+%-? (.+)$",
-	CALENDAR_TIME_PREFIX = "^(%d%d?:%d%d)%s+(.+)$",
-	CALENDAR_TIME_RANGE = "^(%d%d?:%d%d)%-(%d%d?:%d%d)%s+(.+)$",
-
-	DATE_YMD = "^(%d%d%d%d)%-(%d%d)%-(%d%d)$", -- YYYY-MM-DD
-	DATE_MDY = "^(%d%d)%-(%d%d)%-(%d%d%d%d)$", -- MM-DD-YYYY
-	DATETIME_YMD = "^(%d%d%d%d%-%d%d%-%d%d)%s+(.+)$", -- YYYY-MM-DD HH:MM, YYYY-MM-DD HH:MM am
-	DATETIME_MDY = "^(%d%d-%d%d-%d%d%d%d)%s+(.+)$", -- MM-DD-YYYY HH:MM, MM-DD-YYYY HH:MM am
-	TIME_24H = "^(%d%d?):(%d%d)$", -- HH:MM
-	TIME_AMPM = "^(%d%d?):(%d%d)%s*([ap]m)$", -- HH:MMam, HH:MM pm
-
-	-- Link patterns
-	LINK = "%[([^%]]+)%]",
-	MARKDOWN_LINK = "%[([^%]]*)%]%(([^%)]+)%)",
-	FOOTNOTE = "%[%^([A-Za-z0-9_.-]+)%]",
-	FOOTNOTE_DEF = "^%[%^([A-Za-z0-9_.-]+)%]:%s*",
-	URL = "https?://[^%s%]%)};]+",
-	FILEPATH = "([~%.]/[^%s]+)",
-
-	-- Other patterns
-	TAG_LINE = "^@[^@]",
-	OKR_DATE = "^## ([%w]+) (%d+) (%d+) (.+)$",
-	KEY_RESULT = "^%s*- KR%-",
-}
-
--- Section types with hierarchical priorities
--- Lower numbers = higher priority (can contain higher numbers)
+-- Section types
 M.SECTION_TYPE = {
-	ARTICLE = 1, -- Highest priority, contains all
-	HEADING = 2, -- Variable priority based on level (1-6)
-	BOLD_HEADING = 7, -- After all headings, before labels
-	LABEL = 8, -- Lowest priority section type
-	TAG = 9, -- Tags don't create sections, just markers
-	TEXT = 10, -- Plain text, not a section header
+	ARTICLE = "article",
+	HEADING = "heading",
+	BOLD_HEADING = "bold_heading",
+	LABEL = "label",
+	TAG = "tag",
+	TEXT = "text",
 }
 
--- Section hierarchy helper
+-- Section hierarchy and priorities (lower number = higher priority)
 M.SECTION_HIERARCHY = {
-	-- Returns effective priority for comparison
-	-- Articles always have priority 1
-	-- Headings have priority 2-7 based on level
-	-- Bold headings have priority 8
-	-- Labels have priority 9
+	priorities = {
+		[M.SECTION_TYPE.ARTICLE] = 10,
+		[M.SECTION_TYPE.HEADING] = {
+			[1] = 20,
+			[2] = 30,
+			[3] = 40,
+			[4] = 50,
+			[5] = 60,
+			[6] = 70,
+		},
+		[M.SECTION_TYPE.BOLD_HEADING] = 80,
+		[M.SECTION_TYPE.LABEL] = 90,
+		[M.SECTION_TYPE.TAG] = 100,
+		[M.SECTION_TYPE.TEXT] = 999,
+	},
+
+	-- Get priority for a section type and level
 	get_priority = function(section_type, heading_level)
-		if section_type == M.SECTION_TYPE.ARTICLE then
-			return 1
-		elseif section_type == M.SECTION_TYPE.HEADING then
-			-- Heading level 1 = priority 2, level 6 = priority 7
-			return 1 + (heading_level or 1)
-		elseif section_type == M.SECTION_TYPE.BOLD_HEADING then
-			return 8
-		elseif section_type == M.SECTION_TYPE.LABEL then
-			return 9
+		local priorities = M.SECTION_HIERARCHY.priorities
+
+		if section_type == M.SECTION_TYPE.HEADING and heading_level then
+			return priorities[section_type][heading_level] or 999
 		else
-			return 999 -- Non-section types
+			return priorities[section_type] or 999
 		end
 	end,
 
-	-- Check if section A can contain section B
-	can_contain = function(type_a, level_a, type_b, level_b)
-		local priority_a = M.SECTION_HIERARCHY.get_priority(type_a, level_a)
-		local priority_b = M.SECTION_HIERARCHY.get_priority(type_b, level_b)
-		return priority_a < priority_b
+	-- Check if parent can contain child
+	can_contain = function(parent_type, parent_level, child_type, child_level)
+		local parent_priority = M.SECTION_HIERARCHY.get_priority(parent_type, parent_level)
+		local child_priority = M.SECTION_HIERARCHY.get_priority(child_type, child_level)
+		return parent_priority < child_priority
 	end,
+}
+
+-- Patterns for parsing
+M.PATTERNS = {
+	-- Sections
+	ARTICLE_TITLE = "^@@(.+)",
+	HEADING = "^(#+)%s+(.+)",
+	HEADING_LEVEL = "^(#+)",
+	BOLD_HEADING = "^%*%*([^*]+)%*%*:?%s*$",
+	BOLD_HEADING_ALT = "^__([^_]+)__:?%s*$",
+	LABEL = "^([^:]+):$",
+	TAG_LINE = "^@%w+",
+
+	-- Tasks
+	TASK_CHECKBOX = "^%s*%-%s*%[([%sxX])%]",
+	TASK_TEXT = "^%s*%-%s*%[.%]%s+(.+)",
+	TASK_STATUS_KEY = "%s*%[([%w_]+)%]%s*$",
+
+	-- Attributes
+	ATTRIBUTE = "@(%w+)%(([^)]+)%)",
+	ATTRIBUTE_BARE = "@(%w+)",
+
+	-- Links
+	LINK = "%[([^%]]+)%]",
+	FOOTNOTE = "%[%^([A-Za-z0-9_.-]+)%]",
+	MARKDOWN_LINK = "%[([^%]]*)%]%(([^%)]+)%)",
+	URL = "https?://[^%s%]%)};]+",
+
+	-- Dates and times
+	DATE_YMD = "(%d%d%d%d)%-(%d%d?)%-(%d%d?)",
+	DATE_MDY = "(%d%d?)%-(%d%d?)%-(%d%d%d%d)",
+	TIME_24H = "(%d%d?):(%d%d)",
+	TIME_AMPM = "(%d%d?):(%d%d)%s*([ap]m)",
+	DATETIME_YMD = "(%d%d%d%d%-%d%d?%-%d%d?)%s+(%d%d?:%d%d)",
+
+	-- Other
+	OKR_DATE = "^## ([%w]+) (%d+) (%d+) (.+)$",
 }
 
 -- Task status definitions
 M.TASK_STATUS = {
-	["[ ]"] = { symbol = " ", name = "todo", tags = { "@todo" } },
-	["[.]"] = { symbol = ".", name = "in_progress", tags = { "@inprogress", "@wip" } },
-	["[x]"] = { symbol = "x", name = "done", tags = { "@done" } },
-	["[-]"] = { symbol = "-", name = "cancelled", tags = { "@cancelled" } },
-	["[?]"] = { symbol = "?", name = "unclear", tags = { "@unclear" } },
-	["[*]"] = { symbol = "*", name = "delegated", tags = { "@delegated" } },
+	TODO = { symbol = " ", name = "To Do", color = "Comment" },
+	DOING = { symbol = "◐", name = "In Progress", color = "DiagnosticWarn" },
+	WAITING = { symbol = "⏸", name = "Waiting", color = "DiagnosticInfo" },
+	DONE = { symbol = "✓", name = "Done", color = "DiagnosticOk" },
+	CANCELLED = { symbol = "✗", name = "Cancelled", color = "DiagnosticError" },
+	DELEGATED = { symbol = "→", name = "Delegated", color = "DiagnosticHint" },
+}
+
+-- Time horizons
+M.TIME_HORIZONS = {
+	DAILY = "daily",
+	WEEKLY = "weekly",
+	MONTHLY = "monthly",
+	QUARTERLY = "quarterly",
+	YEARLY = "yearly",
+	FIVE_YEAR = "5year",
+}
+
+-- Calendar view modes
+M.CALENDAR_MODES = {
+	MONTH = "month",
+	WEEK = "week",
+	DAY = "day",
+	AGENDA = "agenda",
+}
+
+-- XP tier definitions
+M.XP_TIERS = {
+	BRONZE = { name = "Bronze", min_level = 1 },
+	SILVER = { name = "Silver", min_level = 5 },
+	GOLD = { name = "Gold", min_level = 10 },
+	PLATINUM = { name = "Platinum", min_level = 15 },
+	DIAMOND = { name = "Diamond", min_level = 20 },
+	MASTER = { name = "Master", min_level = 30 },
 }
 
 -- Highlight groups
 M.HIGHLIGHTS = {
-	SKILL_LEVEL_1_3 = "DiagnosticWarn",
-	SKILL_LEVEL_4_6 = "DiagnosticInfo",
-	SKILL_LEVEL_7_9 = "DiagnosticOk",
-	SKILL_LEVEL_10_PLUS = "DiagnosticHint",
-	PROGRESS_BAR = "IncSearch",
-	PROGRESS_BG = "NonText",
+	-- Sections
+	ARTICLE_TITLE = "ZortexArticleTitle",
+	HEADING1 = "ZortexHeading1",
+	HEADING2 = "ZortexHeading2",
+	HEADING3 = "ZortexHeading3",
+	HEADING4 = "ZortexHeading4",
+	HEADING5 = "ZortexHeading5",
+	HEADING6 = "ZortexHeading6",
+	BOLD_HEADING = "ZortexBoldHeading",
+	LABEL = "ZortexLabel",
+	TAG = "ZortexTag",
+
+	-- Tasks
+	TASK_TODO = "ZortexTaskTodo",
+	TASK_DONE = "ZortexTaskDone",
+	TASK_CANCELLED = "ZortexTaskCancelled",
+
+	-- Links
+	LINK = "ZortexLink",
+	LINK_BROKEN = "ZortexLinkBroken",
+
+	-- Attributes
+	ATTRIBUTE_KEY = "ZortexAttributeKey",
+	ATTRIBUTE_VALUE = "ZortexAttributeValue",
+
+	-- XP
+	XP_GAIN = "ZortexXPGain",
+	XP_LEVEL = "ZortexXPLevel",
 }
 
 return M
+

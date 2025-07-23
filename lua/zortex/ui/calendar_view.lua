@@ -1,4 +1,4 @@
--- ui/calendar.lua - Calendar UI module for Zortex
+-- ui/calendar_view.lua - Calendar UI module for Zortex
 local M = {}
 local api = vim.api
 local fn = vim.fn

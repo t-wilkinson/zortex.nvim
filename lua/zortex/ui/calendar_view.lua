@@ -10,7 +10,7 @@ local CONTENT_WIDTH = fn.strwidth(MARGIN_STR) + GRID_WIDTH -- 2 + 49 = 51
 
 local datetime = require("zortex.utils.datetime")
 local calendar_store = require("zortex.stores.calendar")
-local fs = require("zortex.core.filesystem")
+local fs = require("zortex.utils.filesystem")
 local calendar = require("zortex.features.calendar")
 local notifications = require("zortex.notifications")
 
@@ -455,7 +455,7 @@ function Renderer.render_digest_view()
 
 	-- Show high priority projects
 	if cfg.digest.show_high_priority then
-		local projects = require("zortex.modules.projects")
+		local projects = require("zortex.services.projects")
 		projects.load()
 
 		local high_priority = {}

@@ -2,8 +2,8 @@
 local M = {}
 
 local parser = require("zortex.utils.parser")
-local fs = require("zortex.core.filesystem")
-local buffer = require("zortex.core.buffer")
+local fs = require("zortex.utils.filesystem")
+local buffer = require("zortex.utils.buffer")
 local attributes = require("zortex.utils.attributes")
 local task_tracker = require("zortex.modules.task_tracker")
 local progress = require("zortex.modules.progress")

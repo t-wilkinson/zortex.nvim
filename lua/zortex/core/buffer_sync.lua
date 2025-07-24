@@ -1,5 +1,4 @@
--- core/buffer_sync.lua
--- Buffer synchronization module - keeps buffer and document in sync
+-- core/buffer_sync.lua - keeps buffer and document in sync
 local M = {}
 
 local EventBus = require("zortex.core.event_bus")
@@ -376,4 +375,3 @@ function M.get_status()
 end
 
 return M
-

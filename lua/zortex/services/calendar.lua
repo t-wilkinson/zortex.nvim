@@ -8,7 +8,7 @@ local Logger = require("zortex.core.logger")
 local calendar_store = require("zortex.stores.calendar")
 local datetime = require("zortex.utils.datetime")
 local parser = require("zortex.utils.parser")
-local fs = require("zortex.core.filesystem")
+local fs = require("zortex.utils.filesystem")
 local constants = require("zortex.constants")
 local CalendarEntry = require("zortex.models.calendar_entry")
 

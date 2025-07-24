@@ -1,26 +1,32 @@
 -- constants.lua - Shared constants for Zortex
 local M = {}
 
--- Default configuration values
-M.DEFAULT_NOTES_DIR = vim.fn.expand("$HOME/.zortex")
-M.DEFAULT_EXTENSION = ".zortex"
-
 -- File paths (relative to notes_dir)
 M.FILES = {
+	-- Core user files
+	CALENDAR = "calendar.zortex",
+	PROJECTS = "projects.zortex",
+	AREAS = "areas.zortex",
+	OKR = "okr.zortex",
+
+	-- User library
+	USER_LIBRARY = "z",
+	ARCHIVE_PROJECTS = "z/archive.projects.zortex",
+
+	-- System library
+	SYSTEM_LIBRARY = ".z",
+
 	-- State files
-	XP_STATE_DATA = ".zortex/xp_state.json",
-	TASK_STATE_DATA = ".zortex/task_state.json",
-	ARCHIVE_TASK_STATE = ".zortex/archive/task_state.json",
-	CALENDAR_STATE = ".zortex/calendar_state.json",
-	TIMER_STATE = ".zortex/timer_state.json",
+	XP_STATE_DATA = ".z/xp_state.json",
+	TASK_STATE_DATA = ".z/task_state.json",
+	ARCHIVE_TASK_STATE = ".z/archive/task_state.json",
+	CALENDAR_STATE = ".z/calendar_state.json",
+	TIMER_STATE = ".z/timer_state.json",
+	NOTIFICATIONS_STATE = ".z/notifications_state.json",
 
 	-- History files
-	SEARCH_HISTORY = ".zortex/search_history.json",
-	COMMAND_HISTORY = ".zortex/command_history.json",
-
-	-- Configuration
-	USER_CONFIG = ".zortex/config.json",
-	PROJECT_TEMPLATES = ".zortex/templates/",
+	SEARCH_HISTORY = ".z/search_history.json",
+	COMMAND_HISTORY = ".z/command_history.json",
 }
 
 -- Section types
@@ -178,4 +184,3 @@ M.HIGHLIGHTS = {
 }
 
 return M
-

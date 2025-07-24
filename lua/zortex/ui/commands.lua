@@ -2,20 +2,18 @@
 
 local M = {}
 
-local Core = require("zortex.core.init")
+local Core = require("zortex.core")
 local DocumentManager = require("zortex.core.document_manager")
 
 local notifications = require("zortex.notifications")
 
 -- Core modules
 local core = {
-	config = require("zortex.config"),
-	constants = require("zortex.constants"),
-	attributes = require("zortex.utils.attributes"),
-	buffer = require("zortex.core.buffer"),
-	datetime = require("zortex.utils.datetime"),
-	filesystem = require("zortex.core.filesystem"),
-	parser = require("zortex.utils.parser"),
+	logger = require("zortex.core.logger"),
+}
+
+local utils = {
+	fs = require("zortex.utils.filesystem"),
 }
 
 local services = {
@@ -24,20 +22,12 @@ local services = {
 }
 
 local features = {
-	-- archive = require("zortex.features.archive"),
+	archive = require("zortex.features.archive"),
 	calendar = require("zortex.features.calendar"),
 	completion = require("zortex.features.completion"),
 	highlights = require("zortex.features.highlights"),
 	links = require("zortex.features.links"),
 	ical = require("zortex.features.ical"),
-}
-
-local modules = {
-	areas = require("zortex.modules.areas"),
-	objectives = require("zortex.modules.objectives"),
-	progress = require("zortex.modules.progress"),
-	projects = require("zortex.modules.projects"),
-	tasks = require("zortex.modules.tasks"),
 }
 
 local stores = {
@@ -50,17 +40,9 @@ local stores = {
 
 local ui = {
 	calendar = require("zortex.ui.calendar"),
-	projects = require("zortex.ui.projects"),
 	search = require("zortex.ui.search"),
 	skill_tree = require("zortex.ui.skill_tree"),
 	telescope = require("zortex.ui.telescope"),
-}
-
-local xp = {
-	areas = require("zortex.xp.areas"),
-	core = require("zortex.xp.core"),
-	notifications = require("zortex.xp.notifications"),
-	projects = require("zortex.xp.projects"),
 }
 
 -- =============================================================================
@@ -73,19 +55,19 @@ function M.setup(prefix)
 	end
 
 	-- ===========================================================================
-	-- Notifications
+	-- Logging
 	-- ===========================================================================
 	cmd("Logs", function(opts)
 		local count = tonumber(opts.args) or 50
-		M.show_logs(count)
+		core.logger.show_logs(count)
 	end, { nargs = "?" })
 
 	cmd("Performance", function()
-		M.show_performance_report()
+		core.logger.show_performance_report()
 	end, {})
 
 	cmd("LogLevel", function(opts)
-		M.set_level(opts.args:upper())
+		core.logger.set_level(opts.args:upper())
 	end, {
 		nargs = 1,
 		complete = function()
@@ -94,7 +76,7 @@ function M.setup(prefix)
 	})
 
 	cmd("ClearLogs", function()
-		M.clear_logs()
+		core.logger.clear_logs()
 	end, {})
 
 	-- ===========================================================================
@@ -173,9 +155,7 @@ function M.setup(prefix)
 		notifications.test.all()
 	end, { desc = "Test all notification providers" })
 
-	-- ===========================================================================
 	-- Daily Digest
-	-- ===========================================================================
 	cmd("DigestSend", function()
 		local success, msg = notifications.digest.send_now()
 		vim.notify(msg, success and vim.log.levels.INFO or vim.log.levels.ERROR)
@@ -242,29 +222,29 @@ function M.setup(prefix)
 	-- Project management & archive
 	-- ===========================================================================
 	cmd("ProjectsOpen", function()
-		local proj_path = core.filesystem.get_projects_file()
+		local proj_path = utils.fs.get_projects_file()
 		if proj_path then
 			vim.cmd("edit " .. proj_path)
 		end
 	end, { desc = "Open projects file" })
 
-	cmd("ProjectsStats", function()
-		local stats = modules.projects.get_all_stats()
-		print(string.format("Projects: %d", stats.project_count))
-		print(string.format("Total tasks: %d", stats.total_tasks))
-		print(
-			string.format(
-				"Completed: %d (%.1f%%)",
-				stats.completed_tasks,
-				stats.total_tasks > 0 and (stats.completed_tasks / stats.total_tasks * 100) or 0
-			)
-		)
-	end, { desc = "Show project statistics" })
+	-- cmd("ProjectsStats", function()
+	-- 	local stats = modules.projects.get_all_stats()
+	-- 	print(string.format("Projects: %d", stats.project_count))
+	-- 	print(string.format("Total tasks: %d", stats.total_tasks))
+	-- 	print(
+	-- 		string.format(
+	-- 			"Completed: %d (%.1f%%)",
+	-- 			stats.completed_tasks,
+	-- 			stats.total_tasks > 0 and (stats.completed_tasks / stats.total_tasks * 100) or 0
+	-- 		)
+	-- 	)
+	-- end, { desc = "Show project statistics" })
 
-	-- Update all project progress
-	cmd("UpdateProgress", function()
-		modules.progress.update_all_progress()
-	end, { desc = "Update progress for all projects and OKRs" })
+	-- -- Update all project progress
+	-- cmd("UpdateProgress", function()
+	-- 	modules.progress.update_all_progress()
+	-- end, { desc = "Update progress for all projects and OKRs" })
 
 	-- Archive
 	-- cmd("ArchiveProject", function()
@@ -284,7 +264,7 @@ function M.setup(prefix)
 
 	-- XP system info
 	cmd("XPInfo", function()
-		xp.notifications.show_xp_overview()
+		notifications.xp.show_xp_overview()
 	end, {
 		desc = "Show XP system overview",
 	})
@@ -292,42 +272,42 @@ function M.setup(prefix)
 	-- ===========================================================================
 	-- Season management
 	-- ===========================================================================
-	cmd("StartSeason", function(opts)
-		local args = vim.split(opts.args, " ")
-		if #args < 2 then
-			vim.notify("Usage: ZortexStartSeason <name> <end-date YYYY-MM-DD>", vim.log.levels.ERROR)
-			vim.notify("Example: ZortexStartSeason Q1-2024 2024-03-31", vim.log.levels.INFO)
-			return
-		end
+	-- cmd("StartSeason", function(opts)
+	-- 	local args = vim.split(opts.args, " ")
+	-- 	if #args < 2 then
+	-- 		vim.notify("Usage: ZortexStartSeason <name> <end-date YYYY-MM-DD>", vim.log.levels.ERROR)
+	-- 		vim.notify("Example: ZortexStartSeason Q1-2024 2024-03-31", vim.log.levels.INFO)
+	-- 		return
+	-- 	end
 
-		local name = args[1]
-		local end_date = args[2]
-		xp.projects.start_season(name, end_date)
-	end, { nargs = "*", desc = "Start a new season" })
+	-- 	local name = args[1]
+	-- 	local end_date = args[2]
+	-- 	xp.projects.start_season(name, end_date)
+	-- end, { nargs = "*", desc = "Start a new season" })
 
-	cmd("EndSeason", function()
-		xp.projects.end_season()
-	end, { desc = "End the current season" })
+	-- cmd("EndSeason", function()
+	-- 	xp.projects.end_season()
+	-- end, { desc = "End the current season" })
 
-	cmd("SeasonStatus", function()
-		local status = xp.projects.get_season_status()
-		if status then
-			print("Current Season: " .. status.season.name)
-			print(
-				string.format(
-					"Level %d - %s Tier",
-					status.level,
-					status.current_tier and status.current_tier.name or "None"
-				)
-			)
-			print(string.format("Progress: %.0f%%", status.progress_to_next * 100))
-		else
-			print("No active season")
-		end
-	end, { desc = "Show current season status" })
+	-- cmd("SeasonStatus", function()
+	-- 	local status = xp.projects.get_season_status()
+	-- 	if status then
+	-- 		print("Current Season: " .. status.season.name)
+	-- 		print(
+	-- 			string.format(
+	-- 				"Level %d - %s Tier",
+	-- 				status.level,
+	-- 				status.current_tier and status.current_tier.name or "None"
+	-- 			)
+	-- 		)
+	-- 		print(string.format("Progress: %.0f%%", status.progress_to_next * 100))
+	-- 	else
+	-- 		print("No active season")
+	-- 	end
+	-- end, { desc = "Show current season status" })
 
 	-- ===========================================================================
-	-- Task management (UPDATED TO USE SERVICES)
+	-- Task management
 	-- ===========================================================================
 	cmd("ToggleTask", function()
 		Core.toggle_current_task()

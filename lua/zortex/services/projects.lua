@@ -1,10 +1,9 @@
--- services/project_service.lua - Project management service using DocumentManager
+-- services/projects.lua - Project management service using DocumentManager
 local M = {}
 
 local EventBus = require("zortex.core.event_bus")
 local DocumentManager = require("zortex.core.document_manager")
 local buffer_sync = require("zortex.core.buffer_sync")
-local parser = require("zortex.utils.parser")
 local attributes = require("zortex.utils.attributes")
 
 -- Get all projects from document
@@ -220,4 +219,3 @@ function M.get_all_stats()
 end
 
 return M
-

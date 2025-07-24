@@ -2,7 +2,7 @@
 local M = {}
 
 local datetime = require("zortex.utils.datetime")
-local fs = require("zortex.core.filesystem")
+local fs = require("zortex.utils.filesystem")
 local calendar_store = require("zortex.stores.calendar")
 local CalendarEntry = require("zortex.models.calendar_entry")
 

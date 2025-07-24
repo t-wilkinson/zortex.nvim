@@ -39,7 +39,9 @@ M.defaults = {
 		enabled = true,
 		check_interval_minutes = 5,
 		default_advance_minutes = 15,
-		enable_calendar = true,
+		enable = {
+			calendar = true,
+		},
 
 		-- Provider configuration
 		providers = {
@@ -412,11 +414,11 @@ M.defaults = {
 }
 
 M.cmd = function(name, command, opts)
-	vim.api.nvim_create_user_command(M.config.commands.prefix .. name, command, opts or {})
+	vim.api.nvim_create_user_command(Config.commands.prefix .. name, command, opts or {})
 end
 
 M.map = function(mode, lhs, rhs, opts)
-	vim.keymap.set(mode, M.config.keymaps.prefix .. lhs, rhs, opts or {})
+	vim.keymap.set(mode, Config.keymaps.prefix .. lhs, rhs, opts or {})
 end
 
 -- Initialize configuration
@@ -427,7 +429,7 @@ end
 
 -- Get config value with dot notation
 function M.get(path)
-	local value = M.config
+	local value = Config
 	for key in path:gmatch("[^%.]+") do
 		value = value[key]
 		if value == nil then

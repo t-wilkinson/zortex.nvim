@@ -1,6 +1,9 @@
 -- init.lua - Main entry point for Zortex (Service Architecture)
 local M = {}
 
+-- Utils
+local fs = require("zortex.utils.filesystem")
+
 -- Core modules
 local core = require("zortex.core")
 local Config = require("zortex.config")
@@ -9,8 +12,6 @@ local Logger = require("zortex.core.logger")
 local persistence_manager = require("zortex.stores.persistence_manager")
 
 -- UI modules
-local commands = require("zortex.ui.commands")
-local keymaps = require("zortex.ui.keymaps")
 local telescope_setup = require("zortex.ui.telescope.core")
 
 -- Features
@@ -21,8 +22,10 @@ local calendar = require("zortex.features.calendar")
 -- Initialize Zortex
 function M.setup(opts)
 	-- Merge user config
-	Config.setup(opts)
-	vim.fn.mkdir(Config.notes_dir, "p")
+	Config = Config.setup(opts)
+	vim.notify(vim.inspect(Config), 3)
+	vim.fn.mkdir(fs.joinpath(Config.notes_dir, ".z"), "p") -- Store data
+	vim.fn.mkdir(fs.joinpath(Config.notes_dir, "z"), "p") -- User library
 
 	-- Initialize core systems
 	core.setup(Config)
@@ -33,8 +36,8 @@ function M.setup(opts)
 	highlights.setup_autocmd()
 
 	-- Setup UI
-	commands.setup(Config.commands.prefix)
-	keymaps.setup(Config.keymaps.prefix, Config.commands.prefix)
+	require("zortex.ui.commands").setup(Config.commands.prefix)
+	require("zortex.ui.keymaps").setup(Config.keymaps.prefix, Config.commands.prefix)
 	telescope_setup.setup()
 
 	-- Setup calendar

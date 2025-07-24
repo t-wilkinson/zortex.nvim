@@ -2,13 +2,14 @@
 
 local M = {}
 
-local projects = require("zortex.ui.projects")
+local projects = require("zortex.ui.telescope.projects")
+local search = require("zortex.ui.telescope.search")
 
 -- =============================================================================
 -- Setup telescope
 -- =============================================================================
 
-function M.setup_telescope()
+function M.setup()
 	local ok, telescope = pcall(require, "telescope")
 	if not ok then
 		return
@@ -31,8 +32,7 @@ function M.setup_telescope()
 				local picker_list = {
 					-- { "Today's Digest", M.telescope.today_digest },
 					-- { "Calendar", M.telescope.calendar },
-					{ "Projects", projects },
-					{ "Skill Tree", M.skill_tree.show },
+					-- { "Projects", projects.search },
 				}
 
 				pickers
@@ -63,13 +63,9 @@ function M.setup_telescope()
 					:find()
 			end,
 			-- today = M.today_digest,
-			projects = projects,
+			-- projects = projects,
 		},
 	})
-end
-
-function M.setup()
-	M.setup_telescope()
 end
 
 return M

@@ -3,8 +3,8 @@ local M = {}
 
 local parser = require("zortex.utils.parser")
 local link_resolver = require("zortex.utils.link_resolver")
-local buffer = require("zortex.core.buffer")
-local fs = require("zortex.core.filesystem")
+local buffer = require("zortex.utils.buffer")
+local fs = require("zortex.utils.filesystem")
 local constants = require("zortex.constants")
 
 -- =============================================================================

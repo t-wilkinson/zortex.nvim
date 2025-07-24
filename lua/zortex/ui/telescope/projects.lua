@@ -2,8 +2,8 @@
 local M = {}
 
 local datetime = require("zortex.utils.datetime")
-local projects = require("zortex.modules.projects")
 local parser = require("zortex.utils.parser")
+local projects = require("zortex.services.projects")
 
 -- =============================================================================
 -- Helper Functions
@@ -209,7 +209,7 @@ function M.projects(opts)
 					local selection = action_state.get_selected_entry()
 					if selection then
 						local e = selection.value
-						local projects_file = require("zortex.core.filesystem").get_projects_file()
+						local projects_file = require("zortex.utils.filesystem").get_projects_file()
 						if projects_file then
 							vim.cmd("edit " .. vim.fn.fnameescape(projects_file))
 							vim.api.nvim_win_set_cursor(0, { e.project.line_num, 0 })

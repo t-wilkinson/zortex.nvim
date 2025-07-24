@@ -2,22 +2,18 @@
 local M = {}
 M.__index = M
 
-local config = require("zortex.config")
+local Config = require("zortex.config")
 local Logger = require("zortex.core.logger")
 
 -- Create a new store instance
 function M:new(filepath)
 	local store = setmetatable({}, self)
 
-	-- Ensure notes directory exists
-	local notes_dir = config.config.notes_dir
-	vim.fn.mkdir(notes_dir, "p")
-
 	-- Build full path
 	if filepath:sub(1, 1) == "/" or filepath:sub(1, 1) == "~" then
 		store.filepath = vim.fn.expand(filepath)
 	else
-		store.filepath = notes_dir .. "/" .. filepath
+		store.filepath = Config.notes_dir .. "/" .. filepath
 	end
 
 	store.data = {}

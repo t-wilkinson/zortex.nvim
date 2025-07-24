@@ -1,6 +1,7 @@
 -- notifications/manager.lua - Core notification manager
 local M = {}
 
+local Logger = require("zortex.core.logger")
 local store = require("zortex.stores.notifications")
 local providers = {}
 local config = {}
@@ -56,7 +57,7 @@ function M.send_notification(title, message, options)
 	end
 
 	-- Log notification
-	store.log_notification({
+	Logger.info("notifications", "send_notification", {
 		title = title,
 		message = message,
 		options = options,

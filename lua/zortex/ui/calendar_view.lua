@@ -8,7 +8,7 @@ local MARGIN_STR = "  "
 local GRID_WIDTH = 7 * CELL_WIDTH -- 7 days * 7 cols = 49
 local CONTENT_WIDTH = fn.strwidth(MARGIN_STR) + GRID_WIDTH -- 2 + 49 = 51
 
-local datetime = require("zortex.core.datetime")
+local datetime = require("zortex.utils.datetime")
 local calendar_store = require("zortex.stores.calendar")
 local fs = require("zortex.core.filesystem")
 local calendar = require("zortex.features.calendar")

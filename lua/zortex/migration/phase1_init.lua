@@ -24,9 +24,9 @@ function M.init(opts)
 
 	-- Configure logger first
 	Logger.configure({
-		enabled = opts.debug or vim.g.zortex_debug or false,
-		level = opts.log_level or vim.g.zortex_log_level or "INFO",
-		log_file = opts.log_file or vim.g.zortex_log_file,
+		enabled = opts.debug or config.get("zortex_debug") or false,
+		level = opts.log_level or config.get("zortex_log_level") or "INFO",
+		log_file = opts.log_file or config.get("zortex_log_file"),
 		performance_threshold = opts.performance_threshold or 16,
 	})
 	Logger.setup_commands()
@@ -36,7 +36,7 @@ function M.init(opts)
 	-- Initialize EventBus
 	local init_eventbus = Logger.wrap_function("phase1.init_eventbus", function()
 		-- Set up core event logging middleware
-		if opts.log_events or vim.g.zortex_log_events then
+		if opts.log_events or config.get("zortex_log_events") then
 			EventBus.add_middleware(function(event, data)
 				Logger.debug("event", event, data)
 				return true, data
@@ -63,7 +63,7 @@ function M.init(opts)
 	M.setup_performance_monitoring()
 
 	-- Set up development commands
-	if opts.dev_mode or vim.g.zortex_dev_mode then
+	if opts.dev_mode or config.get("zortex_dev_mode") then
 		M.setup_dev_commands()
 	end
 
@@ -148,7 +148,7 @@ end
 function M.setup_dev_commands()
 	-- Test document parsing
 	vim.api.nvim_create_user_command("ZortexTestParse", function()
-		local bufnr = vim.api.nvim_get_current_buf()
+		local bufnr = vim.api.nconfig.get("t_current_buf")()
 		local doc = DocumentManager.get_buffer(bufnr)
 
 		if not doc then
@@ -195,7 +195,7 @@ function M.setup_dev_commands()
 
 	-- Show current section
 	vim.api.nvim_create_user_command("ZortexShowSection", function()
-		local bufnr = vim.api.nvim_get_current_buf()
+		local bufnr = vim.api.nconfig.get("t_current_buf")()
 		local doc = DocumentManager.get_buffer(bufnr)
 
 		if not doc then
@@ -228,14 +228,14 @@ function M.setup_dev_commands()
 
 	-- Force reparse
 	vim.api.nvim_create_user_command("ZortexReparse", function()
-		local bufnr = vim.api.nvim_get_current_buf()
+		local bufnr = vim.api.nconfig.get("t_current_buf")()
 		DocumentManager.mark_buffer_dirty(bufnr, 1, -1)
 		print("Marked buffer for reparse")
 	end, {})
 
 	-- Dump document state
 	vim.api.nvim_create_user_command("ZortexDumpDocument", function()
-		local bufnr = vim.api.nvim_get_current_buf()
+		local bufnr = vim.api.nconfig.get("t_current_buf")()
 		local doc = DocumentManager.get_buffer(bufnr)
 
 		if not doc then

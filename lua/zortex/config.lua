@@ -1,12 +1,14 @@
 -- config.lua - Centralized configuration for Zortex
 local M = {}
 
--- Using M.defaults and M.config helps with type checking
+local Config = { __index = M }
+
+-- Using M.defaults and Config helps with type checking
 M.defaults = {
 	notes_dir = vim.fn.expand("$HOME/.zortex") .. "/",
 	extension = ".zortex",
-	special_articles = { "structure" },
-
+	special_articles = { "structure" }, -- Changes link opening behavior
+	debug = false,
 	commands = {
 		prefix = "Zortex",
 	},
@@ -14,18 +16,21 @@ M.defaults = {
 		prefix = "<leader>z",
 	},
 
-	search = {
-		default_mode = "section", -- or "article"
-		breadcrumb_display = {
-			one_token = { "article" },
-			two_tokens = { "article", "heading_1_2" },
-			three_plus_tokens = { "article", "heading", "bold_heading", "label" },
-		},
-		history = {
+	core = {
+		persistence_manager = {
 			enabled = true,
-			max_entries = 50,
-			score_decay = 0.1, -- per day
-			propagation_decay = 0.7,
+			save_interval = 5000, -- 5 seconds
+			save_on_exit = true,
+			save_on_events = true,
+			batch_saves = true,
+		},
+
+		logger = {
+			enabled = false,
+			log_events = false,
+			level = "INFO",
+			max_entries = 1000,
+			performance_threshold = 16, -- Log operations taking > 16ms
 		},
 	},
 
@@ -34,6 +39,7 @@ M.defaults = {
 		enabled = true,
 		check_interval_minutes = 5,
 		default_advance_minutes = 15,
+		enable_calendar = true,
 
 		-- Provider configuration
 		providers = {
@@ -109,6 +115,22 @@ M.defaults = {
 	},
 
 	ui = {
+
+		search = {
+			default_mode = "section", -- or "article"
+			breadcrumb_display = {
+				one_token = { "article" },
+				two_tokens = { "article", "heading_1_2" },
+				three_plus_tokens = { "article", "heading", "bold_heading", "label" },
+			},
+			history = {
+				enabled = true,
+				max_entries = 50,
+				score_decay = 0.1, -- per day
+				propagation_decay = 0.7,
+			},
+		},
+
 		calendar = {
 			window = {
 				relative = "editor",
@@ -389,8 +411,6 @@ M.defaults = {
 	},
 }
 
-M.config = {}
-
 M.cmd = function(name, command, opts)
 	vim.api.nvim_create_user_command(M.config.commands.prefix .. name, command, opts or {})
 end
@@ -401,14 +421,8 @@ end
 
 -- Initialize configuration
 function M.setup(opts)
-	M.config = vim.tbl_deep_extend("force", M.defaults, opts or {})
-
-	-- Set globals for backward compatibility
-	vim.g.zortex_notes_dir = M.config.notes_dir
-	vim.g.zortex_extension = M.config.extension
-	vim.g.zortex_special_articles = M.config.special_articles
-
-	return M.config
+	Config = vim.tbl_deep_extend("force", M.defaults, opts or {})
+	return Config
 end
 
 -- Get config value with dot notation
@@ -423,4 +437,4 @@ function M.get(path)
 	return value
 end
 
-return M
+return Config

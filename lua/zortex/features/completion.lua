@@ -1,8 +1,8 @@
 -- features/completion.lua - Context-aware completion for Zortex links
 local M = {}
 
-local parser = require("zortex.core.parser")
-local link_resolver = require("zortex.core.link_resolver")
+local parser = require("zortex.utils.parser")
+local link_resolver = require("zortex.utils.link_resolver")
 local fs = require("zortex.core.filesystem")
 local buffer = require("zortex.core.buffer")
 

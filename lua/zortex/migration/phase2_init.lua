@@ -80,7 +80,7 @@ function M.init(opts)
 	M.setup_compatibility()
 
 	-- Set up development commands
-	if opts.dev_mode or vim.g.zortex_dev_mode then
+	if opts.dev_mode or config.get("zortex_dev_mode") then
 		M.setup_dev_commands()
 	end
 
@@ -116,7 +116,7 @@ function M.setup_compatibility()
 	-- Override old toggle function
 	old_tasks.toggle_current_task = function()
 		local TaskService = require("zortex.services.task_service")
-		local bufnr = vim.api.nvim_get_current_buf()
+		local bufnr = vim.api.nconfig.get("t_current_buf")()
 		local lnum = vim.api.nvim_win_get_cursor(0)[1]
 
 		TaskService.toggle_task_at_line({
@@ -133,7 +133,7 @@ function M.setup_dev_commands()
 	-- Test task toggle
 	vim.api.nvim_create_user_command("ZortexTestTaskToggle", function()
 		local TaskService = require("zortex.services.task_service")
-		local bufnr = vim.api.nvim_get_current_buf()
+		local bufnr = vim.api.nconfig.get("t_current_buf")()
 		local lnum = vim.api.nvim_win_get_cursor(0)[1]
 
 		local task, err = TaskService.toggle_task_at_line({
@@ -217,7 +217,7 @@ function M.setup_dev_commands()
 	-- Force buffer task processing
 	vim.api.nvim_create_user_command("ZortexProcessTasks", function()
 		local TaskService = require("zortex.services.task_service")
-		local bufnr = vim.api.nvim_get_current_buf()
+		local bufnr = vim.api.nconfig.get("t_current_buf")()
 
 		local tasks = TaskService.process_buffer_tasks(bufnr)
 		print(string.format("Processed %d tasks", #tasks))

@@ -3,9 +3,10 @@ local M = {}
 
 -- Core modules
 local core = require("zortex.core")
-local config = require("zortex.config")
+local Config = require("zortex.config")
 local EventBus = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
+local persistence_manager = require("zortex.stores.persistence_manager")
 
 -- UI modules
 local commands = require("zortex.ui.commands")
@@ -20,21 +21,20 @@ local calendar = require("zortex.features.calendar")
 -- Initialize Zortex
 function M.setup(opts)
 	-- Merge user config
-	local cfg = config.setup(opts)
-
-	-- Set notes directory
-	vim.g.zortex_notes_dir = vim.fn.expand(cfg.notes_dir)
-	vim.fn.mkdir(vim.g.zortex_notes_dir, "p")
+	Config.setup(opts)
+	vim.fn.mkdir(Config.notes_dir, "p")
 
 	-- Initialize core systems
-	core.init(cfg)
+	core.setup(Config)
+
+	persistence_manager.setup(Config.core.persistence_manager)
 
 	-- Setup features
 	highlights.setup_autocmd()
 
 	-- Setup UI
-	commands.setup(cfg.commands.prefix)
-	keymaps.setup(cfg.keymaps.prefix, cfg.commands.prefix)
+	commands.setup(Config.commands.prefix)
+	keymaps.setup(Config.keymaps.prefix, Config.commands.prefix)
 	telescope_setup.setup()
 
 	-- Setup calendar
@@ -46,39 +46,45 @@ function M.setup(opts)
 		cmp.register_source("zortex", completion.new())
 	end
 
-	-- Setup logger commands
-	Logger.setup_commands()
+	if Config.core.logger.log_events then
+		EventBus.add_middleware(function(event, data)
+			Logger.log("event", {
+				event = event,
+				data = data,
+				timestamp = os.time(),
+			})
+			return true, data -- Continue propagation
+		end)
+	end
 
 	-- Setup performance monitoring
 	local perf_monitor = require("zortex.core.performance_monitor")
 	perf_monitor.setup_commands()
 
-	if cfg.debug then
+	if Config.debug then
 		perf_monitor.start()
 	end
 
 	-- Initialize stores
-	require("zortex.stores.xp").setup()
+	require("zortex.stores").setup()
 
 	-- Emit setup complete
-	EventBus.emit("zortex:setup_complete", {
-		config = cfg,
-	})
-
-	vim.notify("Zortex initialized", vim.log.levels.INFO)
+	-- EventBus.emit("zortex:setup_complete", {
+	-- 	config = Config,
+	-- })
 end
 
 -- Public API
 M.toggle_task = function()
 	require("zortex.services.task_service").toggle_task_at_line({
-		bufnr = vim.api.nvim_get_current_buf(),
+		bufnr = vim.api.nconfig.get("t_current_buf")(),
 		lnum = vim.api.nvim_win_get_cursor(0)[1],
 	})
 end
 
 M.complete_task = function()
 	local task_service = require("zortex.services.task_service")
-	local bufnr = vim.api.nvim_get_current_buf()
+	local bufnr = vim.api.nconfig.get("t_current_buf")()
 	local lnum = vim.api.nvim_win_get_cursor(0)[1]
 
 	local doc = require("zortex.core.document_manager").get_buffer(bufnr)
@@ -105,10 +111,6 @@ M.complete_task = function()
 
 	-- No task found, convert line
 	task_service.convert_line_to_task({ bufnr = bufnr, lnum = lnum })
-end
-
-M.search = function()
-	require("zortex.ui.telescope.search").search()
 end
 
 M.search_sections = function()
@@ -138,10 +140,137 @@ M.update_progress = function()
 	require("zortex.services.objective_service").update_progress()
 
 	-- Update project progress
-	local projects_file = vim.g.zortex_notes_dir .. "/projects.zortex"
+	local projects_file = config.get("zortex_notes_dir") .. "/projects.zortex"
 	local bufnr = vim.fn.bufnr(projects_file)
 	if bufnr > 0 then
 		require("zortex.services.project_service").update_all_project_progress(bufnr)
+	end
+end
+
+-- Public API exports
+M.task = {
+	toggle = function()
+		local bufnr = vim.api.nconfig.get("t_current_buf")()
+		local lnum = vim.api.nvim_win_get_cursor(0)[1]
+
+		require("zortex.services.task_service").toggle_task_at_line({
+			bufnr = bufnr,
+			lnum = lnum,
+		})
+	end,
+
+	complete = function(task_id)
+		require("zortex.services.task_service").complete_task(task_id, {
+			bufnr = vim.api.nconfig.get("t_current_buf")(),
+		})
+	end,
+
+	uncomplete = function(task_id)
+		require("zortex.services.task_service").uncomplete_task(task_id, {
+			bufnr = vim.api.nconfig.get("t_current_buf")(),
+		})
+	end,
+}
+
+M.xp = {
+	overview = function()
+		require("zortex.services.xp_service").show_overview()
+	end,
+
+	stats = function()
+		return require("zortex.services.xp_service").get_stats()
+	end,
+
+	season = {
+		start = function(name, end_date)
+			require("zortex.services.xp_service").start_season(name, end_date)
+		end,
+
+		end_current = function()
+			require("zortex.services.xp_service").end_season()
+		end,
+
+		status = function()
+			return require("zortex.services.xp_service").get_season_status()
+		end,
+	},
+}
+
+M.search = function(opts)
+	require("zortex.ui.search").search(opts)
+end
+
+M.calendar = {
+	open = function()
+		require("zortex.ui.calendar_view").open()
+	end,
+
+	add_entry = function(date_str, text)
+		require("zortex.features.calendar").add_entry(date_str, text)
+	end,
+}
+
+M.projects = function(opts)
+	require("zortex.ui.telescope").projects(opts)
+end
+
+-- Status and debugging
+M.status = function()
+	require("zortex.core").print_status()
+end
+
+M.health = function()
+	-- Check core systems
+	vim.health.report_start("Zortex Core")
+
+	-- Check initialization
+	local status = core.get_status()
+	if status.initialized then
+		vim.health.report_ok("Core initialized")
+	else
+		vim.health.report_error("Core not initialized")
+	end
+
+	-- Check event bus
+	if status.event_bus then
+		local event_count = vim.tbl_count(status.event_bus)
+		vim.health.report_ok(string.format("EventBus active (%d events tracked)", event_count))
+	end
+
+	-- Check document manager
+	if status.document_manager then
+		vim.health.report_ok(
+			string.format(
+				"DocumentManager: %d buffers, %d files",
+				status.document_manager.buffer_count,
+				status.document_manager.file_count
+			)
+		)
+	end
+
+	-- Check persistence
+	if status.persistence then
+		if status.persistence.initialized then
+			vim.health.report_ok("Persistence manager active")
+		else
+			vim.health.report_warn("Persistence manager not initialized")
+		end
+	end
+
+	-- Check data directory
+	local data_dir = config.get("zortex_data_dir")
+	if vim.fn.isdirectory(data_dir) == 1 then
+		vim.health.report_ok("Data directory exists: " .. data_dir)
+	else
+		vim.health.report_error("Data directory missing: " .. data_dir)
+	end
+
+	-- Check notes directory
+	local notes_dir = config.get("zortex_notes_dir")
+	if vim.fn.isdirectory(notes_dir) == 1 then
+		vim.health.report_ok("Notes directory exists: " .. notes_dir)
+	else
+		vim.health.report_error("Notes directory missing: " .. notes_dir)
 	end
 end
 

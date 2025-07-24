@@ -7,8 +7,6 @@ local Logger = require("zortex.core.logger")
 local buffer_sync = require("zortex.core.buffer_sync")
 
 -- Services
-local TaskService = require("zortex.services.task_service")
-local XPService = require("zortex.services.xp_service")
 local PersistenceManager = require("zortex.stores.persistence_manager")
 
 -- State
@@ -49,7 +47,6 @@ function M.init(config)
 	Logger.info("core", "Buffer sync initialized")
 
 	-- Initialize services
-	XPService.init()
 	Logger.info("core", "XP Service initialized")
 
 	-- Note: TaskService doesn't need init, it's stateless
@@ -114,8 +111,6 @@ end
 -- Get service references (for direct access)
 function M.get_services()
 	return {
-		task = TaskService,
-		xp = XPService,
 		document_manager = DocumentManager,
 		persistence = PersistenceManager,
 		event_bus = EventBus,

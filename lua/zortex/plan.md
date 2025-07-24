@@ -38,7 +38,7 @@ lua/zortex/
 │   ├── task_service.lua       # Task operations
 │   └── xp_service.lua         # XP orchestration
 │
-├── domain/                     # Pure business logic
+├── utils/                     # Pure business logic
 │   ├── xp/
 │   │   ├── calculator.lua     # XP calculations
 │   │   ├── distributor.lua    # XP distribution

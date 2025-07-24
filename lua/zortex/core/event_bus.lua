@@ -142,11 +142,6 @@ function EventBus:emit(event, data, opts)
 		data = new_data or data
 	end
 
-	-- Debug logging
-	if vim.g.zortex_debug_events then
-		vim.notify(string.format("[EventBus] Emit '%s' with %d handlers", event, #handlers), vim.log.levels.DEBUG)
-	end
-
 	-- Execute handlers
 	if opts.sync then
 		-- Rare case: execute immediately in order
@@ -232,18 +227,6 @@ end
 
 function M.clear()
 	return M._instance:clear()
-end
-
--- Example middleware: Event logging
-if vim.g.zortex_log_events then
-	M.add_middleware(function(event, data)
-		require("zortex.core.logger").log("event", {
-			event = event,
-			data = data,
-			timestamp = os.time(),
-		})
-		return true, data -- Continue propagation
-	end)
 end
 
 return M

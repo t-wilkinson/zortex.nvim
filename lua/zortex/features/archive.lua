@@ -1,10 +1,10 @@
 -- features/archive.lua - Project archiving system for Zortex
 local M = {}
 
-local parser = require("zortex.core.parser")
+local parser = require("zortex.utils.parser")
 local fs = require("zortex.core.filesystem")
 local buffer = require("zortex.core.buffer")
-local attributes = require("zortex.core.attributes")
+local attributes = require("zortex.utils.attributes")
 local task_tracker = require("zortex.modules.task_tracker")
 local progress = require("zortex.modules.progress")
 local constants = require("zortex.constants")

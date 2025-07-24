@@ -1,8 +1,8 @@
 -- features/links.lua - Link navigation for Zortex with normalized section handling
 local M = {}
 
-local parser = require("zortex.core.parser")
-local link_resolver = require("zortex.core.link_resolver")
+local parser = require("zortex.utils.parser")
+local link_resolver = require("zortex.utils.link_resolver")
 local buffer = require("zortex.core.buffer")
 local fs = require("zortex.core.filesystem")
 local constants = require("zortex.constants")
@@ -39,7 +39,7 @@ end
 
 -- Jump to location
 local function jump_to_location(location, use_target_window)
-	local target_win = use_target_window and buffer.get_target_window() or vim.api.nvim_get_current_win()
+	local target_win = use_target_window and buffer.get_target_window() or vim.api.nconfig.get("t_current_win")()
 
 	-- Load file in target window
 	local bufnr = vim.fn.bufadd(location.file)
@@ -255,15 +255,6 @@ function M.navigate_parent()
 		vim.notify("No parent section found", vim.log.levels.INFO)
 	end
 end
-
--- =============================================================================
--- Exposed Functions (for backward compatibility and other modules)
--- =============================================================================
-
--- These delegate to the normalized parser functions
-M.extract_link = parser.extract_link_at
-M.parse_link_definition = parser.parse_link_definition
-M.parse_component = parser.parse_link_component
 
 -- Additional navigation commands
 M.next_section = function()

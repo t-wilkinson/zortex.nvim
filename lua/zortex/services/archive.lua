@@ -9,8 +9,8 @@ local buffer_sync = require("zortex.core.buffer_sync")
 function M.archive_project(project_name, opts)
 	opts = opts or {}
 
-	local projects_file = vim.g.zortex_notes_dir .. "/projects.zortex"
-	local archive_file = vim.g.zortex_notes_dir .. "/archive.zortex"
+	local projects_file = config.get("zortex_notes_dir") .. "/projects.zortex"
+	local archive_file = config.get("zortex_notes_dir") .. "/archive.zortex"
 
 	-- Get project from active projects
 	local projects_doc = DocumentManager.get_file(projects_file)
@@ -31,7 +31,7 @@ function M.archive_project(project_name, opts)
 	if bufnr < 0 then
 		-- Open file to get content
 		vim.cmd("edit " .. projects_file)
-		bufnr = vim.api.nvim_get_current_buf()
+		bufnr = vim.api.nconfig.get("t_current_buf")()
 	end
 
 	local lines = vim.api.nvim_buf_get_lines(bufnr, project.start_line - 1, project.end_line, false)
@@ -89,7 +89,7 @@ end
 
 -- List all archived projects
 function M.list_archives()
-	local archive_file = vim.g.zortex_notes_dir .. "/archive.zortex"
+	local archive_file = config.get("zortex_notes_dir") .. "/archive.zortex"
 	local doc = DocumentManager.get_file(archive_file)
 
 	if not doc then

@@ -2,7 +2,7 @@
 local M = {}
 
 local manager = require("zortex.notifications.manager")
-local datetime = require("zortex.core.datetime")
+local datetime = require("zortex.utils.datetime")
 
 local active_timers = {}
 local config = {}

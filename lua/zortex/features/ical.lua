@@ -1,7 +1,7 @@
 -- features/ical.lua - iCal import/export for Zortex calendar
 local M = {}
 
-local datetime = require("zortex.core.datetime")
+local datetime = require("zortex.utils.datetime")
 local fs = require("zortex.core.filesystem")
 local calendar_store = require("zortex.stores.calendar")
 local CalendarEntry = require("zortex.models.calendar_entry")

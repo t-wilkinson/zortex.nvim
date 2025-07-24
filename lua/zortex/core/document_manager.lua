@@ -3,8 +3,8 @@ local M = {}
 
 local EventBus = require("zortex.core.event_bus")
 local Section = require("zortex.core.section")
-local parser = require("zortex.core.parser")
-local attributes = require("zortex.core.attributes")
+local parser = require("zortex.utils.parser")
+local attributes = require("zortex.utils.attributes")
 local constants = require("zortex.constants")
 
 -- LRU Cache implementation
@@ -367,7 +367,7 @@ end
 
 -- Get document for buffer
 function DocumentManager:get_buffer(bufnr)
-	bufnr = bufnr or vim.api.nvim_get_current_buf()
+	bufnr = bufnr or vim.api.nconfig.get("t_current_buf")()
 	return self.buffers[bufnr]
 end
 

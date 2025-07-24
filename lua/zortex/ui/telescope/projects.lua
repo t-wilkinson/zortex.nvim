@@ -1,9 +1,9 @@
 -- ui/telescope.lua - Telescope integration for Zortex
 local M = {}
 
-local datetime = require("zortex.core.datetime")
+local datetime = require("zortex.utils.datetime")
 local projects = require("zortex.modules.projects")
-local parser = require("zortex.core.parser")
+local parser = require("zortex.utils.parser")
 
 -- =============================================================================
 -- Helper Functions

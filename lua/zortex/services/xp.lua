@@ -3,9 +3,9 @@ local M = {}
 
 local EventBus = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
-local xp_core = require("zortex.xp.core")
+local xp_core = require("zortex.domain.xp.core")
 local xp_store = require("zortex.stores.xp")
-local xp_distributor = require("zortex.domain.xp_distributor")
+local xp_distributor = require("zortex.domain.xp.distributor")
 
 -- Calculate XP for a task completion
 function M.calculate_task_xp(xp_context)
@@ -203,4 +203,3 @@ function M._check_level_ups(distribution)
 end
 
 return M
-

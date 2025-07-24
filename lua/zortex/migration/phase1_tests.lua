@@ -2,10 +2,10 @@
 -- Test suite for Phase 1 components using busted/plenary
 local M = {}
 
--- Mock vim globals for testing
+-- Mock config.get("obals") for testing
 local function setup_vim_mocks()
   _G.vim = _G.vim or {}
-  vim.g = vim.g or {}
+  config.get("")= config.get("or") {}
   vim.api = vim.api or {}
   vim.fn = vim.fn or {}
   vim.loop = vim.loop or {}
@@ -279,7 +279,7 @@ M.test_document_manager = function()
       return test_lines
     end
     
-    vim.api.nvim_get_current_buf = function()
+    vim.api.nconfig.get("t_current_buf") = function()
       return 1
     end
     

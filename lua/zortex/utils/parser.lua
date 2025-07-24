@@ -2,7 +2,7 @@
 local M = {}
 
 local constants = require("zortex.constants")
-local datetime = require("zortex.core.datetime")
+local datetime = require("zortex.utils.datetime")
 
 -- =============================================================================
 -- String Utilities

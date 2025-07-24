@@ -2,7 +2,7 @@
 local M = {}
 
 local constants = require("zortex.constants")
-local parser = require("zortex.core.parser")
+local parser = require("zortex.utils.parser")
 
 -- Section class
 local Section = {}

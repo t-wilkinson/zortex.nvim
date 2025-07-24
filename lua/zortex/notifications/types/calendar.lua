@@ -3,7 +3,7 @@ local M = {}
 
 local manager = require("zortex.notifications.manager")
 local calendar = require("zortex.features.calendar")
-local datetime = require("zortex.core.datetime")
+local datetime = require("zortex.utils.datetime")
 local store = require("zortex.stores.notifications")
 
 local cfg = {}

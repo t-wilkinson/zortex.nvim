@@ -5,7 +5,7 @@ local M = {}
 local DocumentManager = require("zortex.core.document_manager")
 local EventBus = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
-local parser = require("zortex.core.parser")
+local parser = require("zortex.utils.parser")
 local fs = require("zortex.core.filesystem")
 local constants = require("zortex.constants")
 

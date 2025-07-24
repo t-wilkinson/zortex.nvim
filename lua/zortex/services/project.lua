@@ -4,8 +4,8 @@ local M = {}
 local EventBus = require("zortex.core.event_bus")
 local DocumentManager = require("zortex.core.document_manager")
 local buffer_sync = require("zortex.core.buffer_sync")
-local parser = require("zortex.core.parser")
-local attributes = require("zortex.core.attributes")
+local parser = require("zortex.utils.parser")
+local attributes = require("zortex.utils.attributes")
 
 -- Get all projects from document
 function M.get_projects_from_document(doc)
@@ -65,7 +65,7 @@ end
 
 -- Get all projects
 function M.get_all_projects()
-	local projects_file = vim.g.zortex_notes_dir .. "/projects.zortex"
+	local projects_file = config.get("zortex_notes_dir") .. "/projects.zortex"
 	local doc = DocumentManager.get_file(projects_file)
 
 	if not doc then
@@ -102,7 +102,7 @@ function M.update_project_progress(project)
 		return false
 	end
 
-	local bufnr = vim.fn.bufnr(vim.g.zortex_notes_dir .. "/projects.zortex")
+	local bufnr = vim.fn.bufnr(config.get("zortex_notes_dir") .. "/projects.zortex")
 	if bufnr < 0 then
 		return false
 	end
@@ -156,7 +156,7 @@ function M.is_project_completed(project_name)
 	end
 
 	-- Check archive
-	local archive_file = vim.g.zortex_notes_dir .. "/archive.zortex"
+	local archive_file = config.get("zortex_notes_dir") .. "/archive.zortex"
 	local archive_doc = DocumentManager.get_file(archive_file)
 
 	if archive_doc then
@@ -207,7 +207,7 @@ function M.get_all_stats()
 	end
 
 	-- Add archived count
-	local archive_file = vim.g.zortex_notes_dir .. "/archive.zortex"
+	local archive_file = config.get("zortex_notes_dir") .. "/archive.zortex"
 	local archive_doc = DocumentManager.get_file(archive_file)
 	if archive_doc then
 		local archived = M.get_projects_from_document(archive_doc)

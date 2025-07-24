@@ -4,9 +4,10 @@ local M = {}
 local CalendarService = require("zortex.services.calendar_service")
 local EventBus = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
-local datetime = require("zortex.core.datetime")
+local datetime = require("zortex.utils.datetime")
 local fs = require("zortex.core.filesystem")
 local constants = require("zortex.constants")
+local Config = require("zortex.config")
 
 -- =============================================================================
 -- Calendar Data Access (Using Service)
@@ -276,7 +277,7 @@ end, {
 -- Initialize calendar features
 function M.init()
 	-- Set up auto-notification checking
-	if vim.g.zortex_calendar_notifications ~= false then
+	if Config.notifications.enable_calendar ~= false then
 		vim.fn.timer_start(60000, function() -- Check every minute
 			vim.schedule(function()
 				M.check_notifications()

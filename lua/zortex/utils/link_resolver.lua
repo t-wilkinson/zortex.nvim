@@ -1,7 +1,7 @@
 -- utils/resolver.lua - Search functionality for Zortex with normalized section handling
 local M = {}
 
-local parser = require("zortex.core.parser")
+local parser = require("zortex.utils.parser")
 local fs = require("zortex.core.filesystem")
 local buffer = require("zortex.core.buffer")
 local constants = require("zortex.constants")

@@ -4,7 +4,7 @@ local M = {}
 local EventBus = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
 local buffer_sync = require("zortex.core.buffer_sync")
-local parser = require("zortex.core.parser")
+local parser = require("zortex.utils.parser")
 local task_store = require("zortex.stores.tasks")
 
 -- ID generation (moved from models/task.lua)

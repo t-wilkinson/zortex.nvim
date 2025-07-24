@@ -74,7 +74,7 @@ function M.schedule_notification(title, message, when, options)
 		scheduled_time = when
 	elseif type(when) == "string" then
 		-- Parse duration string (e.g., "5m", "1h")
-		local duration = require("zortex.core.datetime").parse_duration(when)
+		local duration = require("zortex.utils.datetime").parse_duration(when)
 		if duration then
 			scheduled_time = os.time() + (duration * 60)
 		else

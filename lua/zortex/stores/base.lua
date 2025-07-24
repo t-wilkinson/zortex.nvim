@@ -2,15 +2,15 @@
 local M = {}
 M.__index = M
 
+local config = require("zortex.config")
 local Logger = require("zortex.core.logger")
-local constants = require("zortex.constants")
 
 -- Create a new store instance
 function M:new(filepath)
 	local store = setmetatable({}, self)
 
 	-- Ensure notes directory exists
-	local notes_dir = vim.g.zortex_notes_dir or constants.DEFAULT_NOTES_DIR
+	local notes_dir = config.config.notes_dir
 	vim.fn.mkdir(notes_dir, "p")
 
 	-- Build full path
@@ -234,4 +234,3 @@ function M:get_status()
 end
 
 return M
-

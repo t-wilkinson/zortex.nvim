@@ -1,14 +1,10 @@
 -- core/logger.lua - Performance logging and debugging utilities
+local constants = require("zortex.constants")
+
 local M = {}
 
 -- Logger configuration
-local config = {
-	enabled = vim.g.zortex_debug or false,
-	level = vim.g.zortex_log_level or "INFO",
-	max_entries = 1000,
-	log_file = vim.g.zortex_log_file,
-	performance_threshold = 16, -- Log operations taking > 16ms
-}
+local cfg = {}
 
 -- Log levels
 local levels = {
@@ -18,9 +14,6 @@ local levels = {
 	WARN = 4,
 	ERROR = 5,
 }
-
--- Current log level
-local current_level = levels[config.level] or levels.INFO
 
 -- In-memory log buffer
 local log_buffer = {}
@@ -63,11 +56,7 @@ end
 
 -- Write to log file
 local function write_to_file(entry)
-	if not config.log_file then
-		return
-	end
-
-	local file = io.open(config.log_file, "a")
+	local file = io.open(constants.FILES.LOG, "a")
 	if file then
 		file:write(entry .. "\n")
 		file:close()
@@ -76,10 +65,10 @@ end
 
 -- Core logging function
 local function log(level, category, message, data)
-	if not config.enabled then
+	if not cfg.enabled then
 		return
 	end
-	if levels[level] < current_level then
+	if levels[level] < cfg.level then
 		return
 	end
 
@@ -96,7 +85,7 @@ local function log(level, category, message, data)
 	})
 
 	-- Trim buffer if needed
-	if #log_buffer > config.max_entries then
+	if #log_buffer > cfg.max_entries then
 		table.remove(log_buffer, 1)
 	end
 
@@ -141,7 +130,7 @@ end
 
 -- Performance tracking
 function M.start_timer(operation_name)
-	if not config.enabled then
+	if not cfg.enabled then
 		return function() end -- No-op
 	end
 
@@ -185,10 +174,10 @@ function M.start_timer(operation_name)
 		end
 
 		-- Log if over threshold
-		if elapsed > config.performance_threshold then
+		if elapsed > cfg.performance_threshold then
 			M.warn(
 				"performance",
-				string.format("%s took %.2fms (threshold: %dms)", operation_name, elapsed, config.performance_threshold),
+				string.format("%s took %.2fms (threshold: %dms)", operation_name, elapsed, cfg.performance_threshold),
 				extra_data
 			)
 		else
@@ -391,19 +380,18 @@ end
 
 -- Enable/disable logging
 function M.enable()
-	config.enabled = true
+	cfg.enabled = true
 	M.info("logger", "Logging enabled")
 end
 
 function M.disable()
 	M.info("logger", "Logging disabled")
-	config.enabled = false
+	cfg.enabled = false
 end
 
 function M.set_level(level)
 	if levels[level] then
-		config.level = level
-		current_level = levels[level]
+		cfg.level = level
 		M.info("logger", "Log level set to " .. level)
 	else
 		M.error("logger", "Invalid log level: " .. level)
@@ -411,38 +399,12 @@ function M.set_level(level)
 end
 
 -- Configuration
-function M.configure(opts)
-	config = vim.tbl_extend("force", config, opts or {})
-	current_level = levels[config.level] or levels.INFO
+function M.setup(opts)
+	cfg = opts
 
-	if config.enabled then
-		M.info("logger", "Logger configured", config)
+	if cfg.enabled then
+		M.info("logger", "Logger configured", cfg)
 	end
-end
-
--- Commands
-function M.setup_commands()
-	vim.api.nvim_create_user_command("ZortexLogs", function(opts)
-		local count = tonumber(opts.args) or 50
-		M.show_logs(count)
-	end, { nargs = "?" })
-
-	vim.api.nvim_create_user_command("ZortexPerformance", function()
-		M.show_performance_report()
-	end, {})
-
-	vim.api.nvim_create_user_command("ZortexLogLevel", function(opts)
-		M.set_level(opts.args:upper())
-	end, {
-		nargs = 1,
-		complete = function()
-			return { "TRACE", "DEBUG", "INFO", "WARN", "ERROR" }
-		end,
-	})
-
-	vim.api.nvim_create_user_command("ZortexClearLogs", function()
-		M.clear_logs()
-	end, {})
 end
 
 return M
@@ -461,7 +423,7 @@ M.levels = {
 }
 
 -- Configuration
-local config = {
+local cfg = {
 	level = M.levels.INFO,
 	file = nil,
 	format = "[%s] %s: %s",
@@ -482,7 +444,7 @@ local function format_message(level, component, message, data)
 	local level_names = { "DEBUG", "INFO", "WARN", "ERROR" }
 	local level_name = level_names[level] or "UNKNOWN"
 
-	local base_msg = string.format(config.format, level_name, component, message)
+	local base_msg = string.format(cfg.format, level_name, component, message)
 
 	if data then
 		base_msg = base_msg .. " " .. vim.inspect(data, { indent = "", newline = " " })
@@ -497,9 +459,9 @@ local function write_log(message)
 	table.insert(log_buffer, message)
 
 	-- Trim buffer if too large
-	if #log_buffer > config.max_log_size then
+	if #log_buffer > cfg.max_log_size then
 		-- Keep last 80% of max size
-		local keep_from = math.floor(config.max_log_size * 0.2)
+		local keep_from = math.floor(cfg.max_log_size * 0.2)
 		local new_buffer = {}
 		for i = keep_from, #log_buffer do
 			table.insert(new_buffer, log_buffer[i])
@@ -508,8 +470,8 @@ local function write_log(message)
 	end
 
 	-- Write to file if configured
-	if config.file then
-		local file = io.open(config.file, "a")
+	if cfg.file then
+		local file = io.open(cfg.file, "a")
 		if file then
 			file:write(message .. "\n")
 			file:close()
@@ -517,14 +479,14 @@ local function write_log(message)
 	end
 
 	-- Also print debug messages to vim messages
-	if config.level == M.levels.DEBUG then
+	if cfg.level == M.levels.DEBUG then
 		print(message)
 	end
 end
 
 -- Main log function
 local function log(level, component, message, data)
-	if level < config.level then
+	if level < cfg.level then
 		return
 	end
 
@@ -568,7 +530,7 @@ end
 
 -- Start a timer
 function M.start_timer(name)
-	if not config.performance_tracking then
+	if not cfg.performance_tracking then
 		return function() end -- No-op
 	end
 
@@ -646,23 +608,23 @@ end
 
 -- Configure logger
 function M.configure(opts)
-	config = vim.tbl_extend("force", config, opts or {})
+	cfg = vim.tbl_extend("force", cfg, opts or {})
 
 	-- Validate level
-	if type(config.level) == "string" then
-		config.level = M.levels[config.level:upper()] or M.levels.INFO
+	if type(cfg.level) == "string" then
+		cfg.level = M.levels[cfg.level:upper()] or M.levels.INFO
 	end
 
 	-- Create log directory if needed
-	if config.file then
-		local dir = vim.fn.fnamemodify(config.file, ":h")
+	if cfg.file then
+		local dir = vim.fn.fnamemodify(cfg.file, ":h")
 		vim.fn.mkdir(dir, "p")
 	end
 end
 
 -- Get configuration
 function M.get_config()
-	return vim.deepcopy(config)
+	return vim.deepcopy(cfg)
 end
 
 -- =============================================================================

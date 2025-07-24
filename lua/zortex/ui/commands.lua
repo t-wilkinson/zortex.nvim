@@ -11,11 +11,11 @@ local notifications = require("zortex.notifications")
 local core = {
 	config = require("zortex.config"),
 	constants = require("zortex.constants"),
-	attributes = require("zortex.core.attributes"),
+	attributes = require("zortex.utils.attributes"),
 	buffer = require("zortex.core.buffer"),
-	datetime = require("zortex.core.datetime"),
+	datetime = require("zortex.utils.datetime"),
 	filesystem = require("zortex.core.filesystem"),
-	parser = require("zortex.core.parser"),
+	parser = require("zortex.utils.parser"),
 }
 
 local services = {
@@ -71,6 +71,31 @@ function M.setup(prefix)
 	local function cmd(name, command, options)
 		vim.api.nvim_create_user_command(prefix .. name, command, options)
 	end
+
+	-- ===========================================================================
+	-- Notifications
+	-- ===========================================================================
+	cmd("Logs", function(opts)
+		local count = tonumber(opts.args) or 50
+		M.show_logs(count)
+	end, { nargs = "?" })
+
+	cmd("Performance", function()
+		M.show_performance_report()
+	end, {})
+
+	cmd("LogLevel", function(opts)
+		M.set_level(opts.args:upper())
+	end, {
+		nargs = 1,
+		complete = function()
+			return { "TRACE", "DEBUG", "INFO", "WARN", "ERROR" }
+		end,
+	})
+
+	cmd("ClearLogs", function()
+		M.clear_logs()
+	end, {})
 
 	-- ===========================================================================
 	-- Notifications
@@ -309,7 +334,7 @@ function M.setup(prefix)
 	end, { desc = "Toggle the task on current line" })
 
 	cmd("CompleteTask", function()
-		local bufnr = vim.api.nvim_get_current_buf()
+		local bufnr = vim.api.nconfig.get("t_current_buf")()
 		local lnum = vim.api.nvim_win_get_cursor(0)[1]
 
 		-- Get document and find task
@@ -349,7 +374,7 @@ function M.setup(prefix)
 	end, { desc = "Complete the task on current line" })
 
 	cmd("UncompleteTask", function()
-		local bufnr = vim.api.nvim_get_current_buf()
+		local bufnr = vim.api.nconfig.get("t_current_buf")()
 		local lnum = vim.api.nvim_win_get_cursor(0)[1]
 
 		-- Get document and find task

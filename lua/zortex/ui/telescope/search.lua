@@ -5,7 +5,7 @@ local SearchService = require("zortex.services.search_service")
 local EventBus = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
 local fs = require("zortex.core.filesystem")
-local datetime = require("zortex.core.datetime")
+local datetime = require("zortex.utils.datetime")
 local Task = require("zortex.models.task")
 
 -- =============================================================================
@@ -147,7 +147,7 @@ local function create_new_note(prompt_bufnr)
   
   -- Generate unique filename
   local date = os.date("%Y-%m-%d")
-  local ext = vim.g.zortex_extension or ".zortex"
+  local ext = config.get("zortex_extension") or ".zortex"
   
   math.randomseed(os.time())
   local filename
@@ -343,7 +343,7 @@ end
 
 -- Search in current file only
 function M.search_current_file()
-  local bufnr = vim.api.nvim_get_current_buf()
+  local bufnr = vim.api.nconfig.get("t_current_buf")()
   local filepath = vim.api.nvim_buf_get_name(bufnr)
   
   if filepath == "" then

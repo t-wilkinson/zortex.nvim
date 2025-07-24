@@ -1,7 +1,7 @@
 -- utils/attributes.lua - Simplified attributes module using consolidated parser
 local M = {}
 
-local parser = require("zortex.core.parser")
+local parser = require("zortex.utils.parser")
 
 -- =============================================================================
 -- Attribute Schemas

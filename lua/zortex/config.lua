@@ -1,10 +1,8 @@
 -- config.lua - Centralized configuration for Zortex
-local M = {}
-
-local Config = { __index = M }
+local Config = {}
 
 -- Using M.defaults and Config helps with type checking
-M.defaults = {
+local defaults = {
 	notes_dir = vim.fn.expand("$HOME/.zortex") .. "/",
 	extension = ".zortex",
 	special_articles = { "structure" }, -- Changes link opening behavior
@@ -31,6 +29,12 @@ M.defaults = {
 			level = "INFO",
 			max_entries = 1000,
 			performance_threshold = 16, -- Log operations taking > 16ms
+		},
+
+		buffer_sync = {
+			strategy = "batched", -- immediate, batched, on_save
+			batch_delay = 500, -- ms
+			max_batch_size = 50, -- max changes before forced sync
 		},
 	},
 
@@ -117,9 +121,11 @@ M.defaults = {
 	},
 
 	ui = {
-
 		search = {
 			default_mode = "section", -- or "article"
+			max_results = 500,
+			min_score = 0.1,
+			access_decay_rate = 0.1, -- per day
 			breadcrumb_display = {
 				one_token = { "article" },
 				two_tokens = { "article", "heading_1_2" },
@@ -413,22 +419,46 @@ M.defaults = {
 	},
 }
 
-M.cmd = function(name, command, opts)
+Config.cmd = function(name, command, opts)
 	vim.api.nvim_create_user_command(Config.commands.prefix .. name, command, opts or {})
 end
 
-M.map = function(mode, lhs, rhs, opts)
+Config.map = function(mode, lhs, rhs, opts)
 	vim.keymap.set(mode, Config.keymaps.prefix .. lhs, rhs, opts or {})
 end
 
+-- Helper function to merge tables deeply and in-place.
+-- It copies keys from `t2` into `t1`.
+local function deep_merge_in_place(t1, t2)
+	for k, v in pairs(t2) do
+		if type(v) == "table" and type(t1[k]) == "table" then
+			deep_merge_in_place(t1[k], v) -- Recurse for nested tables
+		else
+			t1[k] = v -- Otherwise, set/overwrite the value
+		end
+	end
+end
+
 -- Initialize configuration
-function M.setup(opts)
-	Config = vim.tbl_deep_extend("force", M.defaults, opts or {})
+function Config.setup(opts)
+	-- Merge default options in place
+	deep_merge_in_place(Config, defaults)
+
+	-- Merge the user's custom options on top of the defaults.
+	if opts and type(opts) == "table" then
+		deep_merge_in_place(Config, opts)
+	end
+
+	-- Ensure trailing slash on notes_dir
+	if not Config.notes_dir:match("/$") then
+		Config.notes_dir = Config.notes_dir .. "/"
+	end
+
 	return Config
 end
 
 -- Get config value with dot notation
-function M.get(path)
+function Config.get(path)
 	local value = Config
 	for key in path:gmatch("[^%.]+") do
 		value = value[key]

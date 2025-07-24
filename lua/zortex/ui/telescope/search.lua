@@ -4,6 +4,7 @@ local M = {}
 local SearchService = require("zortex.services.search")
 local EventBus = require("zortex.core.event_bus")
 local fs = require("zortex.utils.filesystem")
+local Config = require("zortex.config")
 
 -- =============================================================================
 -- Search History (UI State)
@@ -144,7 +145,7 @@ local function create_new_note(prompt_bufnr)
 
 	-- Generate unique filename
 	local date = os.date("%Y-%m-%d")
-	local ext = config.get("zortex_extension") or ".zortex"
+	local ext = Config.extension
 
 	math.randomseed(os.time())
 	local filename
@@ -387,4 +388,3 @@ function M.clear_history()
 end
 
 return M
-

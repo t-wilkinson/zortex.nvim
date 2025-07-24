@@ -7,17 +7,13 @@ local EventBus = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
 local fs = require("zortex.utils.filesystem")
 local constants = require("zortex.constants")
+local Config = require("zortex.config")
 
 -- =============================================================================
 -- Search Configuration
 -- =============================================================================
 
-local config = {
-	index_extensions = { ".zortex", ".md", ".txt" },
-	max_results = 500,
-	min_score = 0.1,
-	access_decay_rate = 0.1, -- per day
-}
+local cfg = {}
 
 -- =============================================================================
 -- Access Tracking
@@ -208,8 +204,8 @@ end
 
 function M.search(query, opts)
 	opts = opts or {}
-	local search_type = opts.search_type or "section"
-	local max_results = opts.max_results or config.max_results
+	local search_type = opts.search_mode or cfg.default_mode
+	local max_results = opts.max_results or cfg.max_results
 
 	local stop_timer = Logger.start_timer("search_service.search")
 
@@ -242,11 +238,9 @@ function M.search(query, opts)
 					if type == "directory" and not name:match("^%.") then
 						scan_dir(path)
 					elseif type == "file" then
-						for _, ext in ipairs(config.index_extensions) do
-							if name:match(ext .. "$") then
-								table.insert(files_to_search, path)
-								break
-							end
+						if name:match(Config.extension .. "$") then
+							table.insert(files_to_search, path)
+							break
 						end
 					end
 				end
@@ -446,5 +440,8 @@ function M.get_stats()
 	}
 end
 
-return M
+function M.setup(opts)
+	cfg = opts
+end
 
+return M

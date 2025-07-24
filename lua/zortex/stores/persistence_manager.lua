@@ -36,7 +36,6 @@ function M.register_defaults()
 	local stores_to_register = {
 		{ "xp", require("zortex.stores.xp") },
 		{ "tasks", require("zortex.stores.tasks") },
-		{ "areas", require("zortex.stores.areas") },
 		{ "calendar", require("zortex.stores.calendar") },
 		{ "notifications", require("zortex.stores.notifications") },
 	}
@@ -237,7 +236,7 @@ end
 -- =============================================================================
 
 -- Initialize persistence manager
-function M.init(opts)
+function M.setup(opts)
 	cfg = opts
 	local stop_timer = Logger.start_timer("persistence_manager.init")
 

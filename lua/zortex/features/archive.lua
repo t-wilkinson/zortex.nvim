@@ -5,9 +5,9 @@ local parser = require("zortex.utils.parser")
 local fs = require("zortex.utils.filesystem")
 local buffer = require("zortex.utils.buffer")
 local attributes = require("zortex.utils.attributes")
-local task_tracker = require("zortex.modules.task_tracker")
-local progress = require("zortex.modules.progress")
 local constants = require("zortex.constants")
+local task_store = require("zortex.stores.tasks")
+local xp_service = require("zortex.services.xp")
 
 -- =============================================================================
 -- Path Building
@@ -128,7 +128,7 @@ end
 -- Task Archiving
 -- =============================================================================
 
--- Archive tasks to .z/archive.task_state.json
+-- Archive tasks
 local function archive_tasks_to_json(task_ids)
 	if #task_ids == 0 then
 		return
@@ -143,7 +143,7 @@ local function archive_tasks_to_json(task_ids)
 	end
 
 	-- Get current season
-	local season_status = progress.get_season_status()
+	local season_status = xp_service.get_season_status()
 	local season_key = season_status.active and season_status.current_season.name or "no_season"
 
 	-- Initialize season data if needed
@@ -155,9 +155,8 @@ local function archive_tasks_to_json(task_ids)
 	end
 
 	-- Archive each task
-	task_tracker.load_state()
 	for _, id in ipairs(task_ids) do
-		local task = task_tracker.get_task(id)
+		local task = task_store.get_task(id)
 		if task then
 			-- Store task data
 			archive_data[season_key].tasks[id] = {
@@ -186,7 +185,7 @@ local function process_task_line_for_archive(line, task_id)
 	end
 
 	-- Get task data
-	local task = task_tracker.get_task(task_id)
+	local task = task_store.get_task(task_id)
 	if not task then
 		return line
 	end
@@ -350,11 +349,9 @@ function M.archive_current_project()
 	archive_tasks_to_json(task_ids)
 
 	-- Remove tasks from active tracker
-	task_tracker.load_state()
 	for _, id in ipairs(task_ids) do
-		task_tracker.remove_task(id)
+		task_store.delete_task(id)
 	end
-	task_tracker.save_state()
 
 	-- Remove project from current buffer
 	buffer.delete_lines(bufnr, start_idx, end_idx)
@@ -405,11 +402,9 @@ function M.archive_all_completed_projects()
 					archive_tasks_to_json(task_ids)
 
 					-- Remove tasks from tracker
-					task_tracker.load_state()
 					for _, id in ipairs(task_ids) do
-						task_tracker.remove_task(id)
+						task_store.delete_task(id)
 					end
-					task_tracker.save_state()
 
 					-- Remove from buffer
 					buffer.delete_lines(bufnr, start_idx, end_idx)

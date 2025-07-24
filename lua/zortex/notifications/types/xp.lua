@@ -1,7 +1,7 @@
 -- domain/xp/notifications.lua - Enhanced XP notifications
 local M = {}
 
-local xp_projects = require("zortex.xp.projects")
+local xp_service = require("zortex.services.xp")
 
 -- =============================================================================
 -- Task Progress Notifications
@@ -76,7 +76,7 @@ function M.notify_progress_update(xp_changes, projects_completed)
 	end
 
 	-- Show season progress if applicable
-	local season_status = xp_projects.get_season_status()
+	local season_status = xp_service.get_season_status()
 	if season_status and total_delta > 0 then
 		table.insert(lines, "")
 		table.insert(lines, string.format("🏆 Season: %s", season_status.season.name))
@@ -151,7 +151,7 @@ function M.show_xp_overview()
 	table.insert(lines, "")
 
 	-- Current Status
-	local season_status = xp_projects.get_season_status()
+	local season_status = xp_service.get_season_status()
 	if season_status then
 		table.insert(lines, "🏆 Current Season:")
 		table.insert(lines, string.format("   Name: %s", season_status.season.name))

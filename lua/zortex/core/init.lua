@@ -9,70 +9,41 @@ local buffer_sync = require("zortex.core.buffer_sync")
 -- Services
 local PersistenceManager = require("zortex.stores.persistence_manager")
 
--- State
-local initialized = false
-
 -- =============================================================================
 -- System Initialization
 -- =============================================================================
 
-function M.init(config)
-	if initialized then
-		Logger.warn("core", "Already initialized")
-		return
-	end
-
+function M.setup(opts)
 	local stop_timer = Logger.start_timer("core.init")
 
 	-- Initialize logger with config
-	Logger.configure({
-		level = config.debug and "debug" or "info",
-		file = config.log_file,
-	})
+	Logger.setup(opts.core.logger)
 
-	-- Initialize XP core with config
-	require("zortex.xp.core").setup(config.xp)
+	-- Set up global error handler for events
+	if opts.core.logger.log_events then
+		EventBus.add_middleware(function(event, data)
+			Logger.debug("event", event, data)
+			return true, data
+		end)
+	end
 
 	-- Initialize DocumentManager
-	DocumentManager.init()
+	DocumentManager.setup(opts)
 	Logger.info("core", "DocumentManager initialized")
 
 	-- Initialize buffer sync
-	buffer_sync.configure({
-		strategy = buffer_sync.strategies.BATCHED,
-		batch_delay = 500,
-		max_batch_size = 50,
-	})
-	buffer_sync.init()
+	buffer_sync.setup()
 	Logger.info("core", "Buffer sync initialized")
 
-	-- Initialize services
-	Logger.info("core", "XP Service initialized")
-
-	-- Note: TaskService doesn't need init, it's stateless
-	Logger.info("core", "Task Service ready")
-
-	-- Initialize XP distributor
-	require("zortex.domain.xp.distributor").init()
-	Logger.info("core", "XP Distributor initialized")
+	-- Initialize XP system
+	-- require("zortex.utils.xp.core").setup(opts.xp)
+	-- require("zortex.utils.xp.distributor").init()
+	-- Logger.info("core", "XP Distributor initialized")
 
 	-- Initialize persistence manager
-	PersistenceManager.configure({
-		save_interval = config.persistence and config.persistence.save_interval or 5000,
-		save_on_exit = true,
-		save_on_events = true,
-		batch_saves = true,
-	})
-	PersistenceManager.init()
+	PersistenceManager.setup(opts.core.persistence_manager)
 	Logger.info("core", "Persistence Manager initialized")
 
-	-- Set up global error handler for events
-	EventBus.add_middleware(function(event, data)
-		Logger.debug("event", event, data)
-		return true, data -- Continue propagation
-	end)
-
-	initialized = true
 	stop_timer()
 
 	Logger.info("core", "All systems initialized")
@@ -80,7 +51,6 @@ function M.init(config)
 	-- Emit initialization complete event
 	EventBus.emit("core:initialized", {
 		timestamp = os.time(),
-		config = config,
 	})
 end
 
@@ -91,7 +61,6 @@ end
 -- Get system status
 function M.get_status()
 	return {
-		initialized = initialized,
 		event_bus = EventBus.get_performance_report(),
 		document_manager = {
 			buffer_count = vim.tbl_count(DocumentManager._instance.buffers),

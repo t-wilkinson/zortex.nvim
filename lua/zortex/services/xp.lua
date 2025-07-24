@@ -3,18 +3,18 @@ local M = {}
 
 local EventBus = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
-local xp_core = require("zortex.domain.xp.core")
+local xp_calculator = require("zortex.utils.xp.calculator")
 local xp_store = require("zortex.stores.xp")
-local xp_distributor = require("zortex.domain.xp.distributor")
+local xp_distributor = require("zortex.utils.xp.distributor")
 
 -- Calculate XP for a task completion
 function M.calculate_task_xp(xp_context)
-	return xp_core.calculate_task_xp(xp_context.task_position, xp_context.total_tasks)
+	return xp_calculator.calculate_task_xp(xp_context.task_position, xp_context.total_tasks)
 end
 
 -- Calculate XP for an objective completion
 function M.calculate_objective_xp(time_horizon, created_date)
-	return xp_core.calculate_objective_xp(time_horizon, created_date)
+	return xp_calculator.calculate_objective_xp(time_horizon, created_date)
 end
 
 -- Award XP for task completion
@@ -61,28 +61,28 @@ function M.reverse_task_xp(task_id, xp_context)
 	if xp_context.project_name then
 		local project_data = xp_store.get_project_xp(xp_context.project_name)
 		local new_xp = math.max(0, project_data.xp - xp_to_remove)
-		xp_store.set_project_xp(xp_context.project_name, new_xp, xp_core.calculate_season_level(new_xp))
+		xp_store.set_project_xp(xp_context.project_name, new_xp, xp_calculator.calculate_season_level(new_xp))
 	end
 
 	-- Remove from season
 	local season_data = xp_store.get_season_data()
 	if season_data.current_season then
 		local new_season_xp = math.max(0, season_data.season_xp - xp_to_remove)
-		local new_season_level = xp_core.calculate_season_level(new_season_xp)
+		local new_season_level = xp_calculator.calculate_season_level(new_season_xp)
 		xp_store.set_season_data(new_season_xp, new_season_level)
 	end
 
 	-- Remove from areas
 	if xp_context.area_links and #xp_context.area_links > 0 then
 		local area_service = require("zortex.services.area_service")
-		local area_xp = xp_core.calculate_area_transfer(xp_to_remove, #xp_context.area_links)
+		local area_xp = xp_calculator.calculate_area_transfer(xp_to_remove, #xp_context.area_links)
 
 		for _, area_link in ipairs(xp_context.area_links) do
 			local area_path = area_service.parse_area_path(area_link)
 			if area_path then
 				local area_data = xp_store.get_area_xp(area_path)
 				local new_xp = math.max(0, area_data.xp - area_xp)
-				xp_store.set_area_xp(area_path, new_xp, xp_core.calculate_area_level(new_xp))
+				xp_store.set_area_xp(area_path, new_xp, xp_calculator.calculate_area_level(new_xp))
 			end
 		end
 	end
@@ -125,9 +125,12 @@ function M.get_season_status()
 		return nil
 	end
 
-	local tier_info = xp_core.get_season_tier(season_data.season_level)
-	local progress =
-		xp_core.get_level_progress(season_data.season_xp, season_data.season_level, xp_core.calculate_season_level_xp)
+	local tier_info = xp_calculator.get_season_tier(season_data.season_level)
+	local progress = xp_calculator.get_level_progress(
+		season_data.season_xp,
+		season_data.season_level,
+		xp_calculator.calculate_season_level_xp
+	)
 
 	return {
 		season = season_data.current_season,
@@ -190,13 +193,13 @@ function M._check_level_ups(distribution)
 	local season_data = xp_store.get_season_data()
 	if season_data.current_season then
 		local old_level = season_data.season_level
-		local new_level = xp_core.calculate_season_level(season_data.season_xp)
+		local new_level = xp_calculator.calculate_season_level(season_data.season_xp)
 
 		if new_level > old_level then
 			EventBus.emit("season:leveled_up", {
 				old_level = old_level,
 				new_level = new_level,
-				tier_info = xp_core.get_season_tier(new_level),
+				tier_info = xp_calculator.get_season_tier(new_level),
 			})
 		end
 	end

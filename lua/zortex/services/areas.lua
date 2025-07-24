@@ -7,6 +7,7 @@ local Logger = require("zortex.core.logger")
 local parser = require("zortex.utils.parser")
 local xp_store = require("zortex.stores.xp")
 local xp_core = require("zortex.domain.xp.core")
+local constants = require("zortex.constants")
 
 -- Cache for area tree
 local area_cache = {
@@ -26,11 +27,10 @@ function M.get_area_tree()
 		return area_cache.tree
 	end
 
-	local areas_file = config.get("zortex_notes_dir") .. "/areas.zortex"
-	local doc = DocumentManager.get_file(areas_file)
+	local doc = DocumentManager.get_file(constants.FILES.AREAS)
 
 	if not doc then
-		Logger.warn("area_service", "Areas file not found", { file = areas_file })
+		Logger.warn("area_service", "Areas file not found", { file = constants.FILES.AREAS })
 		return nil
 	end
 

@@ -71,7 +71,7 @@ function M.load()
 	local entries_by_date = parse_calendar_document(doc)
 
 	-- Update store
-	calendar_store.data.entries = entries_by_date
+	calendar_store.set_all_entries(entries_by_date)
 
 	EventBus.emit("calendar:loaded", {
 		entry_count = vim.tbl_count(entries_by_date),
@@ -400,4 +400,3 @@ M.has_entries = function(date_str)
 end
 
 return M
-

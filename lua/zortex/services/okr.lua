@@ -6,12 +6,11 @@ local DocumentManager = require("zortex.core.document_manager")
 local ProjectService = require("zortex.services.project_service")
 local AreaService = require("zortex.services.area_service")
 local parser = require("zortex.utils.parser")
-local datetime = require("zortex.utils.datetime")
+local constants = require("zortex.constants")
 
 -- Parse OKR file and extract objectives
 function M.get_objectives()
-	local okr_file = config.get("zortex_notes_dir") .. "/okrs.zortex"
-	local doc = DocumentManager.get_file(okr_file)
+	local doc = DocumentManager.get_file(constants.FILES.OKR)
 
 	if not doc then
 		return {}

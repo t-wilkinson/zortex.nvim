@@ -16,11 +16,7 @@ M.strategies = {
 }
 
 -- Default configuration
-local config = {
-	strategy = M.strategies.BATCHED,
-	batch_delay = 500, -- ms
-	max_batch_size = 50, -- max changes before forced sync
-}
+local cfg = {}
 
 -- Pending changes queue
 local pending_changes = {} -- bufnr -> { changes }
@@ -200,31 +196,31 @@ end
 
 -- Schedule a sync based on strategy
 local function schedule_sync(bufnr)
-	if config.strategy == M.strategies.IMMEDIATE then
+	if cfg.strategy == M.strategies.IMMEDIATE then
 		-- Apply immediately
 		apply_pending_changes(bufnr)
-	elseif config.strategy == M.strategies.BATCHED then
+	elseif cfg.strategy == M.strategies.BATCHED then
 		-- Cancel existing timer
 		if sync_timers[bufnr] then
 			vim.fn.timer_stop(sync_timers[bufnr])
 		end
 
 		-- Schedule new sync
-		sync_timers[bufnr] = vim.fn.timer_start(config.batch_delay, function()
+		sync_timers[bufnr] = vim.fn.timer_start(cfg.batch_delay, function()
 			vim.schedule(function()
 				apply_pending_changes(bufnr)
 			end)
 		end)
 
 		-- Force sync if batch is too large
-		if #(pending_changes[bufnr] or {}) >= config.max_batch_size then
+		if #(pending_changes[bufnr] or {}) >= cfg.max_batch_size then
 			Logger.warn("buffer_sync", "Forcing sync due to large batch", {
 				bufnr = bufnr,
 				size = #pending_changes[bufnr],
 			})
 			apply_pending_changes(bufnr)
 		end
-	elseif config.strategy == M.strategies.ON_SAVE then
+	elseif cfg.strategy == M.strategies.ON_SAVE then
 		-- Do nothing - will sync on save
 	end
 end
@@ -310,18 +306,12 @@ function M.get_pending_changes(bufnr)
 end
 
 -- Configure sync behavior
-function M.configure(opts)
-	config = vim.tbl_extend("force", config, opts or {})
-	Logger.info("buffer_sync", "Configured", config)
-end
-
--- Initialize module
-function M.init()
-	-- Listen for buffer events
+function M.setup(opts)
+	cfg = opts
 
 	-- Sync on save if using ON_SAVE strategy
 	EventBus.on("document:saved", function(data)
-		if config.strategy == M.strategies.ON_SAVE then
+		if cfg.strategy == M.strategies.ON_SAVE then
 			apply_pending_changes(data.bufnr)
 		end
 	end, {
@@ -361,7 +351,7 @@ end
 -- Status information
 function M.get_status()
 	local status = {
-		strategy = config.strategy,
+		strategy = cfg.strategy,
 		buffers_with_changes = vim.tbl_count(pending_changes),
 		total_pending_changes = 0,
 		active_timers = vim.tbl_count(sync_timers),

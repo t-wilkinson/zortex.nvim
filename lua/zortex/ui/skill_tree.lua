@@ -3,7 +3,7 @@ local M = {}
 
 local config = require("zortex.config")
 local constants = require("zortex.constants")
-local progress = require("zortex.modules.progress")
+local xp_service = require("zortex.services.xp")
 
 -- =============================================================================
 -- Display Helpers
@@ -45,7 +45,7 @@ end
 -- =============================================================================
 
 local function render_season_section(lines, highlights)
-	local status = progress.get_season_status()
+	local status = xp_service.get_season_status()
 
 	table.insert(lines, "")
 	table.insert(lines, "━━━ SEASON PROGRESS ━━━")
@@ -285,7 +285,7 @@ function M.show()
 		M.show()
 	end, opts)
 	vim.keymap.set("n", "s", function()
-		local status = progress.get_season_status()
+		local status = xp_service.get_season_status()
 		if status then
 			print(vim.inspect(status))
 		else

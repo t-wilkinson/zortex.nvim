@@ -204,4 +204,9 @@ function M.get_all_entries()
 	return all_entries
 end
 
+function M.set_all_entries(entries)
+	state.entries = entries
+	M.save()
+end
+
 return M

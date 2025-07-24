@@ -4,16 +4,18 @@ local M = {}
 local EventBus = require("zortex.core.event_bus")
 local DocumentManager = require("zortex.core.document_manager")
 local buffer_sync = require("zortex.core.buffer_sync")
+local constants = require("zortex.constants")
+local fs = require("zortex.utils.filesystem")
 
 -- Archive a single project
 function M.archive_project(project_name, opts)
 	opts = opts or {}
 
-	local projects_file = config.get("zortex_notes_dir") .. "/projects.zortex"
-	local archive_file = config.get("zortex_notes_dir") .. "/archive.zortex"
+	local projects_file = fs.get_file_path(constants.FILES.PROJECTS)
+	local archive_file = fs.get_file_path(constants.FILES.PROJECTS_ARCHIVE)
 
 	-- Get project from active projects
-	local projects_doc = DocumentManager.get_file(projects_file)
+	local projects_doc = DocumentManager.get_file(constants.FILES.PROJECTS)
 	if not projects_doc then
 		return false, "Projects file not found"
 	end
@@ -65,7 +67,7 @@ end
 function M.archive_completed_projects(opts)
 	opts = opts or {}
 
-	local project_service = require("zortex.services.project_service")
+	local project_service = require("zortex.services.project")
 	local projects = project_service.get_all_projects()
 	local archived = {}
 
@@ -89,14 +91,13 @@ end
 
 -- List all archived projects
 function M.list_archives()
-	local archive_file = config.get("zortex_notes_dir") .. "/archive.zortex"
-	local doc = DocumentManager.get_file(archive_file)
+	local doc = DocumentManager.get_file(constants.FILES.PROJECTS_ARCHIVE)
 
 	if not doc then
 		return {}
 	end
 
-	local project_service = require("zortex.services.project_service")
+	local project_service = require("zortex.services.project")
 	return project_service.get_projects_from_document(doc)
 end
 
@@ -132,4 +133,3 @@ function M.restore_project(project_name, opts)
 end
 
 return M
-

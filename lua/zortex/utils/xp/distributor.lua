@@ -4,7 +4,7 @@ local M = {}
 local EventBus = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
 local xp_store = require("zortex.stores.xp")
-local xp_core = require("zortex.xp.core")
+local xp_calculator = require("zortex.utils.xp.calculator")
 
 -- =============================================================================
 -- Distribution Rules
@@ -275,19 +275,19 @@ function M.calculate_effective_xp(base_xp, modifiers)
 
 	-- Apply time decay
 	if modifiers.days_old then
-		local decay_factor = xp_core.calculate_decay_factor(modifiers.days_old)
+		local decay_factor = xp_calculator.calculate_decay_factor(modifiers.days_old)
 		effective = math.floor(effective * decay_factor)
 	end
 
 	-- Apply priority multiplier
 	if modifiers.priority then
-		local mult = xp_core.get_priority_multiplier(modifiers.priority)
+		local mult = xp_calculator.get_priority_multiplier(modifiers.priority)
 		effective = math.floor(effective * mult)
 	end
 
 	-- Apply importance multiplier
 	if modifiers.importance then
-		local mult = xp_core.get_importance_multiplier(modifiers.importance)
+		local mult = xp_calculator.get_importance_multiplier(modifiers.importance)
 		effective = math.floor(effective * mult)
 	end
 

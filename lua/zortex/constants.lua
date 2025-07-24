@@ -8,10 +8,10 @@ M.FILES = {
 	PROJECTS = "projects.zortex",
 	AREAS = "areas.zortex",
 	OKR = "okr.zortex",
+	PROJECTS_ARCHIVE = "z/archive.projects.zortex",
 
 	-- User library
 	USER_LIBRARY = "z",
-	ARCHIVE_PROJECTS = "z/archive.projects.zortex",
 
 	-- System library
 	SYSTEM_LIBRARY = ".z",
@@ -19,10 +19,11 @@ M.FILES = {
 	-- State files
 	XP_STATE_DATA = ".z/xp_state.json",
 	TASK_STATE_DATA = ".z/task_state.json",
-	ARCHIVE_TASK_STATE = ".z/archive/task_state.json",
+	ARCHIVE_TASK_STATE = ".z/archive.task_state.json",
 	CALENDAR_STATE = ".z/calendar_state.json",
 	TIMER_STATE = ".z/timer_state.json",
 	NOTIFICATIONS_STATE = ".z/notifications_state.json",
+	LOG = ".z/logs",
 
 	-- History files
 	SEARCH_HISTORY = ".z/search_history.json",
@@ -109,7 +110,13 @@ M.PATTERNS = {
 	TIME_AMPM = "(%d%d?):(%d%d)%s*([ap]m)",
 	DATETIME_YMD = "(%d%d%d%d%-%d%d?%-%d%d?)%s+(%d%d?:%d%d)",
 
-	-- Other
+	-- calendar.zortex
+	CALENDAR_DATE_HEADING = "^(%d%d)%-(%d%d)%-(%d%d%d%d):$",
+	CALENDAR_ENTRY_PREFIX = "^%s+%-? (.+)$",
+	CALENDAR_TIME_PREFIX = "^(%d%d?:%d%d)%s+(.+)$",
+	CALENDAR_TIME_RANGE = "^(%d%d?:%d%d)%-(%d%d?:%d%d)%s+(.+)$",
+
+	-- okr.zortex
 	OKR_DATE = "^## ([%w]+) (%d+) (%d+) (.+)$",
 }
 

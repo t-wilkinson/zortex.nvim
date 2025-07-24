@@ -5,7 +5,8 @@ local EventBus = require("zortex.core.event_bus")
 local Section = require("zortex.core.section")
 local parser = require("zortex.utils.parser")
 local attributes = require("zortex.utils.attributes")
-local constants = require("zortex.constants")
+local fs = require("zortex.utils.filesystem")
+local Config = require("zortex.config")
 
 -- LRU Cache implementation
 local LRU = {}
@@ -373,6 +374,11 @@ end
 
 -- Get document for file
 function DocumentManager:get_file(filepath)
+	-- Ensure filepath exists within notes_dir
+	if filepath:sub(1, 1) ~= "/" then
+		filepath = fs.get_file_path(filepath)
+	end
+
 	-- Prefer buffer if available
 	for bufnr, doc in pairs(self.buffers) do
 		if doc.filepath == filepath then
@@ -499,13 +505,14 @@ function DocumentManager:get_all_documents()
 end
 
 -- Setup autocmds
-function DocumentManager:setup_autocmds()
+function DocumentManager:setup_autocmds(opts)
 	local group = vim.api.nvim_create_augroup("ZortexDocumentManager", { clear = true })
+	local extensions = { "*" .. opts.extension }
 
 	-- Load buffer on read
 	vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile" }, {
 		group = group,
-		pattern = { "*.zortex", "*.md", "*.txt" },
+		pattern = extensions,
 		callback = function(args)
 			self:load_buffer(args.buf, args.file)
 		end,
@@ -514,7 +521,7 @@ function DocumentManager:setup_autocmds()
 	-- Mark dirty on change
 	vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
 		group = group,
-		pattern = { "*.zortex", "*.md", "*.txt" },
+		pattern = extensions,
 		callback = vim.schedule_wrap(function(args)
 			-- Get change range from vim
 			local start_line = args.data and args.data.firstline or 1
@@ -527,7 +534,7 @@ function DocumentManager:setup_autocmds()
 	-- Unload on buffer delete
 	vim.api.nvim_create_autocmd("BufDelete", {
 		group = group,
-		pattern = { "*.zortex", "*.md", "*.txt" },
+		pattern = extensions,
 		callback = function(args)
 			self:unload_buffer(args.buf)
 		end,
@@ -536,7 +543,7 @@ function DocumentManager:setup_autocmds()
 	-- Save file mtime on write
 	vim.api.nvim_create_autocmd("BufWritePost", {
 		group = group,
-		pattern = { "*.zortex", "*.md", "*.txt" },
+		pattern = extensions,
 		callback = function(args)
 			local doc = self.buffers[args.buf]
 			if doc then
@@ -555,16 +562,16 @@ function DocumentManager:setup_autocmds()
 end
 
 -- Initialize
-function DocumentManager:init()
-	self:setup_autocmds()
+function DocumentManager:setup(opts)
+	self:setup_autocmds(opts)
 end
 
 -- Export singleton
 M._instance = DocumentManager
 
 -- Public API
-function M.init()
-	return M._instance:init()
+function M.setup(opts)
+	return M._instance:setup(opts)
 end
 
 function M.get_buffer(bufnr)
@@ -584,4 +591,3 @@ function M.mark_buffer_dirty(bufnr, start_line, end_line)
 end
 
 return M
-

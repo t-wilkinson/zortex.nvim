@@ -4,20 +4,16 @@ local M = {}
 
 local Core = require("zortex.core")
 local DocumentManager = require("zortex.core.document_manager")
+local Logger = require("zortex.core.logger")
 
 local notifications = require("zortex.notifications")
-
--- Core modules
-local core = {
-	logger = require("zortex.core.logger"),
-}
 
 local utils = {
 	fs = require("zortex.utils.filesystem"),
 }
 
 local services = {
-	task = require("zortex.services.task"),
+	task = require("zortex.services.tasks"),
 	xp = require("zortex.services.xp"),
 }
 
@@ -30,19 +26,12 @@ local features = {
 	ical = require("zortex.features.ical"),
 }
 
-local stores = {
-	areas = require("zortex.stores.areas"),
-	base = require("zortex.stores.base"),
-	tasks = require("zortex.stores.tasks"),
-	xp = require("zortex.stores.xp"),
-	persistence = require("zortex.stores.persistence_manager"),
-}
+local persistence_manager = require("zortex.stores.persistence_manager")
 
 local ui = {
-	calendar = require("zortex.ui.calendar"),
-	search = require("zortex.ui.search"),
+	calendar_view = require("zortex.ui.calendar_view"),
+	search = require("zortex.ui.telescope.search"),
 	skill_tree = require("zortex.ui.skill_tree"),
-	telescope = require("zortex.ui.telescope"),
 }
 
 -- =============================================================================
@@ -59,15 +48,15 @@ function M.setup(prefix)
 	-- ===========================================================================
 	cmd("Logs", function(opts)
 		local count = tonumber(opts.args) or 50
-		core.logger.show_logs(count)
+		Logger.show_logs(count)
 	end, { nargs = "?" })
 
 	cmd("Performance", function()
-		core.logger.show_performance_report()
+		Logger.show_performance_report()
 	end, {})
 
 	cmd("LogLevel", function(opts)
-		core.logger.set_level(opts.args:upper())
+		Logger.set_level(opts.args:upper())
 	end, {
 		nargs = 1,
 		complete = function()
@@ -76,7 +65,7 @@ function M.setup(prefix)
 	})
 
 	cmd("ClearLogs", function()
-		core.logger.clear_logs()
+		Logger.clear_logs()
 	end, {})
 
 	-- ===========================================================================
@@ -196,10 +185,10 @@ function M.setup(prefix)
 	-- Calendar
 	-- ===========================================================================
 	cmd("Calendar", function()
-		ui.calendar.open()
+		ui.calendar_view.open()
 	end, { desc = "Open Zortex calendar" })
 	cmd("CalendarAdd", function()
-		ui.calendar.add_entry_interactive()
+		ui.calendar_view.add_entry_interactive()
 	end, { desc = "Add calendar entry" })
 
 	-- ===========================================================================
@@ -400,7 +389,7 @@ function M.setup(prefix)
 	end, { desc = "Show Zortex system status" })
 
 	cmd("SaveStores", function()
-		local results = stores.persistence.save_all()
+		local results = persistence_manager.save_all()
 		vim.notify(string.format("Saved %d stores", #results.saved), vim.log.levels.INFO)
 	end, { desc = "Force save all stores" })
 end

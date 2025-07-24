@@ -8,21 +8,8 @@ local Config = require("zortex.config")
 -- Path Utilities
 -- =============================================================================
 
-function M.get_notes_dir()
-	local dir = Config.notes_dir
-	-- Ensure trailing slash
-	if not dir:match("/$") then
-		dir = dir .. "/"
-	end
-	return dir
-end
-
 function M.get_file_path(filename)
-	local dir = M.get_notes_dir()
-	if not dir then
-		return nil
-	end
-	return dir .. filename
+	return Config.notes_dir .. filename
 end
 
 function M.joinpath(...)
@@ -108,25 +95,11 @@ function M.find_files(dir, pattern)
 end
 
 function M.get_all_note_files()
-	local dir = M.get_notes_dir()
-	if not dir then
-		return {}
-	end
-
+	local dir = Config.notes_dir
 	local files = {}
 
 	-- Find .zortex files
-	for _, file in ipairs(M.find_files(dir, "%.zortex$")) do
-		table.insert(files, file)
-	end
-
-	-- Find .md files
-	for _, file in ipairs(M.find_files(dir, "%.md$")) do
-		table.insert(files, file)
-	end
-
-	-- Find .txt files
-	for _, file in ipairs(M.find_files(dir, "%.txt$")) do
+	for _, file in ipairs(M.find_files(dir, "%." .. Config.extension .. "$")) do
 		table.insert(files, file)
 	end
 

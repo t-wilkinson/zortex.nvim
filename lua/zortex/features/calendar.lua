@@ -1,7 +1,7 @@
 -- features/calendar.lua - Calendar features using CalendarService
 local M = {}
 
-local CalendarService = require("zortex.services.calendar_service")
+local CalendarService = require("zortex.services.calendar")
 local EventBus = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
 local datetime = require("zortex.utils.datetime")

@@ -1,11 +1,9 @@
--- services/search.lua
--- Search service built on DocumentManager
+-- services/search.lua - Search service built on DocumentManager
 local M = {}
 
 local DocumentManager = require("zortex.core.document_manager")
 local EventBus = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
-local fs = require("zortex.utils.filesystem")
 local constants = require("zortex.constants")
 local Config = require("zortex.config")
 
@@ -13,7 +11,18 @@ local Config = require("zortex.config")
 -- Search Configuration
 -- =============================================================================
 
-local cfg = {}
+local cfg = {} -- Config.ui.search
+
+-- =============================================================================
+-- Search Modes
+-- =============================================================================
+
+M.modes = {
+	SECTION = "section", -- Search for sections (headings, labels, etc.)
+	ARTICLE = "article", -- Search for articles only
+	TASK = "task", -- Search for tasks
+	ALL = "all", -- Search everything
+}
 
 -- =============================================================================
 -- Access Tracking
@@ -42,7 +51,7 @@ function AccessTracker.get_score(filepath, current_time)
 	end
 
 	local days_since = (current_time - data.last_access) / 86400
-	local recency_score = math.exp(-config.access_decay_rate * days_since)
+	local recency_score = math.exp(-(cfg.access_decay_rate or 0.1) * days_since)
 	local frequency_score = math.log(data.access_count + 1)
 
 	return recency_score * frequency_score
@@ -120,40 +129,52 @@ local function score_section_match(section, tokens, is_start_match)
 	return score
 end
 
+-- Check if section matches search mode
+local function section_matches_mode(section, mode)
+	if mode == M.modes.ALL then
+		return true
+	elseif mode == M.modes.ARTICLE then
+		return section.type == constants.SECTION_TYPE.ARTICLE
+	elseif mode == M.modes.SECTION then
+		-- Include all structural elements
+		return section.type == constants.SECTION_TYPE.ARTICLE
+			or section.type == constants.SECTION_TYPE.HEADING
+			or section.type == constants.SECTION_TYPE.BOLD_HEADING
+			or section.type == constants.SECTION_TYPE.LABEL
+	elseif mode == M.modes.TASK then
+		-- For task mode, we'd need to check if section contains tasks
+		return #section.tasks > 0
+	end
+	return false
+end
+
 -- Search in a single document
-local function search_document(doc, tokens, search_type)
+local function search_document(doc, tokens, search_mode)
 	local results = {}
 
 	if not doc.sections then
 		return results
 	end
 
-	-- For empty search, return document root
+	-- For empty search, return document root if it matches mode
 	if #tokens == 0 then
-		local article_name = doc.article_name or "Untitled"
-		table.insert(results, {
-			section = doc.sections,
-			score = AccessTracker.get_score(doc.filepath, os.time()),
-			matched_tokens = {},
-			breadcrumb = article_name,
-		})
+		if section_matches_mode(doc.sections, search_mode) then
+			local article_name = doc.article_name or "Untitled"
+			table.insert(results, {
+				section = doc.sections,
+				score = AccessTracker.get_score(doc.filepath, os.time()),
+				matched_tokens = {},
+				breadcrumb = article_name,
+			})
+		end
 		return results
 	end
 
 	-- Search all sections
 	local function search_section(section)
-		-- Check token count restrictions
-		if search_type == "section" then
-			if #tokens == 1 and section.type ~= constants.SECTION_TYPE.ARTICLE then
-				return
-			elseif #tokens == 2 then
-				if
-					section.type ~= constants.SECTION_TYPE.ARTICLE
-					and not (section.type == constants.SECTION_TYPE.HEADING and section.level <= 3)
-				then
-					return
-				end
-			end
+		-- Check if section matches mode
+		if not section_matches_mode(section, search_mode) then
+			return
 		end
 
 		-- Check if all tokens match
@@ -190,7 +211,32 @@ local function search_document(doc, tokens, search_type)
 		end
 	end
 
-	-- Start search from root children (skip root itself)
+	-- Start search from root children (skip root itself unless it's an article)
+	if doc.sections.type == constants.SECTION_TYPE.ARTICLE and section_matches_mode(doc.sections, search_mode) then
+		-- Check root too for article searches
+		local all_match = true
+		local matched_tokens = {}
+
+		for _, token in ipairs(tokens) do
+			if token_matches_section(doc.sections, token) then
+				table.insert(matched_tokens, token)
+			else
+				all_match = false
+				break
+			end
+		end
+
+		if all_match and #matched_tokens > 0 then
+			table.insert(results, {
+				section = doc.sections,
+				score = score_section_match(doc.sections, matched_tokens, false),
+				matched_tokens = matched_tokens,
+				breadcrumb = doc.article_name or "Untitled",
+			})
+		end
+	end
+
+	-- Search children
 	for _, child in ipairs(doc.sections.children) do
 		search_section(child)
 	end
@@ -204,8 +250,8 @@ end
 
 function M.search(query, opts)
 	opts = opts or {}
-	local search_type = opts.search_mode or cfg.default_mode
-	local max_results = opts.max_results or cfg.max_results
+	local search_mode = opts.search_mode or cfg.default_mode or M.modes.SECTION
+	local max_results = opts.max_results or cfg.max_results or 100
 
 	local stop_timer = Logger.start_timer("search_service.search")
 
@@ -215,40 +261,36 @@ function M.search(query, opts)
 	Logger.debug("search_service", "Searching", {
 		query = query,
 		tokens = tokens,
-		search_type = search_type,
+		search_mode = search_mode,
 	})
 
 	-- Get all files to search
 	local files_to_search = {}
-	local notes_dir = fs.get_notes_dir()
 
-	if notes_dir then
-		-- Scan directory for files
-		local function scan_dir(dir)
-			local handle = vim.loop.fs_scandir(dir)
-			if handle then
-				while true do
-					local name, type = vim.loop.fs_scandir_next(handle)
-					if not name then
-						break
-					end
+	-- Scan directory for files
+	local function scan_dir(dir)
+		local handle = vim.loop.fs_scandir(dir)
+		if handle then
+			while true do
+				local name, type = vim.loop.fs_scandir_next(handle)
+				if not name then
+					break
+				end
 
-					local path = dir .. "/" .. name
+				local path = dir .. "/" .. name
 
-					if type == "directory" and not name:match("^%.") then
-						scan_dir(path)
-					elseif type == "file" then
-						if name:match(Config.extension .. "$") then
-							table.insert(files_to_search, path)
-							break
-						end
+				if type == "directory" and not name:match("^%.") then
+					scan_dir(path)
+				elseif type == "file" then
+					if name:match(Config.extension .. "$") then
+						table.insert(files_to_search, path)
 					end
 				end
 			end
 		end
-
-		scan_dir(notes_dir)
 	end
+
+	scan_dir(Config.notes_dir)
 
 	-- Search in all documents
 	local all_results = {}
@@ -256,7 +298,7 @@ function M.search(query, opts)
 	-- Search in loaded buffers first
 	for bufnr, doc in pairs(DocumentManager._instance.buffers) do
 		if doc.filepath then
-			local results = search_document(doc, tokens, search_type)
+			local results = search_document(doc, tokens, search_mode)
 			for _, result in ipairs(results) do
 				result.filepath = doc.filepath
 				result.bufnr = bufnr
@@ -278,7 +320,7 @@ function M.search(query, opts)
 	for _, filepath in ipairs(files_to_search) do
 		local doc = DocumentManager.get_file(filepath)
 		if doc then
-			local results = search_document(doc, tokens, search_type)
+			local results = search_document(doc, tokens, search_mode)
 			for _, result in ipairs(results) do
 				result.filepath = filepath
 				result.source = "file"
@@ -316,7 +358,7 @@ function M.search(query, opts)
 		query = query,
 		tokens = tokens,
 		result_count = #all_results,
-		search_type = search_type,
+		search_mode = search_mode,
 	})
 
 	return all_results
@@ -337,12 +379,16 @@ function M.create_telescope_finder(opts)
 			-- Convert to telescope entries
 			local entries = {}
 			for _, result in ipairs(results) do
+				-- Ensure we have valid strings for ordinal
+				local breadcrumb = result.breadcrumb or ""
+				local filepath = result.filepath or ""
+
 				local entry = {
 					value = result,
-					ordinal = result.breadcrumb .. " " .. result.filepath,
-					display = result.breadcrumb,
-					filename = result.filepath,
-					lnum = result.section.start_line,
+					ordinal = breadcrumb .. " " .. filepath, -- This must be a string
+					display = breadcrumb,
+					filename = filepath,
+					lnum = result.section and result.section.start_line or 1,
 					col = 1,
 				}
 				table.insert(entries, entry)
@@ -404,7 +450,7 @@ function M.refresh_all()
 	-- Reload all buffers
 	for bufnr, _ in pairs(DocumentManager._instance.buffers) do
 		if vim.api.nvim_buf_is_valid(bufnr) then
-			DocumentManager:reparse_buffer(bufnr)
+			DocumentManager._instance:reparse_buffer(bufnr)
 		end
 	end
 

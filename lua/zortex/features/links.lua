@@ -133,10 +133,7 @@ function M.open_link()
 					resolved_path = fs.joinpath(current_dir, url)
 				else
 					-- Try notes directory
-					local notes_dir = fs.get_notes_dir()
-					if notes_dir then
-						resolved_path = fs.joinpath(notes_dir, url)
-					end
+					resolved_path = fs.get_file_path(url)
 				end
 			end
 

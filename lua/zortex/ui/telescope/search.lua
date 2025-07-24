@@ -1,4 +1,4 @@
--- ui/search.lua - Search UI using DocumentManager-based search service
+-- ui/telescope/search.lua - Search UI using DocumentManager-based search service
 local M = {}
 
 local SearchService = require("zortex.services.search")
@@ -175,13 +175,7 @@ end
 
 function M.search(opts)
 	opts = opts or {}
-	local search_type = opts.search_type or "section"
-
-	local notes_dir = fs.get_notes_dir()
-	if not notes_dir then
-		vim.notify("Zortex Search: g:zortex_notes_dir not set", vim.log.levels.ERROR)
-		return
-	end
+	opts.search_mode = opts.search_mode or SearchService.modes.SECTION
 
 	local telescope = require("telescope")
 	local pickers = require("telescope.pickers")
@@ -193,9 +187,7 @@ function M.search(opts)
 	local current_query = ""
 
 	-- Create finder using search service
-	local finder = SearchService.create_telescope_finder({
-		search_type = search_type,
-	})
+	local finder = SearchService.create_telescope_finder(opts)
 
 	-- Create custom entry maker
 	finder._entry_maker = finder.entry_maker
@@ -221,7 +213,14 @@ function M.search(opts)
 	local previewer = create_zortex_previewer()
 
 	-- Determine prompt title
-	local prompt_title = search_type == "section" and "Zortex Section Search" or "Zortex Article Search"
+	local prompt_title = "Zortex Search"
+	if opts.search_mode == SearchService.modes.SECTION then
+		prompt_title = "Zortex Section Search"
+	elseif opts.search_mode == SearchService.modes.ARTICLE then
+		prompt_title = "Zortex Article Search"
+	elseif opts.search_mode == SearchService.modes.TASK then
+		prompt_title = "Zortex Task Search"
+	end
 
 	-- Create picker
 	pickers
@@ -316,13 +315,25 @@ end
 
 function M.search_sections(opts)
 	opts = opts or {}
-	opts.search_type = "section"
+	opts.search_mode = SearchService.modes.SECTION
 	M.search(opts)
 end
 
 function M.search_articles(opts)
 	opts = opts or {}
-	opts.search_type = "article"
+	opts.search_mode = SearchService.modes.ARTICLE
+	M.search(opts)
+end
+
+function M.search_tasks(opts)
+	opts = opts or {}
+	opts.search_mode = SearchService.modes.TASK
+	M.search(opts)
+end
+
+function M.search_all(opts)
+	opts = opts or {}
+	opts.search_mode = SearchService.modes.ALL
 	M.search(opts)
 end
 
@@ -336,14 +347,14 @@ function M.search_current_word()
 	if word and word ~= "" then
 		M.search({
 			default_text = word,
-			search_type = "section",
+			search_mode = SearchService.modes.SECTION,
 		})
 	end
 end
 
 -- Search in current file only
 function M.search_current_file()
-	local bufnr = vim.api.nconfig.get("t_current_buf")()
+	local bufnr = vim.api.nvim_get_current_buf()
 	local filepath = vim.api.nvim_buf_get_name(bufnr)
 
 	if filepath == "" then

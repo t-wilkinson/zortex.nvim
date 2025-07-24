@@ -37,6 +37,7 @@ function M.setup(opts)
 	require("zortex.ui.commands").setup(Config.commands.prefix)
 	require("zortex.ui.keymaps").setup(Config.keymaps.prefix, Config.commands.prefix)
 	require("zortex.ui.calendar_view").setup(Config.ui.calendar)
+	require("zortex.services.search").setup(Config.ui.search)
 	telescope_setup.setup()
 
 	-- Setup completion

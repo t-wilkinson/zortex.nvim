@@ -26,19 +26,18 @@ function M.setup(opts)
 	vim.fn.mkdir(fs.joinpath(Config.notes_dir, ".z"), "p") -- Store data
 	vim.fn.mkdir(fs.joinpath(Config.notes_dir, "z"), "p") -- User library
 
-	-- Initialize core systems
+	-- Setup core systems
 	core.setup(Config)
 
 	-- Setup features
 	highlights.setup_autocmd()
+	calendar.init()
 
 	-- Setup UI
 	require("zortex.ui.commands").setup(Config.commands.prefix)
 	require("zortex.ui.keymaps").setup(Config.keymaps.prefix, Config.commands.prefix)
+	require("zortex.ui.calendar_view").setup(Config.ui.calendar)
 	telescope_setup.setup()
-
-	-- Setup calendar
-	calendar.init()
 
 	-- Setup completion
 	local has_cmp, cmp = pcall(require, "cmp")

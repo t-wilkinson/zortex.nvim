@@ -1,7 +1,6 @@
 -- config.lua - Centralized configuration for Zortex
 local Config = {}
 
--- Using M.defaults and Config helps with type checking
 local defaults = {
 	notes_dir = vim.fn.expand("$HOME/.zortex") .. "/",
 	extension = ".zortex",
@@ -225,6 +224,27 @@ local defaults = {
 	},
 
 	xp = {
+		distribution_rules = {
+			-- Task XP distribution
+			task = {
+				project = 1.0, -- 100% to project
+				season = 1.0, -- 100% to season
+				area = 0.1, -- 10% to each linked area
+				parent_bubble = 0.75, -- 75% bubbles to parent areas
+			},
+
+			-- Objective XP distribution
+			objective = {
+				area = 1.0, -- 100% to each linked area
+				parent_bubble = 0.75, -- 75% bubbles to parent areas
+			},
+
+			-- Daily review XP
+			daily_review = {
+				season = 1.0, -- 100% to season
+				bonus_multiplier = 1.5, -- 50% bonus for consistency
+			},
+		},
 		-- Area XP System (Long-term Mastery)
 		area = {
 			-- Exponential curve: XP = base * level^exponent
@@ -419,14 +439,6 @@ local defaults = {
 	},
 }
 
-Config.cmd = function(name, command, opts)
-	vim.api.nvim_create_user_command(Config.commands.prefix .. name, command, opts or {})
-end
-
-Config.map = function(mode, lhs, rhs, opts)
-	vim.keymap.set(mode, Config.keymaps.prefix .. lhs, rhs, opts or {})
-end
-
 -- Helper function to merge tables deeply and in-place.
 -- It copies keys from `t2` into `t1`.
 local function deep_merge_in_place(t1, t2)
@@ -441,10 +453,8 @@ end
 
 -- Initialize configuration
 function Config.setup(opts)
-	-- Merge default options in place
+	-- Merge default and user options in place to avoid cache issues
 	deep_merge_in_place(Config, defaults)
-
-	-- Merge the user's custom options on top of the defaults.
 	if opts and type(opts) == "table" then
 		deep_merge_in_place(Config, opts)
 	end
@@ -455,18 +465,6 @@ function Config.setup(opts)
 	end
 
 	return Config
-end
-
--- Get config value with dot notation
-function Config.get(path)
-	local value = Config
-	for key in path:gmatch("[^%.]+") do
-		value = value[key]
-		if value == nil then
-			return nil
-		end
-	end
-	return value
 end
 
 return Config

@@ -56,13 +56,7 @@ end
 
 -- Load calendar data
 function M.load()
-	local calendar_file = fs.get_file_path(constants.FILES.CALENDAR)
-	if not calendar_file then
-		Logger.warn("calendar_service", "No calendar file found")
-		return false
-	end
-
-	local doc = DocumentManager.get_file(calendar_file)
+	local doc = DocumentManager.get_file(constants.FILES.CALENDAR)
 	if not doc then
 		Logger.error("calendar_service", "Failed to load calendar document")
 		return false
@@ -75,7 +69,7 @@ function M.load()
 
 	EventBus.emit("calendar:loaded", {
 		entry_count = vim.tbl_count(entries_by_date),
-		filepath = calendar_file,
+		filepath = constants.FILES.CALENDAR,
 	})
 
 	return true
@@ -139,7 +133,7 @@ end
 
 -- Remove calendar entry
 function M.remove_entry(date_str, entry_index)
-	local entries = M.get_entries_for_date(date_str)
+	local entries = calendar_store.get_entries_for_date(date_str)
 
 	if not entries or entry_index < 1 or entry_index > #entries then
 		return false, "Invalid entry index"
@@ -170,16 +164,6 @@ function M.remove_entry(date_str, entry_index)
 	return true
 end
 
--- Get entries for a specific date
-function M.get_entries_for_date(date_str)
-	-- Ensure loaded
-	if not calendar_store.data.entries then
-		M.load()
-	end
-
-	return calendar_store.get_entries_for_date(date_str)
-end
-
 -- Get entries for date range
 function M.get_entries_for_range(start_date, end_date)
 	local entries = {}
@@ -193,7 +177,7 @@ function M.get_entries_for_range(start_date, end_date)
 
 	while os.time(current) <= os.time(end_dt) do
 		local date_str = datetime.format_date(current, "YYYY-MM-DD")
-		local day_entries = M.get_entries_for_date(date_str)
+		local day_entries = calendar_store.get_entries_for_date(date_str)
 
 		if #day_entries > 0 then
 			entries[date_str] = day_entries
@@ -336,7 +320,7 @@ function M.get_pending_notifications(lookahead_minutes)
 
 	-- Get today's entries
 	local today_str = datetime.format_date(datetime.get_current_date(), "YYYY-MM-DD")
-	local entries = M.get_entries_for_date(today_str)
+	local entries = calendar_store.get_entries_for_date(today_str)
 
 	for _, entry in ipairs(entries) do
 		if entry.attributes.notify and entry.time then
@@ -395,7 +379,7 @@ M.get_all_entries = function()
 end
 
 M.has_entries = function(date_str)
-	local entries = M.get_entries_for_date(date_str)
+	local entries = calendar_store.get_entries_for_date(date_str)
 	return entries and #entries > 0
 end
 

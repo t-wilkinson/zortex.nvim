@@ -505,9 +505,9 @@ function DocumentManager:get_all_documents()
 end
 
 -- Setup autocmds
-function DocumentManager:setup_autocmds(opts)
+function DocumentManager:setup_autocmds()
 	local group = vim.api.nvim_create_augroup("ZortexDocumentManager", { clear = true })
-	local extensions = { "*" .. opts.extension }
+	local extensions = { "*" .. Config.extension }
 
 	-- Load buffer on read
 	vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile" }, {
@@ -562,16 +562,16 @@ function DocumentManager:setup_autocmds(opts)
 end
 
 -- Initialize
-function DocumentManager:setup(opts)
-	self:setup_autocmds(opts)
+function DocumentManager:init()
+	self:setup_autocmds()
 end
 
 -- Export singleton
 M._instance = DocumentManager
 
 -- Public API
-function M.setup(opts)
-	return M._instance:setup(opts)
+function M.init()
+	return M._instance:init()
 end
 
 function M.get_buffer(bufnr)

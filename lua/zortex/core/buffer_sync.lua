@@ -16,7 +16,7 @@ M.strategies = {
 }
 
 -- Default configuration
-local cfg = {}
+local cfg = {} -- Config.core.buffer_sync
 
 -- Pending changes queue
 local pending_changes = {} -- bufnr -> { changes }

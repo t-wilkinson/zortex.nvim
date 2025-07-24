@@ -11,27 +11,7 @@ local xp_calculator = require("zortex.utils.xp.calculator")
 -- =============================================================================
 
 -- Distribution configuration
-local distribution_rules = {
-	-- Task XP distribution
-	task = {
-		project = 1.0, -- 100% to project
-		season = 1.0, -- 100% to season
-		area = 0.1, -- 10% to each linked area
-		parent_bubble = 0.75, -- 75% bubbles to parent areas
-	},
-
-	-- Objective XP distribution
-	objective = {
-		area = 1.0, -- 100% to each linked area
-		parent_bubble = 0.75, -- 75% bubbles to parent areas
-	},
-
-	-- Daily review XP
-	daily_review = {
-		season = 1.0, -- 100% to season
-		bonus_multiplier = 1.5, -- 50% bonus for consistency
-	},
-}
+local cfg = {} -- Config.xp.distribution_rules
 
 -- =============================================================================
 -- Distribution Functions
@@ -78,7 +58,7 @@ end
 
 -- Distribute task XP
 function M._distribute_task_xp(distribution, targets)
-	local rules = distribution_rules.task
+	local rules = cfg.task
 	local base_xp = distribution.source.base_amount
 
 	-- 1. Project XP (100%)
@@ -128,7 +108,7 @@ end
 
 -- Distribute objective XP
 function M._distribute_objective_xp(distribution, targets)
-	local rules = distribution_rules.objective
+	local rules = cfg.objective
 	local base_xp = distribution.source.base_amount
 
 	-- Area XP (100% to each linked area)
@@ -152,7 +132,7 @@ end
 
 -- Distribute daily review XP
 function M._distribute_daily_review_xp(distribution, targets)
-	local rules = distribution_rules.daily_review
+	local rules = cfg.daily_review
 	local base_xp = distribution.source.base_amount
 
 	-- Apply consistency bonus if applicable
@@ -190,7 +170,9 @@ end
 -- =============================================================================
 
 -- Initialize distributor with event listeners
-function M.init()
+function M.setup(opts)
+	cfg = opts
+
 	-- Listen for XP awarded events and handle special distributions
 	EventBus.on("xp:awarded", function(data)
 		-- Handle parent area bubbling
@@ -224,7 +206,7 @@ function M._bubble_to_parent_areas(area_path, base_amount)
 		return
 	end
 
-	local bubble_amount = math.floor(base_amount * distribution_rules.task.parent_bubble)
+	local bubble_amount = math.floor(base_amount * cfg.task.parent_bubble)
 	local amount_per_parent = math.floor(bubble_amount / #parent_links)
 
 	for _, parent_path in ipairs(parent_links) do

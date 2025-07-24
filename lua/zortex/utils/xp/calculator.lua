@@ -2,7 +2,7 @@
 local M = {}
 
 -- Configuration (will be set by setup)
-local cfg = {}
+local cfg = {} -- Config.xp
 
 -- =============================================================================
 -- Level Calculations

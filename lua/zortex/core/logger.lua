@@ -4,7 +4,7 @@ local constants = require("zortex.constants")
 local M = {}
 
 -- Logger configuration
-local cfg = {}
+local cfg = {} -- Config.core.logger
 
 -- Log levels
 local levels = {

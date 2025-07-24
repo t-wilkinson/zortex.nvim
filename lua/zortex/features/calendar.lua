@@ -36,11 +36,6 @@ function M.add_entry(date_str, entry_text)
 	end
 end
 
--- Get entries for date
-function M.get_entries_for_date(date_str)
-	return CalendarService.get_entries_for_date(date_str)
-end
-
 -- =============================================================================
 -- Calendar UI Integration
 -- =============================================================================
@@ -65,7 +60,7 @@ end
 
 -- Delete entry with confirmation
 function M.delete_entry_interactive(date_str)
-	local entries = M.get_entries_for_date(date_str)
+	local entries = require("zortex.stores.calendar").get_entries_for_date(date_str)
 
 	if not entries or #entries == 0 then
 		vim.notify("No entries for " .. date_str, vim.log.levels.WARN)

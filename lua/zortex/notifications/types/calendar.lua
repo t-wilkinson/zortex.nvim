@@ -249,7 +249,7 @@ end
 
 -- Get pending notifications for a date
 function M.get_pending_for_date(date_str)
-	local entries = calendar.get_entries_for_date(date_str)
+	local entries = require("zortex.stores.calendar").get_entries_for_date(date_str)
 	local pending = {}
 
 	for _, entry in ipairs(entries) do
@@ -284,4 +284,3 @@ function M.setup(config)
 end
 
 return M
-

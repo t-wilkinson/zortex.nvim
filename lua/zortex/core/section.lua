@@ -33,9 +33,7 @@ function Section:new(opts)
 
 	-- Content
 	section.tasks = {}
-	section.links = {}
 	section.attributes = {}
-	section.tags = {}
 
 	return section
 end

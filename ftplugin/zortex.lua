@@ -1,11 +1,4 @@
 -- ftplugin/zortex.lua - Filetype-specific settings for Zortex
-local zortex = require("zortex")
-
--- Initialize folding for this buffer
--- require('zortex.core.fold').init()
-
--- Apply syntax highlighting
-require("zortex.features.highlights").highlight_buffer()
 
 -- Buffer-local options
 vim.bo.iskeyword = vim.bo.iskeyword .. ",-" -- Add dash to word characters

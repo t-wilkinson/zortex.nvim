@@ -1,48 +1,98 @@
--- ui/telescope/search.lua - Search UI using DocumentManager-based search service
+-- ui/telescope/search.lua - Search UI using independent document loading
 local M = {}
 
 local SearchService = require("zortex.services.search")
 local EventBus = require("zortex.core.event_bus")
 local fs = require("zortex.utils.filesystem")
+local highlights = require("zortex.features.highlights")
 local Config = require("zortex.config")
 
 -- =============================================================================
--- Search History (UI State)
+-- Custom Sorter with Smart Scoring
 -- =============================================================================
 
-local SearchHistory = {
-	entries = {},
-	max_entries = 50,
-}
+local function create_smart_sorter()
+	local sorters = require("telescope.sorters")
 
-function SearchHistory.add(query, selected_result)
-	table.insert(SearchHistory.entries, 1, {
-		timestamp = os.time(),
-		query = query,
-		selected_file = selected_result and selected_result.filepath,
-		selected_section = selected_result and selected_result.section.text,
-	})
+	return sorters.Sorter:new({
+		scoring_function = function(_, prompt, entry)
+			-- Entry already has a pre-calculated score from search service
+			if entry and entry.score then
+				-- Lower scores rank higher in Telescope
+				return 1000 / (entry.score + 1)
+			end
+			return 999999
+		end,
 
-	-- Limit history size
-	while #SearchHistory.entries > SearchHistory.max_entries do
-		table.remove(SearchHistory.entries)
-	end
-
-	-- Emit event
-	EventBus.emit("search:history_updated", {
-		query = query,
-		result = selected_result,
+		-- Disable highlighting since we handle it ourselves
+		highlighter = function()
+			return {}
+		end,
 	})
 end
 
 -- =============================================================================
--- Telescope Integration
+-- Breadcrumb Display with Highlights
 -- =============================================================================
 
--- Create custom previewer
+local function format_breadcrumb_display(breadcrumb)
+	if not breadcrumb or breadcrumb == "" then
+		return "Untitled"
+	end
+
+	-- Split breadcrumb by separator
+	local parts = {}
+	local current_pos = 1
+	local sep = " › "
+
+	while true do
+		local sep_start, sep_end = breadcrumb:find(sep, current_pos, true)
+		if not sep_start then
+			-- Last part
+			local part = breadcrumb:sub(current_pos)
+			if part ~= "" then
+				table.insert(parts, part)
+			end
+			break
+		else
+			-- Part before separator
+			local part = breadcrumb:sub(current_pos, sep_start - 1)
+			if part ~= "" then
+				table.insert(parts, part)
+			end
+			current_pos = sep_end + 1
+		end
+	end
+
+	-- Build display with highlights
+	local display_parts = {}
+	for i, part in ipairs(parts) do
+		if i > 1 then
+			table.insert(display_parts, { sep, "Comment" })
+		end
+
+		-- Determine highlight based on position (simplified)
+		local hl_group = "Normal"
+		if i == 1 then
+			hl_group = "Title" -- Article
+		elseif i == #parts then
+			hl_group = "Function" -- Target section
+		else
+			hl_group = "Type" -- Intermediate sections
+		end
+
+		table.insert(display_parts, { part, hl_group })
+	end
+
+	return display_parts
+end
+
+-- =============================================================================
+-- Enhanced Previewer
+-- =============================================================================
+
 local function create_zortex_previewer()
 	local previewers = require("telescope.previewers")
-	local highlights = require("zortex.features.highlights")
 
 	return previewers.new_buffer_previewer({
 		title = "Zortex Preview",
@@ -53,8 +103,6 @@ local function create_zortex_previewer()
 			end
 
 			local result = entry.value
-
-			-- Read file content
 			local lines = fs.read_lines(result.filepath)
 			if not lines then
 				return
@@ -63,14 +111,25 @@ local function create_zortex_previewer()
 			-- Set buffer content
 			vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
 
-			-- Apply Zortex highlighting
+			-- Apply highlighting and scroll to position
 			vim.schedule(function()
 				if vim.api.nvim_buf_is_valid(self.state.bufnr) then
+					-- Apply Zortex syntax highlighting
 					highlights.highlight_buffer(self.state.bufnr)
 
-					-- Highlight the target line
+					-- Highlight the target section
 					if result.section and result.section.start_line then
 						local ns_id = vim.api.nvim_create_namespace("zortex_search_highlight")
+
+						-- Highlight the entire section
+						local end_line = result.section.end_line or result.section.start_line
+						for line = result.section.start_line - 1, end_line - 1 do
+							if line < #lines then
+								vim.api.nvim_buf_add_highlight(self.state.bufnr, ns_id, "Visual", line, 0, -1)
+							end
+						end
+
+						-- Extra highlight for the section header
 						vim.api.nvim_buf_add_highlight(
 							self.state.bufnr,
 							ns_id,
@@ -80,7 +139,7 @@ local function create_zortex_previewer()
 							-1
 						)
 
-						-- Scroll to the target line
+						-- Scroll to show the section
 						vim.api.nvim_win_call(status.preview_win, function()
 							vim.fn.cursor(result.section.start_line, 1)
 							vim.cmd("normal! zz")
@@ -91,82 +150,133 @@ local function create_zortex_previewer()
 		end,
 
 		get_buffer_by_name = function(_, entry)
-			return entry.value.filepath
+			return entry.value and entry.value.filepath
 		end,
 	})
 end
 
--- Format display for telescope entry
-local function format_telescope_display(result)
-	local entry_display = require("telescope.pickers.entry_display")
+-- =============================================================================
+-- Note Creation
+-- =============================================================================
 
-	-- Build display components
-	local items = {}
-
-	-- Add breadcrumb components with proper highlighting
-	local breadcrumb_parts = vim.split(result.breadcrumb, " > ")
-	for i, part in ipairs(breadcrumb_parts) do
-		local hl_group = "Normal"
-
-		-- Determine highlight based on position/type
-		if i == 1 then
-			hl_group = "Title" -- Article
-		elseif i == #breadcrumb_parts then
-			hl_group = "Function" -- Current section
-		else
-			hl_group = "Comment" -- Parent sections
-		end
-
-		table.insert(items, { part, hl_group })
-
-		if i < #breadcrumb_parts then
-			table.insert(items, { " > ", "NonText" })
-		end
-	end
-
-	-- Add file indicator if needed
-	if result.source == "buffer" then
-		table.insert(items, { " [*]", "DiagnosticHint" })
-	end
-
-	-- Create displayer
-	local displayer = entry_display.create({
-		separator = "",
-		items = items,
-	})
-
-	return displayer(items)
-end
-
--- Create new note
-local function create_new_note(prompt_bufnr)
+local function create_new_note(prompt_bufnr, initial_text)
 	local actions = require("telescope.actions")
 	actions.close(prompt_bufnr)
 
 	-- Generate unique filename
 	local date = os.date("%Y-%m-%d")
 	local ext = Config.extension
+	math.randomseed(os.time() + os.clock() * 1000)
 
-	math.randomseed(os.time())
-	local filename
-	for i = 1, 1000 do
-		local num = string.format("%03d", math.random(0, 999))
-		filename = date .. "." .. num .. ext
+	for _ = 1, 1000 do
+		local filename = string.format("%s.%03d%s", date, math.random(0, 999), ext)
 		local filepath = fs.get_file_path(filename)
 
 		if filepath and not fs.file_exists(filepath) then
-			-- Create and open file
-			vim.cmd("edit " .. filepath)
+			vim.cmd("edit " .. vim.fn.fnameescape(filepath))
 			vim.defer_fn(function()
-				vim.api.nvim_buf_set_lines(0, 0, 0, false, { "@@" })
+				-- Set initial content
+				local lines = { "@@" }
+				if initial_text and initial_text ~= "" then
+					table.insert(lines, "")
+					table.insert(lines, initial_text)
+				end
+
+				vim.api.nvim_buf_set_lines(0, 0, 0, false, lines)
 				vim.api.nvim_win_set_cursor(0, { 1, 2 })
-				vim.cmd("startinsert")
-			end, 100)
+				vim.cmd("startinsert!")
+			end, 50)
 			return
 		end
 	end
 
 	vim.notify("Failed to create unique filename", vim.log.levels.ERROR)
+end
+
+-- =============================================================================
+-- Entry Display
+-- =============================================================================
+
+local function make_display(entry)
+	if not entry or not entry.value then
+		return ""
+	end
+
+	local result = entry.value
+	local breadcrumb = result.breadcrumb or ""
+
+	-- For empty breadcrumb, show filename
+	if breadcrumb == "" then
+		breadcrumb = vim.fn.fnamemodify(result.filepath, ":t:r")
+	end
+
+	-- Add file indicator if not current buffer
+	local current_buf = vim.api.nvim_get_current_buf()
+	local current_file = vim.api.nvim_buf_get_name(current_buf)
+
+	if result.filepath ~= current_file then
+		local filename = vim.fn.fnamemodify(result.filepath, ":t:r")
+		breadcrumb = breadcrumb .. " ← " .. filename
+	end
+
+	return breadcrumb
+end
+
+-- =============================================================================
+-- Telescope Finder
+-- =============================================================================
+
+function M.create_telescope_finder(opts)
+	local finders = require("telescope.finders")
+	local entry_display = require("telescope.pickers.entry_display")
+
+	-- Track current query for history
+	local current_query = ""
+
+	return finders.new_dynamic({
+		fn = function(prompt)
+			current_query = prompt
+			local results = SearchService.search(prompt, opts)
+
+			-- Store query in entry for history tracking
+			for _, result in ipairs(results) do
+				result._query = prompt
+			end
+
+			return results
+		end,
+
+		entry_maker = function(result)
+			if not result then
+				return nil
+			end
+
+			local breadcrumb = result.breadcrumb or ""
+			local filepath = result.filepath or ""
+
+			-- Create display string (must be non-empty)
+			local display = breadcrumb
+			if display == "" then
+				display = vim.fn.fnamemodify(filepath, ":t:r")
+			end
+
+			-- Build ordinal for fuzzy matching
+			local ordinal = breadcrumb .. " " .. filepath
+			if result.section and result.section.text then
+				ordinal = ordinal .. " " .. result.section.text
+			end
+
+			return {
+				value = result,
+				ordinal = ordinal,
+				display = display,
+				filename = filepath,
+				lnum = result.section and result.section.start_line or 1,
+				col = 1,
+				score = result.score, -- Pass through for sorter
+			}
+		end,
+	})
 end
 
 -- =============================================================================
@@ -177,130 +287,124 @@ function M.search(opts)
 	opts = opts or {}
 	opts.search_mode = opts.search_mode or SearchService.modes.SECTION
 
-	local telescope = require("telescope")
 	local pickers = require("telescope.pickers")
 	local actions = require("telescope.actions")
 	local action_state = require("telescope.actions.state")
 	local conf = require("telescope.config").values
 
-	-- Track current query for history
-	local current_query = ""
-
-	-- Create finder using search service
-	local finder = SearchService.create_telescope_finder(opts)
-
-	-- Create custom entry maker
-	finder._entry_maker = finder.entry_maker
-	finder.entry_maker = function(result)
-		local entry = finder._entry_maker(result)
-
-		-- Add custom display
-		entry.display = function()
-			return format_telescope_display(result)
-		end
-
-		return entry
-	end
-
-	-- Track query changes
-	local original_new_table = finder.new_table
-	finder.new_table = function(_, prompt)
-		current_query = prompt
-		return original_new_table(finder, prompt)
-	end
-
-	-- Create previewer
-	local previewer = create_zortex_previewer()
-
 	-- Determine prompt title
 	local prompt_title = "Zortex Search"
-	if opts.search_mode == SearchService.modes.SECTION then
-		prompt_title = "Zortex Section Search"
-	elseif opts.search_mode == SearchService.modes.ARTICLE then
+	if opts.search_mode == SearchService.modes.ARTICLE then
 		prompt_title = "Zortex Article Search"
 	elseif opts.search_mode == SearchService.modes.TASK then
 		prompt_title = "Zortex Task Search"
+	elseif opts.search_mode == SearchService.modes.ALL then
+		prompt_title = "Zortex All Search"
+	else
+		prompt_title = "Zortex Section Search"
 	end
 
 	-- Create picker
 	pickers
 		.new(opts, {
 			prompt_title = prompt_title,
-			finder = finder,
-			sorter = conf.generic_sorter(opts),
-			previewer = previewer,
+			finder = M.create_telescope_finder(opts),
+			sorter = create_smart_sorter(),
+			previewer = create_zortex_previewer(),
 			layout_strategy = "flex",
 			layout_config = {
 				flex = { flip_columns = 120 },
-				horizontal = { preview_width = 0.60 },
-				vertical = { preview_height = 0.40 },
+				horizontal = { preview_width = 0.6 },
+				vertical = { preview_height = 0.4 },
 			},
 			attach_mappings = function(bufnr, map)
-				-- Default action
+				-- Default action - open and track
 				actions.select_default:replace(function()
 					local selection = action_state.get_selected_entry()
 					if selection and selection.value then
-						-- Save to history
-						SearchHistory.add(current_query, selection.value)
+						local result = selection.value
 
-						-- Close telescope
+						-- Add to search history
+						if result._query and result.section_path then
+							SearchService.SearchHistory.add({
+								tokens = vim.split(result._query, "%s+"),
+								selected_file = result.filepath,
+								selected_section = result.section and result.section.start_line,
+								section_path = result.section_path,
+							})
+						end
+
 						actions.close(bufnr)
-
-						-- Open result
-						SearchService.open_result(selection.value)
+						SearchService.open_result(result)
 					end
 				end)
 
-				-- Create new note
+				-- Open in split/vsplit
+				local function open_in(cmd)
+					return function()
+						local selection = action_state.get_selected_entry()
+						if selection and selection.value then
+							local result = selection.value
+
+							-- Add to search history
+							if result._query and result.section_path then
+								SearchService.SearchHistory.add({
+									tokens = vim.split(result._query, "%s+"),
+									selected_file = result.filepath,
+									selected_section = result.section and result.section.start_line,
+									section_path = result.section_path,
+								})
+							end
+
+							actions.close(bufnr)
+							SearchService.open_result(result, cmd)
+						end
+					end
+				end
+
+				-- Create new note with current query
 				map({ "i", "n" }, "<C-o>", function()
-					create_new_note(bufnr)
+					local current_picker = action_state.get_current_picker(bufnr)
+					local prompt = current_picker:_get_prompt()
+					create_new_note(bufnr, prompt)
 				end)
 
-				-- Clear prompt
-				map("i", "<C-u>", function()
-					vim.api.nvim_buf_set_lines(bufnr, 0, 1, false, { "" })
-					vim.api.nvim_win_set_cursor(0, { 1, 0 })
-				end)
-
-				-- Open in split
-				map({ "i", "n" }, "<C-x>", function()
-					local selection = action_state.get_selected_entry()
-					if selection and selection.value then
-						SearchHistory.add(current_query, selection.value)
-						actions.close(bufnr)
-						SearchService.open_result(selection.value, "split")
-					end
-				end)
-
-				-- Open in vsplit
-				map({ "i", "n" }, "<C-v>", function()
-					local selection = action_state.get_selected_entry()
-					if selection and selection.value then
-						SearchHistory.add(current_query, selection.value)
-						actions.close(bufnr)
-						SearchService.open_result(selection.value, "vsplit")
-					end
-				end)
+				-- Open in splits
+				map({ "i", "n" }, "<C-x>", open_in("split"))
+				map({ "i", "n" }, "<C-v>", open_in("vsplit"))
 
 				-- Refresh cache
 				map({ "i", "n" }, "<C-r>", function()
 					SearchService.refresh_all()
 					vim.notify("Search cache refreshed", vim.log.levels.INFO)
+					-- Refresh picker
+					local current_picker = action_state.get_current_picker(bufnr)
+					current_picker:refresh(M.create_telescope_finder(opts), { reset_prompt = false })
 				end)
 
-				-- Show search stats
+				-- Show stats
 				map({ "i", "n" }, "<C-s>", function()
 					local stats = SearchService.get_stats()
-					vim.notify(vim.inspect(stats), vim.log.levels.INFO)
+					local lines = {
+						"Zortex Search Statistics:",
+						string.format("  Documents loaded: %d", stats.documents_loaded),
+						string.format("  Total sections: %d", stats.total_sections),
+						string.format("  Total tasks: %d", stats.total_tasks),
+						string.format("  Access history: %d files", stats.access_history_count),
+						string.format("  Search history: %d entries", stats.search_history_count),
+						string.format("  Search cache: %d documents", stats.cache_documents),
+					}
+					vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO)
 				end)
 
-				-- Scroll preview
-				map({ "i", "n" }, "<C-f>", function()
-					actions.preview_scrolling_down(bufnr)
-				end)
+				-- Preview scrolling
+				map({ "i", "n" }, "<C-f>", actions.preview_scrolling_down)
+				map({ "i", "n" }, "<C-b>", actions.preview_scrolling_up)
 
-				map({ "i", "n" }, "<C-b>", function()
-					actions.preview_scrolling_up(bufnr)
+				-- Clear prompt
+				map("i", "<C-u>", function()
+					vim.api.nvim_buf_set_lines(bufnr, 0, 1, false, { "" })
+					vim.api.nvim_win_set_cursor(0, { 1, 0 })
 				end)
 
 				return true
@@ -314,76 +418,94 @@ end
 -- =============================================================================
 
 function M.search_sections(opts)
-	opts = opts or {}
-	opts.search_mode = SearchService.modes.SECTION
-	M.search(opts)
+	M.search(vim.tbl_extend("force", { search_mode = SearchService.modes.SECTION }, opts or {}))
 end
 
 function M.search_articles(opts)
-	opts = opts or {}
-	opts.search_mode = SearchService.modes.ARTICLE
-	M.search(opts)
+	M.search(vim.tbl_extend("force", { search_mode = SearchService.modes.ARTICLE }, opts or {}))
 end
 
 function M.search_tasks(opts)
-	opts = opts or {}
-	opts.search_mode = SearchService.modes.TASK
-	M.search(opts)
+	M.search(vim.tbl_extend("force", { search_mode = SearchService.modes.TASK }, opts or {}))
 end
 
 function M.search_all(opts)
-	opts = opts or {}
-	opts.search_mode = SearchService.modes.ALL
-	M.search(opts)
+	M.search(vim.tbl_extend("force", { search_mode = SearchService.modes.ALL }, opts or {}))
 end
 
 -- =============================================================================
 -- Quick Search Functions
 -- =============================================================================
 
--- Search for current word
 function M.search_current_word()
 	local word = vim.fn.expand("<cword>")
 	if word and word ~= "" then
-		M.search({
-			default_text = word,
-			search_mode = SearchService.modes.SECTION,
-		})
+		M.search_sections({ default_text = word })
+	else
+		M.search_sections()
 	end
 end
 
--- Search in current file only
-function M.search_current_file()
+function M.search_current_section()
 	local bufnr = vim.api.nvim_get_current_buf()
-	local filepath = vim.api.nvim_buf_get_name(bufnr)
+	local doc = require("zortex.core.document_manager").get_buffer(bufnr)
 
-	if filepath == "" then
-		vim.notify("Current buffer has no file", vim.log.levels.WARN)
+	if not doc then
+		-- Try to load from search cache if buffer not loaded
+		local filepath = vim.api.nvim_buf_get_name(bufnr)
+		if filepath and filepath ~= "" then
+			local SearchService = require("zortex.services.search")
+			-- Force a search to populate cache
+			SearchService.search("", { search_mode = SearchService.modes.SECTION })
+		else
+			vim.notify("No Zortex document loaded", vim.log.levels.WARN)
+			return
+		end
+	end
+
+	local cursor_line = vim.api.nvim_win_get_cursor(0)[1]
+
+	if doc and doc.get_section_at_line then
+		local section = doc:get_section_at_line(cursor_line)
+		if section and section.text then
+			M.search_sections({ default_text = section.text })
+		else
+			M.search_sections()
+		end
+	else
+		-- Fallback to simple search
+		M.search_sections()
+	end
+end
+
+-- =============================================================================
+-- History UI
+-- =============================================================================
+
+function M.show_history()
+	local SearchHistory = SearchService.SearchHistory
+	if #SearchHistory.entries == 0 then
+		vim.notify("No search history", vim.log.levels.INFO)
 		return
 	end
 
-	-- This would need SearchService extension to support file filtering
-	vim.notify("Search in current file not yet implemented", vim.log.levels.INFO)
-end
-
--- =============================================================================
--- History Functions
--- =============================================================================
-
--- Show search history
-function M.show_history()
-	local lines = { "Recent Searches:" }
-
+	local lines = { "Recent Searches:", "" }
 	for i, entry in ipairs(SearchHistory.entries) do
 		if i > 20 then
 			break
 		end
 
 		local time_str = os.date("%Y-%m-%d %H:%M", entry.timestamp)
-		local line = string.format("%s - %s", time_str, entry.query or "(empty)")
+		local query = table.concat(entry.tokens or {}, " ")
+		local line = string.format("%d. [%s] %s", i, time_str, query)
 
 		if entry.selected_file then
-			line = line .. " → " .. vim.fn.fnamemodify(entry.selected_file, ":t")
+			local filename = vim.fn.fnamemodify(entry.selected_file, ":t")
+			line = line .. " → " .. filename
+
+			if entry.selected_section then
+				line = line .. ":" .. entry.selected_section
+			end
 		end
 
 		table.insert(lines, line)
@@ -392,10 +514,13 @@ function M.show_history()
 	vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO)
 end
 
--- Clear search history
-function M.clear_history()
-	SearchHistory.entries = {}
-	vim.notify("Search history cleared", vim.log.levels.INFO)
+-- =============================================================================
+-- Setup
+-- =============================================================================
+
+function M.setup(opts)
+	-- Pass options to search service
+	SearchService.setup(opts)
 end
 
 return M

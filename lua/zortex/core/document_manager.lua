@@ -504,6 +504,19 @@ function DocumentManager:get_all_documents()
 	return docs
 end
 
+-- Get a document by filepath without loading into main cache
+function DocumentManager:peek_file(filepath)
+	-- Check if already in buffers
+	for bufnr, doc in pairs(self.buffers) do
+		if doc.filepath == filepath then
+			return doc
+		end
+	end
+
+	-- Return nil - let caller handle loading
+	return nil
+end
+
 -- Setup autocmds
 function DocumentManager:setup_autocmds()
 	local group = vim.api.nvim_create_augroup("ZortexDocumentManager", { clear = true })
@@ -584,6 +597,10 @@ end
 
 function M.get_all_documents()
 	return M._instance:get_all_documents()
+end
+
+function M.peek_file(filepath)
+	return M._instance:peek_file(filepath)
 end
 
 function M.mark_buffer_dirty(bufnr, start_line, end_line)

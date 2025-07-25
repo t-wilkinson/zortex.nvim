@@ -99,10 +99,45 @@ function M.get_all_note_files()
 	local files = {}
 
 	-- Find .zortex files
-	for _, file in ipairs(M.find_files(dir, "%." .. Config.extension .. "$")) do
+	for _, file in ipairs(M.find_files(dir, "%" .. Config.extension .. "$")) do
 		table.insert(files, file)
 	end
 
+	return files
+end
+
+-- Get all note files with basic filtering
+function M.find_all_notes(filter_fn)
+	local dir = Config.notes_dir
+	local pattern = "%" .. Config.extension .. "$"
+	local files = {}
+
+	local function scan_dir(path)
+		local scandir = vim.loop.fs_scandir(path)
+		if not scandir then
+			return
+		end
+
+		while true do
+			local name, type = vim.loop.fs_scandir_next(scandir)
+			if not name then
+				break
+			end
+
+			local full_path = M.joinpath(path, name)
+
+			if type == "directory" and not name:match("^%.") then
+				-- Recursively scan subdirectories
+				scan_dir(full_path)
+			elseif type == "file" and name:match(pattern) then
+				if not filter_fn or filter_fn(full_path) then
+					table.insert(files, full_path)
+				end
+			end
+		end
+	end
+
+	scan_dir(dir)
 	return files
 end
 

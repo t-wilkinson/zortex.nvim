@@ -9,9 +9,6 @@ local constants = require("zortex.constants")
 local Config = require("zortex.config")
 local core = require("zortex.core")
 
--- UI modules
-local telescope_setup = require("zortex.ui.telescope.core")
-
 -- Features
 local highlights = require("zortex.features.highlights")
 local completion = require("zortex.features.completion")
@@ -30,15 +27,15 @@ function M.setup(opts)
 	core.setup(Config)
 
 	-- Setup features
-	highlights.setup_autocmd()
+	highlights.setup()
 	calendar.init()
 
 	-- Setup UI
 	require("zortex.ui.commands").setup(Config.commands.prefix)
 	require("zortex.ui.keymaps").setup(Config.keymaps.prefix, Config.commands.prefix)
 	require("zortex.ui.calendar_view").setup(Config.ui.calendar)
-	require("zortex.services.search").setup(Config.ui.search)
-	telescope_setup.setup()
+	require("zortex.ui.telescope.search").setup(Config.ui.search)
+	require("zortex.ui.telescope.core").setup()
 
 	-- Setup completion
 	local has_cmp, cmp = pcall(require, "cmp")

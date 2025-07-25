@@ -1,6 +1,35 @@
 -- core/event_bus.lua - Event system with priority handling and async execution
 local M = {}
 
+-- Events
+------------
+-- sed -n -e 's/.*EventBus.on("\([^"]*\)".*/\1/p' **/*.lua | sort | uniq
+-- area:xp_added
+-- buffer:synced
+-- calendar:entry_added
+-- calendar:entry_removed
+-- calendar:loaded
+-- document:changed
+-- document:parsed
+-- document:saved
+-- document:unloaded
+-- phase1:initialized
+-- task:completed
+-- task:completing
+-- task:created
+-- task:toggled
+-- task:uncompleted
+-- task:updated
+-- test:event
+-- test:middleware
+-- test:perf
+-- test:priority
+-- test:remove
+-- xp:area_level_up
+-- xp:awarded
+-- xp:distributed
+------------
+
 -- Priority queue implementation
 local PriorityQueue = {}
 PriorityQueue.__index = PriorityQueue

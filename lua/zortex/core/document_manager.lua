@@ -76,8 +76,9 @@ function Document:new(opts)
 		dirty_ranges = {}, -- { {start, end}, ... }
 
 		-- Metadata
-		article_name = "",
+		article_names = {}, -- Array of all article names (@@)
 		tags = {},
+		lines = nil, -- Store lines for searching
 
 		-- Statistics
 		stats = {
@@ -93,48 +94,82 @@ function Document:new(opts)
 	}, self)
 end
 
+-- Extract all article names from the beginning of the document
+local function extract_all_article_names(lines)
+	local names = {}
+	local code_tracker = parser.CodeBlockTracker:new()
+
+	for i = 1, math.min(10, #lines) do
+		local in_code_block = code_tracker:update(lines[i])
+		if not in_code_block then
+			local name = parser.extract_article_name(lines[i])
+			if name then
+				table.insert(names, name)
+			else
+				-- Stop when we hit a non-article line
+				break
+			end
+		end
+	end
+	return names
+end
+
 -- Parse entire document
 function Document:parse_full(lines)
 	local start_time = vim.loop.hrtime()
 	self.is_parsing = true
 
+	-- Store lines for searching
+	self.lines = lines
+
+	-- Extract all article names
+	self.article_names = extract_all_article_names(lines)
+
 	-- Build section tree
 	local builder = Section.SectionTreeBuilder:new()
 	self.line_map = {}
+
+	-- Track code blocks
+	local code_tracker = parser.CodeBlockTracker:new()
+
+	-- If we have article names, set them on the root section
+	if #self.article_names > 0 then
+		builder.root.article_names = self.article_names
+		builder.root.text = self.article_names[1] -- Use first as primary
+	end
 
 	for line_num, line in ipairs(lines) do
 		-- Update current section end
 		builder:update_current_end(line_num)
 
-		-- Create section if this line starts one
-		local section = Section.create_from_line(line, line_num)
-		if section then
-			builder:add_section(section)
+		-- Track code blocks
+		local in_code_block = code_tracker:update(line)
+
+		-- Create section if this line starts one (skip if in code block)
+		if not in_code_block then
+			local section = Section.create_from_line(line, line_num, in_code_block)
+			if section then
+				builder:add_section(section)
+			end
 		end
 
-		-- Parse tasks
-		local is_task, is_completed = parser.is_task_line(line)
-		if is_task then
-			local task_text = parser.get_task_text(line)
-			local task_attrs = attributes.parse_task_attributes(line)
+		-- Parse tasks (skip if in code block)
+		if not in_code_block then
+			local is_task, is_completed = parser.is_task_line(line)
+			if is_task then
+				local task_text = parser.get_task_text(line)
+				local task_attrs = attributes.parse_task_attributes(line)
 
-			local task = {
-				line = line_num,
-				text = task_text,
-				completed = is_completed,
-				attributes = task_attrs,
-			}
+				local task = {
+					line = line_num,
+					text = task_text,
+					completed = is_completed,
+					attributes = task_attrs,
+				}
 
-			-- Add to current section
-			local current = builder.stack[#builder.stack] or builder.root
-			table.insert(current.tasks, task)
-		end
-
-		-- Extract article name from first article title
-		if line_num <= 10 and self.article_name == "" then
-			local name = parser.extract_article_name(line)
-			if name then
-				self.article_name = name
+				-- Add to current section
+				local current = builder.stack[#builder.stack] or builder.root
+				table.insert(current.tasks, task)
 			end
 		end
 	end
@@ -282,6 +317,11 @@ function Document:get_all_tasks()
 	return self.sections:get_all_tasks()
 end
 
+-- Get primary article name (for compatibility)
+function Document:get_article_name()
+	return self.article_names[1] or ""
+end
+
 -- DocumentManager singleton
 local DocumentManager = {
 	-- Buffer documents (source of truth when buffer exists)
@@ -368,7 +408,7 @@ end
 
 -- Get document for buffer
 function DocumentManager:get_buffer(bufnr)
-	bufnr = bufnr or vim.api.nconfig.get("t_current_buf")()
+	bufnr = bufnr or vim.api.nvim_get_current_buf()
 	return self.buffers[bufnr]
 end
 
@@ -589,6 +629,10 @@ end
 
 function M.get_buffer(bufnr)
 	return M._instance:get_buffer(bufnr)
+end
+
+function M.load_buffer(bufnr)
+	return M._instance:load_buffer(bufnr, vim.api.nvim_buf_get_name(bufnr))
 end
 
 function M.get_file(filepath)

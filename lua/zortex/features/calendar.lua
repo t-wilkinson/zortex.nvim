@@ -282,8 +282,6 @@ function M.init()
 
 	-- Load calendar on startup
 	M.load()
-
-	Logger.info("calendar", "Calendar features initialized")
 end
 
 return M

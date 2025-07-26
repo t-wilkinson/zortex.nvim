@@ -92,12 +92,9 @@ end
 function M.add_entry(date_str, entry_text, opts)
 	opts = opts or {}
 
-	local stop_timer = Logger.start_timer("calendar_service.add_entry")
-
 	-- Validate date
 	local date = datetime.parse_date(date_str)
 	if not date then
-		stop_timer()
 		return nil, "Invalid date format"
 	end
 
@@ -123,10 +120,8 @@ function M.add_entry(date_str, entry_text, opts)
 			entry = entry,
 		})
 
-		stop_timer()
 		return entry
 	else
-		stop_timer()
 		return nil, "Failed to add entry"
 	end
 end

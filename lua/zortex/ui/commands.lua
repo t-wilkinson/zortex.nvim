@@ -299,86 +299,15 @@ function M.setup(prefix)
 	-- Task management
 	-- ===========================================================================
 	cmd("ToggleTask", function()
-		Core.toggle_current_task()
+		require("zortex.services.tasks").toggle_current_task()
 	end, { desc = "Toggle the task on current line" })
 
 	cmd("CompleteTask", function()
-		local bufnr = vim.api.nconfig.get("t_current_buf")()
-		local lnum = vim.api.nvim_win_get_cursor(0)[1]
-
-		-- Get document and find task
-		local doc = DocumentManager.get_buffer(bufnr)
-		if not doc then
-			vim.notify("No document found for current buffer", vim.log.levels.ERROR)
-			return
-		end
-
-		local section = doc:get_section_at_line(lnum)
-		if not section then
-			vim.notify("No section found at current line", vim.log.levels.ERROR)
-			return
-		end
-
-		-- Find task at this line
-		local task = nil
-		for _, t in ipairs(section.tasks) do
-			if t.line == lnum then
-				task = t
-				break
-			end
-		end
-
-		if not task then
-			-- Try to convert line to task
-			services.task.convert_line_to_task({ bufnr = bufnr, lnum = lnum })
-			return
-		end
-
-		-- Complete the task
-		if task.attributes and task.attributes.id then
-			services.task.complete_task(task.attributes.id, { bufnr = bufnr })
-		else
-			vim.notify("Task has no ID", vim.log.levels.ERROR)
-		end
+		require("zortex.services.tasks").complete_current_task()
 	end, { desc = "Complete the task on current line" })
 
 	cmd("UncompleteTask", function()
-		local bufnr = vim.api.nconfig.get("t_current_buf")()
-		local lnum = vim.api.nvim_win_get_cursor(0)[1]
-
-		-- Get document and find task
-		local doc = DocumentManager.get_buffer(bufnr)
-		if not doc then
-			vim.notify("No document found for current buffer", vim.log.levels.ERROR)
-			return
-		end
-
-		local section = doc:get_section_at_line(lnum)
-		if not section then
-			vim.notify("No section found at current line", vim.log.levels.ERROR)
-			return
-		end
-
-		-- Find task at this line
-		local task = nil
-		for _, t in ipairs(section.tasks) do
-			if t.line == lnum then
-				task = t
-				break
-			end
-		end
-
-		if not task or not task.completed then
-			vim.notify("No completed task at current line", vim.log.levels.WARN)
-			return
-		end
-
-		-- Uncomplete the task
-		if task.attributes and task.attributes.id then
-			services.task.uncomplete_task(task.attributes.id, { bufnr = bufnr })
-		else
-			vim.notify("Task has no ID", vim.log.levels.ERROR)
-		end
+		require("zortex.services.tasks").uncomplete_current_task()
 	end, { desc = "Uncomplete the task on current line" })
 
 	-- ===========================================================================

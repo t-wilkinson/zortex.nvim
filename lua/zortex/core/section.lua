@@ -3,6 +3,7 @@ local M = {}
 
 local constants = require("zortex.constants")
 local parser = require("zortex.utils.parser")
+local Breadcrumb = require("zortex.core.breadcrumb")
 
 -- Section class
 local Section = {}
@@ -30,6 +31,7 @@ function Section:new(opts)
 	section._path = nil
 	section._id = nil
 	section._breadcrumb = nil
+	section.breadcrumb = nil -- ???
 
 	-- Content
 	section.tasks = {}
@@ -86,6 +88,30 @@ function Section:get_breadcrumb()
 		self._breadcrumb = table.concat(parts, " > ")
 	end
 	return self._breadcrumb
+end
+
+-- Get breadcrumb object
+function Section:get_breadcrumb_obj()
+	if not self._breadcrumb_obj then
+		local path = self:get_path()
+		table.insert(path, self) -- Include self
+
+		local segments = {}
+		for _, sec in ipairs(path) do
+			if sec.text and sec.text ~= "Document Root" then
+				table.insert(segments, {
+					type = sec.type,
+					text = sec.text,
+					level = sec.level,
+					start_line = sec.start_line,
+					end_line = sec.end_line,
+				})
+			end
+		end
+
+		self._breadcrumb_obj = Breadcrumb.from_section_path(segments)
+	end
+	return self._breadcrumb_obj
 end
 
 -- Check if this section contains a line number
@@ -227,6 +253,7 @@ function SectionTreeBuilder:new()
 			end_line = 1,
 		}),
 		stack = {},
+		code_tracker = parser.CodeBlockTracker:new(),
 	}, self)
 end
 
@@ -268,8 +295,8 @@ M.Section = Section
 M.SectionTreeBuilder = SectionTreeBuilder
 
 -- Create section from parsed line
-function M.create_from_line(line, line_num)
-	local section_type = parser.detect_section_type(line)
+function M.create_from_line(line, line_num, in_code_block)
+	local section_type = parser.detect_section_type(line, in_code_block)
 
 	if section_type == constants.SECTION_TYPE.TEXT or section_type == constants.SECTION_TYPE.TAG then
 		return nil -- These don't create sections

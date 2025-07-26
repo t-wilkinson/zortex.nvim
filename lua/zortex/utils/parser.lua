@@ -20,10 +20,55 @@ function M.escape_pattern(text)
 end
 
 -- =============================================================================
+-- Code Block Detection
+-- =============================================================================
+
+local CodeBlockTracker = {}
+CodeBlockTracker.__index = CodeBlockTracker
+
+function CodeBlockTracker:new()
+	return setmetatable({
+		in_code_block = false,
+		fence_pattern = nil,
+	}, self)
+end
+
+function CodeBlockTracker:update(line)
+	-- Check for code fence (``` or ~~~)
+	local fence = line:match("^(%`%`%`+)") or line:match("^(~~~+)")
+
+	if fence then
+		if self.in_code_block and fence == self.fence_pattern then
+			-- End of code block
+			self.in_code_block = false
+			self.fence_pattern = nil
+		elseif not self.in_code_block then
+			-- Start of code block
+			self.in_code_block = true
+			self.fence_pattern = fence
+		end
+	end
+
+	return self.in_code_block
+end
+
+function CodeBlockTracker:is_in_code_block()
+	return self.in_code_block
+end
+
+-- Export for use by other modules
+M.CodeBlockTracker = CodeBlockTracker
+
+-- =============================================================================
 -- Section Detection & Parsing
 -- =============================================================================
 
-function M.detect_section_type(line)
+function M.detect_section_type(line, in_code_block)
+	-- Skip section detection if we're in a code block
+	if in_code_block then
+		return constants.SECTION_TYPE.TEXT
+	end
+
 	if not line or line == "" then
 		return constants.SECTION_TYPE.TEXT
 	end
@@ -47,8 +92,8 @@ function M.detect_section_type(line)
 	return constants.SECTION_TYPE.TEXT
 end
 
-function M.get_section_priority(line)
-	local section_type = M.detect_section_type(line)
+function M.get_section_priority(line, in_code_block)
+	local section_type = M.detect_section_type(line, in_code_block)
 	local heading_level = nil
 
 	if section_type == constants.SECTION_TYPE.HEADING then
@@ -533,14 +578,14 @@ end
 -- Sections
 -- =============================================================================
 
---  Build the section “breadcrumb” that leads to a given buffer line
+--  Build the section "breadcrumb" that leads to a given buffer line
 ---Return an ordered list of section‑objects that enclose `target_lnum`.
 ---Each element contains everything the rest of the code already expects:
----• `lnum`  – where the section starts
----• `type`  – one of constants.SECTION_TYPE.*
+---• `lnum`  – where the section starts
+---• `type`  – one of constants.SECTION_TYPE.*
 ---• `priority`– numeric hierarchy value (lower ⇒ higher level)
----• `level`  – heading level (only for `HEADING`)
----• `text`    – raw text that represents the section (article title, heading,
+---• `level`  – heading level (only for `HEADING`)
+---• `text`    – raw text that represents the section (article title, heading,
 ---               bold heading, or label)
 ---• `display` – text to show in breadcrumbs / Telescope lists
 ---@param lines        string[]  -- full buffer ‑ 1‑indexed
@@ -556,9 +601,13 @@ function M.build_section_path(lines, target_lnum)
 	local insert = table.insert
 	local remove = table.remove
 
+	-- Track code blocks
+	local code_tracker = CodeBlockTracker:new()
+
 	for lnum = 1, math.min(target_lnum, #lines) do
 		local line = lines[lnum]
-		local section_type = M.detect_section_type(line)
+		local in_code_block = code_tracker:update(line)
+		local section_type = M.detect_section_type(line, in_code_block)
 
 		-- Skip plain text / tag‑only lines
 		if section_type ~= constants.SECTION_TYPE.TEXT and section_type ~= constants.SECTION_TYPE.TAG then
@@ -622,10 +671,21 @@ function M.find_section_start(lines, start_lnum, section_type, heading_level)
 		return nil
 	end
 
+	-- Track code blocks backwards
+	local code_tracker = CodeBlockTracker:new()
+	-- First pass: determine code block state at start_lnum
+	for lnum = 1, start_lnum do
+		code_tracker:update(lines[lnum])
+	end
+
 	for lnum = start_lnum, 1, -1 do
 		local line = lines[lnum]
 		if line then
-			local line_priority = M.get_section_priority(line)
+			-- We need to track backwards for code blocks
+			-- This is a simplification - in practice you might need a more sophisticated approach
+			local in_code_block = lnum < start_lnum and code_tracker:is_in_code_block() or false
+
+			local line_priority = M.get_section_priority(line, in_code_block)
 
 			-- `get_section_priority` returns 999 for non-section lines,
 			-- so this check correctly ignores them unless a very high
@@ -653,10 +713,18 @@ function M.find_section_end(lines, start_lnum, section_type, heading_level)
 		return start_lnum
 	end
 
+	-- Track code blocks
+	local code_tracker = CodeBlockTracker:new()
+	-- First pass: determine code block state at start_lnum
+	for lnum = 1, start_lnum do
+		code_tracker:update(lines[lnum])
+	end
+
 	-- For other sections, find the next section of equal or higher priority
 	for i = start_lnum + 1, num_lines do
 		local line = lines[i]
-		local line_section_type = M.detect_section_type(line)
+		local in_code_block = code_tracker:update(line)
+		local line_section_type = M.detect_section_type(line, in_code_block)
 
 		if line_section_type ~= constants.SECTION_TYPE.TEXT and line_section_type ~= constants.SECTION_TYPE.TAG then
 			local line_heading_level = nil

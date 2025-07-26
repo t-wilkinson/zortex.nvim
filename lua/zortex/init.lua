@@ -48,53 +48,33 @@ function M.setup(opts)
 	perf_monitor.setup_commands()
 
 	if Config.debug then
-		perf_monitor.start()
+		-- perf_monitor.start()
 	end
 
+	require("zortex.core.event_bus").on("task:completed", function(data)
+		vim.notify("changing progress" .. vim.inspect(data.task), 3)
+		require("zortex.services.projects").update_project_progress(data.task.project)
+	end)
 	-- Emit setup complete
 	-- EventBus.emit("zortex:setup_complete", {
 	-- 	config = Config,
 	-- })
 end
 
--- Public API
-M.toggle_task = function()
-	require("zortex.services.tasks").toggle_task_at_line({
-		bufnr = vim.api.nconfig.get("t_current_buf")(),
-		lnum = vim.api.nvim_win_get_cursor(0)[1],
-	})
-end
+-- Public API exports
+M.task = {
+	toggle = function()
+		require("zortex.services.tasks").toggle_current_task()
+	end,
 
-M.complete_task = function()
-	local task = require("zortex.services.tasks")
-	local bufnr = vim.api.nconfig.get("t_current_buf")()
-	local lnum = vim.api.nvim_win_get_cursor(0)[1]
+	complete = function()
+		require("zortex.services.tasks").complete_current_task()
+	end,
 
-	local doc = require("zortex.core.document_manager").get_buffer(bufnr)
-	if not doc then
-		return
-	end
-
-	local section = doc:get_section_at_line(lnum)
-	if not section then
-		-- Convert to task
-		task.convert_line_to_task({ bufnr = bufnr, lnum = lnum })
-		return
-	end
-
-	-- Find task at line
-	for _, task in ipairs(section.tasks) do
-		if task.line == lnum and task.attributes and task.attributes.id then
-			if not task.completed then
-				task.complete_task(task.attributes.id, { bufnr = bufnr })
-			end
-			return
-		end
-	end
-
-	-- No task found, convert line
-	task.convert_line_to_task({ bufnr = bufnr, lnum = lnum })
-end
+	uncomplete = function()
+		require("zortex.services.tasks").uncomplete_current_task()
+	end,
+}
 
 M.search_sections = function()
 	require("zortex.ui.telescope.search").search_sections()
@@ -129,31 +109,6 @@ M.update_progress = function()
 		require("zortex.services.projects").update_all_project_progress(bufnr)
 	end
 end
-
--- Public API exports
-M.task = {
-	toggle = function()
-		local bufnr = vim.api.nconfig.get("t_current_buf")()
-		local lnum = vim.api.nvim_win_get_cursor(0)[1]
-
-		require("zortex.services.tasks").toggle_task_at_line({
-			bufnr = bufnr,
-			lnum = lnum,
-		})
-	end,
-
-	complete = function(task_id)
-		require("zortex.services.tasks").complete_task(task_id, {
-			bufnr = vim.api.nconfig.get("t_current_buf")(),
-		})
-	end,
-
-	uncomplete = function(task_id)
-		require("zortex.services.tasks").uncomplete_task(task_id, {
-			bufnr = vim.api.nconfig.get("t_current_buf")(),
-		})
-	end,
-}
 
 M.xp = {
 	overview = function()

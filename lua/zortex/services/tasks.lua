@@ -6,6 +6,8 @@ local Logger = require("zortex.core.logger")
 local buffer_sync = require("zortex.core.buffer_sync")
 local parser = require("zortex.utils.parser")
 local task_store = require("zortex.stores.tasks")
+local Breadcrumb = require("zortex.core.breadcrumb")
+local constants = require("zortex.constants")
 
 -- ID generation (moved from models/task.lua)
 local CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -67,13 +69,6 @@ function M.complete_task(task_id, context)
 	-- Calculate XP context for distribution
 	local xp_context = M._build_xp_context(task, context)
 
-	-- Emit completing event for XP calculation
-	EventBus.emit("task:completing", {
-		task = task,
-		xp_context = xp_context,
-		bufnr = context.bufnr,
-	})
-
 	-- Save task
 	task_store.update_task(task_id, task)
 
@@ -127,11 +122,13 @@ function M.uncomplete_task(task_id, context)
 	return task
 end
 
--- Toggle task at line
-function M.toggle_task_at_line(context)
+-- Change task completion at cursor line
+-- @param context table Table containing the {bufnr: int, lnum: int}
+-- @param should_complete boolean|nil nil then toggle, true to complete, false to uncomplete
+function M.change_task_completion(context, should_complete)
 	local doc = require("zortex.core.document_manager").get_buffer(context.bufnr)
 	if not doc then
-		return nil, "No document found"
+		doc = require("zortex.core.document_manager").load_buffer(context.bufnr)
 	end
 
 	local section = doc:get_section_at_line(context.lnum)
@@ -171,21 +168,32 @@ function M.toggle_task_at_line(context)
 			text = task.text,
 			completed = task.completed,
 			line = task.line,
-			project = M._find_project_for_task(doc, section),
+			project = M._find_project_for_task(dsection).text,
 			area_links = M._extract_area_links(doc, section),
 			attributes = task.attributes,
 			created_at = os.time(),
 		})
 	end
 
-	-- Toggle completion
-	if task.completed then
-		return M.uncomplete_task(task.attributes.id, context)
+	-- If nil we toggle the task status
+	if should_complete == nil then
+		-- Toggle the task completion
+		if task.completed then
+			return M.uncomplete_task(task.attributes.id, context)
+		else
+			return M.complete_task(task.attributes.id, context)
+		end
 	else
-		return M.complete_task(task.attributes.id, context)
+		-- Complete if task is not already completed
+		if should_complete == true and task.completed == false then
+			return M.complete_task(task.attributes.id, context)
+
+		-- Uncomplete if task is already completed
+		elseif should_complete == false and task.completed == true then
+			return M.uncomplete_task(task.attributes.id, context)
+		end
 	end
 end
-
 -- Convert line to task
 function M.convert_line_to_task(context)
 	local lines = vim.api.nvim_buf_get_lines(context.bufnr, context.lnum - 1, context.lnum, false)
@@ -216,11 +224,27 @@ function M.convert_line_to_task(context)
 		text = content,
 		completed = false,
 		line = context.lnum,
-		project = section and M._find_project_for_task(doc, section),
+		project = section and M._find_project_for_task(section).text,
+		project_breadcrumb = nil,
 		area_links = section and M._extract_area_links(doc, section) or {},
 		attributes = { id = task_id },
 		created_at = os.time(),
 	}
+
+	-- Add breadcrumb if we have project info
+	if section and task.project then
+		local buffer_lines = vim.api.nvim_buf_get_lines(context.bufnr, 0, -1, false)
+		local section_path = parser.build_section_path(buffer_lines, context.lnum)
+		local full_breadcrumb = Breadcrumb.from_section_path(section_path, doc.filepath)
+
+		-- Find project in breadcrumb and truncate
+		for i, segment in ipairs(full_breadcrumb.segments) do
+			if segment.type == constants.SECTION_TYPE.HEADING and segment.text == task.project then
+				task.project_breadcrumb = full_breadcrumb:truncate(i):to_link() -- Store as string
+				break
+			end
+		end
+	end
 
 	task_store.create_task(task_id, task)
 
@@ -235,7 +259,25 @@ end
 -- Build XP context for a task
 function M._build_xp_context(task, context)
 	local doc = context.bufnr and require("zortex.core.document_manager").get_buffer(context.bufnr)
-	local section = doc and task.line and doc:get_section_at_line(task.line)
+
+	-- Build breadcrumb for task location
+	local breadcrumb = nil
+	local project_breadcrumb = nil
+
+	if doc and task.line then
+		local lines = vim.api.nvim_buf_get_lines(context.bufnr, 0, -1, false)
+		local section_path = parser.build_section_path(lines, task.line)
+		breadcrumb = Breadcrumb.from_section_path(section_path, doc.filepath)
+
+		-- Find project in breadcrumb
+		for i, segment in ipairs(breadcrumb.segments) do
+			if segment.type == constants.SECTION_TYPE.HEADING then
+				-- This is the project - create a breadcrumb up to this point
+				project_breadcrumb = breadcrumb:truncate(i)
+				break
+			end
+		end
+	end
 
 	-- Calculate position within project
 	local position, total = 1, 1
@@ -246,20 +288,24 @@ function M._build_xp_context(task, context)
 	return {
 		task_id = task.id,
 		project_name = task.project,
+		project_breadcrumb = project_breadcrumb, -- Add this
 		task_position = position,
 		total_tasks = total,
 		area_links = task.area_links or {},
 		task_attributes = task.attributes,
+		breadcrumb = breadcrumb,
+		bufnr = context.bufnr,
+		filepath = doc and doc.filepath,
 	}
 end
 
 -- Find project containing task
-function M._find_project_for_task(doc, section)
+function M._find_project_for_task(section)
 	-- Walk up section tree to find project (heading)
 	local current = section
 	while current do
 		if current.type == "heading" then
-			return current.text
+			return current
 		end
 		current = current.parent
 	end
@@ -387,7 +433,7 @@ function M.process_buffer_tasks(bufnr)
 				text = task.text,
 				completed = task.completed,
 				line = task.line,
-				project = section and M._find_project_for_task(doc, section),
+				project = section and M._find_project_for_task(section).text,
 				area_links = section and M._extract_area_links(doc, section) or {},
 				attributes = task.attributes,
 				created_at = os.time(),
@@ -405,5 +451,25 @@ function M.process_buffer_tasks(bufnr)
 	return processed
 end
 
-return M
+function M.toggle_current_task()
+	M.change_task_completion({
+		bufnr = vim.api.nvim_get_current_buf(),
+		lnum = vim.api.nvim_win_get_cursor(0)[1],
+	}, nil)
+end
 
+function M.complete_current_task()
+	M.change_task_completion({
+		bufnr = vim.api.nvim_get_current_buf(),
+		lnum = vim.api.nvim_win_get_cursor(0)[1],
+	}, true)
+end
+
+function M.uncomplete_current_task()
+	M.change_task_completion({
+		bufnr = vim.api.nvim_get_current_buf(),
+		lnum = vim.api.nvim_win_get_cursor(0)[1],
+	}, false)
+end
+
+return M

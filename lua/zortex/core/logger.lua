@@ -91,6 +91,7 @@ local function log(level, category, message, data)
 
 	-- Write to file
 	write_to_file(entry)
+	vim.notify(entry, levels[level])
 
 	-- Console output for warnings and errors
 	if levels[level] >= levels.WARN then

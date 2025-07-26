@@ -1,8 +1,9 @@
 -- config.lua - Centralized configuration for Zortex
 local Config = {}
+local constants = require("zortex.constants")
 
 local defaults = {
-	notes_dir = vim.fn.expand("$HOME/.zortex") .. "/",
+	notes_dir = vim.fn.expand("~/.zortex/"),
 	extension = ".zortex",
 	special_articles = { "structure" }, -- Changes link opening behavior
 	debug = false,
@@ -25,7 +26,7 @@ local defaults = {
 		logger = {
 			enabled = false,
 			log_events = false,
-			level = "INFO",
+			level = 3, -- TRACE, DEBUG, INFO, WARN, ERROR
 			max_entries = 1000,
 			performance_threshold = 16, -- Log operations taking > 16ms
 		},
@@ -135,6 +136,23 @@ local defaults = {
 				max_entries = 50,
 				score_decay = 0.1, -- per day
 				propagation_decay = 0.7,
+			},
+			token_filters = {
+				[1] = {
+					constants.SECTION_TYPE.ARTICLE,
+					{ constants.SECTION_TYPE.HEADING, max_level = 1 },
+				},
+				[2] = {
+					constants.SECTION_TYPE.ARTICLE,
+					{ constants.SECTION_TYPE.HEADING, max_level = 3 },
+				},
+				[3] = {
+					constants.SECTION_TYPE.ARTICLE,
+					constants.SECTION_TYPE.HEADING,
+					constants.SECTION_TYPE.BOLD_HEADING,
+					constants.SECTION_TYPE.LABEL,
+				},
+				[4] = "all", -- All section types except tags
 			},
 		},
 

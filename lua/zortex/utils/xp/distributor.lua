@@ -195,8 +195,6 @@ function M.setup(opts)
 		priority = 10,
 		name = "xp_distributor.stats_tracker",
 	})
-
-	Logger.info("xp_distributor", "XP Distributor initialized")
 end
 
 -- Bubble XP to parent areas

@@ -29,24 +29,20 @@ function M.setup(opts)
 
 	-- Initialize DocumentManager
 	DocumentManager.init()
-	Logger.info("core", "DocumentManager initialized")
 
 	-- Initialize buffer sync
 	buffer_sync.setup(opts.core.buffer_sync)
-	Logger.info("core", "Buffer sync initialized")
 
 	-- Initialize XP system
 	require("zortex.utils.xp.calculator").setup(opts.xp)
 	require("zortex.utils.xp.distributor").setup(opts.xp.distribution_rules)
-	Logger.info("core", "XP initialized")
+
+	require("zortex.services.project_progress").init()
 
 	-- Initialize persistence manager
 	PersistenceManager.setup(opts.core.persistence_manager)
-	Logger.info("core", "Persistence Manager initialized")
 
 	stop_timer()
-
-	Logger.info("core", "All systems initialized")
 
 	-- Emit initialization complete event
 	EventBus.emit("core:initialized", {

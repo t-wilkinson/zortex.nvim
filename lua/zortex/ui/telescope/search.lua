@@ -2,10 +2,11 @@
 local M = {}
 
 local SearchService = require("zortex.services.search")
-local EventBus = require("zortex.core.event_bus")
 local fs = require("zortex.utils.filesystem")
 local highlights = require("zortex.features.highlights")
 local Config = require("zortex.config")
+local constants = require("zortex.constants")
+local Breadcrumb = require("zortex.core.breadcrumb")
 
 -- =============================================================================
 -- Custom Sorter with Smart Scoring
@@ -35,53 +36,38 @@ end
 -- Breadcrumb Display with Highlights
 -- =============================================================================
 
-local function format_breadcrumb_display(breadcrumb)
-	if not breadcrumb or breadcrumb == "" then
-		return "Untitled"
+local function format_breadcrumb_display(breadcrumb_obj)
+	if not breadcrumb_obj then
+		return { { "Untitled", "Comment" } }
 	end
 
-	-- Split breadcrumb by separator
-	local parts = {}
-	local current_pos = 1
+	local display_parts = {}
 	local sep = " › "
 
-	while true do
-		local sep_start, sep_end = breadcrumb:find(sep, current_pos, true)
-		if not sep_start then
-			-- Last part
-			local part = breadcrumb:sub(current_pos)
-			if part ~= "" then
-				table.insert(parts, part)
-			end
-			break
-		else
-			-- Part before separator
-			local part = breadcrumb:sub(current_pos, sep_start - 1)
-			if part ~= "" then
-				table.insert(parts, part)
-			end
-			current_pos = sep_end + 1
-		end
-	end
-
-	-- Build display with highlights
-	local display_parts = {}
-	for i, part in ipairs(parts) do
+	for i, segment in ipairs(breadcrumb_obj.segments) do
 		if i > 1 then
 			table.insert(display_parts, { sep, "Comment" })
 		end
 
-		-- Determine highlight based on position (simplified)
+		-- Determine highlight based on segment type
 		local hl_group = "Normal"
-		if i == 1 then
-			hl_group = "Title" -- Article
-		elseif i == #parts then
-			hl_group = "Function" -- Target section
-		else
-			hl_group = "Type" -- Intermediate sections
+		if segment.type == constants.SECTION_TYPE.ARTICLE then
+			hl_group = "Title"
+		elseif segment.type == constants.SECTION_TYPE.HEADING then
+			if segment.level == 1 then
+				hl_group = "ZortexHeading1"
+			elseif segment.level == 2 then
+				hl_group = "ZortexHeading2"
+			else
+				hl_group = "ZortexHeading3"
+			end
+		elseif segment.type == constants.SECTION_TYPE.BOLD_HEADING then
+			hl_group = "Bold"
+		elseif segment.type == constants.SECTION_TYPE.LABEL then
+			hl_group = "Function"
 		end
 
-		table.insert(display_parts, { part, hl_group })
+		table.insert(display_parts, { segment.text, hl_group })
 	end
 
 	return display_parts
@@ -178,12 +164,12 @@ local function create_new_note(prompt_bufnr, initial_text)
 				-- Set initial content
 				local lines = { "@@" }
 				if initial_text and initial_text ~= "" then
-					table.insert(lines, "")
-					table.insert(lines, initial_text)
+					-- Add the search text as article name
+					lines[1] = "@@" .. initial_text
 				end
 
 				vim.api.nvim_buf_set_lines(0, 0, 0, false, lines)
-				vim.api.nvim_win_set_cursor(0, { 1, 2 })
+				vim.api.nvim_win_set_cursor(0, { 1, 2 + #(initial_text or "") })
 				vim.cmd("startinsert!")
 			end, 50)
 			return
@@ -197,29 +183,44 @@ end
 -- Entry Display
 -- =============================================================================
 
-local function make_display(entry)
+local function make_display_function(entry)
 	if not entry or not entry.value then
-		return ""
+		return function()
+			return ""
+		end
 	end
 
 	local result = entry.value
-	local breadcrumb = result.breadcrumb or ""
+	local display_text = result.display_text or result.breadcrumb or ""
+	local breadcrumb_sections = result.breadcrumb_sections
 
-	-- For empty breadcrumb, show filename
-	if breadcrumb == "" then
-		breadcrumb = vim.fn.fnamemodify(result.filepath, ":t:r")
+	-- For single article names without breadcrumb, just return simple text
+	if not result.breadcrumb or result.breadcrumb == "" then
+		return function()
+			return display_text
+		end
 	end
 
-	-- Add file indicator if not current buffer
-	local current_buf = vim.api.nvim_get_current_buf()
-	local current_file = vim.api.nvim_buf_get_name(current_buf)
+	-- Format breadcrumb with highlights
+	local display_parts = format_breadcrumb_display(result.breadcrumb_obj)
 
-	if result.filepath ~= current_file then
-		local filename = vim.fn.fnamemodify(result.filepath, ":t:r")
-		breadcrumb = breadcrumb .. " ← " .. filename
+	-- Return display function
+	return function()
+		local entry_display = require("telescope.pickers.entry_display")
+		local displayer = entry_display.create({
+			separator = "",
+			items = vim.tbl_map(function(part)
+				return { width = #part[1] }
+			end, display_parts),
+		})
+
+		local display_columns = {}
+		for _, part in ipairs(display_parts) do
+			table.insert(display_columns, part)
+		end
+
+		return displayer(display_columns)
 	end
-
-	return breadcrumb
 end
 
 -- =============================================================================
@@ -228,7 +229,6 @@ end
 
 function M.create_telescope_finder(opts)
 	local finders = require("telescope.finders")
-	local entry_display = require("telescope.pickers.entry_display")
 
 	-- Track current query for history
 	local current_query = ""
@@ -251,26 +251,27 @@ function M.create_telescope_finder(opts)
 				return nil
 			end
 
-			local breadcrumb = result.breadcrumb or ""
-			local filepath = result.filepath or ""
-
-			-- Create display string (must be non-empty)
-			local display = breadcrumb
-			if display == "" then
-				display = vim.fn.fnamemodify(filepath, ":t:r")
-			end
-
 			-- Build ordinal for fuzzy matching
-			local ordinal = breadcrumb .. " " .. filepath
+			local ordinal = (result.display_text or "")
+				.. " "
+				.. (result.breadcrumb or "")
+				.. " "
+				.. (result.filepath or "")
 			if result.section and result.section.text then
 				ordinal = ordinal .. " " .. result.section.text
+			end
+			-- Add article names to ordinal
+			if result.article_names then
+				for _, name in ipairs(result.article_names) do
+					ordinal = ordinal .. " " .. name
+				end
 			end
 
 			return {
 				value = result,
 				ordinal = ordinal,
-				display = display,
-				filename = filepath,
+				display = make_display_function({ value = result }),
+				filename = result.filepath,
 				lnum = result.section and result.section.start_line or 1,
 				col = 1,
 				score = result.score, -- Pass through for sorter
@@ -454,7 +455,6 @@ function M.search_current_section()
 		-- Try to load from search cache if buffer not loaded
 		local filepath = vim.api.nvim_buf_get_name(bufnr)
 		if filepath and filepath ~= "" then
-			local SearchService = require("zortex.services.search")
 			-- Force a search to populate cache
 			SearchService.search("", { search_mode = SearchService.modes.SECTION })
 		else
@@ -521,6 +521,12 @@ end
 function M.setup(opts)
 	-- Pass options to search service
 	SearchService.setup(opts)
+
+	-- Setup highlight groups if not already defined
+	local highlights_defined = pcall(vim.api.nvim_get_hl_by_name, "ZortexHeading1", true)
+	if not highlights_defined then
+		highlights.setup_highlights()
+	end
 end
 
 return M

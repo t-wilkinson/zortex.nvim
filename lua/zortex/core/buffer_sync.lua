@@ -344,8 +344,6 @@ function M.setup(opts)
 			M.sync_all()
 		end,
 	})
-
-	Logger.info("buffer_sync", "Initialized")
 end
 
 -- Status information

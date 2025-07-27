@@ -7,6 +7,36 @@ local buffer_sync = require("zortex.core.buffer_sync")
 local attributes = require("zortex.utils.attributes")
 local fs = require("zortex.utils.filesystem")
 local constants = require("zortex.constants")
+local parser = require("zortex.utils.parser")
+
+-- Build a link to a section
+local function build_section_link(doc, section)
+	if not section then
+		return nil
+	end
+
+	local components = {}
+
+	-- Walk up the section tree to build path
+	local path = section:get_path()
+	table.insert(path, section)
+
+	for _, s in ipairs(path) do
+		if s.type == "heading" then
+			table.insert(components, "#" .. s.text)
+		elseif s.type == "label" then
+			table.insert(components, ":" .. s.text)
+		elseif s.type == "article" and s.text and s.text ~= "Document Root" then
+			table.insert(components, s.text)
+		end
+	end
+
+	if #components == 0 then
+		return nil
+	end
+
+	return "[" .. table.concat(components, "/") .. "]"
+end
 
 -- Get all projects from document
 function M.get_projects_from_document(doc)
@@ -31,6 +61,7 @@ function M.get_projects_from_document(doc)
 					completed_tasks = 0,
 					progress = 0,
 				},
+				link = build_section_link(doc, section),
 			}
 
 			-- Parse attributes
@@ -97,12 +128,12 @@ function M.get_project_at_line(bufnr, line_num)
 end
 
 -- Update project progress
-function M.update_project_progress(project)
+function M.update_project_progress(project, bufnr)
 	if not project.section or not project.section.start_line then
 		return false
 	end
 
-	local bufnr = vim.fn.bufnr(fs.get_file_path(constants.FILES.PROJECTS))
+	bufnr = bufnr or vim.fn.bufnr(fs.get_file_path(constants.FILES.PROJECTS))
 	if bufnr < 0 then
 		return false
 	end
@@ -119,8 +150,10 @@ function M.update_project_progress(project)
 
 	EventBus.emit("project:progress_updated", {
 		project = project,
+		project_link = project.link,
 		completed = completed,
 		total = total,
+		bufnr = bufnr,
 	})
 
 	return true
@@ -137,7 +170,7 @@ function M.update_all_project_progress(bufnr)
 	local updated = 0
 
 	for _, project in pairs(projects) do
-		if M.update_project_progress(project) then
+		if M.update_project_progress(project, bufnr) then
 			updated = updated + 1
 		end
 	end
@@ -167,6 +200,43 @@ function M.is_project_completed(project_name)
 	end
 
 	return false
+end
+
+-- Get project by link
+function M.get_project_by_link(link_str)
+	-- Parse link
+	local link_def = parser.parse_link_definition(link_str)
+	if not link_def or #link_def.components == 0 then
+		return nil
+	end
+
+	-- Determine which file to check based on first component
+	local filepath = constants.FILES.PROJECTS
+	if link_def.components[1].type == "article" then
+		local article_name = link_def.components[1].text
+		-- Map article names to files if needed
+		-- For now assume Projects article maps to projects file
+		if article_name ~= "Projects" then
+			return nil
+		end
+	end
+
+	-- Get document
+	local doc = DocumentManager.get_file(filepath)
+	if not doc then
+		return nil
+	end
+
+	-- Find section using link
+	local project_progress = require("zortex.services.project_progress")
+	local section = project_progress.find_section_by_link(doc, link_def)
+
+	if section and section.type == "heading" then
+		local projects = M.get_projects_from_document(doc)
+		return projects[section.text]
+	end
+
+	return nil
 end
 
 -- Get project statistics

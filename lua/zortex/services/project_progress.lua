@@ -3,32 +3,31 @@ local M = {}
 
 local EventBus = require("zortex.core.event_bus")
 local DocumentManager = require("zortex.core.document_manager")
-local Breadcrumb = require("zortex.core.breadcrumb")
 local buffer_sync = require("zortex.core.buffer_sync")
 local parser = require("zortex.utils.parser")
 local Logger = require("zortex.core.logger")
 
 -- Batch update queue
-local update_queue = {} -- project_key -> { bufnr, breadcrumb, completed_delta, total_delta }
+local update_queue = {} -- project_key -> { bufnr, project_link, completed_delta, total_delta }
 local update_timer = nil
 
 -- Generate a unique key for a project
-local function get_project_key(bufnr, breadcrumb_str)
-	return bufnr .. ":" .. breadcrumb_str
+local function get_project_key(bufnr, project_link)
+	return bufnr .. ":" .. project_link
 end
 
 -- Queue a project update
-function M.queue_project_update(bufnr, project_breadcrumb, completed_delta, total_delta)
-	if not bufnr or not project_breadcrumb then
+function M.queue_project_update(bufnr, project_link, completed_delta, total_delta)
+	if not bufnr or not project_link then
 		return
 	end
 
-	local key = get_project_key(bufnr, project_breadcrumb)
+	local key = get_project_key(bufnr, project_link)
 
 	if not update_queue[key] then
 		update_queue[key] = {
 			bufnr = bufnr,
-			breadcrumb = project_breadcrumb,
+			project_link = project_link,
 			completed_delta = 0,
 			total_delta = 0,
 		}
@@ -77,19 +76,14 @@ function M.update_single_project(update)
 		return false, "Document not found"
 	end
 
-	-- Parse breadcrumb string back to object
-	local link_def = parser.parse_link_definition(update.breadcrumb)
-	if not link_def then
-		return false, "Invalid breadcrumb"
+	-- Parse link definition
+	local link_def = parser.parse_link_definition(update.project_link)
+	if not link_def or #link_def.components == 0 then
+		return false, "Invalid project link"
 	end
 
-	local breadcrumb = Breadcrumb.from_link(link_def, doc.filepath)
-	if not breadcrumb then
-		return false, "Failed to create breadcrumb"
-	end
-
-	-- Find the project section using breadcrumb
-	local project_section = M.find_section_by_breadcrumb(doc, breadcrumb)
+	-- Find the project section using link
+	local project_section = M.find_section_by_link(doc, link_def)
 	if not project_section then
 		return false, "Project section not found"
 	end
@@ -138,7 +132,7 @@ function M.update_single_project(update)
 	buffer_sync.update_attributes(update.bufnr, project_section.start_line, attributes)
 
 	Logger.info("project_progress", "Updated project", {
-		project = breadcrumb:get_target().text,
+		project = project_section.text,
 		old_progress = current_progress,
 		new_progress = { completed = new_completed, total = new_total },
 	})
@@ -146,8 +140,8 @@ function M.update_single_project(update)
 	-- Emit event
 	EventBus.emit("project:progress_updated", {
 		bufnr = update.bufnr,
-		project_name = breadcrumb:get_target().text,
-		breadcrumb = breadcrumb,
+		project_name = project_section.text,
+		project_link = update.project_link,
 		completed = new_completed,
 		total = new_total,
 		completed_delta = update.completed_delta,
@@ -157,24 +151,46 @@ function M.update_single_project(update)
 	return true
 end
 
--- Find section in document using breadcrumb
-function M.find_section_by_breadcrumb(doc, breadcrumb)
-	if not doc.sections then
+-- Find section in document using parsed link
+function M.find_section_by_link(doc, link_def)
+	if not doc.sections or not link_def.components then
 		return nil
 	end
 
 	local current_section = doc.sections
 
-	-- Navigate through breadcrumb segments
-	for i, segment in ipairs(breadcrumb.segments) do
+	-- Navigate through link components
+	for i, component in ipairs(link_def.components) do
 		local found = false
 
-		-- Search children for matching segment
-		for _, child in ipairs(current_section.children) do
-			if child.type == segment.type and child.text == segment.text then
-				current_section = child
-				found = true
-				break
+		-- Handle different component types
+		if component.type == "article" then
+			-- For article, check if it matches document's article name
+			if i == 1 and doc.sections.article_names then
+				for _, name in ipairs(doc.sections.article_names) do
+					if name == component.text then
+						found = true
+						break
+					end
+				end
+			end
+		elseif component.type == "heading" then
+			-- Search children for matching heading
+			for _, child in ipairs(current_section.children) do
+				if child.type == "heading" and child.text == component.text then
+					current_section = child
+					found = true
+					break
+				end
+			end
+		elseif component.type == "label" then
+			-- Search children for matching label
+			for _, child in ipairs(current_section.children) do
+				if child.type == "label" and child.text == component.text then
+					current_section = child
+					found = true
+					break
+				end
 			end
 		end
 
@@ -186,14 +202,43 @@ function M.find_section_by_breadcrumb(doc, breadcrumb)
 	return current_section
 end
 
+-- Build a link to a project section
+function M.build_project_link(doc, section)
+	if not section then
+		return nil
+	end
+
+	local components = {}
+
+	-- Walk up the section tree to build path
+	local path = section:get_path()
+	table.insert(path, section)
+
+	for _, s in ipairs(path) do
+		if s.type == "heading" then
+			table.insert(components, "#" .. s.text)
+		elseif s.type == "label" then
+			table.insert(components, ":" .. s.text)
+		elseif s.type == "article" and s.text and s.text ~= "Document Root" then
+			table.insert(components, s.text)
+		end
+	end
+
+	if #components == 0 then
+		return nil
+	end
+
+	return "[" .. table.concat(components, "/") .. "]"
+end
+
 -- Initialize project progress tracking
 function M.init()
 	-- Listen for task completed events
 	EventBus.on("task:completed", function(data)
-		if data.xp_context and data.xp_context.project_breadcrumb and data.xp_context.bufnr then
+		if data.xp_context and data.xp_context.project_link and data.xp_context.bufnr then
 			M.queue_project_update(
 				data.xp_context.bufnr,
-				data.xp_context.project_breadcrumb,
+				data.xp_context.project_link,
 				1, -- completed_delta
 				0 -- total_delta (task already exists)
 			)
@@ -205,10 +250,10 @@ function M.init()
 
 	-- Listen for task uncompleted events
 	EventBus.on("task:uncompleted", function(data)
-		if data.xp_context and data.xp_context.project_breadcrumb and data.xp_context.bufnr then
+		if data.xp_context and data.xp_context.project_link and data.xp_context.bufnr then
 			M.queue_project_update(
 				data.xp_context.bufnr,
-				data.xp_context.project_breadcrumb,
+				data.xp_context.project_link,
 				-1, -- completed_delta
 				0 -- total_delta
 			)
@@ -220,10 +265,10 @@ function M.init()
 
 	-- Listen for task created events
 	EventBus.on("task:created", function(data)
-		if data.task and data.task.project_breadcrumb and data.bufnr then
+		if data.task and data.task.project_link and data.bufnr then
 			M.queue_project_update(
 				data.bufnr,
-				data.task.project_breadcrumb,
+				data.task.project_link,
 				data.task.completed and 1 or 0, -- completed_delta
 				1 -- total_delta
 			)
@@ -245,12 +290,12 @@ function M.update_all_projects(bufnr)
 	local updated = 0
 
 	for _, project in pairs(projects) do
-		-- Create breadcrumb for project
-		local breadcrumb = project.section:get_breadcrumb_obj()
-		if breadcrumb then
+		-- Create link for project
+		local project_link = M.build_project_link(doc, project.section)
+		if project_link then
 			local update = {
 				bufnr = bufnr,
-				breadcrumb = breadcrumb:to_link(),
+				project_link = project_link,
 				completed_delta = 0,
 				total_delta = 0,
 			}

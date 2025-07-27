@@ -8,7 +8,7 @@ local Logger = require("zortex.core.logger")
 local constants = require("zortex.constants")
 local parser = require("zortex.utils.parser")
 local fs = require("zortex.utils.filesystem")
-local Breadcrumb = require("zortex.core.breadcrumb")
+local Config = require("zortex.config")
 
 -- =============================================================================
 -- Search Configuration
@@ -730,19 +730,24 @@ end
 
 local function build_breadcrumb(section_path, exclude_last)
 	if not section_path or #section_path == 0 then
-		return nil
+		return "", {}
 	end
 
-	local segments = exclude_last and #section_path - 1 or #section_path
-	local path = {}
+	local parts = {}
+	local sections = {}
 
-	for i = 1, segments do
-		if section_path[i].text and section_path[i].text ~= "Document Root" then
-			table.insert(path, section_path[i])
+	-- Determine how many sections to include
+	local count = exclude_last and (#section_path - 1) or #section_path
+
+	for i = 1, count do
+		local section = section_path[i]
+		if section.text and section.text ~= "Document Root" then
+			table.insert(parts, section.text)
+			table.insert(sections, section)
 		end
 	end
 
-	return Breadcrumb.from_section_path(path)
+	return table.concat(parts, " › "), sections
 end
 
 -- =============================================================================
@@ -799,8 +804,7 @@ function M.search(query, opts)
 			end
 
 			-- Build breadcrumb
-			local breadcrumb_obj = build_breadcrumb(section_path, false)
-			local breadcrumb = breadcrumb_obj and breadcrumb_obj:to_display() or ""
+			local breadcrumb, breadcrumb_sections = build_breadcrumb(section_path, false)
 
 			local base_score = score_match(section_path, tokens, matched_tokens)
 			local access_score = AccessTracker.get_score(doc.filepath, current_time) * 50
@@ -823,7 +827,6 @@ function M.search(query, opts)
 				score = base_score + access_score + history_score,
 				breadcrumb = breadcrumb,
 				breadcrumb_sections = section_path,
-				breadcrumb_obj = breadcrumb_obj,
 				display_text = display_text,
 				filepath = doc.filepath,
 				bufnr = bufnr,

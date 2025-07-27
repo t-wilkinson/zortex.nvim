@@ -6,7 +6,6 @@ local link_resolver = require("zortex.utils.link_resolver")
 local buffer = require("zortex.utils.buffer")
 local fs = require("zortex.utils.filesystem")
 local constants = require("zortex.constants")
-local Breadcrumb = require("zortex.core.breadcrumb")
 
 -- =============================================================================
 -- External Link Handling
@@ -41,10 +40,6 @@ end
 -- Jump to location
 local function jump_to_location(location, use_target_window)
 	local target_win = use_target_window and buffer.get_target_window() or vim.api.nconfig.get("t_current_win")()
-
-	if location.breadcrumb then
-		Breadcrumb.cache:add(location.breadcrumb)
-	end
 
 	-- Load file in target window
 	local bufnr = vim.fn.bufadd(location.file)
@@ -104,13 +99,6 @@ function M.open_link()
 			return
 		elseif #results == 1 then
 			-- Single result - jump directly
-
-			-- Create breadcrumb for the result
-			local lines = fs.read_lines(results[1].file)
-			if lines then
-				local section_path = parser.build_section_path(lines, results[1].lnum)
-				results[1].breadcrumb = Breadcrumb.from_section_path(section_path, results[1].file)
-			end
 			jump_to_location(results[1], true)
 		else
 			-- Multiple results - jump to first and populate quickfix

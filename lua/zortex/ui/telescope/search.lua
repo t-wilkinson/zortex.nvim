@@ -2,11 +2,11 @@
 local M = {}
 
 local SearchService = require("zortex.services.search")
+local EventBus = require("zortex.core.event_bus")
 local fs = require("zortex.utils.filesystem")
 local highlights = require("zortex.features.highlights")
 local Config = require("zortex.config")
 local constants = require("zortex.constants")
-local Breadcrumb = require("zortex.core.breadcrumb")
 
 -- =============================================================================
 -- Custom Sorter with Smart Scoring
@@ -36,38 +36,70 @@ end
 -- Breadcrumb Display with Highlights
 -- =============================================================================
 
-local function format_breadcrumb_display(breadcrumb_obj)
-	if not breadcrumb_obj then
+local function format_breadcrumb_display(breadcrumb, breadcrumb_sections)
+	if not breadcrumb or breadcrumb == "" then
 		return { { "Untitled", "Comment" } }
 	end
 
 	local display_parts = {}
+	local parts = {}
+	local current_pos = 1
 	local sep = " › "
 
-	for i, segment in ipairs(breadcrumb_obj.segments) do
+	-- Split breadcrumb by separator
+	while true do
+		local sep_start, sep_end = breadcrumb:find(sep, current_pos, true)
+		if not sep_start then
+			-- Last part
+			local part = breadcrumb:sub(current_pos)
+			if part ~= "" then
+				table.insert(parts, part)
+			end
+			break
+		else
+			-- Part before separator
+			local part = breadcrumb:sub(current_pos, sep_start - 1)
+			if part ~= "" then
+				table.insert(parts, part)
+			end
+			current_pos = sep_end + 1
+		end
+	end
+
+	-- Build display with highlights based on section path
+	for i, part in ipairs(parts) do
 		if i > 1 then
 			table.insert(display_parts, { sep, "Comment" })
 		end
 
-		-- Determine highlight based on segment type
+		-- Determine highlight based on section type from path
 		local hl_group = "Normal"
-		if segment.type == constants.SECTION_TYPE.ARTICLE then
-			hl_group = "Title"
-		elseif segment.type == constants.SECTION_TYPE.HEADING then
-			if segment.level == 1 then
-				hl_group = "ZortexHeading1"
-			elseif segment.level == 2 then
-				hl_group = "ZortexHeading2"
-			else
-				hl_group = "ZortexHeading3"
+		if breadcrumb_sections and breadcrumb_sections[i] then
+			local section = breadcrumb_sections[i]
+			if section.type == constants.SECTION_TYPE.ARTICLE then
+				hl_group = "Title"
+			elseif section.type == constants.SECTION_TYPE.HEADING then
+				if section.level == 1 then
+					hl_group = "ZortexHeading1"
+				elseif section.level == 2 then
+					hl_group = "ZortexHeading2"
+				else
+					hl_group = "ZortexHeading3"
+				end
+			elseif section.type == constants.SECTION_TYPE.BOLD_HEADING then
+				hl_group = "Bold"
+			elseif section.type == constants.SECTION_TYPE.LABEL then
+				hl_group = "Function"
 			end
-		elseif segment.type == constants.SECTION_TYPE.BOLD_HEADING then
-			hl_group = "Bold"
-		elseif segment.type == constants.SECTION_TYPE.LABEL then
-			hl_group = "Function"
+		elseif i == 1 then
+			hl_group = "Title" -- Article
+		elseif i == #parts then
+			hl_group = "Function" -- Target section
+		else
+			hl_group = "Type" -- Intermediate sections
 		end
 
-		table.insert(display_parts, { segment.text, hl_group })
+		table.insert(display_parts, { part, hl_group })
 	end
 
 	return display_parts
@@ -202,7 +234,7 @@ local function make_display_function(entry)
 	end
 
 	-- Format breadcrumb with highlights
-	local display_parts = format_breadcrumb_display(result.breadcrumb_obj)
+	local display_parts = format_breadcrumb_display(result.breadcrumb, breadcrumb_sections)
 
 	-- Return display function
 	return function()

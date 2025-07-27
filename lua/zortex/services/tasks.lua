@@ -6,8 +6,6 @@ local Logger = require("zortex.core.logger")
 local buffer_sync = require("zortex.core.buffer_sync")
 local parser = require("zortex.utils.parser")
 local task_store = require("zortex.stores.tasks")
-local Breadcrumb = require("zortex.core.breadcrumb")
-local constants = require("zortex.constants")
 
 -- ID generation (moved from models/task.lua)
 local CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -44,6 +42,35 @@ local function generate_task_id()
 	until not task_store.task_exists(id)
 
 	return id
+end
+
+-- Build a link to a section
+local function build_section_link(doc, section)
+	if not section then
+		return nil
+	end
+
+	local components = {}
+
+	-- Walk up the section tree to build path
+	local path = section:get_path()
+	table.insert(path, section)
+
+	for _, s in ipairs(path) do
+		if s.type == "heading" then
+			table.insert(components, "#" .. s.text)
+		elseif s.type == "label" then
+			table.insert(components, ":" .. s.text)
+		elseif s.type == "article" and s.text and s.text ~= "Document Root" then
+			table.insert(components, s.text)
+		end
+	end
+
+	if #components == 0 then
+		return nil
+	end
+
+	return "[" .. table.concat(components, "/") .. "]"
 end
 
 -- Complete a task
@@ -163,12 +190,14 @@ function M.change_task_completion(context, should_complete)
 	-- Save to store if new
 	local stored_task = task_store.get_task(task.attributes.id)
 	if not stored_task then
+		local project_info = M._find_project_for_task(doc, section)
 		task_store.create_task(task.attributes.id, {
 			id = task.attributes.id,
 			text = task.text,
 			completed = task.completed,
 			line = task.line,
-			project = M._find_project_for_task(dsection).text,
+			project = project_info and project_info.text,
+			project_link = project_info and project_info.link,
 			area_links = M._extract_area_links(doc, section),
 			attributes = task.attributes,
 			created_at = os.time(),
@@ -194,6 +223,7 @@ function M.change_task_completion(context, should_complete)
 		end
 	end
 end
+
 -- Convert line to task
 function M.convert_line_to_task(context)
 	local lines = vim.api.nvim_buf_get_lines(context.bufnr, context.lnum - 1, context.lnum, false)
@@ -218,33 +248,21 @@ function M.convert_line_to_task(context)
 	local doc = require("zortex.core.document_manager").get_buffer(context.bufnr)
 	local section = doc and doc:get_section_at_line(context.lnum)
 
+	-- Get project info
+	local project_info = section and M._find_project_for_task(doc, section)
+
 	-- Create task in store
 	local task = {
 		id = task_id,
 		text = content,
 		completed = false,
 		line = context.lnum,
-		project = section and M._find_project_for_task(section).text,
-		project_breadcrumb = nil,
+		project = project_info and project_info.text,
+		project_link = project_info and project_info.link,
 		area_links = section and M._extract_area_links(doc, section) or {},
 		attributes = { id = task_id },
 		created_at = os.time(),
 	}
-
-	-- Add breadcrumb if we have project info
-	if section and task.project then
-		local buffer_lines = vim.api.nvim_buf_get_lines(context.bufnr, 0, -1, false)
-		local section_path = parser.build_section_path(buffer_lines, context.lnum)
-		local full_breadcrumb = Breadcrumb.from_section_path(section_path, doc.filepath)
-
-		-- Find project in breadcrumb and truncate
-		for i, segment in ipairs(full_breadcrumb.segments) do
-			if segment.type == constants.SECTION_TYPE.HEADING and segment.text == task.project then
-				task.project_breadcrumb = full_breadcrumb:truncate(i):to_link() -- Store as string
-				break
-			end
-		end
-	end
 
 	task_store.create_task(task_id, task)
 
@@ -260,25 +278,6 @@ end
 function M._build_xp_context(task, context)
 	local doc = context.bufnr and require("zortex.core.document_manager").get_buffer(context.bufnr)
 
-	-- Build breadcrumb for task location
-	local breadcrumb = nil
-	local project_breadcrumb = nil
-
-	if doc and task.line then
-		local lines = vim.api.nvim_buf_get_lines(context.bufnr, 0, -1, false)
-		local section_path = parser.build_section_path(lines, task.line)
-		breadcrumb = Breadcrumb.from_section_path(section_path, doc.filepath)
-
-		-- Find project in breadcrumb
-		for i, segment in ipairs(breadcrumb.segments) do
-			if segment.type == constants.SECTION_TYPE.HEADING then
-				-- This is the project - create a breadcrumb up to this point
-				project_breadcrumb = breadcrumb:truncate(i)
-				break
-			end
-		end
-	end
-
 	-- Calculate position within project
 	local position, total = 1, 1
 	if task.project and doc then
@@ -288,24 +287,26 @@ function M._build_xp_context(task, context)
 	return {
 		task_id = task.id,
 		project_name = task.project,
-		project_breadcrumb = project_breadcrumb, -- Add this
+		project_link = task.project_link,
 		task_position = position,
 		total_tasks = total,
 		area_links = task.area_links or {},
 		task_attributes = task.attributes,
-		breadcrumb = breadcrumb,
 		bufnr = context.bufnr,
-		filepath = doc and doc.filepath,
 	}
 end
 
--- Find project containing task
-function M._find_project_for_task(section)
+-- Find project containing task (returns {text, link})
+function M._find_project_for_task(doc, section)
 	-- Walk up section tree to find project (heading)
 	local current = section
 	while current do
 		if current.type == "heading" then
-			return current
+			local link = build_section_link(doc, current)
+			return {
+				text = current.text,
+				link = link,
+			}
 		end
 		current = current.parent
 	end
@@ -428,12 +429,14 @@ function M.process_buffer_tasks(bufnr)
 		local stored = task_store.get_task(task.attributes.id)
 		if not stored then
 			local section = doc:get_section_at_line(task.line)
+			local project_info = section and M._find_project_for_task(doc, section)
 			task_store.create_task(task.attributes.id, {
 				id = task.attributes.id,
 				text = task.text,
 				completed = task.completed,
 				line = task.line,
-				project = section and M._find_project_for_task(section).text,
+				project = project_info and project_info.text,
+				project_link = project_info and project_info.link,
 				area_links = section and M._extract_area_links(doc, section) or {},
 				attributes = task.attributes,
 				created_at = os.time(),

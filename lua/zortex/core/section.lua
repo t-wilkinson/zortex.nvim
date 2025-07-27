@@ -90,30 +90,6 @@ function Section:get_breadcrumb()
 	return self._breadcrumb
 end
 
--- Get breadcrumb object
-function Section:get_breadcrumb_obj()
-	if not self._breadcrumb_obj then
-		local path = self:get_path()
-		table.insert(path, self) -- Include self
-
-		local segments = {}
-		for _, sec in ipairs(path) do
-			if sec.text and sec.text ~= "Document Root" then
-				table.insert(segments, {
-					type = sec.type,
-					text = sec.text,
-					level = sec.level,
-					start_line = sec.start_line,
-					end_line = sec.end_line,
-				})
-			end
-		end
-
-		self._breadcrumb_obj = Breadcrumb.from_section_path(segments)
-	end
-	return self._breadcrumb_obj
-end
-
 -- Check if this section contains a line number
 function Section:contains_line(line_num)
 	return line_num >= self.start_line and line_num <= self.end_line

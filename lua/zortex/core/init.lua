@@ -14,10 +14,9 @@ local PersistenceManager = require("zortex.stores.persistence_manager")
 -- =============================================================================
 
 function M.setup(opts)
-	local stop_timer = Logger.start_timer("core.init")
-
-	-- Initialize logger with config
 	Logger.setup(opts.core.logger)
+
+	local stop_timer = Logger.start_timer("core.init")
 
 	-- Set up global error handler for events
 	if opts.core.logger.log_events then
@@ -27,27 +26,20 @@ function M.setup(opts)
 		end)
 	end
 
-	-- Initialize DocumentManager
 	DocumentManager.init()
-
-	-- Initialize buffer sync
 	buffer_sync.setup(opts.core.buffer_sync)
 
-	-- Initialize XP system
-	require("zortex.utils.xp.calculator").setup(opts.xp)
-	require("zortex.utils.xp.distributor").setup(opts.xp.distribution_rules)
+	-- Initialize services
+	require("zortex.services.xp").init()
+	require("zortex.services.xp.calculator").setup(opts.xp)
+	require("zortex.services.xp.distributor").setup(opts.xp.distribution_rules)
 
-	require("zortex.services.project_progress").init()
+	require("zortex.services.projects").init()
 
 	-- Initialize persistence manager
 	PersistenceManager.setup(opts.core.persistence_manager)
 
 	stop_timer()
-
-	-- Emit initialization complete event
-	EventBus.emit("core:initialized", {
-		timestamp = os.time(),
-	})
 end
 
 -- =============================================================================

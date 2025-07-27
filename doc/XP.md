@@ -1,7 +1,4 @@
-## XP system revamp: Area XP, Project XP, and Seasons
-
-Let's revamp the current xp and skill-tree system, completely overwritting them with the following...
-Continue creating/using existing crisp abstractions and keeping the code well structured and intuitive.
+Here is a precise conceptual overview of the gamified system we've designed, summarizing the core mechanics and key considerations.
 
 ### **Core System Overview**
 
@@ -20,7 +17,7 @@ The "feel" of the progression is controlled by different mathematical curves for
 - **Area XP Curve (Exponential):** To level up an Area, you use an **exponential curve** (e.g., $XP = 1000 \times \text{Level}^{2.5}$). This means each new level requires significantly more XP than the last. This models the real-world difficulty of true mastery, ensuring that high levels remain meaningful and hard-won achievements.
 
 - **Project XP Curve (Polynomial & Hybrid):** This system has two curves:
-  1.  **Seasonal Leveling:** To advance through the "Season" tiers, you use a **low-power polynomial curve** (e.g., $XP = 100 \times \text{Level}^{1.2}$). This provides a stable, predictable progression with a slight acceleration to keep it engaging over a short season.
+  1.  **Seasonal Leveling:** To advance through the seasonal "Battle Pass" tiers, you use a **low-power polynomial curve** (e.g., $XP = 100 \times \text{Level}^{1.2}$). This provides a stable, predictable progression with a slight acceleration to keep it engaging over a short season.
   2.  **Task Rewards:** To earn the XP for the season, each project follows a **3-stage hybrid reward structure**:
       - **Initiation:** The first few tasks give a large, front-loaded amount of XP (a logarithmic reward) to overcome inertia.
       - **Execution:** The main body of tasks gives a standard, flat amount of XP (a linear reward) to maintain momentum.
@@ -39,7 +36,7 @@ The "feel" of the progression is controlled by different mathematical curves for
 
 ### **Key System Mechanics**
 
-- **Area XP Bubbling (Inheritance):** This is a core feature of the Area system. When an Area gains XP, a large percentage of that XP (e.g., 75%) "bubbles up" and is also awarded to its designated `parentArea`. This process is recursive, ensuring that progress in a specific sub-skill contributes to the mastery of the broader domain. The line immediately below an objective's heading or project's heading is a space separated list of zortex-style linkes to an area node.
+- **Area XP Bubbling (Inheritance):** This is a core feature of the Area system. When an Area gains XP, a large percentage of that XP (e.g., 75%) "bubbles up" and is also awarded to its designated `parentArea`. This process is recursive, ensuring that progress in a specific sub-skill contributes to the mastery of the broader domain.
 
 - **System Integration (The 10% Rule):** The two systems are linked. When you complete a project, **10%** of the _total_ Project XP you earned from it is transferred as a bonus to its linked Area. This reinforces the idea that tactical execution (Projects) serves long-term strategy (Areas), without devaluing the primary method of Area growth (completing OKRs).
 

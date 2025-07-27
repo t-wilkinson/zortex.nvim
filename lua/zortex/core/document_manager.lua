@@ -379,7 +379,6 @@ function DocumentManager:load_file(filepath)
 	end
 
 	-- Load from file
-	local fs = require("zortex.utils.filesystem")
 	local lines = fs.read_lines(filepath)
 	if not lines then
 		return nil

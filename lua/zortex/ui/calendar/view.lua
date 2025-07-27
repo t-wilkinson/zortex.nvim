@@ -13,6 +13,7 @@ local calendar_store = require("zortex.stores.calendar")
 local fs = require("zortex.utils.filesystem")
 local calendar = require("zortex.features.calendar")
 local notifications = require("zortex.notifications")
+local calendar_service = require("zortex.services.calendar")
 
 -- =============================================================================
 -- Calendar State and cfguration
@@ -410,13 +411,13 @@ function Renderer.render_digest_view()
 	table.insert(lines, "")
 
 	-- Load necessary data
-	calendar.load()
+	calendar_service.load()
 
 	-- Show entries for today and next 7 days
 	for i = 0, cfg.digest.show_upcoming_days do
 		local date = datetime.add_days(today, i)
 		local date_str = datetime.format_date(date, "YYYY-MM-DD")
-		local entries = calendar.get_entries_for_date(date_str)
+		local entries = calendar_store.get_entries_for_date(date_str)
 
 		if #entries > 0 then
 			-- Date header
@@ -673,6 +674,41 @@ function Actions.add_entry()
 		end
 	end)
 end
+
+-- -- Delete entry with confirmation
+-- function Actions.delete_entry_interactive()
+-- 	if not CalendarState.current_date then
+-- 		vim.notify("Please select a date first", vim.log.levels.WARN)
+-- 		return
+-- 	end
+-- 	local date_str = datetime.format_date(CalendarState.current_date, "YYYY-MM-DD")
+--
+-- 	local entries = require("zortex.stores.calendar").get_entries_for_date(date_str)
+--
+-- 	if not entries or #entries == 0 then
+-- 		vim.notify("No entries for " .. date_str, vim.log.levels.WARN)
+-- 		return
+-- 	end
+--
+-- 	-- Build selection list
+-- 	local items = {}
+-- 	for i, entry in ipairs(entries) do
+-- 		table.insert(items, string.format("%d. %s", i, entry:format()))
+-- 	end
+--
+-- 	vim.ui.select(items, {
+-- 		prompt = "Select entry to delete:",
+-- 	}, function(choice, idx)
+-- 		if choice and idx then
+-- 			local success, err = CalendarService.remove_entry(date_str, idx)
+-- 			if success then
+-- 				vim.notify("Entry deleted", vim.log.levels.INFO)
+-- 			else
+-- 				vim.notify("Failed to delete entry: " .. (err or "unknown error"), vim.log.levels.ERROR)
+-- 			end
+-- 		end
+-- 	end)
+-- end
 
 function Actions.view_entries()
 	if not CalendarState.current_date then

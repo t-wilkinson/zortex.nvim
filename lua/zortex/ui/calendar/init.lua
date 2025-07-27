@@ -3,38 +3,10 @@ local M = {}
 
 local CalendarService = require("zortex.services.calendar")
 local EventBus = require("zortex.core.event_bus")
-local Logger = require("zortex.core.logger")
 local datetime = require("zortex.utils.datetime")
 local fs = require("zortex.utils.filesystem")
 local constants = require("zortex.constants")
 local Config = require("zortex.config")
-
--- =============================================================================
--- Calendar Data Access (Using Service)
--- =============================================================================
-
--- Load calendar data
-function M.load()
-	return CalendarService.load()
-end
-
--- Save calendar data
-function M.save()
-	return CalendarService.save()
-end
-
--- Add calendar entry
-function M.add_entry(date_str, entry_text)
-	local entry, err = CalendarService.add_entry(date_str, entry_text)
-
-	if entry then
-		Logger.info("calendar", "Entry added", { date = date_str })
-		return true
-	else
-		Logger.error("calendar", "Failed to add entry", { date = date_str, error = err })
-		return false
-	end
-end
 
 -- =============================================================================
 -- Calendar UI Integration
@@ -244,26 +216,6 @@ function M.goto_date(date_str)
 
 	return false
 end
-
--- =============================================================================
--- Event Listeners
--- =============================================================================
-
--- Listen for calendar changes
-EventBus.on("calendar:loaded", function(data)
-	Logger.debug("calendar", "Calendar loaded", data)
-end, {
-	priority = 30,
-	name = "calendar_features.loaded",
-})
-
-EventBus.on("calendar:entry_added", function(data)
-	-- Could trigger UI refresh here
-	Logger.debug("calendar", "Entry added", data)
-end, {
-	priority = 30,
-	name = "calendar_features.entry_added",
-})
 
 -- =============================================================================
 -- Initialization

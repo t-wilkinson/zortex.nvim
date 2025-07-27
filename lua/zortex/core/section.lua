@@ -3,7 +3,6 @@ local M = {}
 
 local constants = require("zortex.constants")
 local parser = require("zortex.utils.parser")
-local Breadcrumb = require("zortex.core.breadcrumb")
 
 -- Section class
 local Section = {}
@@ -31,7 +30,6 @@ function Section:new(opts)
 	section._path = nil
 	section._id = nil
 	section._breadcrumb = nil
-	section.breadcrumb = nil -- ???
 
 	-- Content
 	section.tasks = {}

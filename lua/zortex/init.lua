@@ -12,23 +12,21 @@ local core = require("zortex.core")
 -- Features
 local highlights = require("zortex.features.highlights")
 local completion = require("zortex.features.completion")
-local calendar = require("zortex.features.calendar")
 
 -- Initialize Zortex
 function M.setup(opts)
 	-- Merge user config
 	Config.setup(opts)
 
-	-- Ensure core zortex folders exist
-	vim.fn.mkdir(fs.joinpath(Config.notes_dir, ".z"), "p") -- Store data
-	vim.fn.mkdir(fs.joinpath(Config.notes_dir, "z"), "p") -- User library
-
 	-- Setup core systems
 	core.setup(Config)
 
 	-- Setup features
 	highlights.setup()
-	calendar.init()
+	local has_cmp, cmp = pcall(require, "cmp")
+	if has_cmp then
+		cmp.register_source("zortex", completion.new())
+	end
 
 	-- Setup UI
 	require("zortex.ui.commands").setup(Config.commands.prefix)
@@ -36,12 +34,6 @@ function M.setup(opts)
 	require("zortex.ui.calendar_view").setup(Config.ui.calendar)
 	require("zortex.ui.telescope.search").setup(Config.ui.search)
 	require("zortex.ui.telescope.core").setup()
-
-	-- Setup completion
-	local has_cmp, cmp = pcall(require, "cmp")
-	if has_cmp then
-		cmp.register_source("zortex", completion.new())
-	end
 
 	-- Setup performance monitoring
 	local perf_monitor = require("zortex.core.performance_monitor")
@@ -51,10 +43,6 @@ function M.setup(opts)
 		-- perf_monitor.start()
 	end
 
-	require("zortex.core.event_bus").on("task:completed", function(data)
-		vim.notify("changing progress" .. vim.inspect(data.task), 3)
-		require("zortex.services.projects").update_project_progress(data.task.project)
-	end)
 	-- Emit setup complete
 	-- EventBus.emit("zortex:setup_complete", {
 	-- 	config = Config,

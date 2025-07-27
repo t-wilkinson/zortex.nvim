@@ -7,18 +7,26 @@ local xp_calculator = require("zortex.utils.xp.calculator")
 local xp_store = require("zortex.stores.xp")
 local xp_distributor = require("zortex.utils.xp.distributor")
 
--- Calculate XP for a task completion
-function M.calculate_task_xp(xp_context)
-	return xp_calculator.calculate_task_xp(xp_context.task_position, xp_context.total_tasks)
-end
+-- Private helpers
+local function check_level_ups()
+	-- Check for season level up
+	local season_data = xp_store.get_season_data()
+	if season_data.current_season then
+		local old_level = season_data.season_level
+		local new_level = xp_calculator.calculate_season_level(season_data.season_xp)
 
--- Calculate XP for an objective completion
-function M.calculate_objective_xp(time_horizon, created_date)
-	return xp_calculator.calculate_objective_xp(time_horizon, created_date)
+		if new_level > old_level then
+			EventBus.emit("season:leveled_up", {
+				old_level = old_level,
+				new_level = new_level,
+				tier_info = xp_calculator.get_season_tier(new_level),
+			})
+		end
+	end
 end
 
 -- Award XP for task completion
-function M.award_task_xp(task_id, xp_amount, xp_context)
+local function award_task_xp(task_id, xp_amount, xp_context)
 	if xp_amount <= 0 then
 		return nil
 	end
@@ -43,13 +51,13 @@ function M.award_task_xp(task_id, xp_amount, xp_context)
 	})
 
 	-- Check for level ups
-	M._check_level_ups(distribution)
+	check_level_ups()
 
 	return distribution
 end
 
 -- Reverse XP for task uncomplete
-function M.reverse_task_xp(task_id, xp_context)
+local function reverse_task_xp(task_id, xp_context)
 	local task = require("zortex.stores.tasks").get_task(task_id)
 	if not task or not task.xp_awarded or task.xp_awarded <= 0 then
 		return nil
@@ -96,57 +104,10 @@ function M.reverse_task_xp(task_id, xp_context)
 	return xp_to_remove
 end
 
--- Season management
-function M.start_season(name, end_date)
-	xp_store.start_season(name, end_date)
-
-	EventBus.emit("season:started", {
-		name = name,
-		end_date = end_date,
-	})
-end
-
-function M.end_season()
-	local season_record = xp_store.end_season()
-
-	if season_record then
-		EventBus.emit("season:ended", {
-			season = season_record,
-		})
-	end
-
-	return season_record
-end
-
-function M.get_season_status()
-	local season_data = xp_store.get_season_data()
-
-	if not season_data.current_season then
-		return nil
-	end
-
-	local tier_info = xp_calculator.get_season_tier(season_data.season_level)
-	local progress = xp_calculator.get_level_progress(
-		season_data.season_xp,
-		season_data.season_level,
-		xp_calculator.calculate_season_level_xp
-	)
-
-	return {
-		season = season_data.current_season,
-		level = season_data.season_level,
-		xp = season_data.season_xp,
-		current_tier = tier_info.current,
-		next_tier = tier_info.next,
-		is_max_tier = tier_info.is_max_tier,
-		progress = progress,
-	}
-end
-
 -- Get XP statistics
 function M.get_stats()
 	local season_status = M.get_season_status()
-	local area_stats = require("zortex.services.area_service").get_area_stats()
+	local area_stats = require("zortex.services.area").get_area_stats()
 	local project_stats = {}
 
 	-- Get project stats
@@ -168,9 +129,9 @@ end
 -- Initialize service
 function M.init()
 	-- Listen for task completion events
-	EventBus.on("task:completing", function(data)
-		local xp_amount = M.calculate_task_xp(data.xp_context)
-		M.award_task_xp(data.task.attributes.id, xp_amount, data.xp_context)
+	EventBus.on("task:completed", function(data)
+		local xp_amount = xp_calculator.calculate_task_xp(data.xp_context)
+		award_task_xp(data.task.attributes.id, xp_amount, data.xp_context)
 	end, {
 		priority = 70,
 		name = "xp_service.task_handler",
@@ -178,31 +139,13 @@ function M.init()
 
 	-- Listen for task uncomplete
 	EventBus.on("task:uncompleted", function(data)
-		M.reverse_task_xp(data.task.attributes.id, data.xp_context)
+		reverse_task_xp(data.task.attributes.id, data.xp_context)
 	end, {
 		priority = 70,
 		name = "xp_service.uncomplete_handler",
 	})
 
 	Logger.info("xp_service", "XP Service initialized")
-end
-
--- Private helpers
-function M._check_level_ups(distribution)
-	-- Check for season level up
-	local season_data = xp_store.get_season_data()
-	if season_data.current_season then
-		local old_level = season_data.season_level
-		local new_level = xp_calculator.calculate_season_level(season_data.season_xp)
-
-		if new_level > old_level then
-			EventBus.emit("season:leveled_up", {
-				old_level = old_level,
-				new_level = new_level,
-				tier_info = xp_calculator.get_season_tier(new_level),
-			})
-		end
-	end
 end
 
 return M

@@ -1,4 +1,4 @@
--- services/project_progress.lua - Handles project progress updates
+-- services/projects/progress.lua - Handles project progress updates
 local M = {}
 
 local EventBus = require("zortex.core.event_bus")
@@ -11,21 +11,14 @@ local Logger = require("zortex.core.logger")
 local update_queue = {} -- project_key -> { bufnr, project_link, completed_delta, total_delta }
 local update_timer = nil
 
--- Generate a unique key for a project
-local function get_project_key(bufnr, project_link)
-	return bufnr .. ":" .. project_link
-end
-
 -- Queue a project update
 function M.queue_project_update(bufnr, project_link, completed_delta, total_delta)
 	if not bufnr or not project_link then
 		return
 	end
 
-	local key = get_project_key(bufnr, project_link)
-
-	if not update_queue[key] then
-		update_queue[key] = {
+	if not update_queue[project_link] then
+		update_queue[project_link] = {
 			bufnr = bufnr,
 			project_link = project_link,
 			completed_delta = 0,
@@ -33,8 +26,8 @@ function M.queue_project_update(bufnr, project_link, completed_delta, total_delt
 		}
 	end
 
-	update_queue[key].completed_delta = update_queue[key].completed_delta + completed_delta
-	update_queue[key].total_delta = update_queue[key].total_delta + total_delta
+	update_queue[project_link].completed_delta = update_queue[project_link].completed_delta + completed_delta
+	update_queue[project_link].total_delta = update_queue[project_link].total_delta + total_delta
 
 	-- Schedule batch update
 	if update_timer then

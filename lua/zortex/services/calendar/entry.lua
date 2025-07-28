@@ -1,14 +1,11 @@
--- models/calendar_entry.lua - Calendar entry model
+-- services/calendar_entry.lua - Calendar entry model
 local M = {}
 local M_mt = { __index = M }
 
 local Config = require("zortex.config")
-local constants = require("zortex.constants")
 local parser = require("zortex.utils.parser")
 local datetime = require("zortex.utils.datetime")
 local attributes = require("zortex.utils.attributes")
-
-local calendar_store = require("zortex.stores.calendar")
 
 -- =============================================================================
 -- Calendar Entry Creation
@@ -331,81 +328,6 @@ function M:format_simple()
 		return " [" .. table.concat(parts, " ") .. "]"
 	end
 	return ""
-end
-
--- =============================================================================
--- Calendar Entry State
--- =============================================================================
-
--- Add calendar entry
-function M.add_entry(date_str, entry_text, opts)
-	opts = opts or {}
-
-	-- Validate date
-	local date = datetime.parse_date(date_str)
-	if not date then
-		return nil, "Invalid date format"
-	end
-
-	-- Create entry
-	local entry = M.from_text(entry_text, date_str)
-
-	-- Add to store
-	local success = calendar_store.add_entry(date_str, entry_text)
-
-	if success then
-		-- Update document if it's open
-		local calendar_file = fs.get_file_path(constants.FILES.CALENDAR)
-		if calendar_file then
-			local bufnr = vim.fn.bufnr(calendar_file)
-			if bufnr > 0 and vim.api.nvim_buf_is_valid(bufnr) then
-				-- Mark for reload
-				DocumentManager.mark_buffer_dirty(bufnr, 1, -1)
-			end
-		end
-
-		EventBus.emit("calendar:entry_added", {
-			date = date_str,
-			entry = entry,
-		})
-
-		return entry
-	else
-		return nil, "Failed to add entry"
-	end
-end
-
--- Remove calendar entry
-function M.remove_entry(date_str, entry_index)
-	local entries = calendar_store.get_entries_for_date(date_str)
-
-	if not entries or entry_index < 1 or entry_index > #entries then
-		return false, "Invalid entry index"
-	end
-
-	local removed_entry = entries[entry_index]
-
-	-- Remove from store
-	if not calendar_store.data.entries[date_str] then
-		return false, "No entries for date"
-	end
-
-	table.remove(calendar_store.data.entries[date_str], entry_index)
-
-	-- Remove date if no entries left
-	if #calendar_store.data.entries[date_str] == 0 then
-		calendar_store.data.entries[date_str] = nil
-	end
-
-	-- Save
-	calendar_store.save()
-
-	EventBus.emit("calendar:entry_removed", {
-		date = date_str,
-		entry = removed_entry,
-	})
-
-	return true
 end
 
 return M

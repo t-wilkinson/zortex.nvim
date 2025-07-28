@@ -1,3 +1,5 @@
+-- services/xp/season.lua - Manage seasons
+
 local M = {}
 
 local EventBus = require("zortex.core.event_bus")

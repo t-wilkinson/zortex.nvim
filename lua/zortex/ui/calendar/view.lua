@@ -700,7 +700,7 @@ end
 -- 		prompt = "Select entry to delete:",
 -- 	}, function(choice, idx)
 -- 		if choice and idx then
--- 			local success, err = CalendarService.remove_entry(date_str, idx)
+-- 			local success, err = calendar_store.delete_entry_by_index(date_str, idx)
 -- 			if success then
 -- 				vim.notify("Entry deleted", vim.log.levels.INFO)
 -- 			else

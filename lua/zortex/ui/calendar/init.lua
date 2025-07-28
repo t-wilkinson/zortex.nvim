@@ -1,12 +1,13 @@
 -- features/calendar.lua - Calendar features using CalendarService
 local M = {}
 
-local CalendarService = require("zortex.services.calendar")
-local EventBus = require("zortex.core.event_bus")
-local datetime = require("zortex.utils.datetime")
-local fs = require("zortex.utils.filesystem")
 local constants = require("zortex.constants")
 local Config = require("zortex.config")
+local datetime = require("zortex.utils.datetime")
+local fs = require("zortex.utils.filesystem")
+local CalendarService = require("zortex.services.calendar")
+local EventBus = require("zortex.core.event_bus")
+local calendar_store = require("zortex.stores.calendar")
 
 -- =============================================================================
 -- Calendar UI Integration
@@ -49,7 +50,7 @@ function M.delete_entry_interactive(date_str)
 		prompt = "Select entry to delete:",
 	}, function(choice, idx)
 		if choice and idx then
-			local success, err = CalendarService.remove_entry(date_str, idx)
+			local success, err = calendar_store.delete_entry_by_index(date_str, idx)
 			if success then
 				vim.notify("Entry deleted", vim.log.levels.INFO)
 			else

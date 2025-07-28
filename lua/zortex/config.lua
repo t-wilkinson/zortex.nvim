@@ -412,7 +412,7 @@ function Config.setup(opts)
 	end
 
 	-- Ensure core zortex folders exist
-	local fs = require("zortex.core.filesystem")
+	local fs = require("zortex.utils.filesystem")
 	vim.fn.mkdir(fs.joinpath(Config.notes_dir, ".z"), "p") -- Store data
 	vim.fn.mkdir(fs.joinpath(Config.notes_dir, "z"), "p") -- User library
 

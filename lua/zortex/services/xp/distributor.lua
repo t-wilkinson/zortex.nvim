@@ -1,10 +1,10 @@
--- domain/xp/distributor.lua - Handles XP distribution logic and rules
+-- services/xp/distributor.lua - Handles XP distribution logic and rules
 local M = {}
 
 local EventBus = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
 local xp_store = require("zortex.stores.xp")
-local xp_calculator = require("zortex.utils.xp.calculator")
+local xp_calculator = require("zortex.services.xp.calculator")
 
 -- =============================================================================
 -- Distribution Rules

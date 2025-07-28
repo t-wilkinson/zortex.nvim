@@ -4,7 +4,9 @@ local M = {}
 local constants = require("zortex.constants")
 local datetime = require("zortex.utils.datetime")
 local fs = require("zortex.utils.filesystem")
-local CalendarEntry = require("zortex.models.calendar_entry")
+local CalendarEntry = require("zortex.services.calendar.entry")
+local EventBus = require("zortex.core.event_bus")
+local DocumentManager = require("zortex.core.document_manager")
 
 -- =============================================================================
 -- Store State
@@ -90,12 +92,20 @@ function M.ensure_loaded()
 end
 
 -- =============================================================================
--- Entry Management
+-- Single Entry Management
 -- =============================================================================
 
+-- Add calendar entry
 function M.add_entry(date_str, entry_text)
 	M.ensure_loaded()
 
+	-- Validate date
+	local date = datetime.parse_date(date_str)
+	if not date then
+		return nil, "Invalid date format"
+	end
+
+	-- Create entry
 	if not state.entries[date_str] then
 		state.entries[date_str] = {}
 	end
@@ -103,8 +113,103 @@ function M.add_entry(date_str, entry_text)
 	local entry = CalendarEntry.from_text(entry_text, date_str)
 	table.insert(state.entries[date_str], entry)
 
-	return M.save()
+	local success = M.save()
+
+	if success then
+		-- Update document if it's open
+		local calendar_file = fs.get_file_path(constants.FILES.CALENDAR)
+		if calendar_file then
+			local bufnr = vim.fn.bufnr(calendar_file)
+			if bufnr > 0 and vim.api.nvim_buf_is_valid(bufnr) then
+				-- Mark for reload
+				DocumentManager.mark_buffer_dirty(bufnr, 1, -1)
+			end
+		end
+
+		EventBus.emit("calendar:entry_added", {
+			date = date_str,
+			entry = entry,
+		})
+
+		return entry
+	else
+		return nil, "Failed to add entry"
+	end
 end
+
+-- Delete an entry
+function M.delete_entry_by_text(date_str, entry_text)
+	M.ensure_loaded()
+
+	local entries = state.entries[date_str]
+	if not entries then
+		return false
+	end
+
+	for i, entry in ipairs(entries) do
+		if entry.raw_text == entry_text then
+			table.remove(entries, i)
+			return M.save()
+		end
+	end
+
+	return false
+end
+
+function M.delete_entry_by_index(date_str, entry_index)
+	local entries = M.get_entries_for_date(date_str)
+
+	if not entries or entry_index < 1 or entry_index > #entries then
+		return false, "Invalid entry index"
+	end
+
+	local removed_entry = entries[entry_index]
+
+	-- Remove from store
+	if not state.data.entries[date_str] then
+		return false, "No entries for date"
+	end
+
+	table.remove(state.data.entries[date_str], entry_index)
+
+	-- Remove date if no entries left
+	if #state.data.entries[date_str] == 0 then
+		state.data.entries[date_str] = nil
+	end
+
+	-- Save
+	M.save()
+
+	EventBus.emit("calendar:entry_removed", {
+		date = date_str,
+		entry = removed_entry,
+	})
+
+	return true
+end
+
+-- Update an entry
+function M.update_entry(date_str, old_text, new_text)
+	M.ensure_loaded()
+
+	local entries = state.entries[date_str]
+	if not entries then
+		return false
+	end
+
+	for i, entry in ipairs(entries) do
+		if entry.raw_text == old_text then
+			entries[i] = CalendarEntry.from_text(new_text, date_str)
+			return M.save()
+		end
+	end
+
+	return false
+end
+
+-- =============================================================================
+-- Entries Management
+-- =============================================================================
 
 function M.get_entries_for_date(date_str)
 	M.ensure_loaded()
@@ -147,44 +252,6 @@ function M.get_entries_in_range(start_date, end_date)
 	end
 
 	return entries_by_date
-end
-
--- Update an entry
-function M.update_entry(date_str, old_text, new_text)
-	M.ensure_loaded()
-
-	local entries = state.entries[date_str]
-	if not entries then
-		return false
-	end
-
-	for i, entry in ipairs(entries) do
-		if entry.raw_text == old_text then
-			entries[i] = CalendarEntry.from_text(new_text, date_str)
-			return M.save()
-		end
-	end
-
-	return false
-end
-
--- Delete an entry
-function M.delete_entry(date_str, entry_text)
-	M.ensure_loaded()
-
-	local entries = state.entries[date_str]
-	if not entries then
-		return false
-	end
-
-	for i, entry in ipairs(entries) do
-		if entry.raw_text == entry_text then
-			table.remove(entries, i)
-			return M.save()
-		end
-	end
-
-	return false
 end
 
 -- Get all entries (for search/telescope)

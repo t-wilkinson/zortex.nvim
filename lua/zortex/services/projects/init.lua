@@ -1,4 +1,4 @@
--- services/projects.lua - Project management service using DocumentManager
+-- services/projects/init.lua - Project management service using DocumentManager
 local M = {}
 
 local EventBus = require("zortex.core.event_bus")

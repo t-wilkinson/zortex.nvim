@@ -1,4 +1,4 @@
--- domain/xp/core.lua - Core XP calculations and formulas
+-- services/xp/calculator.lua - Core XP calculations and formulas
 local M = {}
 
 -- Configuration (will be set by setup)

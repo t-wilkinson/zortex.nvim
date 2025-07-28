@@ -34,7 +34,7 @@ function M.setup(opts)
 	require("zortex.services.xp.calculator").setup(opts.xp)
 	require("zortex.services.xp.distributor").setup(opts.xp.distribution_rules)
 
-	require("zortex.services.projects").init()
+	require("zortex.services.projects.progress").init()
 
 	-- Initialize persistence manager
 	PersistenceManager.setup(opts.core.persistence_manager)

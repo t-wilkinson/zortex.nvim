@@ -1,4 +1,4 @@
--- core/filesystem.lua - File operations for Zortex
+-- utils/filesystem.lua - File operations for Zortex
 local M = {}
 
 local constants = require("zortex.constants")

@@ -409,14 +409,14 @@ local Syntax = {
 				regex = "@%w+%(.-%)",
 				condition = function(line)
 					-- Only on lines with headings or tasks
-					return line:match("^#") or line:match("^%s*-%s*%[.?%]")
+					return line:match("^#") or line:match("^%s*-%s*")
 				end,
 			},
 			{
 				regex = "@%w+",
 				condition = function(line, match)
 					-- Only on lines with headings or tasks, and not followed by (
-					return (line:match("^#") or line:match("^%s*-%s*%[.?%]"))
+					return (line:match("^#") or line:match("^%s*-%s*"))
 						and not line:sub(match.end_col + 1, match.end_col + 1):match("%(")
 				end,
 			},

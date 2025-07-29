@@ -1,6 +1,7 @@
 -- stores/calendar.lua - Calendar store using entry models
 local M = {}
 
+local Logger = require("zortex.core.logger")
 local constants = require("zortex.constants")
 local datetime = require("zortex.utils.datetime")
 local fs = require("zortex.utils.filesystem")
@@ -24,6 +25,7 @@ local state = {
 function M.load()
 	local path = fs.get_calendar_file()
 	if not path or not fs.file_exists(path) then
+		Logger.error("calendar.load", "Could not find file")
 		state.loaded = true
 		return false
 	end

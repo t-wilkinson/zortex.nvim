@@ -154,9 +154,6 @@ function Renderer.render_month_view(date)
 	table.insert(lines, left_pad_str .. MARGIN_STR .. table.concat(day_header_parts, ""))
 	table.insert(lines, "")
 
-	-- Load calendar data
-	calendar_store.load()
-
 	-- Build calendar grid
 	local days_in_month = datetime.get_days_in_month(date.year, date.month)
 	local first_weekday = datetime.get_first_weekday(date.year, date.month)
@@ -408,9 +405,6 @@ function Renderer.render_digest_view()
 	})
 	table.insert(lines, string.rep("─", win_width))
 	table.insert(lines, "")
-
-	-- Load necessary data
-	calendar_store.load()
 
 	-- Show entries for today and next 7 days
 	for i = 0, cfg.digest.show_upcoming_days do
@@ -876,7 +870,8 @@ end
 -- =============================================================================
 
 function M.open()
-	calendar_store.ensure_loaded()
+	calendar_store.load()
+
 	if CalendarState.win_id and api.nvim_win_is_valid(CalendarState.win_id) then
 		api.nvim_set_current_win(CalendarState.win_id)
 		return
@@ -946,6 +941,7 @@ function M.toggle()
 end
 
 function M.open_digest()
+	calendar_store.load()
 	M.open()
 	Actions.show_digest()
 end

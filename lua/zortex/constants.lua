@@ -84,7 +84,6 @@ M.PATTERNS = {
 	HEADING = "^(#+)%s+(.+)",
 	HEADING_LEVEL = "^(#+)",
 	BOLD_HEADING = "^%*%*([^*]+)%*%*:?%s*$",
-	BOLD_HEADING_ALT = "^__([^_]+)__:?%s*$",
 	LABEL = "^([^:]+):$",
 	TAG_LINE = "^@%w+",
 
@@ -111,7 +110,7 @@ M.PATTERNS = {
 	DATETIME_YMD = "(%d%d%d%d%-%d%d?%-%d%d?)%s+(%d%d?:%d%d)",
 
 	-- calendar.zortex
-	CALENDAR_DATE_HEADING = "^(%d%d)%-(%d%d)%-(%d%d%d%d):$",
+	CALENDAR_DATE_HEADING = "^(%d%d%d%d)-(%d%d)%-(%d%d)%:$",
 	CALENDAR_ENTRY_PREFIX = "^%s+%-? (.+)$",
 	CALENDAR_TIME_PREFIX = "^(%d%d?:%d%d)%s+(.+)$",
 	CALENDAR_TIME_RANGE = "^(%d%d?:%d%d)%-(%d%d?:%d%d)%s+(.+)$",
@@ -188,6 +187,13 @@ M.HIGHLIGHTS = {
 	-- XP
 	XP_GAIN = "ZortexXPGain",
 	XP_LEVEL = "ZortexXPLevel",
+}
+
+M.SEARCH_MODES = {
+	SECTION = "section",
+	ARTICLE = "article",
+	TASK = "task",
+	ALL = "all",
 }
 
 return M

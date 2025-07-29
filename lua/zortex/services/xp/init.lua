@@ -1,7 +1,7 @@
 -- services/xp/init.lua - Service for XP orchestration and calculation
 local M = {}
 
-local EventBus = require("zortex.core.event_bus")
+local Events = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
 local xp_calculator = require("zortex.services.xp.calculator")
 local xp_store = require("zortex.stores.xp")
@@ -25,7 +25,7 @@ local function award_task_xp(task_id, xp_amount, xp_context)
 	})
 
 	-- Emit XP awarded event
-	EventBus.emit("xp:awarded", {
+	Events.emit("xp:awarded", {
 		source = "task",
 		task_id = task_id,
 		amount = xp_amount,
@@ -77,7 +77,7 @@ local function reverse_task_xp(task_id, xp_context)
 		end
 	end
 
-	EventBus.emit("xp:reversed", {
+	Events.emit("xp:reversed", {
 		source = "task",
 		task_id = task_id,
 		amount = xp_to_remove,
@@ -111,7 +111,7 @@ end
 -- Initialize service
 function M.init()
 	-- Listen for task completion events
-	EventBus.on("task:completed", function(data)
+	Events.on("task:completed", function(data)
 		local xp_amount = xp_calculator.calculate_task_xp(data.xp_context)
 		award_task_xp(data.task.attributes.id, xp_amount, data.xp_context)
 	end, {
@@ -120,7 +120,7 @@ function M.init()
 	})
 
 	-- Listen for task uncomplete
-	EventBus.on("task:uncompleted", function(data)
+	Events.on("task:uncompleted", function(data)
 		reverse_task_xp(data.task.attributes.id, data.xp_context)
 	end, {
 		priority = 70,
@@ -139,7 +139,7 @@ function M.check_level_ups()
 		local new_level = xp_calculator.calculate_season_level(season_data.season_xp)
 
 		if new_level > old_level then
-			EventBus.emit("season:leveled_up", {
+			Events.emit("season:leveled_up", {
 				old_level = old_level,
 				new_level = new_level,
 				tier_info = xp_calculator.get_season_tier(new_level),

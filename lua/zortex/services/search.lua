@@ -1,31 +1,19 @@
 -- services/search.lua - Search service with improved hierarchical matching
 local M = {}
 
-local DocumentManager = require("zortex.core.document_manager")
+local Doc = require("zortex.core.document_manager")
 local Section = require("zortex.core.section")
-local EventBus = require("zortex.core.event_bus")
+local Events = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
 local constants = require("zortex.constants")
 local parser = require("zortex.utils.parser")
 local fs = require("zortex.utils.filesystem")
-local Config = require("zortex.config")
 
 -- =============================================================================
 -- Search Configuration
 -- =============================================================================
 
 local cfg = {} -- Config.ui.search
-
--- =============================================================================
--- Search Modes
--- =============================================================================
-
-M.modes = {
-	SECTION = "section",
-	ARTICLE = "article",
-	TASK = "task",
-	ALL = "all",
-}
 
 -- =============================================================================
 -- File Modification Cache
@@ -175,8 +163,8 @@ end
 
 -- Load or get cached document for search
 function SearchDocumentCache:get_document(filepath)
-	-- Check if document is open in buffer - prefer DocumentManager version
-	local dm = DocumentManager._instance
+	-- Check if document is open in buffer - prefer Doc version
+	local dm = Doc._instance
 	if dm then
 		for bufnr, doc in pairs(dm.buffers) do
 			if doc.filepath == filepath then
@@ -214,7 +202,7 @@ function SearchDocumentCache:get_all_documents()
 	local seen = {}
 
 	-- First, add all buffer documents (source of truth)
-	local dm = DocumentManager._instance
+	local dm = Doc._instance
 	if dm then
 		for bufnr, doc in pairs(dm.buffers) do
 			if doc.filepath then
@@ -449,19 +437,19 @@ local function section_matches_mode(section, mode)
 		return false
 	end
 
-	if mode == M.modes.ALL then
+	if mode == constants.SEARCH_MODES.ALL then
 		return true
 	end
-	if mode == M.modes.ARTICLE then
+	if mode == constants.SEARCH_MODES.ARTICLE then
 		return section.type == constants.SECTION_TYPE.ARTICLE
 	end
-	if mode == M.modes.SECTION then
+	if mode == constants.SEARCH_MODES.SECTION then
 		return section.type == constants.SECTION_TYPE.ARTICLE
 			or section.type == constants.SECTION_TYPE.HEADING
 			or section.type == constants.SECTION_TYPE.BOLD_HEADING
 			or section.type == constants.SECTION_TYPE.LABEL
 	end
-	if mode == M.modes.TASK then
+	if mode == constants.SEARCH_MODES.TASK then
 		local tasks = section.tasks or {}
 		return #tasks > 0
 	end
@@ -756,7 +744,7 @@ end
 
 function M.search(query, opts)
 	opts = opts or {}
-	local search_mode = opts.search_mode or M.modes.SECTION
+	local search_mode = opts.search_mode or constants.SEARCH_MODES.SECTION
 	local stop_timer = Logger.start_timer("search_service.search")
 	local tokens = parse_tokens(query)
 	local current_time = os.time()
@@ -847,7 +835,7 @@ function M.search(query, opts)
 		file_count = #all_docs,
 	})
 
-	EventBus.emit("search:completed", {
+	Events.emit("search:completed", {
 		query = query,
 		result_count = #all_results,
 	})
@@ -888,7 +876,7 @@ function M.open_result(result, cmd)
 		vim.cmd("normal! zz")
 	end
 
-	EventBus.emit("search:result_opened", {
+	Events.emit("search:result_opened", {
 		filepath = result.filepath,
 		section = result.section,
 	})
@@ -926,15 +914,15 @@ function M.refresh_all()
 	-- Clear search cache
 	SearchDocumentCache:clear()
 
-	-- Force reload all buffer documents in DocumentManager
-	local dm = DocumentManager._instance
+	-- Force reload all buffer documents in Doc
+	local dm = Doc._instance
 	if dm then
 		for bufnr, _ in pairs(dm.buffers) do
 			dm:reparse_buffer(bufnr)
 		end
 	end
 
-	EventBus.emit("search:cache_refreshed")
+	Events.emit("search:cache_refreshed")
 	stop_timer()
 end
 

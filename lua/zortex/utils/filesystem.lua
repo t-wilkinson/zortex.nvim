@@ -145,6 +145,10 @@ end
 -- Special File Access
 -- =============================================================================
 
+function M.get_calendar_file()
+	return M.get_file_path(constants.FILES.CALENDAR)
+end
+
 function M.get_projects_file()
 	return M.get_file_path(constants.FILES.PROJECTS)
 end

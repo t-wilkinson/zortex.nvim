@@ -1,8 +1,8 @@
--- services/projects/init.lua - Project management service using DocumentManager
+-- services/projects/init.lua - Project management service using Doc
 local M = {}
 
-local EventBus = require("zortex.core.event_bus")
-local DocumentManager = require("zortex.core.document_manager")
+local Events = require("zortex.core.event_bus")
+local Doc = require("zortex.core.document_manager")
 local buffer_sync = require("zortex.core.buffer_sync")
 local attributes = require("zortex.utils.attributes")
 local fs = require("zortex.utils.filesystem")
@@ -97,7 +97,7 @@ end
 
 -- Get all projects
 function M.get_all_projects()
-	local doc = DocumentManager.get_file(constants.FILES.PROJECTS)
+	local doc = Doc.get_file(constants.FILES.PROJECTS)
 
 	if not doc then
 		return {}
@@ -108,7 +108,7 @@ end
 
 -- Get project at line
 function M.get_project_at_line(bufnr, line_num)
-	local doc = DocumentManager.get_buffer(bufnr)
+	local doc = Doc.get_buffer(bufnr)
 	if not doc then
 		return nil
 	end
@@ -148,7 +148,7 @@ function M.update_project_progress(project, bufnr)
 		done = (completed == total and total > 0) and os.date("%Y-%m-%d") or nil,
 	})
 
-	EventBus.emit("project:progress_updated", {
+	Events.emit("project:progress_updated", {
 		project = project,
 		project_link = project.link,
 		completed = completed,
@@ -161,7 +161,7 @@ end
 
 -- Update all projects in document
 function M.update_all_project_progress(bufnr)
-	local doc = DocumentManager.get_buffer(bufnr)
+	local doc = Doc.get_buffer(bufnr)
 	if not doc then
 		return 0
 	end
@@ -189,7 +189,7 @@ function M.is_project_completed(project_name)
 	end
 
 	-- Check archive
-	local archive_doc = DocumentManager.get_file(constants.FILES.PROJECTS_ARCHIVE)
+	local archive_doc = Doc.get_file(constants.FILES.PROJECTS_ARCHIVE)
 
 	if archive_doc then
 		local archived = M.get_projects_from_document(archive_doc)
@@ -222,7 +222,7 @@ function M.get_project_by_link(link_str)
 	end
 
 	-- Get document
-	local doc = DocumentManager.get_file(filepath)
+	local doc = Doc.get_file(filepath)
 	if not doc then
 		return nil
 	end
@@ -276,7 +276,7 @@ function M.get_all_stats()
 	end
 
 	-- Add archived count
-	local archive_doc = DocumentManager.get_file(constants.FILES.PROJECTS_ARCHIVE)
+	local archive_doc = Doc.get_file(constants.FILES.PROJECTS_ARCHIVE)
 	if archive_doc then
 		local archived = M.get_projects_from_document(archive_doc)
 		stats.archived_projects = vim.tbl_count(archived)

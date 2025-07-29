@@ -1,7 +1,7 @@
 -- core/document_manager.lua - Document cache and parsing with buffer integration
 local M = {}
 
-local EventBus = require("zortex.core.event_bus")
+local Events = require("zortex.core.event_bus")
 local Section = require("zortex.core.section")
 local parser = require("zortex.utils.parser")
 local attributes = require("zortex.utils.attributes")
@@ -43,7 +43,7 @@ function LRU:set(key, value)
 		if #self.order > self.max_items then
 			local evicted_key = table.remove(self.order)
 			self.items[evicted_key] = nil
-			EventBus.emit("document:evicted", { filepath = evicted_key })
+			Events.emit("document:evicted", { filepath = evicted_key })
 		end
 	end
 end
@@ -206,7 +206,7 @@ function Document:parse_full(lines)
 	local parse_time = (vim.loop.hrtime() - start_time) / 1e6
 	self.stats.parse_time = parse_time
 
-	EventBus.emit("document:parsed", {
+	Events.emit("document:parsed", {
 		document = self,
 		parse_time = parse_time,
 		full_parse = true,
@@ -230,7 +230,7 @@ function Document:parse_incremental(lines)
 
 	local parse_time = (vim.loop.hrtime() - start_time) / 1e6
 
-	EventBus.emit("document:parsed", {
+	Events.emit("document:parsed", {
 		document = self,
 		parse_time = parse_time,
 		full_parse = false,
@@ -322,8 +322,8 @@ function Document:get_article_name()
 	return self.article_names[1] or ""
 end
 
--- DocumentManager singleton
-local DocumentManager = {
+-- Doc singleton
+local Doc = {
 	-- Buffer documents (source of truth when buffer exists)
 	buffers = {},
 
@@ -338,7 +338,7 @@ local DocumentManager = {
 }
 
 -- Load document from buffer
-function DocumentManager:load_buffer(bufnr, filepath)
+function Doc:load_buffer(bufnr, filepath)
 	if self.buffers[bufnr] then
 		return self.buffers[bufnr]
 	end
@@ -354,7 +354,7 @@ function DocumentManager:load_buffer(bufnr, filepath)
 	doc:parse_full(lines)
 	self.buffers[bufnr] = doc
 
-	EventBus.emit("document:loaded", {
+	Events.emit("document:loaded", {
 		bufnr = bufnr,
 		filepath = filepath,
 		document = doc,
@@ -364,7 +364,7 @@ function DocumentManager:load_buffer(bufnr, filepath)
 end
 
 -- Load document from file
-function DocumentManager:load_file(filepath)
+function Doc:load_file(filepath)
 	-- Check if already loaded
 	local cached = self.lru:get(filepath)
 	if cached then
@@ -397,7 +397,7 @@ function DocumentManager:load_file(filepath)
 	self.lru:set(filepath, doc)
 	self.files[filepath] = doc
 
-	EventBus.emit("document:loaded", {
+	Events.emit("document:loaded", {
 		filepath = filepath,
 		document = doc,
 	})
@@ -406,13 +406,13 @@ function DocumentManager:load_file(filepath)
 end
 
 -- Get document for buffer
-function DocumentManager:get_buffer(bufnr)
+function Doc:get_buffer(bufnr)
 	bufnr = bufnr or vim.api.nvim_get_current_buf()
 	return self.buffers[bufnr]
 end
 
 -- Get document for file
-function DocumentManager:get_file(filepath)
+function Doc:get_file(filepath)
 	-- Ensure filepath exists within notes_dir
 	if filepath:sub(1, 1) ~= "/" then
 		filepath = fs.get_file_path(filepath)
@@ -430,7 +430,7 @@ function DocumentManager:get_file(filepath)
 end
 
 -- Mark buffer dirty
-function DocumentManager:mark_buffer_dirty(bufnr, start_line, end_line)
+function Doc:mark_buffer_dirty(bufnr, start_line, end_line)
 	local doc = self.buffers[bufnr]
 	if not doc then
 		return
@@ -452,7 +452,7 @@ function DocumentManager:mark_buffer_dirty(bufnr, start_line, end_line)
 end
 
 -- Reparse buffer
-function DocumentManager:reparse_buffer(bufnr)
+function Doc:reparse_buffer(bufnr)
 	local doc = self.buffers[bufnr]
 	if not doc or doc.is_parsing then
 		return
@@ -468,7 +468,7 @@ function DocumentManager:reparse_buffer(bufnr)
 		doc:parse_incremental(lines)
 	end
 
-	EventBus.emit("document:changed", {
+	Events.emit("document:changed", {
 		bufnr = bufnr,
 		document = doc,
 		dirty_ranges = doc.dirty_ranges,
@@ -479,7 +479,7 @@ function DocumentManager:reparse_buffer(bufnr)
 end
 
 -- Unload buffer document
-function DocumentManager:unload_buffer(bufnr)
+function Doc:unload_buffer(bufnr)
 	local doc = self.buffers[bufnr]
 	if not doc then
 		return
@@ -493,14 +493,14 @@ function DocumentManager:unload_buffer(bufnr)
 
 	self.buffers[bufnr] = nil
 
-	EventBus.emit("document:unloaded", {
+	Events.emit("document:unloaded", {
 		bufnr = bufnr,
 		document = doc,
 	})
 end
 
 -- Reload file document (if file changed)
-function DocumentManager:reload_file(filepath)
+function Doc:reload_file(filepath)
 	local doc = self.files[filepath]
 	if not doc then
 		return
@@ -518,7 +518,7 @@ function DocumentManager:reload_file(filepath)
 end
 
 -- Get all loaded documents
-function DocumentManager:get_all_documents()
+function Doc:get_all_documents()
 	local docs = {}
 
 	-- Add buffer documents
@@ -544,7 +544,7 @@ function DocumentManager:get_all_documents()
 end
 
 -- Get a document by filepath without loading into main cache
-function DocumentManager:peek_file(filepath)
+function Doc:peek_file(filepath)
 	-- Check if already in buffers
 	for bufnr, doc in pairs(self.buffers) do
 		if doc.filepath == filepath then
@@ -557,8 +557,8 @@ function DocumentManager:peek_file(filepath)
 end
 
 -- Setup autocmds
-function DocumentManager:setup_autocmds()
-	local group = vim.api.nvim_create_augroup("ZortexDocumentManager", { clear = true })
+function Doc:setup_autocmds()
+	local group = vim.api.nvim_create_augroup("ZortexDoc", { clear = true })
 	local extensions = { "*" .. Config.extension }
 
 	-- Load buffer on read
@@ -603,7 +603,7 @@ function DocumentManager:setup_autocmds()
 				if stat then
 					doc.mtime = stat.mtime.sec
 				end
-				EventBus.emit("document:saved", {
+				Events.emit("document:saved", {
 					bufnr = args.buf,
 					filepath = args.file,
 					document = doc,
@@ -614,12 +614,12 @@ function DocumentManager:setup_autocmds()
 end
 
 -- Initialize
-function DocumentManager:init()
+function Doc:init()
 	self:setup_autocmds()
 end
 
 -- Export singleton
-M._instance = DocumentManager
+M._instance = Doc
 
 -- Public API
 function M.init()

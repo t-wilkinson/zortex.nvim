@@ -1,7 +1,7 @@
 -- stores/persistence_manager.lua - Manages coordinated persistence of all stores
 local M = {}
 
-local EventBus = require("zortex.core.event_bus")
+local Events = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
 
 -- configurationn
@@ -175,7 +175,7 @@ function M.save_all()
 	})
 
 	-- Emit save completed event
-	EventBus.emit("stores:saved", results)
+	Events.emit("stores:saved", results)
 
 	-- Show notification if there were errors
 	if vim.tbl_count(results.errors) > 0 then
@@ -246,45 +246,45 @@ function M.setup(opts)
 	-- Set up event listeners if enabled
 	if cfg.save_on_events then
 		-- XP events
-		EventBus.on("xp:awarded", handle_xp_events, {
+		Events.on("xp:awarded", handle_xp_events, {
 			priority = 20,
 			name = "persistence_xp_awarded",
 		})
-		EventBus.on("xp:distributed", handle_xp_events, {
+		Events.on("xp:distributed", handle_xp_events, {
 			priority = 20,
 			name = "persistence_xp_distributed",
 		})
 
 		-- Task events
-		EventBus.on("task:completed", handle_task_events, {
+		Events.on("task:completed", handle_task_events, {
 			priority = 20,
 			name = "persistence_task_completed",
 		})
-		EventBus.on("task:uncompleted", handle_task_events, {
+		Events.on("task:uncompleted", handle_task_events, {
 			priority = 20,
 			name = "persistence_task_uncompleted",
 		})
-		EventBus.on("task:created", handle_task_events, {
+		Events.on("task:created", handle_task_events, {
 			priority = 20,
 			name = "persistence_task_created",
 		})
-		EventBus.on("task:updated", handle_task_events, {
+		Events.on("task:updated", handle_task_events, {
 			priority = 20,
 			name = "persistence_task_updated",
 		})
 
 		-- Area events
-		EventBus.on("area:xp_added", handle_area_events, {
+		Events.on("area:xp_added", handle_area_events, {
 			priority = 20,
 			name = "persistence_area_xp",
 		})
 
 		-- Calendar events
-		EventBus.on("calendar:entry_added", handle_calendar_events, {
+		Events.on("calendar:entry_added", handle_calendar_events, {
 			priority = 20,
 			name = "persistence_calendar_add",
 		})
-		EventBus.on("calendar:entry_removed", handle_calendar_events, {
+		Events.on("calendar:entry_removed", handle_calendar_events, {
 			priority = 20,
 			name = "persistence_calendar_remove",
 		})

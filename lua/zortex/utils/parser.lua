@@ -81,7 +81,7 @@ function M.detect_section_type(line, in_code_block)
 	if line:match(constants.PATTERNS.HEADING) then
 		return constants.SECTION_TYPE.HEADING
 	end
-	if line:match(constants.PATTERNS.BOLD_HEADING) or line:match(constants.PATTERNS.BOLD_HEADING_ALT) then
+	if line:match(constants.PATTERNS.BOLD_HEADING) then
 		return constants.SECTION_TYPE.BOLD_HEADING
 	end
 	-- Label pattern must not contain sentence periods (". ")
@@ -125,14 +125,11 @@ function M.parse_heading(line)
 end
 
 function M.is_bold_heading(line)
-	return line:match(constants.PATTERNS.BOLD_HEADING) ~= nil or line:match(constants.PATTERNS.BOLD_HEADING_ALT) ~= nil
+	return line:match(constants.PATTERNS.BOLD_HEADING) ~= nil
 end
 
 function M.parse_bold_heading(line)
 	local text = line:match(constants.PATTERNS.BOLD_HEADING)
-	if not text then
-		text = line:match(constants.PATTERNS.BOLD_HEADING_ALT)
-	end
 	if text then
 		return {
 			text = M.trim(text),

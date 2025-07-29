@@ -1,8 +1,8 @@
 -- services/objective.lua
 local M = {}
 
-local EventBus = require("zortex.core.event_bus")
-local DocumentManager = require("zortex.core.document_manager")
+local Events = require("zortex.core.event_bus")
+local Doc = require("zortex.core.document_manager")
 local ProjectService = require("zortex.services.project_service")
 local AreaService = require("zortex.services.area_service")
 local parser = require("zortex.utils.parser")
@@ -10,7 +10,7 @@ local constants = require("zortex.constants")
 
 -- Parse OKR file and extract objectives
 function M.get_objectives()
-	local doc = DocumentManager.get_file(constants.FILES.OKR)
+	local doc = Doc.get_file(constants.FILES.OKR)
 
 	if not doc then
 		return {}
@@ -39,7 +39,7 @@ function M.update_progress()
 				area_links = objective.area_links,
 			})
 
-			EventBus.emit("objective:completed", {
+			Events.emit("objective:completed", {
 				objective = objective,
 				xp_awarded = M._calculate_objective_xp(objective),
 			})
@@ -253,7 +253,7 @@ end
 function M._apply_progress_updates(updates)
 	-- This would update the OKR buffer with progress information
 	-- For now, we'll emit an event
-	EventBus.emit("objectives:progress_updated", {
+	Events.emit("objectives:progress_updated", {
 		updates = updates,
 	})
 end

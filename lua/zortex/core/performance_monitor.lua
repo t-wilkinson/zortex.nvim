@@ -1,7 +1,7 @@
 -- core/performance_monitor.lua - Advanced performance monitoring for Zortex
 local M = {}
 
-local EventBus = require("zortex.core.event_bus")
+local Events = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
 
 -- Performance thresholds (in milliseconds)
@@ -210,7 +210,7 @@ end
 -- Monitor specific operations
 local function setup_operation_monitoring()
 	-- Document parsing
-	EventBus.on("document:parsed", function(data)
+	Events.on("document:parsed", function(data)
 		local operation = data.full_parse and "parse_full" or "parse_incremental"
 		track_operation(operation, data.parse_time)
 	end, {
@@ -219,7 +219,7 @@ local function setup_operation_monitoring()
 	})
 
 	-- Task operations
-	EventBus.on("task:toggled", function(data)
+	Events.on("task:toggled", function(data)
 		if data.elapsed then
 			track_operation("task_toggle", data.elapsed)
 		end
@@ -229,7 +229,7 @@ local function setup_operation_monitoring()
 	})
 
 	-- Buffer sync
-	EventBus.on("buffer:synced", function(data)
+	Events.on("buffer:synced", function(data)
 		if data.elapsed then
 			track_operation("buffer_sync", data.elapsed)
 		end
@@ -241,7 +241,7 @@ local function setup_operation_monitoring()
 	-- Event processing (via middleware)
 	local event_timers = {}
 
-	EventBus.add_middleware(function(event, data)
+	Events.add_middleware(function(event, data)
 		local timer_id = string.format("%s_%d", event, vim.loop.hrtime())
 		event_timers[timer_id] = {
 			event = event,

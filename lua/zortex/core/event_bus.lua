@@ -3,7 +3,7 @@ local M = {}
 
 -- Events
 ------------
--- sed -n -e 's/.*EventBus.on("\([^"]*\)".*/\1/p' **/*.lua | sort | uniq
+-- sed -n -e 's/.*Events.on("\([^"]*\)".*/\1/p' **/*.lua | sort | uniq
 -- area:xp_added
 -- buffer:synced
 -- calendar:entry_added
@@ -53,8 +53,8 @@ function PriorityQueue:is_empty()
 	return #self.items == 0
 end
 
--- EventBus implementation
-local EventBus = {
+-- Events implementation
+local Events = {
 	handlers = {}, -- event -> handler_list
 	middleware = {}, -- Global processors
 	is_processing = false,
@@ -64,7 +64,7 @@ local EventBus = {
 }
 
 -- Internal: ensure handler list exists
-function EventBus:ensure_handler_list(event)
+function Events:ensure_handler_list(event)
 	if not self.handlers[event] then
 		self.handlers[event] = {}
 	end
@@ -72,7 +72,7 @@ function EventBus:ensure_handler_list(event)
 end
 
 -- Register an event handler
-function EventBus:on(event, handler, opts)
+function Events:on(event, handler, opts)
 	opts = vim.tbl_extend("keep", opts or {}, {
 		priority = 50, -- Default priority (0-100)
 		async = true, -- Default async execution
@@ -96,7 +96,7 @@ function EventBus:on(event, handler, opts)
 			-- Warn on slow handlers
 			if elapsed > opts.max_time then
 				vim.notify(
-					string.format("[EventBus] Slow handler '%s' for event '%s': %.1fms", handler_name, event, elapsed),
+					string.format("[Events] Slow handler '%s' for event '%s': %.1fms", handler_name, event, elapsed),
 					vim.log.levels.WARN
 				)
 			end
@@ -104,7 +104,7 @@ function EventBus:on(event, handler, opts)
 			-- Report errors
 			if not ok then
 				vim.notify(
-					string.format("[EventBus] Handler '%s' error for event '%s': %s", handler_name, event, err),
+					string.format("[Events] Handler '%s' error for event '%s': %s", handler_name, event, err),
 					vim.log.levels.ERROR
 				)
 			end
@@ -143,7 +143,7 @@ function EventBus:on(event, handler, opts)
 end
 
 -- Remove an event handler
-function EventBus:off(event, handler)
+function Events:off(event, handler)
 	local handlers = self.handlers[event]
 	if not handlers then
 		return
@@ -158,7 +158,7 @@ function EventBus:off(event, handler)
 end
 
 -- Emit an event
-function EventBus:emit(event, data, opts)
+function Events:emit(event, data, opts)
 	opts = opts or {}
 	local handlers = self.handlers[event] or {}
 
@@ -186,12 +186,12 @@ function EventBus:emit(event, data, opts)
 end
 
 -- Add middleware
-function EventBus:add_middleware(fn)
+function Events:add_middleware(fn)
 	table.insert(self.middleware, fn)
 end
 
 -- Track performance statistics
-function EventBus:track_performance(event, elapsed_ms)
+function Events:track_performance(event, elapsed_ms)
 	if not self.stats.events[event] then
 		self.stats.events[event] = {
 			count = 0,
@@ -209,7 +209,7 @@ function EventBus:track_performance(event, elapsed_ms)
 end
 
 -- Get performance report
-function EventBus:get_performance_report()
+function Events:get_performance_report()
 	local report = {}
 	for event, stats in pairs(self.stats.events) do
 		report[event] = {
@@ -224,14 +224,14 @@ function EventBus:get_performance_report()
 end
 
 -- Clear all handlers (useful for tests)
-function EventBus:clear()
+function Events:clear()
 	self.handlers = {}
 	self.middleware = {}
 	self.stats.events = {}
 end
 
 -- Create singleton instance
-M._instance = EventBus
+M._instance = Events
 
 -- Public API
 function M.on(event, handler, opts)

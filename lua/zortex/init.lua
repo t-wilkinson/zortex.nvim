@@ -1,9 +1,4 @@
--- init.lua - Main entry point for Zortex (Service Architecture)
-local M = {}
-
--- Utils
-local fs = require("zortex.utils.filesystem")
-local constants = require("zortex.constants")
+-- init.lua - Main entry point for Zortex
 
 -- Core modules
 local Config = require("zortex.config")
@@ -14,7 +9,7 @@ local highlights = require("zortex.features.highlights")
 local completion = require("zortex.features.completion")
 
 -- Initialize Zortex
-function M.setup(opts)
+local function setup(opts)
 	-- Merge user config
 	Config.setup(opts)
 
@@ -28,10 +23,13 @@ function M.setup(opts)
 		cmp.register_source("zortex", completion.new())
 	end
 
+	-- Notifications
+	-- require("zortex.notifications").setup(Config.notifications)
+
 	-- Setup UI
 	require("zortex.ui.commands").setup(Config.commands.prefix)
 	require("zortex.ui.keymaps").setup(Config.keymaps.prefix, Config.commands.prefix)
-	require("zortex.ui.calendar_view").setup(Config.ui.calendar)
+	require("zortex.ui.calendar.view").setup(Config.ui.calendar)
 	require("zortex.ui.telescope.search").setup(Config.ui.search)
 	require("zortex.ui.telescope.core").setup()
 
@@ -42,146 +40,10 @@ function M.setup(opts)
 	if Config.debug then
 		-- perf_monitor.start()
 	end
-
-	-- Emit setup complete
-	-- EventBus.emit("zortex:setup_complete", {
-	-- 	config = Config,
-	-- })
 end
 
--- Public API exports
-M.task = {
-	toggle = function()
-		require("zortex.services.tasks").toggle_current_task()
-	end,
+local api = require("zortex.api")
 
-	complete = function()
-		require("zortex.services.tasks").complete_current_task()
-	end,
+api.setup = setup
 
-	uncomplete = function()
-		require("zortex.services.tasks").uncomplete_current_task()
-	end,
-}
-
-M.search_sections = function()
-	require("zortex.ui.telescope.search").search_sections()
-end
-
-M.open_calendar = function()
-	require("zortex.ui.calendar_view").open()
-end
-
-M.archive_projects = function()
-	require("zortex.services.archive").archive_completed_projects()
-end
-
--- M.show_progress = function()
--- 	local stats = {
--- 		tasks = require("zortex.stores.tasks").get_stats(),
--- 		projects = require("zortex.services.project").get_all_stats(),
--- 		xp = require("zortex.services.xp").get_stats(),
--- 	}
---
--- 	-- Format and display stats
--- 	require("zortex.ui.progress_dashboard").show(stats)
--- end
-
-M.update_progress = function()
-	require("zortex.services.okr").update_progress()
-
-	-- Update project progress
-	local projects_file = fs.get_file_path(constants.FILES.PROJECTS)
-	local bufnr = vim.fn.bufnr(projects_file)
-	if bufnr > 0 then
-		require("zortex.services.projects").update_all_project_progress(bufnr)
-	end
-end
-
-M.xp = {
-	overview = function()
-		require("zortex.services.xp").show_overview()
-	end,
-
-	stats = function()
-		return require("zortex.services.xp").get_stats()
-	end,
-
-	season = {
-		start = function(name, end_date)
-			require("zortex.services.xp").start_season(name, end_date)
-		end,
-
-		end_current = function()
-			require("zortex.services.xp").end_season()
-		end,
-
-		status = function()
-			return require("zortex.services.xp").get_season_status()
-		end,
-	},
-}
-
-M.search = function(opts)
-	require("zortex.ui.telescope.search").search(opts)
-end
-
-M.calendar = {
-	open = function()
-		require("zortex.ui.calendar_view").open()
-	end,
-
-	add_entry = function(date_str, text)
-		require("zortex.features.calendar").add_entry(date_str, text)
-	end,
-}
-
-M.projects = function(opts)
-	require("zortex.ui.telescope").projects(opts)
-end
-
--- Status and debugging
-M.status = function()
-	core.print_status()
-end
-
-M.health = function()
-	-- Check core systems
-	vim.health.report_start("Zortex Core")
-
-	-- Check initialization
-	local status = core.get_status()
-	if status.initialized then
-		vim.health.report_ok("Core initialized")
-	else
-		vim.health.report_error("Core not initialized")
-	end
-
-	-- Check event bus
-	if status.event_bus then
-		local event_count = vim.tbl_count(status.event_bus)
-		vim.health.report_ok(string.format("EventBus active (%d events tracked)", event_count))
-	end
-
-	-- Check document manager
-	if status.document_manager then
-		vim.health.report_ok(
-			string.format(
-				"DocumentManager: %d buffers, %d files",
-				status.document_manager.buffer_count,
-				status.document_manager.file_count
-			)
-		)
-	end
-
-	-- Check persistence
-	if status.persistence then
-		if status.persistence.initialized then
-			vim.health.report_ok("Persistence manager active")
-		else
-			vim.health.report_warn("Persistence manager not initialized")
-		end
-	end
-end
-
-return M
+return api

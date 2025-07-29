@@ -1,7 +1,7 @@
 -- services/xp/distributor.lua - Handles XP distribution logic and rules
 local M = {}
 
-local EventBus = require("zortex.core.event_bus")
+local Events = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
 local xp_store = require("zortex.stores.xp")
 local xp_calculator = require("zortex.services.xp.calculator")
@@ -44,7 +44,7 @@ function M.distribute(source_type, source_id, base_amount, targets)
 	end
 
 	-- Emit distribution completed event
-	EventBus.emit("xp:distributed", distribution)
+	Events.emit("xp:distributed", distribution)
 
 	Logger.debug("xp_distributor", "Distribution completed", {
 		source = source_type,
@@ -174,7 +174,7 @@ function M.setup(opts)
 	cfg = opts
 
 	-- Listen for XP awarded events and handle special distributions
-	EventBus.on("xp:awarded", function(data)
+	Events.on("xp:awarded", function(data)
 		-- Handle parent area bubbling
 		if data.distribution then
 			for _, dist in ipairs(data.distribution.distributions) do
@@ -189,7 +189,7 @@ function M.setup(opts)
 	})
 
 	-- Track distribution statistics
-	EventBus.on("xp:distributed", function(data)
+	Events.on("xp:distributed", function(data)
 		M._update_distribution_stats(data)
 	end, {
 		priority = 10,

@@ -2,9 +2,10 @@
 local M = {}
 
 local manager = require("zortex.notifications.manager")
-local calendar = require("zortex.features.calendar")
 local datetime = require("zortex.utils.datetime")
 local store = require("zortex.stores.notifications")
+local calendar_store = require("zortex.stores.calendar")
+local CalendarEntry = require("zortex.services.calendar_entry")
 
 local cfg = {}
 local sent_notifications = {}
@@ -64,7 +65,7 @@ local function format_notification_message(entry, minutes_until)
 		time_str = string.format("in %d hours", math.floor(minutes_until / 60))
 	end
 
-	local message = calendar.format_entry(entry)
+	local message = CalendarEntry.format_entry(entry)
 	return message, time_str
 end
 
@@ -95,7 +96,7 @@ local function entry_to_notification(entry, date_str, notify_minutes)
 	return {
 		id = create_notification_id(entry, date_str),
 		title = entry.display_text,
-		message = calendar.format_entry(entry),
+		message = CalendarEntry.format_entry(entry),
 		event_time = event_time,
 		notify_time = notify_time,
 		notify_minutes = notify_minutes,
@@ -117,7 +118,7 @@ function M.check_and_notify()
 	for day_offset = 0, 1 do
 		local check_date = datetime.add_days(today, day_offset)
 		local date_str = datetime.format_date(check_date, "YYYY-MM-DD")
-		local entries = calendar.get_entries_for_date(date_str)
+		local entries = calendar_store.get_entries_for_date(date_str)
 
 		for _, entry in ipairs(entries) do
 			if entry.attributes.notify then
@@ -176,7 +177,7 @@ end
 -- Sync notifications to external services
 function M.sync()
 	-- Load calendar data
-	calendar.load()
+	calendar_store.load()
 
 	local notifications = {}
 	local today = datetime.get_current_date()
@@ -186,7 +187,7 @@ function M.sync()
 	for day_offset = 0, scan_days do
 		local check_date = datetime.add_days(today, day_offset)
 		local date_str = datetime.format_date(check_date, "YYYY-MM-DD")
-		local entries = calendar.get_entries_for_date(date_str)
+		local entries = calendar_store.get_entries_for_date(date_str)
 
 		for _, entry in ipairs(entries) do
 			if entry.attributes.notify then

@@ -1,8 +1,8 @@
 -- services/area.lua - Area management service
 local M = {}
 
-local EventBus = require("zortex.core.event_bus")
-local DocumentManager = require("zortex.core.document_manager")
+local Events = require("zortex.core.event_bus")
+local Doc = require("zortex.core.document_manager")
 local Logger = require("zortex.core.logger")
 local parser = require("zortex.utils.parser")
 local xp_store = require("zortex.stores.xp")
@@ -27,7 +27,7 @@ function M.get_area_tree()
 		return area_cache.tree
 	end
 
-	local doc = DocumentManager.get_file(constants.FILES.AREAS)
+	local doc = Doc.get_file(constants.FILES.AREAS)
 
 	if not doc then
 		Logger.warn("area_service", "Areas file not found", { file = constants.FILES.AREAS })
@@ -84,7 +84,7 @@ function M.add_area_xp(area_path, xp_amount)
 
 	-- Level up notification
 	if area_data.level > old_level then
-		EventBus.emit("area:leveled_up", {
+		Events.emit("area:leveled_up", {
 			path = area_path,
 			old_level = old_level,
 			new_level = area_data.level,
@@ -126,7 +126,7 @@ function M.remove_area_xp(area_path, xp_amount)
 
 	-- Level down notification (rare but possible)
 	if area_data.level < old_level then
-		EventBus.emit("area:leveled_down", {
+		Events.emit("area:leveled_down", {
 			path = area_path,
 			old_level = old_level,
 			new_level = area_data.level,
@@ -231,7 +231,7 @@ function M.complete_objective(objective_id, objective_data)
 	xp_store.mark_objective_completed(objective_id, total_xp)
 
 	-- Emit event
-	EventBus.emit("objective:completed", {
+	Events.emit("objective:completed", {
 		objective = objective_data,
 		distribution = distribution,
 	})
@@ -357,7 +357,7 @@ end
 -- Set up event listeners
 function M.init()
 	-- Listen for document changes to invalidate cache
-	EventBus.on("document:changed", function(data)
+	Events.on("document:changed", function(data)
 		if data.document and data.document.filepath then
 			local filename = vim.fn.fnamemodify(data.document.filepath, ":t")
 			if filename == "areas.zortex" then

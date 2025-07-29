@@ -1,8 +1,8 @@
 -- services/projects/progress.lua - Handles project progress updates
 local M = {}
 
-local EventBus = require("zortex.core.event_bus")
-local DocumentManager = require("zortex.core.document_manager")
+local Events = require("zortex.core.event_bus")
+local Doc = require("zortex.core.document_manager")
 local buffer_sync = require("zortex.core.buffer_sync")
 local parser = require("zortex.utils.parser")
 local Logger = require("zortex.core.logger")
@@ -64,7 +64,7 @@ end
 
 -- Update a single project
 function M.update_single_project(update)
-	local doc = DocumentManager.get_buffer(update.bufnr)
+	local doc = Doc.get_buffer(update.bufnr)
 	if not doc then
 		return false, "Document not found"
 	end
@@ -131,7 +131,7 @@ function M.update_single_project(update)
 	})
 
 	-- Emit event
-	EventBus.emit("project:progress_updated", {
+	Events.emit("project:progress_updated", {
 		bufnr = update.bufnr,
 		project_name = project_section.text,
 		project_link = update.project_link,
@@ -227,7 +227,7 @@ end
 -- Initialize project progress tracking
 function M.init()
 	-- Listen for task completed events
-	EventBus.on("task:completed", function(data)
+	Events.on("task:completed", function(data)
 		if data.xp_context and data.xp_context.project_link and data.xp_context.bufnr then
 			M.queue_project_update(
 				data.xp_context.bufnr,
@@ -242,7 +242,7 @@ function M.init()
 	})
 
 	-- Listen for task uncompleted events
-	EventBus.on("task:uncompleted", function(data)
+	Events.on("task:uncompleted", function(data)
 		if data.xp_context and data.xp_context.project_link and data.xp_context.bufnr then
 			M.queue_project_update(
 				data.xp_context.bufnr,
@@ -257,7 +257,7 @@ function M.init()
 	})
 
 	-- Listen for task created events
-	EventBus.on("task:created", function(data)
+	Events.on("task:created", function(data)
 		if data.task and data.task.project_link and data.bufnr then
 			M.queue_project_update(
 				data.bufnr,
@@ -274,7 +274,7 @@ end
 
 -- Force update all projects in a buffer
 function M.update_all_projects(bufnr)
-	local doc = DocumentManager.get_buffer(bufnr)
+	local doc = Doc.get_buffer(bufnr)
 	if not doc then
 		return 0
 	end

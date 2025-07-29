@@ -1,7 +1,7 @@
 -- core/buffer_sync.lua - keeps buffer and document in sync
 local M = {}
 
-local EventBus = require("zortex.core.event_bus")
+local Events = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
 local attributes = require("zortex.utils.attributes")
 
@@ -188,7 +188,7 @@ local function apply_pending_changes(bufnr)
 	stop_timer({ change_count = #changes })
 
 	-- Emit sync completed event
-	EventBus.emit("buffer:synced", {
+	Events.emit("buffer:synced", {
 		bufnr = bufnr,
 		change_count = #changes,
 	})
@@ -310,7 +310,7 @@ function M.setup(opts)
 	cfg = opts
 
 	-- Sync on save if using ON_SAVE strategy
-	EventBus.on("document:saved", function(data)
+	Events.on("document:saved", function(data)
 		if cfg.strategy == M.strategies.ON_SAVE then
 			apply_pending_changes(data.bufnr)
 		end
@@ -320,7 +320,7 @@ function M.setup(opts)
 	})
 
 	-- Clear on buffer unload
-	EventBus.on("document:unloaded", function(data)
+	Events.on("document:unloaded", function(data)
 		M.clear_buffer(data.bufnr)
 	end, {
 		priority = 90,
@@ -328,7 +328,7 @@ function M.setup(opts)
 	})
 
 	-- Listen for document updates from services
-	EventBus.on("task:updated", function(data)
+	Events.on("task:updated", function(data)
 		if data.task and data.bufnr then
 			M.update_task(data.bufnr, data.task.line, data.updates.attributes, data.updates.text)
 		end

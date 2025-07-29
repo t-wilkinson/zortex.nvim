@@ -1,7 +1,7 @@
 -- services/task.lua - Stateless service for task operations
 local M = {}
 
-local EventBus = require("zortex.core.event_bus")
+local Events = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
 local buffer_sync = require("zortex.core.buffer_sync")
 local parser = require("zortex.utils.parser")
@@ -105,7 +105,7 @@ function M.complete_task(task_id, context)
 	end
 
 	-- Emit completed event
-	EventBus.emit("task:completed", {
+	Events.emit("task:completed", {
 		task = task,
 		xp_context = xp_context,
 		bufnr = context.bufnr,
@@ -139,7 +139,7 @@ function M.uncomplete_task(task_id, context)
 	end
 
 	-- Emit event for XP reversal
-	EventBus.emit("task:uncompleted", {
+	Events.emit("task:uncompleted", {
 		task = task,
 		xp_removed = xp_to_remove,
 		xp_context = xp_context,
@@ -266,7 +266,7 @@ function M.convert_line_to_task(context)
 
 	task_store.create_task(task_id, task)
 
-	EventBus.emit("task:created", {
+	Events.emit("task:created", {
 		task = task,
 		bufnr = context.bufnr,
 	})
@@ -394,7 +394,7 @@ function M.update_task_attributes(task_id, attributes, context)
 		buffer_sync.update_task(context.bufnr, task.line, attributes)
 	end
 
-	EventBus.emit("task:updated", {
+	Events.emit("task:updated", {
 		task = task,
 		updates = { attributes = attributes },
 		bufnr = context.bufnr,

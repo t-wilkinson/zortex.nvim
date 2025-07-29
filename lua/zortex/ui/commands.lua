@@ -2,37 +2,10 @@
 
 local M = {}
 
-local Core = require("zortex.core")
-local DocumentManager = require("zortex.core.document_manager")
+local api = require("zortex.api")
+local fs = require("zortex.utils.filesystem")
 local Logger = require("zortex.core.logger")
-
 local notifications = require("zortex.notifications")
-
-local utils = {
-	fs = require("zortex.utils.filesystem"),
-}
-
-local services = {
-	task = require("zortex.services.tasks"),
-	xp = require("zortex.services.xp"),
-}
-
-local features = {
-	archive = require("zortex.features.archive"),
-	calendar = require("zortex.features.calendar"),
-	completion = require("zortex.features.completion"),
-	highlights = require("zortex.features.highlights"),
-	links = require("zortex.features.links"),
-	ical = require("zortex.features.ical"),
-}
-
-local persistence_manager = require("zortex.stores.persistence_manager")
-
-local ui = {
-	calendar_view = require("zortex.ui.calendar_view"),
-	search = require("zortex.ui.telescope.search"),
-	skill_tree = require("zortex.ui.skill_tree"),
-}
 
 -- =============================================================================
 -- User Commands
@@ -69,127 +42,42 @@ function M.setup(prefix)
 	end, {})
 
 	-- ===========================================================================
-	-- Notifications
-	-- ===========================================================================
-	cmd("Notify", function(opts)
-		local args = vim.split(opts.args, " ", { plain = false, trimempty = true })
-		if #args < 2 then
-			vim.notify("Usage: ZortexNotify <title> <message>", vim.log.levels.ERROR)
-			return
-		end
-		local title = args[1]
-		local message = table.concat(vim.list_slice(args, 2), " ")
-		notifications.notify(title, message)
-	end, { nargs = "+", desc = "Send a notification" })
-
-	-- Pomodoro
-	cmd("PomodoroStart", function()
-		notifications.pomodoro.start()
-	end, { desc = "Start pomodoro timer" })
-
-	cmd("PomodoroStop", function()
-		notifications.pomodoro.stop()
-	end, { desc = "Stop pomodoro timer" })
-
-	cmd("PomodoroStatus", function()
-		local status = notifications.pomodoro.status()
-		if status.phase == "stopped" then
-			vim.notify("Pomodoro is not running", vim.log.levels.INFO)
-		else
-			vim.notify(
-				string.format("Pomodoro: %s - %s remaining", status.phase:gsub("_", " "), status.remaining_formatted),
-				vim.log.levels.INFO
-			)
-		end
-	end, { desc = "Show pomodoro status" })
-
-	-- Timers
-	cmd("TimerStart", function(opts)
-		local args = vim.split(opts.args, " ", { plain = false, trimempty = true })
-		if #args < 1 then
-			vim.notify("Usage: ZortexTimerStart <duration> [name]", vim.log.levels.ERROR)
-			return
-		end
-		local duration = args[1]
-		local name = args[2] and table.concat(vim.list_slice(args, 2), " ") or nil
-		local id = notifications.timer.start(duration, name)
-		if id then
-			vim.notify("Timer started: " .. id, vim.log.levels.INFO)
-		end
-	end, { nargs = "+", desc = "Start a timer" })
-
-	cmd("TimerList", function()
-		local timers = notifications.timer.list()
-		if #timers == 0 then
-			vim.notify("No active timers", vim.log.levels.INFO)
-		else
-			local lines = { "Active timers:" }
-			for _, timer in ipairs(timers) do
-				table.insert(
-					lines,
-					string.format("  %s: %s - %s remaining", timer.id:sub(1, 8), timer.name, timer.remaining_formatted)
-				)
-			end
-			vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO)
-		end
-	end, { desc = "List active timers" })
-
-	-- Calendar sync
-	cmd("NotificationSync", function()
-		notifications.calendar.sync()
-	end, { desc = "Sync calendar notifications" })
-
-	-- Test notifications
-	cmd("TestNotifications", function()
-		notifications.test.all()
-	end, { desc = "Test all notification providers" })
-
-	-- Daily Digest
-	cmd("DigestSend", function()
-		local success, msg = notifications.digest.send_now()
-		vim.notify(msg, success and vim.log.levels.INFO or vim.log.levels.ERROR)
-	end, { desc = "Send daily digest email now" })
-
-	cmd("DigestPreview", function()
-		notifications.digest.preview()
-	end, { desc = "Preview daily digest" })
-
-	-- ===========================================================================
 	-- iCal Import/Export
 	-- ===========================================================================
 	cmd("IcalImport", function()
-		features.ical.import_interactive()
+		require("zortex.features.ical").import_interactive()
 	end, { desc = "Import iCal file or URL" })
 
 	cmd("IcalExport", function()
-		features.ical.export_interactive()
+		require("zortex.features.ical").export_interactive()
 	end, { desc = "Export calendar to iCal file" })
 
 	-- ===========================================================================
 	-- Navigation
 	-- ===========================================================================
 	cmd("OpenLink", function()
-		features.links.open_link()
+		require("zortex.features.links").open_link()
 	end, { desc = "Open link under cursor" })
-	cmd("Search", function()
-		ui.search.search({ search_type = "section" })
-	end, { desc = "Section-based search with breadcrumbs" })
-	cmd("SearchArticles", function()
-		ui.search.search({ search_type = "article" })
-	end, { desc = "Article-based search" })
+
 	cmd("SearchSections", function()
-		ui.search.search({ search_type = "section" })
+		api.search_sections()
 	end, { desc = "Section-based search" })
+	cmd("SearchArticles", function()
+		api.search_articles()
+	end, { desc = "Article-based search" })
+	cmd("SearchTasks", function()
+		api.search_tasks()
+	end, { desc = "Task-based search" })
+	cmd("SearchAll", function()
+		api.search_all()
+	end, { desc = "Search sections, articles, and tasks" })
 
 	-- ===========================================================================
 	-- Calendar
 	-- ===========================================================================
 	cmd("Calendar", function()
-		ui.calendar_view.open()
+		api.calendar.open()
 	end, { desc = "Open Zortex calendar" })
-	cmd("CalendarAdd", function()
-		ui.calendar_view.add_entry_interactive()
-	end, { desc = "Add calendar entry" })
 
 	-- ===========================================================================
 	-- Telescope
@@ -211,7 +99,7 @@ function M.setup(prefix)
 	-- Project management & archive
 	-- ===========================================================================
 	cmd("ProjectsOpen", function()
-		local proj_path = utils.fs.get_projects_file()
+		local proj_path = fs.get_projects_file()
 		if proj_path then
 			vim.cmd("edit " .. proj_path)
 		end
@@ -248,7 +136,7 @@ function M.setup(prefix)
 	-- XP & Skill tree
 	-- ===========================================================================
 	cmd("SkillTree", function()
-		ui.skill_tree.show()
+		api.skill_tree()
 	end, { desc = "Show skill tree and season progress" })
 
 	-- XP system info
@@ -299,25 +187,26 @@ function M.setup(prefix)
 	-- Task management
 	-- ===========================================================================
 	cmd("ToggleTask", function()
-		require("zortex.services.tasks").toggle_current_task()
+		api.task.toggle()
 	end, { desc = "Toggle the task on current line" })
 
 	cmd("CompleteTask", function()
-		require("zortex.services.tasks").complete_current_task()
+		api.task.complete_current_task()
 	end, { desc = "Complete the task on current line" })
 
 	cmd("UncompleteTask", function()
-		require("zortex.services.tasks").uncomplete_current_task()
+		api.task.uncomplete_current_task()
 	end, { desc = "Uncomplete the task on current line" })
 
 	-- ===========================================================================
 	-- System Status
 	-- ===========================================================================
 	cmd("SystemStatus", function()
-		Core.print_status()
+		api.status()
 	end, { desc = "Show Zortex system status" })
 
 	cmd("SaveStores", function()
+		local persistence_manager = require("zortex.stores.persistence_manager")
 		local results = persistence_manager.save_all()
 		vim.notify(string.format("Saved %d stores", #results.saved), vim.log.levels.INFO)
 	end, { desc = "Force save all stores" })

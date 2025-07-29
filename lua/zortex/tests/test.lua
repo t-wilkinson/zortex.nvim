@@ -31,27 +31,27 @@ local function setup_vim_mocks()
   vim.inspect = vim.inspect or tostring
 end
 
--- EventBus Tests
+-- Events Tests
 M.test_eventbus = function()
   setup_vim_mocks()
   
-  describe("EventBus", function()
-    local EventBus = require("zortex.core.event_bus")
+  describe("Events", function()
+    local Events = require("zortex.core.event_bus")
     
     before_each(function()
-      EventBus.clear()
+      Events.clear()
     end)
     
     it("should emit and handle events", function()
       local called = false
       local received_data = nil
       
-      EventBus.on("test:event", function(data)
+      Events.on("test:event", function(data)
         called = true
         received_data = data
       end)
       
-      EventBus.emit("test:event", { value = 42 })
+      Events.emit("test:event", { value = 42 })
       
       -- Wait for async execution
       vim.wait(10, function() return called end)
@@ -63,19 +63,19 @@ M.test_eventbus = function()
     it("should respect priority order", function()
       local order = {}
       
-      EventBus.on("test:priority", function()
+      Events.on("test:priority", function()
         table.insert(order, "low")
       end, { priority = 10 })
       
-      EventBus.on("test:priority", function()
+      Events.on("test:priority", function()
         table.insert(order, "high")
       end, { priority = 90 })
       
-      EventBus.on("test:priority", function()
+      Events.on("test:priority", function()
         table.insert(order, "medium")
       end, { priority = 50 })
       
-      EventBus.emit("test:priority", {}, { sync = true })
+      Events.emit("test:priority", {}, { sync = true })
       
       assert.same({ "high", "medium", "low" }, order)
     end)
@@ -84,30 +84,30 @@ M.test_eventbus = function()
       local count = 0
       local handler = function() count = count + 1 end
       
-      EventBus.on("test:remove", handler)
-      EventBus.emit("test:remove", {}, { sync = true })
+      Events.on("test:remove", handler)
+      Events.emit("test:remove", {}, { sync = true })
       assert.equals(1, count)
       
-      EventBus.off("test:remove", handler)
-      EventBus.emit("test:remove", {}, { sync = true })
+      Events.off("test:remove", handler)
+      Events.emit("test:remove", {}, { sync = true })
       assert.equals(1, count) -- Should not increase
     end)
     
     it("should apply middleware", function()
       local middleware_called = false
       
-      EventBus.add_middleware(function(event, data)
+      Events.add_middleware(function(event, data)
         middleware_called = true
         data.modified = true
         return true, data
       end)
       
       local received_data = nil
-      EventBus.on("test:middleware", function(data)
+      Events.on("test:middleware", function(data)
         received_data = data
       end)
       
-      EventBus.emit("test:middleware", { original = true }, { sync = true })
+      Events.emit("test:middleware", { original = true }, { sync = true })
       
       assert.is_true(middleware_called)
       assert.is_true(received_data.original)
@@ -115,15 +115,15 @@ M.test_eventbus = function()
     end)
     
     it("should track performance", function()
-      EventBus.on("test:perf", function()
+      Events.on("test:perf", function()
         -- Simulate some work
         local sum = 0
         for i = 1, 1000 do sum = sum + i end
       end, { max_time = 1 })
       
-      EventBus.emit("test:perf", {}, { sync = true })
+      Events.emit("test:perf", {}, { sync = true })
       
-      local report = EventBus.get_performance_report()
+      local report = Events.get_performance_report()
       assert.is_not_nil(report["test:perf"])
       assert.equals(1, report["test:perf"].count)
       assert.is_true(report["test:perf"].avg_time >= 0)
@@ -257,8 +257,8 @@ end
 M.test_document_manager = function()
   setup_vim_mocks()
   
-  describe("DocumentManager", function()
-    local DocumentManager = require("zortex.core.document_manager")
+  describe("Doc", function()
+    local Doc = require("zortex.core.document_manager")
     local test_lines = {
       "@@Test Article",
       "@todo @important",
@@ -284,7 +284,7 @@ M.test_document_manager = function()
     end
     
     it("should parse document structure", function()
-      local doc = DocumentManager._instance:load_buffer(1, "test.zortex")
+      local doc = Doc._instance:load_buffer(1, "test.zortex")
       
       assert.is_not_nil(doc)
       assert.equals("Test Article", doc.article_name)
@@ -295,7 +295,7 @@ M.test_document_manager = function()
     end)
     
     it("should build section tree", function()
-      local doc = DocumentManager._instance:load_buffer(1, "test.zortex")
+      local doc = Doc._instance:load_buffer(1, "test.zortex")
       
       assert.is_not_nil(doc.sections)
       
@@ -316,7 +316,7 @@ M.test_document_manager = function()
     end)
     
     it("should create line map", function()
-      local doc = DocumentManager._instance:load_buffer(1, "test.zortex")
+      local doc = Doc._instance:load_buffer(1, "test.zortex")
       
       -- Line 5 should be in "Section One"
       local section = doc:get_section_at_line(5)
@@ -330,7 +330,7 @@ M.test_document_manager = function()
     end)
     
     it("should parse tasks", function()
-      local doc = DocumentManager._instance:load_buffer(1, "test.zortex")
+      local doc = Doc._instance:load_buffer(1, "test.zortex")
       
       local tasks = doc:get_all_tasks()
       assert.equals(3, #tasks)
@@ -348,7 +348,7 @@ M.test_document_manager = function()
     end)
     
     it("should handle document updates", function()
-      local doc = DocumentManager._instance:load_buffer(1, "test.zortex")
+      local doc = Doc._instance:load_buffer(1, "test.zortex")
       
       -- Update a task
       local success = doc:update_task("task1", { completed = true })
@@ -438,8 +438,8 @@ M.test_integration = function()
   
   describe("Phase 1 Integration", function()
     local Phase1 = require("zortex.core.phase1_init")
-    local EventBus = require("zortex.core.event_bus")
-    local DocumentManager = require("zortex.core.document_manager")
+    local Events = require("zortex.core.event_bus")
+    local Doc = require("zortex.core.document_manager")
     
     it("should initialize all components", function()
       local ok = Phase1.init({
@@ -457,7 +457,7 @@ M.test_integration = function()
     it("should emit initialization event", function()
       local init_called = false
       
-      EventBus.on("phase1:initialized", function(data)
+      Events.on("phase1:initialized", function(data)
         init_called = true
       end)
       

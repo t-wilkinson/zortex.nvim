@@ -295,7 +295,7 @@ function M.show_performance_report()
 		)
 	end
 
-	-- Also show EventBus stats
+	-- Also show Events stats
 	local event_report = require("zortex.core.event_bus").get_performance_report()
 	if next(event_report) then
 		table.insert(lines, "")

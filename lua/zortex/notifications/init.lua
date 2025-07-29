@@ -8,13 +8,107 @@ local calendar = require("zortex.notifications.types.calendar")
 local digest = require("zortex.notifications.types.digest")
 local xp = require("zortex.notifications.types.xp")
 
+function M.setup_commands()
+	local Config = require("zortex.config")
+
+	local function cmd(name, command, options)
+		vim.api.nvim_create_user_command(Config.commands.prefix .. name, command, options)
+	end
+
+	-- ===========================================================================
+	-- Notifications
+	-- ===========================================================================
+	cmd("Notify", function(opts)
+		local args = vim.split(opts.args, " ", { plain = false, trimempty = true })
+		if #args < 2 then
+			vim.notify("Usage: ZortexNotify <title> <message>", vim.log.levels.ERROR)
+			return
+		end
+		local title = args[1]
+		local message = table.concat(vim.list_slice(args, 2), " ")
+		M.notify(title, message)
+	end, { nargs = "+", desc = "Send a notification" })
+
+	-- Pomodoro
+	cmd("PomodoroStart", function()
+		M.pomodoro.start()
+	end, { desc = "Start pomodoro timer" })
+
+	cmd("PomodoroStop", function()
+		M.pomodoro.stop()
+	end, { desc = "Stop pomodoro timer" })
+
+	cmd("PomodoroStatus", function()
+		local status = M.pomodoro.status()
+		if status.phase == "stopped" then
+			vim.notify("Pomodoro is not running", vim.log.levels.INFO)
+		else
+			vim.notify(
+				string.format("Pomodoro: %s - %s remaining", status.phase:gsub("_", " "), status.remaining_formatted),
+				vim.log.levels.INFO
+			)
+		end
+	end, { desc = "Show pomodoro status" })
+
+	-- Timers
+	cmd("TimerStart", function(opts)
+		local args = vim.split(opts.args, " ", { plain = false, trimempty = true })
+		if #args < 1 then
+			vim.notify("Usage: ZortexTimerStart <duration> [name]", vim.log.levels.ERROR)
+			return
+		end
+		local duration = args[1]
+		local name = args[2] and table.concat(vim.list_slice(args, 2), " ") or nil
+		local id = M.timer.start(duration, name)
+		if id then
+			vim.notify("Timer started: " .. id, vim.log.levels.INFO)
+		end
+	end, { nargs = "+", desc = "Start a timer" })
+
+	cmd("TimerList", function()
+		local timers = M.timer.list()
+		if #timers == 0 then
+			vim.notify("No active timers", vim.log.levels.INFO)
+		else
+			local lines = { "Active timers:" }
+			for _, timer in ipairs(timers) do
+				table.insert(
+					lines,
+					string.format("  %s: %s - %s remaining", timer.id:sub(1, 8), timer.name, timer.remaining_formatted)
+				)
+			end
+			vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO)
+		end
+	end, { desc = "List active timers" })
+
+	-- Calendar sync
+	cmd("NotificationSync", function()
+		M.calendar.sync()
+	end, { desc = "Sync calendar notifications" })
+
+	-- Test notifications
+	cmd("TestNotifications", function()
+		M.test.all()
+	end, { desc = "Test all notification providers" })
+
+	-- Daily Digest
+	cmd("DigestSend", function()
+		local success, msg = M.digest.send_now()
+		vim.notify(msg, success and vim.log.levels.INFO or vim.log.levels.ERROR)
+	end, { desc = "Send daily digest email now" })
+
+	cmd("DigestPreview", function()
+		M.digest.preview()
+	end, { desc = "Preview daily digest" })
+end
+
 -- Initialize the notification system
-function M.setup(config)
-	manager.setup(config)
-	pomodoro.setup(config.pomodoro)
-	timer.setup(config.timers)
-	calendar.setup(config)
-	digest.setup(config.digest)
+function M.setup(cfg) -- Config.notifications
+	manager.setup(cfg)
+	pomodoro.setup(cfg.pomodoro)
+	timer.setup(cfg.timers)
+	calendar.setup(cfg)
+	digest.setup(cfg.digest)
 end
 
 -- Send a notification immediately

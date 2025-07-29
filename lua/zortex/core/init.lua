@@ -1,8 +1,8 @@
--- core/init.lua - Initialize core systems: EventBus, DocumentManager, and Services
+-- core/init.lua - Initialize core systems: Events, Doc, and Services
 local M = {}
 
-local EventBus = require("zortex.core.event_bus")
-local DocumentManager = require("zortex.core.document_manager")
+local Events = require("zortex.core.event_bus")
+local Doc = require("zortex.core.document_manager")
 local Logger = require("zortex.core.logger")
 local buffer_sync = require("zortex.core.buffer_sync")
 
@@ -20,13 +20,13 @@ function M.setup(opts)
 
 	-- Set up global error handler for events
 	if opts.core.logger.log_events then
-		EventBus.add_middleware(function(event, data)
+		Events.add_middleware(function(event, data)
 			Logger.debug("event", event, data)
 			return true, data
 		end)
 	end
 
-	DocumentManager.init()
+	Doc.init()
 	buffer_sync.setup(opts.core.buffer_sync)
 
 	-- Initialize services
@@ -49,10 +49,10 @@ end
 -- Get system status
 function M.get_status()
 	return {
-		event_bus = EventBus.get_performance_report(),
+		event_bus = Events.get_performance_report(),
 		document_manager = {
-			buffer_count = vim.tbl_count(DocumentManager._instance.buffers),
-			file_count = vim.tbl_count(DocumentManager._instance.files),
+			buffer_count = vim.tbl_count(Doc._instance.buffers),
+			file_count = vim.tbl_count(Doc._instance.files),
 		},
 		buffer_sync = buffer_sync.get_status(),
 		persistence = PersistenceManager.get_status(),
@@ -68,9 +68,9 @@ end
 -- Get service references (for direct access)
 function M.get_services()
 	return {
-		document_manager = DocumentManager,
+		document_manager = Doc,
 		persistence = PersistenceManager,
-		event_bus = EventBus,
+		event_bus = Events,
 		buffer_sync = buffer_sync,
 	}
 end

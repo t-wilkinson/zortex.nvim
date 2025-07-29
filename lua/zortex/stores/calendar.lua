@@ -4,9 +4,9 @@ local M = {}
 local constants = require("zortex.constants")
 local datetime = require("zortex.utils.datetime")
 local fs = require("zortex.utils.filesystem")
-local CalendarEntry = require("zortex.services.calendar.entry")
-local EventBus = require("zortex.core.event_bus")
-local DocumentManager = require("zortex.core.document_manager")
+local CalendarEntry = require("zortex.services.calendar_entry")
+local Events = require("zortex.core.event_bus")
+local Doc = require("zortex.core.document_manager")
 
 -- =============================================================================
 -- Store State
@@ -22,7 +22,7 @@ local state = {
 -- =============================================================================
 
 function M.load()
-	local path = fs.get_file_path(constants.FILES.CALENDAR)
+	local path = fs.get_calendar_file()
 	if not path or not fs.file_exists(path) then
 		state.loaded = true
 		return false
@@ -55,7 +55,7 @@ function M.load()
 end
 
 function M.save()
-	local path = fs.get_file_path(constants.FILES.CALENDAR)
+	local path = fs.get_calendar_file()
 	if not path then
 		return false
 	end
@@ -68,7 +68,7 @@ function M.save()
 		local entries = state.entries[date_str]
 		if entries and #entries > 0 then
 			local date_tbl = datetime.parse_date(date_str)
-			table.insert(lines, datetime.format_date(date_tbl, "MM-DD-YYYY") .. ":")
+			table.insert(lines, datetime.format_date(date_tbl, "YYYY-MM-DD") .. ":")
 
 			-- Sort entries by priority
 			table.sort(entries, function(a, b)
@@ -117,16 +117,16 @@ function M.add_entry(date_str, entry_text)
 
 	if success then
 		-- Update document if it's open
-		local calendar_file = fs.get_file_path(constants.FILES.CALENDAR)
+		local calendar_file = fs.get_calendar_file()
 		if calendar_file then
 			local bufnr = vim.fn.bufnr(calendar_file)
 			if bufnr > 0 and vim.api.nvim_buf_is_valid(bufnr) then
 				-- Mark for reload
-				DocumentManager.mark_buffer_dirty(bufnr, 1, -1)
+				Doc.mark_buffer_dirty(bufnr, 1, -1)
 			end
 		end
 
-		EventBus.emit("calendar:entry_added", {
+		Events.emit("calendar:entry_added", {
 			date = date_str,
 			entry = entry,
 		})
@@ -180,7 +180,7 @@ function M.delete_entry_by_index(date_str, entry_index)
 	-- Save
 	M.save()
 
-	EventBus.emit("calendar:entry_removed", {
+	Events.emit("calendar:entry_removed", {
 		date = date_str,
 		entry = removed_entry,
 	})

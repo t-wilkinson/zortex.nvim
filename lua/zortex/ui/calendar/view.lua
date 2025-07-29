@@ -1,4 +1,4 @@
--- ui/calendar_view.lua - Calendar UI module for Zortex
+-- ui/calendar/view.lua - Calendar UI module for Zortex
 local M = {}
 local api = vim.api
 local fn = vim.fn
@@ -8,12 +8,11 @@ local MARGIN_STR = "  "
 local GRID_WIDTH = 7 * CELL_WIDTH -- 7 days * 7 cols = 49
 local CONTENT_WIDTH = fn.strwidth(MARGIN_STR) + GRID_WIDTH -- 2 + 49 = 51
 
+local constants = require("zortex.constants")
 local datetime = require("zortex.utils.datetime")
 local calendar_store = require("zortex.stores.calendar")
 local fs = require("zortex.utils.filesystem")
-local calendar = require("zortex.features.calendar")
 local notifications = require("zortex.notifications")
-local calendar_service = require("zortex.services.calendar")
 
 -- =============================================================================
 -- Calendar State and cfguration
@@ -411,7 +410,7 @@ function Renderer.render_digest_view()
 	table.insert(lines, "")
 
 	-- Load necessary data
-	calendar_service.load()
+	calendar_store.load()
 
 	-- Show entries for today and next 7 days
 	for i = 0, cfg.digest.show_upcoming_days do
@@ -665,7 +664,7 @@ function Actions.add_entry()
 	M.close()
 	vim.ui.input({ prompt = string.format("Add entry for %s: ", date_str), default = "" }, function(input)
 		if input and input ~= "" then
-			calendar.add_entry(date_str, input)
+			calendar_store.add_entry(date_str, input)
 			vim.notify(string.format("Added entry for %s", date_str), vim.log.levels.INFO)
 			M.open()
 			Navigation.move_to_date(CalendarState.current_date)
@@ -717,18 +716,16 @@ function Actions.view_entries()
 	end
 	local date_str = datetime.format_date(CalendarState.current_date, "YYYY-MM-DD")
 	M.close()
-	local cal_file = fs.get_file_path("calendar.zortex")
-	if cal_file then
-		vim.cmd("edit " .. fn.fnameescape(cal_file))
-		local search_pattern = string.format(
-			"%02d-%02d-%04d:",
-			CalendarState.current_date.month,
-			CalendarState.current_date.day,
-			CalendarState.current_date.year
-		)
-		fn.search(search_pattern)
-		vim.cmd("normal! zz")
-	end
+	local cal_file = fs.get_calendar_file()
+	vim.cmd("edit " .. fn.fnameescape(cal_file))
+	local search_pattern = string.format(
+		"%02d-%02d-%04d:",
+		CalendarState.current_date.month,
+		CalendarState.current_date.day,
+		CalendarState.current_date.year
+	)
+	fn.search(search_pattern)
+	vim.cmd("normal! zz")
 end
 
 function Actions.telescope_search()
@@ -752,10 +749,8 @@ end
 
 function Actions.go_to_file()
 	M.close()
-	local cal_file = fs.get_file_path("calendar.zortex")
-	if cal_file then
-		vim.cmd("edit " .. fn.fnameescape(cal_file))
-	end
+	local cal_file = fs.get_calendar_file()
+	vim.cmd("edit " .. fn.fnameescape(cal_file))
 end
 
 function Actions.sync_notifications()
@@ -881,6 +876,7 @@ end
 -- =============================================================================
 
 function M.open()
+	calendar_store.ensure_loaded()
 	if CalendarState.win_id and api.nvim_win_is_valid(CalendarState.win_id) then
 		api.nvim_set_current_win(CalendarState.win_id)
 		return
@@ -956,7 +952,6 @@ end
 
 function M.setup(opts)
 	cfg = opts
-	calendar.load()
 end
 
 return M

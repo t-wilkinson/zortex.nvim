@@ -2,7 +2,7 @@
 
 local M = {}
 
-local EventBus = require("zortex.core.event_bus")
+local Events = require("zortex.core.event_bus")
 local xp_store = require("zortex.stores.xp")
 local xp_calculator = require("zortex.services.xp.calculator")
 
@@ -10,7 +10,7 @@ local xp_calculator = require("zortex.services.xp.calculator")
 function M.start_season(name, end_date)
 	xp_store.start_season(name, end_date)
 
-	EventBus.emit("season:started", {
+	Events.emit("season:started", {
 		name = name,
 		end_date = end_date,
 	})
@@ -20,7 +20,7 @@ function M.end_season()
 	local season_record = xp_store.end_season()
 
 	if season_record then
-		EventBus.emit("season:ended", {
+		Events.emit("season:ended", {
 			season = season_record,
 		})
 	end

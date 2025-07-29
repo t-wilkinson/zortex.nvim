@@ -2,7 +2,6 @@
 local M = {}
 
 local SearchService = require("zortex.services.search")
-local EventBus = require("zortex.core.event_bus")
 local fs = require("zortex.utils.filesystem")
 local highlights = require("zortex.features.highlights")
 local Config = require("zortex.config")
@@ -318,7 +317,7 @@ end
 
 function M.search(opts)
 	opts = opts or {}
-	opts.search_mode = opts.search_mode or SearchService.modes.SECTION
+	opts.search_mode = opts.search_mode or constants.SEARCH_MODES.SECTION
 
 	local pickers = require("telescope.pickers")
 	local actions = require("telescope.actions")
@@ -327,11 +326,11 @@ function M.search(opts)
 
 	-- Determine prompt title
 	local prompt_title = "Zortex Search"
-	if opts.search_mode == SearchService.modes.ARTICLE then
+	if opts.search_mode == constants.SEARCH_MODES.ARTICLE then
 		prompt_title = "Zortex Article Search"
-	elseif opts.search_mode == SearchService.modes.TASK then
+	elseif opts.search_mode == constants.SEARCH_MODES.TASK then
 		prompt_title = "Zortex Task Search"
-	elseif opts.search_mode == SearchService.modes.ALL then
+	elseif opts.search_mode == constants.SEARCH_MODES.ALL then
 		prompt_title = "Zortex All Search"
 	else
 		prompt_title = "Zortex Section Search"
@@ -451,19 +450,19 @@ end
 -- =============================================================================
 
 function M.search_sections(opts)
-	M.search(vim.tbl_extend("force", { search_mode = SearchService.modes.SECTION }, opts or {}))
+	M.search(vim.tbl_extend("force", { search_mode = constants.SEARCH_MODES.SECTION }, opts or {}))
 end
 
 function M.search_articles(opts)
-	M.search(vim.tbl_extend("force", { search_mode = SearchService.modes.ARTICLE }, opts or {}))
+	M.search(vim.tbl_extend("force", { search_mode = constants.SEARCH_MODES.ARTICLE }, opts or {}))
 end
 
 function M.search_tasks(opts)
-	M.search(vim.tbl_extend("force", { search_mode = SearchService.modes.TASK }, opts or {}))
+	M.search(vim.tbl_extend("force", { search_mode = constants.SEARCH_MODES.TASK }, opts or {}))
 end
 
 function M.search_all(opts)
-	M.search(vim.tbl_extend("force", { search_mode = SearchService.modes.ALL }, opts or {}))
+	M.search(vim.tbl_extend("force", { search_mode = constants.SEARCH_MODES.ALL }, opts or {}))
 end
 
 -- =============================================================================
@@ -488,7 +487,7 @@ function M.search_current_section()
 		local filepath = vim.api.nvim_buf_get_name(bufnr)
 		if filepath and filepath ~= "" then
 			-- Force a search to populate cache
-			SearchService.search("", { search_mode = SearchService.modes.SECTION })
+			SearchService.search("", { search_mode = constants.SEARCH_MODES.SECTION })
 		else
 			vim.notify("No Zortex document loaded", vim.log.levels.WARN)
 			return

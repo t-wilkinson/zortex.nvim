@@ -2,7 +2,7 @@
 local M = {}
 
 local xp_service = require("zortex.services.xp")
-local EventBus = require("zortex.core.event_bus")
+local Events = require("zortex.core.event_bus")
 
 -- =============================================================================
 -- Task Progress Notifications
@@ -189,7 +189,7 @@ end
 
 function M.setup()
 	-- function M.notify_area_level_up(area_path, new_level)
-	EventBus.on("xp:area_level_up", function()
+	Events.on("xp:area_level_up", function()
 		vim.notify(
 			string.format("🎯 Area Level Up!\n%s → Level %d", area_path, new_level),
 			vim.log.levels.INFO,
@@ -198,7 +198,7 @@ function M.setup()
 	end)
 
 	-- function M.notify_season_level_up(new_level, tier_info)
-	-- EventBus.on("xp:season_level_up", function()
+	-- Events.on("xp:season_level_up", function()
 	--   local message = string.format("🏆 Season Level Up!\nLevel %d", new_level)
 
 	--   if tier_info and tier_info.current then

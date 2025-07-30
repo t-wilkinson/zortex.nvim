@@ -192,28 +192,7 @@ function M:get_time_string()
 	if self.time and self.time.hour and self.time.min then
 		return string.format("%02d:%02d", self.time.hour, self.time.min)
 	elseif self.attributes.at then
-		return datetime.format_date(self.attributes.at, "mm:dd")
-	elseif self.attributes.from and self.attributes.to then
-		return datetime.format_date(self.attributes.from, "mm:dd")
-			.. "-"
-			.. datetime.format(self.attributes.to, "mm:dd")
-	elseif self.attributes.from then
-		return datetime.format_date(self.attributes.from, "mm:dd")
-	end
-	return nil
-end
-
-function M:get_start_time()
-	local a = self.attributes
-
-	if self.time and self.time.hour and self.time.min then
-		return self.time
-	elseif a.at and a.at.hour and a.at.min then
-		return a.at
-	elseif a.from and a.from.hour and a.from.min then
-		return a.from
-	elseif a.to and a.to.hour and a.to.min then
-		return a.to
+		return self.attributes.at
 	end
 	return nil
 end
@@ -394,26 +373,83 @@ function M:format_simple()
 
 	-- Add compact attributes
 	local attr_parts = {}
+	local date_context = self.date_context and datetime.parse_date(self.date_context)
 
-	-- Compact time display
-	if self.attributes.at then
-		table.insert(attr_parts, self.attributes.at)
-	elseif self.attributes.from and self.attributes.to then
-		table.insert(attr_parts, self.attributes.from .. "-" .. self.attributes.to)
-	elseif self.attributes.from then
-		table.insert(attr_parts, self.attributes.from .. "-")
-	elseif self.attributes.to then
-		table.insert(attr_parts, "-" .. self.attributes.to)
+	local attr_at = self.attributes.at
+	local attr_from = self.attributes.from
+	local attr_to = self.attributes.to
+
+	-- Helper to check if a datetime object has a time component
+	local function has_time(dt)
+		return dt and dt.hour ~= nil and dt.min ~= nil
+	end
+
+	-- Time attributes
+	local time_str
+	if attr_at then
+		if has_time(attr_at) then
+			local format = "YYYY-MM-DD@hh:mm"
+			if date_context and datetime.is_same_day(attr_at, date_context) then
+				format = "hh:mm"
+			end
+			time_str = datetime.format_date(attr_at, format)
+		else -- All-day event
+			time_str = datetime.format_date(attr_at, "YYYY-MM-DD")
+		end
+	elseif attr_from or attr_to then
+		local is_all_day = (attr_from and not has_time(attr_from)) or (attr_to and not has_time(attr_to))
+
+		if attr_from and attr_to then
+			if not is_all_day then
+				-- Timed range
+				if datetime.is_same_day(attr_from, attr_to) then
+					local time_from_str = datetime.format_date(attr_from, "hh:mm")
+					local time_to_str = datetime.format_date(attr_to, "hh:mm")
+					if date_context and datetime.is_same_day(attr_from, date_context) then
+						time_str = time_from_str .. "-" .. time_to_str
+					else
+						local date_str = datetime.format_date(attr_from, "YYYY-MM-DD")
+						time_str = date_str .. "@" .. time_from_str .. "-" .. time_to_str
+					end
+				else
+					local from_full_str = datetime.format_date(attr_from, "YYYY-MM-DD@hh:mm")
+					local to_full_str = datetime.format_date(attr_to, "YYYY-MM-DD@hh:mm")
+					time_str = from_full_str .. "-" .. to_full_str
+				end
+			else
+				-- All-day range
+				if datetime.is_same_day(attr_from, attr_to) then
+					time_str = datetime.format_date(attr_from, "YYYY-MM-DD")
+				else
+					time_str = datetime.format_date(attr_from, "YYYY-MM-DD")
+						.. "-"
+						.. datetime.format_date(attr_to, "YYYY-MM-DD")
+				end
+			end
+		elseif attr_from then
+			local format = not is_all_day and "YYYY-MM-DD@hh:mm" or "YYYY-MM-DD"
+			if not is_all_day and date_context and datetime.is_same_day(attr_from, date_context) then
+				format = "hh:mm"
+			end
+			time_str = datetime.format_date(attr_from, format) .. "-..."
+		elseif attr_to then
+			local format = not is_all_day and "YYYY-MM-DD@hh:mm" or "YYYY-MM-DD"
+			if not is_all_day and date_context and datetime.is_same_day(attr_to, date_context) then
+				format = "hh:mm"
+			end
+			time_str = "...-" .. datetime.format_date(attr_to, format)
+		end
+	end
+
+	if time_str then
+		table.insert(attr_parts, time_str)
 	end
 
 	-- Compact duration
 	if self.attributes.dur then
-		table.insert(attr_parts, attributes.format_duration(self.attributes.dur) or (self.attributes.dur .. "m"))
+		table.insert(attr_parts, attributes.format_duration(self.attributes.dur))
 	elseif self.attributes.est then
-		table.insert(
-			attr_parts,
-			"~" .. (attributes.format_duration(self.attributes.est) or (self.attributes.est .. "m"))
-		)
+		table.insert(attr_parts, "~" .. (attributes.format_duration(self.attributes.est)))
 	end
 
 	-- Simple indicators

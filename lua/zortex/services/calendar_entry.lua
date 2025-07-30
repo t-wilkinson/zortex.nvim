@@ -192,7 +192,28 @@ function M:get_time_string()
 	if self.time and self.time.hour and self.time.min then
 		return string.format("%02d:%02d", self.time.hour, self.time.min)
 	elseif self.attributes.at then
-		return self.attributes.at
+		return datetime.format_date(self.attributes.at, "mm:dd")
+	elseif self.attributes.from and self.attributes.to then
+		return datetime.format_date(self.attributes.from, "mm:dd")
+			.. "-"
+			.. datetime.format(self.attributes.to, "mm:dd")
+	elseif self.attributes.from then
+		return datetime.format_date(self.attributes.from, "mm:dd")
+	end
+	return nil
+end
+
+function M:get_start_time()
+	local a = self.attributes
+
+	if self.time and self.time.hour and self.time.min then
+		return self.time
+	elseif a.at and a.at.hour and a.at.min then
+		return a.at
+	elseif a.from and a.from.hour and a.from.min then
+		return a.from
+	elseif a.to and a.to.hour and a.to.min then
+		return a.to
 	end
 	return nil
 end

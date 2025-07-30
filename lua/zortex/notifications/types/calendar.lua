@@ -12,9 +12,20 @@ local sent_notifications = {}
 
 -- Create notification ID for deduplication
 local function create_notification_id(entry, date_str)
+	local time
+	if entry.attributes.at then
+		time = datetime.format_date(entry.attributes.at, "mm:dd")
+	elseif entry.attributes.from and entry.attributes.to then
+		time = datetime.format_date(entry.attributes.from, "mm:dd")
+			.. "-"
+			.. datetime.format_date(entry.attributes.to, "mm:dd")
+	else
+		time = "allday"
+	end
+
 	local parts = {
 		date_str,
-		entry.attributes.at or "allday",
+		time,
 		entry.display_text:sub(1, 20),
 	}
 	return table.concat(parts, "_"):gsub("%s+", "_"):gsub("[^%w_-]", "")
@@ -83,7 +94,7 @@ local function entry_to_notification(entry, date_str, notify_minutes)
 
 	-- Parse event time if specified
 	if entry.attributes.at then
-		local time = datetime.parse_time(entry.attributes.at)
+		local time = entry:get_start_time()
 		if time then
 			event_datetime.hour = time.hour
 			event_datetime.min = time.min
@@ -96,7 +107,7 @@ local function entry_to_notification(entry, date_str, notify_minutes)
 	return {
 		id = create_notification_id(entry, date_str),
 		title = entry.display_text,
-		message = CalendarEntry.format_entry(entry),
+		message = entry:format(),
 		event_time = event_time,
 		notify_time = notify_time,
 		notify_minutes = notify_minutes,

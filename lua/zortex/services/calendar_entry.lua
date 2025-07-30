@@ -15,7 +15,7 @@ function M:new(data)
 	local entry = {
 		raw_text = data.raw_text or "",
 		display_text = data.display_text or data.raw_text or "",
-		date_context = data.date_context, -- The date this entry belongs to
+		date_context = data.date_context or "", -- The date this entry belongs to
 		type = data.type or "note", -- note, event, task
 		attributes = data.attributes or {},
 		task_status = data.task_status,
@@ -31,26 +31,32 @@ function M:new(data)
 end
 
 -- Parse a calendar entry from text
-function M.from_text(entry_text, date_context)
+function M.from_text(entry_text, current_date_str)
 	local data = {
 		raw_text = entry_text,
-		date_context = date_context,
+		date_context = current_date_str,
 	}
 
 	local working_text = entry_text
 
-	-- Check for task status
-	if parser.is_task_line("- " .. working_text) then
-		data.task_status = parser.parse_task_status("- " .. working_text)
-		if data.task_status then
-			data.type = "task"
-			-- Strip the checkbox pattern
-			working_text = working_text:match("%[.%]%s+(.+)$") or working_text
-		end
+	-- Check for task checkbox at the beginning
+	local checkbox_pattern = "^%s*(%[.%])%s+(.*)$"
+	local checkbox, remaining = working_text:match(checkbox_pattern)
+
+	if checkbox then
+		-- It's a task - extract the checkbox and parse status
+		data.type = "task"
+		working_text = remaining
+
+		-- Create a dummy line with dash prefix for the parser
+		local dummy_line = "- " .. entry_text
+		data.task_status = parser.parse_task_status(dummy_line)
 	end
 
 	-- Parse attributes
-	local attrs, remaining_text = attributes.parse_calendar_attributes(working_text)
+	local attrs, remaining_text = attributes.parse_calendar_attributes(working_text, {
+		default_date_str = current_date_str,
+	})
 	data.attributes = attrs or {}
 	data.display_text = remaining_text
 
@@ -71,14 +77,14 @@ end
 function M:_compute_fields()
 	-- Extract time
 	if self.attributes.at then
-		self.time = datetime.parse_time(self.attributes.at)
+		self.time = self.attributes.at
 	end
 
 	-- Extract duration
 	self.duration = self.attributes.dur or self.attributes.est
 
-	-- Extract date range
-	if self.attributes.from or self.attributes.to then
+	-- Extract date range for @from/@to attributes
+	if self.attributes.from and self.attributes.to then
 		self.date_range = {
 			from = self.attributes.from,
 			to = self.attributes.to,
@@ -93,41 +99,37 @@ function M:is_active_on_date(date)
 		return false
 	end
 
-	-- Normalize to noon to avoid DST issues
-	target_date.hour, target_date.min, target_date.sec = 12, 0, 0
-	local target_time = os.time(target_date)
+	-- 1. Check if the entry is a ranged event and the target date falls within it.
+	if self.attributes.from and self.attributes.to then
+		local from_date = self.attributes.from
+		local to_date = self.attributes.to
 
-	-- Check date range
-	if self.date_range then
-		local in_range = false
+		-- Normalize dates to compare just the day part, ignoring time.
+		-- We set the hour to 12 to avoid DST issues.
+		local target_time =
+			os.time({ year = target_date.year, month = target_date.month, day = target_date.day, hour = 12 })
+		local from_time = os.time({ year = from_date.year, month = from_date.month, day = from_date.day, hour = 12 })
+		local to_time = os.time({ year = to_date.year, month = to_date.month, day = to_date.day, hour = 12 })
 
-		if self.date_range.from and self.date_range.to then
-			local from_time = os.time(vim.tbl_extend("force", self.date_range.from, { hour = 12, min = 0, sec = 0 }))
-			local to_time = os.time(vim.tbl_extend("force", self.date_range.to, { hour = 12, min = 0, sec = 0 }))
-			in_range = target_time >= from_time and target_time <= to_time
-		elseif self.date_range.from then
-			local from_time = os.time(vim.tbl_extend("force", self.date_range.from, { hour = 12, min = 0, sec = 0 }))
-			in_range = target_time >= from_time
-		elseif self.date_range.to then
-			local to_time = os.time(vim.tbl_extend("force", self.date_range.to, { hour = 12, min = 0, sec = 0 }))
-			in_range = target_time <= to_time
+		if target_time >= from_time and target_time <= to_time then
+			return true -- It's active on this day.
 		end
+	end
 
-		if in_range then
+	-- 2. Check if the entry is explicitly on this date (its context).
+	if self.date_context == date then
+		return true
+	end
+
+	-- 3. Check if the entry repeats on this date.
+	if self.attributes["repeat"] and self.date_context then
+		local start_date = datetime.parse_date(self.date_context)
+		if start_date and self:is_repeat_active(start_date, target_date) then
 			return true
 		end
 	end
 
-	-- Check repeat pattern
-	if self.attributes["repeat"] and self.date_context then
-		local start_date = datetime.parse_date(self.date_context)
-		if start_date then
-			return self:is_repeat_active(start_date, target_date)
-		end
-	end
-
-	-- Default: active only on its own date
-	return self.date_context == date
+	return false
 end
 
 -- Check if repeat pattern is active
@@ -137,7 +139,7 @@ function M:is_repeat_active(start_date, target_date)
 		return false
 	end
 
-	-- Normalize dates
+	-- Normalize dates to noon to avoid DST issues
 	start_date = vim.tbl_extend("force", {}, start_date, { hour = 12, min = 0, sec = 0 })
 	target_date = vim.tbl_extend("force", {}, target_date, { hour = 12, min = 0, sec = 0 })
 
@@ -170,6 +172,7 @@ function M:is_repeat_active(start_date, target_date)
 			elseif unit == "w" then
 				return days_diff % (num * 7) == 0
 			elseif unit == "m" then
+				-- For monthly repeats, check if it's the same day of month
 				local month_diff = (target_date.year - start_date.year) * 12 + (target_date.month - start_date.month)
 				return month_diff % num == 0 and target_date.day == start_date.day
 			elseif unit == "y" then
@@ -186,7 +189,7 @@ end
 
 -- Get formatted time string
 function M:get_time_string()
-	if self.time then
+	if self.time and self.time.hour and self.time.min then
 		return string.format("%02d:%02d", self.time.hour, self.time.min)
 	elseif self.attributes.at then
 		return self.attributes.at
@@ -214,8 +217,12 @@ function M:get_sort_priority()
 	end
 
 	-- Add time-based priority
-	if self.time then
+	if self.time and self.time.hour ~= nil and self.time.min ~= nil then
+		-- Timed entries are sorted by time, earlier first
 		priority = priority + (24 - self.time.hour) * 10 + (60 - self.time.min) / 6
+	elseif self.time then
+		-- All-day entries get a high priority to appear at the top of the list for that day
+		priority = priority + 300
 	end
 
 	return priority
@@ -232,102 +239,184 @@ end
 
 -- Pretty‑print attributes
 function M:format_pretty()
-	if not self.attributes then
-		return ""
-	end
-
 	local parts = {}
 
+	-- Start with task checkbox if it's a task
+	if self.type == "task" and self.task_status then
+		table.insert(parts, self.task_status.key)
+	end
+
+	-- Add the display text
+	table.insert(parts, self.display_text)
+
+	-- Add formatted attributes
+	local attr_parts = {}
+	local date_context = self.date_context and datetime.parse_date(self.date_context)
+
+	local attr_at = self.attributes.at
+	local attr_from = self.attributes.from
+	local attr_to = self.attributes.to
+
+	-- Helper to check if a datetime object has a time component
+	local function has_time(dt)
+		return dt and dt.hour ~= nil and dt.min ~= nil
+	end
+
 	-- Time attributes
-	local time_str = self:get_time_string()
-	if time_str then
-		table.insert(parts, "🕐 " .. self.attributes.at)
+	if attr_at then
+		if has_time(attr_at) then
+			local format = "YYYY-MM-DD hh:mm"
+			if date_context and datetime.is_same_day(attr_at, date_context) then
+				format = "hh:mm"
+			end
+			table.insert(attr_parts, "🕐 " .. datetime.format_date(attr_at, format))
+		else -- All-day event
+			table.insert(attr_parts, "🗓️ " .. datetime.format_date(attr_at, "YYYY-MM-DD"))
+		end
+	elseif attr_from or attr_to then
+		local time_range_str
+		local icon = "🕐"
+
+		-- An event is "all-day" if either the from or to attribute exists and lacks a time.
+		if (attr_from and not has_time(attr_from)) or (attr_to and not has_time(attr_to)) then
+			icon = "🗓️"
+		end
+
+		if attr_from and attr_to then
+			if icon == "🕐" then
+				-- Timed range logic
+				if datetime.is_same_day(attr_from, attr_to) then
+					local time_from_str = datetime.format_date(attr_from, "hh:mm")
+					local time_to_str = datetime.format_date(attr_to, "hh:mm")
+					if date_context and datetime.is_same_day(attr_from, date_context) then
+						time_range_str = time_from_str .. "-" .. time_to_str
+					else
+						local date_str = datetime.format_date(attr_from, "YYYY-MM-DD")
+						time_range_str = date_str .. " " .. time_from_str .. "-" .. time_to_str
+					end
+				else
+					local from_full_str = datetime.format_date(attr_from, "YYYY-MM-DD hh:mm")
+					local to_full_str = datetime.format_date(attr_to, "YYYY-MM-DD hh:mm")
+					time_range_str = from_full_str .. " - " .. to_full_str
+				end
+			else
+				-- All-day range logic
+				if datetime.is_same_day(attr_from, attr_to) then
+					time_range_str = datetime.format_date(attr_from, "YYYY-MM-DD")
+				else
+					time_range_str = datetime.format_date(attr_from, "YYYY-MM-DD")
+						.. " - "
+						.. datetime.format_date(attr_to, "YYYY-MM-DD")
+				end
+			end
+		elseif attr_from then
+			local format = (icon == "🕐") and "YYYY-MM-DD hh:mm" or "YYYY-MM-DD"
+			if icon == "🕐" and date_context and datetime.is_same_day(attr_from, date_context) then
+				format = "hh:mm"
+			end
+			time_range_str = datetime.format_date(attr_from, format) .. " - ..."
+		elseif attr_to then
+			local format = (icon == "🕐") and "YYYY-MM-DD hh:mm" or "YYYY-MM-DD"
+			if icon == "🕐" and date_context and datetime.is_same_day(attr_to, date_context) then
+				format = "hh:mm"
+			end
+			time_range_str = "... - " .. datetime.format_date(attr_to, format)
+		end
+
+		table.insert(attr_parts, icon .. " " .. time_range_str)
 	end
 
 	-- Duration attributes
 	if self.attributes.dur then
-		table.insert(parts, string.format("⏱ %dm", self.attributes.dur))
+		table.insert(attr_parts, string.format("⏱ %s", attributes.format_duration(self.attributes.dur)))
 	elseif self.attributes.est then
-		table.insert(parts, string.format("⏱ ~%dm", self.attributes.est))
+		table.insert(attr_parts, string.format("⏱ ~%s", attributes.format_duration(self.attributes.est)))
 	end
 
 	-- Notification
 	if self.attributes.notify then
-		table.insert(parts, "🔔")
+		table.insert(attr_parts, "🔔")
 	end
 
 	-- Repeat pattern
 	if self.attributes["repeat"] then
-		table.insert(parts, "🔁 " .. self.attributes["repeat"])
+		table.insert(attr_parts, "🔁 " .. self.attributes["repeat"])
 	end
 
-	-- Date range
-	if self.attributes.from or self.attributes.to then
-		local range_parts = {}
-		if self.attributes.from then
-			table.insert(range_parts, datetime.format_date(self.attributes.from, "MM/DD"))
-		else
-			table.insert(range_parts, "...")
-		end
-		table.insert(range_parts, "→")
-		if self.attributes.to then
-			table.insert(range_parts, datetime.format_date(self.attributes.to, "MM/DD"))
-		else
-			table.insert(range_parts, "...")
-		end
-		table.insert(parts, table.concat(range_parts, " "))
+	-- Priority/importance
+	if self.attributes.p then
+		table.insert(attr_parts, "P" .. self.attributes.p)
+	end
+	if self.attributes.i then
+		table.insert(attr_parts, "I" .. self.attributes.i)
 	end
 
-	if #parts > 0 then
-		return self.display_text .. "  " .. table.concat(parts, "  ")
+	-- Add attributes if any
+	if #attr_parts > 0 then
+		table.insert(parts, " " .. table.concat(attr_parts, "  "))
 	end
-	return self.display_text
+
+	return table.concat(parts, "")
 end
 
 -- Format attributes in simple mode
 function M:format_simple()
-	if not self.attributes then
-		return ""
+	local parts = {}
+
+	-- Start with task checkbox if it's a task
+	if self.type == "task" and self.task_status then
+		table.insert(parts, self.task_status.key)
 	end
 
-	local parts = {}
+	-- Add the display text
+	table.insert(parts, self.display_text)
+
+	-- Add compact attributes
+	local attr_parts = {}
 
 	-- Compact time display
 	if self.attributes.at then
-		table.insert(parts, self.attributes.at)
+		table.insert(attr_parts, self.attributes.at)
+	elseif self.attributes.from and self.attributes.to then
+		table.insert(attr_parts, self.attributes.from .. "-" .. self.attributes.to)
+	elseif self.attributes.from then
+		table.insert(attr_parts, self.attributes.from .. "-")
+	elseif self.attributes.to then
+		table.insert(attr_parts, "-" .. self.attributes.to)
 	end
 
 	-- Compact duration
 	if self.attributes.dur then
-		table.insert(parts, self.attributes.dur .. "m")
+		table.insert(attr_parts, attributes.format_duration(self.attributes.dur) or (self.attributes.dur .. "m"))
 	elseif self.attributes.est then
-		table.insert(parts, "~" .. self.attributes.est .. "m")
+		table.insert(
+			attr_parts,
+			"~" .. (attributes.format_duration(self.attributes.est) or (self.attributes.est .. "m"))
+		)
 	end
 
 	-- Simple indicators
 	if self.attributes.notify then
-		table.insert(parts, "!")
+		table.insert(attr_parts, "!")
 	end
 
 	if self.attributes["repeat"] then
-		table.insert(parts, "R")
+		table.insert(attr_parts, "R:" .. self.attributes["repeat"])
 	end
 
-	-- Compact date range
-	if self.attributes.from and self.attributes.to then
-		local from_str = datetime.format_date(self.attributes.from, "MM/DD")
-		local to_str = datetime.format_date(self.attributes.to, "MM/DD")
-		table.insert(parts, from_str .. "-" .. to_str)
-	elseif self.attributes.from then
-		table.insert(parts, datetime.format_date(self.attributes.from, "MM/DD") .. "+")
-	elseif self.attributes.to then
-		table.insert(parts, "-" .. datetime.format_date(self.attributes.to, "MM/DD"))
+	-- Priority/importance
+	if self.attributes.p then
+		table.insert(attr_parts, "P" .. self.attributes.p)
+	end
+	if self.attributes.i then
+		table.insert(attr_parts, "I" .. self.attributes.i)
 	end
 
-	if #parts > 0 then
-		return " [" .. table.concat(parts, " ") .. "]"
+	if #attr_parts > 0 then
+		table.insert(parts, "[" .. table.concat(attr_parts, " ") .. "]")
 	end
-	return ""
+
+	return table.concat(parts, " ")
 end
 
 return M

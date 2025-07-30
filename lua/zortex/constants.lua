@@ -113,7 +113,7 @@ M.PATTERNS = {
 	CALENDAR_DATE_HEADING = "^(%d%d%d%d)-(%d%d)%-(%d%d)%:$",
 	CALENDAR_ENTRY_PREFIX = "^%s+%-? (.+)$",
 	CALENDAR_TIME_PREFIX = "^%s*(%d%d?:%d%d)%s+(.+)$",
-	CALENDAR_TIME_RANGE = "^%s*(%d%d?:%d%d)%-(%d%d?:%d%d)%s+(.+)$",
+	CALENDAR_TIME_RANGE = "^%s*(%d%d?:%d%d)%s*%-%s*(%d%d?:%d%d)%s+(.+)$",
 
 	-- okr.zortex
 	OKR_DATE = "^## ([%w]+) (%d+) (%d+) (.+)$",

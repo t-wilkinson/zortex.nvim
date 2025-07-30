@@ -206,7 +206,7 @@ function M.goto_date(date_str)
 		return false
 	end
 
-	local search_pattern = string.format("%02d-%02d-%04d:", date.month, date.day, date.year)
+	local search_pattern = string.format("%04d-%02d-%02d:", date.year, date.month, date.day)
 
 	-- Search for date
 	local found = vim.fn.search(search_pattern, "w")

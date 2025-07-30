@@ -124,8 +124,8 @@ function M.parse_datetime(dt_str, default_date_str)
 	-- Try date only
 	local date = M.parse_date(dt_str)
 	if date then
-		date.hour = 0
-		date.min = 0
+		date.hour = nil
+		date.min = nil
 		return date
 	end
 

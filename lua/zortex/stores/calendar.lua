@@ -8,6 +8,7 @@ local fs = require("zortex.utils.filesystem")
 local CalendarEntry = require("zortex.services.calendar_entry")
 local Events = require("zortex.core.event_bus")
 local Doc = require("zortex.core.document_manager")
+local parser = require("zortex.utils.parser")
 
 -- =============================================================================
 -- Store State
@@ -39,14 +40,42 @@ function M.load()
 
 	local current_date_str = nil
 	for _, line in ipairs(lines) do
-		local m, d, y = line:match(constants.PATTERNS.CALENDAR_DATE_HEADING)
-		if m and d and y then
-			current_date_str = datetime.format_date({ year = y, month = m, day = d }, "YYYY-MM-DD")
-			state.entries[current_date_str] = {}
+		local y, m, d = line:match(constants.PATTERNS.CALENDAR_DATE_HEADING)
+		if y and m and d then
+			current_date_str = datetime.format_date({
+				year = tonumber(y),
+				month = tonumber(m),
+				day = tonumber(d),
+			}, "YYYY-MM-DD")
+			-- Always initialize as empty array, we'll merge duplicates
+			if not state.entries[current_date_str] then
+				state.entries[current_date_str] = {}
+			end
 		elseif current_date_str then
-			local entry_text = line:match(constants.PATTERNS.CALENDAR_ENTRY_PREFIX)
+			-- Extract the entry text with optional dash prefix
+			local entry_text = line:match("^%s*%-?%s*(.+)$")
+
 			if entry_text then
-				local entry = CalendarEntry.from_text(entry_text, current_date_str)
+				-- Check for different time formats
+				local parsed_text = entry_text
+
+				-- Check for time range format: "10:00 - 12:00 rest of text"
+				local from_time, to_time, remaining = entry_text:match("^(%d%d?:%d%d)%s*%-%s*(%d%d?:%d%d)%s+(.*)$")
+				if from_time and to_time and remaining then
+					parsed_text = remaining
+					-- Add the time attributes
+					parsed_text = parser.update_attribute(parsed_text, "from", from_time)
+					parsed_text = parser.update_attribute(parsed_text, "to", to_time)
+				else
+					-- Check for single time prefix: "10:00 rest of text"
+					local at_time, remaining = entry_text:match("^(%d%d?:%d%d)%s+(.*)$")
+					if at_time and remaining then
+						parsed_text = remaining
+						parsed_text = parser.update_attribute(parsed_text, "at", at_time)
+					end
+				end
+
+				local entry = CalendarEntry.from_text(parsed_text, current_date_str)
 				table.insert(state.entries[current_date_str], entry)
 			end
 		end
@@ -159,24 +188,19 @@ function M.delete_entry_by_text(date_str, entry_text)
 end
 
 function M.delete_entry_by_index(date_str, entry_index)
-	local entries = M.get_entries_for_date(date_str)
+	M.ensure_loaded()
 
+	local entries = state.entries[date_str]
 	if not entries or entry_index < 1 or entry_index > #entries then
 		return false, "Invalid entry index"
 	end
 
 	local removed_entry = entries[entry_index]
-
-	-- Remove from store
-	if not state.data.entries[date_str] then
-		return false, "No entries for date"
-	end
-
-	table.remove(state.data.entries[date_str], entry_index)
+	table.remove(entries, entry_index)
 
 	-- Remove date if no entries left
-	if #state.data.entries[date_str] == 0 then
-		state.data.entries[date_str] = nil
+	if #entries == 0 then
+		state.entries[date_str] = nil
 	end
 
 	-- Save
@@ -217,14 +241,17 @@ function M.get_entries_for_date(date_str)
 	M.ensure_loaded()
 
 	local active_entries = {}
-	local seen = {} -- Track processed entries by raw_text
+	local seen = {} -- Track processed entries by a unique key
 
 	-- Check all entries to see if they're active on this date
 	for entry_date_str, entries in pairs(state.entries) do
 		for _, entry in ipairs(entries) do
-			if not seen[entry.raw_text] and entry:is_active_on_date(date_str) then
+			-- Create a unique key for this entry
+			local entry_key = entry_date_str .. ":" .. entry.raw_text
+
+			if not seen[entry_key] and entry:is_active_on_date(date_str) then
 				table.insert(active_entries, entry)
-				seen[entry.raw_text] = true
+				seen[entry_key] = true
 			end
 		end
 	end

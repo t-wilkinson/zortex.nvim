@@ -201,7 +201,9 @@ local attribute_parsers = {
 
 	time = datetime.parse_time,
 
-	datetime = datetime.parse_datetime,
+	datetime = function(v, _, context)
+		return datetime.parse_datetime(v, context.default_date_str)
+	end,
 
 	progress = function(v)
 		local completed, total = v:match("(%d+)/(%d+)")
@@ -230,7 +232,9 @@ local attribute_parsers = {
 }
 
 -- Parse @key(value) attributes from text
-function M.parse_attributes(text, schema)
+-- @param parser_context table Context of the text being parsed to optionally pass to functions like parse_datetime() default_date_str.
+--  The attribute parsers know how to take the parser_context and pass relevant information to functions as necessary.
+function M.parse_attributes(text, schema, parser_context)
 	local attrs = {}
 	local contexts = {}
 
@@ -240,7 +244,7 @@ function M.parse_attributes(text, schema)
 		if schema and schema[key] then
 			local parser = attribute_parsers[schema[key].type]
 			if parser then
-				local parsed = parser(value, schema[key].values)
+				local parsed = parser(value, schema[key].values, parser_context)
 				if parsed ~= nil then
 					attrs[key] = parsed
 				end
@@ -277,7 +281,7 @@ function M.parse_attributes(text, schema)
 		if schema and schema[key] and schema[key].type == "boolean" then
 			attrs[key] = true
 		else
-			-- Otherwise it's a context
+			-- Otherwise it's a context (@home, @work, @phone)
 			table.insert(contexts, key)
 		end
 

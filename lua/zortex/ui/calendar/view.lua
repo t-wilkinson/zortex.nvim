@@ -333,17 +333,18 @@ function Renderer.render_month_view(date)
 					icon = cfg.icons.notification
 				end
 
-				local entry_str = entry:format()
-				local entry_line = string.format("  %s %s", icon, entry_str)
+				-- Use the entry's format method to get the properly formatted string
+				local formatted_entry = entry:format()
+				local entry_line = string.format("  %s %s", icon, formatted_entry)
 				table.insert(lines, left_pad_str .. MARGIN_STR .. entry_line)
 			end
+		else
+			table.insert(lines, left_pad_str .. MARGIN_STR .. "  (no entries)")
 		end
 
 		-- Minimum height of 10 lines
-		if #entries < 10 then
-			for _ = 0, 10 - #entries do
-				table.insert(lines, "")
-			end
+		while #lines < line_num + 10 do
+			table.insert(lines, "")
 		end
 
 		-- Show pending notifications
@@ -439,8 +440,9 @@ function Renderer.render_digest_view()
 					icon = cfg.icons.notification
 				end
 
-				local time_str = entry.attributes.at and (" @ " .. entry.attributes.at) or ""
-				local entry_line = string.format("    %s %s%s", icon, entry.display_text, time_str)
+				-- Use the formatted entry display
+				local formatted_entry = entry:format()
+				local entry_line = string.format("    %s %s", icon, formatted_entry)
 				table.insert(lines, entry_line)
 			end
 			table.insert(lines, "")

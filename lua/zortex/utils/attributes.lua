@@ -66,7 +66,7 @@ M.schemas = {
 		p = { type = "enum", values = { "1", "2", "3" } },
 		i = { type = "enum", values = { "1", "2", "3" } },
 		due = { type = "datetime" },
-		at = { type = "string" },
+		at = { type = "datetime" },
 		dur = { type = "duration" },
 		est = { type = "duration" },
 		from = { type = "datetime" },
@@ -81,23 +81,23 @@ M.schemas = {
 -- =============================================================================
 
 -- Parse task attributes
-function M.parse_task_attributes(line)
-	return parser.parse_attributes(line, M.schemas.task)
+function M.parse_task_attributes(line, context)
+	return parser.parse_attributes(line, M.schemas.task, context)
 end
 
 -- Parse project attributes
-function M.parse_project_attributes(line)
-	return parser.parse_attributes(line, M.schemas.project)
+function M.parse_project_attributes(line, context)
+	return parser.parse_attributes(line, M.schemas.project, context)
 end
 
 -- Parse event attributes
-function M.parse_event_attributes(line)
-	return parser.parse_attributes(line, M.schemas.event)
+function M.parse_event_attributes(line, context)
+	return parser.parse_attributes(line, M.schemas.event, context)
 end
 
 -- Parse calendar entry attributes
-function M.parse_calendar_attributes(line)
-	return parser.parse_attributes(line, M.schemas.calendar_entry)
+function M.parse_calendar_attributes(line, context)
+	return parser.parse_attributes(line, M.schemas.calendar_entry, context)
 end
 
 -- Strip attributes (returns clean text and extracted attributes)
@@ -175,16 +175,6 @@ end
 
 function M.extract_task_id(line)
 	return parser.extract_attribute(line, "id")
-end
-
--- XP attribute helpers
-function M.update_xp_attribute(line, xp)
-	return parser.update_attribute(line, "xp", tostring(xp))
-end
-
-function M.extract_xp(line)
-	local xp_str = parser.extract_attribute(line, "xp")
-	return xp_str and tonumber(xp_str) or nil
 end
 
 -- Task status parsing

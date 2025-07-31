@@ -365,6 +365,7 @@ function M.find_section_by_link(doc, link_def)
 	-- Sequentially find each component in the link
 	for i = start_idx, #link_def.components do
 		local component = link_def.components[i]
+		require("zortex.core.logger").info("find_section_by_link", "", { component = component, link_def = link_def })
 		local found_in_level = false
 		for _, child in ipairs(current_section_list) do
 			local is_match = (component.type == "heading" and child.type == "heading" and child.text == component.text)

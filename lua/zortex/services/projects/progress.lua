@@ -88,6 +88,7 @@ function M.update_single_project(update)
 
 	-- Find the project section using link
 	local project_section = link_resolver.find_section_by_link(doc, link_def)
+	Logger.info("update_single_project", "tasks", { project = project_section })
 	if not project_section then
 		return false, "Project section not found"
 	end
@@ -95,6 +96,7 @@ function M.update_single_project(update)
 	-- Correctly calculate progress by using the (stale) document state
 	-- as the baseline and applying the queued deltas. This avoids race conditions.
 	local all_tasks = project_section:get_all_tasks()
+	Logger.info("update_single_project", "tasks", { all_tasks = all_tasks, project = project_section })
 	local total_before_update = #all_tasks
 	local completed_before_update = 0
 	for _, task in ipairs(all_tasks) do
@@ -153,6 +155,7 @@ end
 function M.init()
 	-- Listen for task completed events
 	Events.on("task:completed", function(data)
+		Logger.info("task:completed", "data", data)
 		if data.xp_context and data.xp_context.project_link and data.xp_context.bufnr then
 			M.queue_project_update(
 				data.xp_context.bufnr,

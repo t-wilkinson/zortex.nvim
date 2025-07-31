@@ -462,6 +462,26 @@ function M.extract_all_links(line)
 	return links
 end
 
+-- Escape special characters in link components
+function M.escape_link_component(text)
+	if not text then
+		return ""
+	end
+	-- For now, we don't need to escape since we handle parentheses properly
+	-- But this function is here for future use if needed
+	return text
+end
+
+-- Unescape link components
+function M.unescape_link_component(text)
+	if not text then
+		return ""
+	end
+	-- Corresponding unescape function
+	return text
+end
+
+-- Enhanced parse_link_component that handles attributes
 function M.parse_link_component(component)
 	if not component or component == "" then
 		return nil
@@ -469,28 +489,45 @@ function M.parse_link_component(component)
 
 	local first_char = component:sub(1, 1)
 
+	-- Extract the base text without attributes
+	local base_text = component
+	local attributes = {}
+
+	-- Check if component has attributes (contains @key(...))
+	local attr_pattern = "@(%w+)%s*%(([^)]*)%)"
+	for key, value in component:gmatch(attr_pattern) do
+		attributes[key] = value
+	end
+
 	if first_char == "@" then
-		return { type = "tag", text = component:sub(2), original = component }
+		return { type = "tag", text = component:sub(2), original = component, attributes = attributes }
 	elseif first_char == "#" then
 		local text = component:sub(2)
 		if text:sub(1, 1) == " " then
 			text = text:sub(2)
 		end
-		return { type = "heading", text = text, original = component }
+		-- Remove attributes from the heading text
+		text = text:gsub(attr_pattern, ""):gsub("%s+", " "):gsub("%s*$", "")
+		return { type = "heading", text = text, original = component, attributes = attributes }
 	elseif first_char == ":" then
-		return { type = "label", text = component:sub(2), original = component }
+		local text = component:sub(2)
+		-- Remove attributes from the label text
+		text = text:gsub(attr_pattern, ""):gsub("%s+", " "):gsub("%s*$", "")
+		return { type = "label", text = text, original = component, attributes = attributes }
 	elseif first_char == "-" then
-		return { type = "listitem", text = component:sub(2), original = component }
+		return { type = "listitem", text = component:sub(2), original = component, attributes = attributes }
 	elseif first_char == "*" then
-		return { type = "highlight", text = component:sub(2), original = component }
+		return { type = "highlight", text = component:sub(2), original = component, attributes = attributes }
 	elseif first_char == "%" then
-		return { type = "query", text = component:sub(2), original = component }
+		return { type = "query", text = component:sub(2), original = component, attributes = attributes }
 	else
-		return { type = "article", text = component, original = component }
+		-- Article - remove attributes from the text
+		local text = component:gsub(attr_pattern, ""):gsub("%s+", " "):gsub("%s*$", "")
+		return { type = "article", text = text, original = component, attributes = attributes }
 	end
 end
 
--- In parser.lua, replace the parse_link_definition function starting around line 580
+-- Smart parse_link_definition that handles slashes within parentheses
 function M.parse_link_definition(definition)
 	if not definition or definition == "" then
 		return nil
@@ -514,9 +551,38 @@ function M.parse_link_definition(definition)
 		definition = definition:sub(2)
 	end
 
-	-- Split by / to get components
-	for component in definition:gmatch("[^/]+") do
-		component = M.trim(component)
+	-- Smart split by "/" that ignores slashes within parentheses
+	local components = {}
+	local current = ""
+	local paren_depth = 0
+
+	for i = 1, #definition do
+		local char = definition:sub(i, i)
+
+		if char == "(" then
+			paren_depth = paren_depth + 1
+			current = current .. char
+		elseif char == ")" then
+			paren_depth = paren_depth - 1
+			current = current .. char
+		elseif char == "/" and paren_depth == 0 then
+			-- Only split on "/" when not inside parentheses
+			if current ~= "" then
+				table.insert(components, M.trim(current))
+			end
+			current = ""
+		else
+			current = current .. char
+		end
+	end
+
+	-- Add the last component
+	if current ~= "" then
+		table.insert(components, M.trim(current))
+	end
+
+	-- Parse each component
+	for _, component in ipairs(components) do
 		if component ~= "" then
 			local comp_info = M.parse_link_component(component)
 			if comp_info then

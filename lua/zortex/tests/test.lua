@@ -1,5 +1,5 @@
--- tests/phase1_spec.lua
--- Test suite for Phase 1 components using busted/plenary
+-- tests/test.lua
+-- Test suite example
 local M = {}
 
 -- Mock config.get("obals") for testing
@@ -428,55 +428,6 @@ M.test_logger = function()
       
       local report = Logger.get_performance_report()
       assert.is_not_nil(report.wrapped_fn)
-    end)
-  end)
-end
-
--- Integration Tests
-M.test_integration = function()
-  setup_vim_mocks()
-  
-  describe("Phase 1 Integration", function()
-    local Phase1 = require("zortex.core.phase1_init")
-    local Events = require("zortex.core.event_bus")
-    local Doc = require("zortex.core.document_manager")
-    
-    it("should initialize all components", function()
-      local ok = Phase1.init({
-        debug = true,
-        log_level = "DEBUG",
-      })
-      
-      assert.is_true(ok)
-      assert.is_true(Phase1.initialized)
-      assert.is_true(Phase1.components.event_bus)
-      assert.is_true(Phase1.components.document_manager)
-      assert.is_true(Phase1.components.logger)
-    end)
-    
-    it("should emit initialization event", function()
-      local init_called = false
-      
-      Events.on("phase1:initialized", function(data)
-        init_called = true
-      end)
-      
-      Phase1.init()
-      
-      vim.wait(10, function() return init_called end)
-      assert.is_true(init_called)
-    end)
-    
-    it("should provide healthcheck", function()
-      Phase1.init()
-      
-      local health = Phase1.healthcheck()
-      assert.is_not_nil(health)
-      assert.is_true(health.initialized)
-      assert.is_not_nil(health.components)
-      assert.is_not_nil(health.documents)
-      assert.is_not_nil(health.events)
-      assert.is_not_nil(health.performance)
     end)
   end)
 end

@@ -127,4 +127,104 @@ function M.setup(key_prefix, cmd_prefix)
 	-- end
 end
 
+--[[
+-- keymaps.lua - Key mappings for Zortex
+local M = {}
+
+local Config = require("zortex.config")
+
+function M.setup()
+	local prefix = Config.keymaps.prefix or "<leader>z"
+	
+	-- Helper function to create mappings
+	local function map(mode, lhs, rhs, opts)
+		opts = vim.tbl_extend("force", { noremap = true, silent = true }, opts or {})
+		vim.keymap.set(mode, lhs, rhs, opts)
+	end
+
+	-- Task mappings
+	map("n", prefix .. "t", function()
+		require("zortex.services.tasks").toggle_current_task()
+	end, { desc = "Toggle task" })
+
+	map("n", prefix .. "tc", function()
+		require("zortex.services.tasks").complete_current_task()
+	end, { desc = "Complete task" })
+
+	map("n", prefix .. "tu", function()
+		require("zortex.services.tasks").uncomplete_current_task()
+	end, { desc = "Uncomplete task" })
+
+	-- XP mappings
+	map("n", prefix .. "xi", function()
+		require("zortex.notifications.types.xp").show_xp_overview()
+	end, { desc = "XP info" })
+
+	map("n", prefix .. "xs", function()
+		vim.cmd("ZortexXPStats")
+	end, { desc = "XP stats" })
+
+	-- Project mappings
+	map("n", prefix .. "pp", function()
+		vim.cmd("ZortexProjectProgress")
+	end, { desc = "Update project progress" })
+
+	map("n", prefix .. "ps", function()
+		vim.cmd("ZortexProjectStats")
+	end, { desc = "Project statistics" })
+
+	-- Calendar mapping
+	map("n", prefix .. "c", function()
+		require("zortex.ui.calendar").open()
+	end, { desc = "Open calendar" })
+
+	-- Search mapping
+	map("n", prefix .. "s", function()
+		require("zortex.ui.search").open()
+	end, { desc = "Zortex search" })
+
+	-- Quick access to main files
+	map("n", prefix .. "fp", function()
+		vim.cmd("edit " .. Config.notes_dir .. "projects.zortex")
+	end, { desc = "Open projects file" })
+
+	map("n", prefix .. "fa", function()
+		vim.cmd("edit " .. Config.notes_dir .. "areas.zortex")
+	end, { desc = "Open areas file" })
+
+	map("n", prefix .. "fc", function()
+		vim.cmd("edit " .. Config.notes_dir .. "calendar.zortex")
+	end, { desc = "Open calendar file" })
+
+	map("n", prefix .. "fo", function()
+		vim.cmd("edit " .. Config.notes_dir .. "okr.zortex")
+	end, { desc = "Open OKR file" })
+
+	-- Navigation mappings (in .zortex files)
+	vim.api.nvim_create_autocmd("FileType", {
+		pattern = "zortex",
+		callback = function()
+			-- Link navigation
+			map("n", "<CR>", function()
+				require("zortex.navigation").follow_link()
+			end, { buffer = true, desc = "Follow link" })
+
+			map("n", "<BS>", function()
+				require("zortex.navigation").go_back()
+			end, { buffer = true, desc = "Go back" })
+
+			-- Section navigation
+			map("n", "]\]", function()
+				require("zortex.navigation").next_section()
+			end, { buffer = true, desc = "Next section" })
+
+			map("n", "[[", function()
+				require("zortex.navigation").prev_section()
+			end, { buffer = true, desc = "Previous section" })
+		end,
+	})
+end
+
+--]]
+
 return M

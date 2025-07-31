@@ -1,7 +1,6 @@
--- domain/xp/notifications.lua - Enhanced XP notifications
+-- notifications/types/xp.lua - Enhanced XP notifications
 local M = {}
 
-local xp_service = require("zortex.services.xp")
 local Events = require("zortex.core.event_bus")
 
 -- =============================================================================
@@ -31,7 +30,7 @@ function M.notify_progress_update(xp_changes, projects_completed)
 	-- Group changes by project
 	local by_project = {}
 	for _, change in ipairs(xp_changes) do
-		local project = change.task.project
+		local project = change.task.project or "No Project"
 		if not by_project[project] then
 			by_project[project] = {
 				completed = 0,
@@ -77,13 +76,14 @@ function M.notify_progress_update(xp_changes, projects_completed)
 	end
 
 	-- Show season progress if applicable
+	local xp_service = require("zortex.services.xp")
 	local season_status = xp_service.get_season_status()
 	if season_status and total_delta > 0 then
 		table.insert(lines, "")
 		table.insert(lines, string.format("🏆 Season: %s", season_status.season.name))
 		table.insert(
 			lines,
-			string.format("   Level %d (%.0f%% to next)", season_status.level, season_status.progress_to_next * 100)
+			string.format("   Level %d (%.0f%% to next)", season_status.level, season_status.progress.progress * 100)
 		)
 
 		if season_status.current_tier then
@@ -127,6 +127,7 @@ end
 -- =============================================================================
 
 function M.show_xp_overview()
+	local xp_service = require("zortex.services.xp")
 	local lines = {}
 
 	table.insert(lines, "🎮 Zortex XP System")
@@ -164,7 +165,7 @@ function M.show_xp_overview()
 				season_status.current_tier and season_status.current_tier.name or "None"
 			)
 		)
-		table.insert(lines, string.format("   Progress: %.0f%%", season_status.progress_to_next * 100))
+		table.insert(lines, string.format("   Progress: %.0f%%", season_status.progress.progress * 100))
 
 		if season_status.next_tier and not season_status.is_max_tier then
 			table.insert(
@@ -188,25 +189,45 @@ end
 -- =============================================================================
 
 function M.setup()
-	-- function M.notify_area_level_up(area_path, new_level)
-	Events.on("xp:area_level_up", function()
+	-- Area level up notification
+	Events.on("area:leveled_up", function(data) -- Changed from "xp:area_level_up"
 		vim.notify(
-			string.format("🎯 Area Level Up!\n%s → Level %d", area_path, new_level),
+			string.format("🎯 Area Level Up!\n%s → Level %d", data.path, data.new_level), -- Changed area_path to path
 			vim.log.levels.INFO,
-			{ title = "Level Up!" }
+			{ title = "Level Up!", timeout = 5000 }
 		)
-	end)
+	end, {
+		priority = 90,
+		name = "xp_notifications.area_level_up",
+	})
 
-	-- function M.notify_season_level_up(new_level, tier_info)
-	-- Events.on("xp:season_level_up", function()
-	--   local message = string.format("🏆 Season Level Up!\nLevel %d", new_level)
+	-- Season level up notification
+	Events.on("season:leveled_up", function(data)
+		local message = string.format("🏆 Season Level Up!\nLevel %d", data.new_level)
 
-	--   if tier_info and tier_info.current then
-	--     message = message .. string.format("\nTier: %s", tier_info.current.name)
-	--   end
+		if data.tier_info and data.tier_info.current then
+			message = message .. string.format("\nTier: %s", data.tier_info.current.name)
+		end
 
-	--   vim.notify(message, vim.log.levels.INFO, { title = "Level Up!" })
-	-- end)
+		vim.notify(message, vim.log.levels.INFO, { title = "Level Up!", timeout = 5000 })
+	end, {
+		priority = 90,
+		name = "xp_notifications.season_level_up",
+	})
+
+	-- XP awarded notification
+	Events.on("xp:awarded", function(data)
+		if data.amount >= 10 then -- Only notify for significant XP
+			vim.notify(
+				string.format("✨ XP Earned: +%d XP", data.amount),
+				vim.log.levels.INFO,
+				{ title = "XP Gained", timeout = 3000 }
+			)
+		end
+	end, {
+		priority = 80,
+		name = "xp_notifications.xp_awarded",
+	})
 end
 
 return M

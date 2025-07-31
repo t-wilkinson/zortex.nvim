@@ -6,7 +6,7 @@ local Doc = require("zortex.core.document_manager")
 local Logger = require("zortex.core.logger")
 local parser = require("zortex.utils.parser")
 local xp_store = require("zortex.stores.xp")
-local xp_core = require("zortex.domain.xp.core")
+local xp_core = require("zortex.services.xp.calculator")
 local constants = require("zortex.constants")
 
 -- Cache for area tree
@@ -368,8 +368,6 @@ function M.init()
 		priority = 50,
 		name = "area_service.cache_invalidator",
 	})
-
-	Logger.info("area_service", "Area service initialized")
 end
 
 return M

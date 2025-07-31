@@ -44,35 +44,6 @@ local function generate_task_id()
 	return id
 end
 
--- Build a link to a section
-local function build_section_link(doc, section)
-	if not section then
-		return nil
-	end
-
-	local components = {}
-
-	-- Walk up the section tree to build path
-	local path = section:get_path()
-	table.insert(path, section)
-
-	for _, s in ipairs(path) do
-		if s.type == "heading" then
-			table.insert(components, "#" .. s.text)
-		elseif s.type == "label" then
-			table.insert(components, ":" .. s.text)
-		elseif s.type == "article" and s.text and s.text ~= "Document Root" then
-			table.insert(components, s.text)
-		end
-	end
-
-	if #components == 0 then
-		return nil
-	end
-
-	return "[" .. table.concat(components, "/") .. "]"
-end
-
 -- Complete a task
 function M.complete_task(task_id, context)
 	local stop_timer = Logger.start_timer("task_service.complete_task")
@@ -97,7 +68,13 @@ function M.complete_task(task_id, context)
 	local xp_context = M._build_xp_context(task, context)
 
 	-- Save task
-	task_store.update_task(task_id, task)
+	task_store.update_task(task_id, {
+		completed = true,
+		completed_at = os.time(),
+		project = task.project or (xp_context and xp_context.project_name),
+		project_link = task.project_link or (xp_context and xp_context.project_link),
+		area_links = task.area_links or (xp_context and xp_context.area_links) or {},
+	})
 
 	-- Update buffer through buffer_sync
 	if context.bufnr and task.line then
@@ -302,7 +279,7 @@ function M._find_project_for_task(doc, section)
 	local current = section
 	while current do
 		if current.type == "heading" then
-			local link = build_section_link(doc, current)
+			local link = current:build_link(doc)
 			return {
 				text = current.text,
 				link = link,

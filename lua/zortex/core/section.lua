@@ -4,7 +4,10 @@ local M = {}
 local constants = require("zortex.constants")
 local parser = require("zortex.utils.parser")
 
+-- =============================================================================
 -- Section class
+-- =============================================================================
+
 local Section = {}
 Section.__index = Section
 
@@ -214,7 +217,53 @@ function Section:format_display()
 	return string.format("%s %s", symbol, self.text)
 end
 
+-- Build a link to a section
+function Section:build_link(doc)
+	if not self then
+		return nil
+	end
+
+	local components = {}
+	-- Do not add self to the path yet, process it separately
+	local path = self:get_path()
+
+	-- Prepend the document's primary article name if it exists
+	if doc and doc.article_names and #doc.article_names > 0 then
+		table.insert(components, 1, doc.article_names[1])
+	else
+		-- If there's no article, we can't create a valid project link
+		return nil
+	end
+
+	-- Add the path components (ancestors)
+	for _, s in ipairs(path) do
+		if s.type == "heading" then
+			table.insert(components, "#" .. s.text)
+		elseif s.type == "label" then
+			table.insert(components, ":" .. s.text)
+		end
+	end
+
+	-- Add the current section itself
+	if self.type == "heading" then
+		table.insert(components, "#" .. self.text)
+	elseif self.type == "label" then
+		table.insert(components, ":" .. self.text)
+	end
+
+	if #components <= 1 then
+		-- This means it's just an article link, which is not what this function is for.
+		-- It should link to a specific section *within* an article.
+		return nil
+	end
+
+	return "[" .. table.concat(components, "/") .. "]"
+end
+
+-- =============================================================================
 -- Section Tree Builder
+-- =============================================================================
+
 local SectionTreeBuilder = {}
 SectionTreeBuilder.__index = SectionTreeBuilder
 

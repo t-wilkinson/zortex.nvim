@@ -9,35 +9,6 @@ local fs = require("zortex.utils.filesystem")
 local constants = require("zortex.constants")
 local parser = require("zortex.utils.parser")
 
--- Build a link to a section
-local function build_section_link(doc, section)
-	if not section then
-		return nil
-	end
-
-	local components = {}
-
-	-- Walk up the section tree to build path
-	local path = section:get_path()
-	table.insert(path, section)
-
-	for _, s in ipairs(path) do
-		if s.type == "heading" then
-			table.insert(components, "#" .. s.text)
-		elseif s.type == "label" then
-			table.insert(components, ":" .. s.text)
-		elseif s.type == "article" and s.text and s.text ~= "Document Root" then
-			table.insert(components, s.text)
-		end
-	end
-
-	if #components == 0 then
-		return nil
-	end
-
-	return "[" .. table.concat(components, "/") .. "]"
-end
-
 -- Get all projects from document
 function M.get_projects_from_document(doc)
 	if not doc or not doc.sections then
@@ -61,7 +32,7 @@ function M.get_projects_from_document(doc)
 					completed_tasks = 0,
 					progress = 0,
 				},
-				link = build_section_link(doc, section),
+				link = section:build_link(doc),
 			}
 
 			-- Parse attributes

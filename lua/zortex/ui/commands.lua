@@ -5,7 +5,6 @@ local M = {}
 local api = require("zortex.api")
 local fs = require("zortex.utils.filesystem")
 local Logger = require("zortex.core.logger")
-local notifications = require("zortex.notifications")
 
 -- =============================================================================
 -- User Commands
@@ -15,6 +14,22 @@ function M.setup(prefix)
 	local function cmd(name, command, options)
 		vim.api.nvim_create_user_command(prefix .. name, command, options)
 	end
+
+	-- ===========================================================================
+	-- Files
+	-- ===========================================================================
+	cmd("OpenProjects", function()
+		vim.cmd("edit " .. fs.get_projects_file())
+	end, { desc = "Open projects file" })
+	cmd("OpenCalendar", function()
+		vim.cmd("edit " .. fs.get_calendar_file())
+	end, { desc = "Open projects file" })
+	cmd("OpenOKR", function()
+		vim.cmd("edit " .. fs.get_okr_file())
+	end, { desc = "Open projects file" })
+	cmd("OpenAreas", function()
+		vim.cmd("edit " .. fs.get_areas_file())
+	end, { desc = "Open projects file" })
 
 	-- ===========================================================================
 	-- Logging
@@ -98,39 +113,36 @@ function M.setup(prefix)
 	-- ===========================================================================
 	-- Project management & archive
 	-- ===========================================================================
-	cmd("ProjectsOpen", function()
-		local proj_path = fs.get_projects_file()
-		if proj_path then
-			vim.cmd("edit " .. proj_path)
+	cmd("ProjectProgress", function()
+		local bufnr = vim.api.nvim_get_current_buf()
+		local progress_service = require("zortex.services.projects.progress")
+		local updated = progress_service.update_all_projects(bufnr)
+		vim.notify(string.format("Updated %d projects", updated), vim.log.levels.INFO)
+	end, { desc = "Update all project progress in current buffer" })
+
+	cmd("ProjectStats", function()
+		local project_service = require("zortex.services.projects")
+		local stats = project_service.get_all_stats()
+
+		local lines = {
+			"📊 Project Statistics",
+			"",
+			string.format("Total Projects: %d", stats.project_count),
+			string.format("Active: %d", stats.active_projects),
+			string.format("Completed: %d", stats.completed_projects),
+			string.format("Archived: %d", stats.archived_projects),
+			"",
+			string.format("Total Tasks: %d", stats.total_tasks),
+			string.format("Completed Tasks: %d", stats.completed_tasks),
+		}
+
+		if stats.total_tasks > 0 then
+			local percent = math.floor((stats.completed_tasks / stats.total_tasks) * 100)
+			table.insert(lines, string.format("Completion Rate: %d%%", percent))
 		end
-	end, { desc = "Open projects file" })
 
-	-- cmd("ProjectsStats", function()
-	-- 	local stats = modules.projects.get_all_stats()
-	-- 	print(string.format("Projects: %d", stats.project_count))
-	-- 	print(string.format("Total tasks: %d", stats.total_tasks))
-	-- 	print(
-	-- 		string.format(
-	-- 			"Completed: %d (%.1f%%)",
-	-- 			stats.completed_tasks,
-	-- 			stats.total_tasks > 0 and (stats.completed_tasks / stats.total_tasks * 100) or 0
-	-- 		)
-	-- 	)
-	-- end, { desc = "Show project statistics" })
-
-	-- -- Update all project progress
-	-- cmd("UpdateProgress", function()
-	-- 	modules.progress.update_all_progress()
-	-- end, { desc = "Update progress for all projects and OKRs" })
-
-	-- Archive
-	-- cmd("ArchiveProject", function()
-	-- 	features.archive.archive_current_project()
-	-- end, { desc = "Archive current project" })
-
-	-- cmd("ArchiveAllCompleted", function()
-	-- 	features.archive.archive_all_completed_projects()
-	-- end, { desc = "Archive all completed projects" })
+		vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO, { title = "Project Stats" })
+	end, { desc = "Show project statistics" })
 
 	-- ===========================================================================
 	-- XP & Skill tree
@@ -139,12 +151,45 @@ function M.setup(prefix)
 		api.skill_tree()
 	end, { desc = "Show skill tree and season progress" })
 
-	-- XP system info
 	cmd("XPInfo", function()
-		notifications.xp.show_xp_overview()
-	end, {
-		desc = "Show XP system overview",
-	})
+		require("zortex.notifications.types.xp").show_xp_overview()
+	end, { desc = "Show XP system overview" })
+
+	cmd("XPStats", function()
+		local xp_service = require("zortex.services.xp")
+		local stats = xp_service.get_stats()
+
+		local lines = { "📊 XP Statistics", "" }
+
+		-- Season stats
+		if stats.season then
+			table.insert(lines, "🏆 Season: " .. stats.season.season.name)
+			table.insert(lines, string.format("   Level: %d", stats.season.level))
+			table.insert(lines, string.format("   XP: %d", stats.season.xp))
+			if stats.season.current_tier then
+				table.insert(lines, "   Tier: " .. stats.season.current_tier.name)
+			end
+			table.insert(lines, "")
+		end
+
+		-- Project stats
+		if next(stats.projects) then
+			table.insert(lines, "📁 Projects:")
+			for name, proj in pairs(stats.projects) do
+				table.insert(lines, string.format("   %s: Level %d (%d XP)", name, proj.level, proj.xp))
+			end
+			table.insert(lines, "")
+		end
+
+		-- Area stats
+		if stats.areas then
+			table.insert(lines, string.format("🏔️  Areas: %d total", stats.areas.total_areas))
+			table.insert(lines, string.format("   Total XP: %d", stats.areas.total_xp))
+			table.insert(lines, string.format("   Max Level: %d", stats.areas.max_level))
+		end
+
+		vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO, { title = "XP Stats" })
+	end, { desc = "Show XP statistics" })
 
 	-- ===========================================================================
 	-- Season management
@@ -182,6 +227,29 @@ function M.setup(prefix)
 	-- 		print("No active season")
 	-- 	end
 	-- end, { desc = "Show current season status" })
+
+	cmd("SeasonStart", function(opts)
+		local xp_service = require("zortex.services.xp")
+		local name = opts.args ~= "" and opts.args or ("Season " .. os.date("%Y-%m"))
+		local end_date = os.time() + (90 * 24 * 60 * 60) -- 90 days from now
+
+		xp_service.start_season(name, end_date)
+		vim.notify("Started season: " .. name, vim.log.levels.INFO)
+	end, {
+		desc = "Start a new season",
+		nargs = "?",
+	})
+
+	cmd("SeasonEnd", function()
+		local xp_service = require("zortex.services.xp")
+		local result = xp_service.end_season()
+
+		if result then
+			vim.notify("Ended season: " .. result.name, vim.log.levels.INFO)
+		else
+			vim.notify("No active season to end", vim.log.levels.WARN)
+		end
+	end, { desc = "End the current season" })
 
 	-- ===========================================================================
 	-- Task management

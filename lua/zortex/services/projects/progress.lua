@@ -6,6 +6,7 @@ local Doc = require("zortex.core.document_manager")
 local buffer_sync = require("zortex.core.buffer_sync")
 local parser = require("zortex.utils.parser")
 local Logger = require("zortex.core.logger")
+local link_resolver = require("zortex.utils.link_resolver")
 
 -- Batch update queue
 local update_queue = {} -- project_key -> { bufnr, project_link, completed_delta, total_delta }
@@ -14,6 +15,10 @@ local update_timer = nil
 -- Queue a project update
 function M.queue_project_update(bufnr, project_link, completed_delta, total_delta)
 	if not bufnr or not project_link then
+		Logger.warn("project_progress", "Missing bufnr or project_link", {
+			bufnr = bufnr,
+			project_link = project_link,
+		})
 		return
 	end
 
@@ -45,6 +50,12 @@ end
 function M.process_update_queue()
 	local stop_timer = Logger.start_timer("project_progress.process_queue")
 
+	local queue_size = vim.tbl_count(update_queue)
+	if queue_size == 0 then
+		stop_timer()
+		return
+	end
+
 	for key, update in pairs(update_queue) do
 		local ok, err = pcall(M.update_single_project, update)
 		if not ok then
@@ -59,12 +70,12 @@ function M.process_update_queue()
 	update_queue = {}
 	update_timer = nil
 
-	stop_timer({ project_count = vim.tbl_count(update_queue) })
+	stop_timer({ project_count = queue_size })
 end
 
 -- Update a single project
 function M.update_single_project(update)
-	local doc = Doc.get_buffer(update.bufnr)
+	local doc = Doc.load_buffer(update.bufnr)
 	if not doc then
 		return false, "Document not found"
 	end
@@ -76,32 +87,28 @@ function M.update_single_project(update)
 	end
 
 	-- Find the project section using link
-	local project_section = M.find_section_by_link(doc, link_def)
+	local project_section = link_resolver.find_section_by_link(doc, link_def)
 	if not project_section then
 		return false, "Project section not found"
 	end
 
-	-- Get current progress from section
-	local current_progress = nil
-	if project_section.raw_text then
-		local progress_str = parser.extract_attribute(project_section.raw_text, "progress")
-		if progress_str then
-			local completed, total = progress_str:match("(%d+)/(%d+)")
-			if completed and total then
-				current_progress = {
-					completed = tonumber(completed),
-					total = tonumber(total),
-				}
-			end
+	-- Correctly calculate progress by using the (stale) document state
+	-- as the baseline and applying the queued deltas. This avoids race conditions.
+	local all_tasks = project_section:get_all_tasks()
+	local total_before_update = #all_tasks
+	local completed_before_update = 0
+	for _, task in ipairs(all_tasks) do
+		if task.completed then
+			completed_before_update = completed_before_update + 1
 		end
 	end
 
-	-- Calculate new progress
-	local new_completed = (current_progress and current_progress.completed or 0) + update.completed_delta
-	local new_total = (current_progress and current_progress.total or 0) + update.total_delta
+	-- Apply the deltas to get the new, correct state
+	local new_total = total_before_update + update.total_delta
+	local new_completed = completed_before_update + update.completed_delta
 
-	-- Ensure non-negative
-	new_completed = math.max(0, new_completed)
+	-- Clamp values for safety
+	new_completed = math.max(0, math.min(new_total, new_completed))
 	new_total = math.max(0, new_total)
 
 	-- Update attributes
@@ -126,8 +133,8 @@ function M.update_single_project(update)
 
 	Logger.info("project_progress", "Updated project", {
 		project = project_section.text,
-		old_progress = current_progress,
-		new_progress = { completed = new_completed, total = new_total },
+		progress = attributes.progress,
+		done = attributes.done,
 	})
 
 	-- Emit event
@@ -137,91 +144,9 @@ function M.update_single_project(update)
 		project_link = update.project_link,
 		completed = new_completed,
 		total = new_total,
-		completed_delta = update.completed_delta,
-		total_delta = update.total_delta,
 	})
 
 	return true
-end
-
--- Find section in document using parsed link
-function M.find_section_by_link(doc, link_def)
-	if not doc.sections or not link_def.components then
-		return nil
-	end
-
-	local current_section = doc.sections
-
-	-- Navigate through link components
-	for i, component in ipairs(link_def.components) do
-		local found = false
-
-		-- Handle different component types
-		if component.type == "article" then
-			-- For article, check if it matches document's article name
-			if i == 1 and doc.sections.article_names then
-				for _, name in ipairs(doc.sections.article_names) do
-					if name == component.text then
-						found = true
-						break
-					end
-				end
-			end
-		elseif component.type == "heading" then
-			-- Search children for matching heading
-			for _, child in ipairs(current_section.children) do
-				if child.type == "heading" and child.text == component.text then
-					current_section = child
-					found = true
-					break
-				end
-			end
-		elseif component.type == "label" then
-			-- Search children for matching label
-			for _, child in ipairs(current_section.children) do
-				if child.type == "label" and child.text == component.text then
-					current_section = child
-					found = true
-					break
-				end
-			end
-		end
-
-		if not found then
-			return nil
-		end
-	end
-
-	return current_section
-end
-
--- Build a link to a project section
-function M.build_project_link(doc, section)
-	if not section then
-		return nil
-	end
-
-	local components = {}
-
-	-- Walk up the section tree to build path
-	local path = section:get_path()
-	table.insert(path, section)
-
-	for _, s in ipairs(path) do
-		if s.type == "heading" then
-			table.insert(components, "#" .. s.text)
-		elseif s.type == "label" then
-			table.insert(components, ":" .. s.text)
-		elseif s.type == "article" and s.text and s.text ~= "Document Root" then
-			table.insert(components, s.text)
-		end
-	end
-
-	if #components == 0 then
-		return nil
-	end
-
-	return "[" .. table.concat(components, "/") .. "]"
 end
 
 -- Initialize project progress tracking
@@ -284,19 +209,35 @@ function M.update_all_projects(bufnr)
 
 	for _, project in pairs(projects) do
 		-- Create link for project
-		local project_link = M.build_project_link(doc, project.section)
+		local project_link = project.section:build_link(doc)
 		if project_link then
-			local update = {
-				bufnr = bufnr,
-				project_link = project_link,
-				completed_delta = 0,
-				total_delta = 0,
-			}
+			-- Count tasks
+			local all_tasks = project.section:get_all_tasks()
+			local total = #all_tasks
+			local completed = 0
 
-			local ok = M.update_single_project(update)
-			if ok then
-				updated = updated + 1
+			for _, task in ipairs(all_tasks) do
+				if task.completed then
+					completed = completed + 1
+				end
 			end
+
+			-- Update attributes
+			local attributes = {}
+			if total > 0 then
+				attributes.progress = string.format("%d/%d", completed, total)
+				if completed >= total then
+					attributes.done = os.date("%Y-%m-%d")
+				else
+					attributes.done = nil
+				end
+			else
+				attributes.progress = nil
+				attributes.done = nil
+			end
+
+			buffer_sync.update_attributes(bufnr, project.section.start_line, attributes)
+			updated = updated + 1
 		end
 	end
 

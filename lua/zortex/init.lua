@@ -24,7 +24,7 @@ local function setup(opts)
 	end
 
 	-- Notifications
-	-- require("zortex.notifications").setup(Config.notifications)
+	require("zortex.notifications").setup(Config.notifications)
 
 	-- Setup UI
 	require("zortex.ui.commands").setup(Config.commands.prefix)

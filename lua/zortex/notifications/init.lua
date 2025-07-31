@@ -103,12 +103,12 @@ function M.setup_commands()
 end
 
 -- Initialize the notification system
-function M.setup(cfg) -- Config.notifications
-	manager.setup(cfg)
-	pomodoro.setup(cfg.pomodoro)
-	timer.setup(cfg.timers)
-	calendar.setup(cfg)
-	digest.setup(cfg.digest)
+function M.setup(opts) -- Config.notifications
+	manager.setup(opts)
+	pomodoro.setup(opts.pomodoro)
+	timer.setup(opts.timers)
+	calendar.setup(opts)
+	digest.setup(opts.digest)
 end
 
 -- Send a notification immediately

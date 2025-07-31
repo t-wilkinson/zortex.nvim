@@ -325,6 +325,67 @@ function M.search_footnote(ref_id)
 end
 
 -- =============================================================================
+-- Section Finding in Document
+-- =============================================================================
+
+-- Find section in a document using parsed link components
+function M.find_section_by_link(doc, link_def)
+	if not doc or not doc.sections or not link_def or not link_def.components then
+		return nil
+	end
+
+	local start_idx = 1
+	local current_section_list = doc.sections.children -- Start search with root's children
+
+	-- Handle the article component of the link
+	if link_def.components[start_idx] and link_def.components[start_idx].type == "article" then
+		local article_name = link_def.components[start_idx].text
+		local article_matches = false
+		if doc.article_names then
+			for _, name in ipairs(doc.article_names) do
+				if name:lower() == article_name:lower() then
+					article_matches = true
+					break
+				end
+			end
+		end
+		if not article_matches then
+			return nil -- This document does not match the article in the link
+		end
+		start_idx = 2 -- Move to the next component
+	end
+
+	-- If the link was only an article name (e.g., "[Projects]"), and it matched,
+	-- return the root section of the document.
+	if start_idx > #link_def.components then
+		return doc.sections
+	end
+
+	local found_section = nil
+	-- Sequentially find each component in the link
+	for i = start_idx, #link_def.components do
+		local component = link_def.components[i]
+		local found_in_level = false
+		for _, child in ipairs(current_section_list) do
+			local is_match = (component.type == "heading" and child.type == "heading" and child.text == component.text)
+				or (component.type == "label" and child.type == "label" and child.text == component.text)
+
+			if is_match then
+				found_section = child
+				current_section_list = child.children -- Set the list for the next iteration
+				found_in_level = true
+				break
+			end
+		end
+		if not found_in_level then
+			return nil -- A component in the path was not found
+		end
+	end
+
+	return found_section
+end
+
+-- =============================================================================
 -- Quickfix Integration
 -- =============================================================================
 

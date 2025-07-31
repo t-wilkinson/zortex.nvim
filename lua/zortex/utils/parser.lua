@@ -490,12 +490,18 @@ function M.parse_link_component(component)
 	end
 end
 
+-- In parser.lua, replace the parse_link_definition function starting around line 580
 function M.parse_link_definition(definition)
 	if not definition or definition == "" then
 		return nil
 	end
 
 	definition = M.trim(definition)
+
+	-- Strip outer brackets if present
+	if definition:sub(1, 1) == "[" and definition:sub(-1) == "]" then
+		definition = definition:sub(2, -2)
+	end
 
 	local result = {
 		scope = "global",

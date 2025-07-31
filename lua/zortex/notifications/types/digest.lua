@@ -1,12 +1,11 @@
 -- notifications/types/digest.lua - Daily digest email notifications
 local M = {}
 
-local manager = require("zortex.notifications.manager")
 local calendar_store = require("zortex.stores.calendar")
 local datetime = require("zortex.utils.datetime")
 local store = require("zortex.stores.notifications")
 
-local config = {}
+local cfg = {}
 
 -- Generate digest content
 local function generate_digest(days_ahead)
@@ -228,7 +227,7 @@ function M.send_digest(options)
 	-- calendar_store.load()
 
 	-- -- Generate digest
-	-- local entries_by_date = generate_digest(options.days_ahead or config.days_ahead or 7)
+	-- local entries_by_date = generate_digest(options.days_ahead or cfg.days_ahead or 7)
 
 	-- if not entries_by_date then
 	-- 	if options.force then
@@ -256,7 +255,7 @@ function M.send_digest(options)
 	-- 		providers = { "ses" },
 	-- 		format = "digest",
 	-- 		html = html_content, -- Raw HTML content without wrapper
-	-- 		domain = config.domain,
+	-- 		domain = cfg.domain,
 	-- 	}
 	-- )
 
@@ -299,14 +298,14 @@ local function should_send_digest()
 
 	-- Check if it's the right time of day
 	local hour = tonumber(os.date("%H"))
-	local send_hour = config.send_hour or 7 -- Default 7 AM
+	local send_hour = cfg.send_hour or 7 -- Default 7 AM
 
 	return hour >= send_hour and hour < send_hour + 2
 end
 
 -- Schedule automatic digest
 function M.schedule_auto_digest()
-	if not config.auto_send then
+	if not cfg.auto_send then
 		return
 	end
 
@@ -314,10 +313,10 @@ function M.schedule_auto_digest()
 	local timer = vim.loop.new_timer()
 	timer:start(
 		0,
-		config.check_interval_minutes * 60 * 1000,
+		cfg.check_interval_minutes * 60 * 1000,
 		vim.schedule_wrap(function()
 			if should_send_digest() then
-				M.send_digest({ days_ahead = config.days_ahead })
+				M.send_digest({ days_ahead = cfg.days_ahead })
 			end
 		end)
 	)
@@ -326,11 +325,11 @@ function M.schedule_auto_digest()
 end
 
 -- Setup
-function M.setup(cfg)
-	config = cfg or {}
+function M.setup(opts)
+	cfg = opts or {}
 
 	-- Schedule automatic digest if enabled
-	if config.auto_send then
+	if cfg.auto_send then
 		M.schedule_auto_digest()
 	end
 end
@@ -338,13 +337,13 @@ end
 -- Manual commands
 function M.send_now(days)
 	return M.send_digest({
-		days_ahead = days or config.days_ahead,
+		days_ahead = days or cfg.days_ahead,
 		force = true,
 	})
 end
 
 function M.preview(days)
-	local entries_by_date = generate_digest(days or config.days_ahead)
+	local entries_by_date = generate_digest(days or cfg.days_ahead)
 
 	if not entries_by_date then
 		vim.notify("No calendar entries for digest", vim.log.levels.INFO)

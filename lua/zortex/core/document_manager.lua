@@ -4,9 +4,10 @@ local M = {}
 local Events = require("zortex.core.event_bus")
 local Section = require("zortex.core.section")
 local parser = require("zortex.utils.parser")
-local attributes = require("zortex.utils.attributes")
 local fs = require("zortex.utils.filesystem")
 local Config = require("zortex.config")
+local constants = require("zortex.constants")
+local attributes = require("zortex.utils.attributes")
 
 -- LRU Cache implementation
 local LRU = {}
@@ -94,82 +95,91 @@ function Document:new(opts)
 	}, self)
 end
 
--- Extract all article names from the beginning of the document
-local function extract_all_article_names(lines)
-	local names = {}
-	local code_tracker = parser.CodeBlockTracker:new()
-
-	for i = 1, math.min(10, #lines) do
-		local in_code_block = code_tracker:update(lines[i])
-		if not in_code_block then
-			local name = parser.extract_article_name(lines[i])
-			if name then
-				table.insert(names, name)
-			else
-				-- Stop when we hit a non-article line
-				break
-			end
-		end
-	end
-	return names
-end
-
 -- Parse entire document
 function Document:parse_full(lines)
 	local start_time = vim.loop.hrtime()
 	self.is_parsing = true
 
-	-- Store lines for searching
 	self.lines = lines
-
-	-- Extract all article names
-	self.article_names = extract_all_article_names(lines)
-
-	-- Build section tree
-	local builder = Section.SectionTreeBuilder:new()
+	self.article_names = {}
+	self.tags = {}
 	self.line_map = {}
 
-	-- Track code blocks
+	local builder = Section.SectionTreeBuilder:new()
 	local code_tracker = parser.CodeBlockTracker:new()
 
-	-- If we have article names, set them on the root section
-	if #self.article_names > 0 then
-		builder.root.article_names = self.article_names
-		builder.root.text = self.article_names[1] -- Use first as primary
+	-- 1. Parse Metadata Header
+	local metadata_end_line = 0
+	for i, line in ipairs(lines) do
+		local trimmed_line = parser.trim(line)
+		if trimmed_line:match(constants.PATTERNS.ARTICLE_TITLE) then
+			local name = parser.extract_article_name(trimmed_line)
+			if name then
+				table.insert(self.article_names, name)
+			end
+		elseif trimmed_line:match(constants.PATTERNS.TAG_LINE) then
+			for tag in trimmed_line:gmatch("@(%w+)") do
+				if not vim.tbl_contains(self.tags, tag) then
+					table.insert(self.tags, tag)
+				end
+			end
+		elseif trimmed_line == "" then
+			-- Continue past empty lines in metadata header
+		else
+			-- First non-metadata line, header is done
+			metadata_end_line = i - 1
+			break
+		end
+		-- If loop finishes, the whole file was metadata
+		if i == #lines then
+			metadata_end_line = #lines
+		end
 	end
 
-	for line_num, line in ipairs(lines) do
-		-- Update current section end
-		builder:update_current_end(line_num)
+	-- Set metadata on the document's root section
+	if #self.article_names > 0 then
+		builder.root.text = self.article_names[1] -- Use first as primary name
+	end
 
-		-- Track code blocks
-		local in_code_block = code_tracker:update(line)
-
-		-- Create section if this line starts one (skip if in code block)
-		if not in_code_block then
-			local section = Section.create_from_line(line, line_num, in_code_block)
-			if section then
-				builder:add_section(section)
-			end
+	-- 2. Parse Document Body
+	local body_start_line = metadata_end_line + 1
+	if body_start_line <= #lines then
+		-- Reset and run code tracker up to the start of the body
+		code_tracker = parser.CodeBlockTracker:new()
+		for i = 1, body_start_line - 1 do
+			code_tracker:update(lines[i])
 		end
 
-		-- Parse tasks (skip if in code block)
-		if not in_code_block then
-			local is_task, is_completed = parser.is_task_line(line)
-			if is_task then
-				local task_text = parser.get_task_text(line)
-				local task_attrs = attributes.parse_task_attributes(line)
+		for line_num = body_start_line, #lines do
+			local line = lines[line_num]
+			builder:update_current_end(line_num)
+			local in_code_block = code_tracker:update(line)
 
-				local task = {
-					line = line_num,
-					text = task_text,
-					completed = is_completed,
-					attributes = task_attrs,
-				}
+			-- Create section if this line starts one, but ignore metadata lines (@@, @)
+			if not in_code_block then
+				local section_type = parser.detect_section_type(line, in_code_block)
+				if section_type ~= "article" and section_type ~= "tag" then
+					local section = Section.create_from_line(line, line_num, in_code_block)
+					if section then
+						builder:add_section(section)
+					end
+				end
 
-				-- Add to current section
-				local current = builder.stack[#builder.stack] or builder.root
-				table.insert(current.tasks, task)
+				-- Parse tasks
+				local is_task, is_completed = parser.is_task_line(line)
+				if is_task then
+					local task_text = parser.get_task_text(line)
+					local task_attrs, _ = attributes.parse_task_attributes(line)
+
+					local task = {
+						line = line_num,
+						text = task_text,
+						completed = is_completed,
+						attributes = task_attrs,
+					}
+					local current = builder.stack[#builder.stack] or builder.root
+					table.insert(current.tasks, task)
+				end
 			end
 		end
 	end
@@ -181,7 +191,6 @@ function Document:parse_full(lines)
 	-- Build line map (line -> deepest section)
 	local function map_lines(section)
 		for line = section.start_line, section.end_line do
-			-- Only update if this section is deeper
 			local existing = self.line_map[line]
 			if not existing or #section:get_path() > #existing:get_path() then
 				self.line_map[line] = section
@@ -192,9 +201,6 @@ function Document:parse_full(lines)
 		end
 	end
 	map_lines(self.sections)
-
-	-- Extract tags
-	self.tags = parser.extract_tags_from_lines(lines, 15)
 
 	-- Update statistics
 	self:update_stats()
@@ -244,21 +250,23 @@ function Document:update_stats()
 	self.stats.completed = 0
 	self.stats.sections = 0
 
-	local function count_sections(section)
+	local function count_sections_and_tasks(section)
 		self.stats.sections = self.stats.sections + 1
-		local tasks = section:get_all_tasks()
-		self.stats.tasks = self.stats.tasks + #tasks
-		for _, task in ipairs(tasks) do
+		for _, task in ipairs(section.tasks) do
+			self.stats.tasks = self.stats.tasks + 1
 			if task.completed then
 				self.stats.completed = self.stats.completed + 1
 			end
 		end
+		for _, child in ipairs(section.children) do
+			count_sections_and_tasks(child)
+		end
 	end
 
 	if self.sections then
-		for _, child in ipairs(self.sections.children) do
-			count_sections(child)
-		end
+		count_sections_and_tasks(self.sections)
+		-- Subtract the root section from the count
+		self.stats.sections = self.stats.sections - 1
 	end
 end
 

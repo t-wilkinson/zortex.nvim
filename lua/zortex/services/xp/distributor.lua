@@ -92,7 +92,7 @@ function M._distribute_task_xp(distribution, targets)
 		local area_xp_each = math.floor(area_xp_total / #targets.area_links)
 
 		for _, area_link in ipairs(targets.area_links) do
-			local area_path = require("zortex.xp.areas").parse_area_path(area_link)
+			local area_path = require("zortex.services.areas").parse_area_path(area_link)
 			if area_path then
 				M._add_distribution(distribution, {
 					type = "area",
@@ -116,7 +116,7 @@ function M._distribute_objective_xp(distribution, targets)
 		local area_xp_each = math.floor(base_xp / #targets.area_links)
 
 		for _, area_link in ipairs(targets.area_links) do
-			local area_path = require("zortex.xp.areas").parse_area_path(area_link)
+			local area_path = require("zortex.services.areas").parse_area_path(area_link)
 			if area_path then
 				M._add_distribution(distribution, {
 					type = "area",

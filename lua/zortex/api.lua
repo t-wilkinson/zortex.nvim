@@ -48,11 +48,43 @@ end
 -- ===========================================================================
 M.xp = {
 	overview = function()
-		require("zortex.services.xp").show_overview()
+		require("zortex.services.xp").show_xp_overview()
 	end,
 
 	stats = function()
-		return require("zortex.services.xp").get_stats()
+		local xp_service = require("zortex.services.xp")
+		local stats = xp_service.get_stats()
+
+		local lines = { "📊 XP Statistics", "" }
+
+		-- Season stats
+		if stats.season then
+			table.insert(lines, "🏆 Season: " .. stats.season.season.name)
+			table.insert(lines, string.format("   Level: %d", stats.season.level))
+			table.insert(lines, string.format("   XP: %d", stats.season.xp))
+			if stats.season.current_tier then
+				table.insert(lines, "   Tier: " .. stats.season.current_tier.name)
+			end
+			table.insert(lines, "")
+		end
+
+		-- Project stats
+		if next(stats.projects) then
+			table.insert(lines, "📁 Projects:")
+			for name, proj in pairs(stats.projects) do
+				table.insert(lines, string.format("   %s: Level %d (%d XP)", name, proj.level, proj.xp))
+			end
+			table.insert(lines, "")
+		end
+
+		-- Area stats
+		if stats.areas then
+			table.insert(lines, string.format("🏔️  Areas: %d total", stats.areas.total_areas))
+			table.insert(lines, string.format("   Total XP: %d", stats.areas.total_xp))
+			table.insert(lines, string.format("   Max Level: %d", stats.areas.max_level))
+		end
+
+		vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO, { title = "XP Stats" })
 	end,
 
 	season = {
@@ -61,7 +93,12 @@ M.xp = {
 		end,
 
 		end_current = function()
-			require("zortex.services.xp").end_season()
+			local result = require("zortex.services.xp").end_season()
+			if result then
+				vim.notify("Ended season: " .. result.name, vim.log.levels.INFO)
+			else
+				vim.notify("No active season to end", vim.log.levels.WARN)
+			end
 		end,
 
 		status = function()
@@ -151,6 +188,46 @@ M.health = function()
 			vim.health.report_warn("Persistence manager not initialized")
 		end
 	end
+end
+
+M.debug = function()
+	local Config = require("zortex.config")
+	local lines = {
+		"🐛 Zortex Debug Info",
+		"",
+		"Configuration:",
+		"  Notes Dir: " .. Config.notes_dir,
+		"  Extension: " .. Config.extension,
+		"",
+	}
+
+	-- Buffer sync status
+	local buffer_sync = require("zortex.core.buffer_sync")
+	local sync_status = buffer_sync.get_status()
+	table.insert(lines, "Buffer Sync:")
+	table.insert(lines, "  Strategy: " .. sync_status.strategy)
+	table.insert(lines, "  Pending Changes: " .. sync_status.total_pending_changes)
+	table.insert(lines, "  Active Timers: " .. sync_status.active_timers)
+	table.insert(lines, "")
+
+	-- Document manager status
+	local doc_manager = require("zortex.core.document_manager")
+	local docs = doc_manager.get_all_documents()
+	table.insert(lines, "Documents:")
+	table.insert(lines, "  Loaded: " .. #docs)
+
+	-- Event bus performance
+	local events = require("zortex.core.event_bus")
+	local perf = events.get_performance_report()
+	table.insert(lines, "")
+	table.insert(lines, "Event Performance:")
+	for event, stats in pairs(perf) do
+		if stats.count > 0 then
+			table.insert(lines, string.format("  %s: %d calls, avg %.1fms", event, stats.count, stats.avg_time))
+		end
+	end
+
+	vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO, { title = "Debug Info" })
 end
 
 return M

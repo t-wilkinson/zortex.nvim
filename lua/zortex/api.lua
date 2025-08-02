@@ -4,20 +4,25 @@ local constants = require("zortex.constants")
 local M = {}
 
 M.archive_projects = function()
-	require("zortex.features.archive").archive_completed_projects()
+	return require("zortex.features.archive").archive_completed_projects()
 end
 
 M.task = {
+	convert = function()
+		local tasks = require("zortex.services.tasks")
+		return tasks.convert_line_to_task(tasks.get_task_context())
+	end,
+
 	toggle = function()
-		require("zortex.services.tasks").toggle_current_task()
+		return require("zortex.services.tasks").toggle_current_task()
 	end,
 
 	complete = function()
-		require("zortex.services.tasks").complete_current_task()
+		return require("zortex.services.tasks").complete_current_task()
 	end,
 
 	uncomplete = function()
-		require("zortex.services.tasks").uncomplete_current_task()
+		return require("zortex.services.tasks").uncomplete_current_task()
 	end,
 }
 
@@ -110,21 +115,27 @@ M.xp = {
 -- ===========================================================================
 -- UI
 -- ===========================================================================
-M.search = function(opts)
-	require("zortex.ui.telescope.search").search(opts)
-end
+M.search = {
+	search = function(opts)
+		require("zortex.ui.telescope.search").search(opts)
+	end,
 
-M.search_sections = function()
-	require("zortex.ui.telescope.search").search_sections()
-end
+	sections = function()
+		require("zortex.ui.telescope.search").search_sections()
+	end,
 
-M.search_articles = function()
-	require("zortex.ui.telescope.search").search_articles()
-end
+	articles = function()
+		require("zortex.ui.telescope.search").search_articles()
+	end,
 
-M.search_all = function()
-	require("zortex.ui.telescope.search").search_all()
-end
+	all = function()
+		require("zortex.ui.telescope.search").search_all()
+	end,
+
+	projects = function(opts)
+		require("zortex.ui.telescope").projects(opts)
+	end,
+}
 
 M.calendar = {
 	open = function()
@@ -136,13 +147,18 @@ M.calendar = {
 	end,
 }
 
-M.projects = function(opts)
-	require("zortex.ui.telescope").projects(opts)
-end
-
 M.skill_tree = function()
 	require("zortex.ui.skill_tree").show()
 end
+
+-- ===========================================================================
+-- Archive
+-- ===========================================================================
+M.archive = {
+	section = function()
+		require("zortex.features.archive").archive_current_section()
+	end,
+}
 
 -- ===========================================================================
 -- Status and debugging

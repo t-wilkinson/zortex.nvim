@@ -1,4 +1,4 @@
--- notifications/types/xp.lua - Enhanced XP notifications
+-- services/xp/notifications.lua - Enhanced XP notifications
 local M = {}
 
 local Events = require("zortex.core.event_bus")
@@ -188,7 +188,7 @@ end
 -- Level Up Notifications
 -- =============================================================================
 
-function M.setup()
+function M.init()
 	-- Area level up notification
 	Events.on("area:leveled_up", function(data) -- Changed from "xp:area_level_up"
 		vim.notify(
@@ -217,7 +217,7 @@ function M.setup()
 
 	-- XP awarded notification
 	Events.on("xp:awarded", function(data)
-		if data.amount >= 10 then -- Only notify for significant XP
+		if data.amount >= 20 then -- Only notify for significant XP
 			vim.notify(
 				string.format("✨ XP Earned: +%d XP", data.amount),
 				vim.log.levels.INFO,

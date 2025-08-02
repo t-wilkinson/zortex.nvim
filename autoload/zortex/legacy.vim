@@ -140,7 +140,7 @@ function! s:init_commands() abort
     " command! ZortexRestartRemoteServer call zortex#remote#restart_server()
     " command! ZortexSyncRemoteServer call zortex#remote#sync()
 
-    command! ZortexReloadFolds call zortex#fold#update_folds()
+    command! ZortexFoldsReload call zortex#fold#update_folds()
 endfunction
 
 function! s:init_autocommands()

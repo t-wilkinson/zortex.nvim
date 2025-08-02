@@ -170,7 +170,8 @@ function M.init()
 		end
 
 		local xp_amount = xp_calculator.calculate_task_xp(data.xp_context.task_position, data.xp_context.total_tasks)
-		award_task_xp(data.task.id, xp_amount, data.xp_context)
+		local distribution = award_task_xp(data.task.id, xp_amount, data.xp_context)
+		Logger.info("on task:completed", "reward xp", { xp_amount = xp_amount, distribution = distribution })
 	end, {
 		priority = 70,
 		name = "xp_service.complete_handler",

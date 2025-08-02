@@ -32,6 +32,22 @@ function M.setup(prefix)
 	end, { desc = "Open projects file" })
 
 	-- ===========================================================================
+	-- Tasks
+	-- ===========================================================================
+	cmd("TaskToggle", function()
+		api.task.toggle()
+	end, { desc = "Toggle task" })
+	cmd("TaskComplete", function()
+		api.task.complete()
+	end, { desc = "Complete task" })
+	cmd("TaskUncomplete", function()
+		api.task.uncomplete()
+	end, { desc = "Uncomplete task" })
+	cmd("TaskConvert", function()
+		api.task.convert()
+	end, { desc = "Convert line to task" })
+
+	-- ===========================================================================
 	-- Logging
 	-- ===========================================================================
 	cmd("Logs", function(opts)
@@ -70,21 +86,21 @@ function M.setup(prefix)
 	-- ===========================================================================
 	-- Navigation
 	-- ===========================================================================
-	cmd("OpenLink", function()
+	cmd("LinkOpen", function()
 		require("zortex.features.links").open_link()
 	end, { desc = "Open link under cursor" })
 
 	cmd("SearchSections", function()
-		api.search_sections()
+		api.search.sections()
 	end, { desc = "Section-based search" })
 	cmd("SearchArticles", function()
-		api.search_articles()
+		api.search.articles()
 	end, { desc = "Article-based search" })
 	cmd("SearchTasks", function()
-		api.search_tasks()
+		api.search.tasks()
 	end, { desc = "Task-based search" })
 	cmd("SearchAll", function()
-		api.search_all()
+		api.search.all()
 	end, { desc = "Search sections, articles, and tasks" })
 
 	-- ===========================================================================
@@ -194,50 +210,47 @@ function M.setup(prefix)
 	-- ===========================================================================
 	-- Season management
 	-- ===========================================================================
-	-- cmd("StartSeason", function(opts)
-	-- 	local args = vim.split(opts.args, " ")
-	-- 	if #args < 2 then
-	-- 		vim.notify("Usage: ZortexStartSeason <name> <end-date YYYY-MM-DD>", vim.log.levels.ERROR)
-	-- 		vim.notify("Example: ZortexStartSeason Q1-2024 2024-03-31", vim.log.levels.INFO)
-	-- 		return
-	-- 	end
-
-	-- 	local name = args[1]
-	-- 	local end_date = args[2]
-	-- 	xp.projects.start_season(name, end_date)
-	-- end, { nargs = "*", desc = "Start a new season" })
-
-	-- cmd("EndSeason", function()
-	-- 	xp.projects.end_season()
-	-- end, { desc = "End the current season" })
-
-	-- cmd("SeasonStatus", function()
-	-- 	local status = xp.projects.get_season_status()
-	-- 	if status then
-	-- 		print("Current Season: " .. status.season.name)
-	-- 		print(
-	-- 			string.format(
-	-- 				"Level %d - %s Tier",
-	-- 				status.level,
-	-- 				status.current_tier and status.current_tier.name or "None"
-	-- 			)
-	-- 		)
-	-- 		print(string.format("Progress: %.0f%%", status.progress_to_next * 100))
-	-- 	else
-	-- 		print("No active season")
-	-- 	end
-	-- end, { desc = "Show current season status" })
+	cmd("SeasonStatus", function()
+		local status = api.xp.season.status()
+		if status then
+			print("Current Season: " .. status.season.name)
+			print(
+				string.format(
+					"Level %d - %s Tier",
+					status.level,
+					status.current_tier and status.current_tier.name or "None"
+				)
+			)
+			print(string.format("Progress: %.0f%%", status.progress_to_next * 100))
+		else
+			print("No active season")
+		end
+	end, { desc = "Show current season status" })
 
 	cmd("SeasonStart", function(opts)
+		local args = vim.split(opts.args, " ")
+		if #args < 1 then
+			vim.notify("Usage: ZortexStartSeason <name> [<end-date YYYY-MM-DD>]", vim.log.levels.ERROR)
+			vim.notify("Example: ZortexStartSeason Q1-2024 2024-03-31", vim.log.levels.INFO)
+			return
+		end
+
+		local name = args[1] or ("S-" .. os.date("%Y-%m"))
+		local end_date
+
+		if #args == 1 then
+			end_date = os.time() + (90 * 24 * 60 * 60) -- 90 days from now
+		else
+			end_date = args[2]
+		end
+
 		local xp_service = require("zortex.services.xp")
-		local name = opts.args ~= "" and opts.args or ("Season " .. os.date("%Y-%m"))
-		local end_date = os.time() + (90 * 24 * 60 * 60) -- 90 days from now
 
 		xp_service.start_season(name, end_date)
 		vim.notify("Started season: " .. name, vim.log.levels.INFO)
 	end, {
 		desc = "Start a new season",
-		nargs = "?",
+		nargs = "*",
 	})
 
 	cmd("SeasonEnd", function()
@@ -254,23 +267,27 @@ function M.setup(prefix)
 	-- ===========================================================================
 	-- Task management
 	-- ===========================================================================
-	cmd("ToggleTask", function()
+	cmd("TaskToggle", function()
 		api.task.toggle()
 	end, { desc = "Toggle the task on current line" })
 
-	cmd("CompleteTask", function()
+	cmd("TaskComplete", function()
 		api.task.complete_current_task()
 	end, { desc = "Complete the task on current line" })
 
-	cmd("UncompleteTask", function()
+	cmd("TaskUncomplete", function()
 		api.task.uncomplete_current_task()
 	end, { desc = "Uncomplete the task on current line" })
 
 	-- ===========================================================================
-	-- System Status
+	-- System Management
 	-- ===========================================================================
 	cmd("SystemStatus", function()
 		api.status()
+	end, { desc = "Show Zortex system status" })
+
+	cmd("Debug", function()
+		api.debug()
 	end, { desc = "Show Zortex system status" })
 
 	cmd("SaveStores", function()

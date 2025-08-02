@@ -7,7 +7,7 @@ local buffer_sync = require("zortex.core.buffer_sync")
 local parser = require("zortex.utils.parser")
 local task_store = require("zortex.stores.tasks")
 
--- ID generation (moved from models/task.lua)
+-- ID generation
 local CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 local BASE = #CHARS
 local TIME_MOD = 131072
@@ -431,25 +431,23 @@ function M.process_buffer_tasks(bufnr)
 	return processed
 end
 
-function M.toggle_current_task()
-	M.change_task_completion({
+function M.get_task_context()
+	return {
 		bufnr = vim.api.nvim_get_current_buf(),
 		lnum = vim.api.nvim_win_get_cursor(0)[1],
-	}, nil)
+	}
+end
+
+function M.toggle_current_task()
+	M.change_task_completion(M.get_task_context(), nil)
 end
 
 function M.complete_current_task()
-	M.change_task_completion({
-		bufnr = vim.api.nvim_get_current_buf(),
-		lnum = vim.api.nvim_win_get_cursor(0)[1],
-	}, true)
+	M.change_task_completion(M.get_task_context(), true)
 end
 
 function M.uncomplete_current_task()
-	M.change_task_completion({
-		bufnr = vim.api.nvim_get_current_buf(),
-		lnum = vim.api.nvim_win_get_cursor(0)[1],
-	}, false)
+	M.change_task_completion(M.get_task_context(), false)
 end
 
 return M

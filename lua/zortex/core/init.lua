@@ -33,8 +33,9 @@ function M.setup(opts)
 	require("zortex.services.xp").init()
 	require("zortex.services.xp.calculator").setup(opts.xp)
 	require("zortex.services.xp.distributor").setup(opts.xp.distribution_rules)
+	require("zortex.services.xp.notifications").init()
 	require("zortex.services.areas").init()
-	require("zortex.services.projects.progress").init()
+	-- require("zortex.services.projects.progress").init() -- Let's migrate away from using progress attribute
 
 	-- Initialize persistence manager
 	PersistenceManager.setup(opts.core.persistence_manager)

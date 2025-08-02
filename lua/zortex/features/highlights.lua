@@ -75,7 +75,7 @@ local Syntax = {
 		opts = { bold = true, fg = "#3e8fb0" },
 		patterns = {
 			{
-				regex = "^(%w[^:]+):$",
+				regex = "^(%w[^:]*):$",
 				condition = function(line)
 					return not line:find("%.%s.-:")
 				end,
@@ -90,7 +90,7 @@ local Syntax = {
 		opts = { bold = true, fg = "#f6c177" },
 		patterns = {
 			{
-				regex = "^(%w[^:]+):%s",
+				regex = "^(%w[^:]*):%s",
 				condition = function(line)
 					return not line:find("%.%s.-:")
 				end,
@@ -105,7 +105,7 @@ local Syntax = {
 		opts = { bold = true, fg = "#3e8fb0" },
 		patterns = {
 			{
-				regex = "^%s*-%s*(%w[^:]+):$",
+				regex = "^%s*-%s*(%w[^:]*):$",
 				condition = function(line)
 					return not line:find("%.%s.-:")
 				end,
@@ -121,7 +121,7 @@ local Syntax = {
 		opts = { bold = true, fg = "#f6c177" },
 		patterns = {
 			{
-				regex = "^%s*-%s*(%w[^:]+):%s",
+				regex = "^%s*-%s*(%w[^:]*):%s",
 				condition = function(line)
 					return not line:find("%.%s.-:")
 				end,

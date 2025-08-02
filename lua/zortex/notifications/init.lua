@@ -6,7 +6,6 @@ local pomodoro = require("zortex.notifications.types.pomodoro")
 local timer = require("zortex.notifications.types.timer")
 local calendar = require("zortex.notifications.types.calendar")
 local digest = require("zortex.notifications.types.digest")
-local xp = require("zortex.notifications.types.xp")
 
 function M.setup_commands()
 	local Config = require("zortex.config")

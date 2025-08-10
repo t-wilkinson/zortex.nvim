@@ -229,6 +229,65 @@ local attribute_parsers = {
 		end
 		return nil
 	end,
+
+	area = function(v)
+		if not v or v == "" then
+			return nil
+		end
+
+		-- Split by "/" to get components
+		local components = {}
+		for component in v:gmatch("[^/]+") do
+			table.insert(components, M.trim(component))
+		end
+
+		-- If more than 2 components, return the raw value without modification
+		if #components > 2 then
+			local definition = "Areas/" .. v
+			return {
+				raw = v,
+				definition = definition,
+				link = "[" .. definition .. "]",
+				-- components = components,
+			}
+		end
+
+		-- Process components to ensure proper prefixes
+		local processed = {}
+
+		for i, component in ipairs(components) do
+			local processed_component = component
+
+			if i == 1 then
+				-- First component should be a heading
+				if not component:match("^#") then
+					processed_component = "#" .. component
+				end
+			elseif i == 2 then
+				-- Second component should be a label
+				if not component:match("^:") then
+					processed_component = ":" .. component
+				end
+			end
+
+			table.insert(processed, processed_component)
+		end
+
+		-- Build the link
+		local link_path = table.concat(processed, "/")
+		local definition = "Areas/" .. link_path
+		local link = "[" .. definition .. "]"
+
+		return {
+			raw = v, -- Original value
+			definition = definition,
+			link = link, -- Full link format
+			-- components = components, -- Original components
+			-- processed = processed, -- Processed components with prefixes
+			-- heading = processed[1], -- The heading component (with #)
+			-- label = processed[2], -- The label component (with :) if exists
+		}
+	end,
 }
 
 -- Parse @key(value) attributes from text
@@ -240,9 +299,15 @@ function M.parse_attributes(text, schema, parser_context)
 
 	-- Pattern for @key(value)
 	text = text:gsub("@(%w+)%s*%(([^)]*)%)", function(key, value)
+		if type(schema[key]) == "string" then
+			key = schema[key]
+		end
+
 		key = key:lower()
+
 		if schema and schema[key] then
 			local parser = attribute_parsers[schema[key].type]
+
 			if parser then
 				local parsed = parser(value, schema[key].values, parser_context)
 				if parsed ~= nil then
@@ -419,7 +484,36 @@ function M.extract_link_at(line, cursor_col)
 		offset = e or 0
 	end
 
-	-- 5. Check for file paths
+	-- 5. @area(<link>) or @a(<link>)
+	offset = 0
+	while offset < #line do
+		local s, e, value = string.find(line, "@area%(([^)]+)%)", offset + 1)
+		if not s then
+			s, e, value = string.find(line, "@a%(([^)]+)%)", offset + 1)
+		end
+
+		if not s then
+			break
+		end
+
+		if cursor_col >= (s - 1) and cursor_col < e then
+			local area_link = attribute_parsers.area(value)
+
+			if not area_link then
+				break
+			end
+
+			return {
+				type = "link",
+				display_text = area_link.definition,
+				definition = area_link.definition,
+				full_match_text = string.sub(line, s, e),
+			}
+		end
+		offset = e or 0
+	end
+
+	-- 6. Check for file paths
 	offset = 0
 	while offset < #line do
 		local s, e, path = string.find(line, "([~%.]/[^%s]+)", offset + 1)

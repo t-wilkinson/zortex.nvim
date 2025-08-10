@@ -23,6 +23,8 @@ M.schemas = {
 		["repeat"] = { type = "string" },
 		notify = { type = "list" },
 		depends = { types = "string" }, -- Specifies task dependence
+		area = { type = "area" }, -- area-link
+		a = "area",
 	},
 
 	-- Project attributes
@@ -49,6 +51,8 @@ M.schemas = {
 				"ultimate",
 			},
 		},
+		area = { type = "area" },
+		a = "area",
 	},
 
 	-- Event attributes
@@ -58,6 +62,8 @@ M.schemas = {
 		to = { type = "datetime" },
 		notify = { type = "duration" },
 		["repeat"] = { type = "string" },
+		area = { type = "area" },
+		a = "area",
 	},
 
 	-- Calendar entry attributes
@@ -73,6 +79,8 @@ M.schemas = {
 		to = { type = "datetime" },
 		["repeat"] = { type = "string" },
 		notify = { type = "list" },
+		area = { type = "area" },
+		a = "area",
 	},
 }
 

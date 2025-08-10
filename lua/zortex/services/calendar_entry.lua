@@ -78,6 +78,8 @@ function M:_compute_fields()
 	-- Extract time
 	if self.attributes.at then
 		self.time = self.attributes.at
+	elseif self.attributes.from then
+		self.time = self.attributes.from
 	end
 
 	-- Extract duration
@@ -90,6 +92,10 @@ function M:_compute_fields()
 			to = self.attributes.to,
 		}
 	end
+end
+
+function M:get_start_time()
+	return self.time
 end
 
 -- Check if entry is active on a given date

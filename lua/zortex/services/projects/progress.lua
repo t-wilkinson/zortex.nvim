@@ -75,7 +75,7 @@ end
 
 -- Update a single project
 function M.update_single_project(update)
-	local doc = Doc.load_buffer(update.bufnr)
+	local doc = Doc.get_buffer(update.bufnr)
 	if not doc then
 		return false, "Document not found"
 	end

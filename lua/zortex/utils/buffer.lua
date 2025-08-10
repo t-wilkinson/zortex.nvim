@@ -3,6 +3,17 @@ local M = {}
 
 local parser = require("zortex.utils.parser")
 
+function M.get_filepath(bufnr)
+	return vim.api.nvim_buf_get_name(bufnr)
+end
+
+function M.get_context()
+	return {
+		bufnr = vim.api.nvim_get_current_buf(),
+		lnum = vim.api.nvim_win_get_cursor(0)[1],
+	}
+end
+
 -- =============================================================================
 -- Buffer Reading
 -- =============================================================================
@@ -31,64 +42,22 @@ function M.set_cursor_pos(line, col)
 end
 
 -- =============================================================================
--- Navigation
+-- Buffer Modification Helpers
 -- =============================================================================
 
-function M.find_current_project(bufnr)
+function M.update_line(bufnr, lnum, new_text)
 	bufnr = bufnr or 0
-	local current_line = vim.fn.line(".")
-	local lines = M.get_lines(bufnr, 0, current_line)
-
-	-- Search backwards for a project heading
-	for i = #lines, 1, -1 do
-		local heading = parser.parse_heading(lines[i])
-		if heading then
-			return heading.text
-		end
-	end
-
-	return nil
+	vim.api.nvim_buf_set_lines(bufnr, lnum - 1, lnum, false, { new_text })
 end
 
-function M.get_all_headings(bufnr)
+function M.insert_lines(bufnr, lnum, lines)
 	bufnr = bufnr or 0
-	local lines = M.get_lines(bufnr)
-	local headings = {}
-
-	for lnum, line in ipairs(lines) do
-		local heading = parser.parse_heading(line)
-		if heading then
-			table.insert(headings, {
-				level = heading.level,
-				text = heading.text,
-				lnum = lnum,
-			})
-		end
-	end
-
-	return headings
+	vim.api.nvim_buf_set_lines(bufnr, lnum - 1, lnum - 1, false, lines)
 end
 
--- Get the bounds of a project/section
-function M.find_section_bounds(lines, start_idx)
-	local start_line = lines[start_idx]
-	local start_level = parser.get_heading_level(start_line)
-
-	if start_level == 0 then
-		return start_idx, start_idx + 1
-	end
-
-	-- Find where this section ends
-	local end_idx = #lines + 1
-	for i = start_idx + 1, #lines do
-		local line_level = parser.get_heading_level(lines[i])
-		if line_level > 0 and line_level <= start_level then
-			end_idx = i
-			break
-		end
-	end
-
-	return start_idx, end_idx
+function M.delete_lines(bufnr, start_lnum, end_lnum)
+	bufnr = bufnr or 0
+	vim.api.nvim_buf_set_lines(bufnr, start_lnum - 1, end_lnum - 1, false, {})
 end
 
 -- =============================================================================
@@ -148,48 +117,6 @@ function M.get_target_window()
 
 	-- Otherwise use current window
 	return current_win
-end
-
--- =============================================================================
--- Buffer Search
--- =============================================================================
-
-function M.find_in_buffer(pattern, start_line, end_line)
-	local lines = M.get_lines(0, start_line, end_line)
-	local results = {}
-
-	start_line = start_line or 0
-
-	for i, line in ipairs(lines) do
-		if line:match(pattern) then
-			table.insert(results, {
-				lnum = start_line + i,
-				line = line,
-				col = line:find(pattern),
-			})
-		end
-	end
-
-	return results
-end
-
--- =============================================================================
--- Buffer Modification Helpers
--- =============================================================================
-
-function M.update_line(bufnr, lnum, new_text)
-	bufnr = bufnr or 0
-	vim.api.nvim_buf_set_lines(bufnr, lnum - 1, lnum, false, { new_text })
-end
-
-function M.insert_lines(bufnr, lnum, lines)
-	bufnr = bufnr or 0
-	vim.api.nvim_buf_set_lines(bufnr, lnum - 1, lnum - 1, false, lines)
-end
-
-function M.delete_lines(bufnr, start_lnum, end_lnum)
-	bufnr = bufnr or 0
-	vim.api.nvim_buf_set_lines(bufnr, start_lnum - 1, end_lnum - 1, false, {})
 end
 
 return M

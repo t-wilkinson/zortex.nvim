@@ -745,7 +745,7 @@ end
 function M.search(query, opts)
 	opts = opts or {}
 	local search_mode = opts.search_mode or constants.SEARCH_MODES.SECTION
-	local stop_timer = Logger.start_timer("search_service.search")
+	-- local stop_timer = Logger.start_timer("search_service.search")
 	local tokens = parse_tokens(query)
 	local current_time = os.time()
 
@@ -830,10 +830,10 @@ function M.search(query, opts)
 		return a.score > b.score
 	end)
 
-	stop_timer({
-		result_count = #all_results,
-		file_count = #all_docs,
-	})
+	-- stop_timer({
+	-- 	result_count = #all_results,
+	-- 	file_count = #all_docs,
+	-- })
 
 	Events.emit("search:completed", {
 		query = query,

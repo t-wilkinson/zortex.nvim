@@ -2,14 +2,13 @@
 
 ```txt
 .
+├── api.lua
 ├── config.lua
 ├── constants.lua
 ├── constants2.lua
 ├── init.lua
-├── plan.md
 ├── summarize.sh
 ├── summary.md
-├── xp.md
 ├── core
 │   ├── buffer_sync.lua
 │   ├── document_manager.lua
@@ -20,18 +19,10 @@
 │   └── section.lua
 ├── features
 │   ├── archive.lua
-│   ├── calendar.lua
 │   ├── completion.lua
 │   ├── highlights.lua
 │   ├── ical.lua
 │   └── links.lua
-├── migration
-│   ├── phase1_init.lua
-│   ├── phase1_tests.lua
-│   └── phase2_init.lua
-├── models
-│   ├── calendar_entry.lua
-│   └── task.lua
 ├── notifications
 │   ├── init.lua
 │   ├── manager.lua
@@ -46,17 +37,28 @@
 │       ├── calendar.lua
 │       ├── digest.lua
 │       ├── pomodoro.lua
-│       ├── timer.lua
-│       └── xp.lua
+│       └── timer.lua
 ├── services
-│   ├── archive.lua
 │   ├── areas.lua
-│   ├── calendar.lua
+│   ├── calendar_entry.lua
 │   ├── okr.lua
-│   ├── projects.lua
 │   ├── search.lua
 │   ├── tasks.lua
-│   └── xp.lua
+│   ├── projects
+│   │   ├── init.lua
+│   │   └── progress.lua
+│   ├── search
+│   │   ├── document_cache.lua
+│   │   ├── hierarchical.lua
+│   │   ├── history.lua
+│   │   ├── init.lua
+│   │   └── scoring.lua
+│   └── xp
+│       ├── calculator.lua
+│       ├── distributor.lua
+│       ├── init.lua
+│       ├── notifications.lua
+│       └── season.lua
 ├── stores
 │   ├── base.lua
 │   ├── calendar.lua
@@ -64,12 +66,17 @@
 │   ├── persistence_manager.lua
 │   ├── tasks.lua
 │   └── xp.lua
+├── tests
+│   └── test.lua
 ├── ui
-│   ├── calendar_view.lua
 │   ├── commands.lua
 │   ├── keymaps.lua
 │   ├── skill_tree.lua
+│   ├── calendar
+│   │   ├── init.lua
+│   │   └── view.lua
 │   └── telescope
+│       ├── calendar.lua
 │       ├── core.lua
 │       ├── projects.lua
 │       └── search.lua
@@ -79,15 +86,53 @@
     ├── datetime.lua
     ├── filesystem.lua
     ├── link_resolver.lua
-    ├── parser.lua
-    └── xp
-        ├── calculator.lua
-        └── distributor.lua
+    └── parser.lua
 
-14 directories, 68 files
+16 directories, 70 files
 ```
 
-## ui/calendar_view.lua - Calendar UI module for Zortex
+## ui/keymaps.lua
+```lua
+function M.setup(key_prefix, cmd_prefix)
+```
+
+## ui/skill_tree.lua - Revamped Skill Tree UI for dual progression system
+```lua
+function M.show()
+```
+
+## features/calendar.lua - Calendar features using CalendarService
+```lua
+
+-- Add entry with interactive prompt
+function M.add_entry_interactive(date_str)
+
+-- Delete entry with confirmation
+function M.delete_entry_interactive(date_str)
+
+-- Search calendar entries
+function M.search(query)
+
+-- Show calendar statistics
+function M.show_stats()
+
+-- Get pending notifications
+function M.get_pending_notifications(lookahead_minutes)
+
+-- Check and show notifications
+function M.check_notifications()
+
+-- Open calendar file
+function M.open_file()
+
+-- Jump to date in calendar file
+function M.goto_date(date_str)
+
+-- Initialize calendar features
+function M.init()
+```
+
+## ui/calendar/view.lua - Calendar UI module for Zortex
 ```lua
 	marks = {}, -- Date marks for navigation
 function Renderer.create_buffer()
@@ -127,22 +172,12 @@ function M.open_digest()
 function M.setup(opts)
 ```
 
-## ui/keymaps.lua
-```lua
-function M.setup(key_prefix, cmd_prefix)
-```
-
-## ui/skill_tree.lua - Revamped Skill Tree UI for dual progression system
-```lua
-function M.show()
-```
-
 ## ui/telescope.lua - Telescope integration for Zortex
 ```lua
 function M.projects(opts)
 ```
 
-## ui/telescope/search.lua - Search UI using DocumentManager-based search service
+## ui/telescope/search.lua - Search UI using independent document loading
 ```lua
 function M.create_telescope_finder(opts)
 function M.search(opts)
@@ -158,6 +193,13 @@ function M.search_current_word()
 function M.search_current_section()
 function M.show_history()
 function M.setup(opts)
+```
+
+## =============================================================================
+```lua
+
+-- Search calendar entries
+function M.search(query, opts)
 ```
 
 ## ui/telescope/core.lua - assimilates telescope searches
@@ -194,17 +236,8 @@ M.TASK_STATUS = {
 M.HIGHLIGHTS = {
 ```
 
-## init.lua - Main entry point for Zortex (Service Architecture)
+## init.lua - Main entry point for Zortex
 ```lua
-
--- Initialize Zortex
-function M.setup(opts)
-
--- Public API exports
-M.task = {
-M.xp = {
-	season = {
-M.calendar = {
 ```
 
 ## core/buffer_sync.lua - keeps buffer and document in sync
@@ -340,7 +373,7 @@ function M.get_performance_stats()
 function M.show_performance_report()
 ```
 
-## core/init.lua - Initialize core systems: EventBus, DocumentManager, and Services
+## core/init.lua - Initialize core systems: Events, Doc, and Services
 ```lua
 function M.setup(opts)
 
@@ -406,6 +439,9 @@ function Section:get_stats()
 
 -- Format section for display
 function Section:format_display()
+
+-- Build a link to a section
+function Section:build_link(doc)
 function SectionTreeBuilder:new()
 		stack = {},
 
@@ -419,7 +455,7 @@ function SectionTreeBuilder:update_current_end(line_num)
 function SectionTreeBuilder:get_tree()
 
 -- Create section from parsed line
-function M.create_from_line(line, line_num)
+function M.create_from_line(line, line_num, in_code_block)
 ```
 
 ## core/document_manager.lua - Document cache and parsing with buffer integration
@@ -433,11 +469,14 @@ function LRU:_touch(key)
 function Document:new(opts)
 		line_map = {}, -- line_num -> deepest section
 		dirty_ranges = {}, -- { {start, end}, ... }
+		article_names = {}, -- Array of all article names (@@)
 		tags = {},
 		stats = {
 
 -- Parse entire document
 function Document:parse_full(lines)
+	self.article_names = {}
+	self.tags = {}
 	self.line_map = {}
 	self.dirty_ranges = {}
 
@@ -458,49 +497,57 @@ function Document:update_task(task_id, updates)
 
 -- Get all tasks
 function Document:get_all_tasks()
+
+-- Get primary article name (for compatibility)
+function Document:get_article_name()
 	buffers = {},
 	files = {},
 	reparse_timers = {},
 
 -- Load document from buffer
-function DocumentManager:load_buffer(bufnr, filepath)
+function Doc:load_buffer(bufnr, filepath)
 
 -- Load document from file
-function DocumentManager:load_file(filepath)
+function Doc:load_file(filepath)
 
 -- Get document for buffer
-function DocumentManager:get_buffer(bufnr)
+function Doc:get_buffer(bufnr)
 
 -- Get document for file
-function DocumentManager:get_file(filepath)
+function Doc:get_file(filepath)
 
 -- Mark buffer dirty
-function DocumentManager:mark_buffer_dirty(bufnr, start_line, end_line)
+function Doc:mark_buffer_dirty(bufnr, start_line, end_line)
 
 -- Reparse buffer
-function DocumentManager:reparse_buffer(bufnr)
+function Doc:reparse_buffer(bufnr)
 	doc.dirty_ranges = {}
 
 -- Unload buffer document
-function DocumentManager:unload_buffer(bufnr)
+function Doc:unload_buffer(bufnr)
 
 -- Reload file document (if file changed)
-function DocumentManager:reload_file(filepath)
+function Doc:reload_file(filepath)
 
 -- Get all loaded documents
-function DocumentManager:get_all_documents()
+function Doc:get_all_documents()
+
+-- Get a document by filepath without loading into main cache
+function Doc:peek_file(filepath)
 
 -- Setup autocmds
-function DocumentManager:setup_autocmds()
+function Doc:setup_autocmds()
 
 -- Initialize
-function DocumentManager:init()
+function Doc:init()
 
 -- Public API
 function M.init()
 function M.get_buffer(bufnr)
+function M.load_buffer(bufnr)
 function M.get_file(filepath)
 function M.get_all_documents()
+function M.peek_file(filepath)
 function M.mark_buffer_dirty(bufnr, start_line, end_line)
 ```
 
@@ -516,28 +563,28 @@ function PriorityQueue:is_empty()
 		events = {}, -- event -> { count, total_time, max_time }
 
 -- Internal: ensure handler list exists
-function EventBus:ensure_handler_list(event)
+function Events:ensure_handler_list(event)
 
 -- Register an event handler
-function EventBus:on(event, handler, opts)
+function Events:on(event, handler, opts)
 
 -- Remove an event handler
-function EventBus:off(event, handler)
+function Events:off(event, handler)
 
 -- Emit an event
-function EventBus:emit(event, data, opts)
+function Events:emit(event, data, opts)
 
 -- Add middleware
-function EventBus:add_middleware(fn)
+function Events:add_middleware(fn)
 
 -- Track performance statistics
-function EventBus:track_performance(event, elapsed_ms)
+function Events:track_performance(event, elapsed_ms)
 
 -- Get performance report
-function EventBus:get_performance_report()
+function Events:get_performance_report()
 
 -- Clear all handlers (useful for tests)
-function EventBus:clear()
+function Events:clear()
 	self.handlers = {}
 	self.middleware = {}
 	self.stats.events = {}
@@ -592,55 +639,14 @@ function M.get_status()
 function M.setup_commands()
 ```
 
-## features/archive.lua - Project archiving system for Zortex
-```lua
-			tasks = {},
-
--- Archive the current project
-function M.archive_current_project()
-
--- Archive all completed projects
-function M.archive_all_completed_projects()
-```
-
-## features/calendar.lua - Calendar features using CalendarService
+## features/archive.lua - Intelligent section archiving and restoration
 ```lua
 
--- Load calendar data
-function M.load()
+-- Archive the section at current cursor position
+function M.archive_current_section()
 
--- Save calendar data
-function M.save()
-
--- Add calendar entry
-function M.add_entry(date_str, entry_text)
-
--- Add entry with interactive prompt
-function M.add_entry_interactive(date_str)
-
--- Delete entry with confirmation
-function M.delete_entry_interactive(date_str)
-
--- Search calendar entries
-function M.search(query)
-
--- Show calendar statistics
-function M.show_stats()
-
--- Get pending notifications
-function M.get_pending_notifications(lookahead_minutes)
-
--- Check and show notifications
-function M.check_notifications()
-
--- Open calendar file
-function M.open_file()
-
--- Jump to date in calendar file
-function M.goto_date(date_str)
-
--- Initialize calendar features
-function M.init()
+-- Revert an archived section back to original file
+function M.revert_archive(archive_file, section_line)
 ```
 
 ## features/links.lua - Link navigation for Zortex with normalized section handling
@@ -751,12 +757,17 @@ function M.navigate_parent()
 			caps = { cap1, cap2, cap3 },
 
 --------------------------------------------------------------------------
--- 5. Main highlighting function ------------------------------------------
+-- Main highlighting function ------------------------------------------
 --------------------------------------------------------------------------
 function M.highlight_buffer(bufnr)
 									virt_text = { { bullet_text, hl_group } },
 											virt_text = { { text, "ZortexTaskCheckbox" } },
 									virt_text = { { conceal.icon, "ZortexLinkDelimiter" } },
+
+--------------------------------------------------------------------------
+-- Setup functions -----------------------------------------------------
+--------------------------------------------------------------------------
+function M.setup()
 function M.setup_autocmd()
 ```
 
@@ -800,6 +811,13 @@ function M.import_interactive()
 
 -- Interactive export
 function M.export_interactive()
+```
+
+## tests/test.lua
+```lua
+
+-- Run all tests
+function M.run_all()
 ```
 
 ## stores/xp.lua - XP state persistence
@@ -923,15 +941,18 @@ function M.load()
 	state.entries = {}
 function M.save()
 function M.ensure_loaded()
+
+-- Add calendar entry
 function M.add_entry(date_str, entry_text)
-function M.get_entries_for_date(date_str)
-function M.get_entries_in_range(start_date, end_date)
+
+-- Delete an entry
+function M.delete_entry_by_text(date_str, entry_text)
+function M.delete_entry_by_index(date_str, entry_index)
 
 -- Update an entry
 function M.update_entry(date_str, old_text, new_text)
-
--- Delete an entry
-function M.delete_entry(date_str, entry_text)
+function M.get_entries_for_date(date_str)
+function M.get_entries_in_range(start_date, end_date)
 
 -- Get all entries (for search/telescope)
 function M.get_all_entries()
@@ -1174,7 +1195,7 @@ M.schemas = {
 		p = { type = "enum", values = { "1", "2", "3" } },
 		i = { type = "enum", values = { "1", "2", "3" } },
 		due = { type = "datetime" },
-		at = { type = "string" },
+		at = { type = "datetime" },
 		dur = { type = "duration" },
 		est = { type = "duration" },
 		from = { type = "datetime" },
@@ -1182,16 +1203,16 @@ M.schemas = {
 		notify = { type = "list" },
 
 -- Parse task attributes
-function M.parse_task_attributes(line)
+function M.parse_task_attributes(line, context)
 
 -- Parse project attributes
-function M.parse_project_attributes(line)
+function M.parse_project_attributes(line, context)
 
 -- Parse event attributes
-function M.parse_event_attributes(line)
+function M.parse_event_attributes(line, context)
 
 -- Parse calendar entry attributes
-function M.parse_calendar_attributes(line)
+function M.parse_calendar_attributes(line, context)
 
 -- Strip attributes (returns clean text and extracted attributes)
 function M.strip_attributes(line, schema)
@@ -1217,10 +1238,6 @@ function M.update_done_attribute(line, done)
 function M.was_done(line)
 function M.extract_task_id(line)
 
--- XP attribute helpers
-function M.update_xp_attribute(line, xp)
-function M.extract_xp(line)
-
 -- Task status parsing
 function M.parse_task_status(line)
 
@@ -1232,8 +1249,11 @@ function M.format_duration(minutes)
 ```lua
 function M.trim(str)
 function M.escape_pattern(text)
-function M.detect_section_type(line)
-function M.get_section_priority(line)
+function CodeBlockTracker:new()
+function CodeBlockTracker:update(line)
+function CodeBlockTracker:is_in_code_block()
+function M.detect_section_type(line, in_code_block)
+function M.get_section_priority(line, in_code_block)
 function M.get_heading_level(line)
 function M.parse_heading(line)
 function M.is_bold_heading(line)
@@ -1244,7 +1264,9 @@ function M.parse_task_status(line)
 function M.get_task_text(line)
 
 -- Parse @key(value) attributes from text
-function M.parse_attributes(text, schema)
+-- @param parser_context table Context of the text being parsed to optionally pass to functions like parse_datetime() default_date_str.
+--  The attribute parsers know how to take the parser_context and pass relevant information to functions as necessary.
+function M.parse_attributes(text, schema, parser_context)
 
 -- Extract specific attribute
 function M.extract_attribute(line, key)
@@ -1256,21 +1278,31 @@ function M.update_attribute(line, key, value)
 function M.remove_attribute(line, key)
 function M.extract_link_at(line, cursor_col)
 function M.extract_all_links(line)
+
+-- Escape special characters in link components
+function M.escape_link_component(text)
+
+-- Unescape link components
+function M.unescape_link_component(text)
+
+-- Enhanced parse_link_component that handles attributes
 function M.parse_link_component(component)
+
+-- Smart parse_link_definition that handles slashes within parentheses
 function M.parse_link_definition(definition)
 		components = {},
 function M.extract_article_name(line)
 function M.extract_tags_from_lines(lines, max_lines)
 function M.parse_okr_date(line)
 
---  Build the section “breadcrumb” that leads to a given buffer line
+--  Build the section "breadcrumb" that leads to a given buffer line
 ---Return an ordered list of section‑objects that enclose `target_lnum`.
 ---Each element contains everything the rest of the code already expects:
----• `lnum`  – where the section starts
----• `type`  – one of constants.SECTION_TYPE.*
+---• `lnum`  – where the section starts
+---• `type`  – one of constants.SECTION_TYPE.*
 ---• `priority`– numeric hierarchy value (lower ⇒ higher level)
----• `level`  – heading level (only for `HEADING`)
----• `text`    – raw text that represents the section (article title, heading,
+---• `level`  – heading level (only for `HEADING`)
+---• `text`    – raw text that represents the section (article title, heading,
 ---               bold heading, or label)
 ---• `display` – text to show in breadcrumbs / Telescope lists
 ---@param lines        string[]  -- full buffer ‑ 1‑indexed
@@ -1286,7 +1318,7 @@ function M.find_section_start(lines, start_lnum, section_type, heading_level)
 function M.find_section_end(lines, start_lnum, section_type, heading_level)
 ```
 
-## core/filesystem.lua - File operations for Zortex
+## utils/filesystem.lua - File operations for Zortex
 ```lua
 function M.get_file_path(filename)
 function M.joinpath(...)
@@ -1297,6 +1329,10 @@ function M.file_exists(filepath)
 function M.directory_exists(dirpath)
 function M.find_files(dir, pattern)
 function M.get_all_note_files()
+
+-- Get all note files with basic filtering
+function M.find_all_notes(filter_fn)
+function M.get_calendar_file()
 function M.get_projects_file()
 function M.get_archive_file()
 function M.get_okr_file()
@@ -1317,6 +1353,9 @@ function M.search_in_buffer(component, start_line, end_line)
 function M.process_link(parsed_link)
 			section_bounds = {}
 function M.search_footnote(ref_id)
+
+-- Find section in a document using parsed link components
+function M.find_section_by_link(doc, link_def)
 function M.populate_quickfix(results)
 ```
 
@@ -1338,172 +1377,6 @@ function M.find_in_buffer(pattern, start_line, end_line)
 function M.update_line(bufnr, lnum, new_text)
 function M.insert_lines(bufnr, lnum, lines)
 function M.delete_lines(bufnr, start_lnum, end_lnum)
-```
-
-## domain/xp/distributor.lua - Handles XP distribution logic and rules
-```lua
-
--- Distribute XP with full tracking
-function M.distribute(source_type, source_id, base_amount, targets)
-		source = {
-		distributions = {},
-
--- Distribute task XP
-function M._distribute_task_xp(distribution, targets)
-
--- Distribute objective XP
-function M._distribute_objective_xp(distribution, targets)
-
--- Distribute daily review XP
-function M._distribute_daily_review_xp(distribution, targets)
-
--- Add a distribution entry
-function M._add_distribution(distribution, entry)
-
--- Initialize distributor with event listeners
-function M.setup(opts)
-
--- Bubble XP to parent areas
-function M._bubble_to_parent_areas(area_path, base_amount)
-
--- Get parent area links (simplified for now)
-function M._get_parent_area_links(area_path)
-
--- Update distribution statistics
-function M._update_distribution_stats(distribution)
-
--- Calculate effective XP with all modifiers
-function M.calculate_effective_xp(base_xp, modifiers)
-
--- Validate distribution targets
-function M.validate_targets(source_type, targets)
-```
-
-## domain/xp/core.lua - Core XP calculations and formulas
-```lua
-
--- Calculate XP required for a specific area level
-function M.calculate_area_level_xp(level)
-
--- Calculate XP required for a specific season level
-function M.calculate_season_level_xp(level)
-
--- Calculate level from total XP (area)
-function M.calculate_area_level(xp)
-
--- Calculate level from total XP (season)
-function M.calculate_season_level(xp)
-
--- Get progress towards next level
-function M.get_level_progress(xp, level, level_calc_fn)
-
--- Get time horizon multiplier for objectives
-function M.get_time_multiplier(time_horizon)
-
--- Calculate decay factor for old objectives
-function M.calculate_decay_factor(days_old)
-
--- Calculate XP for a task based on its position in the project
-function M.calculate_task_xp(task_position, total_tasks)
-
--- Calculate total potential XP for a project
-function M.calculate_project_total_xp(total_tasks)
-
--- Calculate XP for completing an objective
-function M.calculate_objective_xp(time_horizon, created_date)
-
--- Calculate area XP from project XP
-function M.calculate_area_transfer(project_xp, num_areas)
-
--- Calculate parent area XP from child area XP
-function M.calculate_parent_bubble(child_xp, num_parents)
-
--- Get tier information for a season level
-function M.get_season_tier(level)
-function M.setup(config)
-
--- Format XP display
-function M.format_xp(xp)
-
--- Get color for level (for UI)
-function M.get_level_color(level, max_level)
-```
-
-## models/task.lua - Task model with methods
-```lua
-
--- Create a new task instance
-function M:new(data)
-
--- Generate a unique ID
-function M.generate_id()
-
--- Save task to store
-function M:save()
-
--- Delete task
-function M:delete()
-
--- Complete task
-function M:complete()
-
--- Uncomplete task
-function M:uncomplete()
-
--- Update attributes
-function M:set_attributes(attrs)
-
--- Update position
-function M:set_position(position, total_in_project)
-
--- Move to different project
-function M:move_to_project(new_project)
-
--- Parse a task from a line
-function M.from_line(line, line_num)
-
--- Convert task to line
-function M:to_line()
-
--- Load task by ID
-function M.load(id)
-
--- Get all tasks for a project
-function M.get_project_tasks(project_name)
-
--- Ensure task has ID in line
-function M.ensure_id_in_line(line)
-```
-
-## models/calendar_entry.lua - Calendar entry model
-```lua
-function M:new(data)
-
--- Parse a calendar entry from text
-function M.from_text(entry_text, date_context)
-function M:_compute_fields()
-		self.date_range = {
-
--- Check if entry is active on a given date
-function M:is_active_on_date(date)
-
--- Check if repeat pattern is active
-function M:is_repeat_active(start_date, target_date)
-
--- Get formatted time string
-function M:get_time_string()
-
--- Get sort priority (for ordering entries)
-function M:get_sort_priority()
-
--- Format entry depending on calendar pretty_attributes setting
-function M:format()
-
--- Pretty‑print attributes
-function M:format_pretty()
-
--- Format attributes in simple mode
-function M:format_simple()
 ```
 
 ## config.lua - Centralized configuration for Zortex
@@ -1540,6 +1413,7 @@ function M:format_simple()
 				two_tokens = { "article", "heading_1_2" },
 				three_plus_tokens = { "article", "heading", "bold_heading", "label" },
 			history = {
+			token_filters = {
 		calendar = {
 			window = {
 			colors = {
@@ -1584,37 +1458,6 @@ function M:format_simple()
 				completion = {
 		seasons = {
 			tiers = {
-		base = {
-		task_sizes = {
-			xs = { duration = 15, multiplier = 0.5 },
-			sm = { duration = 30, multiplier = 0.8 },
-			md = { duration = 60, multiplier = 1.0 },
-			lg = { duration = 120, multiplier = 1.5 },
-			xl = { duration = 240, multiplier = 2.0 },
-		project_sizes = {
-			xs = { multiplier = 0.5 },
-			sm = { multiplier = 0.8 },
-			md = { multiplier = 1.0 },
-			lg = { multiplier = 1.5 },
-			xl = { multiplier = 2.0 },
-			epic = { multiplier = 3.0 },
-			legendary = { multiplier = 5.0 },
-			mythic = { multiplier = 8.0 },
-			ultimate = { multiplier = 12.0 },
-		priority_multipliers = {
-		importance_multipliers = {
-		span_multipliers = {
-		completion_curve = {
-	skills = {
-		distribution_weights = {
-		objective_base_xp = {
-		level_thresholds = {
-  skills = {
-    categories = {
-      technical = { color = "#61afef", icon = "💻" },
-      creative = { color = "#c678dd", icon = "🎨" },
-      business = { color = "#98c379", icon = "💼" },
-      personal = { color = "#e06c75", icon = "🌟" },
 
 -- Initialize configuration
 function Config.setup(opts)
@@ -1662,74 +1505,37 @@ M.XP_TIERS = {
 
 -- Highlight groups
 M.HIGHLIGHTS = {
+M.SEARCH_MODES = {
 ```
 
-## tests/phase1_spec.lua
+## M.show_progress = function()
 ```lua
+M.task = {
 
--- Run all tests
-function M.run_all()
-```
+-- ===========================================================================
+-- XP
+-- ===========================================================================
+M.xp = {
+	season = {
 
-## core/phase2_init.lua
-```lua
-M.components = {
+-- ===========================================================================
+-- UI
+-- ===========================================================================
+M.search = {
+M.calendar = {
 
--- Initialize Phase 2
-function M.init(opts)
-
--- Set up backward compatibility with existing modules
-function M.setup_compatibility()
-
--- Development commands
-function M.setup_dev_commands()
-			area_links = { "[A/Tech/Neovim]", "[A/Personal/Learning]" },
-
--- Get Phase 2 status
-function M.get_status()
-		tasks = {
-		xp = {
-
--- Healthcheck
-function M.healthcheck()
-		components = {},
-		integration = {},
-	health.integration.stores = {
-	health.integration.event_handlers = {
-```
-
-## core/phase1_init.lua
-```lua
-M.components = {
-
--- Initialize Phase 1 components
-function M.init(opts)
-
--- Set up compatibility handlers to work with existing code
-function M.setup_compatibility_handlers()
-
--- Set up performance monitoring
-function M.setup_performance_monitoring()
-
--- Development commands for testing Phase 1
-function M.setup_dev_commands()
-
--- Get Phase 1 status
-function M.get_status()
-
--- Healthcheck for Phase 1
-function M.healthcheck()
-	health.components = {}
-	health.documents = {
-	health.events = {
-	health.performance = {
+-- ===========================================================================
+-- Archive
+-- ===========================================================================
+M.archive = {
 ```
 
 ## notifications/init.lua - Public API for the notification system
 ```lua
+function M.setup_commands()
 
 -- Initialize the notification system
-function M.setup(config)
+function M.setup(opts) -- Config.notifications
 
 -- Send a notification immediately
 function M.notify(title, message, options)
@@ -1757,15 +1563,6 @@ M.test = {
 
 -- Cleanup on exit
 function M.cleanup()
-```
-
-## domain/xp/notifications.lua - Enhanced XP notifications
-```lua
-function M.notify_progress_update(xp_changes, projects_completed)
-function M.notify_objective_completion(objective_text, xp_awarded, area_awards)
-function M.show_xp_overview()
-function M.notify_area_level_up(area_path, new_level)
-function M.notify_season_level_up(new_level, tier_info)
 ```
 
 ## notifications/types/pomodoro.lua - Pomodoro timer implementation
@@ -1852,7 +1649,7 @@ function M.send_digest(options)
 function M.schedule_auto_digest()
 
 -- Setup
-function M.setup(cfg)
+function M.setup(opts)
 
 -- Manual commands
 function M.send_now(days)
@@ -1950,56 +1747,7 @@ function M._calculate_objective_xp(objective)
 function M._apply_progress_updates(updates)
 ```
 
-## services/xp_service.lua - Service for XP orchestration and calculation
-```lua
-
--- Calculate XP for a task completion
-function M.calculate_task_xp(xp_context)
-
--- Calculate XP for an objective completion
-function M.calculate_objective_xp(time_horizon, created_date)
-
--- Award XP for task completion
-function M.award_task_xp(task_id, xp_amount, xp_context)
-
--- Reverse XP for task uncomplete
-function M.reverse_task_xp(task_id, xp_context)
-
--- Season management
-function M.start_season(name, end_date)
-function M.end_season()
-function M.get_season_status()
-
--- Get XP statistics
-function M.get_stats()
-
--- Initialize service
-function M.init()
-
--- Private helpers
-function M._check_level_ups(distribution)
-```
-
-## services/archive_service.lua - Archive service for completed projects and tasks
-```lua
-
--- Archive a single project
-function M.archive_project(project_name, opts)
-
--- Archive all completed projects
-function M.archive_completed_projects(opts)
-
--- List all archived projects
-function M.list_archives()
-
--- Search in archives
-function M.search_archives(query, opts)
-
--- Restore project from archive
-function M.restore_project(project_name, opts)
-```
-
-## services/projects.lua - Project management service using DocumentManager
+## services/projects/init.lua - Project management service using Doc
 ```lua
 
 -- Get all projects from document
@@ -2014,7 +1762,7 @@ function M.get_all_projects()
 function M.get_project_at_line(bufnr, line_num)
 
 -- Update project progress
-function M.update_project_progress(project)
+function M.update_project_progress(project, bufnr)
 
 -- Update all projects in document
 function M.update_all_project_progress(bufnr)
@@ -2022,10 +1770,33 @@ function M.update_all_project_progress(bufnr)
 -- Check if project is completed
 function M.is_project_completed(project_name)
 
+-- Get project by link
+function M.get_project_by_link(link_str)
+
 -- Get project statistics
 function M.get_all_stats()
 		projects_by_priority = {},
 		projects_by_importance = {},
+```
+
+## services/projects/progress.lua - Handles project progress updates
+```lua
+
+-- Queue a project update
+function M.queue_project_update(bufnr, project_link, completed_delta, total_delta)
+
+-- Process all queued updates
+function M.process_update_queue()
+	update_queue = {}
+
+-- Update a single project
+function M.update_single_project(update)
+
+-- Initialize project progress tracking
+function M.init()
+
+-- Force update all projects in a buffer
+function M.update_all_projects(bufnr)
 ```
 
 ## services/task.lua - Stateless service for task operations
@@ -2037,8 +1808,10 @@ function M.complete_task(task_id, context)
 -- Uncomplete a task
 function M.uncomplete_task(task_id, context)
 
--- Toggle task at line
-function M.toggle_task_at_line(context)
+-- Change task completion at cursor line
+-- @param context table Table containing the {bufnr: int, lnum: int}
+-- @param should_complete boolean|nil nil then toggle, true to complete, false to uncomplete
+function M.change_task_completion(context, should_complete)
 
 -- Convert line to task
 function M.convert_line_to_task(context)
@@ -2047,7 +1820,7 @@ function M.convert_line_to_task(context)
 -- Build XP context for a task
 function M._build_xp_context(task, context)
 
--- Find project containing task
+-- Find project containing task (returns {text, link})
 function M._find_project_for_task(doc, section)
 
 -- Extract area links from section hierarchy
@@ -2062,6 +1835,10 @@ function M.update_task_attributes(task_id, attributes, context)
 
 -- Process all tasks in buffer (for bulk operations)
 function M.process_buffer_tasks(bufnr)
+function M.get_task_context()
+function M.toggle_current_task()
+function M.complete_current_task()
+function M.uncomplete_current_task()
 ```
 
 ## services/area.lua - Area management service
@@ -2105,9 +1882,24 @@ function M._get_parent_path(area_path)
 function M.init()
 ```
 
-## services/search.lua - Search service built on DocumentManager with hierarchical search
+## services/search.lua - Search service with improved hierarchical matching
 ```lua
-M.modes = {
+	cache = {}, -- filepath -> { mtime, document }
+function FileCache:get(filepath)
+function FileCache:set(filepath, document)
+function FileCache:clear()
+	self.cache = {}
+		article_names = {}, -- Changed to array
+		stats = {
+
+-- Load or get cached document for search
+function SearchDocumentCache:get_document(filepath)
+
+-- Get all searchable documents
+function SearchDocumentCache:get_all_documents()
+
+-- Clear cache (for refresh)
+function SearchDocumentCache:clear()
 	data = {}, -- filepath -> { last_access, access_count }
 function AccessTracker.load()
 function AccessTracker.save()
@@ -2118,45 +1910,186 @@ function SearchHistory.add(entry)
 		score_contribution = {},
 function SearchHistory.propagate_scores(entry)
 function SearchHistory.get_score(filepath, line_num, section_path)
+				result._matched_path = { section }
+					result._matched_path = {}
 function M.search(query, opts)
+				section_path = {
 function M.open_result(result, cmd)
-function M.diagnose()
-function M.test_search(query)
 function M.get_stats()
 function M.refresh_all()
 function M.setup(opts)
+
+-- Configure token filters
+function M.configure_token_filters(filters)
 ```
 
-## services/calendar.lua - Calendar service using DocumentManager and EventBus
+## services/calendar_entry.lua - Calendar entry model
+```lua
+function M:new(data)
+
+-- Parse a calendar entry from text
+function M.from_text(entry_text, current_date_str)
+function M:_compute_fields()
+		self.date_range = {
+
+-- Check if entry is active on a given date
+function M:is_active_on_date(date)
+
+-- Check if repeat pattern is active
+function M:is_repeat_active(start_date, target_date)
+
+-- Get formatted time string
+function M:get_time_string()
+
+-- Get sort priority (for ordering entries)
+function M:get_sort_priority()
+
+-- Format entry depending on calendar pretty_attributes setting
+function M:format()
+
+-- Pretty‑print attributes
+function M:format_pretty()
+
+-- Format attributes in simple mode
+function M:format_simple()
+```
+
+## services/search/init.lua
+```lua
+```
+
+## services/search/document_cache.lua
+```lua
+```
+
+## services/search/scoring.lua
+```lua
+```
+
+## services/search/hierarchical.lua
+```lua
+```
+
+## services/search/history.lua
+```lua
+```
+
+## services/xp/init.lua - Service for XP orchestration and calculation
 ```lua
 
--- Load calendar data
-function M.load()
+-- Check for level ups
+function M.check_level_ups()
 
--- Save calendar data
-function M.save()
+-- Get XP statistics
+function M.get_stats()
 
--- Add calendar entry
-function M.add_entry(date_str, entry_text, opts)
+-- Initialize service
+function M.init()
+```
 
--- Remove calendar entry
-function M.remove_entry(date_str, entry_index)
+## services/xp/season.lua - Manage seasons
+```lua
 
--- Get entries for date range
-function M.get_entries_for_range(start_date, end_date)
+-- Season management
+function M.start_season(name, end_date)
+function M.end_season()
+function M.get_season_status()
+```
 
--- Get calendar statistics
-function M.get_stats(opts)
-		entries_by_type = {
-		entries_by_month = {},
+## services/xp/distributor.lua - Handles XP distribution logic and rules
+```lua
 
--- Get upcoming entries
-function M.get_upcoming(days_ahead)
+-- Distribute XP with full tracking
+function M.distribute(source_type, source_id, base_amount, targets)
+		source = {
+		distributions = {},
 
--- Search calendar entries
-function M.search(query, opts)
+-- Distribute task XP
+function M._distribute_task_xp(distribution, targets)
 
--- Check for entries that need notifications
-function M.get_pending_notifications(lookahead_minutes)
+-- Distribute objective XP
+function M._distribute_objective_xp(distribution, targets)
+
+-- Distribute daily review XP
+function M._distribute_daily_review_xp(distribution, targets)
+
+-- Add a distribution entry
+function M._add_distribution(distribution, entry)
+
+-- Initialize distributor with event listeners
+function M.setup(opts)
+
+-- Bubble XP to parent areas
+function M._bubble_to_parent_areas(area_path, base_amount)
+
+-- Get parent area links (simplified for now)
+function M._get_parent_area_links(area_path)
+
+-- Update distribution statistics
+function M._update_distribution_stats(distribution)
+
+-- Calculate effective XP with all modifiers
+function M.calculate_effective_xp(base_xp, modifiers)
+
+-- Validate distribution targets
+function M.validate_targets(source_type, targets)
+```
+
+## services/xp/calculator.lua - Core XP calculations and formulas
+```lua
+
+-- Calculate XP required for a specific area level
+function M.calculate_area_level_xp(level)
+
+-- Calculate XP required for a specific season level
+function M.calculate_season_level_xp(level)
+
+-- Calculate level from total XP (area)
+function M.calculate_area_level(xp)
+
+-- Calculate level from total XP (season)
+function M.calculate_season_level(xp)
+
+-- Get progress towards next level
+function M.get_level_progress(xp, level, level_calc_fn)
+
+-- Get time horizon multiplier for objectives
+function M.get_time_multiplier(time_horizon)
+
+-- Calculate decay factor for old objectives
+function M.calculate_decay_factor(days_old)
+
+-- Calculate XP for a task based on its position in the project
+function M.calculate_task_xp(task_position, total_tasks)
+
+-- Calculate total potential XP for a project
+function M.calculate_project_total_xp(total_tasks)
+
+-- Calculate XP for completing an objective
+function M.calculate_objective_xp(time_horizon, created_date)
+
+-- Calculate area XP from project XP
+function M.calculate_area_transfer(project_xp, num_areas)
+
+-- Calculate parent area XP from child area XP
+function M.calculate_parent_bubble(child_xp, num_parents)
+
+-- Get tier information for a season level
+function M.get_season_tier(level)
+function M.setup(config)
+
+-- Format XP display
+function M.format_xp(xp)
+
+-- Get color for level (for UI)
+function M.get_level_color(level, max_level)
+```
+
+## services/xp/notifications.lua - Enhanced XP notifications
+```lua
+function M.notify_progress_update(xp_changes, projects_completed)
+function M.notify_objective_completion(objective_text, xp_awarded, area_awards)
+function M.show_xp_overview()
+function M.init()
 ```
 

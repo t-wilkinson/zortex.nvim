@@ -6,6 +6,7 @@ local Logger = require("zortex.core.logger")
 local buffer_sync = require("zortex.core.buffer_sync")
 local parser = require("zortex.utils.parser")
 local task_store = require("zortex.stores.tasks")
+local buffer = require("zortex.utils.buffer")
 
 -- ID generation
 local CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -131,9 +132,6 @@ end
 -- @param should_complete boolean|nil nil then toggle, true to complete, false to uncomplete
 function M.change_task_completion(context, should_complete)
 	local doc = require("zortex.core.document_manager").get_buffer(context.bufnr)
-	if not doc then
-		doc = require("zortex.core.document_manager").load_buffer(context.bufnr)
-	end
 
 	local section = doc:get_section_at_line(context.lnum)
 	if not section then
@@ -439,15 +437,15 @@ function M.get_task_context()
 end
 
 function M.toggle_current_task()
-	M.change_task_completion(M.get_task_context(), nil)
+	M.change_task_completion(buffer.get_context(), nil)
 end
 
 function M.complete_current_task()
-	M.change_task_completion(M.get_task_context(), true)
+	M.change_task_completion(buffer.get_context(), true)
 end
 
 function M.uncomplete_current_task()
-	M.change_task_completion(M.get_task_context(), false)
+	M.change_task_completion(buffer.get_context(), false)
 end
 
 return M

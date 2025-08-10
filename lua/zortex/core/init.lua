@@ -4,7 +4,6 @@ local M = {}
 local Events = require("zortex.core.event_bus")
 local Doc = require("zortex.core.document_manager")
 local Logger = require("zortex.core.logger")
-local buffer_sync = require("zortex.core.buffer_sync")
 
 -- Services
 local PersistenceManager = require("zortex.stores.persistence_manager")
@@ -26,8 +25,7 @@ function M.setup(opts)
 		end)
 	end
 
-	Doc.init()
-	buffer_sync.setup(opts.core.buffer_sync)
+	Doc.setup(opts.core.buffer_sync)
 
 	-- Initialize services
 	require("zortex.services.xp").init()
@@ -55,7 +53,6 @@ function M.get_status()
 			buffer_count = vim.tbl_count(Doc._instance.buffers),
 			file_count = vim.tbl_count(Doc._instance.files),
 		},
-		buffer_sync = buffer_sync.get_status(),
 		persistence = PersistenceManager.get_status(),
 	}
 end
@@ -72,7 +69,6 @@ function M.get_services()
 		document_manager = Doc,
 		persistence = PersistenceManager,
 		event_bus = Events,
-		buffer_sync = buffer_sync,
 	}
 end
 

@@ -1,13 +1,10 @@
 -- services/projects/init.lua - Project management service using Doc
 local M = {}
 
-local Events = require("zortex.core.event_bus")
-local Doc = require("zortex.core.document_manager")
-local buffer_sync = require("zortex.core.buffer_sync")
+local Workspace = require("zortex.core.workspace")
 local attributes = require("zortex.utils.attributes")
-local fs = require("zortex.utils.filesystem")
-local constants = require("zortex.constants")
 local parser = require("zortex.utils.parser")
+local link_resolver = require("zortex.utils.link_resolver")
 
 -- Get all projects from document
 function M.get_projects_from_document(doc)
@@ -68,85 +65,7 @@ end
 
 -- Get all projects
 function M.get_all_projects()
-	local doc = Doc.get_file(constants.FILES.PROJECTS)
-
-	if not doc then
-		return {}
-	end
-
-	return M.get_projects_from_document(doc)
-end
-
--- Get project at line
-function M.get_project_at_line(bufnr, line_num)
-	local doc = Doc.get_buffer(bufnr)
-	if not doc then
-		return nil
-	end
-
-	local section = doc:get_section_at_line(line_num)
-
-	-- Walk up to find project (heading)
-	while section do
-		if section.type == "heading" then
-			local projects = M.get_projects_from_document(doc)
-			return projects[section.text]
-		end
-		section = section.parent
-	end
-
-	return nil
-end
-
--- Update project progress
-function M.update_project_progress(project, bufnr)
-	if not project.section or not project.section.start_line then
-		return false
-	end
-
-	bufnr = bufnr or vim.fn.bufnr(fs.get_file_path(constants.FILES.PROJECTS))
-	if bufnr < 0 then
-		return false
-	end
-
-	-- Calculate progress
-	local completed = project.stats.completed_tasks
-	local total = project.stats.total_tasks
-
-	-- Update attributes
-	buffer_sync.update_attributes(bufnr, project.section.start_line, {
-		progress = total > 0 and string.format("%d/%d", completed, total) or nil,
-		done = (completed == total and total > 0) and os.date("%Y-%m-%d") or nil,
-	})
-
-	Events.emit("project:progress_updated", {
-		project = project,
-		project_link = project.link,
-		completed = completed,
-		total = total,
-		bufnr = bufnr,
-	})
-
-	return true
-end
-
--- Update all projects in document
-function M.update_all_project_progress(bufnr)
-	local doc = Doc.get_buffer(bufnr)
-	if not doc then
-		return 0
-	end
-
-	local projects = M.get_projects_from_document(doc)
-	local updated = 0
-
-	for _, project in pairs(projects) do
-		if M.update_project_progress(project, bufnr) then
-			updated = updated + 1
-		end
-	end
-
-	return updated
+	return M.get_projects_from_document(Workspace.projects())
 end
 
 -- Check if project is completed
@@ -160,7 +79,7 @@ function M.is_project_completed(project_name)
 	end
 
 	-- Check archive
-	local archive_doc = Doc.get_file(constants.FILES.PROJECTS_ARCHIVE)
+	local archive_doc = Workspace.projects_archive()
 
 	if archive_doc then
 		local archived = M.get_projects_from_document(archive_doc)
@@ -182,7 +101,6 @@ function M.get_project_by_link(link_str)
 	end
 
 	-- Determine which file to check based on first component
-	local filepath = constants.FILES.PROJECTS
 	if link_def.components[1].type == "article" then
 		local article_name = link_def.components[1].text
 		-- Map article names to files if needed
@@ -193,14 +111,10 @@ function M.get_project_by_link(link_str)
 	end
 
 	-- Get document
-	local doc = Doc.get_file(filepath)
-	if not doc then
-		return nil
-	end
+	local doc = Workspace.projects()
 
 	-- Find section using link
-	local project_progress = require("zortex.services.project_progress")
-	local section = project_progress.find_section_by_link(doc, link_def)
+	local section = link_resolver.find_section_by_link(doc, link_def)
 
 	if section and section.type == "heading" then
 		local projects = M.get_projects_from_document(doc)
@@ -247,7 +161,7 @@ function M.get_all_stats()
 	end
 
 	-- Add archived count
-	local archive_doc = Doc.get_file(constants.FILES.PROJECTS_ARCHIVE)
+	local archive_doc = Workspace.projects_archive()
 	if archive_doc then
 		local archived = M.get_projects_from_document(archive_doc)
 		stats.archived_projects = vim.tbl_count(archived)

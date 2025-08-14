@@ -154,7 +154,7 @@ function M.get_projects_file()
 end
 
 function M.get_archive_file()
-	return M.get_file_path(constants.FILES.ARCHIVE_PROJECTS)
+	return M.get_file_path(constants.FILES.PROJECTS_ARCHIVE)
 end
 
 function M.get_okr_file()

@@ -76,10 +76,9 @@ function M.setup(key_prefix, cmd_prefix)
 	map("n", "fo", "OpenOKR", { desc = "Open OKR file" })
 
 	-- Task mappings
-	map("n", "x", "TaskToggle", add_opts({ desc = "Toggle current task" }))
+	map("n", "T", "TaskToggle", add_opts({ desc = "Toggle current task" }))
 	map("n", "tc", "TaskComplete", { desc = "Complete task" })
 	map("n", "tu", "TaskUncomplete", { desc = "Uncomplete task" })
-	map("n", "T", "TaskConvert", { desc = "Convert line to task" })
 
 	-- -- Status and debugging
 	-- -- Which-key integration (if available)

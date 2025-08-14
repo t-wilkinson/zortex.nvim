@@ -7,6 +7,7 @@ local xp_calculator = require("zortex.services.xp.calculator")
 local xp_store = require("zortex.stores.xp")
 local xp_distributor = require("zortex.services.xp.distributor")
 local xp_season = require("zortex.services.xp.season")
+local task_service = require("zortex.services.tasks")
 local Config = require("zortex.config")
 
 -- Award XP for task completion
@@ -36,10 +37,11 @@ local function award_task_xp(task_id, xp_amount, xp_context)
 		end
 	end
 
-	-- Update task with XP awarded
-	require("zortex.stores.tasks").update_task(task_id, {
-		xp_awarded = xp_amount,
-	})
+	-- Update task with XP awarded using the task service
+	local success = task_service.update_task_xp(task_id, xp_amount)
+	if not success then
+		Logger.warn("xp", "Failed to update task XP", { task_id = task_id, xp = xp_amount })
+	end
 
 	-- Emit XP awarded event
 	Events.emit("xp:awarded", {
@@ -57,12 +59,16 @@ end
 
 -- Reverse XP for task uncomplete
 local function reverse_task_xp(task_id, xp_context)
-	local task = require("zortex.stores.tasks").get_task(task_id)
-	if not task or not task.xp_awarded or task.xp_awarded <= 0 then
+	-- Get task using the task service
+	local task = task_service.find_task_by_id(task_id)
+	if not task or not task.attributes or not task.attributes.xp_awarded then
 		return nil
 	end
 
-	local xp_to_remove = task.xp_awarded
+	local xp_to_remove = tonumber(task.attributes.xp_awarded) or 0
+	if xp_to_remove <= 0 then
+		return nil
+	end
 
 	-- Remove from project
 	if xp_context.project_name then
@@ -94,10 +100,11 @@ local function reverse_task_xp(task_id, xp_context)
 		end
 	end
 
-	-- Update task
-	require("zortex.stores.tasks").update_task(task_id, {
-		xp_awarded = 0,
-	})
+	-- Update task - remove XP awarded
+	local success = task_service.update_task_xp(task_id, 0)
+	if not success then
+		Logger.warn("xp", "Failed to remove task XP", { task_id = task_id })
+	end
 
 	Events.emit("xp:reversed", {
 		source = "task",
@@ -130,7 +137,7 @@ end
 -- Get XP statistics
 function M.get_stats()
 	local season_status = M.get_season_status()
-	local area_stats = require("zortex.services.area").get_area_stats()
+	local area_stats = require("zortex.services.areas").get_area_stats()
 	local project_stats = {}
 
 	-- Get project stats
@@ -165,13 +172,17 @@ function M.init()
 	-- Listen for task completion events
 	Events.on("task:completed", function(data)
 		if not data.xp_context then
-			Logger.warn("xp_service", "Task completed without XP context", { task_id = data.task.id })
+			Logger.warn("xp_service", "Task completed without XP context", { task_id = data.task_id })
 			return
 		end
 
 		local xp_amount = xp_calculator.calculate_task_xp(data.xp_context.task_position, data.xp_context.total_tasks)
-		local distribution = award_task_xp(data.task.id, xp_amount, data.xp_context)
-		Logger.info("on task:completed", "reward xp", { xp_amount = xp_amount, distribution = distribution })
+		local distribution = award_task_xp(data.task_id, xp_amount, data.xp_context)
+		Logger.info("xp", "Awarded XP for task completion", {
+			task_id = data.task_id,
+			xp_amount = xp_amount,
+			distribution = distribution,
+		})
 	end, {
 		priority = 70,
 		name = "xp_service.complete_handler",
@@ -180,10 +191,10 @@ function M.init()
 	-- Listen for task uncomplete
 	Events.on("task:uncompleted", function(data)
 		if not data.xp_context then
-			Logger.warn("xp_service", "Task uncompleted without XP context", { task_id = data.task.id })
+			Logger.warn("xp_service", "Task uncompleted without XP context", { task_id = data.task_id })
 			return
 		end
-		reverse_task_xp(data.task.id, data.xp_context)
+		reverse_task_xp(data.task_id, data.xp_context)
 	end, {
 		priority = 70,
 		name = "xp_service.uncomplete_handler",

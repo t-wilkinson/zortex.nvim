@@ -26,7 +26,7 @@ function M.setup_commands()
 		local title = args[1]
 		local message = table.concat(vim.list_slice(args, 2), " ")
 		M.notify(title, message)
-	end, { nargs = "+", desc = "Send a notification" })
+	end, { nargs = "*", desc = "Send a notification" })
 
 	-- Pomodoro
 	cmd("PomodoroStart", function()
@@ -62,7 +62,7 @@ function M.setup_commands()
 		if id then
 			vim.notify("Timer started: " .. id, vim.log.levels.INFO)
 		end
-	end, { nargs = "+", desc = "Start a timer" })
+	end, { nargs = "*", desc = "Start a timer" })
 
 	cmd("TimerList", function()
 		local timers = M.timer.list()
@@ -108,6 +108,8 @@ function M.setup(opts) -- Config.notifications
 	timer.setup(opts.timers)
 	calendar.setup(opts)
 	digest.setup(opts.digest)
+
+	M.setup_commands()
 end
 
 -- Send a notification immediately

@@ -3,6 +3,7 @@ local M = {}
 
 local Events = require("zortex.core.event_bus")
 local Doc = require("zortex.core.document_manager")
+local workspace = require("zortex.core.workspace")
 local Logger = require("zortex.core.logger")
 
 -- Services
@@ -26,6 +27,7 @@ function M.setup(opts)
 	end
 
 	Doc.setup(opts.core.buffer_sync)
+	workspace.setup()
 
 	-- Initialize services
 	require("zortex.services.xp").init()

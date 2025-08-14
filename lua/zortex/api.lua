@@ -10,7 +10,8 @@ end
 M.task = {
 	convert = function()
 		local tasks = require("zortex.services.tasks")
-		return tasks.convert_line_to_task(tasks.get_task_context())
+		local buffer = require("zortex.utils.buffer")
+		return tasks.convert_line_to_task(buffer.get_context())
 	end,
 
 	toggle = function()

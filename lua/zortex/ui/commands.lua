@@ -272,11 +272,11 @@ function M.setup(prefix)
 	end, { desc = "Toggle the task on current line" })
 
 	cmd("TaskComplete", function()
-		api.task.complete_current_task()
+		api.task.complete()
 	end, { desc = "Complete the task on current line" })
 
 	cmd("TaskUncomplete", function()
-		api.task.uncomplete_current_task()
+		api.task.uncomplete()
 	end, { desc = "Uncomplete the task on current line" })
 
 	-- ===========================================================================

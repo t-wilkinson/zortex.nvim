@@ -301,13 +301,6 @@ function M.setup(opts)
 		})
 	end
 
-	Logger.info("persistence_manager", "Initialized", {
-		registered_stores = vim.tbl_keys(state.registered_stores),
-		save_interval = cfg.save_interval,
-		save_on_exit = cfg.save_on_exit,
-		save_on_events = cfg.save_on_events,
-	})
-
 	stop_timer()
 end
 

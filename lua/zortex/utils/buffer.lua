@@ -8,9 +8,11 @@ function M.get_filepath(bufnr)
 end
 
 function M.get_context()
+	local cursor = vim.api.nvim_win_get_cursor(0)
 	return {
 		bufnr = vim.api.nvim_get_current_buf(),
-		lnum = vim.api.nvim_win_get_cursor(0)[1],
+		lnum = cursor[1],
+		col = cursor[0],
 	}
 end
 

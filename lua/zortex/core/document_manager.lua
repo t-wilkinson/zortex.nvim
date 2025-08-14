@@ -353,10 +353,10 @@ function Document:parse_incremental(lines)
 	end
 
 	if total_dirty_lines > self.incremental_threshold or #self.dirty_ranges > 10 then
-		Logger.info("document", "Too many changes, falling back to full parse", {
-			dirty_lines = total_dirty_lines,
-			ranges = #self.dirty_ranges,
-		})
+		-- Logger.info("document", "Too many changes, falling back to full parse", {
+		-- 	dirty_lines = total_dirty_lines,
+		-- 	ranges = #self.dirty_ranges,
+		-- })
 		return self:parse_full(lines)
 	end
 

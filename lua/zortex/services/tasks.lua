@@ -1,14 +1,16 @@
--- services/task.lua - Stateless service for task operations
+-- services/task.lua - Stateless service for task operations using workspace
 local M = {}
 
 local Events = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
-local buffer_sync = require("zortex.core.buffer_sync")
 local parser = require("zortex.utils.parser")
-local task_store = require("zortex.stores.tasks")
-local buffer = require("zortex.utils.buffer")
+local workspace = require("zortex.core.workspace")
+local attributes = require("zortex.utils.attributes")
 
--- ID generation
+-- =============================================================================
+-- ID Generation
+-- =============================================================================
+
 local CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 local BASE = #CHARS
 local TIME_MOD = 131072
@@ -30,254 +32,434 @@ local function generate_task_id()
 		return table.concat(out)
 	end
 
-	-- Ensure uniqueness
+	-- Generate and ensure uniqueness by checking workspace
 	local id
 	local attempts = 0
 	repeat
 		id = generate_base_id()
 		attempts = attempts + 1
 		if attempts > 100 then
-			id = "T" .. task_store.get_next_numeric_id()
+			-- Fallback to timestamp-based ID
+			id = "T" .. tostring(vim.loop.hrtime())
 			break
 		end
-	until not task_store.task_exists(id)
+	until not M.find_task_by_id(id)
 
 	return id
 end
 
+-- =============================================================================
+-- Task Finding and Retrieval
+-- =============================================================================
+
+-- Find a task by ID across all workspace documents
+-- Returns: task_data, document, line_number
+function M.find_task_by_id(task_id)
+	if not task_id then
+		Logger.warn("tasks", "find_task_by_id called with nil task_id")
+		return nil
+	end
+
+	Logger.debug("tasks", "Searching for task", { task_id = task_id })
+
+	-- Search in all workspace documents
+	local docs_to_search = {
+		workspace.calendar(),
+		workspace.projects(),
+		workspace.areas(),
+		workspace.okr(),
+	}
+
+	for _, doc in ipairs(docs_to_search) do
+		if doc and doc.sections then
+			-- Get all tasks from document
+			local all_tasks = doc:get_all_tasks()
+			for _, task in ipairs(all_tasks) do
+				if task.attributes and task.attributes.id == task_id then
+					Logger.debug("tasks", "Found task", {
+						task_id = task_id,
+						document = doc.name,
+						line = task.line,
+					})
+					return task, doc, task.line
+				end
+			end
+		end
+	end
+
+	Logger.debug("tasks", "Task not found", { task_id = task_id })
+	return nil
+end
+
+-- Get task at specific line in document
+function M.get_task_at_line(doc, lnum)
+	if not doc or not doc.sections then
+		return nil
+	end
+
+	local section = doc:get_section_at_line(lnum)
+	if not section then
+		return nil
+	end
+
+	for _, task in ipairs(section.tasks) do
+		if task.line == lnum then
+			return task, section
+		end
+	end
+
+	return nil
+end
+
+-- =============================================================================
+-- Line Manipulation Helpers
+-- =============================================================================
+
+-- Update task attributes in a line
+local function update_task_line_attributes(line, updates)
+	local modified_line = line
+
+	for key, value in pairs(updates) do
+		if value == nil then
+			-- Remove attribute
+			modified_line = attributes.remove_attribute(modified_line, key)
+		else
+			-- Update/add attribute
+			modified_line = attributes.update_attribute(modified_line, key, value)
+		end
+	end
+
+	return modified_line
+end
+
+-- Toggle task checkbox in line
+local function toggle_task_checkbox(line, completed)
+	if completed then
+		return line:gsub("%[[ ]%]", "[x]", 1)
+	else
+		return line:gsub("%[[xX]%]", "[ ]", 1)
+	end
+end
+
+-- =============================================================================
+-- Task Completion Operations
+-- =============================================================================
+
 -- Complete a task
 function M.complete_task(task_id, context)
-	local stop_timer = Logger.start_timer("task_service.complete_task")
+	local timer = Logger.start_timer("tasks.complete_task")
 
-	-- Get task from store
-	local task = task_store.get_task(task_id)
+	-- Find task across workspace
+	local task, doc, lnum = M.find_task_by_id(task_id)
 	if not task then
-		stop_timer()
-		return nil, "Task not found"
+		timer()
+		Logger.error("tasks", "Task not found", { task_id = task_id })
+		return nil, "Task not found: " .. tostring(task_id)
 	end
 
 	if task.completed then
-		stop_timer()
+		timer()
+		Logger.info("tasks", "Task already completed", { task_id = task_id })
 		return nil, "Task already completed"
 	end
 
-	-- Update task
+	Logger.info("tasks", "Completing task", {
+		task_id = task_id,
+		document = doc.name,
+		line = lnum,
+	})
+
+	-- Get current line
+	local line = doc:get_line(lnum)
+	if not line then
+		timer()
+		Logger.error("tasks", "Could not get line", { lnum = lnum })
+		return nil, "Could not get line " .. lnum
+	end
+
+	-- Update line: toggle checkbox and add attributes
+	local new_line = toggle_task_checkbox(line, true)
+	new_line = update_task_line_attributes(new_line, {
+		done = os.date("%Y-%m-%d"),
+		completed_at = tostring(os.time()),
+	})
+
+	-- Update document
+	local success = doc:change_line(lnum, new_line)
+	if not success then
+		timer()
+		Logger.error("tasks", "Failed to update line", { lnum = lnum })
+		return nil, "Failed to update line"
+	end
+
+	-- Reparse to get updated task
+	doc:parse()
+
+	-- Build XP context
+	local xp_context = M._build_xp_context(task, doc, context)
+
+	-- Update task object for event
 	task.completed = true
 	task.completed_at = os.time()
 
-	-- Calculate XP context for distribution
-	local xp_context = M._build_xp_context(task, context)
-
-	-- Save task
-	task_store.update_task(task_id, {
-		completed = true,
-		completed_at = os.time(),
-		project = task.project or (xp_context and xp_context.project_name),
-		project_link = task.project_link or (xp_context and xp_context.project_link),
-		area_links = task.area_links or (xp_context and xp_context.area_links) or {},
-	})
-
-	-- Update buffer through buffer_sync
-	if context.bufnr and task.line then
-		buffer_sync.toggle_task(context.bufnr, task.line, true)
-	end
-
-	-- Emit completed event
+	-- Emit event
 	Events.emit("task:completed", {
 		task = task,
+		task_id = task_id,
 		xp_context = xp_context,
-		bufnr = context.bufnr,
+		document = doc.name,
+		line = lnum,
 	})
 
-	stop_timer()
+	timer()
 	return task
 end
 
 -- Uncomplete a task
 function M.uncomplete_task(task_id, context)
-	local task = task_store.get_task(task_id)
-	if not task or not task.completed then
+	local timer = Logger.start_timer("tasks.uncomplete_task")
+
+	-- Find task
+	local task, doc, lnum = M.find_task_by_id(task_id)
+	if not task then
+		timer()
+		return nil, "Task not found: " .. tostring(task_id)
+	end
+
+	if not task.completed then
+		timer()
 		return nil, "Task not completed"
 	end
 
-	-- Build XP context before reverting
-	local xp_context = M._build_xp_context(task, context)
+	Logger.info("tasks", "Uncompleting task", {
+		task_id = task_id,
+		document = doc.name,
+		line = lnum,
+	})
 
-	-- Update task
-	task.completed = false
-	task.completed_at = nil
-	local xp_to_remove = task.xp_awarded or 0
-	task.xp_awarded = 0
-
-	task_store.update_task(task_id, task)
-
-	-- Update buffer
-	if context.bufnr and task.line then
-		buffer_sync.toggle_task(context.bufnr, task.line, false)
+	-- Get current line
+	local line = doc:get_line(lnum)
+	if not line then
+		timer()
+		return nil, "Could not get line"
 	end
 
-	-- Emit event for XP reversal
+	-- Build XP context before reverting (for event)
+	local xp_context = M._build_xp_context(task, doc, context)
+	local xp_to_remove = task.attributes.xp_awarded and tonumber(task.attributes.xp_awarded) or 0
+
+	-- Update line: toggle checkbox and remove completion attributes
+	local new_line = toggle_task_checkbox(line, false)
+	new_line = update_task_line_attributes(new_line, {
+		done = nil,
+		completed_at = nil,
+		xp_awarded = nil,
+	})
+
+	-- Update document
+	local success = doc:change_line(lnum, new_line)
+	if not success then
+		timer()
+		return nil, "Failed to update line"
+	end
+
+	-- Reparse
+	doc:parse()
+
+	-- Update task object for event
+	task.completed = false
+	task.completed_at = nil
+
+	-- Emit event
 	Events.emit("task:uncompleted", {
 		task = task,
+		task_id = task_id,
 		xp_removed = xp_to_remove,
 		xp_context = xp_context,
-		bufnr = context.bufnr,
+		document = doc.name,
+		line = lnum,
+	})
+
+	timer()
+	return task
+end
+
+-- =============================================================================
+-- Task Creation and Conversion
+-- =============================================================================
+
+-- Convert a line to a task
+function M.convert_line_to_task(context)
+	if not context or not context.doc or not context.lnum then
+		Logger.error("tasks", "Invalid context for convert_line_to_task")
+		return nil, "Invalid context"
+	end
+
+	local line = context.line or context.doc:get_line(context.lnum)
+	if not line or line:match("^%s*$") then
+		return nil, "Empty line"
+	end
+
+	Logger.info("tasks", "Converting line to task", {
+		document = context.doc.name,
+		line = context.lnum,
+	})
+
+	-- This function now assumes it's being called on a non-task line.
+	-- The check for `is_task` has been moved to the calling function.
+
+	-- Parse the line structure
+	local indent, content = line:match("^(%s*)(.-)%s*$")
+
+	-- Check if content starts with a list marker and extract the actual text
+	-- Handles: "- text", "-text", "* text", "+ text", etc.
+	local list_text = content:match("^[-*+]%s*(.+)") or content
+
+	-- Build the task line
+	local task_id = generate_task_id()
+	local task_line = indent .. "- [ ] " .. list_text
+
+	-- Add ID attribute
+	task_line = update_task_line_attributes(task_line, {
+		id = task_id,
+	})
+
+	-- Update document
+	local success = context.doc:change_line(context.lnum, task_line)
+	if not success then
+		return nil, "Failed to update line"
+	end
+
+	-- Reparse to get the new task
+	context.doc:parse()
+
+	-- Get the created task
+	local task = M.get_task_at_line(context.doc, context.lnum)
+	if not task then
+		return nil, "Failed to create task"
+	end
+
+	-- Get project info
+	local project_info = M._find_project_for_task(context)
+
+	-- Emit event
+	Events.emit("task:created", {
+		task = task,
+		task_id = task_id,
+		document = context.doc.name,
+		line = context.lnum,
+		project = project_info,
 	})
 
 	return task
 end
 
--- Change task completion at cursor line
--- @param context table Table containing the {bufnr: int, lnum: int}
--- @param should_complete boolean|nil nil then toggle, true to complete, false to uncomplete
+-- =============================================================================
+-- Task Completion Handler
+-- =============================================================================
+
+-- Change task completion at current context
 function M.change_task_completion(context, should_complete)
-	local doc = require("zortex.core.document_manager").get_buffer(context.bufnr)
-
-	local section = doc:get_section_at_line(context.lnum)
-	if not section then
-		-- Try to convert line to task
-		return M.convert_line_to_task(context)
+	if not context or not context.doc then
+		Logger.error("tasks", "Invalid context")
+		return nil, "Invalid context"
 	end
 
-	-- Find task at line
-	local task = nil
-	for _, t in ipairs(section.tasks) do
-		if t.line == context.lnum then
-			task = t
-			break
-		end
+	local timer = Logger.start_timer("tasks.change_task_completion")
+
+	-- Get task at current line
+	local task, section = M.get_task_at_line(context.doc, context.lnum)
+	local line = context.doc:get_line(context.lnum)
+
+	-- FIX: If no task object is found, but the line *is* formatted as a task,
+	-- the parsed data is stale. Force a re-parse and try to find the task again.
+	if not task and parser.is_task_line(line) then
+		Logger.info("tasks", "Stale task cache detected. Reparsing document.")
+		context.doc:parse(true) -- Force a full re-parse
+		task, section = M.get_task_at_line(context.doc, context.lnum)
 	end
 
+	-- If there's still no task object, it means the line is not a task. Convert it.
 	if not task then
+		timer()
+		-- After converting, the toggle action is complete for this call.
 		return M.convert_line_to_task(context)
 	end
 
 	-- Ensure task has ID
 	if not task.attributes or not task.attributes.id then
+		Logger.info("tasks", "Adding ID to existing task")
 		local id = generate_task_id()
-		task.attributes = task.attributes or {}
-		task.attributes.id = id
-
-		-- Update line with ID
-		buffer_sync.update_task(context.bufnr, context.lnum, { id = id })
+		local new_line = update_task_line_attributes(line, { id = id })
+		context.doc:change_line(context.lnum, new_line)
+		context.doc:parse()
+		task = M.get_task_at_line(context.doc, context.lnum)
 	end
 
-	-- Save to store if new
-	local stored_task = task_store.get_task(task.attributes.id)
-	if not stored_task then
-		local project_info = M._find_project_for_task(doc, section)
-		task_store.create_task(task.attributes.id, {
-			id = task.attributes.id,
-			text = task.text,
-			completed = task.completed,
-			line = task.line,
-			project = project_info and project_info.text,
-			project_link = project_info and project_info.link,
-			area_links = M._extract_area_links(doc, section),
-			attributes = task.attributes,
-			created_at = os.time(),
-		})
-	end
+	local task_id = task.attributes.id
 
-	-- If nil we toggle the task status
+	-- Handle completion based on should_complete parameter
+	local result, err
 	if should_complete == nil then
-		-- Toggle the task completion
+		-- Toggle
 		if task.completed then
-			return M.uncomplete_task(task.attributes.id, context)
+			result, err = M.uncomplete_task(task_id, context)
 		else
-			return M.complete_task(task.attributes.id, context)
+			result, err = M.complete_task(task_id, context)
 		end
+	elseif should_complete and not task.completed then
+		result, err = M.complete_task(task_id, context)
+	elseif not should_complete and task.completed then
+		result, err = M.uncomplete_task(task_id, context)
 	else
-		-- Complete if task is not already completed
-		if should_complete == true and task.completed == false then
-			return M.complete_task(task.attributes.id, context)
-
-		-- Uncomplete if task is already completed
-		elseif should_complete == false and task.completed == true then
-			return M.uncomplete_task(task.attributes.id, context)
-		end
-	end
-end
-
--- Convert line to task
-function M.convert_line_to_task(context)
-	local lines = vim.api.nvim_buf_get_lines(context.bufnr, context.lnum - 1, context.lnum, false)
-	local line = lines[1]
-
-	if not line or line:match("^%s*$") then
-		return nil, "Empty line"
+		-- No change needed
+		result = task
 	end
 
-	-- Create task from line
-	local indent, content = line:match("^(%s*)(.-)%s*$")
-	local task_line = indent .. "- [ ] " .. content
-
-	-- Generate ID
-	local task_id = generate_task_id()
-	task_line = parser.update_attribute(task_line, "id", task_id)
-
-	-- Update buffer
-	buffer_sync.update_text(context.bufnr, context.lnum, context.lnum, { task_line })
-
-	-- Get document context
-	local doc = require("zortex.core.document_manager").get_buffer(context.bufnr)
-	local section = doc and doc:get_section_at_line(context.lnum)
-
-	-- Get project info
-	local project_info = section and M._find_project_for_task(doc, section)
-
-	-- Create task in store
-	local task = {
-		id = task_id,
-		text = content,
-		completed = false,
-		line = context.lnum,
-		project = project_info and project_info.text,
-		project_link = project_info and project_info.link,
-		area_links = section and M._extract_area_links(doc, section) or {},
-		attributes = { id = task_id },
-		created_at = os.time(),
-	}
-
-	task_store.create_task(task_id, task)
-
-	Events.emit("task:created", {
-		task = task,
-		bufnr = context.bufnr,
-	})
-
-	return task
+	timer()
+	return result, err
 end
+
+-- =============================================================================
+-- Context Building Helpers
+-- =============================================================================
 
 -- Build XP context for a task
-function M._build_xp_context(task, context)
-	local doc = context.bufnr and require("zortex.core.document_manager").get_buffer(context.bufnr)
+function M._build_xp_context(task, doc, context)
+	local project_info = M._find_project_for_task({
+		doc = doc,
+		section = doc:get_section_at_line(task.line),
+	})
 
 	-- Calculate position within project
 	local position, total = 1, 1
-	if task.project and doc then
-		position, total = M._calculate_task_position_in_project(doc, task, task.project)
+	if project_info then
+		position, total = M._calculate_task_position_in_project(doc, task, project_info.text)
 	end
 
 	return {
-		task_id = task.id,
-		project_name = task.project,
-		project_link = task.project_link,
+		task_id = task.attributes.id,
+		project_name = project_info and project_info.text,
+		project_link = project_info and project_info.link,
 		task_position = position,
 		total_tasks = total,
-		area_links = task.area_links or {},
+		area_links = M._extract_area_links(doc:get_section_at_line(task.line)),
 		task_attributes = task.attributes,
-		bufnr = context.bufnr,
+		document = doc.name,
 	}
 end
 
--- Find project containing task (returns {text, link})
-function M._find_project_for_task(doc, section)
+-- Find project containing task
+function M._find_project_for_task(context)
+	if not context or not context.section then
+		return nil
+	end
+
 	-- Walk up section tree to find project (heading)
-	local current = section
+	local current = context.section
 	while current do
 		if current.type == "heading" then
-			local link = current:build_link(doc)
+			local link = current:build_link(context.doc)
 			return {
 				text = current.text,
 				link = link,
@@ -289,7 +471,11 @@ function M._find_project_for_task(doc, section)
 end
 
 -- Extract area links from section hierarchy
-function M._extract_area_links(doc, section)
+function M._extract_area_links(section)
+	if not section then
+		return {}
+	end
+
 	local links = {}
 	local seen = {}
 
@@ -297,16 +483,18 @@ function M._extract_area_links(doc, section)
 	local current = section
 	while current do
 		-- Check section text for area links
-		local all_links = parser.extract_all_links(current.raw_text or current.text)
-		for _, link_info in ipairs(all_links) do
-			if link_info.type == "link" then
-				local parsed = parser.parse_link_definition(link_info.definition)
-				if parsed and #parsed.components > 0 then
-					local first = parsed.components[1]
-					if first.type == "article" and (first.text == "A" or first.text == "Areas") then
-						if not seen[link_info.definition] then
-							table.insert(links, link_info.definition)
-							seen[link_info.definition] = true
+		if current.raw_text then
+			local all_links = parser.extract_all_links(current.raw_text)
+			for _, link_info in ipairs(all_links) do
+				if link_info.type == "link" then
+					local parsed = parser.parse_link_definition(link_info.definition)
+					if parsed and #parsed.components > 0 then
+						local first = parsed.components[1]
+						if first.type == "article" and (first.text == "A" or first.text == "Areas") then
+							if not seen[link_info.definition] then
+								table.insert(links, link_info.definition)
+								seen[link_info.definition] = true
+							end
 						end
 					end
 				end
@@ -324,7 +512,6 @@ function M._calculate_task_position_in_project(doc, task, project_name)
 		return 1, 1
 	end
 
-	-- Find project section and count tasks
 	local position = 0
 	local total = 0
 	local found_task = false
@@ -353,99 +540,129 @@ function M._calculate_task_position_in_project(doc, task, project_name)
 	return position > 0 and position or 1, total > 0 and total or 1
 end
 
--- Update task attributes
-function M.update_task_attributes(task_id, attributes, context)
-	local task = task_store.get_task(task_id)
-	if not task then
-		return nil, "Task not found"
-	end
-
-	-- Merge attributes
-	task.attributes = vim.tbl_extend("force", task.attributes or {}, attributes)
-	task_store.update_task(task_id, task)
-
-	-- Update buffer if we have line info
-	if context.bufnr and task.line then
-		buffer_sync.update_task(context.bufnr, task.line, attributes)
-	end
-
-	Events.emit("task:updated", {
-		task = task,
-		updates = { attributes = attributes },
-		bufnr = context.bufnr,
-	})
-
-	return task
-end
-
--- Process all tasks in buffer (for bulk operations)
-function M.process_buffer_tasks(bufnr)
-	local doc = require("zortex.core.document_manager").get_buffer(bufnr)
-	if not doc then
-		return
-	end
-
-	local processed = 0
-	local tasks = doc:get_all_tasks()
-
-	for _, task in ipairs(tasks) do
-		-- Ensure task has ID
-		if not task.attributes or not task.attributes.id then
-			local id = generate_task_id()
-			task.attributes = task.attributes or {}
-			task.attributes.id = id
-
-			-- Update in buffer
-			buffer_sync.update_task(bufnr, task.line, { id = id })
-			processed = processed + 1
-		end
-
-		-- Ensure task is in store
-		local stored = task_store.get_task(task.attributes.id)
-		if not stored then
-			local section = doc:get_section_at_line(task.line)
-			local project_info = section and M._find_project_for_task(doc, section)
-			task_store.create_task(task.attributes.id, {
-				id = task.attributes.id,
-				text = task.text,
-				completed = task.completed,
-				line = task.line,
-				project = project_info and project_info.text,
-				project_link = project_info and project_info.link,
-				area_links = section and M._extract_area_links(doc, section) or {},
-				attributes = task.attributes,
-				created_at = os.time(),
-			})
-		end
-	end
-
-	if processed > 0 then
-		Logger.info("task_service", "Processed tasks", {
-			bufnr = bufnr,
-			processed = processed,
-		})
-	end
-
-	return processed
-end
-
-function M.get_task_context()
-	return {
-		bufnr = vim.api.nvim_get_current_buf(),
-		lnum = vim.api.nvim_win_get_cursor(0)[1],
-	}
-end
+-- =============================================================================
+-- Public Commands
+-- =============================================================================
 
 function M.toggle_current_task()
-	M.change_task_completion(buffer.get_context(), nil)
+	local context = workspace.get_context()
+	if not context then
+		Logger.error("tasks", "No workspace context")
+		return nil, "No workspace context"
+	end
+	return M.change_task_completion(context, nil)
 end
 
 function M.complete_current_task()
-	M.change_task_completion(buffer.get_context(), true)
+	local context = workspace.get_context()
+	if not context then
+		return nil, "No workspace context"
+	end
+	return M.change_task_completion(context, true)
 end
 
 function M.uncomplete_current_task()
-	M.change_task_completion(buffer.get_context(), false)
+	local context = workspace.get_context()
+	if not context then
+		return nil, "No workspace context"
+	end
+	return M.change_task_completion(context, false)
+end
+
+-- =============================================================================
+-- Task Statistics (workspace-based)
+-- =============================================================================
+
+function M.get_stats()
+	local stats = {
+		total_tasks = 0,
+		completed_tasks = 0,
+		tasks_by_project = {},
+		tasks_by_document = {},
+	}
+
+	local docs = {
+		calendar = workspace.calendar(),
+		projects = workspace.projects(),
+		areas = workspace.areas(),
+		okr = workspace.okr(),
+	}
+
+	for doc_name, doc in pairs(docs) do
+		if doc and doc.sections then
+			local doc_stats = {
+				total = 0,
+				completed = 0,
+			}
+
+			local all_tasks = doc:get_all_tasks()
+			for _, task in ipairs(all_tasks) do
+				-- Overall stats
+				stats.total_tasks = stats.total_tasks + 1
+				doc_stats.total = doc_stats.total + 1
+
+				if task.completed then
+					stats.completed_tasks = stats.completed_tasks + 1
+					doc_stats.completed = doc_stats.completed + 1
+				end
+
+				-- Project stats
+				local section = doc:get_section_at_line(task.line)
+				local project_info = M._find_project_for_task({
+					doc = doc,
+					section = section,
+				})
+
+				if project_info then
+					local project_name = project_info.text
+					if not stats.tasks_by_project[project_name] then
+						stats.tasks_by_project[project_name] = {
+							total = 0,
+							completed = 0,
+						}
+					end
+
+					stats.tasks_by_project[project_name].total = stats.tasks_by_project[project_name].total + 1
+					if task.completed then
+						stats.tasks_by_project[project_name].completed = stats.tasks_by_project[project_name].completed
+							+ 1
+					end
+				end
+			end
+
+			stats.tasks_by_document[doc_name] = doc_stats
+		end
+	end
+
+	return stats
+end
+
+-- =============================================================================
+-- Debugging Helpers
+-- =============================================================================
+
+-- Get detailed task info for debugging
+function M.get_task_info(task_id)
+	local task, doc, lnum = M.find_task_by_id(task_id)
+	if not task then
+		return nil
+	end
+
+	local section = doc:get_section_at_line(lnum)
+	local project_info = M._find_project_for_task({
+		doc = doc,
+		section = section,
+	})
+
+	return {
+		task = task,
+		document = doc.name,
+		line = lnum,
+		section_path = section and section:get_breadcrumb() or "none",
+		project = project_info,
+		area_links = M._extract_area_links(section),
+		line_content = doc:get_line(lnum),
+	}
 end
 
 return M

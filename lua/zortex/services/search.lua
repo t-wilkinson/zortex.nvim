@@ -223,17 +223,22 @@ end
 -- Get all searchable documents
 function SearchDocumentCache:get_all_documents()
 	local docs = {}
-	local seen = {}
+	local seen = {} -- Use the canonical path to track seen files
 
 	-- First, add all open buffer documents
 	for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
 		if vim.api.nvim_buf_is_valid(bufnr) and vim.api.nvim_buf_is_loaded(bufnr) and is_zortex_buffer(bufnr) then
 			local filepath = vim.api.nvim_buf_get_name(bufnr)
-			if filepath ~= "" and not seen[filepath] then
-				local doc = get_buffer_document(bufnr)
-				if doc then
-					table.insert(docs, doc)
-					seen[filepath] = true
+			if filepath ~= "" then
+				-- Resolve the path to its canonical form
+				local canonical_path = vim.fn.resolve(filepath)
+				if not seen[canonical_path] then
+					local doc = get_buffer_document(bufnr)
+					if doc then
+						doc.filepath = canonical_path -- IMPORTANT: Update the doc's filepath
+						table.insert(docs, doc)
+						seen[canonical_path] = true
+					end
 				end
 			end
 		end
@@ -242,10 +247,14 @@ function SearchDocumentCache:get_all_documents()
 	-- Then, find all note files and load them if not in buffers
 	local note_files = fs.get_all_note_files()
 	for _, filepath in ipairs(note_files) do
-		if not seen[filepath] then
+		-- Resolve the path to its canonical form
+		local canonical_path = vim.fn.resolve(filepath)
+		if not seen[canonical_path] then
 			local doc = self:get_document(filepath)
 			if doc then
+				doc.filepath = canonical_path -- IMPORTANT: Update the doc's filepath
 				table.insert(docs, doc)
+				seen[canonical_path] = true -- Mark the canonical path as seen
 			end
 		end
 	end
@@ -687,18 +696,7 @@ local function search_document_hierarchically(doc, tokens, search_mode)
 					end
 
 					if section_matches_mode(result, search_mode) then
-						-- Check if we already have this result
-						local duplicate = false
-						for _, existing in ipairs(results) do
-							if existing.start_line == result.start_line then
-								duplicate = true
-								break
-							end
-						end
-
-						if not duplicate then
-							table.insert(results, result)
-						end
+						table.insert(results, result)
 					end
 				end
 			end
@@ -720,13 +718,13 @@ local function score_match(section_path, tokens, matched_tokens)
 		score = score + 1000
 	end
 
-	-- Higher score for deeper (more specific) matches
-	score = score + #section_path * 50
+	-- Higher score for higher (less specific) matches
+	score = score - #section_path * 100
 
 	-- Bonus for matching higher-level section types
 	for i, section in ipairs(section_path) do
 		if section.type == constants.SECTION_TYPE.ARTICLE then
-			score = score + 500
+			score = score + 2000
 		elseif section.type == constants.SECTION_TYPE.HEADING then
 			score = score + (200 / (section.level or 1))
 		elseif section.type == constants.SECTION_TYPE.BOLD_HEADING then
@@ -786,69 +784,75 @@ function M.search(query, opts)
 	local all_docs = SearchDocumentCache:get_all_documents()
 
 	local all_results = {}
+	local seen_results = {}
 
 	for _, doc in ipairs(all_docs) do
 		local doc_sections = search_document_hierarchically(doc, tokens, search_mode)
 
 		for _, section in ipairs(doc_sections) do
-			-- Build full section path for scoring
-			local section_path = {}
-			local matched_tokens = {}
+			local result_key = doc.filepath .. ":" .. section.start_line
+			if not seen_results[result_key] then
+				-- Build full section path for scoring
+				local section_path = {}
+				local matched_tokens = {}
 
-			if section._matched_path then
-				-- Use the matched path to build breadcrumb
-				for _, match in ipairs(section._matched_path) do
-					table.insert(section_path, {
-						type = match.type,
-						text = match.text,
-						start_line = match.line_num,
-						level = match.level,
-					})
-					table.insert(matched_tokens, match)
+				if section._matched_path then
+					-- Use the matched path to build breadcrumb
+					for _, match in ipairs(section._matched_path) do
+						table.insert(section_path, {
+							type = match.type,
+							text = match.text,
+							start_line = match.line_num,
+							level = match.level,
+						})
+						table.insert(matched_tokens, match)
+					end
+				else
+					-- Fallback for empty searches
+					section_path = {
+						{
+							type = section.type,
+							text = section.text,
+							start_line = section.start_line,
+							level = section.level,
+						},
+					}
 				end
-			else
-				-- Fallback for empty searches
-				section_path = {
-					{
-						type = section.type,
-						text = section.text,
-						start_line = section.start_line,
-						level = section.level,
-					},
-				}
+
+				-- Build breadcrumb
+				local breadcrumb, breadcrumb_sections = build_breadcrumb(section_path, false)
+
+				local base_score = score_match(section_path, tokens, matched_tokens)
+				local access_score = AccessTracker.get_score(doc.filepath, current_time) * 50
+				local history_score = SearchHistory.get_score(doc.filepath, section.start_line, section_path) * 30
+
+				-- Get bufnr if document is from buffer
+				local bufnr = nil
+				if doc.source == "buffer" and doc.bufnr then
+					bufnr = doc.bufnr
+				end
+
+				-- For single token searches, use article name as display
+				local display_text = breadcrumb
+				if #tokens <= 1 and doc.article_names and #doc.article_names > 0 then
+					display_text = doc.article_names[1]
+				end
+
+				table.insert(all_results, {
+					section = section,
+					score = base_score + access_score + history_score,
+					breadcrumb = breadcrumb,
+					breadcrumb_sections = section_path,
+					display_text = display_text,
+					filepath = doc.filepath,
+					bufnr = bufnr,
+					source = doc.source,
+					section_path = section_path,
+					article_names = doc.article_names or {},
+				})
+
+				seen_results[result_key] = true
 			end
-
-			-- Build breadcrumb
-			local breadcrumb, breadcrumb_sections = build_breadcrumb(section_path, false)
-
-			local base_score = score_match(section_path, tokens, matched_tokens)
-			local access_score = AccessTracker.get_score(doc.filepath, current_time) * 50
-			local history_score = SearchHistory.get_score(doc.filepath, section.start_line, section_path) * 30
-
-			-- Get bufnr if document is from buffer
-			local bufnr = nil
-			if doc.source == "buffer" and doc.bufnr then
-				bufnr = doc.bufnr
-			end
-
-			-- For single token searches, use article name as display
-			local display_text = breadcrumb
-			if #tokens <= 1 and doc.article_names and #doc.article_names > 0 then
-				display_text = doc.article_names[1]
-			end
-
-			table.insert(all_results, {
-				section = section,
-				score = base_score + access_score + history_score,
-				breadcrumb = breadcrumb,
-				breadcrumb_sections = section_path,
-				display_text = display_text,
-				filepath = doc.filepath,
-				bufnr = bufnr,
-				source = doc.source,
-				section_path = section_path,
-				article_names = doc.article_names or {},
-			})
 		end
 	end
 

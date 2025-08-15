@@ -2,22 +2,9 @@
 local M = {}
 
 local Events = require("zortex.core.event_bus")
-local Doc = require("zortex.core.document_manager")
-local ProjectService = require("zortex.services.project_service")
 local AreaService = require("zortex.services.area_service")
 local parser = require("zortex.utils.parser")
-local constants = require("zortex.constants")
-
--- Parse OKR file and extract objectives
-function M.get_objectives()
-	local doc = Doc.get_file(constants.FILES.OKR)
-
-	if not doc then
-		return {}
-	end
-
-	return M._parse_objectives_from_document(doc)
-end
+local Workspace = require("zortex.core.workspace")
 
 -- Update OKR progress based on project completions
 function M.update_progress()
@@ -109,7 +96,8 @@ function M.get_stats()
 end
 
 -- Private helper functions
-function M._parse_objectives_from_document(doc)
+function M.get_objectives()
+	local doc = Workspace.okr()
 	local objectives = {}
 	local current_objective = nil
 
@@ -138,9 +126,11 @@ function M._parse_objectives_from_document(doc)
 			}
 
 			-- Extract metadata from section
-			local attrs = parser.parse_attributes(section.raw_text, {
+			local attrs = parser.parse_attributes(section.raw_text or section.text, {
 				created = { type = "date" },
 				done = { type = "date" },
+				area = { type = "area" },
+				a = "area",
 			})
 
 			if attrs.created then
@@ -152,8 +142,11 @@ function M._parse_objectives_from_document(doc)
 				current_objective.completed_date = os.time(attrs.done)
 			end
 
-			-- Extract area links from next line or section content
-			-- This would need to look at the actual buffer lines
+			if attrs.area then
+				for _, area_obj in ipairs(attrs.area) do
+					table.insert(current_objective.area_links, area_obj.path)
+				end
+			end
 		end
 
 		-- Check for key results in tasks

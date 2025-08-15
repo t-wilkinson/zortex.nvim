@@ -37,6 +37,7 @@ function M.get_project(section, doc)
 		total_tasks = 0,
 		completed_tasks = 0,
 		link = section:build_link(doc),
+		attributes = {},
 	}
 
 	-- Parse attributes

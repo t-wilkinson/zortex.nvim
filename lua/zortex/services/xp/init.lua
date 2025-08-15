@@ -105,8 +105,14 @@ function M._distribute_project_xp(project, xp_amount)
 	end
 
 	-- Extract area links from project
-	local area_links = M._extract_project_area_links(project)
+	local area_links = {}
+	if project.attributes and project.attributes.area then
+		for _, area_obj in ipairs(project.attributes.area) do
+			table.insert(area_links, area_obj.path)
+		end
+	end
 
+	Logger.debug("_distribute_project_xp", "project", project)
 	if #area_links > 0 then
 		local area_xp = xp_calculator.calculate_area_transfer(xp_amount, #area_links)
 		local area_service = require("zortex.services.areas")
@@ -127,12 +133,27 @@ end
 -- =============================================================================
 
 -- Award XP for standalone task (not in a project)
-function M.award_standalone_task_xp(task, context)
+function M.award_standalone_task_xp(task)
 	if not task or task.completed == false then
 		return nil
 	end
 
+	local task_id = task.attributes and task.attributes.id
+	if not task_id then
+		Logger.warn("xp", "Task has no ID for tracking")
+		return nil
+	end
+
+	-- Check if already awarded
+	if xp_store.get_task_xp(task_id) then
+		Logger.debug("xp", "Task XP already awarded", { task_id = task_id })
+		return 0
+	end
+
 	local xp_amount = xp_calculator.calculate_standalone_task_xp(task)
+
+	-- Store task XP for tracking
+	xp_store.set_task_xp(task_id, xp_amount)
 
 	-- Add to season
 	local season_data = xp_store.get_season_data()
@@ -141,12 +162,17 @@ function M.award_standalone_task_xp(task, context)
 		xp_store.set_season_data(new_xp, xp_calculator.calculate_season_level(new_xp))
 	end
 
-	-- Extract area links from task attributes
-	local area_links = M._extract_task_area_links(task)
+	-- Extract area paths from task attributes
+	local area_links = {}
+	if task.attributes and task.attributes.area then
+		for _, area_obj in ipairs(task.attributes.area) do
+			table.insert(area_links, area_obj.path)
+		end
+	end
 
 	if #area_links > 0 then
 		local area_service = require("zortex.services.areas")
-		local area_xp = math.floor(xp_amount * 0.5) -- 50% to areas for standalone
+		local area_xp = math.floor(xp_amount * Config.xp.area.standalone_transference) -- 50% to areas
 		local xp_per_area = math.floor(area_xp / #area_links)
 
 		for _, area_link in ipairs(area_links) do
@@ -163,64 +189,71 @@ function M.award_standalone_task_xp(task, context)
 		amount = xp_amount,
 	})
 
-	Logger.info("xp", "Awarded standalone task XP", {
-		task_id = task.attributes and task.attributes.id,
-		xp = xp_amount,
-	})
-
 	return xp_amount
 end
 
 -- Remove XP for uncompleted standalone task
 function M.remove_standalone_task_xp(task)
-	-- For now, we don't remove XP from standalone tasks
-	-- since we recalculate project XP holistically
-	Logger.debug("xp", "Standalone task uncompleted", {
-		task_id = task.attributes and task.attributes.id,
+	if not task then
+		return nil
+	end
+
+	local task_id = task.attributes and task.attributes.id
+	if not task_id then
+		Logger.warn("xp", "Task has no ID for tracking")
+		return nil
+	end
+
+	-- Get stored XP amount
+	local xp_amount = xp_store.get_task_xp(task_id)
+	if not xp_amount or xp_amount == 0 then
+		Logger.debug("xp", "No XP to remove for task", { task_id = task_id })
+		return 0
+	end
+
+	-- Remove from store
+	xp_store.remove_task_xp(task_id)
+
+	-- Remove from season
+	local season_data = xp_store.get_season_data()
+	if season_data.current_season then
+		local new_xp = math.max(0, season_data.season_xp - xp_amount)
+		xp_store.set_season_data(new_xp, xp_calculator.calculate_season_level(new_xp))
+	end
+
+	-- Remove from areas
+	local area_links = {}
+	if task.attributes and task.attributes.area then
+		for _, area_obj in ipairs(task.attributes.area) do
+			table.insert(area_links, area_obj.path)
+		end
+	end
+
+	if #area_links > 0 then
+		local area_service = require("zortex.services.areas")
+		local area_xp = math.floor(xp_amount * Config.xp.area.standalone_transference)
+		local xp_per_area = math.floor(area_xp / #area_links)
+
+		for _, area_link in ipairs(area_links) do
+			area_service.remove_area_xp(area_link, xp_per_area)
+		end
+	end
+
+	-- Track source removal
+	xp_store.add_xp_from_source("standalone_tasks", -xp_amount)
+
+	Events.emit("xp:removed", {
+		source = "standalone_task",
+		task = task,
+		amount = xp_amount,
 	})
-end
 
--- =============================================================================
--- Area Link Extraction
--- =============================================================================
+	Logger.debug("xp", "Standalone task XP removed", {
+		task_id = task_id,
+		amount = xp_amount,
+	})
 
--- Extract area links from project
-function M._extract_project_area_links(project)
-	local area_links = {}
-
-	-- Check project attributes
-	if project.attributes then
-		local areas = project.attributes.area or project.attributes.a
-		if areas then
-			-- area attribute is already parsed as a list of area link objects
-			for _, area_obj in ipairs(areas) do
-				-- Convert to proper area path format
-				local area_path = area_obj.raw:gsub("^#", ""):gsub(":", "/")
-				table.insert(area_links, area_path)
-			end
-		end
-	end
-
-	return area_links
-end
-
--- Extract area links from task
-function M._extract_task_area_links(task)
-	local area_links = {}
-
-	-- Check task attributes
-	if task.attributes then
-		local areas = task.attributes.area or task.attributes.a
-		if areas then
-			for _, area_obj in ipairs(areas) do
-				-- Convert to proper area path format
-				local area_path = area_obj.raw:gsub("^#", ""):gsub(":", "/")
-				table.insert(area_links, area_path)
-			end
-		end
-	end
-
-	return area_links
+	return xp_amount
 end
 
 -- =============================================================================
@@ -237,7 +270,7 @@ function M.handle_task_change(xp_context)
 	elseif xp_context.task then
 		-- Standalone task
 		if xp_context.task.completed then
-			xp_result = M.award_standalone_task_xp(xp_context.task, xp_context.context)
+			xp_result = M.award_standalone_task_xp(xp_context.task)
 		else
 			xp_result = M.remove_standalone_task_xp(xp_context.task)
 		end
@@ -300,6 +333,19 @@ M.start_season = xp_season.start_season
 M.end_season = xp_season.end_season
 M.get_season_status = xp_season.get_season_status
 
+-- Build XP doc_context for a task
+function M.build_xp_context(data)
+	local projects_service = require("zortex.services.projects")
+	local section = projects_service.find_project(data.doc_context.section)
+	local project = projects_service.get_project(section, data.doc_context.doc)
+
+	return {
+		task = data.task,
+		doc_context = data.doc_context,
+		project = project,
+	}
+end
+
 -- Initialize service
 function M.init()
 	-- Initialize calculator with config
@@ -310,7 +356,7 @@ function M.init()
 
 	-- Listen for task events
 	Events.on("task:completed", function(data)
-		M.handle_task_change(data.xp_context)
+		M.handle_task_change(M.build_xp_context(data))
 		M.check_level_ups()
 	end, {
 		priority = 70,
@@ -318,37 +364,17 @@ function M.init()
 	})
 
 	Events.on("task:uncompleted", function(data)
-		M.handle_task_change(data.xp_context)
+		M.handle_task_change(M.build_xp_context(data))
 	end, {
 		priority = 70,
 		name = "xp_service.task_uncomplete",
 	})
 
 	Events.on("task:created", function(data)
-		if data.xp_context then
-			M.handle_task_change(data.xp_context)
-		end
+		M.handle_task_change(M.build_xp_context(data))
 	end, {
 		priority = 70,
 		name = "xp_service.task_created",
-	})
-
-	Events.on("task:modified", function(data)
-		if data.xp_context then
-			M.handle_task_change(data.xp_context)
-		end
-	end, {
-		priority = 70,
-		name = "xp_service.task_modified",
-	})
-
-	Events.on("task:deleted", function(data)
-		if data.xp_context then
-			M.handle_task_change(data.xp_context)
-		end
-	end, {
-		priority = 70,
-		name = "xp_service.task_deleted",
 	})
 
 	-- Listen for project changes to recalculate

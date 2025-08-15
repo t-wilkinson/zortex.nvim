@@ -7,7 +7,6 @@ local datetime = require("zortex.utils.datetime")
 local fs = require("zortex.utils.filesystem")
 local CalendarEntry = require("zortex.services.calendar_entry")
 local Events = require("zortex.core.event_bus")
-local Doc = require("zortex.core.document_manager")
 local parser = require("zortex.utils.parser")
 
 -- =============================================================================
@@ -147,16 +146,6 @@ function M.add_entry(date_str, entry_text)
 	local success = M.save()
 
 	if success then
-		-- Update document if it's open
-		local calendar_file = fs.get_calendar_file()
-		if calendar_file then
-			local bufnr = vim.fn.bufnr(calendar_file)
-			if bufnr > 0 and vim.api.nvim_buf_is_valid(bufnr) then
-				-- Mark for reload
-				Doc.mark_buffer_dirty(bufnr, 1, -1)
-			end
-		end
-
 		Events.emit("calendar:entry_added", {
 			date = date_str,
 			entry = entry,

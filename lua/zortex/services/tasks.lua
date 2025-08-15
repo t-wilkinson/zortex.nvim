@@ -109,7 +109,7 @@ function M.build_task_line(task)
 end
 
 -- Complete a task
-function M.complete_task(task, context)
+function M.complete_task(task, doc_context)
 	if task.completed then
 		return nil, "Task already completed"
 	end
@@ -122,20 +122,18 @@ function M.complete_task(task, context)
 	local new_line = M.build_task_line(task)
 
 	-- Update document
-	local success = context.doc:change_line(context.lnum, new_line)
+	local success = doc_context.doc:change_line(doc_context.lnum, new_line)
 	if not success then
 		return nil, "Failed to update line"
 	end
 
 	-- Emit event
-	Events.emit("task:completed", {
-		xp_context = M._build_xp_context(task, context),
-	})
+	Events.emit("task:completed", { task = task, doc_context = doc_context })
 	return task
 end
 
 -- Uncomplete a task
-function M.uncomplete_task(task, context)
+function M.uncomplete_task(task, doc_context)
 	if not task.completed then
 		return nil, "Task already uncompleted"
 	end
@@ -148,15 +146,13 @@ function M.uncomplete_task(task, context)
 	local new_line = M.build_task_line(task)
 
 	-- Update document
-	local success = context.doc:change_line(context.lnum, new_line)
+	local success = doc_context.doc:change_line(doc_context.lnum, new_line)
 	if not success then
 		return nil, "Failed to update line"
 	end
 
 	-- Emit event
-	Events.emit("task:uncompleted", {
-		xp_context = M._build_xp_context(task, context),
-	})
+	Events.emit("task:uncompleted", { task = task, doc_context = doc_context })
 
 	return task
 end
@@ -184,9 +180,6 @@ function M.convert_line_to_task(line)
 	task_line = attributes.add_attribute(task_line, "id", task_id)
 	local task = parser.parse_task(task_line)
 
-	-- Emit event
-	Events.emit("task:created", task)
-
 	return task, task_line
 end
 
@@ -194,21 +187,24 @@ end
 -- Task Completion Handler
 -- =============================================================================
 
--- Change task completion at current context, main entrypoint for (un)complete or creating tasks
-function M.change_task_completion(context, should_complete)
-	if not context or not context.doc then
-		Logger.error("tasks", "Invalid context")
-		return nil, "Invalid context"
+-- Change task completion at current doc_context, main entrypoint for (un)complete or creating tasks
+function M.change_task_completion(doc_context, should_complete)
+	if not doc_context or not doc_context.doc then
+		return nil, "Invalid doc_context"
 	end
 
 	-- Get task at current line
-	local task = parser.parse_task(context.line)
+	local task = parser.parse_task(doc_context.line)
 
 	-- If there's still no task object, it means the line is not a task. Convert it.
 	if not task then
 		-- After converting, the toggle action is complete for this call.
-		local task, new_line = M.convert_line_to_task(context.line)
-		context.doc:change_line(context.lnum, new_line)
+		local new_line
+		task, new_line = M.convert_line_to_task(doc_context.line)
+		doc_context.doc:change_line(doc_context.lnum, new_line)
+
+		-- Emit event
+		Events.emit("task:created", { task = task, doc_context = doc_context })
 
 		return task, nil
 	end
@@ -216,8 +212,8 @@ function M.change_task_completion(context, should_complete)
 	-- Ensure task has ID
 	if not task.attributes or not task.attributes.id then
 		local id = generate_task_id()
-		local new_line = attributes.add_attribute(context.line, "id", id)
-		context.doc:change_line(context.lnum, new_line)
+		local new_line = attributes.add_attribute(doc_context.line, "id", id)
+		doc_context.doc:change_line(doc_context.lnum, new_line)
 		task = parser.parse_task(new_line)
 
 		if not task then
@@ -230,14 +226,14 @@ function M.change_task_completion(context, should_complete)
 	if should_complete == nil then
 		-- Toggle
 		if task.completed then
-			result, err = M.uncomplete_task(task, context)
+			result, err = M.uncomplete_task(task, doc_context)
 		else
-			result, err = M.complete_task(task, context)
+			result, err = M.complete_task(task, doc_context)
 		end
 	elseif should_complete and not task.completed then
-		result, err = M.complete_task(task, context)
+		result, err = M.complete_task(task, doc_context)
 	elseif not should_complete and task.completed then
-		result, err = M.uncomplete_task(task, context)
+		result, err = M.uncomplete_task(task, doc_context)
 	else
 		-- No change needed
 		result = task
@@ -247,49 +243,32 @@ function M.change_task_completion(context, should_complete)
 end
 
 -- =============================================================================
--- Context Building Helpers
--- =============================================================================
-
--- Build XP context for a task
-function M._build_xp_context(task, context)
-	local projects_service = require("zortex.services.projects")
-	local section = projects_service.find_project(context.section)
-	local project = projects_service.get_project(section, context.doc)
-
-	return {
-		task = task,
-		context = context,
-		project = project,
-	}
-end
-
--- =============================================================================
 -- Public Commands
 -- =============================================================================
 
 function M.toggle_current_task()
-	local context = workspace.get_context()
-	if not context then
+	local doc_context = workspace.get_doc_context()
+	if not doc_context then
 		Logger.error("tasks", "No workspace context")
 		return nil, "No workspace context"
 	end
-	return M.change_task_completion(context, nil)
+	return M.change_task_completion(doc_context, nil)
 end
 
 function M.complete_current_task()
-	local context = workspace.get_context()
-	if not context then
+	local doc_context = workspace.get_doc_context()
+	if not doc_context then
 		return nil, "No workspace context"
 	end
-	return M.change_task_completion(context, true)
+	return M.change_task_completion(doc_context, true)
 end
 
 function M.uncomplete_current_task()
-	local context = workspace.get_context()
-	if not context then
+	local doc_context = workspace.get_doc_context()
+	if not doc_context then
 		return nil, "No workspace context"
 	end
-	return M.change_task_completion(context, false)
+	return M.change_task_completion(doc_context, false)
 end
 
 return M

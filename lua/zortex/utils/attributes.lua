@@ -114,6 +114,7 @@ local attribute_parsers = {
 				raw = v, -- Original value
 				definition = definition,
 				link = link, -- Full link format
+				path = link_path,
 				-- components = components, -- Original components
 				-- processed = processed, -- Processed components with prefixes
 				-- heading = processed[1], -- The heading component (with #)

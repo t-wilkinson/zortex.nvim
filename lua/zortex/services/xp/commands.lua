@@ -2,10 +2,10 @@
 local M = {}
 
 local xp_service = require("zortex.services.xp")
+local xp_calculator = require("zortex.services.xp.calculator")
 local xp_store = require("zortex.stores.xp")
 local projects_service = require("zortex.services.projects")
 local workspace = require("zortex.core.workspace")
-local Logger = require("zortex.core.logger")
 
 -- =============================================================================
 -- XP Status Commands
@@ -66,20 +66,20 @@ end
 
 -- Show project XP details
 function M.show_project_xp()
-	local context = workspace.get_context()
-	if not context then
-		vim.notify("No workspace context", vim.log.levels.ERROR)
+	local doc_context = workspace.get_doc_context()
+	if not doc_context then
+		vim.notify("No workspace doc_context", vim.log.levels.ERROR)
 		return
 	end
 
 	-- Find current project
-	local project_section = projects_service.find_project(context.section)
+	local project_section = projects_service.find_project(doc_context.section)
 	if not project_section then
 		vim.notify("Not in a project", vim.log.levels.WARN)
 		return
 	end
 
-	local project = projects_service.get_project(project_section, context.doc)
+	local project = projects_service.get_project(project_section, doc_context.doc)
 	if not project then
 		vim.notify("Could not get project data", vim.log.levels.ERROR)
 		return
@@ -103,7 +103,7 @@ function M.show_project_xp()
 		table.insert(lines, "Task Sizes:")
 		local size_counts = {}
 		local parser = require("zortex.utils.parser")
-		local lines_in_project = project.section:get_lines(context.doc.bufnr)
+		local lines_in_project = project.section:get_lines(doc_context.doc.bufnr)
 
 		for _, line in ipairs(lines_in_project) do
 			local task = parser.parse_task(line)
@@ -132,20 +132,20 @@ end
 
 -- Recalculate current project XP
 function M.recalculate_project_xp()
-	local context = workspace.get_context()
-	if not context then
-		vim.notify("No workspace context", vim.log.levels.ERROR)
+	local doc_context = workspace.get_doc_context()
+	if not doc_context then
+		vim.notify("No workspace doc_context", vim.log.levels.ERROR)
 		return
 	end
 
 	-- Find current project
-	local project_section = projects_service.find_project(context.section)
+	local project_section = projects_service.find_project(doc_context.section)
 	if not project_section then
 		vim.notify("Not in a project", vim.log.levels.WARN)
 		return
 	end
 
-	local project = projects_service.get_project(project_section, context.doc)
+	local project = projects_service.get_project(project_section, doc_context.doc)
 	if not project then
 		vim.notify("Could not get project data", vim.log.levels.ERROR)
 		return
@@ -199,14 +199,14 @@ end
 
 -- Set project size
 function M.set_project_size(size)
-	local context = workspace.get_context()
-	if not context then
-		vim.notify("No workspace context", vim.log.levels.ERROR)
+	local doc_context = workspace.get_doc_context()
+	if not doc_context then
+		vim.notify("No workspace doc_context", vim.log.levels.ERROR)
 		return
 	end
 
 	-- Find current project
-	local project_section = projects_service.find_project(context.section)
+	local project_section = projects_service.find_project(doc_context.section)
 	if not project_section then
 		vim.notify("Not in a project", vim.log.levels.WARN)
 		return
@@ -230,10 +230,10 @@ function M.set_project_size(size)
 	-- Update project heading line with size attribute
 	local attributes = require("zortex.utils.attributes")
 	local new_line = attributes.update_attribute(project_section.raw_text, "size", size)
-	context.doc:change_line(project_section.start_line, new_line)
+	doc_context.doc:change_line(project_section.start_line, new_line)
 
 	-- Recalculate XP
-	local project = projects_service.get_project(project_section, context.doc)
+	local project = projects_service.get_project(project_section, doc_context.doc)
 	if project then
 		xp_service.recalculate_project_xp(project)
 		vim.notify(string.format("Project size set to: %s", size:upper()), vim.log.levels.INFO)
@@ -319,6 +319,23 @@ function M.end_season()
 	end
 end
 
+-- Recalculate season XP from all sources
+function M.recalculate_season_xp()
+	local total_xp = xp_store.recalculate_season_xp()
+	local season_data = xp_store.get_season_data()
+
+	if season_data.current_season then
+		local new_level = xp_calculator.calculate_season_level(total_xp)
+		xp_store.set_season_data(total_xp, new_level)
+
+		vim.notify(string.format("Season XP recalculated: %d XP (Level %d)", total_xp, new_level), vim.log.levels.INFO)
+	else
+		vim.notify("No active season", vim.log.levels.WARN)
+	end
+
+	return total_xp
+end
+
 -- =============================================================================
 -- Setup
 -- =============================================================================
@@ -332,9 +349,11 @@ function M.setup()
 			M.show_xp_overview()
 		elseif subcmd == "project" then
 			M.show_project_xp()
-		elseif subcmd == "recalc" then
+		elseif subcmd == "r season" or subcmd == "r s" then
+			M.recalculate_season_xp()
+		elseif subcmd == "r project" or subcmd == "r p" then
 			M.recalculate_project_xp()
-		elseif subcmd == "recalcall" then
+		elseif subcmd == "r all" or subcmd == "r a" then
 			M.recalculate_all_projects()
 		elseif subcmd == "areas" then
 			M.show_area_xp()

@@ -2,19 +2,11 @@
 local M = {}
 
 local Events = require("zortex.core.event_bus")
-local Doc = require("zortex.core.document_manager")
+local Workspace = require("zortex.core.workspace")
 local Logger = require("zortex.core.logger")
 local parser = require("zortex.utils.parser")
 local xp_store = require("zortex.stores.xp")
 local xp_core = require("zortex.services.xp.calculator")
-local constants = require("zortex.constants")
-
--- Cache for area tree
-local area_cache = {
-	tree = nil,
-	last_update = 0,
-	ttl = 300, -- 5 minutes
-}
 
 -- =============================================================================
 -- Area Tree Management
@@ -22,17 +14,7 @@ local area_cache = {
 
 -- Parse areas file and build tree
 function M.get_area_tree()
-	-- Check cache
-	if area_cache.tree and (os.time() - area_cache.last_update) < area_cache.ttl then
-		return area_cache.tree
-	end
-
-	local doc = Doc.get_file(constants.FILES.AREAS)
-
-	if not doc then
-		Logger.warn("area_service", "Areas file not found", { file = constants.FILES.AREAS })
-		return nil
-	end
+	local doc = Workspace.areas()
 
 	-- Build area tree from document sections
 	local root = {
@@ -49,17 +31,7 @@ function M.get_area_tree()
 	-- Apply XP data
 	M._apply_xp_to_tree(root)
 
-	-- Update cache
-	area_cache.tree = root
-	area_cache.last_update = os.time()
-
 	return root
-end
-
--- Invalidate area cache
-function M.invalidate_cache()
-	area_cache.tree = nil
-	area_cache.last_update = 0
 end
 
 -- =============================================================================
@@ -348,26 +320,6 @@ function M._get_parent_path(area_path)
 
 	table.remove(parts)
 	return table.concat(parts, "/")
-end
-
--- =============================================================================
--- Initialization
--- =============================================================================
-
--- Set up event listeners
-function M.init()
-	-- Listen for document changes to invalidate cache
-	Events.on("document:changed", function(data)
-		if data.document and data.document.filepath then
-			local filename = vim.fn.fnamemodify(data.document.filepath, ":t")
-			if filename == "areas.zortex" then
-				M.invalidate_cache()
-			end
-		end
-	end, {
-		priority = 50,
-		name = "area_service.cache_invalidator",
-	})
 end
 
 return M

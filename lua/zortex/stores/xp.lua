@@ -13,6 +13,7 @@ function store:init_empty()
 		area_xp = {}, -- area_path -> { xp, level }
 		project_xp = {}, -- project_name -> { xp, level, last_calculated }
 		season_xp = 0,
+		task_xp = {},
 		season_level = 1,
 		current_season = nil,
 
@@ -56,6 +57,57 @@ function M.get_all_area_xp()
 	return store.data.area_xp
 end
 
+-- =============================================================================
+-- Task XP Methods
+-- =============================================================================
+
+-- Task XP tracking (by task ID)
+function M.get_task_xp(task_id)
+	store:ensure_loaded()
+	if not store.data.task_xp then
+		store.data.task_xp = {}
+	end
+	return store.data.task_xp[task_id]
+end
+
+function M.set_task_xp(task_id, xp)
+	store:ensure_loaded()
+	if not store.data.task_xp then
+		store.data.task_xp = {}
+	end
+	store.data.task_xp[task_id] = xp
+	store:save()
+end
+
+function M.remove_task_xp(task_id)
+	store:ensure_loaded()
+	if store.data.task_xp then
+		store.data.task_xp[task_id] = nil
+		store:save()
+	end
+end
+
+-- Recalculate season XP from all sources
+function M.recalculate_season_xp()
+	store:ensure_loaded()
+	local total_xp = 0
+
+	-- Sum project XP
+	for _, project_data in pairs(store.data.project_xp or {}) do
+		total_xp = total_xp + (project_data.xp or 0)
+	end
+
+	-- Sum standalone task XP
+	for _, task_xp in pairs(store.data.task_xp or {}) do
+		total_xp = total_xp + (task_xp or 0)
+	end
+
+	-- Update season XP
+	store.data.season_xp = total_xp
+	store:save()
+
+	return total_xp
+end
 -- =============================================================================
 -- Project XP Methods (Enhanced)
 -- =============================================================================

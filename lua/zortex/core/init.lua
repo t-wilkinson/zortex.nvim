@@ -2,7 +2,6 @@
 local M = {}
 
 local Events = require("zortex.core.event_bus")
-local Doc = require("zortex.core.document_manager")
 local workspace = require("zortex.core.workspace")
 local Logger = require("zortex.core.logger")
 
@@ -26,7 +25,6 @@ function M.setup(opts)
 		end)
 	end
 
-	Doc.setup(opts.core.buffer_sync)
 	workspace.setup()
 
 	-- Initialize services
@@ -35,8 +33,6 @@ function M.setup(opts)
 	require("zortex.services.xp.distributor").setup(opts.xp.distribution_rules)
 	require("zortex.services.xp.notifications").init()
 	require("zortex.services.xp.commands").setup()
-	require("zortex.services.areas").init()
-	-- require("zortex.services.projects.progress").init() -- Let's migrate away from using progress attribute
 
 	-- Initialize persistence manager
 	PersistenceManager.setup(opts.core.persistence_manager)

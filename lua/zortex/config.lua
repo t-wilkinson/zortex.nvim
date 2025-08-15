@@ -30,12 +30,6 @@ local defaults = {
 			max_entries = 1000,
 			performance_threshold = 16, -- Log operations taking > 16ms
 		},
-
-		buffer_sync = {
-			strategy = "batched", -- immediate, batched, on_save
-			batch_delay = 500, -- ms
-			max_batch_size = 50, -- max changes before forced sync
-		},
 	},
 
 	notifications = {
@@ -266,6 +260,7 @@ local defaults = {
 		-- Area XP System (Long-term Mastery)
 		area = {
 			objective_base_xp = 500,
+			standalone_transference = 0.5, -- 50% of area XP for standalone tasks
 
 			-- XP bubbling to parent areas
 			bubble_percentage = 0.75, -- 75% of XP bubbles up

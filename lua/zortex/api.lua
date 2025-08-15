@@ -186,17 +186,6 @@ M.health = function()
 		vim.health.report_ok(string.format("Events active (%d events tracked)", event_count))
 	end
 
-	-- Check document manager
-	if status.document_manager then
-		vim.health.report_ok(
-			string.format(
-				"Doc: %d buffers, %d files",
-				status.document_manager.buffer_count,
-				status.document_manager.file_count
-			)
-		)
-	end
-
 	-- Check persistence
 	if status.persistence then
 		if status.persistence.initialized then
@@ -218,18 +207,9 @@ M.debug = function()
 		"",
 	}
 
-	-- Buffer sync status
-	local buffer_sync = require("zortex.core.buffer_sync")
-	local sync_status = buffer_sync.get_status()
-	table.insert(lines, "Buffer Sync:")
-	table.insert(lines, "  Strategy: " .. sync_status.strategy)
-	table.insert(lines, "  Pending Changes: " .. sync_status.total_pending_changes)
-	table.insert(lines, "  Active Timers: " .. sync_status.active_timers)
-	table.insert(lines, "")
-
-	-- Document manager status
-	local doc_manager = require("zortex.core.document_manager")
-	local docs = doc_manager.get_all_documents()
+	-- Workspace status
+	local workspace = require("zortex.core.workspace")
+	local docs = workspace.get_all_documents()
 	table.insert(lines, "Documents:")
 	table.insert(lines, "  Loaded: " .. #docs)
 

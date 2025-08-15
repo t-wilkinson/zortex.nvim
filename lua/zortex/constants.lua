@@ -18,16 +18,10 @@ M.FILES = {
 
 	-- State files
 	XP_STATE_DATA = ".z/xp_state.json",
-	TASK_STATE_DATA = ".z/task_state.json",
-	ARCHIVE_TASK_STATE = ".z/archive.task_state.json",
 	CALENDAR_STATE = ".z/calendar_state.json",
 	TIMER_STATE = ".z/timer_state.json",
 	NOTIFICATIONS_STATE = ".z/notifications_state.json",
 	LOG = ".z/logs",
-
-	-- History files
-	SEARCH_HISTORY = ".z/search_history.json",
-	COMMAND_HISTORY = ".z/command_history.json",
 }
 
 -- Section types
@@ -100,15 +94,18 @@ M.PATTERNS = {
 	-- Links
 	LINK = "%[([^%]]+)%]",
 	FOOTNOTE = "%[%^([A-Za-z0-9_.-]+)%]",
+	FOOTNOTE_DEF = "^%[%^([A-Za-z0-9_.-]+)%]:%s*",
 	MARKDOWN_LINK = "%[([^%]]*)%]%(([^%)]+)%)",
 	URL = "https?://[^%s%]%)};]+",
+	FILEPATH = "([~%.]/[^%s]+)",
 
 	-- Dates and times
-	DATE_YMD = "(%d%d%d%d)%-(%d%d?)%-(%d%d?)",
-	DATE_MDY = "(%d%d?)%-(%d%d?)%-(%d%d%d%d)",
-	TIME_24H = "(%d%d?):(%d%d)",
-	TIME_AMPM = "(%d%d?):(%d%d)%s*([ap]m)",
-	DATETIME_YMD = "(%d%d%d%d%-%d%d?%-%d%d?)%s+(%d%d?:%d%d)",
+	DATE_YMD = "(%d%d%d%d)%-(%d%d?)%-(%d%d?)", -- YYYY-MM-DD
+	DATE_MDY = "(%d%d?)%-(%d%d?)%-(%d%d%d%d)", -- MM-DD-YYYY
+	TIME_24H = "(%d%d?):(%d%d)", -- HH:MM
+	TIME_AMPM = "(%d%d?):(%d%d)%s*([ap]m)", -- HH:MMam, HH:MM pm
+	DATETIME_YMD = "(%d%d%d%d%-%d%d?%-%d%d?)%s+(%d%d?:%d%d)", -- YYYY-MM-DD HH:MM, YYYY-MM-DD HH:MM am
+	DATETIME_MDY = "(%d%d-%d%d-%d%d%d%d)%s+(.+)", -- MM-DD-YYYY HH:MM, MM-DD-YYYY HH:MM am
 
 	-- calendar.zortex
 	CALENDAR_DATE_HEADING = "^(%d%d%d%d)-(%d%d)%-(%d%d)%:$",
@@ -118,6 +115,7 @@ M.PATTERNS = {
 
 	-- okr.zortex
 	OKR_DATE = "^## ([%w]+) (%d+) (%d+) (.+)$",
+	KEY_RESULT = "^%s*- KR%-",
 }
 
 M.TASK_MARKS = {

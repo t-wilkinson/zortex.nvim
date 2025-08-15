@@ -1034,13 +1034,17 @@ M.get = function(name)
 	return Workspace:get(name)
 end
 
+M.get_all_documents = function()
+	return Workspace.documents
+end
+
 M.get_current = function()
 	local bufnr = vim.api.nvim_get_current_buf()
 	return Workspace:get_for_buffer(bufnr)
 end
 
 -- Get the document context of the cursor
-M.get_context = function()
+M.get_doc_context = function()
 	local bufnr = vim.api.nvim_get_current_buf()
 	local doc = Workspace:get_for_buffer(bufnr)
 	local cursor = vim.api.nvim_win_get_cursor(0)
@@ -1049,6 +1053,10 @@ M.get_context = function()
 
 	if doc == nil then
 		return nil
+	end
+
+	if not doc.bufnr then
+		doc:attach_buffer(bufnr)
 	end
 
 	local line = doc:get_line(lnum)

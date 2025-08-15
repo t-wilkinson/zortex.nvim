@@ -33,23 +33,28 @@ local colors = {
 	BOLD = "\27[1m",
 }
 
+local function format_value(value)
+	if value then
+		if type(value) == "table" then
+			return vim.inspect(value, {
+				indent = "  ",
+				depth = 3,
+			})
+		else
+			return tostring(value)
+		end
+	else
+		return ""
+	end
+end
+
 -- Format log entry
 local function format_entry(level, category, message, data)
 	local timestamp = os.date("%Y-%m-%d %H:%M:%S")
 	local level_str = level
 
 	-- Format message with data
-	local formatted_message = message
-	if data then
-		if type(data) == "table" then
-			formatted_message = formatted_message .. " " .. vim.inspect(data, {
-				indent = "  ",
-				depth = 3,
-			})
-		else
-			formatted_message = formatted_message .. " " .. tostring(data)
-		end
-	end
+	local formatted_message = format_value(message) .. " " .. format_value(data)
 
 	return string.format("[%s] %s [%s] %s", timestamp, level_str, category, formatted_message)
 end

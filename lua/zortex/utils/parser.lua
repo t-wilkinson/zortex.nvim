@@ -164,7 +164,7 @@ function M.parse_task(line, parser_context)
 	end
 	local attributes
 
-	attributes, text = require("zortex.utils.attributes").parse_task_attributes(line, parser_context)
+	attributes, text = require("zortex.utils.attributes").parse_task_attributes(text, parser_context)
 
 	return {
 		indent = indent,

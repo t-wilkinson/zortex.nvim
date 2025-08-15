@@ -126,63 +126,178 @@ end
 -- XP System Overview
 -- =============================================================================
 
+-- Show XP overview
 function M.show_xp_overview()
-	local xp_service = require("zortex.services.xp")
+	local stats = xp_service.get_stats()
 	local lines = {}
 
-	table.insert(lines, "🎮 Zortex XP System")
-	table.insert(lines, string.rep("─", 40))
+	table.insert(lines, "🎮 Zortex XP System (Project-Centric)")
+	table.insert(lines, string.rep("─", 50))
 	table.insert(lines, "")
 
-	-- Dual XP System
-	table.insert(lines, "📊 Dual XP System:")
-	table.insert(lines, "")
-	table.insert(lines, "1️⃣  Area XP (Long-term Mastery)")
-	table.insert(lines, "   • From objectives & key results")
-	table.insert(lines, "   • Level curve: 1000 × level^2.5")
-	table.insert(lines, "   • 75% bubbles to parent areas")
-	table.insert(lines, "   • Time multipliers: 0.1x-10x")
-	table.insert(lines, "")
-
-	table.insert(lines, "2️⃣  Project XP (Seasonal Progress)")
-	table.insert(lines, "   • From completing tasks")
-	table.insert(lines, "   • Early tasks: 2x multiplier")
-	table.insert(lines, "   • Final task: 5x + 200 bonus")
-	table.insert(lines, "   • 10% transfers to areas")
-	table.insert(lines, "   • Season levels: 100 × level^1.2")
-	table.insert(lines, "")
-
-	-- Current Status
-	local season_status = xp_service.get_season_status()
-	if season_status then
-		table.insert(lines, "🏆 Current Season:")
-		table.insert(lines, string.format("   Name: %s", season_status.season.name))
+	-- Season status
+	if stats.season then
+		table.insert(lines, "🏆 Current Season: " .. stats.season.season.name)
 		table.insert(
 			lines,
 			string.format(
-				"   Level: %d (%s)",
-				season_status.level,
-				season_status.current_tier and season_status.current_tier.name or "None"
+				"   Level %d (%s)",
+				stats.season.level,
+				stats.season.current_tier and stats.season.current_tier.name or "None"
 			)
 		)
-		table.insert(lines, string.format("   Progress: %.0f%%", season_status.progress.progress * 100))
-
-		if season_status.next_tier and not season_status.is_max_tier then
-			table.insert(
-				lines,
-				string.format(
-					"   Next tier: %s (Level %d)",
-					season_status.next_tier.name,
-					season_status.next_tier.required_level
-				)
-			)
-		end
-	else
-		table.insert(lines, "No active season")
+		table.insert(lines, string.format("   Progress: %.1f%% to next level", stats.season.progress.progress * 100))
+		table.insert(lines, string.format("   Total XP: %d", stats.season.xp))
+		table.insert(lines, "")
 	end
 
-	vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO)
+	-- XP sources breakdown
+	table.insert(lines, "📊 XP Sources:")
+	for source, percentage in pairs(stats.source_percentages) do
+		local amount = stats.sources[source]
+		table.insert(
+			lines,
+			string.format("   %s: %d XP (%.1f%%)", source:gsub("_", " "):gsub("^%l", string.upper), amount, percentage)
+		)
+	end
+	table.insert(lines, "")
+
+	-- Project statistics
+	table.insert(lines, "📁 Projects:")
+	table.insert(lines, string.format("   Active: %d", stats.totals.active_projects))
+	table.insert(lines, string.format("   Completed: %d", stats.totals.completed_projects))
+	table.insert(lines, "")
+
+	-- Area statistics
+	table.insert(lines, "🗺️ Areas:")
+	table.insert(lines, string.format("   Total: %d", stats.totals.total_areas))
+	table.insert(lines, string.format("   Average Level: %.1f", stats.totals.avg_area_level))
+
+	vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO, {
+		title = "XP Overview",
+		timeout = 10000,
+	})
 end
+
+-- Show project XP details
+function M.show_project_xp()
+	local context = workspace.get_context()
+	if not context then
+		vim.notify("No workspace context", vim.log.levels.ERROR)
+		return
+	end
+
+	-- Find current project
+	local project_section = projects_service.find_project(context.section)
+	if not project_section then
+		vim.notify("Not in a project", vim.log.levels.WARN)
+		return
+	end
+
+	local project = projects_service.get_project(project_section, context.doc)
+	if not project then
+		vim.notify("Could not get project data", vim.log.levels.ERROR)
+		return
+	end
+
+	-- Get XP details
+	local details = xp_store.get_project_details(project.name)
+	local lines = {}
+
+	table.insert(lines, string.format("📁 Project: %s", project.name))
+	table.insert(lines, string.rep("─", 40))
+
+	if details then
+		table.insert(lines, string.format("Total XP: %d", details.total_xp))
+		table.insert(lines, string.format("Earned XP: %d", details.earned_xp))
+		table.insert(lines, string.format("Progress: %.1f%%", details.completion_percentage * 100))
+		table.insert(lines, string.format("Tasks: %d", details.task_count))
+		table.insert(lines, "")
+
+		-- Task breakdown
+		table.insert(lines, "Task Sizes:")
+		local size_counts = {}
+		local parser = require("zortex.utils.parser")
+		local lines_in_project = project.section:get_lines(context.doc.bufnr)
+
+		for _, line in ipairs(lines_in_project) do
+			local task = parser.parse_task(line)
+			if task then
+				local size = task.attributes and task.attributes.size or "md"
+				size_counts[size] = (size_counts[size] or 0) + 1
+			end
+		end
+
+		for size, count in pairs(size_counts) do
+			table.insert(lines, string.format("  %s: %d tasks", size:upper(), count))
+		end
+	else
+		table.insert(lines, "No XP data yet - complete some tasks!")
+	end
+
+	vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO, {
+		title = "Project XP",
+		timeout = 5000,
+	})
+end
+
+-- function M.show_xp_overview()
+-- 	local xp_service = require("zortex.services.xp")
+-- 	local lines = {}
+--
+-- 	table.insert(lines, "🎮 Zortex XP System")
+-- 	table.insert(lines, string.rep("─", 40))
+-- 	table.insert(lines, "")
+--
+-- 	-- Dual XP System
+-- 	table.insert(lines, "📊 Dual XP System:")
+-- 	table.insert(lines, "")
+-- 	table.insert(lines, "1️⃣  Area XP (Long-term Mastery)")
+-- 	table.insert(lines, "   • From objectives & key results")
+-- 	table.insert(lines, "   • Level curve: 1000 × level^2.5")
+-- 	table.insert(lines, "   • 75% bubbles to parent areas")
+-- 	table.insert(lines, "   • Time multipliers: 0.1x-10x")
+-- 	table.insert(lines, "")
+--
+-- 	table.insert(lines, "2️⃣  Project XP (Seasonal Progress)")
+-- 	table.insert(lines, "   • From completing tasks")
+-- 	table.insert(lines, "   • Early tasks: 2x multiplier")
+-- 	table.insert(lines, "   • Final task: 5x + 200 bonus")
+-- 	table.insert(lines, "   • 10% transfers to areas")
+-- 	table.insert(lines, "   • Season levels: 100 × level^1.2")
+-- 	table.insert(lines, "")
+--
+-- 	-- Current Status
+-- 	local season_status = xp_service.get_season_status()
+-- 	if season_status then
+-- 		table.insert(lines, "🏆 Current Season:")
+-- 		table.insert(lines, string.format("   Name: %s", season_status.season.name))
+-- 		table.insert(
+-- 			lines,
+-- 			string.format(
+-- 				"   Level: %d (%s)",
+-- 				season_status.level,
+-- 				season_status.current_tier and season_status.current_tier.name or "None"
+-- 			)
+-- 		)
+-- 		table.insert(lines, string.format("   Progress: %.0f%%", season_status.progress.progress * 100))
+--
+-- 		if season_status.next_tier and not season_status.is_max_tier then
+-- 			table.insert(
+-- 				lines,
+-- 				string.format(
+-- 					"   Next tier: %s (Level %d)",
+-- 					season_status.next_tier.name,
+-- 					season_status.next_tier.required_level
+-- 				)
+-- 			)
+-- 		end
+-- 	else
+-- 		table.insert(lines, "No active season")
+-- 	end
+--
+-- 	vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO)
+-- end
 
 -- =============================================================================
 -- Level Up Notifications
@@ -216,10 +331,10 @@ function M.init()
 	})
 
 	-- XP awarded notification
-	Events.on("xp:awarded", function(data)
-		if data.amount >= 20 then -- Only notify for significant XP
+	Events.on("xp:changed", function(data)
+		if data.earned_xp >= 20 then -- Only notify for significant XP
 			vim.notify(
-				string.format("✨ XP Earned: +%d XP", data.amount),
+				string.format("✨ XP Earned: +%d XP", data.earned_xp),
 				vim.log.levels.INFO,
 				{ title = "XP Gained", timeout = 3000 }
 			)

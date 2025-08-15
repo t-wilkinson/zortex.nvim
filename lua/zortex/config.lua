@@ -265,15 +265,20 @@ local defaults = {
 		},
 		-- Area XP System (Long-term Mastery)
 		area = {
+			objective_base_xp = 500,
+
+			-- XP bubbling to parent areas
+			bubble_percentage = 0.75, -- 75% of XP bubbles up
+
+			-- Relevance decay (per day)
+			decay_rate = 0.001, -- 0.1% per day
+			decay_grace_days = 30, -- No decay for first 30 days
+
 			-- Exponential curve: XP = base * level^exponent
 			level_curve = {
 				base = 1000,
 				exponent = 2.5,
 			},
-
-			-- XP bubbling to parent areas
-			bubble_percentage = 0.75, -- 75% of XP bubbles up
-
 			-- Time horizon multipliers for objectives
 			time_multipliers = {
 				daily = 0.1, -- Very short term
@@ -290,10 +295,6 @@ local defaults = {
 			-- 	["5Y"] = 3.0,
 			-- 	["10Y"] = 4.0,
 			-- },
-
-			-- Relevance decay (per day)
-			decay_rate = 0.001, -- 0.1% per day
-			decay_grace_days = 30, -- No decay for first 30 days
 		},
 
 		-- Project XP System (Seasonal Momentum)

@@ -210,7 +210,6 @@ function M.change_task_completion(context, should_complete)
 		local task, new_line = M.convert_line_to_task(context.line)
 		context.doc:change_line(context.lnum, new_line)
 
-		vim.cmd("redraw")
 		return task, nil
 	end
 
@@ -231,7 +230,7 @@ function M.change_task_completion(context, should_complete)
 	if should_complete == nil then
 		-- Toggle
 		if task.completed then
-			result, err = M.uncomplete_task(tast, context)
+			result, err = M.uncomplete_task(task, context)
 		else
 			result, err = M.complete_task(task, context)
 		end
@@ -243,8 +242,6 @@ function M.change_task_completion(context, should_complete)
 		-- No change needed
 		result = task
 	end
-
-	vim.cmd("redraw")
 
 	return result, err
 end

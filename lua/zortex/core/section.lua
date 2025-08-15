@@ -263,7 +263,8 @@ function SectionTreeBuilder:add_section(section)
 			table.insert(self.stack, section)
 			return
 		else
-			-- Pop sections that can't contain this one
+			-- Pop sections that can't contain this one and finalize their end line
+			potential_parent.end_line = section.start_line - 1 -- <<< FIX #1: Finalize end_line
 			table.remove(self.stack)
 		end
 	end
@@ -273,10 +274,11 @@ function SectionTreeBuilder:add_section(section)
 	table.insert(self.stack, section)
 end
 
--- Update the end line of the current section
+-- Update the end line of the current section and its parents
 function SectionTreeBuilder:update_current_end(line_num)
-	if #self.stack > 0 then
-		self.stack[#self.stack].end_line = line_num
+	-- <<< FIX #2: Update all sections in the stack
+	for _, section in ipairs(self.stack) do
+		section.end_line = line_num
 	end
 	self.root.end_line = line_num
 end

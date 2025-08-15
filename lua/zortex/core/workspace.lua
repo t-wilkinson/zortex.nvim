@@ -1039,6 +1039,7 @@ M.get_current = function()
 	return Workspace:get_for_buffer(bufnr)
 end
 
+-- Get the document context of the cursor
 M.get_context = function()
 	local bufnr = vim.api.nvim_get_current_buf()
 	local doc = Workspace:get_for_buffer(bufnr)

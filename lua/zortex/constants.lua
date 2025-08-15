@@ -88,6 +88,7 @@ M.PATTERNS = {
 	TAG_LINE = "^@%w+",
 
 	-- Tasks
+	TASK = "^(%s*)%-%s*%[(.)]%s*(.+)$", -- indent, status, text
 	TASK_CHECKBOX = "^%s*%-%s*%[([%sxX])%]",
 	TASK_TEXT = "^%s*%-%s*%[.%]%s+(.+)",
 	TASK_STATUS_KEY = "%s*%[([%w_]+)%]%s*$",
@@ -119,14 +120,23 @@ M.PATTERNS = {
 	OKR_DATE = "^## ([%w]+) (%d+) (%d+) (.+)$",
 }
 
+M.TASK_MARKS = {
+	TODO = " ",
+	COMPLETED = "x",
+}
+
 -- Task status definitions
-M.TASK_STATUS = {
-	TODO = { symbol = " ", name = "To Do", color = "Comment" },
-	DOING = { symbol = "◐", name = "In Progress", color = "DiagnosticWarn" },
-	WAITING = { symbol = "⏸", name = "Waiting", color = "DiagnosticInfo" },
-	DONE = { symbol = "✓", name = "Done", color = "DiagnosticOk" },
-	CANCELLED = { symbol = "✗", name = "Cancelled", color = "DiagnosticError" },
-	DELEGATED = { symbol = "→", name = "Delegated", color = "DiagnosticHint" },
+M.TASK_SYMBOL = {
+	[" "] = "  ",
+	-- ["."] = { symbol = ".", name = "in_progress", tags = { "@inprogress", "@wip" } },
+	-- ["o"] = { symbol = "o", name = "ongoing", tags = { "@ongoing" } },
+	["x"] = "✓",
+	["X"] = "✓",
+	-- ["-"] = { symbol = "-", name = "cancelled", tags = { "@cancelled" } },
+	-- ["?"] = { symbol = "?", name = "unclear", tags = { "@unclear" } },
+	-- ["*"] = { symbol = "*", name = "delegated", tags = { "@delegated" } },
+	-- ["l"] = { symbol = "l", name = "later", tags = { "@later" } },
+	-- ["L"] = { symbol = "L", name = "later", tags = { "@later" } },
 }
 
 -- Time horizons

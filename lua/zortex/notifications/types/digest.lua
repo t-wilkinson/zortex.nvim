@@ -46,7 +46,7 @@ local function format_digest_content(entries_by_date)
 
 	for date_str, entries in pairs(entries_by_date) do
 		for _, entry in ipairs(entries) do
-			if entry.type == "task" and (not entry.task_status or entry.task_status.key ~= "[x]") then
+			if entry.type == "task" and not entry.task.completed then
 				total_tasks = total_tasks + 1
 			elseif entry.type == "event" then
 				total_events = total_events + 1
@@ -148,7 +148,7 @@ local function format_digest_content(entries_by_date)
 			local html_icon = "•"
 
 			if entry.type == "task" then
-				if entry.task_status and entry.task_status.key == "[x]" then
+				if entry.type == "task" and entry.task.completed then
 					text_prefix = "  ✓ "
 					html_style = "color: #95a5a6; text-decoration: line-through;"
 					html_icon = "✓"
@@ -368,7 +368,7 @@ function M.preview(days)
 		for _, entry in ipairs(entries) do
 			local prefix = "  • "
 			if entry.type == "task" then
-				prefix = entry.task_status and entry.task_status.key == "[x]" and "  ✓ " or "  ☐ "
+				prefix = entry.task.completed and "  ✓ " or "  ☐ "
 			elseif entry.type == "event" then
 				prefix = "  📅 "
 			end

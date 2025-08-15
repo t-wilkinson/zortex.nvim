@@ -35,7 +35,6 @@ end
 function M.register_defaults()
 	local stores_to_register = {
 		{ "xp", require("zortex.stores.xp") },
-		{ "tasks", require("zortex.stores.tasks") },
 		{ "calendar", require("zortex.stores.calendar") },
 		{ "notifications", require("zortex.stores.notifications") },
 	}
@@ -216,11 +215,6 @@ local function handle_xp_events(data)
 	M.mark_dirty("xp")
 end
 
--- Handle task events
-local function handle_task_events(data)
-	M.mark_dirty("tasks")
-end
-
 -- Handle area events
 local function handle_area_events(data)
 	M.mark_dirty("areas")
@@ -253,24 +247,6 @@ function M.setup(opts)
 		Events.on("xp:distributed", handle_xp_events, {
 			priority = 20,
 			name = "persistence_xp_distributed",
-		})
-
-		-- Task events
-		Events.on("task:completed", handle_task_events, {
-			priority = 20,
-			name = "persistence_task_completed",
-		})
-		Events.on("task:uncompleted", handle_task_events, {
-			priority = 20,
-			name = "persistence_task_uncompleted",
-		})
-		Events.on("task:created", handle_task_events, {
-			priority = 20,
-			name = "persistence_task_created",
-		})
-		Events.on("task:updated", handle_task_events, {
-			priority = 20,
-			name = "persistence_task_updated",
 		})
 
 		-- Area events

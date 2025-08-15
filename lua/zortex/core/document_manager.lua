@@ -1269,7 +1269,7 @@ end
 
 function Manager:setup(opts)
 	cfg = opts or {}
-	self:setup_autocmds()
+	-- self:setup_autocmds()
 end
 
 -- =============================================================================

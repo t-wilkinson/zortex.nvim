@@ -6,6 +6,7 @@ local fs = require("zortex.utils.filesystem")
 local highlights = require("zortex.features.highlights")
 local Config = require("zortex.config")
 local constants = require("zortex.constants")
+local parser = require("zortex.utils.parser")
 
 -- =============================================================================
 -- Custom Sorter with Smart Scoring
@@ -469,6 +470,23 @@ end
 -- Quick Search Functions
 -- =============================================================================
 
+-- Get section at cursor position
+local function get_section_at_cursor()
+	local bufnr = vim.api.nvim_get_current_buf()
+	local cursor_line = vim.api.nvim_win_get_cursor(0)[1]
+	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+
+	-- Build section path to cursor position
+	local section_path = parser.build_section_path(lines, cursor_line)
+
+	if #section_path > 0 then
+		-- Return the innermost (last) section
+		return section_path[#section_path]
+	end
+
+	return nil
+end
+
 function M.search_current_word()
 	local word = vim.fn.expand("<cword>")
 	if word and word ~= "" then
@@ -480,31 +498,21 @@ end
 
 function M.search_current_section()
 	local bufnr = vim.api.nvim_get_current_buf()
-	local doc = require("zortex.core.document_manager").get_buffer(bufnr)
+	local filepath = vim.api.nvim_buf_get_name(bufnr)
 
-	if not doc then
-		-- Try to load from search cache if buffer not loaded
-		local filepath = vim.api.nvim_buf_get_name(bufnr)
-		if filepath and filepath ~= "" then
-			-- Force a search to populate cache
-			SearchService.search("", { search_mode = constants.SEARCH_MODES.SECTION })
-		else
-			vim.notify("No Zortex document loaded", vim.log.levels.WARN)
-			return
-		end
+	-- Check if this is a Zortex file
+	if not filepath or filepath == "" or not filepath:match("%" .. Config.extension .. "$") then
+		vim.notify("Not in a Zortex file", vim.log.levels.WARN)
+		return
 	end
 
-	local cursor_line = vim.api.nvim_win_get_cursor(0)[1]
+	-- Get the section at cursor
+	local section = get_section_at_cursor()
 
-	if doc and doc.get_section_at_line then
-		local section = doc:get_section_at_line(cursor_line)
-		if section and section.text then
-			M.search_sections({ default_text = section.text })
-		else
-			M.search_sections()
-		end
+	if section and section.text then
+		M.search_sections({ default_text = section.text })
 	else
-		-- Fallback to simple search
+		-- No section found, just open search
 		M.search_sections()
 	end
 end

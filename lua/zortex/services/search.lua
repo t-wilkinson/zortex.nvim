@@ -1,7 +1,6 @@
 -- services/search.lua - Search service with improved hierarchical matching
 local M = {}
 
-local Doc = require("zortex.core.document_manager")
 local Section = require("zortex.core.section")
 local Events = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
@@ -78,6 +77,7 @@ end
 
 local SearchDocumentCache = {
 	file_cache = FileCache,
+	buffer_cache = {}, -- bufnr -> document
 }
 
 -- Extract all article names from the beginning of the document
@@ -101,10 +101,11 @@ local function extract_all_article_names(lines)
 end
 
 -- Create a lightweight document structure for search
-local function create_search_document(filepath, lines)
+local function create_search_document(filepath, lines, bufnr)
 	local doc = {
 		filepath = filepath,
-		source = "search_cache",
+		source = bufnr and "buffer" or "search_cache",
+		bufnr = bufnr,
 		sections = nil,
 		article_names = {}, -- Changed to array
 		stats = {
@@ -146,35 +147,58 @@ local function create_search_document(filepath, lines)
 	doc.sections = builder:get_tree()
 	doc.sections.end_line = #lines
 
-	-- Update stats
-	local function count_sections(section)
-		doc.stats.sections = doc.stats.sections + 1
-		doc.stats.tasks = doc.stats.tasks + #section.tasks
-	end
-
 	if doc.sections then
 		for _, child in ipairs(doc.sections.children) do
-			count_sections(child)
+			doc.stats.sections = doc.stats.sections + 1
+			doc.stats.tasks = doc.stats.tasks + #child.tasks
 		end
 	end
 
 	return doc
 end
 
+-- Check if buffer is a Zortex file
+local function is_zortex_buffer(bufnr)
+	local filename = vim.api.nvim_buf_get_name(bufnr)
+	if filename == "" then
+		return false
+	end
+
+	local Config = require("zortex.config")
+	return filename:match("%" .. Config.extension .. "$") ~= nil
+end
+
+-- Get document from buffer
+local function get_buffer_document(bufnr)
+	-- Check cache first
+	local cached = SearchDocumentCache.buffer_cache[bufnr]
+	if cached then
+		return cached
+	end
+
+	-- Create new document from buffer
+	local filepath = vim.api.nvim_buf_get_name(bufnr)
+	if filepath == "" then
+		return nil
+	end
+
+	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+	local doc = create_search_document(filepath, lines, bufnr)
+
+	-- Cache it
+	SearchDocumentCache.buffer_cache[bufnr] = doc
+
+	return doc
+end
+
 -- Load or get cached document for search
 function SearchDocumentCache:get_document(filepath)
-	-- Check if document is open in buffer - prefer Doc version
-	local dm = Doc._instance
-	if dm then
-		for bufnr, doc in pairs(dm.buffers) do
-			if doc.filepath == filepath then
-				-- Ensure we have article_names array
-				if not doc.article_names then
-					local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-					doc.article_names = extract_all_article_names(lines)
-					doc.lines = lines
-				end
-				return doc
+	-- Check if file is open in any buffer
+	for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+		if vim.api.nvim_buf_is_valid(bufnr) and vim.api.nvim_buf_is_loaded(bufnr) then
+			local buf_name = vim.api.nvim_buf_get_name(bufnr)
+			if buf_name == filepath then
+				return get_buffer_document(bufnr)
 			end
 		end
 	end
@@ -201,19 +225,16 @@ function SearchDocumentCache:get_all_documents()
 	local docs = {}
 	local seen = {}
 
-	-- First, add all buffer documents (source of truth)
-	local dm = Doc._instance
-	if dm then
-		for bufnr, doc in pairs(dm.buffers) do
-			if doc.filepath then
-				-- Ensure article_names is populated
-				if not doc.article_names then
-					local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-					doc.article_names = extract_all_article_names(lines)
-					doc.lines = lines
+	-- First, add all open buffer documents
+	for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+		if vim.api.nvim_buf_is_valid(bufnr) and vim.api.nvim_buf_is_loaded(bufnr) and is_zortex_buffer(bufnr) then
+			local filepath = vim.api.nvim_buf_get_name(bufnr)
+			if filepath ~= "" and not seen[filepath] then
+				local doc = get_buffer_document(bufnr)
+				if doc then
+					table.insert(docs, doc)
+					seen[filepath] = true
 				end
-				table.insert(docs, doc)
-				seen[doc.filepath] = true
 			end
 		end
 	end
@@ -235,6 +256,12 @@ end
 -- Clear cache (for refresh)
 function SearchDocumentCache:clear()
 	self.file_cache:clear()
+	self.buffer_cache = {}
+end
+
+-- Clear buffer cache entry when buffer changes
+function SearchDocumentCache:invalidate_buffer(bufnr)
+	self.buffer_cache[bufnr] = nil
 end
 
 -- =============================================================================
@@ -889,19 +916,16 @@ end
 function M.get_stats()
 	local docs = SearchDocumentCache:get_all_documents()
 	local total_sections = 0
-	local total_tasks = 0
 
 	for _, doc in ipairs(docs) do
 		if doc.stats then
 			total_sections = total_sections + doc.stats.sections
-			total_tasks = total_tasks + doc.stats.tasks
 		end
 	end
 
 	return {
 		documents_loaded = #docs,
 		total_sections = total_sections,
-		total_tasks = total_tasks,
 		access_history_count = vim.tbl_count(AccessTracker.data),
 		search_history_count = #SearchHistory.entries,
 		cache_documents = vim.tbl_count(SearchDocumentCache.file_cache.cache),
@@ -913,14 +937,6 @@ function M.refresh_all()
 
 	-- Clear search cache
 	SearchDocumentCache:clear()
-
-	-- Force reload all buffer documents in Doc
-	local dm = Doc._instance
-	if dm then
-		for bufnr, _ in pairs(dm.buffers) do
-			dm:reparse_buffer(bufnr)
-		end
-	end
 
 	Events.emit("search:cache_refreshed")
 	stop_timer()
@@ -942,6 +958,16 @@ function M.setup(opts)
 		group = group,
 		callback = function()
 			AccessTracker.save()
+		end,
+	})
+
+	-- Invalidate buffer cache on changes
+	local Config = require("zortex.config")
+	vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
+		group = group,
+		pattern = "*" .. Config.extension,
+		callback = function(args)
+			SearchDocumentCache:invalidate_buffer(args.buf)
 		end,
 	})
 end

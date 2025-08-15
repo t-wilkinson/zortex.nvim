@@ -226,12 +226,12 @@ function M._calculate_objective_progress(objective)
 	for _, kr in ipairs(objective.key_results) do
 		-- Check if all linked projects are complete
 		local all_complete = true
-		for _, project_name in ipairs(kr.linked_projects) do
-			if not ProjectService.is_project_completed(project_name) then
-				all_complete = false
-				break
-			end
-		end
+		-- for _, project_name in ipairs(kr.linked_projects) do
+		-- 	if not ProjectService.is_project_completed(project_name) then
+		-- 		all_complete = false
+		-- 		break
+		-- 	end
+		-- end
 
 		if all_complete and #kr.linked_projects > 0 then
 			completed_krs = completed_krs + 1

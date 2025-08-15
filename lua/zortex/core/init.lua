@@ -51,10 +51,7 @@ end
 function M.get_status()
 	return {
 		event_bus = Events.get_performance_report(),
-		document_manager = {
-			buffer_count = vim.tbl_count(Doc._instance.buffers),
-			file_count = vim.tbl_count(Doc._instance.files),
-		},
+		workspace = {},
 		persistence = PersistenceManager.get_status(),
 	}
 end
@@ -63,15 +60,6 @@ end
 function M.print_status()
 	local status = M.get_status()
 	print(vim.inspect(status))
-end
-
--- Get service references (for direct access)
-function M.get_services()
-	return {
-		document_manager = Doc,
-		persistence = PersistenceManager,
-		event_bus = Events,
-	}
 end
 
 return M

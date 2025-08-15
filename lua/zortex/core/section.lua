@@ -35,8 +35,8 @@ function Section:new(opts)
 	section._breadcrumb = nil
 
 	-- Content
-	section.tasks = {}
 	section.attributes = {}
+	section.tasks = {}
 
 	return section
 end
@@ -53,6 +53,10 @@ function Section:get_id()
 		self._id = table.concat(path_parts, "/"):gsub("%s+", "_"):lower()
 	end
 	return self._id
+end
+
+function Section:get_lines(bufnr)
+	return require("zortex.utils.buffer").get_lines(bufnr, self.start_line, self.end_line)
 end
 
 -- Get section priority (for hierarchy comparisons)
@@ -144,15 +148,6 @@ function Section:get_descendants()
 	return descendants
 end
 
--- Get all tasks in this section (including descendants)
-function Section:get_all_tasks()
-	local tasks = vim.tbl_extend("force", {}, self.tasks)
-	for _, child in ipairs(self.children) do
-		vim.list_extend(tasks, child:get_all_tasks())
-	end
-	return tasks
-end
-
 -- Update section bounds (after buffer changes)
 function Section:update_bounds(start_line, end_line)
 	local line_diff = (end_line - start_line) - (self.end_line - self.start_line)
@@ -179,28 +174,6 @@ function Section:update_bounds(start_line, end_line)
 			end
 		end
 	end
-end
-
--- Get section statistics
-function Section:get_stats()
-	local stats = {
-		total_tasks = 0,
-		completed_tasks = 0,
-		total_lines = self.end_line - self.start_line + 1,
-		child_count = #self.children,
-		depth = #self:get_path(),
-	}
-
-	-- Count tasks
-	local all_tasks = self:get_all_tasks()
-	stats.total_tasks = #all_tasks
-	for _, task in ipairs(all_tasks) do
-		if task.completed then
-			stats.completed_tasks = stats.completed_tasks + 1
-		end
-	end
-
-	return stats
 end
 
 -- Format section for display

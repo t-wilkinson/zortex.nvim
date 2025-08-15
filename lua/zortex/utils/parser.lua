@@ -2,7 +2,6 @@
 local M = {}
 
 local constants = require("zortex.constants")
-local datetime = require("zortex.utils.datetime")
 
 -- =============================================================================
 -- String Utilities
@@ -154,6 +153,29 @@ end
 -- Task Parsing
 -- =============================================================================
 
+function M.parse_task(line, parser_context)
+	if not line then
+		return nil
+	end
+	local indent, mark, text = line:match(constants.PATTERNS.TASK)
+
+	if not text then
+		return nil
+	end
+	local attributes
+
+	attributes, text = require("zortex.utils.attributes").parse_task_attributes(line, parser_context)
+
+	return {
+		indent = indent,
+		mark = mark,
+		text = text,
+		completed = mark == "x" or mark == "X",
+		attributes = attributes,
+		raw_text = line,
+	}
+end
+
 function M.is_task_line(line)
 	if not line then
 		return false, false
@@ -165,234 +187,8 @@ function M.is_task_line(line)
 	return true, (mark == "x" or mark == "X")
 end
 
-function M.parse_task_status(line)
-	local status_key = line:match(constants.PATTERNS.TASK_STATUS_KEY)
-	if status_key and constants.TASK_STATUS[status_key] then
-		local status = vim.tbl_extend("force", {}, constants.TASK_STATUS[status_key])
-		status.key = status_key
-		return status
-	end
-	return nil
-end
-
 function M.get_task_text(line)
 	return line:match(constants.PATTERNS.TASK_TEXT)
-end
-
--- =============================================================================
--- Attribute Parsing (consolidated from attributes.lua)
--- =============================================================================
-
--- Type parsers for attributes
-local attribute_parsers = {
-	string = function(v)
-		return M.trim(v)
-	end,
-	number = function(v)
-		return tonumber(v)
-	end,
-	boolean = function()
-		return true
-	end,
-
-	duration = datetime.parse_durations,
-
-	date = datetime.parse_date,
-
-	time = datetime.parse_time,
-
-	datetime = function(v, _, context)
-		return datetime.parse_datetime(v, context.default_date_str)
-	end,
-
-	progress = function(v)
-		local completed, total = v:match("(%d+)/(%d+)")
-		if completed and total then
-			return { completed = tonumber(completed), total = tonumber(total) }
-		end
-		return nil
-	end,
-
-	list = function(v)
-		local items = {}
-		for item in v:gmatch("[^,]+") do
-			table.insert(items, M.trim(item))
-		end
-		return items
-	end,
-
-	enum = function(v, allowed_values)
-		for _, allowed in ipairs(allowed_values) do
-			if v == allowed then
-				return v
-			end
-		end
-		return nil
-	end,
-
-	area = function(v)
-		if not v or v == "" then
-			return nil
-		end
-
-		-- Split by "/" to get components
-		local components = {}
-		for component in v:gmatch("[^/]+") do
-			table.insert(components, M.trim(component))
-		end
-
-		-- If more than 2 components, return the raw value without modification
-		if #components > 2 then
-			local definition = "Areas/" .. v
-			return {
-				raw = v,
-				definition = definition,
-				link = "[" .. definition .. "]",
-				-- components = components,
-			}
-		end
-
-		-- Process components to ensure proper prefixes
-		local processed = {}
-
-		for i, component in ipairs(components) do
-			local processed_component = component
-
-			if i == 1 then
-				-- First component should be a heading
-				if not component:match("^#") then
-					processed_component = "#" .. component
-				end
-			elseif i == 2 then
-				-- Second component should be a label
-				if not component:match("^:") then
-					processed_component = ":" .. component
-				end
-			end
-
-			table.insert(processed, processed_component)
-		end
-
-		-- Build the link
-		local link_path = table.concat(processed, "/")
-		local definition = "Areas/" .. link_path
-		local link = "[" .. definition .. "]"
-
-		return {
-			raw = v, -- Original value
-			definition = definition,
-			link = link, -- Full link format
-			-- components = components, -- Original components
-			-- processed = processed, -- Processed components with prefixes
-			-- heading = processed[1], -- The heading component (with #)
-			-- label = processed[2], -- The label component (with :) if exists
-		}
-	end,
-}
-
--- Parse @key(value) attributes from text
--- @param parser_context table Context of the text being parsed to optionally pass to functions like parse_datetime() default_date_str.
---  The attribute parsers know how to take the parser_context and pass relevant information to functions as necessary.
-function M.parse_attributes(text, schema, parser_context)
-	local attrs = {}
-	local contexts = {}
-
-	-- Pattern for @key(value)
-	text = text:gsub("@(%w+)%s*%(([^)]*)%)", function(key, value)
-		if type(schema[key]) == "string" then
-			key = schema[key]
-		end
-
-		key = key:lower()
-
-		if schema and schema[key] then
-			local parser = attribute_parsers[schema[key].type]
-
-			if parser then
-				local parsed = parser(value, schema[key].values, parser_context)
-				if parsed ~= nil then
-					attrs[key] = parsed
-				end
-			end
-		end
-		return ""
-	end)
-
-	-- Pattern for bare @key
-	text = text:gsub("@(%w+)", function(key)
-		key = key:lower()
-
-		-- Check duration shortcuts
-		local dur_num, dur_unit = key:match("^(%d+%.?%d*)([hdmw])$")
-		if dur_num and dur_unit then
-			attrs.dur = attribute_parsers.duration(key)
-			return ""
-		end
-
-		-- Check priority shortcuts
-		local pri = key:match("^p([123])$")
-		if pri then
-			attrs.p = pri
-			return ""
-		end
-
-		local imp = key:match("^i([123])$")
-		if imp then
-			attrs.i = imp
-			return ""
-		end
-
-		-- Boolean flags
-		if schema and schema[key] and schema[key].type == "boolean" then
-			attrs[key] = true
-		else
-			-- Otherwise it's a context (@home, @work, @phone)
-			table.insert(contexts, key)
-		end
-
-		return ""
-	end)
-
-	if #contexts > 0 then
-		attrs.context = contexts
-	end
-
-	return attrs, M.trim(text:gsub("%s+", " "))
-end
-
--- Extract specific attribute
-function M.extract_attribute(line, key)
-	if not line or not key then
-		return nil
-	end
-	return line:match("@" .. key .. "%(([^)]+)%)")
-end
-
--- Update attribute value
-function M.update_attribute(line, key, value)
-	if not line or not key then
-		return line
-	end
-
-	local pattern = "@" .. key .. "%(([^)]+)%)"
-	local replacement = "@" .. key .. "(" .. tostring(value) .. ")"
-
-	if line:match(pattern) then
-		return line:gsub(pattern, replacement, 1)
-	else
-		-- Add attribute
-		local space = line:match("%s$") and "" or " "
-		return line .. space .. replacement
-	end
-end
-
--- Remove attribute
-function M.remove_attribute(line, key)
-	if not line or not key then
-		return line
-	end
-
-	return line:gsub("@" .. key .. "%(([^)]+)%)", ""):gsub("%s+", " "):gsub("%s$", "")
 end
 
 -- =============================================================================
@@ -497,11 +293,14 @@ function M.extract_link_at(line, cursor_col)
 		end
 
 		if cursor_col >= (s - 1) and cursor_col < e then
-			local area_link = attribute_parsers.area(value)
+			local area_links = require("zortex.utils.attributes").attribute_parsers.area(value)
 
-			if not area_link then
+			if #area_links == 0 then
 				break
 			end
+
+			-- Only use the first area_link for now
+			local area_link = area_links[1]
 
 			return {
 				type = "link",

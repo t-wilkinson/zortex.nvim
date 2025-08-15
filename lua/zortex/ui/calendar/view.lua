@@ -203,7 +203,7 @@ function Renderer.render_month_view(date)
 							has_notification = true
 						end
 						if entry.type == "task" then
-							if entry.task_status and entry.task_status.key == "[x]" then
+							if entry.task.completed then
 								has_complete_task = true
 							else
 								has_incomplete_task = true
@@ -324,8 +324,7 @@ function Renderer.render_month_view(date)
 			for _, entry in ipairs(entries) do
 				local icon = cfg.icons.has_items
 				if entry.type == "task" then
-					icon = (entry.task_status and entry.task_status.key == "[x]") and cfg.icons.task_done
-						or cfg.icons.task
+					icon = entry.task.completed and cfg.icons.task_done or cfg.icons.task
 				elseif entry.type == "event" then
 					icon = cfg.icons.event
 				end
@@ -431,8 +430,7 @@ function Renderer.render_digest_view()
 			for _, entry in ipairs(entries) do
 				local icon = cfg.icons.has_items
 				if entry.type == "task" then
-					icon = (entry.task_status and entry.task_status.key == "[x]") and cfg.icons.task_done
-						or cfg.icons.task
+					icon = entry.task.completed and cfg.icons.task_done or cfg.icons.task
 				elseif entry.type == "event" then
 					icon = cfg.icons.event
 				end

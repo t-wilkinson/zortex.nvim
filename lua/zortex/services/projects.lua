@@ -6,6 +6,60 @@ local attributes = require("zortex.utils.attributes")
 local parser = require("zortex.utils.parser")
 local link_resolver = require("zortex.utils.link_resolver")
 
+function M.find_project(section)
+	if not section then
+		return nil
+	end
+
+	-- Walk up section tree to find project (heading)
+	local current = section
+	while current do
+		if current.type == "heading" then
+			break
+		end
+		current = current.parent
+	end
+
+	return current
+end
+
+function M.get_project(section, doc)
+	if section.type ~= "heading" then
+		return nil
+	end
+
+	local project = {
+		name = section.text,
+		section = section,
+		start_line = section.start_line,
+		end_line = section.end_line,
+		level = section.level,
+		total_tasks = 0,
+		completed_tasks = 0,
+		link = section:build_link(doc),
+	}
+
+	-- Parse attributes
+	if section.raw_text then
+		project.attributes, project.name = attributes.parse_project_attributes(section.raw_text)
+	end
+
+	-- Calculate number of completed/total tasks
+	local lines = project.section:get_lines(doc.bufnr)
+	for _, line in ipairs(lines) do
+		local is_task, is_completed = parser.is_task_line(line)
+		if is_task then
+			project.total_tasks = project.total_tasks + 1
+		end
+
+		if is_completed then
+			project.completed_tasks = project.completed_tasks + 1
+		end
+	end
+
+	return project
+end
+
 -- Get all projects from document
 function M.get_projects_from_document(doc)
 	if not doc or not doc.sections then
@@ -15,42 +69,12 @@ function M.get_projects_from_document(doc)
 	local projects = {}
 
 	local function extract_projects(section)
-		if section.type == "heading" then
-			local project = {
-				name = section.text,
-				section = section,
-				start_line = section.start_line,
-				end_line = section.end_line,
-				level = section.level,
-				tasks = section:get_all_tasks(),
-				subprojects = {},
-				stats = {
-					total_tasks = 0,
-					completed_tasks = 0,
-					progress = 0,
-				},
-				link = section:build_link(doc),
-			}
-
-			-- Parse attributes
-			if section.raw_text then
-				project.attributes = attributes.parse_project_attributes(section.raw_text)
-			end
-
-			-- Calculate stats
-			project.stats.total_tasks = #project.tasks
-			for _, task in ipairs(project.tasks) do
-				if task.completed then
-					project.stats.completed_tasks = project.stats.completed_tasks + 1
-				end
-			end
-
-			if project.stats.total_tasks > 0 then
-				project.stats.progress = project.stats.completed_tasks / project.stats.total_tasks
-			end
-
-			projects[project.name] = project
+		local project = M.to_project(section, doc)
+		if not project then
+			return nil
 		end
+
+		projects[project.name] = project
 
 		-- Process children
 		for _, child in ipairs(section.children) do
@@ -66,30 +90,6 @@ end
 -- Get all projects
 function M.get_all_projects()
 	return M.get_projects_from_document(Workspace.projects())
-end
-
--- Check if project is completed
-function M.is_project_completed(project_name)
-	-- Check active projects
-	local projects = M.get_all_projects()
-	local project = projects[project_name]
-
-	if project then
-		return project.attributes and project.attributes.done ~= nil
-	end
-
-	-- Check archive
-	local archive_doc = Workspace.projects_archive()
-
-	if archive_doc then
-		local archived = M.get_projects_from_document(archive_doc)
-		local archived_project = archived[project_name]
-		if archived_project then
-			return true
-		end
-	end
-
-	return false
 end
 
 -- Get project by link
@@ -122,54 +122,6 @@ function M.get_project_by_link(link_str)
 	end
 
 	return nil
-end
-
--- Get project statistics
-function M.get_all_stats()
-	local projects = M.get_all_projects()
-	local stats = {
-		project_count = vim.tbl_count(projects),
-		active_projects = 0,
-		completed_projects = 0,
-		total_tasks = 0,
-		completed_tasks = 0,
-		projects_by_priority = {},
-		projects_by_importance = {},
-	}
-
-	for _, project in pairs(projects) do
-		stats.total_tasks = stats.total_tasks + project.stats.total_tasks
-		stats.completed_tasks = stats.completed_tasks + project.stats.completed_tasks
-
-		if project.attributes then
-			if project.attributes.done then
-				stats.completed_projects = stats.completed_projects + 1
-			else
-				stats.active_projects = stats.active_projects + 1
-			end
-
-			-- Count by priority
-			local priority = project.attributes.p or "none"
-			stats.projects_by_priority[priority] = (stats.projects_by_priority[priority] or 0) + 1
-
-			-- Count by importance
-			local importance = project.attributes.i or "none"
-			stats.projects_by_importance[importance] = (stats.projects_by_importance[importance] or 0) + 1
-		else
-			stats.active_projects = stats.active_projects + 1
-		end
-	end
-
-	-- Add archived count
-	local archive_doc = Workspace.projects_archive()
-	if archive_doc then
-		local archived = M.get_projects_from_document(archive_doc)
-		stats.archived_projects = vim.tbl_count(archived)
-	else
-		stats.archived_projects = 0
-	end
-
-	return stats
 end
 
 return M

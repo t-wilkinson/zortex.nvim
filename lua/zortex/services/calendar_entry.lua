@@ -6,6 +6,7 @@ local Config = require("zortex.config")
 local parser = require("zortex.utils.parser")
 local datetime = require("zortex.utils.datetime")
 local attributes = require("zortex.utils.attributes")
+local constants = require("zortex.constants")
 
 -- =============================================================================
 -- Calendar Entry Creation
@@ -18,7 +19,7 @@ function M:new(data)
 		date_context = data.date_context or "", -- The date this entry belongs to
 		type = data.type or "note", -- note, event, task
 		attributes = data.attributes or {},
-		task_status = data.task_status,
+		task = data.task,
 		-- Computed fields
 		time = nil, -- Extracted from attributes.at
 		duration = nil, -- From attributes.dur or est
@@ -40,28 +41,25 @@ function M.from_text(entry_text, current_date_str)
 	local working_text = entry_text
 
 	-- Check for task checkbox at the beginning
-	local checkbox_pattern = "^%s*(%[.%])%s+(.*)$"
-	local checkbox, remaining = working_text:match(checkbox_pattern)
-
-	if checkbox then
-		-- It's a task - extract the checkbox and parse status
-		data.type = "task"
-		working_text = remaining
-
-		-- Create a dummy line with dash prefix for the parser
-		local dummy_line = "- " .. entry_text
-		data.task_status = parser.parse_task_status(dummy_line)
-	end
-
-	-- Parse attributes
-	local attrs, remaining_text = attributes.parse_calendar_attributes(working_text, {
+	local task = parser.parse_task(working_text, {
 		default_date_str = current_date_str,
 	})
-	data.attributes = attrs or {}
-	data.display_text = remaining_text
 
-	-- Determine type based on attributes if not already a task
-	if data.type ~= "task" then
+	if task then
+		-- It's a task - extract the checkbox and parse status
+		data.type = "task"
+		data.task = task
+		data.attributes = task.attributes
+		data.display_text = task.text
+	else
+		-- Parse attributes
+		local attrs, remaining_text = attributes.parse_calendar_attributes(working_text, {
+			default_date_str = current_date_str,
+		})
+		data.attributes = attrs or {}
+		data.display_text = remaining_text
+
+		-- Determine type based on attributes
 		if attrs.from or attrs.to or attrs.at then
 			data.type = "event"
 		end
@@ -215,7 +213,7 @@ function M:get_sort_priority()
 	if self.type == "event" then
 		priority = priority + 500
 	elseif self.type == "task" then
-		if self.task_status and self.task_status.key ~= "[x]" then
+		if self.task.completed then
 			priority = priority + 300
 		else
 			priority = priority + 100
@@ -248,8 +246,9 @@ function M:format_pretty()
 	local parts = {}
 
 	-- Start with task checkbox if it's a task
-	if self.type == "task" and self.task_status then
-		table.insert(parts, self.task_status.key)
+	if self.type == "task" then
+		local status = constants.TASK_SYMBOL[self.task.mark]
+		table.insert(parts, status and status.symbol or "")
 	end
 
 	-- Add the display text
@@ -370,8 +369,8 @@ function M:format_simple()
 	local parts = {}
 
 	-- Start with task checkbox if it's a task
-	if self.type == "task" and self.task_status then
-		table.insert(parts, self.task_status.key)
+	if self.type == "task" and self.task.completed then
+		table.insert(parts, self.task.mark)
 	end
 
 	-- Add the display text

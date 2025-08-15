@@ -98,11 +98,11 @@ function Document:check_external_changes()
 	end
 
 	if stat.mtime.sec > self.file_mtime then
-		Logger.info("workspace", "External file change detected", {
-			name = self.name,
-			old_mtime = self.file_mtime,
-			new_mtime = stat.mtime.sec,
-		})
+		-- Logger.info("workspace", "External file change detected", {
+		-- 	name = self.name,
+		-- 	old_mtime = self.file_mtime,
+		-- 	new_mtime = stat.mtime.sec,
+		-- })
 
 		-- Reload the file
 		self:reload()
@@ -445,18 +445,6 @@ function Document:parse(force)
 			if section then
 				builder:add_section(section)
 			end
-
-			-- Parse tasks
-			local is_task = parser.is_task_line(line)
-			if is_task then
-				local current = builder.stack[#builder.stack] or builder.root
-				table.insert(current.tasks, {
-					line = line_num,
-					text = parser.get_task_text(line),
-					completed = select(2, parser.is_task_line(line)),
-					attributes = parser.parse_attributes(line, require("zortex.utils.attributes").schemas.task),
-				})
-			end
 		end
 	end
 
@@ -519,15 +507,6 @@ function Document:get_section_at_line(lnum)
 	end
 
 	return find_section(self.sections)
-end
-
--- Get all tasks
-function Document:get_all_tasks()
-	if not self.sections then
-		self:parse()
-	end
-
-	return self.sections:get_all_tasks()
 end
 
 -- =============================================================================
@@ -964,12 +943,12 @@ function Workspace:_setup_autosave()
 	local group = vim.api.nvim_create_augroup("ZortexWorkspaceAutoSave", { clear = true })
 
 	-- Save on Vim leave
-	vim.api.nvim_create_autocmd("VimLeavePre", {
-		group = group,
-		callback = function()
-			self:save_all()
-		end,
-	})
+	-- vim.api.nvim_create_autocmd("VimLeavePre", {
+	-- 	group = group,
+	-- 	callback = function()
+	-- 		self:save_all()
+	-- 	end,
+	-- })
 
 	-- Periodic save (every 5 minutes)
 	-- local timer = vim.loop.new_timer()
@@ -1021,24 +1000,24 @@ end
 -- Private: Set up external file monitoring
 function Workspace:_setup_external_monitoring()
 	-- Check for external changes periodically
-	self.external_check_timer = vim.loop.new_timer()
-	self.external_check_timer:start(
-		5000, -- Initial delay 5 seconds
-		30000, -- Check every 30 seconds
-		vim.schedule_wrap(function()
-			self:check_all_external_changes()
-		end)
-	)
+	-- self.external_check_timer = vim.loop.new_timer()
+	-- self.external_check_timer:start(
+	-- 	5000, -- Initial delay 5 seconds
+	-- 	30000, -- Check every 30 seconds
+	-- 	vim.schedule_wrap(function()
+	-- 		self:check_all_external_changes()
+	-- 	end)
+	-- )
 
-	-- Also check on various vim events
-	local group = vim.api.nvim_create_augroup("ZortexWorkspaceExternal", { clear = true })
+	-- -- Also check on various vim events
+	-- local group = vim.api.nvim_create_augroup("ZortexWorkspaceExternal", { clear = true })
 
-	vim.api.nvim_create_autocmd({ "FocusGained", "BufEnter" }, {
-		group = group,
-		callback = function()
-			self:check_all_external_changes()
-		end,
-	})
+	-- vim.api.nvim_create_autocmd({ "FocusGained", "BufEnter" }, {
+	-- 	group = group,
+	-- 	callback = function()
+	-- 		self:check_all_external_changes()
+	-- 	end,
+	-- })
 end
 
 -- =============================================================================
@@ -1070,9 +1049,6 @@ M.get_context = function()
 	if doc == nil then
 		return nil
 	end
-
-	-- Ensure document is parsed and up-to-date
-	doc:parse()
 
 	local line = doc:get_line(lnum)
 

@@ -136,30 +136,6 @@ function M.setup(prefix)
 		vim.notify(string.format("Updated %d projects", updated), vim.log.levels.INFO)
 	end, { desc = "Update all project progress in current buffer" })
 
-	cmd("ProjectStats", function()
-		local project_service = require("zortex.services.projects")
-		local stats = project_service.get_all_stats()
-
-		local lines = {
-			"📊 Project Statistics",
-			"",
-			string.format("Total Projects: %d", stats.project_count),
-			string.format("Active: %d", stats.active_projects),
-			string.format("Completed: %d", stats.completed_projects),
-			string.format("Archived: %d", stats.archived_projects),
-			"",
-			string.format("Total Tasks: %d", stats.total_tasks),
-			string.format("Completed Tasks: %d", stats.completed_tasks),
-		}
-
-		if stats.total_tasks > 0 then
-			local percent = math.floor((stats.completed_tasks / stats.total_tasks) * 100)
-			table.insert(lines, string.format("Completion Rate: %d%%", percent))
-		end
-
-		vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO, { title = "Project Stats" })
-	end, { desc = "Show project statistics" })
-
 	-- ===========================================================================
 	-- XP & Skill tree
 	-- ===========================================================================

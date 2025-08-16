@@ -4,7 +4,7 @@ local M = {}
 local Events = require("zortex.core.event_bus")
 local AreaService = require("zortex.services.area_service")
 local parser = require("zortex.utils.parser")
-local Workspace = require("zortex.core.workspace")
+local workspace = require("zortex.core.workspace")
 
 -- Update OKR progress based on project completions
 function M.update_progress()
@@ -59,45 +59,23 @@ function M.get_current_objectives()
 	return current
 end
 
--- Get objective statistics
-function M.get_stats()
+-- Get key result that links to project_link
+function M.get_key_result(project_link)
 	local objectives = M.get_objectives()
-	local stats = {
-		total = #objectives,
-		completed = 0,
-		by_span = {},
-		by_year = {},
-	}
-
-	for _, obj in ipairs(objectives) do
-		-- Count completed
-		if obj.completed then
-			stats.completed = stats.completed + 1
-		end
-
-		-- By span
-		stats.by_span[obj.span] = stats.by_span[obj.span] or { total = 0, completed = 0 }
-		stats.by_span[obj.span].total = stats.by_span[obj.span].total + 1
-		if obj.completed then
-			stats.by_span[obj.span].completed = stats.by_span[obj.span].completed + 1
-		end
-
-		-- By year
-		stats.by_year[obj.year] = stats.by_year[obj.year] or { total = 0, completed = 0 }
-		stats.by_year[obj.year].total = stats.by_year[obj.year].total + 1
-		if obj.completed then
-			stats.by_year[obj.year].completed = stats.by_year[obj.year].completed + 1
+	for _, objective in ipairs(objectives) do
+		for _, key_result in objective.key_results do
+			for _, linked_project in key_result.linked_projects do
+				if project_link == linked_project.full_match_text then
+					return key_result
+				end
+			end
 		end
 	end
-
-	stats.completion_rate = stats.total > 0 and (stats.completed / stats.total) or 0
-
-	return stats
 end
 
--- Private helper functions
+-- Get objectives
 function M.get_objectives()
-	local doc = Workspace.okr()
+	local doc = workspace.okr()
 	local objectives = {}
 	local current_objective = nil
 
@@ -198,13 +176,8 @@ function M._extract_project_links(text)
 
 	for _, link_info in ipairs(all_links) do
 		if link_info.type == "link" then
-			local parsed = parser.parse_link_definition(link_info.definition)
-			if parsed and #parsed.components > 0 then
-				-- Look for project links (not area links)
-				local first = parsed.components[1]
-				if first.type == "article" and first.text ~= "A" and first.text ~= "Areas" then
-					table.insert(projects, first.text)
-				end
+			if string.sub(link_info.full_match_text, 1, 2) == "[P" then
+				table.insert(projects, link_info)
 			end
 		end
 	end

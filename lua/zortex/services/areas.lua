@@ -8,6 +8,21 @@ local parser = require("zortex.utils.parser")
 local xp_store = require("zortex.stores.xp")
 local xp_core = require("zortex.services.xp.calculator")
 
+function M.get_area_links(attrs)
+	local area_links = {}
+	if attrs and attrs.area then
+		for _, area_obj in ipairs(attrs.area) do
+			table.insert(area_links, area_obj.path)
+		end
+	end
+
+	if #area_links == 0 then
+		return nil
+	else
+		return area_links
+	end
+end
+
 -- =============================================================================
 -- Area Tree Management
 -- =============================================================================
@@ -118,27 +133,6 @@ end
 -- =============================================================================
 -- Area Link Parsing
 -- =============================================================================
-
--- Extract area links from text
-function M.extract_area_links(text)
-	if not text then
-		return {}
-	end
-
-	local links = {}
-	local all_links = parser.extract_all_links(text)
-
-	for _, link_info in ipairs(all_links) do
-		if link_info.type == "link" then
-			local parsed = parser.parse_link_definition(link_info.definition)
-			if parsed and M._is_area_link(parsed) then
-				table.insert(links, link_info.definition)
-			end
-		end
-	end
-
-	return links
-end
 
 -- Parse area link to path
 function M.parse_area_path(area_link)

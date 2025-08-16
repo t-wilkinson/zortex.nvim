@@ -24,7 +24,7 @@ function M.find_project(section)
 end
 
 function M.get_project(section, doc)
-	if section.type ~= "heading" then
+	if not section or section.type ~= "heading" then
 		return nil
 	end
 

@@ -25,7 +25,6 @@ local function setup(opts)
 
 	-- Notifications
 	require("zortex.notifications").setup(Config.notifications)
-	require("zortex.services.xp.notifications").init()
 
 	-- Setup UI
 	require("zortex.ui.commands").setup(Config.commands.prefix)
@@ -33,14 +32,6 @@ local function setup(opts)
 	require("zortex.ui.calendar.view").setup(Config.ui.calendar)
 	require("zortex.ui.telescope.search").setup(Config.ui.search)
 	require("zortex.ui.telescope.core").setup()
-
-	-- Setup performance monitoring
-	local perf_monitor = require("zortex.core.performance_monitor")
-	perf_monitor.setup_commands()
-
-	if Config.debug then
-		-- perf_monitor.start()
-	end
 end
 
 local api = require("zortex.api")

@@ -1,49 +1,117 @@
--- services/xp/init.lua - XP system
+-- services/xp/init.lua - Simplified XP orchestration
 
 local M = {}
 
-function M.calculate_xp_distribution(xp_context)
-	local distribution = {
-		areas = {},
-	}
+local Events = require("zortex.core.event_bus")
+local Logger = require("zortex.core.logger")
+local xp_calculator = require("zortex.services.xp.calculator")
+local xp_store = require("zortex.stores.xp")
+local Config = require("zortex.config")
 
-	-- if only task (no project), find the task in the store
-	-- Find how much xp it has contributed to area and season.
-	-- Calculate its new delta and modify
-	if not xp_context.project then
-		if xp_context.task_areas then
-			for area_link in xp_context.task_areas do
-				distribution.areas[area_link] = 0
-			end
-		end
+function M.update_xp(context)
+	local end_timer = Logger.start_timer("xp.award")
+	local xp_amount = xp_calculator.calculate_xp(context)
 
-	-- if a project, find how much xp it currently contributes to area and season
-	-- calculate its delta
+	local distributions = xp_calculator.calculate_distributions(xp_amount, context.areas)
+
+	local transaction = xp_calculator.build_xp_transaction(context.type, context.id, xp_amount, distributions)
+
+	local xp_change = xp_store.record_xp_transaction(transaction)
+
+	if xp_change > 0 then
+		Events.emit("xp:awarded", {
+			source = context.type,
+			source_id = context.id,
+			total = xp_change,
+			transaction = transaction,
+		})
 	else
+		Events.emit("xp:removed", {
+			source = context.type,
+			source_id = context.id,
+			total = xp_change,
+			transaction = transaction,
+		})
 	end
+
+	end_timer()
+end
+
+-- Initialize with event handlers
+function M.init()
+	xp_calculator.setup(Config.xp)
+
+	-- Task events
+	Events.on("task:completed", function(data)
+		M.update_xp(M.build_xp_context(data))
+	end)
+
+	Events.on("task:uncompleted", function(data)
+		M.update_xp(M.build_xp_context(data))
+	end)
 end
 
 -- Build XP context
+-- This is a key function that provides the bulk of the necessary context for efficiently calculating xp
 function M.build_xp_context(data)
 	local projects_service = require("zortex.services.projects")
 	local okr_service = require("zortex.services.okr")
+	local areas_service = require("zortex.services.areas")
+
 	local section = projects_service.find_project(data.doc_context.section)
 	local project = projects_service.get_project(section, data.doc_context.doc)
 
+	local id, type
+	-- Extract area paths from all sources
+	local key_results, objectives = {}, {}
+
+	if project then
+		type = "project"
+		id = project.link
+		key_results, objectives = okr_service.get_key_results(project.link)
+	elseif data.task then
+		type = "task"
+		id = data.task.id
+	else
+		return nil
+	end
+
+	-- Linked key_result just increases amount of xp given to area
+	local area_paths = areas_service.extract_area_paths(data.task, project, table.unpack(objectives))
+	local areas = {}
+	for _, area_path in ipairs(area_paths) do
+		if project then
+			for _, key_result in ipairs(key_results) do
+				if key_result.linked_projects[project.link] then
+					areas[area_path] = {
+						type = "key_result",
+						key_result = key_result,
+					}
+				end
+			end
+		end
+		if not areas[area_path] then
+			areas[area_path] = {
+				type = "basic",
+			}
+		end
+	end
+
 	return {
+		id = id,
+		type = type,
+		areas = areas,
+
 		doc_context = data.doc_context,
 		task = data.task,
-		task_areas = M.get_area_links(data.task.attributes),
 
 		-- Project a task falls under
 		project = project,
-		project_areas = project and M.get_area_links(project.attributes),
 
 		-- OKR Key result that links to a project
-		key_result = project and okr_service.get_key_result(project.link),
+		key_results = key_results,
+		objectives = objectives,
 	}
 end
-
-function M.setup() end
 
 return M

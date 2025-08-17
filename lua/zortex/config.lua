@@ -239,9 +239,8 @@ local defaults = {
 		distribution_rules = {
 			-- Task XP distribution
 			task = {
-				project = 1.0, -- 100% to project
-				season = 1.0, -- 100% to season
-				area = 0.1, -- 10% to each linked area
+				season = 1.0, -- to season
+				area = 0.1, -- to each linked area
 				parent_bubble = 0.75, -- 75% bubbles to parent areas
 			},
 
@@ -255,6 +254,11 @@ local defaults = {
 			daily_review = {
 				season = 1.0, -- 100% to season
 				bonus_multiplier = 1.5, -- 50% bonus for consistency
+			},
+
+			project = {
+				season = 1.0,
+				area = 0.2,
 			},
 		},
 		-- Area XP System (Long-term Mastery)

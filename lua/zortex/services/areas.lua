@@ -1,12 +1,8 @@
 -- services/area.lua - Area management service
 local M = {}
 
-local Events = require("zortex.core.event_bus")
 local Workspace = require("zortex.core.workspace")
-local Logger = require("zortex.core.logger")
-local parser = require("zortex.utils.parser")
 local xp_store = require("zortex.stores.xp")
-local xp_core = require("zortex.services.xp.calculator")
 
 function M.get_area_links(attrs)
 	local area_links = {}
@@ -50,215 +46,26 @@ function M.get_area_tree()
 end
 
 -- =============================================================================
--- XP Management
--- =============================================================================
-
--- Add XP to area with parent bubbling
-function M.add_area_xp(area_path, xp_amount)
-	if xp_amount <= 0 then
-		return 0
-	end
-
-	local area_data = xp_store.get_area_xp(area_path)
-	local old_level = area_data.level
-
-	-- Add XP
-	area_data.xp = area_data.xp + xp_amount
-	area_data.level = xp_core.calculate_area_level(area_data.xp)
-
-	-- Save
-	xp_store.set_area_xp(area_path, area_data.xp, area_data.level)
-
-	-- Level up notification
-	if area_data.level > old_level then
-		Events.emit("area:leveled_up", {
-			path = area_path,
-			old_level = old_level,
-			new_level = area_data.level,
-		})
-	end
-
-	-- Bubble to parents
-	local parent_path = M._get_parent_path(area_path)
-	if parent_path then
-		local bubble_amount = xp_core.calculate_parent_bubble(xp_amount, 1)
-		M.add_area_xp(parent_path, bubble_amount)
-	end
-
-	Logger.debug("area_service", "Added area XP", {
-		path = area_path,
-		amount = xp_amount,
-		new_total = area_data.xp,
-		new_level = area_data.level,
-	})
-
-	return xp_amount
-end
-
--- Remove XP from area (for task uncomplete)
-function M.remove_area_xp(area_path, xp_amount)
-	if xp_amount <= 0 then
-		return 0
-	end
-
-	local area_data = xp_store.get_area_xp(area_path)
-	local old_level = area_data.level
-
-	-- Remove XP (minimum 0)
-	area_data.xp = math.max(0, area_data.xp - xp_amount)
-	area_data.level = xp_core.calculate_area_level(area_data.xp)
-
-	-- Save
-	xp_store.set_area_xp(area_path, area_data.xp, area_data.level)
-
-	-- Level down notification (rare but possible)
-	if area_data.level < old_level then
-		Events.emit("area:leveled_down", {
-			path = area_path,
-			old_level = old_level,
-			new_level = area_data.level,
-		})
-	end
-
-	-- Remove from parents too
-	local parent_path = M._get_parent_path(area_path)
-	if parent_path then
-		local bubble_amount = xp_core.calculate_parent_bubble(xp_amount, 1)
-		M.remove_area_xp(parent_path, bubble_amount)
-	end
-
-	return xp_amount
-end
-
--- =============================================================================
 -- Area Link Parsing
 -- =============================================================================
 
--- Parse area link to path
-function M.parse_area_path(area_link)
-	if type(area_link) == "string" and not area_link:match("^%[") then
-		-- Already a path
-		return area_link:gsub("^A/", ""):gsub("^Areas/", "")
-	end
+-- Helper to extract area paths from various objects/attributes
+function M.extract_area_paths(...)
+	local paths = {}
 
-	local parsed = parser.parse_link_definition(area_link)
-	if not parsed or not M._is_area_link(parsed) then
-		return nil
-	end
-
-	-- Build path from components
-	local parts = {}
-	for i = 2, #parsed.components do -- Skip A/Areas prefix
-		local comp = parsed.components[i]
-		if comp.type == "heading" or comp.type == "label" or comp.type == "article" then
-			table.insert(parts, comp.text)
-		end
-	end
-
-	return table.concat(parts, "/")
-end
-
--- =============================================================================
--- Objective Completion
--- =============================================================================
-
--- Complete objective and award area XP
-function M.complete_objective(objective_id, objective_data)
-	if xp_store.is_objective_completed(objective_id) then
-		return 0
-	end
-
-	-- Calculate XP
-	local total_xp = xp_core.calculate_objective_xp(objective_data.time_horizon, objective_data.created_date)
-
-	-- Distribute to areas
-	local distribution = {
-		objective_id = objective_id,
-		total_xp = total_xp,
-		areas = {},
-	}
-
-	if objective_data.area_links and #objective_data.area_links > 0 then
-		local xp_per_area = math.floor(total_xp / #objective_data.area_links)
-
-		for _, area_link in ipairs(objective_data.area_links) do
-			local area_path = M.parse_area_path(area_link)
-			if area_path then
-				M.add_area_xp(area_path, xp_per_area)
-				table.insert(distribution.areas, {
-					path = area_path,
-					xp = xp_per_area,
-				})
+	for _, source in ipairs(...) do
+		if source and source.attributes and source.attributes.area then
+			for _, area_obj in ipairs(source.attributes.area) do
+				table.insert(paths, area_obj.path)
+			end
+		elseif source and source.area_links then
+			for _, link in ipairs(source.area_links) do
+				table.insert(paths, type(link) == "table" and link.path or link)
 			end
 		end
 	end
 
-	-- Mark completed
-	xp_store.mark_objective_completed(objective_id, total_xp)
-
-	-- Emit event
-	Events.emit("objective:completed", {
-		objective = objective_data,
-		distribution = distribution,
-	})
-
-	Logger.info("area_service", "Objective completed", {
-		id = objective_id,
-		xp = total_xp,
-		areas = #distribution.areas,
-	})
-
-	return total_xp
-end
-
--- =============================================================================
--- Statistics
--- =============================================================================
-
--- Get area statistics
-function M.get_area_stats(area_path)
-	if area_path then
-		-- Single area stats
-		local data = xp_store.get_area_xp(area_path)
-		local progress = xp_core.get_level_progress(data.xp, data.level, xp_core.calculate_area_level_xp)
-
-		return {
-			path = area_path,
-			xp = data.xp,
-			level = data.level,
-			progress = progress,
-		}
-	else
-		-- All areas
-		return xp_store.get_all_area_xp()
-	end
-end
-
--- Get top areas by XP
-function M.get_top_areas(limit)
-	limit = limit or 10
-	local all_areas = xp_store.get_all_area_xp()
-	local sorted = {}
-
-	for path, data in pairs(all_areas) do
-		table.insert(sorted, {
-			path = path,
-			xp = data.xp,
-			level = data.level,
-		})
-	end
-
-	table.sort(sorted, function(a, b)
-		return a.xp > b.xp
-	end)
-
-	-- Return top N
-	local result = {}
-	for i = 1, math.min(limit, #sorted) do
-		table.insert(result, sorted[i])
-	end
-
-	return result
+	return paths
 end
 
 -- =============================================================================

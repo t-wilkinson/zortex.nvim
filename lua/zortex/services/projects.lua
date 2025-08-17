@@ -34,10 +34,11 @@ function M.get_project(section, doc)
 		start_line = section.start_line,
 		end_line = section.end_line,
 		level = section.level,
-		total_tasks = 0,
+		-- total_tasks = 0,
 		completed_tasks = 0,
 		link = section:build_link(doc),
 		attributes = {},
+		tasks = {},
 	}
 
 	-- Parse attributes
@@ -48,15 +49,16 @@ function M.get_project(section, doc)
 	-- Calculate number of completed/total tasks
 	local lines = project.section:get_lines(doc.bufnr)
 	for _, line in ipairs(lines) do
-		local is_task, is_completed = parser.is_task_line(line)
-		if is_task then
-			project.total_tasks = project.total_tasks + 1
-		end
-
-		if is_completed then
-			project.completed_tasks = project.completed_tasks + 1
+		local task = parser.parse_task(line)
+		if task then
+			table.insert(project.tasksk, task)
+			if task.completed then
+				project.completed_tasks = project.completed_tasks + 1
+			end
 		end
 	end
+
+	-- project.total_tasks = #project.tasks
 
 	return project
 end

@@ -159,7 +159,7 @@ function M.parse_task(line, parser_context)
 	end
 	local indent, mark, text = line:match(constants.PATTERNS.TASK)
 
-	if not text then
+	if not mark or not text then
 		return nil
 	end
 	local attributes

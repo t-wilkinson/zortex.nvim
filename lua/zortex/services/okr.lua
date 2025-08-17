@@ -1,49 +1,8 @@
 -- services/objective.lua
 local M = {}
 
-local Events = require("zortex.core.event_bus")
-local AreaService = require("zortex.services.area_service")
 local parser = require("zortex.utils.parser")
 local workspace = require("zortex.core.workspace")
-
--- Update OKR progress based on project completions
-function M.update_progress()
-	local objectives = M.get_objectives()
-	local updates = {}
-
-	for _, objective in ipairs(objectives) do
-		local progress = M._calculate_objective_progress(objective)
-
-		-- Check if objective is complete
-		local was_complete = objective.completed
-		local is_complete = progress.completed_krs == progress.total_krs and progress.total_krs > 0
-
-		if is_complete and not was_complete then
-			-- Complete objective
-			AreaService.complete_objective(objective.id, {
-				time_horizon = objective.span,
-				created_date = objective.created_date,
-				area_links = objective.area_links,
-			})
-
-			Events.emit("objective:completed", {
-				objective = objective,
-				xp_awarded = M._calculate_objective_xp(objective),
-			})
-		end
-
-		table.insert(updates, {
-			line = objective.line_num,
-			progress = progress,
-			complete = is_complete,
-		})
-	end
-
-	-- Apply updates to buffer
-	M._apply_progress_updates(updates)
-
-	return #updates
-end
 
 -- Get current (incomplete) objectives
 function M.get_current_objectives()
@@ -60,17 +19,22 @@ function M.get_current_objectives()
 end
 
 -- Get key result that links to project_link
-function M.get_key_result(project_link)
-	local objectives = M.get_objectives()
-	for _, objective in ipairs(objectives) do
+function M.get_key_results(project_link)
+	local key_results = {}
+	local objectives = {} -- also return matching objective
+
+	local all_objectives = M.get_objectives()
+	for _, objective in ipairs(all_objectives) do
 		for _, key_result in objective.key_results do
 			for _, linked_project in key_result.linked_projects do
 				if project_link == linked_project.full_match_text then
-					return key_result
+					return key_result, objective
 				end
 			end
 		end
 	end
+
+	return key_results, objectives
 end
 
 -- Get objectives
@@ -171,57 +135,18 @@ function M._generate_objective_id(date_info)
 end
 
 function M._extract_project_links(text)
-	local projects = {}
+	local project_links = {}
 	local all_links = parser.extract_all_links(text)
 
 	for _, link_info in ipairs(all_links) do
 		if link_info.type == "link" then
 			if string.sub(link_info.full_match_text, 1, 2) == "[P" then
-				table.insert(projects, link_info)
+				project_links[link_info.full_match_text] = link_info
 			end
 		end
 	end
 
-	return projects
-end
-
-function M._calculate_objective_progress(objective)
-	local completed_krs = 0
-	local total_krs = #objective.key_results
-
-	for _, kr in ipairs(objective.key_results) do
-		-- Check if all linked projects are complete
-		local all_complete = true
-		-- for _, project_name in ipairs(kr.linked_projects) do
-		-- 	if not ProjectService.is_project_completed(project_name) then
-		-- 		all_complete = false
-		-- 		break
-		-- 	end
-		-- end
-
-		if all_complete and #kr.linked_projects > 0 then
-			completed_krs = completed_krs + 1
-		end
-	end
-
-	return {
-		completed_krs = completed_krs,
-		total_krs = total_krs,
-		percentage = total_krs > 0 and (completed_krs / total_krs * 100) or 0,
-	}
-end
-
-function M._calculate_objective_xp(objective)
-	local base_xp = require("zortex.xp.core").calculate_objective_xp(objective.span, objective.created_date)
-	return base_xp
-end
-
-function M._apply_progress_updates(updates)
-	-- This would update the OKR buffer with progress information
-	-- For now, we'll emit an event
-	Events.emit("objectives:progress_updated", {
-		updates = updates,
-	})
+	return project_links
 end
 
 return M

@@ -1,7 +1,7 @@
 -- services/area.lua - Area management service
 local M = {}
 
-local Workspace = require("zortex.core.workspace")
+local workspace = require("zortex.core.workspace")
 local xp_store = require("zortex.stores.xp")
 
 function M.get_area_links(attrs)
@@ -25,7 +25,7 @@ end
 
 -- Parse areas file and build tree
 function M.get_area_tree()
-	local doc = Workspace.areas()
+	local doc = workspace.areas()
 
 	-- Build area tree from document sections
 	local root = {
@@ -104,23 +104,14 @@ function M._apply_xp_to_tree(node)
 	end
 end
 
-function M._is_area_link(parsed_link)
-	if #parsed_link.components == 0 then
-		return false
-	end
-
-	local first = parsed_link.components[1]
-	return first.type == "article" and (first.text == "A" or first.text == "Areas")
-end
-
-function M._get_parent_path(area_path)
-	local parts = vim.split(area_path, "/")
-	if #parts <= 1 then
-		return nil
-	end
-
-	table.remove(parts)
-	return table.concat(parts, "/")
-end
+-- function M._get_parent_path(area_path)
+-- 	local parts = vim.split(area_path, "/")
+-- 	if #parts <= 1 then
+-- 		return nil
+-- 	end
+--
+-- 	table.remove(parts)
+-- 	return table.concat(parts, "/")
+-- end
 
 return M

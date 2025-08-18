@@ -215,11 +215,6 @@ local function handle_xp_events(data)
 	M.mark_dirty("xp")
 end
 
--- Handle area events
-local function handle_area_events(data)
-	M.mark_dirty("areas")
-end
-
 -- Handle calendar events
 local function handle_calendar_events(data)
 	M.mark_dirty("calendar")
@@ -244,15 +239,9 @@ function M.setup(opts)
 			priority = 20,
 			name = "persistence_xp_awarded",
 		})
-		Events.on("xp:distributed", handle_xp_events, {
+		Events.on("xp:removed", handle_xp_events, {
 			priority = 20,
-			name = "persistence_xp_distributed",
-		})
-
-		-- Area events
-		Events.on("area:xp_added", handle_area_events, {
-			priority = 20,
-			name = "persistence_area_xp",
+			name = "persistence_xp_removed",
 		})
 
 		-- Calendar events

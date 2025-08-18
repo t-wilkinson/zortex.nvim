@@ -22,14 +22,14 @@ function M.update_xp(context)
 		Events.emit("xp:awarded", {
 			source = context.type,
 			source_id = context.id,
-			total = xp_change,
+			amount = xp_change,
 			transaction = transaction,
 		})
 	else
 		Events.emit("xp:removed", {
 			source = context.type,
 			source_id = context.id,
-			total = xp_change,
+			amount = xp_change,
 			transaction = transaction,
 		})
 	end

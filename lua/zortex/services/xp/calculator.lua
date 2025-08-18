@@ -144,7 +144,7 @@ function M.calculate_project_xp(project)
 	end
 
 	-- Step 1: Calculate total project XP pool
-	local total_xp = M._calculate_project_total_xp(project)
+	local total_xp = M.calculate_project_total_xp(project)
 
 	-- Step 2: Select appropriate curve
 	local curve = M._select_curve(total_tasks)
@@ -168,7 +168,7 @@ function M.calculate_project_xp(project)
 end
 
 -- Calculate total project XP pool
-function M._calculate_project_total_xp(project)
+function M.calculate_project_total_xp(project)
 	local project_size = project.attributes and project.attributes.size
 
 	if project_size and M.PROJECT_SIZES[project_size] then
@@ -191,7 +191,7 @@ function M._calculate_project_total_xp(project)
 		-- Calculate from sum of task sizes
 		local total = 0
 		for _, task in ipairs(project.tasks or {}) do
-			total = total + M._calculate_task_xp(task, { project = project })
+			total = total + M.calculate_task_xp(task)
 		end
 
 		return total

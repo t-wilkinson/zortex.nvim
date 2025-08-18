@@ -13,7 +13,7 @@ function store:init_empty()
 		-- Simple XP totals
 		season_xp = 0,
 		area_xp = {}, -- path -> total
-		project_xp = {}, -- name -> total
+		-- project_xp = {}, -- name -> total
 
 		-- Transaction log for reversibility
 		xp_transactions = {}, -- id -> {type, amount, distributions, timestamp}
@@ -31,15 +31,15 @@ function M.build_xp_transaction(entity_type, entity_id, xp_amount, distributions
 		id = entity_id,
 		timestamp = os.time(),
 		base_xp = xp_amount,
-		distributions = {},
+		season_xp = 0,
+		area_xp = {},
 	}
 
 	-- Group distributions by target
 	for _, dist in ipairs(distributions) do
 		if dist.target == "season" then
-			transaction.season_xp = (transaction.season_xp or 0) + dist.amount
+			transaction.season_xp = transaction.season_xp + dist.amount
 		elseif dist.target == "area" then
-			transaction.area_xp = transaction.area_xp or {}
 			transaction.area_xp[dist.path] = dist.amount
 		end
 	end
@@ -63,16 +63,17 @@ function M.record_xp_transaction(transaction)
 		xp_change = -M.remove_xp_transaction(transaction.id).base_xp
 	end
 
+	-- Add the new transaction if it adds xp, calculating the change in xp
+	if transaction.base_xp == 0 then
+		return xp_change
+	end
 	store.data.xp_transactions[transaction.id] = transaction
 	xp_change = xp_change + transaction.base_xp
 
-	-- Update total xp
-	for _, distribution in ipairs(transaction.distributions) do
-		if distribution.target == "season" then
-			store.data.season_xp = store.data.season_xp + distribution.amount
-		elseif distribution.target == "area" then
-			store.data.area_xp[distribution.path] = distribution.amount + (store.data.area_xp[distribution.path] or 0)
-		end
+	-- Update store total season xp and area xp
+	store.data.season_xp = store.data.season_xp + transaction.season_xp
+	for area_path, area_xp in pairs(transaction.area_xp) do
+		store.data.area_xp[area_path] = (store.data.area_xp[area_path] or 0) + area_xp
 	end
 
 	store:save()
@@ -84,16 +85,17 @@ function M.remove_xp_transaction(id)
 	store:ensure_loaded()
 	local transaction = store.data.xp_transactions[id]
 
-	if transaction then
-		for _, distribution in ipairs(transaction.distributions) do
-			if distribution.target == "season" then
-				local amount = distribution.amount - store.data.season_xp
-				store.data.season_xp = math.max(amount, 0)
-			elseif distribution.target == "area" then
-				local amount = distribution.amount - (store.data.area_xp[distribution.path] or 0)
-				store.data.area_xp[distribution.path] = math.max(amount, 0)
-			end
-		end
+	if not transaction then
+		store:save()
+		return nil
+	end
+
+	local new_season_xp = store.data.season_xp - transaction.season_xp
+	store.data.season_xp = math.max(new_season_xp, 0)
+
+	for area_path, area_xp in pairs(transaction.area_xp) do
+		local new_area_xp = (store.data.area_xp[area_path] or 0) - area_xp
+		store.data.area_xp[area_path] = math.max(new_area_xp, 0)
 	end
 
 	store.data.xp_transactions[id] = nil
@@ -170,8 +172,12 @@ function M.end_season()
 end
 
 -- =============================================================================
--- Area Statistics
+-- Area Methods
 -- =============================================================================
+
+function M.get_area_xp(path)
+	return store.data.area_xp[path] or nil
+end
 
 -- -- Get area statistics
 -- function M.get_area_stats(area_path)
@@ -218,5 +224,19 @@ end
 --
 -- 	return result
 -- end
+
+-- =============================================================================
+-- Core methods
+-- =============================================================================
+
+-- Force operations
+function M.reload()
+	store.loaded = false
+	store:load()
+end
+
+function M.save()
+	store:save()
+end
 
 return M

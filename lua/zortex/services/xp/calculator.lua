@@ -69,6 +69,21 @@ end
 -- 	return math.max(0.5, 1.0 - (decay * days_decaying))
 -- end
 
+-- -- Calculate XP for completing an objective
+-- function M.calculate_objective_xp(time_horizon, created_date)
+-- 	local base_xp = cfg.area.objective_base_xp or 500
+-- 	local time_mult = M.get_time_multiplier(time_horizon)
+--
+-- 	-- Calculate decay if objective is old
+-- 	local decay_factor = 1.0
+-- 	if created_date then
+-- 		local days_old = math.floor((os.time() - created_date) / 86400)
+-- 		decay_factor = M.calculate_decay_factor(days_old)
+-- 	end
+--
+-- 	return math.floor(base_xp * time_mult * decay_factor)
+-- end
+
 -- =============================================================================
 -- XP Curves - Define phase distributions based on project size
 -- =============================================================================
@@ -153,7 +168,7 @@ function M.calculate_project_xp(project)
 	local phases = M._build_phase_map(curve, total_tasks)
 
 	-- Step 4: Calculate earned XP based on completion
-	local earned_xp = M.calculate_curve_xp(phases, project.completed_tasks, total_tasks, total_xp)
+	local earned_xp = M._calculate_curve_xp(phases, project.completed_tasks, total_tasks, total_xp)
 
 	return earned_xp,
 		{
@@ -247,7 +262,7 @@ function M._build_phase_map(curve_data, total_tasks)
 end
 
 -- Core curve XP calculation
-function M.calculate_curve_xp(phases, completed_tasks, total_tasks, total_xp)
+function M._calculate_curve_xp(phases, completed_tasks, total_tasks, total_xp)
 	if completed_tasks == 0 or total_tasks == 0 then
 		return 0
 	end

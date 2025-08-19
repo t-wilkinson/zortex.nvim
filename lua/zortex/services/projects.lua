@@ -51,7 +51,7 @@ function M.get_project(section, doc)
 	for _, line in ipairs(lines) do
 		local task = parser.parse_task(line)
 		if task then
-			table.insert(project.tasksk, task)
+			table.insert(project.tasks, task)
 			if task.completed then
 				project.completed_tasks = project.completed_tasks + 1
 			end

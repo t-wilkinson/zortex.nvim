@@ -28,7 +28,8 @@ function M.get_key_results(project_link)
 		for _, key_result in objective.key_results do
 			for _, linked_project in key_result.linked_projects do
 				if project_link == linked_project.full_match_text then
-					return key_result, objective
+					table.insert(key_results, key_result)
+					table.insert(objectives, objective)
 				end
 			end
 		end

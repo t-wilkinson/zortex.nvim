@@ -28,7 +28,9 @@ function M.setup(opts)
 	workspace.setup()
 
 	-- Initialize services
-	-- require("zortex.services.xp").init()
+	require("zortex.stores.xp").setup(opts.xp)
+	require("zortex.services.xp").init()
+	require("zortex.services.xp.notifications").init()
 	-- require("zortex.services.xp.calculator").setup(opts.xp)
 	-- require("zortex.services.xp.distributor").setup(opts.xp.distribution_rules)
 	-- require("zortex.services.xp.notifications").init()

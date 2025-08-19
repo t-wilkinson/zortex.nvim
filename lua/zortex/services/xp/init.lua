@@ -6,16 +6,18 @@ local Events = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
 local xp_calculator = require("zortex.services.xp.calculator")
 local xp_store = require("zortex.stores.xp")
-local Config = require("zortex.config")
 
 function M.update_xp(context)
 	local end_timer = Logger.start_timer("xp.award")
+
+	-- Calculate total xp that the context (task or project) is worth
 	local xp_amount = xp_calculator.calculate_xp(context)
 
+	-- Calculate how much xp goes to where
 	local distributions = xp_calculator.calculate_distributions(xp_amount, context.areas)
 
-	local transaction = xp_calculator.build_xp_transaction(context.type, context.id, xp_amount, distributions)
-
+	-- Create transaction and update store
+	local transaction = xp_store.build_xp_transaction(context.type, context.id, xp_amount, distributions)
 	local xp_change = xp_store.record_xp_transaction(transaction)
 
 	if xp_change > 0 then
@@ -25,7 +27,7 @@ function M.update_xp(context)
 			amount = xp_change,
 			transaction = transaction,
 		})
-	else
+	elseif xp_change < 0 then
 		Events.emit("xp:removed", {
 			source = context.type,
 			source_id = context.id,
@@ -39,8 +41,6 @@ end
 
 -- Initialize with event handlers
 function M.init()
-	xp_calculator.setup(Config.xp)
-
 	-- Task events
 	Events.on("task:completed", function(data)
 		M.update_xp(M.build_xp_context(data))
@@ -77,7 +77,7 @@ function M.build_xp_context(data)
 	end
 
 	-- Linked key_result just increases amount of xp given to area
-	local area_paths = areas_service.extract_area_paths(data.task, project, table.unpack(objectives))
+	local area_paths = areas_service.extract_area_paths(data.task, project, unpack(objectives))
 	local areas = {}
 	for _, area_path in ipairs(area_paths) do
 		if project then

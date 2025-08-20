@@ -8,46 +8,16 @@ local cfg = {} -- Config.xp
 -- Size Multipliers
 -- =============================================================================
 
--- Task size definitions with XP multipliers
-M.TASK_SIZES = {
-	xs = { duration = 15, multiplier = 0.5, base_xp = 10 },
-	sm = { duration = 30, multiplier = 0.8, base_xp = 20 },
-	md = { duration = 60, multiplier = 1.0, base_xp = 30 },
-	lg = { duration = 120, multiplier = 1.5, base_xp = 50 },
-	xl = { duration = 240, multiplier = 2.0, base_xp = 80 },
-}
-
--- Project size definitions with global multipliers
-M.PROJECT_SIZES = {
-	xs = { multiplier = 0.5 },
-	sm = { multiplier = 0.8 },
-	md = { multiplier = 1.0 },
-	lg = { multiplier = 1.5 },
-	xl = { multiplier = 2.0 },
-	epic = { multiplier = 3.0 },
-	legendary = { multiplier = 5.0 },
-	mythic = { multiplier = 8.0 },
-	ultimate = { multiplier = 12.0 },
-}
-
 -- Get priority multiplier
 function M.get_priority_multiplier(priority)
-	local multipliers = {
-		["1"] = 1.5,
-		["2"] = 1.2,
-		["3"] = 1.0,
-	}
-	return multipliers[tostring(priority)] or 1.0
+	local multipliers = cfg.modifiers.priority_multipliers
+	return multipliers[priority] or multipliers.default
 end
 
 -- Get importance multiplier
 function M.get_importance_multiplier(importance)
-	local multipliers = {
-		["1"] = 1.5,
-		["2"] = 1.2,
-		["3"] = 1.0,
-	}
-	return multipliers[tostring(importance)] or 1.0
+	local multipliers = cfg.modifiers.importance_multipliers
+	return multipliers[importance] or multipliers.default
 end
 
 -- -- Get time horizon multiplier for objectives
@@ -129,8 +99,9 @@ end
 -- Calculate task XP (standalone or within project)
 function M.calculate_task_xp(task)
 	local task_size = task.attributes and task.attributes.size
-	local task_def = M.TASK_SIZES[task_size] or M.TASK_SIZES.md
-	local base_xp = task_def.base_xp
+	local modifier = cfg.modifiers.task_sizes[task_size]
+	local task_multiplier = modifier and modifier.multiplier or 1
+	local base_xp = cfg.modifiers.task_sizes.base * task_multiplier
 
 	-- Apply task modifiers
 	if task.attributes then
@@ -186,10 +157,10 @@ end
 function M.calculate_project_total_xp(project)
 	local project_size = project.attributes and project.attributes.size
 
-	if project_size and M.PROJECT_SIZES[project_size] then
+	local modifier = cfg.modifiers.project_sizes[project_size]
+	if project_size and modifier then
 		-- Use explicit project size for total XP
-		local size_def = M.PROJECT_SIZES[project_size]
-		local base_xp = (size_def.base_xp or size_def.multiplier * 100)
+		local base_xp = cfg.modifiers.project_sizes.base_xp * modifier.multiplier
 
 		-- Apply project modifiers
 		if project.attributes then
@@ -361,6 +332,10 @@ function M._distribute_on_curve(total_value, num_values)
 	results[num_values] = total_value - sum_of_results
 
 	return results
+end
+
+function M.setup(opts)
+	cfg = opts
 end
 
 return M

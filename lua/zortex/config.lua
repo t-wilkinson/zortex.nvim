@@ -112,6 +112,13 @@ local defaults = {
 			default_sound = "default",
 			allow_multiple = true,
 		},
+
+		alarm = {
+			default_sound = "default",
+			default_snooze_duration = 10, -- minutes
+			auto_remove_triggered = true,
+			presets = {},
+		},
 	},
 
 	ui = {
@@ -261,32 +268,34 @@ local defaults = {
 				area = 0.2,
 			},
 		},
+
 		-- Area XP System (Long-term Mastery)
 		area = {
-			objective_base_xp = 500,
-			standalone_transference = 0.5, -- 50% of area XP for standalone tasks
-
-			-- XP bubbling to parent areas
-			bubble_percentage = 0.75, -- 75% of XP bubbles up
-
-			-- Relevance decay (per day)
-			decay_rate = 0.001, -- 0.1% per day
-			decay_grace_days = 30, -- No decay for first 30 days
-
 			-- Exponential curve: XP = base * level^exponent
 			level_curve = {
 				base = 1000,
 				exponent = 2.5,
 			},
+
+			-- standalone_transference = 0.5, -- 50% of area XP for standalone tasks
+
+			-- -- XP bubbling to parent areas
+			-- bubble_percentage = 0.75, -- 75% of XP bubbles up
+
+			-- -- Relevance decay (per day)
+			-- decay_rate = 0.001, -- 0.1% per day
+			-- decay_grace_days = 30, -- No decay for first 30 days
+
 			-- Time horizon multipliers for objectives
-			time_multipliers = {
-				daily = 0.1, -- Very short term
-				weekly = 0.25,
-				monthly = 0.5,
-				quarterly = 1.0,
-				yearly = 3.0, -- Long-term goals worth more
-				["5year"] = 10.0,
-			},
+			-- time_multipliers = {
+			-- 	daily = 0.1, -- Very short term
+			-- 	weekly = 0.25,
+			-- 	monthly = 0.5,
+			-- 	quarterly = 1.0,
+			-- 	yearly = 3.0, -- Long-term goals worth more
+			-- 	["5year"] = 10.0,
+			-- },
+
 			-- span_multipliers = {
 			-- 	M = 1.0,
 			-- 	Q = 1.5,
@@ -296,80 +305,53 @@ local defaults = {
 			-- },
 		},
 
-		-- Project XP System (Seasonal Momentum)
-		project = {
+		modifiers = {
+
+			project_sizes = {
+				base_xp = 150,
+				xs = { multiplier = 0.5 }, -- a couple hours
+				sm = { multiplier = 0.8 }, -- one day
+				md = { multiplier = 1.0 }, -- multi-day effort
+				lg = { multiplier = 1.5 }, -- half a week
+				xl = { multiplier = 2.0 }, -- a solid week of work
+				epic = { multiplier = 3.0 }, -- a month
+				legendary = { multiplier = 5.0 }, -- a quarter
+				mythic = { multiplier = 8.0 }, -- multiple quarters
+				ultimate = { multiplier = 12.0 }, -- multiple years
+			},
+
+			task_sizes = {
+				base_xp = 20,
+				-- Think of base xp in terms of minutes/pomodoro cycles that it would take.
+				xs = { multiplier = 0.25 }, -- 0.5 pomodoros, 5-15 minutes
+				sm = { multiplier = 0.5 },
+				md = { multiplier = 1 }, -- 2 pomodoros, 1 hour
+				lg = { multiplier = 1.5 },
+				xl = { multiplier = 3 }, -- 6 pomodoros, 3 hours
+			},
+
+			priority_multipliers = {
+				[1] = 1.5,
+				[2] = 1.2,
+				[3] = 1.0,
+				default = 1,
+			},
+			importance_multipliers = {
+				[1] = 1.5,
+				[2] = 1.2,
+				[3] = 1.0,
+				default = 1,
+			},
+		},
+
+		-- Season Configuration
+		season = {
 			-- Polynomial curve for seasonal levels: XP = base * level^exponent
-			season_curve = {
+			level_curve = {
 				base = 100,
 				exponent = 1.2,
 			},
 
-			-- -- Project sizes
-			-- project_sizes = {
-			-- 	xs = { multiplier = 0.5 },
-			-- 	sm = { multiplier = 0.8 },
-			-- 	md = { multiplier = 1.0 },
-			-- 	lg = { multiplier = 1.5 },
-			-- 	xl = { multiplier = 2.0 },
-			-- 	epic = { multiplier = 3.0 },
-			-- 	legendary = { multiplier = 5.0 },
-			-- 	mythic = { multiplier = 8.0 },
-			-- 	ultimate = { multiplier = 12.0 },
-			-- },
-			-- default_project_size = "md",
-
-			-- 3-stage task reward structure
-			task_rewards = {
-				-- Initiation stage (first N tasks)
-				initiation = {
-					task_count = 3,
-					base_xp = 50,
-					curve = "logarithmic", -- Front-loaded rewards
-					multiplier = 2.0,
-				},
-
-				-- Execution stage (main body)
-				execution = {
-					base_xp = 20,
-					curve = "linear",
-				},
-
-				-- Completion bonus (final task)
-				completion = {
-					multiplier = 5.0, -- 5x the execution XP
-					bonus_xp = 200, -- Plus flat bonus
-				},
-
-				-- -- Task sizes
-				-- task_sizes = {
-				--   xs = { duration = 15, multiplier = 0.5 },
-				--   sm = { duration = 30, multiplier = 0.8 },
-				--   md = { duration = 60, multiplier = 1.0 },
-				--   lg = { duration = 120, multiplier = 1.5 },
-				--   xl = { duration = 240, multiplier = 2.0 },
-				-- },
-				-- default_task_size = "md",
-				-- -- Priority/Importance multipliers
-				-- priority_multipliers = {
-				--   p1 = 1.5,
-				--   p2 = 1.2,
-				--   p3 = 1.0,
-				--   default = 0.9,
-				-- },
-				-- importance_multipliers = {
-				--   i1 = 1.5,
-				--   i2 = 1.2,
-				--   i3 = 1.0,
-				--   default = 0.9,
-				-- },
-			},
-
-			-- Integration with Area system
-			area_transfer_rate = 0.10, -- 10% of project XP goes to area
-		},
-
-		-- Season Configuration
-		seasons = {
 			-- Default season length (days)
 			default_length = 90, -- Quarterly
 

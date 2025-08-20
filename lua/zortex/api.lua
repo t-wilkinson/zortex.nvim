@@ -7,6 +7,7 @@ M.archive_projects = function()
 	return require("zortex.features.archive").archive_completed_projects()
 end
 
+-- Tasks
 M.task = {
 	convert = function()
 		local tasks = require("zortex.services.tasks")

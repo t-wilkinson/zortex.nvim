@@ -103,28 +103,15 @@ function M.get_project_by_link(link_str)
 		return nil
 	end
 
-	-- Determine which file to check based on first component
-	if link_def.components[1].type == "article" then
-		local article_name = link_def.components[1].text
-		-- Map article names to files if needed
-		-- For now assume Projects article maps to projects file
-		if article_name ~= "Projects" then
-			return nil
-		end
-	end
-
 	-- Get document
 	local doc = Workspace.projects()
 
 	-- Find section using link
 	local section = link_resolver.find_section_by_link(doc, link_def)
+	local project_section = M.find_project(section)
+	local project = M.get_project(project_section, doc)
 
-	if section and section.type == "heading" then
-		local projects = M.get_projects_from_document(doc)
-		return projects[section.text]
-	end
-
-	return nil
+	return project
 end
 
 return M

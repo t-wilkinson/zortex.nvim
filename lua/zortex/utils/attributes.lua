@@ -62,9 +62,9 @@ local attribute_parsers = {
 		local links = {}
 
 		-- area links are comma-separated
-		values:gmatch("%s*([^,]+)%s*", function(v)
+		for v in values:gmatch("%s*([^,]+)%s*") do
 			if not v or v == "" then
-				return nil
+				goto continue
 			end
 
 			-- Split by "/" to get components
@@ -76,51 +76,52 @@ local attribute_parsers = {
 			-- If more than 2 components, return the raw value without modification
 			if #components > 2 then
 				local definition = "Areas/" .. v
-				return {
+				table.insert(links, {
 					raw = v,
 					definition = definition,
 					link = "[" .. definition .. "]",
 					-- components = components,
-				}
-			end
+				})
+			else
+				-- Process components to ensure proper prefixes
+				local processed = {}
 
-			-- Process components to ensure proper prefixes
-			local processed = {}
+				for i, component in ipairs(components) do
+					local processed_component = component
 
-			for i, component in ipairs(components) do
-				local processed_component = component
-
-				if i == 1 then
-					-- First component should be a heading
-					if not component:match("^#") then
-						processed_component = "#" .. component
+					if i == 1 then
+						-- First component should be a heading
+						if not component:match("^#") then
+							processed_component = "#" .. component
+						end
+					elseif i == 2 then
+						-- Second component should be a label
+						if not component:match("^:") then
+							processed_component = ":" .. component
+						end
 					end
-				elseif i == 2 then
-					-- Second component should be a label
-					if not component:match("^:") then
-						processed_component = ":" .. component
-					end
+
+					table.insert(processed, processed_component)
 				end
 
-				table.insert(processed, processed_component)
+				-- Build the link
+				local link_path = table.concat(processed, "/")
+				local definition = "Areas/" .. link_path
+				local link = "[" .. definition .. "]"
+
+				table.insert(links, {
+					raw = v, -- Original value
+					definition = definition,
+					link = link, -- Full link format
+					path = link_path,
+					-- components = components, -- Original components
+					-- processed = processed, -- Processed components with prefixes
+					-- heading = processed[1], -- The heading component (with #)
+					-- label = processed[2], -- The label component (with :) if exists
+				})
 			end
-
-			-- Build the link
-			local link_path = table.concat(processed, "/")
-			local definition = "Areas/" .. link_path
-			local link = "[" .. definition .. "]"
-
-			table.insert(links, {
-				raw = v, -- Original value
-				definition = definition,
-				link = link, -- Full link format
-				path = link_path,
-				-- components = components, -- Original components
-				-- processed = processed, -- Processed components with prefixes
-				-- heading = processed[1], -- The heading component (with #)
-				-- label = processed[2], -- The label component (with :) if exists
-			})
-		end)
+			::continue::
+		end
 
 		return links
 	end,

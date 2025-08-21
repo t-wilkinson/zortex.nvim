@@ -307,8 +307,8 @@ local defaults = {
 
 		modifiers = {
 
+			project_base_xp = 150,
 			project_sizes = {
-				base_xp = 150,
 				xs = { multiplier = 0.5 }, -- a couple hours
 				sm = { multiplier = 0.8 }, -- one day
 				md = { multiplier = 1.0 }, -- multi-day effort
@@ -320,8 +320,8 @@ local defaults = {
 				ultimate = { multiplier = 12.0 }, -- multiple years
 			},
 
+			task_base_xp = 20,
 			task_sizes = {
-				base_xp = 20,
 				-- Think of base xp in terms of minutes/pomodoro cycles that it would take.
 				xs = { multiplier = 0.25 }, -- 0.5 pomodoros, 5-15 minutes
 				sm = { multiplier = 0.5 },

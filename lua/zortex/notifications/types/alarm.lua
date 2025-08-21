@@ -577,7 +577,7 @@ function M.setup(cfg)
 	cfg = opts
 
 	-- Load saved alarms
-	load_alarms()
+	-- load_alarms()
 end
 
 -- Cleanup

@@ -63,7 +63,6 @@ function M.get_objectives()
 				title = okr_date.title,
 				line_num = section.start_line,
 				key_results = {},
-				area_links = {},
 				completed = false,
 				created_date = nil,
 			}
@@ -83,12 +82,6 @@ function M.get_objectives()
 			if attrs.done then
 				current_objective.completed = true
 				current_objective.completed_date = os.time(attrs.done)
-			end
-
-			if attrs.area then
-				for _, area_obj in ipairs(attrs.area) do
-					table.insert(current_objective.area_links, area_obj.path)
-				end
 			end
 		end
 

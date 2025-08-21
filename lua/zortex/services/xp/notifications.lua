@@ -1,6 +1,7 @@
 -- services/xp/notifications.lua - Enhanced XP notifications
 local M = {}
 
+local Logger = require("zortex.core.logger")
 local Events = require("zortex.core.event_bus")
 
 -- =============================================================================
@@ -495,6 +496,7 @@ function M.init()
 
 	-- XP awarded notification
 	Events.on("xp:awarded", function(data)
+		Logger.info("xp:awarded", "xp_transaction", data)
 		if data.amount >= 20 then -- Only notify for significant XP
 			vim.notify(
 				string.format("✨ XP Earned: +%d XP", data.amount),

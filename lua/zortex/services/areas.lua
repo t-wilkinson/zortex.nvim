@@ -51,16 +51,13 @@ end
 
 -- Helper to extract area paths from various objects/attributes
 function M.extract_area_paths(...)
+	local sources = { ... }
 	local paths = {}
 
-	for _, source in ipairs(...) do
+	for _, source in ipairs(sources) do
 		if source and source.attributes and source.attributes.area then
 			for _, area_obj in ipairs(source.attributes.area) do
 				table.insert(paths, area_obj.path)
-			end
-		elseif source and source.area_links then
-			for _, link in ipairs(source.area_links) do
-				table.insert(paths, type(link) == "table" and link.path or link)
 			end
 		end
 	end

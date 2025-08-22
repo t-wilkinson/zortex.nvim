@@ -1,4 +1,4 @@
--- notifications/init.lua - Public API for the notification system
+-- notifications/init.lua - Public API for the unified notification system
 local M = {}
 
 local manager = require("zortex.notifications.manager")
@@ -9,16 +9,25 @@ local calendar = require("zortex.notifications.types.calendar")
 local digest = require("zortex.notifications.types.digest")
 
 -- Initialize the notification system
-function M.setup(opts) -- Config.notifications
+function M.setup(opts)
+	-- Setup the core manager first
 	manager.setup(opts)
-	pomodoro.setup(opts.pomodoro)
-	timer.setup(opts.timers)
-	calendar.setup(opts)
-	digest.setup(opts.digest)
-	alarm.setup(opts.alarm)
 
+	-- Setup individual modules
+	pomodoro.setup(opts.types.pomodoro)
+	timer.setup(opts.types.timers)
+	calendar.setup(opts.types.calendar)
+	digest.setup(opts.types.digest)
+	alarm.setup(opts.types.alarm)
+
+	-- Setup commands and autocmds
 	M.setup_commands()
+	M.setup_autocmds()
 end
+
+-- ===========================================================================
+-- Core API
+-- ===========================================================================
 
 -- Send a notification immediately
 function M.notify(title, message, options)
@@ -26,8 +35,8 @@ function M.notify(title, message, options)
 end
 
 -- Schedule a notification
-function M.schedule(title, message, when, options)
-	return manager.schedule_notification(title, message, when, options)
+function M.schedule(notification)
+	return manager.schedule_notification(notification)
 end
 
 -- Cancel a scheduled notification
@@ -35,10 +44,14 @@ function M.cancel(id)
 	return manager.cancel_notification(id)
 end
 
--- List scheduled notifications
-function M.list_scheduled()
-	return manager.list_scheduled()
+-- List scheduled notifications with optional filter
+function M.list_scheduled(filter)
+	return manager.list_scheduled(filter)
 end
+
+-- ===========================================================================
+-- Module APIs
+-- ===========================================================================
 
 -- Pomodoro functions
 M.pomodoro = {
@@ -58,39 +71,94 @@ M.timer = {
 	remaining = timer.get_remaining,
 }
 
+-- Alarm functions (simplified interface)
+M.alarm = {
+	set = alarm.set,
+	list = alarm.list,
+	remove = alarm.remove,
+	snooze = alarm.snooze,
+	dismiss = alarm.dismiss,
+	edit = alarm.edit,
+	quick_alarm = alarm.quick_alarm,
+}
+
 -- Calendar functions
 M.calendar = {
 	sync = calendar.sync,
-	check = calendar.check_and_notify,
 	get_pending_for_date = calendar.get_pending_for_date,
 }
 
+-- Digest functions
 M.digest = digest
 
--- Test functions
+-- ===========================================================================
+-- Test Functions
+-- ===========================================================================
+
 M.test = {
 	system = function()
-		return M.notify("Test", "System notification test", { providers = { "system" } })
+		return M.notify("Test", "System notification test", { channels = { "system" } })
 	end,
 	ntfy = function()
-		return M.notify("Test", "ntfy notification test", { providers = { "ntfy" } })
+		return M.notify("Test", "ntfy notification test", { channels = { "ntfy" } })
 	end,
 	aws = function()
-		return M.notify("Test", "AWS notification test", { providers = { "aws" } })
+		return M.notify("Test", "AWS notification test", { channels = { "aws" } })
 	end,
 	ses = function()
-		return M.notify("Test", "AWS SES email test", { providers = { "ses" } })
+		return M.notify("Test", "AWS SES email test", { channels = { "ses" } })
+	end,
+	vim = function()
+		return M.notify("Test", "Vim notification test", { channels = { "vim" } })
 	end,
 	all = function()
-		return M.notify("Test", "Testing all providers")
+		return M.notify("Test", "Testing all configured channels")
 	end,
 }
 
--- Cleanup on exit
+-- ===========================================================================
+-- Cleanup
+-- ===========================================================================
+
 function M.cleanup()
 	manager.stop()
 	timer.cleanup()
+	alarm.cleanup()
 end
+
+-- ===========================================================================
+-- Autocmds
+-- ===========================================================================
+
+function M.setup_autocmds()
+	local group = vim.api.nvim_create_augroup("ZortexNotifications", { clear = true })
+
+	-- Sync calendar on save
+	vim.api.nvim_create_autocmd("BufWritePost", {
+		group = group,
+		pattern = "*calendar.zortex",
+		callback = function()
+			-- Defer slightly to ensure file is fully written
+			vim.defer_fn(function()
+				M.calendar.sync()
+			end, 100)
+		end,
+		desc = "Sync calendar notifications on save",
+	})
+
+	-- Clean up on exit
+	vim.api.nvim_create_autocmd("VimLeavePre", {
+		group = group,
+		callback = function()
+			M.cleanup()
+		end,
+		desc = "Clean up notifications on exit",
+	})
+end
+
+-- ===========================================================================
+-- Commands
+-- ===========================================================================
 
 function M.setup_commands()
 	local Config = require("zortex.config")
@@ -102,16 +170,8 @@ function M.setup_commands()
 	-- ===========================================================================
 	-- Core notifications
 	-- ===========================================================================
-	-- Calendar sync
-	cmd("NotificationSync", function()
-		M.calendar.sync()
-	end, { desc = "Sync calendar notifications" })
 
-	-- Test notifications
-	cmd("TestNotifications", function()
-		M.test.all()
-	end, { desc = "Test all notification providers" })
-
+	-- Send immediate notification
 	cmd("Notify", function(opts)
 		local args = vim.split(opts.args, " ", { plain = false, trimempty = true })
 		if #args < 2 then
@@ -123,9 +183,81 @@ function M.setup_commands()
 		M.notify(title, message)
 	end, { nargs = "*", desc = "Send a notification" })
 
+	-- List scheduled notifications
+	cmd("NotificationList", function(opts)
+		local filter = nil
+		if opts.args ~= "" then
+			filter = { type = opts.args }
+		end
+
+		local notifications = M.list_scheduled(filter)
+		if #notifications == 0 then
+			vim.notify("No scheduled notifications", vim.log.levels.INFO)
+			return
+		end
+
+		local lines = { "Scheduled Notifications:", "" }
+		for _, notif in ipairs(notifications) do
+			local time_str = os.date("%b %d %H:%M", notif.trigger_time)
+			local type_str = notif.type or "default"
+			table.insert(
+				lines,
+				string.format(
+					"[%s] %s - %s: %s",
+					type_str,
+					time_str,
+					notif.title or "Untitled",
+					notif.message and notif.message:sub(1, 50) or ""
+				)
+			)
+		end
+
+		-- Create buffer to display
+		local buf = vim.api.nvim_create_buf(false, true)
+		vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+		vim.api.nvim_buf_set_option(buf, "modifiable", false)
+		vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
+
+		vim.cmd("split")
+		vim.api.nvim_win_set_buf(0, buf)
+	end, {
+		nargs = "?",
+		desc = "List scheduled notifications",
+		complete = function()
+			return { "alarm", "calendar", "timer", "pomodoro", "digest" }
+		end,
+	})
+
+	-- Calendar sync
+	cmd("CalendarSync", function()
+		local count = M.calendar.sync()
+		vim.notify(string.format("Calendar sync complete: %d notifications scheduled", count), vim.log.levels.INFO)
+	end, { desc = "Sync calendar notifications" })
+
+	-- Test notifications
+	cmd("TestNotifications", function(opts)
+		if opts.args ~= "" then
+			local test_fn = M.test[opts.args]
+			if test_fn then
+				test_fn()
+			else
+				vim.notify("Unknown test: " .. opts.args, vim.log.levels.ERROR)
+			end
+		else
+			M.test.all()
+		end
+	end, {
+		nargs = "?",
+		desc = "Test notification providers",
+		complete = function()
+			return vim.tbl_keys(M.test)
+		end,
+	})
+
 	-- ===========================================================================
 	-- Daily Digests
 	-- ===========================================================================
+
 	cmd("DigestSend", function()
 		local success, msg = M.digest.send_now()
 		vim.notify(msg, success and vim.log.levels.INFO or vim.log.levels.ERROR)
@@ -138,6 +270,7 @@ function M.setup_commands()
 	-- ===========================================================================
 	-- Pomodoro
 	-- ===========================================================================
+
 	cmd("PomodoroStart", function()
 		M.pomodoro.start()
 	end, { desc = "Start pomodoro timer" })
@@ -161,6 +294,7 @@ function M.setup_commands()
 	-- ===========================================================================
 	-- Timers
 	-- ===========================================================================
+
 	cmd("TimerStart", function(opts)
 		local args = vim.split(opts.args, " ", { plain = false, trimempty = true })
 		if #args < 1 then
@@ -194,10 +328,11 @@ function M.setup_commands()
 	-- ===========================================================================
 	-- Alarms
 	-- ===========================================================================
+
 	cmd("Alarm", function(opts)
 		local args = opts.args
 
-		-- No arguments - show status/list
+		-- No arguments - show list
 		if args == "" then
 			local alarms = M.alarm.list()
 			if #alarms == 0 then
@@ -205,10 +340,19 @@ function M.setup_commands()
 			else
 				local lines = { "Active alarms:" }
 				for _, alarm in ipairs(alarms) do
-					local status = alarm.snoozed and " (snoozed)" or ""
+					local status = ""
+					if alarm.options and alarm.options.repeat_mode and alarm.options.repeat_mode ~= "none" then
+						status = " (" .. alarm.options.repeat_mode .. ")"
+					end
 					table.insert(
 						lines,
-						string.format("  %s: %s - %s%s", alarm.id:sub(1, 8), alarm.name, alarm.time_formatted, status)
+						string.format(
+							"  %s: %s - %s%s",
+							alarm.id:sub(-8),
+							alarm.name or "Unnamed",
+							alarm.time_formatted,
+							status
+						)
 					)
 				end
 				vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO)
@@ -219,10 +363,10 @@ function M.setup_commands()
 		-- Parse the command
 		local first_word = args:match("^(%S+)")
 
-		-- Check for action keywords
+		-- Handle subcommands
 		if first_word == "list" or first_word == "ls" then
 			vim.cmd(Config.commands.prefix .. "AlarmList")
-		elseif first_word == "remove" or first_word == "rm" or first_word == "delete" then
+		elseif first_word == "remove" or first_word == "rm" then
 			local id = args:match("^%S+%s+(.+)")
 			if id then
 				local success, err = M.alarm.remove(id)
@@ -252,14 +396,6 @@ function M.setup_commands()
 			else
 				vim.notify("Usage: alarm dismiss <id>", vim.log.levels.ERROR)
 			end
-		elseif first_word == "edit" then
-			local id = args:match("^%S+%s+(%S+)")
-			if id then
-				vim.notify("Edit alarm functionality - use specific commands", vim.log.levels.INFO)
-			else
-				vim.notify("Usage: alarm edit <id>", vim.log.levels.ERROR)
-			end
-
 		-- Quick presets
 		elseif
 			first_word == "morning"
@@ -277,30 +413,19 @@ function M.setup_commands()
 			-- Intelligent parsing for setting alarms
 			local time_pattern = "(%d+[mhd])" -- duration
 			local clock_pattern = "(%d%d?:%d%d%s*[ap]?m?)" -- time
-			local date_pattern = "(%d%d%d%d%-?%d%d%-?%d%d)" -- date
-			local tomorrow_pattern = "(tomorrow)"
 			local repeat_pattern = "(daily|weekdays|weekends|weekly|monthly|yearly)"
 
-			-- Extract components
 			local duration = args:match(time_pattern)
 			local clock_time = args:match(clock_pattern)
-			local date = args:match(date_pattern)
-			local tomorrow = args:match(tomorrow_pattern)
 			local repeat_mode = args:match(repeat_pattern)
 
-			-- Remove extracted patterns to get the name
+			-- Extract name (everything except patterns)
 			local name = args
 			if duration then
 				name = name:gsub(time_pattern, "")
 			end
 			if clock_time then
 				name = name:gsub(clock_pattern, "")
-			end
-			if date then
-				name = name:gsub(date_pattern, "")
-			end
-			if tomorrow then
-				name = name:gsub(tomorrow_pattern, "")
 			end
 			if repeat_mode then
 				name = name:gsub(repeat_pattern, "")
@@ -311,32 +436,7 @@ function M.setup_commands()
 			end
 
 			-- Determine time input
-			local time_input
-			if duration then
-				time_input = duration
-			elseif clock_time then
-				if tomorrow then
-					-- Get tomorrow's date
-					local tomorrow_date = require("zortex.utils.datetime").add_days(
-						require("zortex.utils.datetime").get_current_date(),
-						1
-					)
-					time_input = string.format(
-						"%04d-%02d-%02d %s",
-						tomorrow_date.year,
-						tomorrow_date.month,
-						tomorrow_date.day,
-						clock_time
-					)
-				else
-					time_input = clock_time
-				end
-			elseif date then
-				time_input = date
-			else
-				-- Try to parse the whole thing as a time
-				time_input = first_word
-			end
+			local time_input = duration or clock_time or first_word
 
 			-- Set the alarm
 			local options = {}
@@ -347,37 +447,9 @@ function M.setup_commands()
 			local id, err = M.alarm.set(time_input, name, options)
 			if not id then
 				vim.notify("Failed to set alarm: " .. (err or "invalid format"), vim.log.levels.ERROR)
-				vim.notify("Examples: '30m', '14:30', 'tomorrow 9am meeting', 'daily 7am wake up'", vim.log.levels.INFO)
 			end
 		end
 	end, { nargs = "*", desc = "Smart alarm command" })
-
-	-- Specific alarm commands
-	cmd("AlarmSet", function(opts)
-		local args = vim.split(opts.args, " ", { plain = false, trimempty = true })
-		if #args < 1 then
-			vim.notify("Usage: ZortexAlarmSet <time> [name] [options]", vim.log.levels.ERROR)
-			return
-		end
-
-		local time = args[1]
-		local name = args[2]
-		local options = {}
-
-		-- Parse additional options
-		for i = 3, #args do
-			if args[i]:match("^repeat=") then
-				options.repeat_mode = args[i]:match("^repeat=(.+)")
-			elseif args[i]:match("^snooze=") then
-				options.snooze_duration = tonumber(args[i]:match("^snooze=(%d+)"))
-			end
-		end
-
-		local id, err = M.alarm.set(time, name, options)
-		if not id then
-			vim.notify("Failed to set alarm: " .. err, vim.log.levels.ERROR)
-		end
-	end, { nargs = "+", desc = "Set an alarm" })
 
 	cmd("AlarmList", function()
 		local alarms = M.alarm.list()
@@ -386,22 +458,20 @@ function M.setup_commands()
 			return
 		end
 
-		-- Create a nice formatted display
+		-- Create formatted display
 		local lines = {
 			"╭─ Active Alarms ─────────────────────────────────────╮",
 		}
 		for _, alarm in ipairs(alarms) do
 			local repeat_str = alarm.repeat_mode ~= "none" and " (" .. alarm.repeat_mode .. ")" or ""
-			local status = alarm.snoozed and " [SNOOZED]" or ""
 			table.insert(
 				lines,
 				string.format(
-					"│ %-8s │ %-20s │ %s%s%s",
+					"│ %-8s │ %-20s │ %s%s",
 					alarm.id:sub(-8),
-					alarm.name:sub(1, 20),
+					(alarm.name or "Unnamed"):sub(1, 20),
 					alarm.time_formatted,
-					repeat_str,
-					status
+					repeat_str
 				)
 			)
 			if alarm.time_until > 0 then
@@ -437,83 +507,10 @@ function M.setup_commands()
 			border = "rounded",
 		})
 
-		-- Close on any key
+		-- Close on key press
 		vim.api.nvim_buf_set_keymap(buf, "n", "<Esc>", ":close<CR>", { silent = true })
 		vim.api.nvim_buf_set_keymap(buf, "n", "q", ":close<CR>", { silent = true })
 	end, { desc = "List all alarms" })
-
-	cmd("AlarmRemove", function(opts)
-		if opts.args == "" then
-			vim.notify("Usage: ZortexAlarmRemove <alarm_id or name>", vim.log.levels.ERROR)
-			return
-		end
-
-		local success, err = M.alarm.remove(opts.args)
-		if not success then
-			vim.notify(err, vim.log.levels.ERROR)
-		end
-	end, { nargs = "+", desc = "Remove an alarm" })
-
-	cmd("AlarmSnooze", function(opts)
-		local args = vim.split(opts.args, " ", { plain = false, trimempty = true })
-		if #args < 1 then
-			vim.notify("Usage: ZortexAlarmSnooze <alarm_id> [minutes]", vim.log.levels.ERROR)
-			return
-		end
-
-		local id = args[1]
-		local duration = tonumber(args[2])
-
-		local success, err = M.alarm.snooze(id, duration)
-		if not success then
-			vim.notify(err, vim.log.levels.ERROR)
-		end
-	end, { nargs = "+", desc = "Snooze an alarm" })
-
-	cmd("AlarmDismiss", function(opts)
-		if opts.args == "" then
-			vim.notify("Usage: ZortexAlarmDismiss <alarm_id>", vim.log.levels.ERROR)
-			return
-		end
-
-		local success, err = M.alarm.dismiss(opts.args)
-		if not success then
-			vim.notify(err, vim.log.levels.ERROR)
-		end
-	end, { nargs = "+", desc = "Dismiss an alarm" })
-
-	cmd("AlarmEdit", function(opts)
-		local args = vim.split(opts.args, " ", { plain = false, trimempty = true })
-		if #args < 2 then
-			vim.notify("Usage: ZortexAlarmEdit <alarm_id> <field>=<value> ...", vim.log.levels.ERROR)
-			vim.notify("Fields: name, time, repeat_mode, title, message", vim.log.levels.INFO)
-			return
-		end
-
-		local id = args[1]
-		local updates = {}
-
-		for i = 2, #args do
-			local field, value = args[i]:match("^(%w+)=(.+)")
-			if field and value then
-				updates[field] = value
-			end
-		end
-
-		local success, err = M.alarm.edit(id, updates)
-		if not success then
-			vim.notify(err, vim.log.levels.ERROR)
-		end
-	end, { nargs = "+", desc = "Edit an alarm" })
-
-	-- Quick preset commands
-	cmd("AlarmMorning", function()
-		M.alarm.quick_alarm("morning")
-	end, { desc = "Set morning alarm (7:00 AM daily)" })
-
-	cmd("AlarmWorkday", function()
-		M.alarm.quick_alarm("workday")
-	end, { desc = "Set workday alarm (9:00 AM weekdays)" })
 end
 
 return M

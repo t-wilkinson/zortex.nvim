@@ -7,7 +7,7 @@ local datetime = require("zortex.utils.datetime")
 local fs = require("zortex.utils.filesystem")
 local CalendarEntry = require("zortex.services.calendar_entry")
 local Events = require("zortex.core.event_bus")
-local parser = require("zortex.utils.parser")
+local attributes = require("zortex.utils.attributes")
 
 -- =============================================================================
 -- Store State
@@ -51,30 +51,8 @@ function M.load()
 				state.entries[current_date_str] = {}
 			end
 		elseif current_date_str then
-			-- Extract the entry text with optional dash prefix
-			local entry_text = line:match("^%s*%-?%s*(.+)$")
-
-			if entry_text then
-				-- Check for different time formats
-				local parsed_text = entry_text
-
-				-- Check for time range format: "10:00 - 12:00 rest of text"
-				local from_time, to_time, remaining = entry_text:match("^(%d%d?:%d%d)%s*%-%s*(%d%d?:%d%d)%s+(.*)$")
-				if from_time and to_time and remaining then
-					parsed_text = remaining
-					-- Add the time attributes
-					parsed_text = parser.update_attribute(parsed_text, "from", from_time)
-					parsed_text = parser.update_attribute(parsed_text, "to", to_time)
-				else
-					-- Check for single time prefix: "10:00 rest of text"
-					local at_time, remaining = entry_text:match("^(%d%d?:%d%d)%s+(.*)$")
-					if at_time and remaining then
-						parsed_text = remaining
-						parsed_text = parser.update_attribute(parsed_text, "at", at_time)
-					end
-				end
-
-				local entry = CalendarEntry.from_text(parsed_text, current_date_str)
+			local entry = CalendarEntry.from_text(line, current_date_str)
+			if entry then
 				table.insert(state.entries[current_date_str], entry)
 			end
 		end
@@ -112,7 +90,16 @@ function M.save()
 		end
 	end
 
-	return fs.write_lines(path, lines)
+	local success = fs.write_lines(path, lines)
+
+	if success then
+		local notifications = require("zortex.notifications")
+		vim.defer_fn(function()
+			notifications.calendar.sync()
+		end, 100) -- Small delay to ensure file is written
+	end
+
+	return success
 end
 
 function M.ensure_loaded()

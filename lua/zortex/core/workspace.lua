@@ -19,7 +19,7 @@ function Document:new(opts)
 	local doc = setmetatable({}, self)
 
 	-- Core properties
-	doc.name = opts.name -- "calendar", "projects", etc.
+	doc.name = opts.name -- "projects", etc.
 	doc.filepath = opts.filepath
 	doc.bufnr = nil -- Buffer number if loaded
 	doc.exists = false -- File exists on disk
@@ -580,10 +580,6 @@ end
 
 function Document:_get_default_content()
 	local defaults = {
-		calendar = {
-			"@@Calendar",
-			"",
-		},
 		projects = {
 			"@@Projects",
 			"@@P",
@@ -805,7 +801,6 @@ function Workspace:init()
 
 	-- Define core documents
 	local core_docs = {
-		calendar = constants.FILES.CALENDAR,
 		projects = constants.FILES.PROJECTS,
 		areas = constants.FILES.AREAS,
 		okr = constants.FILES.OKR,
@@ -1069,10 +1064,6 @@ M.get_doc_context = function()
 		col = col,
 		line = line,
 	}
-end
-
-M.calendar = function()
-	return Workspace.documents.calendar
 end
 
 M.projects = function()

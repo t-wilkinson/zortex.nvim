@@ -100,9 +100,9 @@ end
 -- Calculate task XP (standalone or within project)
 function M.calculate_task_xp(task)
 	local task_size = task.attributes and task.attributes.size
-	local modifier = cfg.modifiers.task_sizes[task_size]
+	local modifier = cfg.sources.task.sizes[task_size]
 	local task_multiplier = modifier and modifier.multiplier or 1
-	local base_xp = cfg.modifiers.task_base_xp * task_multiplier
+	local base_xp = cfg.sources.task.base_xp * task_multiplier
 
 	-- Apply task modifiers
 	if task.attributes then
@@ -158,10 +158,10 @@ end
 function M.calculate_project_total_xp(project)
 	local project_size = project.attributes and project.attributes.size
 
-	local modifier = cfg.modifiers.project_sizes[project_size]
-	if project_size and modifier then
+	local modifier = project_size and cfg.sources.project.sizes[project_size]
+	if modifier then
 		-- Use explicit project size for total XP
-		local base_xp = cfg.modifiers.project_base_xp * modifier.multiplier
+		local base_xp = cfg.sources.project.base_xp * modifier.multiplier
 
 		-- Apply project modifiers
 		if project.attributes then

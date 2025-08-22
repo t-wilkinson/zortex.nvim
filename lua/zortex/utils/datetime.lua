@@ -18,6 +18,19 @@ function M.get_current_date()
 	}
 end
 
+--- Adds minutes to a date.
+-- @param date table A date table
+-- @param minutes number Number of minutes to add
+-- @return table A new date table
+function M.add_minutes(date, minutes)
+	if not date then
+		return nil
+	end
+	local time = os.time(date)
+	local new_time = time + (minutes * 60)
+	return os.date("*t", new_time)
+end
+
 --- Adds days to a date.
 -- @param date table A date table with {year, month, day}
 -- @param days number Number of days to add (can be negative)

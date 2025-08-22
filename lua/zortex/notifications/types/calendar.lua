@@ -1,67 +1,40 @@
--- notifications/types/calendar.lua - Calendar notification handler
+-- notifications/types/calendar.lua - Calendar sync using unified scheduler
 local M = {}
 
 local manager = require("zortex.notifications.manager")
 local datetime = require("zortex.utils.datetime")
-local store = require("zortex.stores.notifications")
 local calendar_store = require("zortex.stores.calendar")
-local CalendarEntry = require("zortex.services.calendar_entry")
+local Logger = require("zortex.core.logger")
 
 local cfg = {}
-local sent_notifications = {}
-
--- Create notification ID for deduplication
-local function create_notification_id(entry, date_str)
-	local time
-	if entry.attributes.at then
-		time = datetime.format_date(entry.attributes.at, "mm:dd")
-	elseif entry.attributes.from and entry.attributes.to then
-		time = datetime.format_date(entry.attributes.from, "mm:dd")
-			.. "-"
-			.. datetime.format_date(entry.attributes.to, "mm:dd")
-	else
-		time = "allday"
-	end
-
-	local parts = {
-		date_str,
-		time,
-		entry.display_text:sub(1, 20),
-	}
-	return table.concat(parts, "_"):gsub("%s+", "_"):gsub("[^%w_-]", "")
-end
 
 -- Parse notify attribute value
 local function parse_notify_value(notify_attr)
-	if not notify_attr then
-		return cfg.default_advance_minutes or 15
-	end
-
-	if type(notify_attr) == "boolean" then
-		return cfg.default_advance_minutes or 15
-	elseif type(notify_attr) == "number" then
-		return notify_attr
-	elseif type(notify_attr) == "string" then
-		local minutes = datetime.parse_duration(notify_attr)
-		return minutes or cfg.default_advance_minutes or 15
+	if type(notify_attr) == "string" and notify_attr == "no" then
+		return nil
 	elseif type(notify_attr) == "table" then
-		-- Support multiple notification times
-		local times = {}
-		for _, v in ipairs(notify_attr) do
-			local minutes = parse_notify_value(v)
-			if minutes then
-				table.insert(times, minutes)
-			end
-		end
-		return times
+		return notify_attr
+	else
+		return { cfg.default_advance_minutes }
 	end
-
-	return cfg.default_advance_minutes or 15
 end
 
--- Format notification message
-local function format_notification_message(entry, minutes_until)
-	local time_str = ""
+-- Create a deduplication key for a calendar notification
+local function create_dedup_key(entry, date_str, event_type, advance_minutes)
+	-- Include all relevant parts to make it unique
+	local text_part = entry.display_text:sub(1, 20):gsub("%s+", "_"):gsub("[^%w_-]", "")
+	return string.format(
+		"cal_%s_%s_%s_%d",
+		date_str,
+		text_part,
+		event_type, -- "start" or "end"
+		advance_minutes
+	)
+end
+
+-- Format notification message based on event type
+local function format_notification(entry, event_type, minutes_until)
+	local time_str
 	if minutes_until <= 0 then
 		time_str = "now"
 	elseif minutes_until == 1 then
@@ -76,123 +49,56 @@ local function format_notification_message(entry, minutes_until)
 		time_str = string.format("in %d hours", math.floor(minutes_until / 60))
 	end
 
-	local message = CalendarEntry.format_entry(entry)
-	return message, time_str
+	local verb = event_type == "end" and "ending" or "starting"
+	local title = string.format("Calendar: %s %s %s", entry.display_text, verb, time_str)
+	local message = entry:format()
+
+	return title, message
 end
 
--- Convert entry to notification format
-local function entry_to_notification(entry, date_str, notify_minutes)
-	local event_datetime = datetime.parse_date(date_str)
-	if not event_datetime then
-		return nil
-	end
-
-	-- Set default time
-	event_datetime.hour = 9
-	event_datetime.min = 0
-	event_datetime.sec = 0
-
-	-- Parse event time if specified
-	if entry.attributes.at then
-		local time = entry:get_start_time()
-		if time then
-			event_datetime.hour = time.hour
-			event_datetime.min = time.min
-		end
-	end
-
-	local event_time = os.time(event_datetime)
-	local notify_time = event_time - (notify_minutes * 60)
-
-	return {
-		id = create_notification_id(entry, date_str),
-		title = entry.display_text,
-		message = entry:format(),
-		event_time = event_time,
-		notify_time = notify_time,
-		notify_minutes = notify_minutes,
-		entry = entry,
-		date_str = date_str,
-		priority = entry.attributes.p and ("p" .. entry.attributes.p) or "default",
-		tags = { "calendar", entry.type or "event" },
-	}
-end
-
--- Check and send due notifications
-function M.check_and_notify()
-	local now = os.time()
-	local sent_count = 0
-	local today = datetime.get_current_date()
-	local did_send = false
-
-	-- Check next 2 days
-	for day_offset = 0, 1 do
-		local check_date = datetime.add_days(today, day_offset)
-		local date_str = datetime.format_date(check_date, "YYYY-MM-DD")
-		local entries = calendar_store.get_entries_for_date(date_str)
-
-		for _, entry in ipairs(entries) do
-			if entry.attributes.notify then
-				local notify_values = parse_notify_value(entry.attributes.notify)
-				if type(notify_values) ~= "table" then
-					notify_values = { notify_values }
-				end
-
-				for _, notify_minutes in ipairs(notify_values) do
-					local notification = entry_to_notification(entry, date_str, notify_minutes)
-					if notification then
-						local notif_id = notification.id .. "_" .. notify_minutes
-
-						-- Check if notification is due and not already sent
-						if
-							notification.notify_time <= now
-							and notification.event_time > now
-							and not sent_notifications[notif_id]
-						then
-							local minutes_until = math.floor((notification.event_time - now) / 60)
-							local message, time_str = format_notification_message(entry, minutes_until)
-							local title = "Calendar Reminder - " .. time_str
-
-							-- Send notification
-							manager.send_notification(title, message, {
-								type = "calendar",
-								priority = notification.priority,
-								tags = notification.tags,
-								sound = entry.attributes.sound,
-							})
-
-							-- Mark as sent
-							sent_notifications[notif_id] = {
-								sent_at = now,
-								event_time = notification.event_time,
-							}
-							sent_count = sent_count + 1
-							did_send = true
-						end
-					end
-				end
-			end
-		end
-	end
-
-	if did_send then
-		store.save_calendar_sent(sent_notifications)
-	end
-
-	-- Clean old sent notifications
-	M.clean_old_notifications()
-
-	return sent_count
-end
-
--- Sync notifications to external services
+-- Sync calendar notifications
 function M.sync()
 	-- Load calendar data
 	calendar_store.load()
 
-	local notifications = {}
 	local today = datetime.get_current_date()
-	local scan_days = cfg.sync_days or 365
+	local scan_days = cfg.sync_days
+	local now = os.time()
+	local scheduled_count = 0
+
+	local function create_notification(entry, notify_values, date_str, notification_time, event_type)
+		local notification_timestamp = os.time(notification_time)
+
+		for _, advance_minutes in ipairs(notify_values) do
+			local trigger_time = notification_timestamp - (advance_minutes * 60)
+
+			-- Only schedule future notifications
+			if trigger_time > now then
+				local dedup_key = create_dedup_key(entry, date_str, event_type, advance_minutes)
+				local minutes_until = math.floor((notification_timestamp - now) / 60)
+				local title, message = format_notification(entry, event_type, minutes_until)
+
+				local notification = {
+					title = title,
+					message = message,
+					trigger_time = trigger_time,
+					type = "calendar",
+					options = {
+						priority = entry.attributes.p and ("p" .. entry.attributes.p) or "normal",
+						sound = entry.attributes.sound,
+						deduplication_key = dedup_key,
+						event_type = event_type,
+						entry_text = entry.display_text,
+					},
+				}
+
+				local id = manager.schedule_notification(notification)
+				if id then
+					scheduled_count = scheduled_count + 1
+				end
+			end
+		end
+	end
 
 	-- Scan future dates
 	for day_offset = 0, scan_days do
@@ -201,98 +107,90 @@ function M.sync()
 		local entries = calendar_store.get_entries_for_date(date_str)
 
 		for _, entry in ipairs(entries) do
-			if entry.attributes.notify then
-				local notify_values = parse_notify_value(entry.attributes.notify)
-				if type(notify_values) ~= "table" then
-					notify_values = { notify_values }
+			local start_time = entry:get_start_time()
+			local end_time = entry:get_end_time()
+			local notify_values = parse_notify_value(entry.attributes.notify)
+
+			if notify_values then
+				-- Process START time notifications
+				if start_time then
+					create_notification(entry, notify_values, date_str, start_time, "start")
 				end
 
-				for _, notify_minutes in ipairs(notify_values) do
-					local notification = entry_to_notification(entry, date_str, notify_minutes)
-					if notification then
-						table.insert(notifications, notification)
-					end
+				-- Process END time notifications (if different from start)
+				if end_time and (not start_time or os.time(end_time) ~= os.time(start_time)) then
+					create_notification(entry, notify_values, date_str, end_time, "end")
 				end
 			end
 		end
 	end
 
-	-- Send to AWS if enabled
-	local aws = cfg.providers and cfg.providers.aws
-	if aws and aws.enabled and aws.sync then
-		local aws_provider = require("zortex.notifications.providers.aws")
-		local success = aws_provider.sync(notifications, aws)
-		if success then
-			vim.notify(
-				string.format("Synced %d calendar notifications", #notifications),
-				vim.log.levels.INFO,
-				{ title = "Calendar Sync" }
-			)
-		end
-	else
-		-- Just show local summary
-		vim.notify(
-			string.format("Found %d upcoming calendar notifications", #notifications),
-			vim.log.levels.INFO,
-			{ title = "Calendar Sync" }
+	-- Send confirmation if notifications were scheduled
+	if scheduled_count > 0 then
+		Logger.info("calendar", "syncheduled " .. scheduled_count .. " notifications")
+		manager.send_notification(
+			"Calendar Sync Complete",
+			string.format("Scheduled %d calendar notifications", scheduled_count),
+			{ type = "calendar", channels = { "vim" } }
 		)
 	end
 
-	return notifications
+	return scheduled_count
 end
 
--- Clean old sent notifications
-function M.clean_old_notifications()
-	local now = os.time()
-	local cutoff = now - (48 * 60 * 60) -- 48 hours
-	local did_clean = false
-
-	for id, notif in pairs(sent_notifications) do
-		if notif.sent_at < cutoff then
-			sent_notifications[id] = nil
-			did_clean = true
-		end
-	end
-
-	if did_clean then
-		store.save_calendar_sent(sent_notifications)
-	end
-end
-
--- Get pending notifications for a date
+-- Get pending notifications for a specific date
 function M.get_pending_for_date(date_str)
-	local entries = require("zortex.stores.calendar").get_entries_for_date(date_str)
+	local entries = calendar_store.get_entries_for_date(date_str)
 	local pending = {}
 
 	for _, entry in ipairs(entries) do
-		if entry.attributes.notify then
-			local notify_values = parse_notify_value(entry.attributes.notify)
-			if type(notify_values) ~= "table" then
-				notify_values = { notify_values }
+		local notify_values = parse_notify_value(entry.attributes.notify)
+
+		if notify_values then
+			-- Check start time
+			local start_time = entry:get_start_time()
+			if start_time then
+				for _, advance_minutes in ipairs(notify_values) do
+					table.insert(pending, {
+						time = os.date("%H:%M", os.time(start_time) - (advance_minutes * 60)),
+						title = entry.display_text,
+						advance_minutes = advance_minutes,
+						type = "start",
+					})
+				end
 			end
 
-			for _, notify_minutes in ipairs(notify_values) do
-				local notification = entry_to_notification(entry, date_str, notify_minutes)
-				if notification then
+			-- Check end time
+			local end_time = entry:get_end_time()
+			if end_time and (not start_time or os.time(end_time) ~= os.time(start_time)) then
+				for _, advance_minutes in ipairs(notify_values) do
 					table.insert(pending, {
-						time = os.date("%H:%M", notification.notify_time),
-						title = notification.title,
-						advance_minutes = notify_minutes,
+						time = os.date("%H:%M", os.time(end_time) - (advance_minutes * 60)),
+						title = entry.display_text,
+						advance_minutes = advance_minutes,
+						type = "end",
 					})
 				end
 			end
 		end
 	end
 
+	-- Sort by time
+	table.sort(pending, function(a, b)
+		return a.time < b.time
+	end)
+
 	return pending
 end
 
 -- Setup
-function M.setup(config)
-	cfg = config
+function M.setup(opts)
+	cfg = opts
 
-	-- Load sent notifications from state
-	sent_notifications = store.get_calendar_sent()
+	-- Perform initial calendar sync
+	vim.defer_fn(function()
+		M.sync()
+	end, 100)
 end
 
 return M

@@ -59,6 +59,22 @@ function M.from_text(entry_text, current_date_str)
 		data.attributes = attrs or {}
 		data.display_text = remaining_text
 
+		-- Check for time range format: "10:00 - 12:00 rest of text"
+		local from_time, to_time, remaining = entry_text:match("^(%d%d?:%d%d)%s*%-%s*(%d%d?:%d%d)%s+(.*)$")
+		if from_time and to_time and remaining then
+			parsed_text = remaining
+			-- Add the time attributes
+			parsed_text = attributes.update_attribute(parsed_text, "from", from_time)
+			parsed_text = attributes.update_attribute(parsed_text, "to", to_time)
+		else
+			-- Check for single time prefix: "10:00 rest of text"
+			local at_time, remaining = entry_text:match("^(%d%d?:%d%d)%s+(.*)$")
+			if at_time and remaining then
+				parsed_text = remaining
+				parsed_text = attributes.update_attribute(parsed_text, "at", at_time)
+			end
+		end
+
 		-- Determine type based on attributes
 		if attrs.from or attrs.to or attrs.at then
 			data.type = "event"
@@ -94,6 +110,24 @@ end
 
 function M:get_start_time()
 	return self.time
+end
+
+function M:get_end_time()
+	-- If an explicit end time is set with @to, return it
+	if self.attributes.to then
+		return self.attributes.to
+	end
+
+	-- If a duration and start time exist, calculate the end time
+	if self.attributes.dur and self.time then
+		-- The parse_durations function returns the total minutes from a string like "1h30m"
+		local duration_minutes = datetime.parse_durations(self.attributes.dur)
+		if duration_minutes then
+			return datetime.add_minutes(self.time, duration_minutes)
+		end
+	end
+
+	return nil
 end
 
 -- Check if entry is active on a given date

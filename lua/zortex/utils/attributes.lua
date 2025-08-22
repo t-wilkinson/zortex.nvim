@@ -125,6 +125,31 @@ local attribute_parsers = {
 
 		return links
 	end,
+
+	notify = function(v)
+		v = trim(v)
+		if v == "no" then
+			return "no"
+		end
+
+		local times = {}
+		for item in v:gmatch("[^,]+") do
+			item = trim(item)
+			local duration = datetime.parse_durations(item)
+			if duration then
+				table.insert(times, duration)
+			else
+				table.insert(times, item)
+			end
+		end
+
+		-- The attribute is empty, so we enable the notification time
+		if #times == 0 then
+			return true
+		end
+
+		return times
+	end,
 }
 
 -- Parse @key(value) attributes from text
@@ -135,7 +160,7 @@ function M.parse_attributes(text, schema, parser_context)
 	local contexts = {}
 
 	-- Pattern for @key(value)
-	text = text:gsub("@(%w+)%s*%(([^)]*)%)", function(key, value)
+	text = text:gsub("@(%w+)*%(([^)]*)%)", function(key, value)
 		if type(schema[key]) == "string" then
 			key = schema[key]
 		end
@@ -278,7 +303,7 @@ M.schemas = {
 		done = { type = "date" },
 		progress = { type = "progress" },
 		["repeat"] = { type = "string" },
-		notify = { type = "list" },
+		notify = { type = "notify" },
 		depends = { types = "string" }, -- Specifies task dependence
 		area = { type = "area" }, -- area-link
 		a = "area",
@@ -317,7 +342,7 @@ M.schemas = {
 		at = { type = "string" },
 		from = { type = "datetime" },
 		to = { type = "datetime" },
-		notify = { type = "duration" },
+		notify = { type = "notify" },
 		["repeat"] = { type = "string" },
 		area = { type = "area" },
 		a = "area",
@@ -335,7 +360,7 @@ M.schemas = {
 		from = { type = "datetime" },
 		to = { type = "datetime" },
 		["repeat"] = { type = "string" },
-		notify = { type = "list" },
+		notify = { type = "notify" },
 		area = { type = "area" },
 		a = "area",
 	},

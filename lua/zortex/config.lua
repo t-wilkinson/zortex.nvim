@@ -37,12 +37,26 @@ local defaults = {
 		enabled = true,
 		check_interval_minutes = 5,
 		default_advance_minutes = 15,
-		enable = {
-			calendar = true,
+
+		-- Channel routing (replaces individual enable flags)
+		channels = {
+			calendar = { "vim", "system", "ntfy" },
+			alarm = { "vim", "system", "ntfy" },
+			timer = { "vim", "system" },
+			pomodoro = { "vim", "system" },
+			digest = { "ses" },
+			xp = { "vim" },
+			task_due = { "vim", "ntfy", "ses" },
+			default = { "vim", "system" },
 		},
 
 		-- Provider configuration
 		providers = {
+			vim = {
+				enabled = true,
+				timeout = 5000,
+				level = vim.log.levels.INFO,
+			},
 			system = {
 				enabled = true,
 				commands = {
@@ -51,73 +65,66 @@ local defaults = {
 					termux = "termux-notification --title '%s' --content '%s'",
 				},
 			},
-			ntfy = {
-				enabled = true,
-				server_url = "http://ntfy.sh",
-				topic = "zortex-notify",
-				priority = "default",
-				tags = { "zortex" },
-				auth_token = nil,
-			},
 			aws = {
 				enabled = false,
 				api_endpoint = nil,
 				user_id = nil,
 			},
-			vim = {
-				enabled = true,
-				timeout = 5000,
-				level = vim.log.levels.INFO,
-			},
 			ses = {
-				enabled = true,
+				enabled = false,
 				region = "us-east-1", -- Your AWS region
 				from_email = "noreply@yourdomain.com",
 				default_to_email = "your-email@example.com",
 				domain = "yourdomain.com",
 				use_api = false, -- Use AWS CLI for now
 			},
+			ntfy = {
+				enabled = false,
+				server_url = "http://ntfy.sh",
+				topic = "zortex-notify",
+				priority = "default",
+				tags = { "zortex" },
+				auth_token = nil,
+			},
 		},
 
-		-- Default providers for different notification types
-		default_providers = { "vim", "system" },
-		calendar_providers = { "vim", "system", "ntfy" },
-		timer_providers = { "vim", "system" },
-		pomodoro_providers = { "vim", "system" },
-		digest_providers = { "ses" },
+		types = {
+			digest = {
+				enabled = true,
+				auto_send = true,
+				days_ahead = 7,
+				send_hour = 7,
+				check_interval_minutes = 60,
+				digest_email = "your-email@example.com", -- Can be different from default
+			},
 
-		-- Daily digest settings
-		digest = {
-			enabled = true,
-			auto_send = true,
-			days_ahead = 7,
-			send_hour = 7, -- 7 AM
-			check_interval_minutes = 60,
-			digest_email = "your-email@example.com", -- Can be different from default
-		},
+			pomodoro = {
+				work_duration = 25, -- minutes
+				short_break = 5, -- minutes
+				long_break = 15, -- minutes
+				long_break_after = 4, -- number of work sessions
+				auto_start_break = true,
+				auto_start_work = false,
+				sound = "default",
+			},
 
-		-- Pomodoro settings
-		pomodoro = {
-			work_duration = 25, -- minutes
-			short_break = 5, -- minutes
-			long_break = 15, -- minutes
-			long_break_after = 4, -- number of work sessions
-			auto_start_break = true,
-			auto_start_work = false,
-			sound = "default",
-		},
+			timers = {
+				default_sound = "default",
+				allow_multiple = true,
+				warnings = { 300, 60 },
+			},
 
-		-- Timer settings
-		timers = {
-			default_sound = "default",
-			allow_multiple = true,
-		},
+			alarm = {
+				default_sound = "default",
+				default_snooze_duration = 10, -- minutes
+				auto_remove_triggered = true,
+				presets = {},
+			},
 
-		alarm = {
-			default_sound = "default",
-			default_snooze_duration = 10, -- minutes
-			auto_remove_triggered = true,
-			presets = {},
+			calendar = {
+				default_advance_minutes = 0,
+				sync_days = 30, -- How many days ahead to scan
+			},
 		},
 	},
 
@@ -243,110 +250,74 @@ local defaults = {
 	},
 
 	xp = {
-		distribution_rules = {
-			-- Task XP distribution
+		sources = {
 			task = {
-				season = 1.0, -- to season
+				season = 1.0,
 				area = 0.1, -- to each linked area
-				parent_bubble = 0.75, -- 75% bubbles to parent areas
-			},
+				area_bubble = 0.75,
 
-			-- Objective XP distribution
-			objective = {
-				area = 1.0, -- 100% to each linked area
-				parent_bubble = 0.75, -- 75% bubbles to parent areas
-			},
-
-			-- Daily review XP
-			daily_review = {
-				season = 1.0, -- 100% to season
-				bonus_multiplier = 1.5, -- 50% bonus for consistency
+				base_xp = 10, -- 1 hour, 2 pomodoros
+				sizes = {
+					-- Think of base xp in terms of minutes/pomodoro cycles that it would take.
+					xs = { multiplier = 0.2 }, -- ~0.5 pomodoros, 5-15 minutes
+					sm = { multiplier = 0.5 },
+					md = { multiplier = 1 }, -- 2 pomodoros, 1 hour
+					lg = { multiplier = 1.5 },
+					xl = { multiplier = 3 }, -- 6 pomodoros, 3 hours
+				},
 			},
 
 			project = {
 				season = 1.0,
 				area = 0.2,
+				area_bubble = 0.75,
+
+				base_xp = 70, -- 7 hours, 14 pomodoros
+				sizes = {
+					xs = { multiplier = 0.5 }, -- a couple hours
+					sm = { multiplier = 0.8 }, -- one day
+					md = { multiplier = 1.0 }, -- multi-day effort
+					lg = { multiplier = 1.5 }, -- half a week
+					xl = { multiplier = 2.0 }, -- a solid week of work
+					epic = { multiplier = 3.0 }, -- a month
+					legendary = { multiplier = 5.0 }, -- a quarter
+					mythic = { multiplier = 8.0 }, -- multiple quarters
+					ultimate = { multiplier = 12.0 }, -- multiple years
+				},
+			},
+
+			objective = {
+				area = 1.0,
+				area_bubble = 0.75,
+
+				base_xp = 20, -- 20 hours, 40 pomodoros
+				sizes = {
+					M = 0.5,
+					Q = 1.5,
+					Y = 2.0,
+					["5Y"] = 3.0,
+					["10Y"] = 4.0,
+				},
+			},
+
+			daily_review = {
+				season = 1.0, -- 100% to season
+				bonus_multiplier = 1.5, -- 50% bonus for consistency
 			},
 		},
 
 		-- Area XP System (Long-term Mastery)
 		area = {
-			-- Exponential curve: XP = base * level^exponent
+			-- XP = base * level^exponent
 			level_curve = {
 				base = 1000,
 				exponent = 2.5,
-			},
-
-			-- standalone_transference = 0.5, -- 50% of area XP for standalone tasks
-
-			-- -- XP bubbling to parent areas
-			-- bubble_percentage = 0.75, -- 75% of XP bubbles up
-
-			-- -- Relevance decay (per day)
-			-- decay_rate = 0.001, -- 0.1% per day
-			-- decay_grace_days = 30, -- No decay for first 30 days
-
-			-- Time horizon multipliers for objectives
-			-- time_multipliers = {
-			-- 	daily = 0.1, -- Very short term
-			-- 	weekly = 0.25,
-			-- 	monthly = 0.5,
-			-- 	quarterly = 1.0,
-			-- 	yearly = 3.0, -- Long-term goals worth more
-			-- 	["5year"] = 10.0,
-			-- },
-
-			-- span_multipliers = {
-			-- 	M = 1.0,
-			-- 	Q = 1.5,
-			-- 	Y = 2.0,
-			-- 	["5Y"] = 3.0,
-			-- 	["10Y"] = 4.0,
-			-- },
-		},
-
-		modifiers = {
-
-			project_base_xp = 150,
-			project_sizes = {
-				xs = { multiplier = 0.5 }, -- a couple hours
-				sm = { multiplier = 0.8 }, -- one day
-				md = { multiplier = 1.0 }, -- multi-day effort
-				lg = { multiplier = 1.5 }, -- half a week
-				xl = { multiplier = 2.0 }, -- a solid week of work
-				epic = { multiplier = 3.0 }, -- a month
-				legendary = { multiplier = 5.0 }, -- a quarter
-				mythic = { multiplier = 8.0 }, -- multiple quarters
-				ultimate = { multiplier = 12.0 }, -- multiple years
-			},
-
-			task_base_xp = 20,
-			task_sizes = {
-				-- Think of base xp in terms of minutes/pomodoro cycles that it would take.
-				xs = { multiplier = 0.25 }, -- 0.5 pomodoros, 5-15 minutes
-				sm = { multiplier = 0.5 },
-				md = { multiplier = 1 }, -- 2 pomodoros, 1 hour
-				lg = { multiplier = 1.5 },
-				xl = { multiplier = 3 }, -- 6 pomodoros, 3 hours
-			},
-
-			priority_multipliers = {
-				[1] = 1.5,
-				[2] = 1.2,
-				[3] = 1.0,
-				default = 1,
-			},
-			importance_multipliers = {
-				[1] = 1.5,
-				[2] = 1.2,
-				[3] = 1.0,
-				default = 1,
 			},
 		},
 
 		-- Season Configuration
 		season = {
-			-- Polynomial curve for seasonal levels: XP = base * level^exponent
+			-- XP = base * level^exponent
 			level_curve = {
 				base = 100,
 				exponent = 1.2,
@@ -363,6 +334,25 @@ local defaults = {
 				{ name = "Platinum", required_level = 15 },
 				{ name = "Diamond", required_level = 20 },
 				{ name = "Master", required_level = 30 },
+			},
+		},
+
+		modifiers = {
+			-- -- Relevance decay (per day)
+			-- decay_rate = 0.001, -- 0.1% per day
+			-- decay_grace_days = 30, -- No decay for first 30 days
+
+			priority_multipliers = {
+				[1] = 1.5,
+				[2] = 1.2,
+				[3] = 1.0,
+				default = 1,
+			},
+			importance_multipliers = {
+				[1] = 1.5,
+				[2] = 1.2,
+				[3] = 1.0,
+				default = 1,
 			},
 		},
 	},

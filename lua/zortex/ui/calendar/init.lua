@@ -15,7 +15,7 @@ local calendar_store = require("zortex.stores.calendar")
 
 -- Add entry with interactive prompt
 function M.add_entry_interactive(date_str)
-	date_str = date_str or datetime.format_date(datetime.get_current_date(), "YYYY-MM-DD")
+	date_str = date_str or datetime.format_datetime(datetime.get_current_date(), "YYYY-MM-DD")
 
 	vim.ui.input({
 		prompt = string.format("Add entry for %s: ", date_str),

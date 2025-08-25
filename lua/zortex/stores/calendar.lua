@@ -41,7 +41,7 @@ function M.load()
 	for _, line in ipairs(lines) do
 		local y, m, d = line:match(constants.PATTERNS.CALENDAR_DATE_HEADING)
 		if y and m and d then
-			current_date_str = datetime.format_date({
+			current_date_str = datetime.format_datetime({
 				year = tonumber(y),
 				month = tonumber(m),
 				day = tonumber(d),
@@ -76,7 +76,7 @@ function M.save()
 		local entries = state.entries[date_str]
 		if entries and #entries > 0 then
 			local date_tbl = datetime.parse_date(date_str)
-			table.insert(lines, datetime.format_date(date_tbl, "YYYY-MM-DD") .. ":")
+			table.insert(lines, datetime.format_datetime(date_tbl, "YYYY-MM-DD") .. ":")
 
 			-- Sort entries by priority
 			table.sort(entries, function(a, b)
@@ -248,7 +248,7 @@ function M.get_entries_in_range(start_date, end_date)
 	local end_time = os.time(datetime.parse_date(end_date))
 
 	while os.time(current) <= end_time do
-		local date_str = datetime.format_date(current, "YYYY-MM-DD")
+		local date_str = datetime.format_datetime(current, "YYYY-MM-DD")
 		local entries = M.get_entries_for_date(date_str)
 		if #entries > 0 then
 			entries_by_date[date_str] = entries

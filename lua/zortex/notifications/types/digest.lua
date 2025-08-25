@@ -17,7 +17,7 @@ local function generate_digest(days_ahead)
 	-- Collect entries for the specified number of days
 	for i = 0, days_ahead - 1 do
 		local date = datetime.add_days(today, i)
-		local date_str = datetime.format_date(date, "YYYY-MM-DD")
+		local date_str = datetime.format_datetime(date, "YYYY-MM-DD")
 		local entries = calendar_store.get_entries_for_date(date_str)
 
 		if #entries > 0 then
@@ -42,7 +42,7 @@ local function format_digest_content(entries_by_date)
 	local total_tasks = 0
 	local total_events = 0
 	local notifications_today = 0
-	local today_str = datetime.format_date(datetime.get_current_date(), "YYYY-MM-DD")
+	local today_str = datetime.format_datetime(datetime.get_current_date(), "YYYY-MM-DD")
 
 	for date_str, entries in pairs(entries_by_date) do
 		for _, entry in ipairs(entries) do

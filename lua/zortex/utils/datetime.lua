@@ -184,7 +184,7 @@ end
 -- @param date_tbl table A table with {year, month, day, [hour], [min]}.
 -- @param format_str string The format string (e.g., "YYYY-MM-DD").
 -- @return string The formatted date string.
-function M.format_date(date_tbl, format_str)
+function M.format_datetime(date_tbl, format_str)
 	local replacements = {
 		["YYYY"] = string.format("%04d", date_tbl.year),
 		["MM"] = string.format("%02d", date_tbl.month),

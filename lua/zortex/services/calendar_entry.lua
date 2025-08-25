@@ -316,9 +316,9 @@ function M:format_pretty()
 			if date_context and datetime.is_same_day(attr_at, date_context) then
 				format = "hh:mm"
 			end
-			table.insert(attr_parts, "🕐 " .. datetime.format_date(attr_at, format))
+			table.insert(attr_parts, "🕐 " .. datetime.format_datetime(attr_at, format))
 		else -- All-day event
-			table.insert(attr_parts, "🗓️ " .. datetime.format_date(attr_at, "YYYY-MM-DD"))
+			table.insert(attr_parts, "🗓️ " .. datetime.format_datetime(attr_at, "YYYY-MM-DD"))
 		end
 	elseif attr_from or attr_to then
 		local time_range_str
@@ -333,27 +333,27 @@ function M:format_pretty()
 			if icon == "🕐" then
 				-- Timed range logic
 				if datetime.is_same_day(attr_from, attr_to) then
-					local time_from_str = datetime.format_date(attr_from, "hh:mm")
-					local time_to_str = datetime.format_date(attr_to, "hh:mm")
+					local time_from_str = datetime.format_datetime(attr_from, "hh:mm")
+					local time_to_str = datetime.format_datetime(attr_to, "hh:mm")
 					if date_context and datetime.is_same_day(attr_from, date_context) then
 						time_range_str = time_from_str .. "-" .. time_to_str
 					else
-						local date_str = datetime.format_date(attr_from, "YYYY-MM-DD")
+						local date_str = datetime.format_datetime(attr_from, "YYYY-MM-DD")
 						time_range_str = date_str .. " " .. time_from_str .. "-" .. time_to_str
 					end
 				else
-					local from_full_str = datetime.format_date(attr_from, "YYYY-MM-DD hh:mm")
-					local to_full_str = datetime.format_date(attr_to, "YYYY-MM-DD hh:mm")
+					local from_full_str = datetime.format_datetime(attr_from, "YYYY-MM-DD hh:mm")
+					local to_full_str = datetime.format_datetime(attr_to, "YYYY-MM-DD hh:mm")
 					time_range_str = from_full_str .. " - " .. to_full_str
 				end
 			else
 				-- All-day range logic
 				if datetime.is_same_day(attr_from, attr_to) then
-					time_range_str = datetime.format_date(attr_from, "YYYY-MM-DD")
+					time_range_str = datetime.format_datetime(attr_from, "YYYY-MM-DD")
 				else
-					time_range_str = datetime.format_date(attr_from, "YYYY-MM-DD")
+					time_range_str = datetime.format_datetime(attr_from, "YYYY-MM-DD")
 						.. " - "
-						.. datetime.format_date(attr_to, "YYYY-MM-DD")
+						.. datetime.format_datetime(attr_to, "YYYY-MM-DD")
 				end
 			end
 		elseif attr_from then
@@ -361,13 +361,13 @@ function M:format_pretty()
 			if icon == "🕐" and date_context and datetime.is_same_day(attr_from, date_context) then
 				format = "hh:mm"
 			end
-			time_range_str = datetime.format_date(attr_from, format) .. " - ..."
+			time_range_str = datetime.format_datetime(attr_from, format) .. " - ..."
 		elseif attr_to then
 			local format = (icon == "🕐") and "YYYY-MM-DD hh:mm" or "YYYY-MM-DD"
 			if icon == "🕐" and date_context and datetime.is_same_day(attr_to, date_context) then
 				format = "hh:mm"
 			end
-			time_range_str = "... - " .. datetime.format_date(attr_to, format)
+			time_range_str = "... - " .. datetime.format_datetime(attr_to, format)
 		end
 
 		table.insert(attr_parts, icon .. " " .. time_range_str)
@@ -439,9 +439,9 @@ function M:format_simple()
 			if date_context and datetime.is_same_day(attr_at, date_context) then
 				format = "hh:mm"
 			end
-			time_str = datetime.format_date(attr_at, format)
+			time_str = datetime.format_datetime(attr_at, format)
 		else -- All-day event
-			time_str = datetime.format_date(attr_at, "YYYY-MM-DD")
+			time_str = datetime.format_datetime(attr_at, "YYYY-MM-DD")
 		end
 	elseif attr_from or attr_to then
 		local is_all_day = (attr_from and not has_time(attr_from)) or (attr_to and not has_time(attr_to))
@@ -450,27 +450,27 @@ function M:format_simple()
 			if not is_all_day then
 				-- Timed range
 				if datetime.is_same_day(attr_from, attr_to) then
-					local time_from_str = datetime.format_date(attr_from, "hh:mm")
-					local time_to_str = datetime.format_date(attr_to, "hh:mm")
+					local time_from_str = datetime.format_datetime(attr_from, "hh:mm")
+					local time_to_str = datetime.format_datetime(attr_to, "hh:mm")
 					if date_context and datetime.is_same_day(attr_from, date_context) then
 						time_str = time_from_str .. "-" .. time_to_str
 					else
-						local date_str = datetime.format_date(attr_from, "YYYY-MM-DD")
+						local date_str = datetime.format_datetime(attr_from, "YYYY-MM-DD")
 						time_str = date_str .. "@" .. time_from_str .. "-" .. time_to_str
 					end
 				else
-					local from_full_str = datetime.format_date(attr_from, "YYYY-MM-DD@hh:mm")
-					local to_full_str = datetime.format_date(attr_to, "YYYY-MM-DD@hh:mm")
+					local from_full_str = datetime.format_datetime(attr_from, "YYYY-MM-DD@hh:mm")
+					local to_full_str = datetime.format_datetime(attr_to, "YYYY-MM-DD@hh:mm")
 					time_str = from_full_str .. "-" .. to_full_str
 				end
 			else
 				-- All-day range
 				if datetime.is_same_day(attr_from, attr_to) then
-					time_str = datetime.format_date(attr_from, "YYYY-MM-DD")
+					time_str = datetime.format_datetime(attr_from, "YYYY-MM-DD")
 				else
-					time_str = datetime.format_date(attr_from, "YYYY-MM-DD")
+					time_str = datetime.format_datetime(attr_from, "YYYY-MM-DD")
 						.. "-"
-						.. datetime.format_date(attr_to, "YYYY-MM-DD")
+						.. datetime.format_datetime(attr_to, "YYYY-MM-DD")
 				end
 			end
 		elseif attr_from then
@@ -478,13 +478,13 @@ function M:format_simple()
 			if not is_all_day and date_context and datetime.is_same_day(attr_from, date_context) then
 				format = "hh:mm"
 			end
-			time_str = datetime.format_date(attr_from, format) .. "-..."
+			time_str = datetime.format_datetime(attr_from, format) .. "-..."
 		elseif attr_to then
 			local format = not is_all_day and "YYYY-MM-DD@hh:mm" or "YYYY-MM-DD"
 			if not is_all_day and date_context and datetime.is_same_day(attr_to, date_context) then
 				format = "hh:mm"
 			end
-			time_str = "...-" .. datetime.format_date(attr_to, format)
+			time_str = "...-" .. datetime.format_datetime(attr_to, format)
 		end
 	end
 

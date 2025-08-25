@@ -211,7 +211,7 @@ local function vevent_to_entry(vevent)
 	end
 
 	-- Return date and entry text
-	local date_str = datetime.format_date(start_dt, "YYYY-MM-DD")
+	local date_str = datetime.format_datetime(start_dt, "YYYY-MM-DD")
 	return date_str, entry_text
 end
 
@@ -446,7 +446,7 @@ function M.export_file(filepath, options)
 	local current = start_date
 
 	while os.time(current) <= os.time(end_date) do
-		local date_str = datetime.format_date(current, "YYYY-MM-DD")
+		local date_str = datetime.format_datetime(current, "YYYY-MM-DD")
 		local entries = calendar_store.get_entries_for_date(date_str)
 
 		for _, entry in ipairs(entries) do

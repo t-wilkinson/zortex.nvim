@@ -103,7 +103,7 @@ function M.sync()
 	-- Scan future dates
 	for day_offset = 0, scan_days do
 		local check_date = datetime.add_days(today, day_offset)
-		local date_str = datetime.format_date(check_date, "YYYY-MM-DD")
+		local date_str = datetime.format_datetime(check_date, "YYYY-MM-DD")
 		local entries = calendar_store.get_entries_for_date(date_str)
 
 		for _, entry in ipairs(entries) do

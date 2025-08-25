@@ -29,6 +29,7 @@ function Document:new(opts)
 	doc.original_lines = {} -- Lines from last save/load
 	doc.sections = nil -- Parsed section tree
 	doc.article_names = {} -- Extracted article names
+	doc.ids = nil
 
 	-- Change tracking
 	doc.dirty_lines = {} -- Set of modified line numbers
@@ -572,6 +573,22 @@ function Document:undo()
 	self:parse(true)
 
 	return true
+end
+
+-- =============================================================================
+-- IDs
+-- =============================================================================
+function Document:get_ids()
+	local lines = vim.api.nvim_buf_get_lines(self.bufnr, 0, -1, false)
+
+	local all_ids = {}
+	for _, line in ipairs(lines) do
+		for match in string.gmatch(line, "@id%((%w+)%)") do
+			table.insert(all_ids, match)
+		end
+	end
+
+	return all_ids
 end
 
 -- =============================================================================

@@ -7,6 +7,7 @@ local parser = require("zortex.utils.parser")
 local datetime = require("zortex.utils.datetime")
 local attributes = require("zortex.utils.attributes")
 local constants = require("zortex.constants")
+local Logger = require("zortex.core.logger")
 
 -- =============================================================================
 -- Calendar Entry Creation
@@ -53,7 +54,14 @@ function M.from_text(entry_text, current_date_str)
 		data.display_text = task.text
 	else
 		-- Check for time range format: "10:00 - 12:00 rest of text"
-		local from_time, to_time, remaining = working_text:match("(%d%d?:%d%d)%s*%-%s*(%d%d?:%d%d)%s+(.*)$")
+		local at_time, from_time, to_time, remaining
+		working_text = working_text:match("^%s*%- (.*)$")
+
+		if not working_text then
+			return nil
+		end
+
+		from_time, to_time, remaining = working_text:match("(%d%d?:%d%d)%s*%-%s*(%d%d?:%d%d)%s+(.*)$")
 		if from_time and to_time and remaining then
 			working_text = remaining
 			-- Add the time attributes
@@ -61,7 +69,7 @@ function M.from_text(entry_text, current_date_str)
 			working_text = attributes.update_attribute(working_text, "to", to_time)
 		else
 			-- Check for single time prefix: "10:00 rest of text"
-			local at_time, remaining = entry_text:match("(%d%d?:%d%d)%s+(.*)$")
+			at_time, remaining = entry_text:match("(%d%d?:%d%d)%s+(.*)$")
 			if at_time and remaining then
 				working_text = remaining
 				working_text = attributes.update_attribute(working_text, "at", at_time)
@@ -73,7 +81,6 @@ function M.from_text(entry_text, current_date_str)
 			default_date_str = current_date_str,
 		})
 		data.attributes = attrs or {}
-
 		data.display_text = remaining_text
 
 		-- Determine type based on attributes

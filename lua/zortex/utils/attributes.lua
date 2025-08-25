@@ -160,7 +160,7 @@ function M.parse_attributes(text, schema, parser_context)
 	local contexts = {}
 
 	-- Pattern for @key(value)
-	text = text:gsub("@(%w+)*%(([^)]*)%)", function(key, value)
+	text = text:gsub("@(%w+)%(([^)]*)%)", function(key, value)
 		if type(schema[key]) == "string" then
 			key = schema[key]
 		end

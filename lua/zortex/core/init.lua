@@ -29,7 +29,7 @@ function M.setup(opts)
 
 	-- Initialize services
 	require("zortex.stores.xp").setup(opts.xp)
-	require("zortex.services.xp").init()
+	require("zortex.services.xp.core").init()
 	require("zortex.services.xp.notifications").init()
 	require("zortex.services.xp.calculator").setup(opts.xp)
 	-- require("zortex.services.xp.distributor").setup(opts.xp.distribution_rules)

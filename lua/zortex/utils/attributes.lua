@@ -23,24 +23,6 @@ local attribute_parsers = {
 		return true
 	end,
 
-	duration = datetime.parse_durations,
-
-	date = datetime.parse_date,
-
-	time = datetime.parse_time,
-
-	datetime = function(v, _, context)
-		return datetime.parse_datetime(v, context.default_date_str)
-	end,
-
-	progress = function(v)
-		local completed, total = v:match("(%d+)/(%d+)")
-		if completed and total then
-			return { completed = tonumber(completed), total = tonumber(total) }
-		end
-		return nil
-	end,
-
 	list = function(v)
 		local items = {}
 		for item in v:gmatch("[^,]+") do
@@ -149,6 +131,115 @@ local attribute_parsers = {
 		end
 
 		return times
+	end,
+
+	-- ===========================================================================
+	-- Datetime
+	-- ===========================================================================
+	duration = datetime.parse_durations,
+
+	date = datetime.parse_date,
+
+	time = datetime.parse_time,
+
+	datetime = function(v, _, context)
+		return datetime.parse_datetime(v, context.default_date_str)
+	end,
+
+	range = function(v, _, context)
+		-- Parse range specification: "14:00, 16:00" or "14:00, +2h"
+		local parts = {}
+		for part in v:gmatch("([^,]+)") do
+			table.insert(parts, trim(part))
+		end
+
+		if #parts ~= 2 then
+			return nil
+		end
+
+		local start_str = parts[1]
+		local end_str = parts[2]
+
+		-- Parse start time/date
+		local start_dt = datetime.parse_datetime(start_str, context.default_date_str)
+		if not start_dt then
+			return nil
+		end
+
+		-- Check if end is a duration (+2h format)
+		local dur = end_str:match("^%+(%d+%a)")
+
+		if dur then
+			dur = datetime.parse_durations(dur)
+			if dur then
+				return {
+					start_dt = start_dt,
+					duration = dur,
+					type = "duration",
+				}
+			end
+		end
+
+		-- Otherwise parse as datetime
+		local end_dt = datetime.parse_datetime(end_str, context.default_date_str)
+		if end_dt then
+			return {
+				start_dt = start_dt,
+				["end"] = end_dt,
+				type = "explicit",
+			}
+		end
+
+		return nil
+	end,
+
+	after = function(v, _, context)
+		return datetime.parse_datetime(v, context.default_date_str)
+	end,
+
+	before = function(v, _, context)
+		return datetime.parse_datetime(v, context.default_date_str)
+	end,
+
+	deadline = function(v, _, context)
+		return datetime.parse_datetime(v, context.default_date_str)
+	end,
+
+	every = function(v)
+		-- Parse recurrence: "day", "week,MWF", "month,15", "2w"
+		local parts = {}
+		for part in v:gmatch("([^,]+)") do
+			table.insert(parts, trim(part))
+		end
+
+		local pattern = parts[1]
+		local modifiers = {}
+		for i = 2, #parts do
+			table.insert(modifiers, parts[i])
+		end
+
+		-- Normalize common patterns
+		if pattern == "day" then
+			pattern = "daily"
+		end
+		if pattern == "week" then
+			pattern = "weekly"
+		end
+		if pattern == "month" then
+			pattern = "monthly"
+		end
+		if pattern == "year" then
+			pattern = "yearly"
+		end
+
+		return {
+			pattern = pattern,
+			modifiers = modifiers,
+		}
+	end,
+
+	buffer = function(v)
+		return datetime.parse_durations(v)
 	end,
 }
 

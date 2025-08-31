@@ -8,6 +8,7 @@ M.FILES = {
 	PROJECTS = "projects.zortex",
 	AREAS = "areas.zortex",
 	OKR = "okr.zortex",
+	DIGEST = "digest.zortex",
 	PROJECTS_ARCHIVE = "z/archive.projects.zortex",
 
 	-- User library

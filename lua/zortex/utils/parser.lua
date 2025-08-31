@@ -232,7 +232,26 @@ function M.extract_link_at(line, cursor_col)
 		offset = e or 0
 	end
 
-	-- 3. Check for zortex-style links
+	-- 3. Check for live links (![...])
+	offset = 0
+	while offset < #line do
+		local s, e, content = string.find(line, "!%[([^%]]+)%]", offset + 1)
+		if not s then
+			break
+		end
+
+		if cursor_col >= (s - 1) and cursor_col < e then
+			return {
+				type = "live_link",
+				display_text = content,
+				definition = content,
+				full_match_text = string.sub(line, s, e),
+			}
+		end
+		offset = e or 0
+	end
+
+	-- 4. Check for zortex-style links
 	offset = 0
 	while offset < #line do
 		local s, e = string.find(line, "%[([^%]]+)%]", offset + 1)
@@ -261,7 +280,7 @@ function M.extract_link_at(line, cursor_col)
 		offset = e or 0
 	end
 
-	-- 4. Check for URLs
+	-- 5. Check for URLs
 	offset = 0
 	while offset < #line do
 		local s, e = string.find(line, "https?://[^%s%]%)};]+", offset + 1)
@@ -280,7 +299,7 @@ function M.extract_link_at(line, cursor_col)
 		offset = e or 0
 	end
 
-	-- 5. @area(<link>) or @a(<link>)
+	-- 6. @area(<link>) or @a(<link>)
 	offset = 0
 	while offset < #line do
 		local s, e, value = string.find(line, "@area%(([^)]+)%)", offset + 1)
@@ -312,7 +331,7 @@ function M.extract_link_at(line, cursor_col)
 		offset = e or 0
 	end
 
-	-- 6. Check for file paths
+	-- 7. Check for file paths
 	offset = 0
 	while offset < #line do
 		local s, e, path = string.find(line, "([~%.]/[^%s]+)", offset + 1)

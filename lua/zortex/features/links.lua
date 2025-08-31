@@ -83,12 +83,29 @@ function M.open_link()
 	end
 
 	-- Handle different link types
-	if link_info.type == "link" then
+	if link_info.type == "link" or link_info.type == "live_link" then
 		-- Zortex-style link format
 		local parsed = parser.parse_link_definition(link_info.definition)
 		if not parsed then
 			vim.notify("Invalid link format", vim.log.levels.WARN)
 			return
+		end
+
+		-- For live links in digest, just navigate normally but register for updates
+		if link_info.type == "live_link" then
+			local current_file = vim.fn.expand("%:p")
+			if current_file:match(constants.FILES.DIGEST .. "$") then
+				-- This is a live link in the digest
+				local digest = require("zortex.services.digest")
+				local lnum = buffer.get_cursor_pos()
+				local link_id = table.concat(
+					vim.tbl_map(function(c)
+						return c.text
+					end, parsed.components),
+					"/"
+				)
+				digest.register_live_link_from_cursor(link_id, parsed, lnum)
+			end
 		end
 
 		-- Process the link using core link resolver functionality

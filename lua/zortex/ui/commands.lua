@@ -271,6 +271,15 @@ function M.setup(prefix)
 		local results = persistence_manager.save_all()
 		vim.notify(string.format("Saved %d stores", #results.saved), vim.log.levels.INFO)
 	end, { desc = "Force save all stores" })
+
+	-- Create user commands
+	cmd("Digest", function()
+		api.digest.open()
+	end, { desc = "Open daily digest" })
+
+	cmd("DigestUpdate", function()
+		api.digest.update()
+	end, { desc = "Update daily digest" })
 end
 
 return M

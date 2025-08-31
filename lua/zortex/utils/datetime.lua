@@ -3,6 +3,38 @@ local M = {}
 
 local constants = require("zortex.constants")
 
+function M.has_time(dt)
+	return dt and dt.hour ~= nil and dt.min ~= nil
+end
+
+function M.has_date(dt)
+	return dt and dt.year ~= nil and dt.month ~= nil and dt.day ~= nil
+end
+
+function M.diff(dt_1, dt_2)
+	-- local diff = {}
+	-- if M.has_date(dt_1) and M.has_date(dt_2) then
+	-- 	diff.year = dt_1.year - dt_2.year
+	-- 	diff.month = dt_1.month - dt_2.month
+	-- 	diff.day = dt_1.day - dt_2.day
+	-- end
+	-- if M.has_time(dt_1) and M.has_time(dt_2) then
+	-- 	diff.hour = dt_1.hour - dt_2.hour
+	-- 	diff.min = dt_1.min - dt_2.min
+	-- end
+
+	-- Convert both date-time tables to seconds since the epoch
+	local time1_seconds = os.time(dt_1)
+	local time2_seconds = os.time(dt_2)
+
+	-- Calculate the total difference in seconds
+	local diff_in_seconds = time2_seconds - time1_seconds
+
+	-- Convert the difference to minutes and return it
+	-- We use math.abs to ensure the result is always positive.
+	return math.abs(diff_in_seconds / 60) --, diff
+end
+
 --- Gets the current date as a table.
 -- @return table A table with {year, month, day, wday}
 function M.get_current_date()
@@ -181,16 +213,16 @@ function M.parse_durations(durations)
 end
 
 --- Formats a date table into a string.
--- @param date_tbl table A table with {year, month, day, [hour], [min]}.
+-- @param dt table A table with {year, month, day, [hour], [min]}.
 -- @param format_str string The format string (e.g., "YYYY-MM-DD").
 -- @return string The formatted date string.
-function M.format_datetime(date_tbl, format_str)
+function M.format_datetime(dt, format_str)
 	local replacements = {
-		["YYYY"] = string.format("%04d", date_tbl.year),
-		["MM"] = string.format("%02d", date_tbl.month),
-		["DD"] = string.format("%02d", date_tbl.day),
-		["hh"] = string.format("%02d", date_tbl.hour or 0),
-		["mm"] = string.format("%02d", date_tbl.min or 0),
+		["YYYY"] = string.format("%04d", dt.year),
+		["MM"] = string.format("%02d", dt.month),
+		["DD"] = string.format("%02d", dt.day),
+		["hh"] = string.format("%02d", dt.hour or 0),
+		["mm"] = string.format("%02d", dt.min or 0),
 	}
 	return (
 		format_str

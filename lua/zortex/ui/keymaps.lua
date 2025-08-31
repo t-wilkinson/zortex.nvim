@@ -31,6 +31,9 @@ function M.setup(key_prefix, cmd_prefix)
 	--   require("zortex.ui.search").search_current_file()
 	-- end, { desc = "Search current file" })
 
+	map("n", "d", "Digest", add_opts({ desc = "Open daily digest" }))
+	map("n", "D", "DigestUpdate", add_opts({ desc = "Update daily digest " }))
+
 	-- Calendar
 	map("n", "c", "Calendar", { desc = "Open calendar" })
 	-- map("n", "A", "CalendarAdd", { desc = "Add calendar entry" })

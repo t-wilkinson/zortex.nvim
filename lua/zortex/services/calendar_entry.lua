@@ -17,18 +17,16 @@ function M:new(data)
 	local entry = {
 		raw_text = data.raw_text or "",
 		display_text = data.display_text or data.raw_text or "",
-		date_context = data.date_context or "", -- The date this entry belongs to
+		date_context = data.date_context or nil, -- The date this entry belongs to
 		type = data.type or "note", -- note, event, task
 		attributes = data.attributes or {},
 		task = data.task,
 		-- Computed fields
-		time = nil, -- Extracted from attributes.at
-		duration = nil, -- From attributes.dur or est
-		date_range = nil, -- From attributes.from/to
+		timing = nil,
 	}
 
 	setmetatable(entry, M_mt)
-	entry:_compute_fields()
+	entry:_compute_timing()
 	return entry
 end
 
@@ -93,50 +91,114 @@ function M.from_text(entry_text, current_date_str)
 end
 
 -- =============================================================================
--- Entry Methods
+-- Datetime methods
 -- =============================================================================
 
-function M:_compute_fields()
-	-- Extract time
-	if self.attributes.at then
-		self.time = self.attributes.at
-	elseif self.attributes.from then
-		self.time = self.attributes.from
+-- Compute unified timing information from attributes
+function M:_compute_timing()
+	local attrs = self.attributes
+
+	if attrs.at then
+		self.timing = {
+			type = "point",
+			start = attrs.at,
+			duration = attrs.dur or attrs.est,
+			estimated = attrs.est ~= nil,
+		}
+	elseif attrs.from then
+		self.timing = {
+			type = "range",
+			start = attrs.from,
+			["end"] = attrs.to,
+			buffer = attrs.buffer,
+		}
+	elseif attrs.range then
+		self.timing = {
+			type = "range",
+			start = attrs.range.start,
+			["end"] = attrs.range["end"],
+			buffer = attrs.buffer,
+		}
+		-- elseif attrs.after then
+		-- 	-- Open-ended start
+		-- 	local datetime_obj = self:_parse_time_spec(attrs.after)
+
+		-- 	self.timing = {
+		-- 		type = "open_start",
+		-- 		start = datetime_obj,
+		-- 		duration = attrs.est,
+		-- 	}
+		-- elseif attrs.before or attrs.deadline then
+		-- 	-- Open-ended end
+		-- 	local datetime_obj = self:_parse_time_spec(attrs.before or attrs.deadline)
+
+		-- 	self.timing = {
+		-- 		type = attrs.deadline and "deadline" or "open_end",
+		-- 		["end"] = datetime_obj,
+		-- 	}
 	end
 
-	-- Extract duration
-	self.duration = self.attributes.dur or self.attributes.est
-
-	-- Extract date range for @from/@to attributes
-	if self.attributes.from and self.attributes.to then
-		self.date_range = {
-			from = self.attributes.from,
-			to = self.attributes.to,
-		}
+	-- Add recurrence if present
+	if attrs.every then
+		self.timing = self.timing or {}
+		self.timing.recurrence = attrs.every
 	end
 end
 
 function M:get_start_time()
-	return self.time
+	return self.timing and self.timing.start
 end
 
 function M:get_end_time()
-	-- If an explicit end time is set with @to, return it
-	if self.attributes.to then
-		return self.attributes.to
+	if not self.timing then
+		return nil
 	end
 
-	-- If a duration and start time exist, calculate the end time
-	if self.attributes.dur and self.time then
-		-- The parse_durations function returns the total minutes from a string like "1h30m"
-		local duration_minutes = datetime.parse_durations(self.attributes.dur)
-		if duration_minutes then
-			return datetime.add_minutes(self.time, duration_minutes)
-		end
+	-- If we have an explicit end time
+	if self.timing["end"] then
+		return self.timing["end"]
+	end
+
+	-- If we have a start time and duration, calculate end
+	if self.timing.start and self.timing.duration then
+		return datetime.add_duration(self.timing.start, self.timing.duration)
 	end
 
 	return nil
 end
+
+function M:is_deadline()
+	return self.timing and self.timing.type == "deadline"
+end
+
+function M:is_all_day()
+	if not self.timing or not self.timing.start then
+		return false
+	end
+	return not (self.timing.start.hour and self.timing.start.min)
+end
+
+function M:get_duration()
+	if not self.timing then
+		return nil
+	end
+
+	-- Explicit duration
+	if self.timing.duration then
+		return self.timing.duration, self.timing.estimated
+	end
+
+	-- Calculate from range
+	if self.timing.start and self.timing["end"] then
+		return datetime.diff(self.timing["end"], self.timing.start), false
+	end
+
+	return nil, false
+end
+
+-- =============================================================================
+-- Entry Methods
+-- =============================================================================
 
 -- Check if entry is active on a given date
 function M:is_active_on_date(date)
@@ -283,127 +345,150 @@ function M:format()
 	return Config.ui.calendar.pretty_attributes and self:format_pretty() or self:format_simple()
 end
 
--- Pretty‑print attributes
 function M:format_pretty()
 	local parts = {}
 
-	-- Start with task checkbox if it's a task
+	-- Task checkbox
 	if self.type == "task" then
 		local status = constants.TASK_SYMBOL[self.task.mark]
 		table.insert(parts, status and status.symbol or "")
 	end
 
-	-- Add the display text
+	-- Format timing attributes
+	local attr_parts = {}
+
+	if self.timing then
+		local icon = self:is_all_day() and "🗓️" or "🕐"
+		local time_str = self:_format_timing()
+
+		if time_str then
+			table.insert(parts, icon .. " " .. time_str)
+		end
+
+		-- Duration (if estimated or has buffer)
+		local duration, is_estimated = self:get_duration()
+		if duration then
+			if is_estimated then
+				table.insert(parts, "⏱ ~" .. attributes.format_duration(duration))
+			elseif self.timing.buffer then
+				table.insert(parts, "⏱ +" .. attributes.format_duration(self.timing.buffer))
+			end
+		end
+
+		-- Deadline indicator
+		if self:is_deadline() then
+			table.insert(parts, "⚠️ Deadline")
+		end
+
+		-- Recurrence
+		if self.timing.recurrence then
+			local rec_str = self:_format_recurrence(self.timing.recurrence)
+			table.insert(parts, "🔁 " .. rec_str)
+		end
+	end
+
+	-- Display text
 	table.insert(parts, self.display_text)
 
-	-- Add formatted attributes
-	local attr_parts = {}
-	local date_context = self.date_context and datetime.parse_date(self.date_context)
-
-	local attr_at = self.attributes.at
-	local attr_from = self.attributes.from
-	local attr_to = self.attributes.to
-
-	-- Helper to check if a datetime object has a time component
-	local function has_time(dt)
-		return dt and dt.hour ~= nil and dt.min ~= nil
-	end
-
-	-- Time attributes
-	if attr_at then
-		if has_time(attr_at) then
-			local format = "YYYY-MM-DD hh:mm"
-			if date_context and datetime.is_same_day(attr_at, date_context) then
-				format = "hh:mm"
-			end
-			table.insert(attr_parts, "🕐 " .. datetime.format_datetime(attr_at, format))
-		else -- All-day event
-			table.insert(attr_parts, "🗓️ " .. datetime.format_datetime(attr_at, "YYYY-MM-DD"))
-		end
-	elseif attr_from or attr_to then
-		local time_range_str
-		local icon = "🕐"
-
-		-- An event is "all-day" if either the from or to attribute exists and lacks a time.
-		if (attr_from and not has_time(attr_from)) or (attr_to and not has_time(attr_to)) then
-			icon = "🗓️"
-		end
-
-		if attr_from and attr_to then
-			if icon == "🕐" then
-				-- Timed range logic
-				if datetime.is_same_day(attr_from, attr_to) then
-					local time_from_str = datetime.format_datetime(attr_from, "hh:mm")
-					local time_to_str = datetime.format_datetime(attr_to, "hh:mm")
-					if date_context and datetime.is_same_day(attr_from, date_context) then
-						time_range_str = time_from_str .. "-" .. time_to_str
-					else
-						local date_str = datetime.format_datetime(attr_from, "YYYY-MM-DD")
-						time_range_str = date_str .. " " .. time_from_str .. "-" .. time_to_str
-					end
-				else
-					local from_full_str = datetime.format_datetime(attr_from, "YYYY-MM-DD hh:mm")
-					local to_full_str = datetime.format_datetime(attr_to, "YYYY-MM-DD hh:mm")
-					time_range_str = from_full_str .. " - " .. to_full_str
-				end
-			else
-				-- All-day range logic
-				if datetime.is_same_day(attr_from, attr_to) then
-					time_range_str = datetime.format_datetime(attr_from, "YYYY-MM-DD")
-				else
-					time_range_str = datetime.format_datetime(attr_from, "YYYY-MM-DD")
-						.. " - "
-						.. datetime.format_datetime(attr_to, "YYYY-MM-DD")
-				end
-			end
-		elseif attr_from then
-			local format = (icon == "🕐") and "YYYY-MM-DD hh:mm" or "YYYY-MM-DD"
-			if icon == "🕐" and date_context and datetime.is_same_day(attr_from, date_context) then
-				format = "hh:mm"
-			end
-			time_range_str = datetime.format_datetime(attr_from, format) .. " - ..."
-		elseif attr_to then
-			local format = (icon == "🕐") and "YYYY-MM-DD hh:mm" or "YYYY-MM-DD"
-			if icon == "🕐" and date_context and datetime.is_same_day(attr_to, date_context) then
-				format = "hh:mm"
-			end
-			time_range_str = "... - " .. datetime.format_datetime(attr_to, format)
-		end
-
-		table.insert(attr_parts, icon .. " " .. time_range_str)
-	end
-
-	-- Duration attributes
-	if self.attributes.dur then
-		table.insert(attr_parts, string.format("⏱ %s", attributes.format_duration(self.attributes.dur)))
-	elseif self.attributes.est then
-		table.insert(attr_parts, string.format("⏱ ~%s", attributes.format_duration(self.attributes.est)))
-	end
-
-	-- Notification
+	-- Other attributes
 	if self.attributes.notify then
 		table.insert(attr_parts, "🔔")
 	end
 
-	-- Repeat pattern
-	if self.attributes["repeat"] then
-		table.insert(attr_parts, "🔁 " .. self.attributes["repeat"])
-	end
-
-	-- Priority/importance
 	if self.attributes.p then
 		table.insert(attr_parts, "P" .. self.attributes.p)
 	end
+
 	if self.attributes.i then
 		table.insert(attr_parts, "I" .. self.attributes.i)
 	end
 
-	-- Add attributes if any
+	-- Combine
 	if #attr_parts > 0 then
 		table.insert(parts, " " .. table.concat(attr_parts, "  "))
 	end
 
 	return table.concat(parts, "")
+end
+
+function M:_format_timing()
+	if not self.timing then
+		return nil
+	end
+
+	local date_context = self.date_context and datetime.parse_date(self.date_context)
+	local function should_show_date(dt)
+		return not (date_context and datetime.is_same_day(dt, date_context))
+	end
+
+	local function fmt_datetime(dt)
+		if not dt then
+			return "..."
+		end
+
+		if dt.hour and dt.min then
+			-- Has time
+			if should_show_date(dt) then
+				return datetime.format_datetime(dt, "YYYY-MM-DD hh:mm")
+			else
+				return datetime.format_datetime(dt, "hh:mm")
+			end
+		else
+			-- Date only
+			return datetime.format_datetime(dt, "YYYY-MM-DD")
+		end
+	end
+
+	if self.timing.type == "point" then
+		return fmt_datetime(self.timing.start)
+	elseif self.timing.type == "range" then
+		local start_str = fmt_datetime(self.timing.start)
+		local end_str = fmt_datetime(self.timing["end"])
+
+		-- Optimize for same-day ranges
+		if self.timing.start and self.timing["end"] and datetime.is_same_day(self.timing.start, self.timing["end"]) then
+			if self.timing.start.hour and self.timing.start.min then
+				-- Time range on same day
+				if not should_show_date(self.timing.start) then
+					return datetime.format_datetime(self.timing.start, "hh:mm")
+						.. "-"
+						.. datetime.format_datetime(self.timing["end"], "hh:mm")
+				end
+			end
+		end
+
+		return start_str .. " - " .. end_str
+	elseif self.timing.type == "open_start" then
+		return fmt_datetime(self.timing.start) .. " →"
+	elseif self.timing.type == "open_end" then
+		return "→ " .. fmt_datetime(self.timing["end"])
+	elseif self.timing.type == "deadline" then
+		return fmt_datetime(self.timing["end"])
+	end
+
+	return nil
+end
+
+function M:_format_recurrence(recurrence)
+	local pattern = recurrence.pattern
+
+	-- Handle simple patterns
+	if pattern == "day" or pattern == "daily" then
+		return "daily"
+	elseif pattern == "week" or pattern == "weekly" then
+		if #recurrence.modifiers > 0 then
+			return "weekly (" .. table.concat(recurrence.modifiers, ",") .. ")"
+		end
+		return "weekly"
+	elseif pattern == "month" or pattern == "monthly" then
+		if #recurrence.modifiers > 0 then
+			return "monthly (day " .. recurrence.modifiers[1] .. ")"
+		end
+		return "monthly"
+	else
+		-- Handle interval patterns like "2w", "3d"
+		return pattern
+	end
 end
 
 -- Format attributes in simple mode

@@ -29,7 +29,6 @@ function Document:new(opts)
 	doc.original_lines = {} -- Lines from last save/load
 	doc.sections = nil -- Parsed section tree
 	doc.article_names = {} -- Extracted article names
-	doc.ids = nil
 
 	-- Change tracking
 	doc.dirty_lines = {} -- Set of modified line numbers
@@ -106,7 +105,7 @@ function Document:check_external_changes()
 		-- })
 
 		-- Reload the file
-		self:reload()
+		-- self:reload()
 		return true
 	end
 

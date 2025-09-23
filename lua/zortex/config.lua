@@ -7,6 +7,7 @@ local defaults = {
 	extension = ".zortex",
 	special_articles = { "structure" }, -- Changes link opening behavior
 	debug = false,
+
 	commands = {
 		prefix = "Zortex",
 	},
@@ -38,7 +39,7 @@ local defaults = {
 		check_interval_minutes = 5,
 		default_advance_minutes = 15,
 
-		-- Channel routing (replaces individual enable flags)
+		-- Channel routing
 		channels = {
 			calendar = { "vim", "system", "ntfy" },
 			alarm = { "vim", "system", "ntfy" },
@@ -95,7 +96,7 @@ local defaults = {
 				days_ahead = 7,
 				send_hour = 7,
 				check_interval_minutes = 60,
-				digest_email = "your-email@example.com", -- Can be different from default
+				digest_email = "your-email@example.com",
 			},
 
 			pomodoro = {

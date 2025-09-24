@@ -34,19 +34,24 @@ local function send(title, message, options, config)
 		table.insert(cmd_parts, string.format('"Click: %s"', click_url))
 	end
 
-	-- Add auth token if configured
+	-- Add authentication
 	if config.auth_token then
+		-- Bearer token authentication
 		table.insert(cmd_parts, "-H")
 		table.insert(cmd_parts, string.format('"Authorization: Bearer %s"', config.auth_token))
+	elseif config.username and config.password then
+		-- Basic auth
+		table.insert(cmd_parts, "-u")
+		table.insert(cmd_parts, string.format('"%s:%s"', config.username, config.password))
 	end
 
 	-- Add message data
 	table.insert(cmd_parts, "-d")
 	table.insert(cmd_parts, string.format('"%s"', message:gsub('"', '\\"')))
 
-	-- Add server URL and topic
+	-- Add server URL and topic (without quotes around the URL)
 	local server_url = config.server_url or "http://ntfy.sh"
-	table.insert(cmd_parts, string.format('"%s/%s"', server_url, config.topic))
+	table.insert(cmd_parts, string.format("%s/%s", server_url, config.topic))
 
 	local cmd = table.concat(cmd_parts, " ")
 	local handle = io.popen(cmd .. " 2>&1")
@@ -73,3 +78,4 @@ return base.create_provider("ntfy", {
 		})
 	end,
 })
+

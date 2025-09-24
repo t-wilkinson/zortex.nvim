@@ -334,6 +334,8 @@ function M.send_notification(title, message, options)
 		options = options,
 	}
 
+	scheduled_notifications[notification.id] = notification
+
 	-- Send immediately by triggering
 	return M.trigger_notification(notification.id)
 end

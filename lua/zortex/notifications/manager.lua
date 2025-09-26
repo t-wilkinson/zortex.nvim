@@ -20,7 +20,6 @@ end
 local function load_providers()
 	providers.system = require("zortex.notifications.providers.system")
 	providers.ntfy = require("zortex.notifications.providers.ntfy")
-	providers.aws = require("zortex.notifications.providers.aws")
 	providers.vim = require("zortex.notifications.providers.vim")
 	providers.ses = require("zortex.notifications.providers.ses")
 end

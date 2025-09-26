@@ -41,14 +41,13 @@ local defaults = {
 
 		-- Channel routing
 		channels = {
-			calendar = { "vim", "system", "ntfy" },
-			alarm = { "vim", "system", "ntfy" },
-			timer = { "vim", "system" },
-			pomodoro = { "vim", "system" },
+			calendar = { "vim", "ntfy" },
+			alarm = { "vim", "ntfy" },
+			timer = { "vim", "ntfy" },
+			pomodoro = { "vim", "ntfy" },
 			digest = { "ses" },
-			xp = { "vim" },
-			task_due = { "vim", "ntfy", "ses" },
-			default = { "vim", "system" },
+			task_due = { "ntfy", "ses" },
+			default = { "vim", "ntfy" },
 		},
 
 		-- Provider configuration
@@ -66,11 +65,6 @@ local defaults = {
 					termux = "termux-notification --title '%s' --content '%s'",
 				},
 			},
-			aws = {
-				enabled = false,
-				api_endpoint = nil,
-				user_id = nil,
-			},
 			ses = {
 				enabled = false,
 				region = "us-east-1", -- Your AWS region
@@ -86,6 +80,12 @@ local defaults = {
 				priority = "default",
 				tags = { "zortex" },
 				auth_token = nil,
+			},
+			homelab = {
+				enabled = true,
+				api_endpoint = "http://raspberrypi.local:5000",
+				api_key = "your-secure-api-key-here", -- Same as in Docker .env
+				user_id = "default",
 			},
 		},
 

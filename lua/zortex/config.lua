@@ -33,6 +33,13 @@ local defaults = {
 		},
 	},
 
+	zortex_server = {
+		enabled = true,
+		api_endpoint = "http://raspberrypi.local:5000",
+		api_key = "your-secure-api-key-here", -- Same as in Docker .env
+		user_id = "default",
+	},
+
 	notifications = {
 		-- Global settings
 		enabled = true,
@@ -80,12 +87,6 @@ local defaults = {
 				priority = "default",
 				tags = { "zortex" },
 				auth_token = nil,
-			},
-			homelab = {
-				enabled = true,
-				api_endpoint = "http://raspberrypi.local:5000",
-				api_key = "your-secure-api-key-here", -- Same as in Docker .env
-				user_id = "default",
 			},
 		},
 

@@ -1,0 +1,38 @@
+services:
+  zortex:
+    build: ./ # ./zortex
+    container_name: zortex
+    restart: unless-stopped
+    environment:
+      # ntfy configuration
+      - NTFY_SERVER_URL=${NTFY_SERVER_URL:-http://ntfy.sh}
+      - NTFY_TOPIC=${NTFY_TOPIC:-zortex-notify}
+      - NTFY_AUTH_TOKEN=${NTFY_AUTH_TOKEN}
+
+      # Server configuration
+      - FLASK_PORT=5000
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - TZ=${TZ:-America/New_York}
+
+    volumes:
+      # Persist database
+      - zortex_data:/app/data
+      # - /mnt/drive/zortex:/app/data
+      # Persist logs
+      - ./logs:/var/log
+      # - /mnt/drive/zortex/logs:/var/log
+
+    ports:
+      # Expose only to localhost if using reverse proxy
+      - "127.0.0.1:5000:5000"
+
+    networks:
+      - homelab
+
+volumes:
+  zortex_data:
+    driver: local
+
+networks:
+  homelab:
+    driver: bridge

@@ -17,7 +17,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application files
 COPY server.py .
 COPY run.sh .
-COPY init_db.py .
 COPY crontab /etc/cron.d/notification-cron
 
 # Make scripts executable
@@ -31,12 +30,12 @@ RUN touch /var/log/cron.log;
 ENV NTFY_SERVER_URL=http://ntfy.sh
 ENV NTFY_TOPIC=zortex-notify
 ENV NTFY_AUTH_TOKEN=""
-ENV FLASK_PORT=80
+ENV FLASK_PORT=5000
 ENV TZ=UTC
 ENV DATABASE_PATH=/app/data/notifications.db
 
 # Expose Flask port
-EXPOSE 80
+EXPOSE 5000
 
 # Start cron and Flask
 CMD cron && python server.py

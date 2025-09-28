@@ -51,6 +51,22 @@ M.update_progress = function()
 end
 
 -- ===========================================================================
+-- Notifications
+-- ===========================================================================
+M.notifications = {
+
+	sync = function()
+		local notifications = require("zortex.notifications")
+		if notifications and notifications.calendar then
+			local count = notifications.calendar.sync()
+			vim.notify(string.format("Synced %d notifications", count or 0), vim.log.levels.INFO)
+		else
+			vim.notify("Calendar notifications not available", vim.log.levels.ERROR)
+		end
+	end,
+}
+
+-- ===========================================================================
 -- XP
 -- ===========================================================================
 M.xp = {

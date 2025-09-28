@@ -10,7 +10,7 @@ from contextlib import contextmanager
 app = Flask(__name__)
 
 # Configuration
-DATABASE_PATH = os.environ.get("DATABSE_PATH", "/app/data/notifications.db")
+DATABASE_PATH = "/app/data/notifications.db"
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
 FLASK_PORT = int(os.environ.get("FLASK_PORT", 5000))
 
@@ -301,6 +301,136 @@ def get_pending_notifications():
     except Exception as e:
         logger.error(f"Error getting pending notifications: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/test", methods=["POST", "GET"])
+def test_notification():
+    """Test the complete notification flow end-to-end"""
+    import subprocess
+
+    try:
+        # Allow both GET (for easy browser testing) and POST
+        if request.method == "GET":
+            # Simple test notification for GET requests
+            user_id = request.args.get("user_id", "test-user")
+            title = request.args.get("title", "Test Notification")
+            message = request.args.get(
+                "message", f"This is a test at {datetime.now(timezone.utc).isoformat()}"
+            )
+            delay = int(request.args.get("delay", 0))  # Delay in seconds before sending
+        else:
+            # POST with JSON body
+            data = request.json or {}
+            user_id = data.get("user_id", "test-user")
+            title = data.get("title", "Test Notification")
+            message = data.get(
+                "message", f"This is a test at {datetime.now(timezone.utc).isoformat()}"
+            )
+            delay = int(data.get("delay", 0))
+
+        # Calculate scheduled time
+        scheduled_time = int(datetime.now(timezone.utc).timestamp()) + delay
+
+        # Step 1: Add notification to database
+        logger.info(f"TEST: Adding notification for {user_id}")
+
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO notifications 
+                (user_id, entry_id, title, message, scheduled_time, 
+                 priority, tags, created_at, deduplication_key)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+                (
+                    user_id,
+                    "test-entry",
+                    title,
+                    message,
+                    scheduled_time,
+                    "high",  # High priority for test
+                    json.dumps(["test", "manual"]),
+                    int(datetime.now(timezone.utc).timestamp()),
+                    f"test_{int(datetime.now(timezone.utc).timestamp())}",  # Unique key
+                ),
+            )
+
+            notification_id = cursor.lastrowid
+            logger.info(f"TEST: Created notification with ID {notification_id}")
+
+        # Step 2: Run the notification sender script
+        logger.info("TEST: Triggering run.sh to send notification")
+
+        try:
+            # Execute run.sh
+            result = subprocess.run(
+                ["/bin/bash", "/app/run.sh"], capture_output=True, text=True, timeout=10
+            )
+
+            logger.info(f"TEST: run.sh exit code: {result.returncode}")
+            if result.stdout:
+                logger.info(f"TEST: run.sh stdout: {result.stdout}")
+            if result.stderr:
+                logger.error(f"TEST: run.sh stderr: {result.stderr}")
+
+            run_success = result.returncode == 0
+            run_output = result.stdout + result.stderr
+        except subprocess.TimeoutExpired:
+            run_success = False
+            run_output = "Timeout waiting for run.sh"
+            logger.error("TEST: run.sh timed out")
+        except Exception as e:
+            run_success = False
+            run_output = str(e)
+            logger.error(f"TEST: Error running run.sh: {e}")
+
+        # Step 3: Check if notification was sent
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT sent_at FROM notifications WHERE id = ?
+            """,
+                (notification_id,),
+            )
+
+            row = cursor.fetchone()
+            was_sent = row and row["sent_at"] is not None
+
+        # Prepare response
+        response_data = {
+            "success": True,
+            "test_results": {
+                "notification_id": notification_id,
+                "scheduled_time": datetime.fromtimestamp(
+                    scheduled_time, timezone.utc
+                ).isoformat(),
+                "delay_seconds": delay,
+                "database_insert": "success",
+                "run_script_executed": run_success,
+                "run_script_output": run_output[:500] if run_output else None,
+                "notification_sent": was_sent,
+                "overall_status": "SUCCESS" if was_sent else "FAILED",
+            },
+            "message": f"Test {'completed successfully' if was_sent else 'failed - check logs'}. Check your ntfy app for: '{title}'",
+        }
+
+        logger.info(
+            f"TEST: Overall result: {response_data['test_results']['overall_status']}"
+        )
+
+        return jsonify(response_data)
+
+    except Exception as e:
+        logger.error(f"Error in test endpoint: {e}")
+        return jsonify(
+            {
+                "success": False,
+                "error": str(e),
+                "test_results": {"overall_status": "ERROR"},
+            }
+        ), 500
 
 
 if __name__ == "__main__":

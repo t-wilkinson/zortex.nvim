@@ -67,8 +67,8 @@ end
 
 -- Sync multiple notifications (used by calendar sync)
 local function sync_notifications(notifications, config)
-	if not config.api_endpoint or not config.user_id then
-		return false, "Homelab endpoint or user_id not configured"
+	if not config.api_endpoint then
+		return false, "Homelab endpoint not configured"
 	end
 
 	-- Transform notifications to include scheduled_time and deduplication_key
@@ -114,6 +114,7 @@ local function sync_notifications(notifications, config)
 		vim.fn.shellescape(json_data),
 		config.api_endpoint
 	)
+	vim.notify(cmd, 3)
 
 	local handle = io.popen(cmd .. " 2>&1")
 	if handle then
@@ -142,9 +143,8 @@ return base.create_provider("homelab", {
 			priority = "high",
 			tags = { "test", "zortex" },
 		}, {
-			api_endpoint = Config.zortex_server.api_endpoint,
-			api_key = Config.zortex_server.api_key,
-			user_id = Config.zortex_server.user_id,
+			api_endpoint = Config.server.api_endpoint,
+			user_id = Config.server.user_id,
 		})
 	end,
 })

@@ -408,9 +408,9 @@ end
 function M.setup(opts)
 	cfg = opts
 
-	if cfg.enabled then
-		M.info("logger", "Logger configured", cfg)
-	end
+	-- if cfg.enabled then
+	-- 	M.info("logger", "Logger configured", cfg)
+	-- end
 end
 
 return M

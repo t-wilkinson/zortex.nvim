@@ -93,6 +93,48 @@ notifications = {
 GET /health
 ```
 
+### Test Complete Flow (NEW)
+
+```
+GET/POST /test
+```
+
+Tests the complete notification flow end-to-end. Adds a notification to the database, triggers run.sh, and verifies it was sent to ntfy.
+
+**GET Method (easy browser/curl testing):**
+
+```bash
+curl "http://localhost:5001/test?user_id=test&title=Test&message=Hello"
+```
+
+**POST Method (with delay):**
+
+```bash
+curl -X POST http://localhost:5001/test \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "test",
+    "title": "Test Notification",
+    "message": "This is a test",
+    "delay": 5
+  }'
+```
+
+Response includes complete diagnostics:
+
+```json
+{
+  "success": true,
+  "test_results": {
+    "notification_id": 123,
+    "database_insert": "success",
+    "run_script_executed": true,
+    "notification_sent": true,
+    "overall_status": "SUCCESS"
+  }
+}
+```
+
 ### Send/Sync Notifications
 
 ```

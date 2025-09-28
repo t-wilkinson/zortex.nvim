@@ -16,6 +16,13 @@ function M.setup(prefix)
 	end
 
 	-- ===========================================================================
+	-- Notifications
+	-- ===========================================================================
+	cmd("NotificationsSync", function()
+		api.notifications.sync()
+	end, { desc = "Manually sync calendar notifications to server" })
+
+	-- ===========================================================================
 	-- Files
 	-- ===========================================================================
 	cmd("OpenProjects", function()

@@ -5,6 +5,7 @@ local manager = require("zortex.notifications.manager")
 local datetime = require("zortex.utils.datetime")
 local calendar_store = require("zortex.stores.calendar")
 local Logger = require("zortex.core.logger")
+local Config = require("zortex.config")
 
 local cfg = {}
 
@@ -64,6 +65,7 @@ function M.sync()
 	local today = datetime.get_current_date()
 	local scan_days = cfg.sync_days
 	local now = os.time()
+	local notifications_to_sync = {}
 	local scheduled_count = 0
 
 	local function create_notification(entry, notify_values, date_str, notification_time, event_type)
@@ -75,27 +77,24 @@ function M.sync()
 			-- Only schedule future notifications
 			if trigger_time > now then
 				local dedup_key = create_dedup_key(entry, date_str, event_type, advance_minutes)
-				local minutes_until = math.floor((notification_timestamp - now) / 60)
+				local minutes_until = math.floor((notification_timestamp - trigger_time) / 60)
 				local title, message = format_notification(entry, event_type, minutes_until)
 
 				local notification = {
 					title = title,
 					message = message,
 					trigger_time = trigger_time,
+					scheduled_time = trigger_time, -- For homelab server
 					type = "calendar",
-					options = {
-						priority = entry.attributes.p and ("p" .. entry.attributes.p) or "normal",
-						sound = entry.attributes.sound,
-						deduplication_key = dedup_key,
-						event_type = event_type,
-						entry_text = entry.display_text,
-					},
+					priority = entry.attributes.p and ("p" .. entry.attributes.p) or "default",
+					tags = { "calendar", event_type },
+					entry_id = entry.display_text,
+					deduplication_key = dedup_key,
+					entry_text = entry.display_text,
 				}
 
-				local id = manager.schedule_notification(notification)
-				if id then
-					scheduled_count = scheduled_count + 1
-				end
+				table.insert(notifications_to_sync, notification)
+				scheduled_count = scheduled_count + 1
 			end
 		end
 	end
@@ -125,9 +124,66 @@ function M.sync()
 		end
 	end
 
-	-- Send confirmation if notifications were scheduled
+	-- Sync with homelab server if enabled, otherwise use local manager
+	local server_config = Config.server
+	if server_config and server_config.enabled then
+		-- Use homelab provider's sync function
+		local homelab_provider = require("zortex.notifications.providers.homelab")
+		local success, err = homelab_provider.sync(notifications_to_sync, server_config)
+
+		if success then
+			Logger.info("calendar", "Synced " .. scheduled_count .. " notifications to homelab server")
+
+			-- Send local confirmation
+			manager.send_notification(
+				"Calendar Sync Complete",
+				string.format("Synced %d calendar notifications to server", scheduled_count),
+				{ type = "calendar", channels = { "vim" } }
+			)
+		else
+			Logger.error("calendar", "Failed to sync to homelab: " .. (err or "unknown error"))
+
+			-- Fallback to local scheduling
+			Logger.info("calendar", "Falling back to local scheduling")
+			M.sync_local(notifications_to_sync)
+		end
+	else
+		-- Use local manager scheduling
+		M.sync_local(notifications_to_sync)
+	end
+
+	return scheduled_count
+end
+
+-- Local sync using manager (fallback)
+function M.sync_local(notifications)
+	local scheduled_count = 0
+
+	for _, notification in ipairs(notifications) do
+		-- Convert to manager format
+		local manager_notification = {
+			title = notification.title,
+			message = notification.message,
+			trigger_time = notification.trigger_time,
+			type = "calendar",
+			options = {
+				priority = notification.priority,
+				sound = notification.sound,
+				deduplication_key = notification.deduplication_key,
+				event_type = notification.event_type,
+				entry_text = notification.entry_text,
+				tags = notification.tags,
+			},
+		}
+
+		local id = manager.schedule_notification(manager_notification)
+		if id then
+			scheduled_count = scheduled_count + 1
+		end
+	end
+
 	if scheduled_count > 0 then
-		Logger.info("calendar", "syncheduled " .. scheduled_count .. " notifications")
+		Logger.info("calendar", "Scheduled " .. scheduled_count .. " notifications locally")
 		manager.send_notification(
 			"Calendar Sync Complete",
 			string.format("Scheduled %d calendar notifications", scheduled_count),

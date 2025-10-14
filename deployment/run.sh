@@ -1,7 +1,9 @@
 #!/bin/bash
 
+. /etc/environment
+
 # Load environment variables
-NTFY_SERVER_URL=${NTFY_SERVER_URL:-"http://ntfy.sh"}
+NTFY_SERVER_URL=${NTFY_SERVER_URL:-"http://localhost:5000"}
 NTFY_TOPIC=${NTFY_TOPIC:-"zortex-notify"}
 NTFY_AUTH_TOKEN=${NTFY_AUTH_TOKEN:-""}
 DATABASE_PATH="/app/data/notifications.db"

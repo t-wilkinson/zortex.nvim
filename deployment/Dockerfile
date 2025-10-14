@@ -17,10 +17,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application files
 COPY server.py .
 COPY run.sh .
+COPY entrypoint.sh .
 COPY crontab /etc/cron.d/notification-cron
 
 # Make scripts executable
 RUN chmod +x run.sh
+RUN chmod +x entrypoint.sh .
 RUN chmod 0644 /etc/cron.d/notification-cron;
 
 # Create log file
@@ -38,4 +40,6 @@ ENV DATABASE_PATH=/app/data/notifications.db
 EXPOSE 5000
 
 # Start cron and Flask
-CMD cron && python server.py
+# CMD cron && crontab /etc/cron.d/notification-cron && tail -f /var/log/cron.log & python server.py
+# CMD /bin/bash -c "printenv | grep -E '^(NTFY_SERVER_URL|NTFY_TOPIC|NTFY_AUTH_TOKEN|TZ)=' > /etc/environment && chmod 0644 /etc/environment && cron && python server.py"
+CMD ["/app/entrypoint.sh"]

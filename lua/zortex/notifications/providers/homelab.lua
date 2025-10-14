@@ -2,6 +2,8 @@
 local base = require("zortex.notifications.providers.base")
 local Config = require("zortex.config")
 
+-- priority=min(1),low,default,high,max/urgent(5)
+
 local function send(title, message, options, config)
 	if not config.api_endpoint or not config.user_id then
 		return false, "Homelab endpoint or user_id not configured"

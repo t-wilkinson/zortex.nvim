@@ -424,6 +424,41 @@ local Syntax = {
 	},
 
 	----------------------------------------------------------------------
+	-- OKR
+	----------------------------------------------------------------------
+	Objective = {
+		opts = { fg = "#ebbcba", bold = true }, -- Distinct color for ID parts
+		patterns = {
+			-- Part 1: Duration (e.g., 1M)
+			{
+				regex = "^##%s+(%d+[MY])%-(%d+)%-(%w%d)",
+				capture = 1,
+			},
+			-- Part 2: Year (e.g., 2026)
+			{
+				regex = "^##%s+(%d+[MY])%-(%d+)%-(%w%d)",
+				capture = 2,
+			},
+			-- Part 3: Quarter (e.g., Q1)
+			{
+				regex = "^##%s+(%d+[MY])%-(%d+)%-(%w%d)",
+				capture = 3,
+			},
+		},
+	},
+
+	KeyResult = {
+		opts = { fg = "#c4a7e7", bold = true }, -- Purple and bold for KR labels
+		patterns = {
+			{
+				-- Matches: - KR1: ...
+				regex = "^%s*-%s*(KR%d+:)",
+				capture = 1,
+			},
+		},
+	},
+
+	----------------------------------------------------------------------
 	-- Special elements ---------------------------------------------------
 	----------------------------------------------------------------------
 	Time = {
@@ -459,6 +494,18 @@ local Syntax = {
 			{ regex = "(,)%s", capture = 1 },
 			{ regex = "(?)%s", capture = 1 },
 			{ regex = "(?)$", capture = 1 },
+		},
+	},
+
+	BlockQuote = {
+		opts = { fg = "#908caa" }, -- Cyan/Pine color for pipe text
+		patterns = {
+			{
+				regex = "^%s*|%s*.*$",
+				range = function(match)
+					return match.start_col, match.end_col
+				end,
+			},
 		},
 	},
 
@@ -623,6 +670,8 @@ function M.highlight_buffer(bufnr)
 		"Tag",
 		"Heading",
 		"BoldHeading",
+		"Objective",
+		"KeyResult",
 		"NumberList",
 		"TextList",
 		"TaskCheckbox",
@@ -647,6 +696,7 @@ function M.highlight_buffer(bufnr)
 		"Operator",
 		"Punctuation",
 		"Quote",
+		"BlockQuote",
 	}
 
 	for lnum, line in ipairs(lines) do

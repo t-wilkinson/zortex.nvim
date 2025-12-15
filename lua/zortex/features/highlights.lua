@@ -458,6 +458,82 @@ local Syntax = {
 		},
 	},
 
+	KeyResultCheckbox = {
+		opts = { fg = "#ea9a97" },
+		patterns = {
+			{
+				regex = "(%s*)%-%s*KR%d:%s*(%[(.?)%])",
+				range = function(match)
+					local checkbox_start = match.start_col + #match.caps[1] + 1
+					local checkbox_end = checkbox_start + #match.caps[2] + 1
+					return checkbox_start, checkbox_end
+				end,
+				conceal = {
+					type = "task",
+					get_text = function(caps)
+						local marker = caps[3]:lower()
+						if marker == "" or marker == " " then
+							return " "
+						end
+						return nil -- keep original
+					end,
+				},
+			},
+		},
+	},
+
+	KeyResultText = {
+		opts = { fg = "#f6c177" },
+		patterns = {
+			{
+				regex = "(%s*)%-%sKR%d:%s*%[(.?)%]%s+(.+)",
+				range = function(match)
+					-- Find the position after "] "
+					local bracket_pos = match.line:find("%]", match.start_col)
+					if bracket_pos then
+						-- Start highlighting after the space following ]
+						local text_start = bracket_pos + 1
+						-- Skip any spaces
+						while text_start <= #match.line and match.line:sub(text_start, text_start):match("%s") do
+							text_start = text_start + 1
+						end
+						return text_start - 1, -1
+					end
+					return nil, nil
+				end,
+				condition = function(line, match)
+					local marker = match.caps[2]:lower()
+					return marker ~= "x"
+				end,
+			},
+		},
+	},
+
+	KeyResultDone = {
+		opts = { fg = "#908caa", strikethrough = true },
+		patterns = {
+			{
+				regex = "(%s*)%-%sKR%d:%s*%[(.?)%]%s+(.+)",
+				range = function(match)
+					-- Same logic as TaskText
+					local bracket_pos = match.line:find("%]", match.start_col)
+					if bracket_pos then
+						local text_start = bracket_pos + 1
+						while text_start <= #match.line and match.line:sub(text_start, text_start):match("%s") do
+							text_start = text_start + 1
+						end
+						return text_start - 1, -1
+					end
+					return nil, nil
+				end,
+				condition = function(line, match)
+					local marker = match.caps[2]:lower()
+					return marker == "x"
+				end,
+			},
+		},
+	},
+
 	----------------------------------------------------------------------
 	-- Special elements ---------------------------------------------------
 	----------------------------------------------------------------------
@@ -672,6 +748,9 @@ function M.highlight_buffer(bufnr)
 		"BoldHeading",
 		"Objective",
 		"KeyResult",
+		"KeyResultCheckbox",
+		"KeyResultText",
+		"KeyResultDone",
 		"NumberList",
 		"TextList",
 		"TaskCheckbox",

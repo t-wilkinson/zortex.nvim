@@ -75,6 +75,7 @@ local Syntax = {
 		opts = { bold = true, fg = "#3e8fb0" },
 		patterns = {
 			{
+				-- Label:\n
 				regex = "^(%w[^:]*):$",
 				condition = function(line)
 					return not line:find("%.%s.-:")
@@ -90,6 +91,7 @@ local Syntax = {
 		opts = { bold = true, fg = "#f6c177" },
 		patterns = {
 			{
+				-- Label: text
 				regex = "^(%w[^:]*):%s",
 				condition = function(line)
 					return not line:find("%.%s.-:")
@@ -571,6 +573,7 @@ local Syntax = {
 		patterns = {
 			{ regex = "(%.)%s", capture = 1 },
 			{ regex = "(%.)$", capture = 1 },
+			{ regex = "(;)%s", capture = 1 },
 			{ regex = "(,)%s", capture = 1 },
 			{ regex = "(?)%s", capture = 1 },
 			{ regex = "(?)$", capture = 1 },

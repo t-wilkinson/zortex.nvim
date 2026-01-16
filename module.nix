@@ -127,7 +127,7 @@ in
     };
     users.groups.zortex = { };
 
-    # 1. The Web Server Service
+    # Web Server Service
     systemd.services.zortex-web = {
       description = "Zortex Web API";
       wantedBy = [ "multi-user.target" ];
@@ -148,7 +148,7 @@ in
       };
     };
 
-    # 2. The Timer (Replaces Cron)
+    # Timer
     systemd.timers.zortex-worker = {
       description = "Run Zortex notification checks every minute";
       wantedBy = [ "timers.target" ];
@@ -159,7 +159,7 @@ in
       };
     };
 
-    # 3. The Worker Service (Triggered by Timer)
+    # Triggered by Timer
     systemd.services.zortex-worker = {
       description = "Zortex Notification Worker";
       serviceConfig = {

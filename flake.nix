@@ -11,8 +11,6 @@
       supportedSystems = [
         "x86_64-linux"
         "aarch64-linux"
-        "aarch64-darwin"
-        "x86_64-darwin"
       ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
     in
@@ -28,7 +26,7 @@
             version = "1.0.0";
             format = "other";
 
-            src = ./.;
+            src = ./deployment;
 
             propagatedBuildInputs = with pkgs.python3Packages; [
               flask

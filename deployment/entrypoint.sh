@@ -1,4 +1,5 @@
 #!/bin/bash
+# deployment/entrypoint.sh
 
 # Pass environment variables to cron
 printenv | grep -E '^(NTFY_SERVER_URL|NTFY_TOPIC|NTFY_AUTH_TOKEN|TZ)=' >/etc/environment

@@ -1,4 +1,5 @@
 #!/bin/bash
+# deployment/test_notification.sh
 
 # Test script for Zortex notification server
 # This script helps test the complete notification flow

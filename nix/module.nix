@@ -80,6 +80,9 @@ in
         LOG_LEVEL = "INFO";
         # Ensure server can find the sender binary for the /test endpoint
         PATH = lib.mkForce "${zortexPkg}/bin:${pkgs.coreutils}/bin";
+        NTFY_SERVER_URL = cfg.ntfy.url;
+        NTFY_TOPIC = cfg.ntfy.topic;
+        NTFY_AUTH_TOKEN = if cfg.ntfy.authToken != null then cfg.ntfy.authToken else "";
       };
 
       serviceConfig = {

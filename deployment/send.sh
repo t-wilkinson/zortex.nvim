@@ -26,9 +26,8 @@ send_ntfy_notification() {
   local priority="$3"
   local tags="$4"
 
-  # Build curl command
-  # UPDATED: 'curl' must be in PATH. Nix wrapper ensures this.
-  local curl_cmd="curl -s"
+  # Build curl command, -f fails on 404 response
+  local curl_cmd="curl -s -f"
 
   # Add authentication if provided
   if [ -n "$NTFY_AUTH_TOKEN" ]; then

@@ -79,7 +79,7 @@ in
         DATABASE_PATH = lib.mkDefault "${cfg.dataDir}/notifications.db";
         LOG_LEVEL = "INFO";
         # Ensure server can find the sender binary for the /test endpoint
-        PATH = "${zortexPkg}/bin:${pkgs.coreutils}/bin";
+        PATH = lib.mkForce "${zortexPkg}/bin:${pkgs.coreutils}/bin";
       };
 
       serviceConfig = {

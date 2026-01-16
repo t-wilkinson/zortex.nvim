@@ -21,7 +21,7 @@ Create the following directory structure:
 zortex-notifications/
 ├── Dockerfile
 ├── server.py
-├── run.sh
+├── send.sh
 ├── init_db.py
 ├── crontab
 ├── requirements.txt
@@ -99,7 +99,7 @@ GET /health
 GET/POST /test
 ```
 
-Tests the complete notification flow end-to-end. Adds a notification to the database, triggers run.sh, and verifies it was sent to ntfy.
+Tests the complete notification flow end-to-end. Adds a notification to the database, triggers send.sh, and verifies it was sent to ntfy.
 
 **GET Method (easy browser/curl testing):**
 

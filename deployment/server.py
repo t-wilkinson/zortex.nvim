@@ -11,13 +11,18 @@ from contextlib import contextmanager
 app = Flask(__name__)
 
 # Configuration
-DATABASE_PATH = "/app/data/notifications.db"
+state_dir = os.environ.get("STATE_DIRECTORY")
+if state_dir:
+    default_db_path = os.path.join(state_dir, "notifications.db")
+else:
+    default_db_path = os.path.join(os.getcwd(), "data", "notifications.db")
+DATABASE_PATH = os.environ.get("DATABASE_PATH", default_db_path)
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
 FLASK_PORT = int(os.environ.get("FLASK_PORT", 5000))
 
 # Setup logging
 logging.basicConfig(
-    level=getattr(logging, LOG_LEVEL),
+    level=getattr(logging, LOG_LEVEL.upper()),
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
@@ -26,6 +31,9 @@ logger = logging.getLogger(__name__)
 @contextmanager
 def get_db():
     """Context manager for database connections"""
+    # Ensure directory exists before connecting
+    os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
+    
     conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     try:
@@ -40,31 +48,36 @@ def get_db():
 
 def init_database():
     """Initialize database if it doesn't exist"""
-    os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
+    try:
+        os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
 
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS notifications (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id TEXT NOT NULL,
-                entry_id TEXT,
-                title TEXT NOT NULL,
-                message TEXT NOT NULL,
-                scheduled_time INTEGER NOT NULL,
-                priority TEXT DEFAULT 'default',
-                tags TEXT,
-                created_at INTEGER NOT NULL,
-                sent_at INTEGER,
-                deduplication_key TEXT,
-                UNIQUE(user_id, deduplication_key)
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS notifications (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id TEXT NOT NULL,
+                    entry_id TEXT,
+                    title TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    scheduled_time INTEGER NOT NULL,
+                    priority TEXT DEFAULT 'default',
+                    tags TEXT,
+                    created_at INTEGER NOT NULL,
+                    sent_at INTEGER,
+                    deduplication_key TEXT,
+                    UNIQUE(user_id, deduplication_key)
+                )
+            """)
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_scheduled ON notifications(scheduled_time)"
             )
-        """)
-        cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_scheduled ON notifications(scheduled_time)"
-        )
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_user ON notifications(user_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_sent ON notifications(sent_at)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_user ON notifications(user_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_sent ON notifications(sent_at)")
+            logger.info(f"Database initialized at {DATABASE_PATH}")
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
+        raise
 
 
 @app.route("/health", methods=["GET"])
@@ -335,6 +348,11 @@ def test_notification():
         # Step 1: Add notification to database
         logger.info(f"TEST: Adding notification for {user_id}")
 
+        # Use a more unique key for tests to avoid collisions on rapid retries
+        import random
+        random_suffix = random.randint(1000, 9999)
+        dedup_key = f"test_{int(datetime.now(timezone.utc).timestamp())}_{random_suffix}"
+
         with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -361,30 +379,44 @@ def test_notification():
             logger.info(f"TEST: Created notification with ID {notification_id}")
 
         # Step 2: Run the notification sender script
-        logger.info("TEST: Triggering run.sh to send notification")
+        # UPDATED: Use zortex-sender name if available, or assume local send.sh
+        # In NixOS, we'll ensure 'zortex-sender' is in the path or we call it directly if we knew where it was.
+        # But send.sh is now separate. 
+        # For the test endpoint to work in NixOS, we might need to know where the binary is.
+        # However, calling the systemd service trigger might be safer if permissions allow, 
+        # but let's stick to calling the script directly for now.
+        
+        # We will assume 'zortex-sender' is in the PATH in the nix package
+        script_cmd = ["zortex-sender"] 
+        
+        # If not found (local dev), fallback to ./send.sh
+        import shutil
+        if not shutil.which("zortex-sender"):
+             script_cmd = ["/bin/bash", "./send.sh"]
+
+        logger.info(f"TEST: Triggering {script_cmd} to send notification")
 
         try:
-            # Execute run.sh
             result = subprocess.run(
-                ["/bin/bash", "/app/run.sh"], capture_output=True, text=True, timeout=10
+                script_cmd, capture_output=True, text=True, timeout=10
             )
 
-            logger.info(f"TEST: run.sh exit code: {result.returncode}")
+            logger.info(f"TEST: script exit code: {result.returncode}")
             if result.stdout:
-                logger.info(f"TEST: run.sh stdout: {result.stdout}")
+                logger.info(f"TEST: stdout: {result.stdout}")
             if result.stderr:
-                logger.error(f"TEST: run.sh stderr: {result.stderr}")
+                logger.error(f"TEST: stderr: {result.stderr}")
 
             run_success = result.returncode == 0
             run_output = result.stdout + result.stderr
         except subprocess.TimeoutExpired:
             run_success = False
-            run_output = "Timeout waiting for run.sh"
-            logger.error("TEST: run.sh timed out")
+            run_output = "Timeout waiting for script"
+            logger.error("TEST: script timed out")
         except Exception as e:
             run_success = False
             run_output = str(e)
-            logger.error(f"TEST: Error running run.sh: {e}")
+            logger.error(f"TEST: Error running script: {e}")
 
         # Step 3: Check if notification was sent
         with get_db() as conn:

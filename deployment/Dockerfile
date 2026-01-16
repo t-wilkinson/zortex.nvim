@@ -22,7 +22,7 @@ COPY entrypoint.sh .
 COPY crontab /etc/cron.d/notification-cron
 
 # Make scripts executable
-RUN chmod +x run.sh
+RUN chmod +x send.sh
 RUN chmod +x entrypoint.sh .
 RUN chmod 0644 /etc/cron.d/notification-cron;
 

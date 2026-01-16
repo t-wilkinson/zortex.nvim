@@ -1,50 +1,69 @@
 {
-  description = "Zortex Notification Service";
+  description = "Zortex Notification Server Flake";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
 
   outputs =
-    { self, nixpkgs, ... }:
+    { self, nixpkgs }:
     let
       supportedSystems = [
         "x86_64-linux"
         "aarch64-linux"
       ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
+      pkgsFor = system: nixpkgs.legacyPackages.${system};
     in
     {
+      # Package output: nix build .#default
       packages = forAllSystems (
         system:
         let
-          pkgs = nixpkgs.legacyPackages.${system};
+          pkgs = pkgsFor system;
         in
         {
-          default = pkgs.python3Packages.buildPythonApplication {
-            pname = "zortex";
-            version = "1.0.0";
-            format = "other";
+          default = pkgs.callPackage ./nix/package.nix { };
+        }
+      );
 
-            src = ./deployment;
+      # NixOS Module output
+      nixosModules.default = import ./nix/module.nix;
 
-            propagatedBuildInputs = with pkgs.python3Packages; [
-              flask
-              werkzeug
+      # Dev shell for testing locally: nix develop
+      devShells = forAllSystems (
+        system:
+        let
+          pkgs = pkgsFor system;
+        in
+        {
+          default = pkgs.mkShell {
+            buildInputs = with pkgs; [
+              self.packages.${system}.default
+              python3
+              sqlite
+              curl
+              (python3.withPackages (
+                ps: with ps; [
+                  flask
+                  werkzeug
+                ]
+              ))
             ];
+            shellHook = ''
+              export FLASK_PORT=5000
+              export DATABASE_PATH="$HOME/.local/state/zortex/notifications.db"
+              export NTFY_SERVER_URL="https://ntfy.home.lab"
 
-            installPhase = ''
-              mkdir -p $out/bin $out/share/zortex
-              cp server.py $out/share/zortex/server.py
+              # Automatically create the data directory for local dev
+              mkdir -p $(dirname $DATABASE_PATH)
 
-              makeWrapper ${pkgs.python3Packages.python.interpreter} $out/bin/zortex-server \
-                --add-flags "$out/share/zortex/server.py" \
-                --prefix PYTHONPATH : "$PYTHONPATH"
+              echo "Zortex dev environment ready."
+              echo "Run 'python deployment/server.py' to start server."
+              echo "Run './deployment/send.sh' to process queue."
             '';
           };
         }
       );
-
-      nixosModules.default = import ./deployment/module.nix { inherit self; };
     };
 }

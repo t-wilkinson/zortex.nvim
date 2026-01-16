@@ -1,5 +1,5 @@
 #!/bin/bash
-# deployment/run.sh
+# deployment/send.sh
 
 # Load environment variables with defaults
 NTFY_SERVER_URL=${NTFY_SERVER_URL:-"http://localhost:5000"}

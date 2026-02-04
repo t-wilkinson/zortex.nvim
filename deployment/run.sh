@@ -16,7 +16,13 @@ LOG_FILE="${LOG_FILE:-/dev/stdout}" # Default to stdout so systemd captures it
 
 # Function to log messages
 log_message() {
-  echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >>"$LOG_FILE"
+  if [ "$LOG_FILE" = "/dev/stdout" ]; then
+    # If logging to stdout, just echo (systemd handles capture)
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1"
+  else
+    # If logging to a file, append to it
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >>"$LOG_FILE"
+  fi
 }
 
 # Function to send notification via ntfy

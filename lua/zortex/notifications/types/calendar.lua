@@ -69,7 +69,15 @@ function M.sync()
 	local scheduled_count = 0
 
 	local function create_notification(entry, notify_values, date_str, notification_time, event_type)
-		local notification_timestamp = os.time(notification_time)
+		local date_parts = datetime.parse_date(date_str)
+		local full_time = vim.tbl_extend("force", {}, date_parts, notification_time)
+
+		-- Ensure we have a valid table for os.time (requires year, month, day, hour, min)
+		if not full_time.year or not full_time.hour then
+			return
+		end
+
+		local notification_timestamp = os.time(full_time)
 
 		for _, advance_minutes in ipairs(notify_values) do
 			local trigger_time = notification_timestamp - (advance_minutes * 60)

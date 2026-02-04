@@ -116,7 +116,6 @@ local function sync_notifications(notifications, config)
 		vim.fn.shellescape(json_data),
 		config.api_endpoint
 	)
-	vim.notify(cmd, 3)
 
 	local handle = io.popen(cmd .. " 2>&1")
 	if handle then

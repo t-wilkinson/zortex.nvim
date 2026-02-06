@@ -309,11 +309,11 @@ function M.trigger_notification(notification_id)
 
 	save_scheduled_notifications()
 
-	Logger.info("notifications", "trigger_notification", {
-		id = notification_id,
-		title = notification.title,
-		results = results,
-	})
+	-- Logger.info("notifications", "trigger_notification", {
+	-- 	id = notification_id,
+	-- 	title = notification.title,
+	-- 	results = results,
+	-- })
 
 	return results
 end

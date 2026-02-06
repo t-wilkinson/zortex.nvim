@@ -132,12 +132,12 @@ function M.sync()
 		local success, err = homelab_provider.sync(notifications_to_sync, server_config)
 
 		if success then
-			Logger.info("calendar", "Synced " .. scheduled_count .. " notifications to homelab server")
+			-- Logger.info("calendar", "Synced " .. scheduled_count .. " notifications to homelab server")
 
 			-- Send local confirmation
 			manager.send_notification(
 				"Calendar Sync Complete",
-				string.format("Synced %d calendar notifications to server", scheduled_count),
+				string.format("Synced %d calendar notifications locally", scheduled_count),
 				{ type = "calendar", channels = { "vim" } }
 			)
 		else

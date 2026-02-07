@@ -5,7 +5,8 @@ import sqlite3
 import json
 import logging
 from datetime import datetime, timezone
-from flask import Flask, request, jsonify
+from itertools import groupby
+from flask import Flask, request, jsonify, render_template_string
 from contextlib import contextmanager
 
 app = Flask(__name__)
@@ -79,6 +80,151 @@ def init_database():
         logger.error(f"Failed to initialize database: {e}")
         raise
 
+
+# ==============================================================================
+#  Helpers & Views for Homepage
+# ==============================================================================
+
+def get_zortex_calendar_view():
+    """Generates the text-based calendar view and stats"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM notifications 
+            WHERE sent_at IS NULL
+            ORDER BY scheduled_time ASC
+        """)
+        rows = cursor.fetchall()
+
+    notifications = []
+    for row in rows:
+        dt = datetime.fromtimestamp(row["scheduled_time"], timezone.utc)
+        notifications.append({
+            "date_str": dt.strftime("%Y-%m-%d"),
+            "time_str": dt.strftime("%H:%M"),
+            "title": row["title"],
+            "message": row["message"],
+            "obj": row
+        })
+
+    # Generate the text block
+    text_lines = []
+    
+    for date, group in groupby(notifications, key=lambda x: x["date_str"]):
+        text_lines.append(f"{date}:")
+        for item in group:
+            # Clean up title: remove "Calendar: " prefix if present for cleaner view
+            clean_title = item["title"].replace("Calendar: ", "")
+            # Only show first line of message if it duplicates title
+            text_lines.append(f"- {item['time_str']} {clean_title}")
+        text_lines.append("") # Empty line between days
+    
+    # Calculate next event summary
+    next_event_str = "No events"
+    if notifications:
+        n = notifications[0]
+        # Clean title for the summary view as well
+        clean_title = n["title"].replace("Calendar: ", "")
+        next_event_str = f"{n['time_str']} {clean_title}"
+
+    return {
+        "count": len(notifications),
+        "text_view": "\n".join(text_lines).strip(),
+        "next_event": next_event_str
+    }
+
+
+@app.route("/", methods=["GET"])
+def home():
+    """Render the 'Homey' Zortex Homepage"""
+    data = get_zortex_calendar_view()
+    
+    html = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Zortex Hub</title>
+        <style>
+            :root {
+                --bg: #1e1e2e;
+                --fg: #cdd6f4;
+                --accent: #89b4fa;
+                --surface: #313244;
+                --green: #a6e3a1;
+            }
+            body {
+                background-color: var(--bg);
+                color: var(--fg);
+                font-family: 'JetBrains Mono', 'Fira Code', monospace;
+                margin: 0;
+                padding: 2rem;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                min-height: 100vh;
+            }
+            .container {
+                max-width: 800px;
+                width: 100%;
+            }
+            h1 { color: var(--accent); margin-bottom: 0.5rem; }
+            .stats {
+                color: var(--green);
+                font-size: 0.9rem;
+                margin-bottom: 2rem;
+                opacity: 0.8;
+            }
+            .card {
+                background-color: var(--surface);
+                padding: 1.5rem;
+                border-radius: 8px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                overflow-x: auto;
+            }
+            pre {
+                margin: 0;
+                font-size: 0.95rem;
+                line-height: 1.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Zortex Hub</h1>
+            <div class="stats">
+                System Online • {{ count }} Pending Notifications
+            </div>
+            
+            <div class="card">
+<pre>
+{{ text_view }}
+</pre>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return render_template_string(html, count=data["count"], text_view=data["text_view"])
+
+
+@app.route("/api/summary", methods=["GET"])
+def api_summary():
+    """JSON Endpoint for Homelab Dashboards (Homepage, etc)"""
+    data = get_zortex_calendar_view()
+    return jsonify({
+        "status": "ok",
+        "pending_count": data["count"],
+        "calendar_text": data["text_view"],
+        "next_event": data["next_event"],
+        "generated_at": datetime.now(timezone.utc).isoformat()
+    })
+
+
+# ==============================================================================
+#  Standard API Routes
+# ==============================================================================
 
 @app.route("/health", methods=["GET"])
 def health_check():
@@ -321,6 +467,7 @@ def get_pending_notifications():
 def test_notification():
     """Test the complete notification flow end-to-end"""
     import subprocess
+    import shutil
 
     try:
         # Allow both GET (for easy browser testing) and POST
@@ -379,18 +526,10 @@ def test_notification():
             logger.info(f"TEST: Created notification with ID {notification_id}")
 
         # Step 2: Run the notification sender script
-        # UPDATED: Use zortex-sender name if available, or assume local send.sh
-        # In NixOS, we'll ensure 'zortex-sender' is in the path or we call it directly if we knew where it was.
-        # But send.sh is now separate. 
-        # For the test endpoint to work in NixOS, we might need to know where the binary is.
-        # However, calling the systemd service trigger might be safer if permissions allow, 
-        # but let's stick to calling the script directly for now.
-        
         # We will assume 'zortex-sender' is in the PATH in the nix package
         script_cmd = ["zortex-sender"] 
         
         # If not found (local dev), fallback to ./send.sh
-        import shutil
         if not shutil.which("zortex-sender"):
              script_cmd = ["/bin/bash", "./send.sh"]
 

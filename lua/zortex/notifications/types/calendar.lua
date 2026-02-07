@@ -132,7 +132,7 @@ function M.sync()
 		local success, err = homelab_provider.sync(notifications_to_sync, server_config)
 
 		if success then
-			-- Logger.info("calendar", "Synced " .. scheduled_count .. " notifications to homelab server")
+			Logger.info("calendar", "Synced " .. scheduled_count .. " notifications to homelab server")
 
 			-- Send local confirmation
 			manager.send_notification(
@@ -183,7 +183,7 @@ function M.sync_local(notifications)
 	end
 
 	if scheduled_count > 0 then
-		Logger.info("calendar", "Scheduled " .. scheduled_count .. " notifications locally")
+		-- Logger.info("calendar", "Scheduled " .. scheduled_count .. " notifications locally")
 		manager.send_notification(
 			"Calendar Sync Complete",
 			string.format("Scheduled %d calendar notifications", scheduled_count),

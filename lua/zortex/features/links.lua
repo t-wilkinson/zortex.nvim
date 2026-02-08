@@ -91,6 +91,31 @@ function M.open_link()
 			return
 		end
 
+		-- Check if this is a direct media file path before resolving as a note
+		local def = link_info.definition
+		local is_media = def:match("%.mp4$")
+			or def:match("%.mkv$")
+			or def:match("%.mov$")
+			or def:match("%.png$")
+			or def:match("%.jpg$")
+			or def:match("%.jpeg$")
+			or def:match("%.gif$")
+			or def:match("%.webp$")
+		if is_media then
+			local resolved_path = def
+			-- Resolve relative paths (./ or ../) relative to the current file
+			if def:sub(1, 2) == "./" or def:sub(1, 3) == "../" then
+				local current_dir = vim.fn.expand("%:p:h")
+				resolved_path = fs.joinpath(current_dir, def)
+			end
+
+			local expanded = vim.fn.expand(resolved_path)
+			if fs.file_exists(expanded) then
+				open_external(expanded)
+				return
+			end
+		end
+
 		-- For live links in digest, just navigate normally but register for updates
 		if link_info.type == "live_link" then
 			local current_file = vim.fn.expand("%:p")
@@ -135,9 +160,10 @@ function M.open_link()
 	elseif link_info.type == "markdown" then
 		-- Handle markdown-style link
 		local url = link_info.url
+		local is_media = url:match("%.mp4$") or url:match("%.mkv$") or url:match("%.mov$") -- Add more extensions if needed
 
-		-- Check if it's a web URL
-		if url:match("^https?://") then
+		-- Check if it's a web URL or a media file
+		if url:match("^https?://") or is_media then
 			open_external(url)
 		else
 			-- It's a file path

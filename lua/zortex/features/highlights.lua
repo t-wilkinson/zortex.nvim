@@ -272,12 +272,34 @@ local Syntax = {
 	----------------------------------------------------------------------
 	-- Links and references -----------------------------------------------
 	----------------------------------------------------------------------
+	MarkdownLink = {
+		opts = { fg = "#3e8fb0", underline = true },
+		patterns = {
+			{
+				regex = "%[([^]]+)%]%(([^)]+)%)", -- Matches [Text](url)
+				range = function(match)
+					-- Highlight only the "Text" part inside []
+					return match.start_col + 1, match.start_col + 1 + #match.caps[1]
+				end,
+				conceal = {
+					type = "markdown_url",
+					icon = "🔗",
+				},
+			},
+		},
+	},
+
 	Link = {
 		opts = { fg = "#3e8fb0", underline = true },
 		patterns = {
 			{
 				regex = "%[([^]]+)%]",
 				condition = function(line, match)
+					local char_after = line:sub(match.end_col + 1, match.end_col + 1)
+					if char_after == "(" then
+						return false
+					end
+
 					-- Not a footnote and not a task
 					local char = line:sub(match.start_col + 2, match.start_col + 2)
 					local task_chars = " xX~@"
@@ -584,7 +606,7 @@ local Syntax = {
 		opts = { fg = "#908caa" }, -- Cyan/Pine color for pipe text
 		patterns = {
 			{
-				regex = "^%s*|%s*.*$",
+				regex = "^%s*|[^|]*$",
 				range = function(match)
 					return match.start_col, match.end_col
 				end,
@@ -595,6 +617,39 @@ local Syntax = {
 	Quote = {
 		opts = { fg = "#c4a7e7", italic = true },
 		patterns = { '"([^"]*)"' },
+	},
+
+	----------------------------------------------------------------------
+	-- Tables -------------------------------------------------------------
+	----------------------------------------------------------------------
+	TableSeparator = {
+		opts = { fg = "#908caa", bold = true }, -- Distinct color for the divider line
+		patterns = {
+			{
+				-- Matches the separator line: |---| or |:---:|
+				regex = "^%s*|[|%-%:%s]*|$",
+				condition = function(line)
+					-- Must contain at least one dash and multiple pipes
+					return line:find("%-") and select(2, line:gsub("|", "")) > 1
+				end,
+				range = function(match)
+					return match.start_col, match.end_col
+				end,
+			},
+		},
+	},
+
+	TableBorder = {
+		opts = { fg = "#524f67" }, -- Muted/Subtle color for table structure pipes
+		patterns = {
+			{
+				regex = "|",
+				condition = function(line)
+					local _, count = line:gsub("|", "")
+					return count > 1
+				end,
+			},
+		},
 	},
 }
 
@@ -768,6 +823,7 @@ function M.highlight_buffer(bufnr)
 		"LabelList",
 		"LabelListText",
 		"ListBullet",
+		"MarkdownLink",
 		"Link",
 		"Footnote",
 		"URL",
@@ -783,6 +839,8 @@ function M.highlight_buffer(bufnr)
 		"Punctuation",
 		"Quote",
 		"BlockQuote",
+		"TableSeparator",
+		"TableBorder",
 	}
 
 	for lnum, line in ipairs(lines) do
@@ -857,6 +915,31 @@ function M.highlight_buffer(bufnr)
 										})
 									end
 								end
+							elseif conceal.type == "markdown_url" then
+								-- Hide the opening bracket '['
+								vim.api.nvim_buf_set_extmark(bufnr, ns_id, row, match.start_col, {
+									conceal = "",
+									end_col = match.start_col + 1,
+								})
+
+								-- Add the icon before the text
+								vim.api.nvim_buf_set_extmark(bufnr, ns_id, row, match.start_col, {
+									virt_text = { { conceal.icon, "ZortexLinkDelimiter" } },
+									virt_text_pos = "inline",
+								})
+
+								-- Hide the middle part and URL: '](url)' and the closing ')'
+								-- The structure is [Text](Url)
+								-- match.caps[1] is Text
+								-- match.caps[2] is Url
+								local text_len = #match.caps[1]
+								local middle_start = match.start_col + 1 + text_len -- position of ']'
+
+								-- Hide everything from ']' to the end ')'
+								vim.api.nvim_buf_set_extmark(bufnr, ns_id, row, middle_start, {
+									conceal = "",
+									end_col = match.end_col,
+								})
 							elseif conceal.type == "link" then
 								-- Hide opening bracket and show icon
 								vim.api.nvim_buf_set_extmark(bufnr, ns_id, row, match.start_col, {

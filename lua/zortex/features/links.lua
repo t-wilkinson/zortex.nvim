@@ -101,6 +101,7 @@ function M.open_link()
 			or def:match("%.jpeg$")
 			or def:match("%.gif$")
 			or def:match("%.webp$")
+			or def:match("%.pdf$")
 		if is_media then
 			local resolved_path = def
 			-- Resolve relative paths (./ or ../) relative to the current file
@@ -160,48 +161,57 @@ function M.open_link()
 	elseif link_info.type == "markdown" then
 		-- Handle markdown-style link
 		local url = link_info.url
-		local is_media = url:match("%.mp4$") or url:match("%.mkv$") or url:match("%.mov$") -- Add more extensions if needed
+		local current_dir = vim.fn.expand("%:p:h")
 
-		-- Check if it's a web URL or a media file
-		if url:match("^https?://") or is_media then
+		-- 1. If it's a web URL, open immediately
+		if url:match("^https?://") then
 			open_external(url)
-		else
-			-- It's a file path
-			local current_dir = vim.fn.expand("%:p:h")
-			local resolved_path = url
+			return
+		end
 
-			-- Handle relative paths
-			if not url:match("^/") and not url:match("^[a-zA-Z]:[\\/]") then
-				if url:sub(1, 2) == "./" or url:sub(1, 3) == "../" then
-					resolved_path = fs.joinpath(current_dir, url)
-				else
-					-- Try notes directory
-					resolved_path = fs.get_file_path(url)
-				end
-			end
-
-			-- Check if file exists
-			if fs.file_exists(vim.fn.expand(resolved_path)) then
-				local target_win = buffer.get_target_window()
-				local bufnr = vim.fn.bufadd(resolved_path)
-				vim.api.nvim_win_set_buf(target_win, bufnr)
+		-- 2. It is a local file. Resolve the absolute path first.
+		local resolved_path = url
+		if not url:match("^/") and not url:match("^[a-zA-Z]:[\\/]") then
+			if url:sub(1, 2) == "./" or url:sub(1, 3) == "../" then
+				-- Relative to current file
+				resolved_path = fs.joinpath(current_dir, url)
 			else
-				-- If file doesn't exist, try opening as external URL
-				open_external(url)
+				-- Relative to workspace/notes (fallback)
+				resolved_path = fs.get_file_path(url)
 			end
 		end
-	elseif link_info.type == "website" then
-		-- Handle direct URL
-		open_external(link_info.url)
-	elseif link_info.type == "filepath" then
-		-- Handle file path
-		local expanded_path = vim.fn.expand(link_info.path)
-		if fs.file_exists(expanded_path) or fs.directory_exists(expanded_path) then
-			local target_win = buffer.get_target_window()
-			local bufnr = vim.fn.bufadd(expanded_path)
-			vim.api.nvim_win_set_buf(target_win, bufnr)
+
+		-- Expand to full absolute path for the OS
+		local full_path = vim.fn.expand(resolved_path)
+
+		-- 3. Check extension to decide HOW to open (Media/PDF vs Note)
+		-- Add PDF and other non-text formats here
+		local is_media = full_path:match("%.mp4$")
+			or full_path:match("%.mkv$")
+			or full_path:match("%.mov$")
+			or full_path:match("%.png$")
+			or full_path:match("%.jpg$")
+			or full_path:match("%.jpeg$")
+			or full_path:match("%.gif$")
+			or full_path:match("%.webp$")
+			or full_path:match("%.pdf$")
+
+		if is_media then
+			if fs.file_exists(full_path) then
+				open_external(full_path)
+			else
+				vim.notify("File does not exist: " .. full_path, vim.log.levels.WARN)
+			end
 		else
-			vim.notify("File not found: " .. link_info.path, vim.log.levels.WARN)
+			-- It's a text note, open in Vim
+			if fs.file_exists(full_path) then
+				local target_win = buffer.get_target_window()
+				local bufnr = vim.fn.bufadd(full_path)
+				vim.api.nvim_win_set_buf(target_win, bufnr)
+			else
+				-- Fallback: if we can't find it, try opening as external URL/File just in case
+				open_external(url)
+			end
 		end
 	end
 end

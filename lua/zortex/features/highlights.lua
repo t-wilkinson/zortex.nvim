@@ -985,6 +985,28 @@ function M.setup()
 	M.setup_highlights()
 end
 
+function M.zortex_fold_text()
+	local line = vim.fn.getline(vim.v.foldstart)
+	local fold_count = " ⋯ (" .. (vim.v.foldend - vim.v.foldstart + 1) .. " lines)"
+
+	-- Check if it's a Heading to match your ZortexHeading1/2/3 colors
+	local heading_match = line:match("^(#+)%s+")
+	if heading_match then
+		local level = math.min(#heading_match, 3)
+		local hl_group = "ZortexHeading" .. level
+		return {
+			{ line, hl_group },
+			{ fold_count, "Comment" },
+		}
+	end
+
+	-- Default fallback for other types of folds
+	return {
+		{ line, "Normal" },
+		{ fold_count, "Comment" },
+	}
+end
+
 M.setup_highlights = setup_highlight_groups
 
 function M.setup_autocmd()
@@ -995,6 +1017,7 @@ function M.setup_autocmd()
 		group = group,
 		pattern = "*.zortex",
 		callback = function()
+			vim.wo.foldtext = "v:lua.require('zortex.features.highlights').zortex_fold_text()"
 			vim.wo.conceallevel = 2
 			vim.wo.concealcursor = ""
 		end,

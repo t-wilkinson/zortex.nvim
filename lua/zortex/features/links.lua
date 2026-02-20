@@ -102,6 +102,7 @@ function M.open_link()
 			or def:match("%.gif$")
 			or def:match("%.webp$")
 			or def:match("%.pdf$")
+			or def:match("%.epub$")
 		if is_media then
 			local resolved_path = def
 			-- Resolve relative paths (./ or ../) relative to the current file
@@ -195,6 +196,7 @@ function M.open_link()
 			or full_path:match("%.gif$")
 			or full_path:match("%.webp$")
 			or full_path:match("%.pdf$")
+			or full_path:match("%.epub$")
 
 		if is_media then
 			if fs.file_exists(full_path) then

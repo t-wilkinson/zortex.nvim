@@ -1017,7 +1017,7 @@ function M.setup_autocmd()
 		group = group,
 		pattern = "*.zortex",
 		callback = function()
-			vim.wo.foldtext = "v:lua.require('zortex.features.highlights').zortex_fold_text()"
+			-- vim.wo.foldtext = "v:lua.require('zortex.features.highlights').zortex_fold_text()"
 			vim.wo.conceallevel = 2
 			vim.wo.concealcursor = ""
 		end,

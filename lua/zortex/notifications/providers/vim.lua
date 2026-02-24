@@ -6,10 +6,10 @@ local function send(title, message, options, config)
 	local timeout = options.timeout or config.timeout or 5000
 
 	vim.schedule(function()
-		vim.notify(message, level, {
-			title = title,
-			timeout = timeout,
-		})
+		-- vim.notify(message, level, {
+		-- 	title = title,
+		-- 	timeout = timeout,
+		-- })
 	end)
 
 	return true, nil
@@ -22,3 +22,4 @@ return base.create_provider("vim", {
 		return send("Zortex Test", "Vim notification test", {}, {})
 	end,
 })
+

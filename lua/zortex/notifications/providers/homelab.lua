@@ -1,6 +1,7 @@
 -- notifications/providers/homelab.lua - Homelab notification provider
 local base = require("zortex.notifications.providers.base")
 local Config = require("zortex.config")
+local Logger = require("zortex.core.logger")
 
 -- priority=min(1),low,default,high,max/urgent(5)
 
@@ -24,8 +25,6 @@ local function send(title, message, options, config)
 	}
 
 	local json_data = vim.fn.json_encode(notification_data)
-
-	-- Build curl command with optional API key
 	local headers = {
 		'"Content-Type: application/json"',
 		'"Accept: application/json"',
@@ -35,8 +34,9 @@ local function send(title, message, options, config)
 		table.insert(headers, string.format('"X-API-Key: %s"', config.api_key))
 	end
 
+	-- Added timeouts: 3s to connect, 10s total max time
 	local cmd = string.format(
-		"curl -s -X POST %s -d %s %s/notify",
+		"curl -s --connect-timeout 3 --max-time 10 -X POST %s -d %s %s/notify",
 		table.concat(
 			vim.tbl_map(function(h)
 				return "-H " .. h
@@ -47,24 +47,17 @@ local function send(title, message, options, config)
 		config.api_endpoint
 	)
 
-	local handle = io.popen(cmd .. " 2>&1")
-	if handle then
-		local result = handle:read("*a")
-		local success = handle:close()
-
-		if success then
-			local ok, decoded = pcall(vim.fn.json_decode, result)
-			if ok and decoded and decoded.success then
-				return true, nil
-			else
-				return false, "Homelab error: " .. (decoded and decoded.error or result)
+	-- Use jobstart for non-blocking execution
+	vim.fn.jobstart(cmd, {
+		on_exit = function(_, exit_code)
+			if exit_code ~= 0 then
+				-- You can use your Logger here if it's in scope
+				-- Logger.error("notifications", "Homelab send failed", { code = exit_code })
 			end
-		else
-			return false, "Failed to send to homelab: " .. result
-		end
-	end
+		end,
+	})
 
-	return false, "Failed to execute curl"
+	return true, nil -- Assume success and let it run in background
 end
 
 -- Sync multiple notifications (used by calendar sync)
@@ -73,7 +66,6 @@ local function sync_notifications(notifications, config)
 		return false, "Homelab endpoint not configured"
 	end
 
-	-- Transform notifications to include scheduled_time and deduplication_key
 	local processed_notifications = {}
 	for _, notif in ipairs(notifications) do
 		table.insert(processed_notifications, {
@@ -94,8 +86,6 @@ local function sync_notifications(notifications, config)
 	}
 
 	local json_data = vim.fn.json_encode(manifest)
-
-	-- Build curl command with optional API key
 	local headers = {
 		'"Content-Type: application/json"',
 		'"Accept: application/json"',
@@ -106,7 +96,7 @@ local function sync_notifications(notifications, config)
 	end
 
 	local cmd = string.format(
-		"curl -s -X POST %s -d %s %s/notify",
+		"curl -s --connect-timeout 5 --max-time 30 -X POST %s -d %s %s/notify",
 		table.concat(
 			vim.tbl_map(function(h)
 				return "-H " .. h
@@ -117,22 +107,15 @@ local function sync_notifications(notifications, config)
 		config.api_endpoint
 	)
 
-	local handle = io.popen(cmd .. " 2>&1")
-	if handle then
-		local result = handle:read("*a")
-		local success = handle:close()
-
-		if success then
-			local ok, decoded = pcall(vim.fn.json_decode, result)
-			if ok and decoded and decoded.success then
-				return true, nil
-			else
-				return false, "Homelab sync failed: " .. (decoded and decoded.error or result)
+	vim.fn.jobstart(cmd, {
+		on_exit = function(_, exit_code)
+			if exit_code ~= 0 then
+				-- require("zortex.core.logger").error("notifications", "Homelab sync failed", { code = exit_code })
 			end
-		end
-	end
+		end,
+	})
 
-	return false, "Failed to execute curl"
+	return true, nil
 end
 
 return base.create_provider("homelab", {

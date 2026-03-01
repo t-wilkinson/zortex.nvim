@@ -3,6 +3,10 @@ local constants = require("zortex.constants")
 
 local M = {}
 
+M.toc = function()
+	return require("zortex.features.toc").show_toc()
+end
+
 M.archive_projects = function()
 	return require("zortex.features.archive").archive_completed_projects()
 end

@@ -27,11 +27,11 @@ function M.create_search_pattern(component)
 	if component.type == "tag" then
 		return "^@" .. text .. "$"
 	elseif component.type == "heading" then
-		return "^#+%s*" .. text .. ".*$"
+		return "^#+%s*%[*" .. text .. ".*$"
 	elseif component.type == "label" then
-		return "^" .. text .. ".*:"
+		return "^%[*" .. text .. ".*:"
 	elseif component.type == "listitem" then
-		return "^%s*- " .. text .. "$"
+		return "^%s*%-%s+%[*%s*" .. text .. ".*$"
 	elseif component.type == "highlight" then
 		-- Match *, **, or *** wrapping
 		return "%*%*?%*?" .. text .. "%*%*?%*?"

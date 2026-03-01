@@ -15,6 +15,10 @@ function M.setup(prefix)
 		vim.api.nvim_create_user_command(prefix .. name, command, options)
 	end
 
+	cmd("TOC", function()
+		api.toc()
+	end, { desc = "Show table of contents of current file" })
+
 	-- ===========================================================================
 	-- Notifications
 	-- ===========================================================================

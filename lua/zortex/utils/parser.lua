@@ -503,6 +503,13 @@ function M.parse_link_definition(definition)
 		end
 	end
 
+	-- Convert inner ambiguous components from 'article' to 'generic'
+	for i, comp in ipairs(result.components) do
+		if comp.type == "article" and (result.scope == "local" or i > 1) then
+			comp.type = "generic"
+		end
+	end
+
 	-- If no components but we have a definition, it's an article link
 	if #result.components == 0 and definition ~= "" then
 		table.insert(result.components, {

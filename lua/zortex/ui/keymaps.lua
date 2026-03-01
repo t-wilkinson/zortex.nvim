@@ -20,6 +20,8 @@ function M.setup(key_prefix, cmd_prefix)
 		end
 	end
 
+	map("n", "Co", "TOC", add_opts({ desc = "Open table of contents" }))
+	map("n", "Cp", "TOCPopup", add_opts({ desc = "Open table of contents in popup" }))
 	map("n", "r", "FoldsReload", add_opts({ desc = "Open Zortex link" }))
 
 	-- Navigation

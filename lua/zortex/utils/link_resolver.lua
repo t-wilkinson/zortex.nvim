@@ -38,6 +38,14 @@ function M.create_search_pattern(component)
 	elseif component.type == "query" then
 		-- Plain substring search
 		return text
+	elseif component.type == "generic" then
+		-- Return array of prioritized patterns
+		return {
+			"^#+%s*%[*" .. text .. ".*$", -- 1. heading
+			"%*%*?%*?%" .. text .. "%*%*?%*?", -- 2. bold heading
+			"^%[*" .. text .. ".*:", -- 3. label
+			"^%s*%-%s+%[*%s*" .. text .. ".*$", -- 4. list item
+		}
 	elseif component.type == "article" then
 		-- This is handled differently - by finding article files
 		return nil
@@ -90,7 +98,17 @@ function M.get_section_end(lines, start_lnum, component)
 	local section_type = constants.SECTION_TYPE.TEXT
 	local heading_level = nil
 
-	if component.type == "article" then
+	if component.type == "generic" then
+		local line = lines[start_lnum]
+		section_type = parser.detect_section_type(line)
+		if section_type == constants.SECTION_TYPE.HEADING then
+			heading_level = parser.get_heading_level(line)
+		elseif section_type == constants.SECTION_TYPE.BOLD_HEADING or section_type == constants.SECTION_TYPE.LABEL then
+			-- Fallthrough, parser.detect_section_type correctly identifies these structural elements
+		else
+			return start_lnum -- If generic matched a simple listitem or string, it is just a single line
+		end
+	elseif component.type == "article" then
 		section_type = constants.SECTION_TYPE.ARTICLE
 	elseif component.type == "heading" then
 		section_type = constants.SECTION_TYPE.HEADING
@@ -122,9 +140,14 @@ end
 -- =============================================================================
 
 function M.search_component_in_files(component, file_paths, section_bounds)
-	local pattern = M.create_search_pattern(component)
-	if not pattern then
+	local patterns = M.create_search_pattern(component)
+	if not patterns then
 		return {}
+	end
+
+	-- Normalize pattern wrapper so string and table are handled exactly the same way
+	if type(patterns) == "string" then
+		patterns = { patterns }
 	end
 
 	local results = {}
@@ -142,22 +165,35 @@ function M.search_component_in_files(component, file_paths, section_bounds)
 				end_line = section_bounds[file_path].end_line or #lines
 			end
 
-			-- Search within bounds
-			for lnum = start_line, end_line do
-				local line = lines[lnum]
-				local search_line = case_sensitive and line or line:lower()
-				local search_pattern = case_sensitive and pattern or pattern:lower()
+			-- Search within bounds based on prioritization of patterns
+			local file_results = {}
+			for _, pattern in ipairs(patterns) do
+				for lnum = start_line, end_line do
+					local line = lines[lnum]
+					local search_line = case_sensitive and line or line:lower()
+					local search_pattern = case_sensitive and pattern or pattern:lower()
 
-				if search_line:find(search_pattern) then
-					table.insert(results, {
-						file = file_path,
-						lnum = lnum,
-						col = search_line:find(search_pattern),
-						text = line,
-						component = component,
-						lines = lines,
-					})
+					if search_line:find(search_pattern) then
+						table.insert(file_results, {
+							file = file_path,
+							lnum = lnum,
+							col = search_line:find(search_pattern),
+							text = line,
+							component = component,
+							lines = lines,
+						})
+					end
 				end
+
+				-- Stop checking lower priority fallback patterns if we successfully match a high priority one!
+				if #file_results > 0 then
+					break
+				end
+			end
+
+			-- Collect finalized results across all files
+			for _, r in ipairs(file_results) do
+				table.insert(results, r)
 			end
 		end
 	end
@@ -166,9 +202,13 @@ function M.search_component_in_files(component, file_paths, section_bounds)
 end
 
 function M.search_in_buffer(component, start_line, end_line)
-	local pattern = M.create_search_pattern(component)
-	if not pattern then
+	local patterns = M.create_search_pattern(component)
+	if not patterns then
 		return {}
+	end
+
+	if type(patterns) == "string" then
+		patterns = { patterns }
 	end
 
 	local results = {}
@@ -179,20 +219,27 @@ function M.search_in_buffer(component, start_line, end_line)
 	start_line = start_line or 1
 	end_line = end_line or #lines
 
-	for lnum = start_line, end_line do
-		local line = lines[lnum]
-		local search_line = case_sensitive and line or line:lower()
-		local search_pattern = case_sensitive and pattern or pattern:lower()
+	for _, pattern in ipairs(patterns) do
+		for lnum = start_line, end_line do
+			local line = lines[lnum]
+			local search_line = case_sensitive and line or line:lower()
+			local search_pattern = case_sensitive and pattern or pattern:lower()
 
-		if search_line:find(search_pattern) then
-			table.insert(results, {
-				file = current_file,
-				lnum = lnum,
-				col = search_line:find(search_pattern),
-				text = line,
-				component = component,
-				lines = lines,
-			})
+			if search_line:find(search_pattern) then
+				table.insert(results, {
+					file = current_file,
+					lnum = lnum,
+					col = search_line:find(search_pattern),
+					text = line,
+					component = component,
+					lines = lines,
+				})
+			end
+		end
+
+		-- Stop at the highest priority pattern matched
+		if #results > 0 then
+			break
 		end
 	end
 
@@ -370,6 +417,7 @@ function M.find_section_by_link(doc, link_def)
 		for _, child in ipairs(current_section_list) do
 			local is_match = (component.type == "heading" and child.type == "heading" and child.text == component.text)
 				or (component.type == "label" and child.type == "label" and child.text == component.text)
+				or (component.type == "generic" and child.text == component.text)
 
 			if is_match then
 				found_section = child

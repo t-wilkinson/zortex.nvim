@@ -18,6 +18,9 @@ function M.setup(prefix)
 	cmd("TOC", function()
 		api.toc()
 	end, { desc = "Show table of contents of current file" })
+	cmd("TOCPopup", function()
+		api.toc_popup()
+	end, { desc = "Show table of contents of current file in popup" })
 
 	-- ===========================================================================
 	-- Notifications

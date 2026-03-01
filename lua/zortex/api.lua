@@ -7,6 +7,10 @@ M.toc = function()
 	return require("zortex.features.toc").show_toc()
 end
 
+M.toc_popup = function()
+	return require("zortex.features.toc").show_toc_popup()
+end
+
 M.archive_projects = function()
 	return require("zortex.features.archive").archive_completed_projects()
 end

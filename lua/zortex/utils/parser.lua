@@ -432,6 +432,14 @@ function M.parse_link_component(component)
 		return { type = "highlight", text = component:sub(2), original = component, attributes = attributes }
 	elseif first_char == "%" then
 		return { type = "query", text = component:sub(2), original = component, attributes = attributes }
+	elseif first_char == "+" then
+		-- AND Query: split by +
+		local tags = {}
+		local clean_text = component:gsub(attr_pattern, ""):gsub("%s+", " "):gsub("%s*$", "")
+		for tag in clean_text:gmatch("%+([^%+]+)") do
+			table.insert(tags, M.trim(tag))
+		end
+		return { type = "and_query", tags = tags, text = clean_text, original = component, attributes = attributes }
 	else
 		-- Article - remove attributes from the text
 		local text = component:gsub(attr_pattern, ""):gsub("%s+", " "):gsub("%s*$", "")
@@ -500,13 +508,6 @@ function M.parse_link_definition(definition)
 			if comp_info then
 				table.insert(result.components, comp_info)
 			end
-		end
-	end
-
-	-- Convert inner ambiguous components from 'article' to 'generic'
-	for i, comp in ipairs(result.components) do
-		if comp.type == "article" and (result.scope == "local" or i > 1) then
-			comp.type = "generic"
 		end
 	end
 

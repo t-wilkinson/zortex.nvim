@@ -438,14 +438,14 @@ local Syntax = {
 		opts = { fg = "#908caa", italic = true },
 		patterns = {
 			{
-				regex = "@%w+%(.-%)",
+				regex = "%s@%w+%(.-%)",
 				condition = function(line)
 					-- Only on lines with headings or tasks
 					return line:match("^#") or line:match("^%s*-%s*")
 				end,
 			},
 			{
-				regex = "@%w+",
+				regex = "%s@%w+",
 				condition = function(line, match)
 					-- Only on lines with headings or tasks, and not followed by (
 					return (line:match("^#") or line:match("^%s*-%s*"))

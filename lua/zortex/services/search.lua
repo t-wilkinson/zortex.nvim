@@ -365,7 +365,8 @@ function SearchHistory.propagate_scores(entry)
 	-- Update scores for each level in the section path
 	for i = #entry.section_path, 1, -1 do
 		local section = entry.section_path[i]
-		local score_key = entry.selected_file .. ":" .. section.start_line
+		local start_line = section.start_line or section.line_num or 0
+		local score_key = entry.selected_file .. ":" .. start_line
 
 		if not entry.score_contribution[score_key] then
 			entry.score_contribution[score_key] = 0
@@ -388,7 +389,8 @@ function SearchHistory.get_score(filepath, line_num, section_path)
 			-- Also check parent sections
 			if section_path then
 				for _, section in ipairs(section_path) do
-					local parent_key = filepath .. ":" .. section.start_line
+					local start_line = section.start_line or section.line_num or 0
+					local parent_key = filepath .. ":" .. start_line
 					historical_score = historical_score + (hist_entry.score_contribution[parent_key] or 0) * 0.5
 				end
 			end
@@ -415,14 +417,44 @@ local function parse_tokens(prompt)
 	return tokens
 end
 
-local function token_matches_text(text, token)
+local function token_matches_text(text, token, section_type)
 	if not text then
-		return false
+		return 0
 	end
+
 	local text_lower = text:lower()
 	local token_lower = token:lower()
-	-- Prefix match for hierarchical searching
-	return text_lower:sub(1, #token_lower) == token_lower
+
+	-- Strict matching for articles with @@
+	if token_lower:sub(1, 2) == "@@" then
+		if section_type == constants.SECTION_TYPE.ARTICLE then
+			token_lower = token_lower:sub(3)
+			if token_lower == "" then
+				return 1
+			end -- '@@' alone matches any article
+		else
+			return 0 -- Failed prefix enforcement
+		end
+	end
+
+	-- Strict matching for headings with #
+	if token_lower:sub(1, 1) == "#" and #token_lower > 1 then
+		if section_type == constants.SECTION_TYPE.HEADING then
+			token_lower = token_lower:match("^#+(.*)") or token_lower
+		else
+			return 0 -- Failed prefix enforcement
+		end
+	end
+
+	if text_lower == token_lower then
+		return 3 -- Exact Match
+	elseif text_lower:sub(1, #token_lower) == token_lower then
+		return 2 -- Prefix Match
+	elseif text_lower:find(token_lower, 1, true) ~= nil then
+		return 1 -- Substring Match
+	end
+
+	return 0
 end
 
 -- =============================================================================
@@ -439,7 +471,7 @@ local function should_include_section_type(section_type, level, total_tokens, is
 		return should_include_section_type(constants.SECTION_TYPE.HEADING, 1, total_tokens, false)
 	end
 
-	local filters = cfg.token_filters
+	local filters = cfg.token_filters or {}
 	local filter = filters[total_tokens] or filters[4] or "all"
 
 	-- Handle "all" case
@@ -505,68 +537,117 @@ local function build_section_index(lines)
 
 	for i = 1, #lines do
 		local in_code_block = code_tracker:update(lines[i])
-		if not in_code_block then
-			local section_type = parser.detect_section_type(lines[i])
+		local section_type = parser.detect_section_type(lines[i], in_code_block)
 
-			if section_type ~= constants.SECTION_TYPE.TEXT and section_type ~= constants.SECTION_TYPE.TAG then
-				local level = nil
-				local text = nil
-				local priority = nil
+		local level = nil
+		local text = nil
+		local priority = nil
 
-				-- Extract section details
-				if section_type == constants.SECTION_TYPE.ARTICLE then
-					text = parser.extract_article_name(lines[i])
+		if section_type ~= constants.SECTION_TYPE.TEXT and section_type ~= constants.SECTION_TYPE.TAG then
+			-- Extract structural section details
+			if section_type == constants.SECTION_TYPE.ARTICLE then
+				text = parser.extract_article_name(lines[i])
+				priority = constants.SECTION_HIERARCHY.get_priority(section_type)
+			elseif section_type == constants.SECTION_TYPE.HEADING then
+				local heading = parser.parse_heading(lines[i])
+				if heading then
+					text = heading.text
+					level = heading.level
+					priority = constants.SECTION_HIERARCHY.get_priority(section_type, level)
+					first_heading_seen = true
+				end
+			elseif section_type == constants.SECTION_TYPE.BOLD_HEADING then
+				local bold = parser.parse_bold_heading(lines[i])
+				if bold then
+					text = bold.text
 					priority = constants.SECTION_HIERARCHY.get_priority(section_type)
-				elseif section_type == constants.SECTION_TYPE.HEADING then
-					local heading = parser.parse_heading(lines[i])
-					if heading then
-						text = heading.text
-						level = heading.level
-						priority = constants.SECTION_HIERARCHY.get_priority(section_type, level)
-						first_heading_seen = true
-					end
-				elseif section_type == constants.SECTION_TYPE.BOLD_HEADING then
-					local bold = parser.parse_bold_heading(lines[i])
-					if bold then
-						text = bold.text
-						priority = constants.SECTION_HIERARCHY.get_priority(section_type)
-					end
-				elseif section_type == constants.SECTION_TYPE.LABEL then
-					local label = parser.parse_label(lines[i])
-					if label then
-						text = label.text
-						priority = constants.SECTION_HIERARCHY.get_priority(section_type)
-					end
+				end
+			elseif section_type == constants.SECTION_TYPE.LABEL then
+				local label = parser.parse_label(lines[i])
+				if label then
+					text = label.text
+					priority = constants.SECTION_HIERARCHY.get_priority(section_type)
+				end
+			end
+
+			if text then
+				-- Find section end
+				local section_end = parser.find_section_end(lines, i, section_type, level)
+
+				-- Update current path based on hierarchy
+				while #current_path > 0 and current_path[#current_path].priority >= priority do
+					table.remove(current_path)
 				end
 
-				if text then
-					-- Find section end
-					local section_end = parser.find_section_end(lines, i, section_type, level)
+				local section_info = {
+					start_line = i,
+					type = section_type,
+					text = text,
+					level = level,
+					end_line = section_end,
+					priority = priority,
+					is_root_level = not first_heading_seen,
+					path = vim.deepcopy(current_path),
+				}
 
-					-- Update current path based on hierarchy
-					while #current_path > 0 and current_path[#current_path].priority >= priority do
-						table.remove(current_path)
-					end
-
-					local section_info = {
-						line_num = i,
-						type = section_type,
-						text = text,
-						level = level,
-						end_line = section_end,
-						priority = priority,
-						is_root_level = not first_heading_seen,
-						path = vim.deepcopy(current_path),
-					}
-
-					table.insert(sections, section_info)
-					table.insert(current_path, section_info)
-				end
+				table.insert(sections, section_info)
+				table.insert(current_path, section_info)
+			end
+		else
+			-- Included for mixed/text search
+			text = parser.trim(lines[i])
+			if text ~= "" then
+				priority = 100 -- Leaf node priority
+				local section_info = {
+					start_line = i,
+					type = section_type,
+					text = text,
+					level = nil,
+					end_line = i,
+					priority = priority,
+					is_root_level = not first_heading_seen,
+					path = vim.deepcopy(current_path),
+				}
+				table.insert(sections, section_info)
 			end
 		end
 	end
 
 	return sections
+end
+
+local function check_path_match(full_path, tokens)
+	if #tokens == 0 then
+		return true, 0
+	end
+	local total_tokens = #tokens
+
+	-- We try to match tokens sequentially through any valid sub-path
+	for start_idx = 1, #full_path do
+		local token_idx = 1
+		local match_score = 0
+
+		for path_idx = start_idx, #full_path do
+			local path_section = full_path[path_idx]
+
+			-- Multiple consecutive tokens can match against the same section text
+			while token_idx <= total_tokens do
+				local score = token_matches_text(path_section.text, tokens[token_idx], path_section.type)
+				if score > 0 then
+					match_score = match_score + score
+					token_idx = token_idx + 1
+				else
+					break
+				end
+			end
+
+			if token_idx > total_tokens then
+				return true, match_score
+			end
+		end
+	end
+
+	return false, 0
 end
 
 -- Perform hierarchical search
@@ -578,8 +659,6 @@ local function search_document_hierarchically(doc, tokens, search_mode)
 	end
 
 	local total_tokens = #tokens
-
-	-- Build section index
 	local section_index = build_section_index(lines)
 
 	-- For empty search, return appropriate top-level sections
@@ -592,11 +671,12 @@ local function search_document_hierarchically(doc, tokens, search_mode)
 				local result = Section.Section:new({
 					type = section.type,
 					text = section.text,
-					start_line = section.line_num,
+					start_line = section.start_line,
 					end_line = section.end_line,
 					level = section.level,
 				})
 				result._matched_path = { section }
+				result._match_score = 0
 
 				if section_matches_mode(result, search_mode) then
 					table.insert(results, result)
@@ -606,98 +686,28 @@ local function search_document_hierarchically(doc, tokens, search_mode)
 		return results
 	end
 
-	-- Search for hierarchical token matches
 	for _, section in ipairs(section_index) do
-		-- Check if this section should be included based on token filters
+		-- Filter out results based on desired UI scope
 		if should_include_section_type(section.type, section.level, total_tokens, section.is_root_level) then
-			-- Build the full path including this section
 			local full_path = vim.deepcopy(section.path)
 			table.insert(full_path, section)
 
-			-- Try to match tokens against the path
-			local matched = true
-			local token_idx = 1
+			-- Check token matches
+			local matched, match_score = check_path_match(full_path, tokens)
 
-			for _, path_section in ipairs(full_path) do
-				if token_idx <= total_tokens then
-					if token_matches_text(path_section.text, tokens[token_idx]) then
-						token_idx = token_idx + 1
-					end
-				end
-			end
-
-			-- Check if all tokens were matched
-			if token_idx > total_tokens then
-				-- Create result
+			if matched then
 				local result = Section.Section:new({
 					type = section.type,
 					text = section.text,
-					start_line = section.line_num,
+					start_line = section.start_line,
 					end_line = section.end_line,
 					level = section.level,
 				})
 				result._matched_path = full_path
+				result._match_score = match_score
 
 				if section_matches_mode(result, search_mode) then
 					table.insert(results, result)
-				end
-			end
-		end
-	end
-
-	-- Also search for sections that could be part of a valid path
-	-- This ensures we show intermediate sections that match partial token sequences
-	for _, section in ipairs(section_index) do
-		local full_path = vim.deepcopy(section.path)
-		table.insert(full_path, section)
-
-		-- Check if any subset of the path matches all tokens
-		for start_idx = 1, #full_path do
-			local token_idx = 1
-			local matched_all = true
-
-			for path_idx = start_idx, #full_path do
-				if token_idx <= total_tokens then
-					if not token_matches_text(full_path[path_idx].text, tokens[token_idx]) then
-						matched_all = false
-						break
-					end
-					token_idx = token_idx + 1
-				else
-					break
-				end
-			end
-
-			if matched_all and token_idx > total_tokens then
-				-- Check if the final section in our match should be included
-				local final_section = full_path[start_idx + total_tokens - 1]
-				if
-					final_section
-					and should_include_section_type(
-						final_section.type,
-						final_section.level,
-						total_tokens,
-						final_section.is_root_level
-					)
-				then
-					-- Create result for the matched section
-					local result = Section.Section:new({
-						type = final_section.type,
-						text = final_section.text,
-						start_line = final_section.line_num,
-						end_line = final_section.end_line,
-						level = final_section.level,
-					})
-
-					-- Build matched path
-					result._matched_path = {}
-					for i = start_idx, start_idx + total_tokens - 1 do
-						table.insert(result._matched_path, full_path[i])
-					end
-
-					if section_matches_mode(result, search_mode) then
-						table.insert(results, result)
-					end
 				end
 			end
 		end
@@ -710,27 +720,20 @@ end
 -- Scoring Functions
 -- =============================================================================
 
-local function score_match(section_path, tokens, matched_tokens)
-	local score = 100
+local function score_match(section_path, token_match_score)
+	local score = (token_match_score or 0) * 100
 
-	-- Huge bonus for article matches on first token
-	if #matched_tokens > 0 and matched_tokens[1].type == constants.SECTION_TYPE.ARTICLE then
-		score = score + 1000
-	end
-
-	-- Higher score for higher (less specific) matches
-	score = score - #section_path * 100
-
-	-- Bonus for matching higher-level section types
-	for i, section in ipairs(section_path) do
-		if section.type == constants.SECTION_TYPE.ARTICLE then
+	-- Bonus points based on the primary section matched
+	local target_section = section_path[#section_path]
+	if target_section then
+		if target_section.type == constants.SECTION_TYPE.ARTICLE then
 			score = score + 2000
-		elseif section.type == constants.SECTION_TYPE.HEADING then
-			score = score + (200 / (section.level or 1))
-		elseif section.type == constants.SECTION_TYPE.BOLD_HEADING then
-			score = score + 80
-		elseif section.type == constants.SECTION_TYPE.LABEL then
-			score = score + 60
+		elseif target_section.type == constants.SECTION_TYPE.HEADING then
+			score = score + 1000 - ((target_section.level or 1) * 50)
+		elseif target_section.type == constants.SECTION_TYPE.BOLD_HEADING then
+			score = score + 400
+		elseif target_section.type == constants.SECTION_TYPE.LABEL then
+			score = score + 300
 		end
 	end
 
@@ -755,7 +758,12 @@ local function build_breadcrumb(section_path, exclude_last)
 	for i = 1, count do
 		local section = section_path[i]
 		if section.text and section.text ~= "Document Root" then
-			table.insert(parts, section.text)
+			local text = section.text
+			-- Truncate long text strings for breadcrumbs
+			if section.type == constants.SECTION_TYPE.TEXT and #text > 40 then
+				text = text:sub(1, 37) .. "..."
+			end
+			table.insert(parts, text)
 			table.insert(sections, section)
 		end
 	end
@@ -770,7 +778,6 @@ end
 function M.search(query, opts)
 	opts = opts or {}
 	local search_mode = opts.search_mode or constants.SEARCH_MODES.SECTION
-	-- local stop_timer = Logger.start_timer("search_service.search")
 	local tokens = parse_tokens(query)
 	local current_time = os.time()
 
@@ -780,36 +787,20 @@ function M.search(query, opts)
 		search_mode = search_mode,
 	})
 
-	-- Get all documents using our search cache
 	local all_docs = SearchDocumentCache:get_all_documents()
-
 	local all_results = {}
 	local seen_results = {}
 
 	for _, doc in ipairs(all_docs) do
 		local doc_sections = search_document_hierarchically(doc, tokens, search_mode)
+		local doc_max_score = 0
+		local doc_results = {}
 
 		for _, section in ipairs(doc_sections) do
 			local result_key = doc.filepath .. ":" .. section.start_line
 			if not seen_results[result_key] then
-				-- Build full section path for scoring
-				local section_path = {}
-				local matched_tokens = {}
-
-				if section._matched_path then
-					-- Use the matched path to build breadcrumb
-					for _, match in ipairs(section._matched_path) do
-						table.insert(section_path, {
-							type = match.type,
-							text = match.text,
-							start_line = match.line_num,
-							level = match.level,
-						})
-						table.insert(matched_tokens, match)
-					end
-				else
-					-- Fallback for empty searches
-					section_path = {
+				local section_path = section._matched_path
+					or {
 						{
 							type = section.type,
 							text = section.text,
@@ -817,30 +808,33 @@ function M.search(query, opts)
 							level = section.level,
 						},
 					}
-				end
 
 				-- Build breadcrumb
 				local breadcrumb, breadcrumb_sections = build_breadcrumb(section_path, false)
-
-				local base_score = score_match(section_path, tokens, matched_tokens)
+				local base_score = score_match(section_path, section._match_score)
 				local access_score = AccessTracker.get_score(doc.filepath, current_time) * 50
 				local history_score = SearchHistory.get_score(doc.filepath, section.start_line, section_path) * 30
 
-				-- Get bufnr if document is from buffer
+				local total_score = base_score + access_score + history_score
+
+				-- Track highest match scored within document for structural sorting
+				if total_score > doc_max_score then
+					doc_max_score = total_score
+				end
+
 				local bufnr = nil
 				if doc.source == "buffer" and doc.bufnr then
 					bufnr = doc.bufnr
 				end
 
-				-- For single token searches, use article name as display
 				local display_text = breadcrumb
 				if #tokens <= 1 and doc.article_names and #doc.article_names > 0 then
 					display_text = doc.article_names[1]
 				end
 
-				table.insert(all_results, {
+				table.insert(doc_results, {
 					section = section,
-					score = base_score + access_score + history_score,
+					score = total_score,
 					breadcrumb = breadcrumb,
 					breadcrumb_sections = section_path,
 					display_text = display_text,
@@ -854,17 +848,33 @@ function M.search(query, opts)
 				seen_results[result_key] = true
 			end
 		end
+
+		-- Imbue file results with their parent document's priority score
+		if #doc_results > 0 then
+			for _, res in ipairs(doc_results) do
+				res.file_score = doc_max_score
+				table.insert(all_results, res)
+			end
+		end
 	end
 
-	-- Sort by score (highest first)
+	-- Sort structurally: best matching file groups together, then strict chronological/hierarchy completion ordering
 	table.sort(all_results, function(a, b)
+		-- 1. Sort by grouping file relevancy
+		if math.abs(a.file_score - b.file_score) > 0.1 then
+			return a.file_score > b.file_score
+		end
+		-- 2. Tie breaker groups by unique file
+		if a.filepath ~= b.filepath then
+			return a.filepath < b.filepath
+		end
+		-- 3. In same file, order as they appear natively (parents intrinsically precede their children)
+		if a.section.start_line ~= b.section.start_line then
+			return a.section.start_line < b.section.start_line
+		end
+
 		return a.score > b.score
 	end)
-
-	-- stop_timer({
-	-- 	result_count = #all_results,
-	-- 	file_count = #all_docs,
-	-- })
 
 	Events.emit("search:completed", {
 		query = query,

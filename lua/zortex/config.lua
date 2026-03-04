@@ -40,6 +40,12 @@ local defaults = {
 		user_id = "default",
 	},
 
+	features = {
+		folding = {
+			include_empty_lines = true,
+		},
+	},
+
 	notifications = {
 		-- Global settings
 		enabled = true,

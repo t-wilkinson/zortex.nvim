@@ -5,8 +5,6 @@ local Config = require("zortex.config")
 local core = require("zortex.core")
 
 -- Features
-local highlights = require("zortex.features.highlights")
-local completion = require("zortex.features.completion")
 
 -- Initialize Zortex
 local function setup(opts)
@@ -17,9 +15,12 @@ local function setup(opts)
 	core.setup(Config)
 
 	-- Setup features
-	highlights.setup()
+	require("zortex.features.highlights").setup()
+	require("zortex.features.folding").setup()
+
 	local has_cmp, cmp = pcall(require, "cmp")
 	if has_cmp then
+		local completion = require("zortex.features.completion")
 		cmp.register_source("zortex", completion.new())
 	end
 

@@ -129,48 +129,35 @@ endfunction
 
 function! s:init_commands() abort
     " Server management
-    " command! ZortexStartServer call zortex#util#try_start_server()
-    " command! ZortexStopServer call zortex#rpc#stop_server()
-    " command! ZortexRestartServer call zortex#util#restart_server()
-    " command! -buffer ZortexPreview call zortex#util#open_preview_page()
-    " command! -buffer ZortexPreviewStop call zortex#util#stop_preview()
-    " command! -buffer ZortexPreviewToggle call zortex#util#toggle_preview()
+    command! ZortexStartServer call zortex#util#try_start_server()
+    command! ZortexStopServer call zortex#rpc#stop_server()
+    command! ZortexRestartServer call zortex#util#restart_server()
+    command! -buffer ZortexPreview call zortex#util#open_preview_page()
+    command! -buffer ZortexPreviewStop call zortex#util#stop_preview()
+    command! -buffer ZortexPreviewToggle call zortex#util#toggle_preview()
 
-    " command! ZortexStartRemoteServer call zortex#remote#start_server()
-    " command! ZortexRestartRemoteServer call zortex#remote#restart_server()
-    " command! ZortexSyncRemoteServer call zortex#remote#sync()
-
-    command! ZortexFoldsReload call zortex#fold#update_folds()
+    command! ZortexStartRemoteServer call zortex#remote#start_server()
+    command! ZortexRestartRemoteServer call zortex#remote#restart_server()
+    command! ZortexSyncRemoteServer call zortex#remote#sync()
 endfunction
 
 function! s:init_autocommands()
-  autocmd Filetype zortex call zortex#fold#init()
-
-  " augroup zortex_auto_reload_folds
-  "   autocmd!
-  "   autocmd BufWritePost *.zortex call zortex#fold#update_folds()
-  " augroup END
-
   augroup zortex_init
       autocmd!
-      autocmd BufEnter * :call s:init_commands()
-
-      " if g:zortex_command_for_global
-      " else
-      "     autocmd BufEnter,FileType * if index(g:zortex_filetypes, &filetype) !=# -1 | call s:init_command() | endif
-      " endif
-      " if g:zortex_auto_start_server
-      "     call zortex#util#try_start_server()
-      " endif
-      " if g:zortex_auto_start_preview
-      "     execute 'autocmd BufEnter *.{' . join(g:zortex_filetypes, ',') . '} call zortex#autocmd#init()'
-      " endif
+      if g:zortex_command_for_global
+      else
+          autocmd BufEnter,FileType * if index(g:zortex_filetypes, &filetype) !=# -1 | call s:init_command() | endif
+      endif
+      if g:zortex_auto_start_server
+          call zortex#util#try_start_server()
+      endif
+      if g:zortex_auto_start_preview
+          execute 'autocmd BufEnter *.{' . join(g:zortex_filetypes, ',') . '} call zortex#autocmd#init()'
+      endif
   augroup END
 endfunction
 
 function! zortex#legacy#init()
-  " call s:init_variables()
-  call s:init_commands()
-  call s:init_autocommands()
+  call s:init_variables()
 endfunction
 

@@ -19,6 +19,7 @@ local Syntax = {
 				range = function(match, line)
 					return 0, -1 -- full line
 				end,
+				full_width = true,
 			},
 		},
 	},
@@ -57,13 +58,18 @@ local Syntax = {
 	-- Bold headings ------------------------------------------------------
 	----------------------------------------------------------------------
 	BoldHeading = {
-		opts = { bold = true },
+		opts = { bold = true, fg = "#56949f" },
 		patterns = {
 			{
-				regex = "^%*%*[^%*]+%*%*:?$",
-				range = function()
-					return 0, -1
+				-- The colon (optional) is now inside the main regex
+				regex = "^%*%*([^%*]+)%*%*(:?)",
+				range = function(match)
+					return 2, -3 -- Full line highlight
 				end,
+				conceal = {
+					type = "markers",
+					chars = 2,
+				},
 			},
 		},
 	},
@@ -658,9 +664,9 @@ local Syntax = {
 --------------------------------------------------------------------------
 local function setup_highlight_groups()
 	-- Heading colors
-	vim.api.nvim_set_hl(0, "ZortexHeading1", { bold = true, italic = true, fg = "#eb6f92" })
-	vim.api.nvim_set_hl(0, "ZortexHeading2", { bold = true, italic = true, fg = "#ea9a97" })
-	vim.api.nvim_set_hl(0, "ZortexHeading3", { bold = true, italic = true, fg = "#f6c177" })
+	vim.api.nvim_set_hl(0, "ZortexHeading1", { bold = true, italic = true, fg = "#eb6f92", bg = "#2a273f" })
+	vim.api.nvim_set_hl(0, "ZortexHeading2", { bold = true, italic = true, fg = "#ea9a97", bg = "#232136" })
+	vim.api.nvim_set_hl(0, "ZortexHeading3", { bold = true, italic = true, fg = "#f6c177", bg = "#1e1c1f" })
 
 	-- Bullet colors
 	vim.api.nvim_set_hl(0, "ZortexBullet1", { fg = "#3e8fb0" })
@@ -888,7 +894,18 @@ function M.highlight_buffer(bufnr)
 
 						-- Apply highlight
 						if start_col and end_col then
-							vim.api.nvim_buf_add_highlight(bufnr, ns_id, hl_group, row, start_col, end_col)
+							if type(pattern_def) == "table" and pattern_def.full_width then
+								-- 1. Apply the text styling (bold, italic, fg) precisely to the text
+								vim.api.nvim_buf_add_highlight(bufnr, ns_id, hl_group, row, start_col, end_col)
+
+								-- 2. Paint the background across the entire window width
+								vim.api.nvim_buf_set_extmark(bufnr, ns_id, row, 0, {
+									line_hl_group = hl_group,
+								})
+							else
+								-- Standard text highlight
+								vim.api.nvim_buf_add_highlight(bufnr, ns_id, hl_group, row, start_col, end_col)
+							end
 						end
 
 						-- Handle concealing
@@ -986,24 +1003,37 @@ function M.setup()
 end
 
 function M.zortex_fold_text()
-	local line = vim.fn.getline(vim.v.foldstart)
+	local start_line = vim.fn.getline(vim.v.foldstart)
 	local fold_count = " ⋯ (" .. (vim.v.foldend - vim.v.foldstart + 1) .. " lines)"
 
-	-- Check if it's a Heading to match your ZortexHeading1/2/3 colors
-	local heading_match = line:match("^(#+)%s+")
-	if heading_match then
-		local level = math.min(#heading_match, 3)
-		local hl_group = "ZortexHeading" .. level
-		return {
-			{ line, hl_group },
-			{ fold_count, "Comment" },
-		}
+	-- 1. Determine Highlight for the current line (Headings or Labels)
+	local hl_group = "Normal"
+
+	if start_line:match("^(#+)%s+") then
+		local level = math.min(#start_line:match("^(#+)"), 3)
+		hl_group = "ZortexHeading" .. level
+	elseif start_line:match("^%s*-%s*([^:]+):") then
+		hl_group = "ZortexLabelList"
+	elseif start_line:match("^([^:]+):") and not start_line:find("%.%s.-:") then
+		hl_group = "ZortexLabel"
 	end
 
-	-- Default fallback for other types of folds
+	-- 2. Find the "Next non-empty line" within the fold for a preview
+	local preview_text = ""
+	for i = vim.v.foldstart + 1, vim.v.foldend do
+		local next_line = vim.fn.getline(i)
+		local trimmed = next_line:gsub("^%s+", "") -- Remove leading whitespace
+		if trimmed ~= "" then
+			preview_text = " → " .. trimmed
+			break
+		end
+	end
+
+	-- 3. Return the multi-part highlight chunk (NVIM 0.10+)
 	return {
-		{ line, "Normal" },
-		{ fold_count, "Comment" },
+		{ start_line, hl_group },
+		{ preview_text, "Comment" }, -- Preview text in a muted color
+		{ fold_count, "NonText" }, -- Line count in a different muted color
 	}
 end
 
@@ -1017,7 +1047,7 @@ function M.setup_autocmd()
 		group = group,
 		pattern = "*.zortex",
 		callback = function()
-			-- vim.wo.foldtext = "v:lua.require('zortex.features.highlights').zortex_fold_text()"
+			vim.wo.foldtext = "v:lua.require('zortex.features.highlights').zortex_fold_text()"
 			vim.wo.conceallevel = 2
 			vim.wo.concealcursor = ""
 		end,

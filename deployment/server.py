@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from itertools import groupby
 from flask import Flask, request, jsonify, render_template_string
 from contextlib import contextmanager
+from zoneinfo import ZoneInfo
 
 app = Flask(__name__)
 
@@ -20,6 +21,12 @@ else:
 DATABASE_PATH = os.environ.get("DATABASE_PATH", default_db_path)
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
 FLASK_PORT = int(os.environ.get("FLASK_PORT", 5000))
+
+TZ_NAME = os.environ.get("TZ", "America/New_York")
+try:
+    LOCAL_TZ = ZoneInfo(TZ_NAME)
+except Exception:
+    LOCAL_TZ = timezone.utc
 
 # Setup logging
 logging.basicConfig(
@@ -34,7 +41,7 @@ def get_db():
     """Context manager for database connections"""
     # Ensure directory exists before connecting
     os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
-    
+
     conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     try:
@@ -73,8 +80,12 @@ def init_database():
             cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_scheduled ON notifications(scheduled_time)"
             )
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_user ON notifications(user_id)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_sent ON notifications(sent_at)")
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_user ON notifications(user_id)"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_sent ON notifications(sent_at)"
+            )
             logger.info(f"Database initialized at {DATABASE_PATH}")
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
@@ -84,6 +95,7 @@ def init_database():
 # ==============================================================================
 #  Helpers & Views for Homepage
 # ==============================================================================
+
 
 def get_zortex_calendar_view():
     """Generates the text-based calendar view and stats"""
@@ -98,18 +110,20 @@ def get_zortex_calendar_view():
 
     notifications = []
     for row in rows:
-        dt = datetime.fromtimestamp(row["scheduled_time"], timezone.utc)
-        notifications.append({
-            "date_str": dt.strftime("%Y-%m-%d"),
-            "time_str": dt.strftime("%H:%M"),
-            "title": row["title"],
-            "message": row["message"],
-            "obj": row
-        })
+        dt = datetime.fromtimestamp(row["scheduled_time"], LOCAL_TZ)
+        notifications.append(
+            {
+                "date_str": dt.strftime("%Y-%m-%d"),
+                "time_str": dt.strftime("%H:%M"),
+                "title": row["title"],
+                "message": row["message"],
+                "obj": row,
+            }
+        )
 
     # Generate the text block
     text_lines = []
-    
+
     for date, group in groupby(notifications, key=lambda x: x["date_str"]):
         text_lines.append(f"{date}:")
         for item in group:
@@ -117,8 +131,8 @@ def get_zortex_calendar_view():
             clean_title = item["title"].replace("Calendar: ", "")
             # Only show first line of message if it duplicates title
             text_lines.append(f"- {item['time_str']} {clean_title}")
-        text_lines.append("") # Empty line between days
-    
+        text_lines.append("")  # Empty line between days
+
     # Calculate next event summary
     next_event_str = "No events"
     if notifications:
@@ -130,7 +144,7 @@ def get_zortex_calendar_view():
     return {
         "count": len(notifications),
         "text_view": "\n".join(text_lines).strip(),
-        "next_event": next_event_str
+        "next_event": next_event_str,
     }
 
 
@@ -138,7 +152,7 @@ def get_zortex_calendar_view():
 def home():
     """Render the 'Homey' Zortex Homepage"""
     data = get_zortex_calendar_view()
-    
+
     html = """
     <!DOCTYPE html>
     <html lang="en">
@@ -206,25 +220,30 @@ def home():
     </body>
     </html>
     """
-    return render_template_string(html, count=data["count"], text_view=data["text_view"])
+    return render_template_string(
+        html, count=data["count"], text_view=data["text_view"]
+    )
 
 
 @app.route("/api/summary", methods=["GET"])
 def api_summary():
     """JSON Endpoint for Homelab Dashboards (Homepage, etc)"""
     data = get_zortex_calendar_view()
-    return jsonify({
-        "status": "ok",
-        "pending_count": data["count"],
-        "calendar_text": data["text_view"],
-        "next_event": data["next_event"],
-        "generated_at": datetime.now(timezone.utc).isoformat()
-    })
+    return jsonify(
+        {
+            "status": "ok",
+            "pending_count": data["count"],
+            "calendar_text": data["text_view"],
+            "next_event": data["next_event"],
+            "generated_at": datetime.now(LOCAL_TZ).isoformat(),
+        }
+    )
 
 
 # ==============================================================================
 #  Standard API Routes
 # ==============================================================================
+
 
 @app.route("/health", methods=["GET"])
 def health_check():
@@ -275,74 +294,78 @@ def receive_notification():
 
 
 def sync_notifications(user_id, notifications):
-    """Sync a batch of notifications, replacing existing pending ones"""
+    """Sync a batch of notifications by diffing and upserting"""
     try:
         with get_db() as conn:
             cursor = conn.cursor()
 
-            # Clear existing pending notifications for this user
-            cursor.execute(
-                """
-                DELETE FROM notifications 
-                WHERE user_id = ? AND sent_at IS NULL
-            """,
-                (user_id,),
-            )
+            # 1. Compute keys for incoming notifications
+            incoming_keys = []
+            for notif in notifications:
+                dedup_key = notif.get("deduplication_key")
+                if not dedup_key and notif.get("entry_id"):
+                    dedup_key = f"{notif['entry_id']}_{notif.get('scheduled_time', 0)}"
+                notif["_computed_key"] = dedup_key
+                if dedup_key:
+                    incoming_keys.append(dedup_key)
 
-            # Insert new notifications
+            # 2. Delete pending notifications NOT in the new sync batch
+            if incoming_keys:
+                placeholders = ",".join(["?"] * len(incoming_keys))
+                cursor.execute(
+                    f"""
+                    DELETE FROM notifications 
+                    WHERE user_id = ? AND sent_at IS NULL 
+                    AND deduplication_key NOT IN ({placeholders})
+                """,
+                    [user_id] + incoming_keys,
+                )
+            else:
+                cursor.execute(
+                    "DELETE FROM notifications WHERE user_id = ? AND sent_at IS NULL",
+                    (user_id,),
+                )
+
+            # 3. Upsert incoming notifications
             added = 0
             skipped = 0
+            current_time = int(datetime.now(timezone.utc).timestamp())
 
             for notif in notifications:
                 try:
-                    # Generate deduplication key if not provided
-                    dedup_key = notif.get("deduplication_key")
-                    if not dedup_key and notif.get("entry_id"):
-                        # Create dedup key from entry_id and scheduled_time
-                        dedup_key = (
-                            f"{notif['entry_id']}_{notif.get('scheduled_time', 0)}"
-                        )
-
                     cursor.execute(
                         """
                         INSERT INTO notifications 
                         (user_id, entry_id, title, message, scheduled_time, 
                          priority, tags, created_at, deduplication_key)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(user_id, deduplication_key) DO UPDATE SET
+                            title = excluded.title,
+                            message = excluded.message,
+                            scheduled_time = excluded.scheduled_time,
+                            priority = excluded.priority,
+                            tags = excluded.tags
+                        WHERE notifications.sent_at IS NULL
                     """,
                         (
                             user_id,
                             notif.get("entry_id"),
                             notif.get("title", "Zortex Notification"),
                             notif.get("message", ""),
-                            notif.get(
-                                "scheduled_time",
-                                int(datetime.now(timezone.utc).timestamp()),
-                            ),
+                            notif.get("scheduled_time", current_time),
                             notif.get("priority", "default"),
                             json.dumps(notif.get("tags", [])),
-                            int(datetime.now(timezone.utc).timestamp()),
-                            dedup_key,
+                            current_time,
+                            notif["_computed_key"],
                         ),
                     )
                     added += 1
-                except sqlite3.IntegrityError:
-                    # Duplicate notification (based on deduplication_key)
-                    skipped += 1
-                    logger.debug(f"Skipped duplicate notification: {dedup_key}")
                 except Exception as e:
-                    logger.error(f"Error adding notification: {e}")
+                    logger.error(f"Error upserting notification: {e}")
                     skipped += 1
 
-            logger.info(
-                f"Synced notifications for {user_id}: {added} added, {skipped} skipped"
-            )
-            return {
-                "success": True,
-                "added": added,
-                "skipped": skipped,
-                "total": len(notifications),
-            }
+            logger.info(f"Synced notifications for {user_id}: {added} upserted")
+            return {"success": True, "upserted": added, "total": len(notifications)}
 
     except Exception as e:
         logger.error(f"Error syncing notifications: {e}")
@@ -497,8 +520,11 @@ def test_notification():
 
         # Use a more unique key for tests to avoid collisions on rapid retries
         import random
+
         random_suffix = random.randint(1000, 9999)
-        dedup_key = f"test_{int(datetime.now(timezone.utc).timestamp())}_{random_suffix}"
+        dedup_key = (
+            f"test_{int(datetime.now(timezone.utc).timestamp())}_{random_suffix}"
+        )
 
         with get_db() as conn:
             cursor = conn.cursor()
@@ -527,11 +553,11 @@ def test_notification():
 
         # Step 2: Run the notification sender script
         # We will assume 'zortex-sender' is in the PATH in the nix package
-        script_cmd = ["zortex-sender"] 
-        
+        script_cmd = ["zortex-sender"]
+
         # If not found (local dev), fallback to ./send.sh
         if not shutil.which("zortex-sender"):
-             script_cmd = ["/bin/bash", "./send.sh"]
+            script_cmd = ["/bin/bash", "./send.sh"]
 
         logger.info(f"TEST: Triggering {script_cmd} to send notification")
 

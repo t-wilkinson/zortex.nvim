@@ -415,21 +415,6 @@ function M.search(opts)
 					current_picker:refresh(M.create_telescope_finder(opts), { reset_prompt = false })
 				end)
 
-				-- Show stats
-				map({ "i", "n" }, "<C-s>", function()
-					local stats = SearchService.get_stats()
-					local lines = {
-						"Zortex Search Statistics:",
-						string.format("  Documents loaded: %d", stats.documents_loaded),
-						string.format("  Total sections: %d", stats.total_sections),
-						string.format("  Total tasks: %d", stats.total_tasks),
-						string.format("  Access history: %d files", stats.access_history_count),
-						string.format("  Search history: %d entries", stats.search_history_count),
-						string.format("  Search cache: %d documents", stats.cache_documents),
-					}
-					vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO)
-				end)
-
 				-- Preview scrolling
 				map({ "i", "n" }, "<C-f>", actions.preview_scrolling_down)
 				map({ "i", "n" }, "<C-b>", actions.preview_scrolling_up)

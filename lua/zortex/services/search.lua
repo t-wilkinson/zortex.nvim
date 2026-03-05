@@ -626,9 +626,11 @@ local function check_path_match(full_path, tokens)
 	for start_idx = 1, #full_path do
 		local token_idx = 1
 		local match_score = 0
+		local last_matched_path_idx = 0
 
 		for path_idx = start_idx, #full_path do
 			local path_section = full_path[path_idx]
+			local matched_any = false
 
 			-- Multiple consecutive tokens can match against the same section text
 			while token_idx <= total_tokens do
@@ -636,13 +638,23 @@ local function check_path_match(full_path, tokens)
 				if score > 0 then
 					match_score = match_score + score
 					token_idx = token_idx + 1
+					matched_any = true
 				else
 					break
 				end
 			end
 
+			if matched_any then
+				last_matched_path_idx = path_idx
+			end
+
 			if token_idx > total_tokens then
-				return true, match_score
+				-- Verify that the match completed exactly on the *target* section (leaf node)
+				if last_matched_path_idx == #full_path then
+					return true, match_score
+				else
+					break -- The ancestor matched, but not the specific target section. Try next path.
+				end
 			end
 		end
 	end
@@ -686,29 +698,54 @@ local function search_document_hierarchically(doc, tokens, search_mode)
 		return results
 	end
 
+	local explicit_matches = {}
+
 	for _, section in ipairs(section_index) do
-		-- Filter out results based on desired UI scope
-		if should_include_section_type(section.type, section.level, total_tokens, section.is_root_level) then
-			local full_path = vim.deepcopy(section.path)
-			table.insert(full_path, section)
+		local full_path = vim.deepcopy(section.path)
+		table.insert(full_path, section)
 
-			-- Check token matches
-			local matched, match_score = check_path_match(full_path, tokens)
+		-- Check token matches
+		local matched, match_score = check_path_match(full_path, tokens)
 
-			if matched then
-				local result = Section.Section:new({
-					type = section.type,
-					text = section.text,
-					start_line = section.start_line,
-					end_line = section.end_line,
-					level = section.level,
-				})
-				result._matched_path = full_path
-				result._match_score = match_score
+		local is_explicit_match = false
+		if
+			matched and should_include_section_type(section.type, section.level, total_tokens, section.is_root_level)
+		then
+			is_explicit_match = true
+		end
 
-				if section_matches_mode(result, search_mode) then
-					table.insert(results, result)
+		local is_child_of_match = false
+		local child_match_score = 0
+
+		-- If not an explicit match, check if its immediate parent was an explicit match
+		if not is_explicit_match and #section.path > 0 then
+			local parent = section.path[#section.path]
+			if explicit_matches[parent.start_line] then
+				-- Only include structural children (exclude raw text/tags)
+				if section.type ~= constants.SECTION_TYPE.TEXT and section.type ~= constants.SECTION_TYPE.TAG then
+					is_child_of_match = true
+					child_match_score = explicit_matches[parent.start_line]
 				end
+			end
+		end
+
+		if is_explicit_match or is_child_of_match then
+			if is_explicit_match then
+				explicit_matches[section.start_line] = match_score
+			end
+
+			local result = Section.Section:new({
+				type = section.type,
+				text = section.text,
+				start_line = section.start_line,
+				end_line = section.end_line,
+				level = section.level,
+			})
+			result._matched_path = full_path
+			result._match_score = is_explicit_match and match_score or child_match_score
+
+			if section_matches_mode(result, search_mode) then
+				table.insert(results, result)
 			end
 		end
 	end
@@ -828,7 +865,13 @@ function M.search(query, opts)
 				end
 
 				local display_text = breadcrumb
-				if #tokens <= 1 and doc.article_names and #doc.article_names > 0 then
+				-- Only overwrite the display text with the Article name if the section IS the Article.
+				if
+					#tokens <= 1
+					and section.type == constants.SECTION_TYPE.ARTICLE
+					and doc.article_names
+					and #doc.article_names > 0
+				then
 					display_text = doc.article_names[1]
 				end
 

@@ -49,6 +49,12 @@ in
       };
     };
 
+    timezone = mkOption {
+      type = types.str;
+      default = "America/New_York";
+      description = "Timezone for the server to use for rendering dates/times.";
+    };
+
     interval = mkOption {
       type = types.str;
       default = "*:0/1";
@@ -78,6 +84,7 @@ in
         FLASK_PORT = toString cfg.port;
         DATABASE_PATH = lib.mkDefault "${cfg.dataDir}/notifications.db";
         LOG_LEVEL = "INFO";
+        TZ = cfg.timezone;
         # Ensure server can find the sender binary for the /test endpoint
         PATH = lib.mkForce "${zortexPkg}/bin:${pkgs.coreutils}/bin";
         NTFY_SERVER_URL = cfg.ntfy.url;

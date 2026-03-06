@@ -81,16 +81,18 @@ end
 
 -- Maps a node type to its corresponding highlight group from features/highlights.lua
 local function get_hl_group(node)
-	if node.type == "article" then
+	-- Robust checking to handle potential stale JSON cache issues (e.g. capitalized types or string levels)
+	local ntype = node.type and tostring(node.type):lower() or ""
+	if ntype == "article" then
 		return "ZortexArticle"
 	end
-	if node.type == "heading" then
-		return "ZortexHeading" .. math.min(node.level or 1, 3)
+	if ntype == "heading" then
+		return "ZortexHeading" .. math.min(tonumber(node.level) or 1, 3)
 	end
-	if node.type == "bold_heading" then
+	if ntype == "bold_heading" then
 		return "ZortexBoldHeading"
 	end
-	if node.type == "label" then
+	if ntype == "label" then
 		return "ZortexLabel"
 	end
 	return "Normal"
@@ -170,8 +172,13 @@ local function make_display(entry)
 
 			local hl_group = get_hl_group(p_node)
 			local start_pos = #display_str
-			display_str = display_str .. p_node.text
-			table.insert(hl_table, { { start_pos, #display_str }, hl_group })
+			local text = p_node.text or "Untitled"
+			display_str = display_str .. text
+
+			-- Prevent zero-length highlight errors which can crash the line's highlight application
+			if start_pos < #display_str then
+				table.insert(hl_table, { { start_pos, #display_str }, hl_group })
+			end
 		end
 	end
 
@@ -184,7 +191,9 @@ local function make_display(entry)
 
 		local text_start = #display_str
 		display_str = display_str .. child.text
-		table.insert(hl_table, { { text_start, #display_str }, child.hl_group })
+		if text_start < #display_str then
+			table.insert(hl_table, { { text_start, #display_str }, child.hl_group })
+		end
 	end
 
 	return display_str, hl_table

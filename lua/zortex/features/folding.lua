@@ -149,13 +149,26 @@ function M.update_folds(bufnr)
 
 	-- Cache the calculated fold expressions to the buffer
 	vim.b[bufnr].zortex_folds = levels
+
+	-- Force Neovim to recompute folds from the updated cache.
+	-- Without this, Neovim reads stale values because it evaluates
+	-- foldexpr *before* the TextChanged autocmd updates the table.
+	-- for _, win in ipairs(vim.api.nvim_list_wins()) do
+	-- 	if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == bufnr then
+	-- 		vim.api.nvim_win_call(win, function()
+	-- 			local saved = vim.fn.winsaveview()
+	-- 			vim.cmd("normal! zx")
+	-- 			vim.fn.winrestview(saved)
+	-- 		end)
+	-- 	end
+	-- end
 end
 
 function M.setup()
 	local group = vim.api.nvim_create_augroup("ZortexFolding", { clear = true })
 
 	-- Recalculate folds only when text has settled (avoids insert mode jitter/lag)
-	vim.api.nvim_create_autocmd({ "BufWinEnter", "BufWritePost", "TextChanged", "InsertLeave" }, {
+	vim.api.nvim_create_autocmd({ "BufWinEnter", "BufWritePost", "TextChanged", "TextChangedI", "InsertLeave" }, {
 		group = group,
 		pattern = "*.zortex",
 		callback = function(args)

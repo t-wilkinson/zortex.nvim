@@ -376,7 +376,7 @@ local Syntax = {
 		opts = { fg = "#f2ae49", bg = "#2d2a2e" },
 		patterns = {
 			{
-				regex = "%s`([^`]+)`%s",
+				regex = "%s`([^`]+)`[%s.]",
 				range = function(match)
 					-- Adjust to exclude leading space
 					return match.start_col + 1, match.end_col - 1

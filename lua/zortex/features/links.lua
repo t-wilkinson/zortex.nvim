@@ -150,6 +150,21 @@ function M.open_link()
 			link_resolver.populate_quickfix(results)
 			vim.notify(string.format("Found %d matches. Quickfix list populated.", #results), vim.log.levels.INFO)
 		end
+	elseif link_info.type == "tag_search" then
+		-- Handle @[tag1 + tag2] style tag search links
+		local source_lnum = buffer.get_cursor_pos()
+		local results = link_resolver.search_tag_query(link_info, source_lnum)
+
+		if #results == 0 then
+			vim.notify("No tag matches found for: " .. link_info.display_text, vim.log.levels.INFO)
+			return
+		elseif #results == 1 then
+			jump_to_location(results[1], true)
+		else
+			jump_to_location(results[1], true)
+			link_resolver.populate_quickfix(results)
+			vim.notify(string.format("Found %d tag matches. Quickfix list populated.", #results), vim.log.levels.INFO)
+		end
 	elseif link_info.type == "footnote" then
 		-- Handle footnote reference
 		local footnote_loc = link_resolver.search_footnote(link_info.ref_id)

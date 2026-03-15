@@ -39,7 +39,15 @@ function M.create_search_pattern(component)
 		-- Plain substring search
 		return text
 	elseif component.type == "and_query" then
-		-- Return a table of patterns to search for simultaneously
+		-- Return a table of patterns to search for simultaneously (ALL must match)
+		local patterns = {}
+		for _, tag in ipairs(component.tags) do
+			local escaped = parser.escape_pattern(tag)
+			table.insert(patterns, escaped)
+		end
+		return patterns
+	elseif component.type == "or_query" then
+		-- Return a table of patterns (ANY must match)
 		local patterns = {}
 		for _, tag in ipairs(component.tags) do
 			local escaped = parser.escape_pattern(tag)
@@ -116,7 +124,12 @@ function M.get_section_end(lines, start_lnum, component)
 			-- Just a highlighted text, single line
 			return start_lnum
 		end
-	elseif component.type == "listitem" or component.type == "query" or component.type == "and_query" then
+	elseif
+		component.type == "listitem"
+		or component.type == "query"
+		or component.type == "and_query"
+		or component.type == "or_query"
+	then
 		-- These don't create sections, just single line matches
 		return start_lnum
 	end
@@ -136,9 +149,10 @@ function M.search_component_in_files(component, file_paths, section_bounds)
 	end
 
 	local results = {}
-	local case_sensitive = (component.type == "query" or component.type == "and_query")
+	local case_sensitive = (component.type == "query" or component.type == "and_query" or component.type == "or_query")
 		and component.text:match("[A-Z]")
 	local is_multi_pattern = type(pattern) == "table"
+	local is_or_query = component.type == "or_query"
 
 	for _, file_path in ipairs(file_paths) do
 		local lines = fs.read_lines(file_path)
@@ -161,15 +175,29 @@ function M.search_component_in_files(component, file_paths, section_bounds)
 				local match_col = 1
 
 				if is_multi_pattern then
-					is_match = true
-					for _, pat in ipairs(pattern) do
-						local search_pat = case_sensitive and pat or pat:lower()
-						local col = search_line:find(search_pat)
-						if not col then
-							is_match = false
-							break
-						elseif match_col == 1 then
-							match_col = col -- Use the first matching pattern's column
+					if is_or_query then
+						-- OR: match if ANY pattern found
+						for _, pat in ipairs(pattern) do
+							local search_pat = case_sensitive and pat or pat:lower()
+							local col = search_line:find(search_pat)
+							if col then
+								is_match = true
+								match_col = col
+								break
+							end
+						end
+					else
+						-- AND: match if ALL patterns found
+						is_match = true
+						for _, pat in ipairs(pattern) do
+							local search_pat = case_sensitive and pat or pat:lower()
+							local col = search_line:find(search_pat)
+							if not col then
+								is_match = false
+								break
+							elseif match_col == 1 then
+								match_col = col
+							end
 						end
 					end
 				else
@@ -206,10 +234,11 @@ function M.search_in_buffer(component, start_line, end_line)
 
 	local results = {}
 	local lines = buffer.get_lines()
-	local case_sensitive = (component.type == "query" or component.type == "and_query")
+	local case_sensitive = (component.type == "query" or component.type == "and_query" or component.type == "or_query")
 		and component.text:match("[A-Z]")
 	local current_file = vim.fn.expand("%:p")
 	local is_multi_pattern = type(pattern) == "table"
+	local is_or_query = component.type == "or_query"
 
 	start_line = start_line or 1
 	end_line = end_line or #lines
@@ -222,15 +251,29 @@ function M.search_in_buffer(component, start_line, end_line)
 		local match_col = 1
 
 		if is_multi_pattern then
-			is_match = true
-			for _, pat in ipairs(pattern) do
-				local search_pat = case_sensitive and pat or pat:lower()
-				local col = search_line:find(search_pat)
-				if not col then
-					is_match = false
-					break
-				elseif match_col == 1 then
-					match_col = col
+			if is_or_query then
+				-- OR: match if ANY pattern found
+				for _, pat in ipairs(pattern) do
+					local search_pat = case_sensitive and pat or pat:lower()
+					local col = search_line:find(search_pat)
+					if col then
+						is_match = true
+						match_col = col
+						break
+					end
+				end
+			else
+				-- AND: match if ALL patterns found
+				is_match = true
+				for _, pat in ipairs(pattern) do
+					local search_pat = case_sensitive and pat or pat:lower()
+					local col = search_line:find(search_pat)
+					if not col then
+						is_match = false
+						break
+					elseif match_col == 1 then
+						match_col = col
+					end
 				end
 			end
 		else
@@ -251,6 +294,99 @@ function M.search_in_buffer(component, start_line, end_line)
 				component = component,
 				lines = lines,
 			})
+		end
+	end
+
+	return results
+end
+
+-- =============================================================================
+-- Tag Search (@[...] links)
+-- =============================================================================
+
+--- Search the current buffer for lines containing @tag patterns.
+--- Used by @[tag1 + tag2] style links.
+---@param link_info table The parsed tag_search link info from extract_link_at
+---@param source_lnum number Line number of the link itself (to self-filter)
+---@return table[] SearchResult list
+function M.search_tag_query(link_info, source_lnum)
+	local lines = buffer.get_lines()
+	local current_file = vim.fn.expand("%:p")
+	local results = {}
+
+	-- Build @tag patterns for each term
+	-- Each term should match as an @tag on the line (e.g. term "rust" matches "@rust")
+	local tag_patterns = {}
+	for _, term in ipairs(link_info.terms) do
+		-- Match @term as a whole word: preceded by start-of-string or whitespace,
+		-- followed by end-of-string or whitespace/punctuation
+		table.insert(tag_patterns, (parser.escape_pattern(term:lower())))
+	end
+
+	local is_and = link_info.query_type == "and"
+	-- "single" behaves like AND with one term
+
+	for lnum = 1, #lines do
+		-- Skip the source line (self-filter)
+		if lnum ~= source_lnum then
+			local line = lines[lnum]
+			local line_lower = line:lower()
+
+			-- Extract all @tags from the line
+			local line_tags = {}
+			for tag in line_lower:gmatch("@([%w_%-]+)") do
+				line_tags[tag] = true
+			end
+
+			local is_match = false
+			local match_col = 1
+
+			if is_and or link_info.query_type == "single" then
+				-- AND / single: all terms must appear as @tags
+				is_match = true
+				for _, pat in ipairs(tag_patterns) do
+					if not line_tags[pat] then
+						is_match = false
+						break
+					end
+				end
+			else
+				-- OR: any term as @tag
+				for _, pat in ipairs(tag_patterns) do
+					if line_tags[pat] then
+						is_match = true
+						-- Find column position for the first matching tag
+						local col = line_lower:find("@" .. pat)
+						if col then
+							match_col = col
+						end
+						break
+					end
+				end
+			end
+
+			if is_match then
+				-- For AND, find column of first matching tag
+				if (is_and or link_info.query_type == "single") and match_col == 1 then
+					local col = line_lower:find("@" .. tag_patterns[1])
+					if col then
+						match_col = col
+					end
+				end
+
+				table.insert(results, {
+					file = current_file,
+					lnum = lnum,
+					col = match_col,
+					text = line,
+					lines = lines,
+					component = {
+						type = "tag_search",
+						text = link_info.display_text,
+						original = link_info.full_match_text,
+					},
+				})
+			end
 		end
 	end
 
@@ -445,27 +581,216 @@ function M.find_section_by_link(doc, link_def)
 end
 
 -- =============================================================================
+-- Breadcrumb Link Generation
+-- =============================================================================
+
+--- Extract a short identifier from a line to use as a %text search component.
+--- Prefers the display text of the first markdown or zortex link on the line.
+--- Falls back to a trimmed/truncated version of the line.
+---@param line string The raw line text
+---@return string A short identifier suitable for use in a % search
+function M.extract_line_identifier(line)
+	if not line then
+		return "?"
+	end
+
+	-- 1. Try markdown link: [display text](url)
+	local md_text = line:match("%[([^%]]+)%]%(")
+	if md_text and md_text ~= "" then
+		return parser.trim(md_text)
+	end
+
+	-- 2. Try zortex link: [content]  (but not footnotes [^...])
+	local zortex_text = line:match("%[([^%]^][^%]]*)%]")
+	if zortex_text and zortex_text ~= "" then
+		return parser.trim(zortex_text)
+	end
+
+	-- 3. Fallback: strip leading list markers and trim
+	local text = line:gsub("^%s*[%-*]%s*", "")
+	text = parser.trim(text)
+
+	-- Truncate if very long (keep it usable as a search term)
+	if #text > 80 then
+		text = text:sub(1, 77) .. "..."
+	end
+
+	return text
+end
+
+--- Build a full zortex-style link string from a search result.
+--- Uses build_section_path to reconstruct the article/heading/label breadcrumb,
+--- then appends the matched component as the final path segment.
+---@param result table A SearchResult with file, lnum, component, lines
+---@return string The zortex link, e.g. "[Resources/#Tools/+@rust]"
+function M.build_result_link(result)
+	if not result.lines then
+		-- Fallback: no lines available (e.g. article-only match)
+		local comp = result.component
+		if comp and comp.original then
+			return "[" .. comp.original .. "]"
+		end
+		return "[?]"
+	end
+
+	local section_path = parser.build_section_path(result.lines, result.lnum)
+	local parts = {}
+
+	for _, section in ipairs(section_path) do
+		if section.type == constants.SECTION_TYPE.ARTICLE then
+			table.insert(parts, section.text)
+		elseif section.type == constants.SECTION_TYPE.HEADING then
+			table.insert(parts, "#" .. section.text)
+		elseif section.type == constants.SECTION_TYPE.LABEL then
+			table.insert(parts, ":" .. section.text)
+		elseif section.type == constants.SECTION_TYPE.BOLD_HEADING then
+			table.insert(parts, "*" .. section.text)
+		end
+	end
+
+	-- Append the matched component as the final segment, but only if it
+	-- isn't already represented by the last section in the path.
+	-- (e.g. if the match IS a heading, build_section_path already includes it)
+	local comp = result.component
+	if comp then
+		local already_in_path = false
+		if #section_path > 0 then
+			local last = section_path[#section_path]
+			if last.lnum == result.lnum then
+				-- The matched line is the same as the last section header
+				already_in_path = true
+			end
+		end
+
+		if not already_in_path then
+			-- For search-type components (queries), generate a %text identifier
+			-- from the matched line rather than echoing the search terms back.
+			if
+				comp.type == "and_query"
+				or comp.type == "or_query"
+				or comp.type == "query"
+				or comp.type == "tag_search"
+			then
+				local line_id = M.extract_line_identifier(result.text)
+				table.insert(parts, "%" .. line_id)
+			elseif comp.type == "tag" then
+				table.insert(parts, "@" .. comp.text)
+			elseif comp.type == "heading" then
+				table.insert(parts, "#" .. comp.text)
+			elseif comp.type == "label" then
+				table.insert(parts, ":" .. comp.text)
+			elseif comp.type == "listitem" then
+				table.insert(parts, "-" .. comp.text)
+			elseif comp.type == "highlight" then
+				table.insert(parts, "*" .. comp.text)
+			elseif comp.type == "article" then
+				-- Article is always the first path segment, already handled
+				if #parts == 0 then
+					table.insert(parts, comp.text)
+				end
+			end
+		end
+	end
+
+	if #parts == 0 then
+		return "[?]"
+	end
+
+	return "[" .. table.concat(parts, "/") .. "]"
+end
+
+-- =============================================================================
 -- Quickfix Integration
 -- =============================================================================
+
+--- Custom quickfix text function that shows only the link text,
+--- hiding filename, line number, and column.
+function M.quickfix_text_func(info)
+	local items = vim.fn.getqflist({ id = info.id, items = 1 }).items
+	local lines = {}
+	for i = info.start_idx, info.end_idx do
+		local item = items[i]
+		if item then
+			table.insert(lines, item.text or "")
+		else
+			table.insert(lines, "")
+		end
+	end
+	return lines
+end
+
+--- Jump from the quickfix window to the entry under the cursor,
+--- opening in the target window (or previous window as fallback).
+function M.quickfix_jump()
+	local qf_list = vim.fn.getqflist()
+	local cursor_lnum = vim.api.nvim_win_get_cursor(0)[1]
+	local entry = qf_list[cursor_lnum]
+
+	if not entry or entry.bufnr == 0 then
+		vim.notify("No valid quickfix entry under cursor", vim.log.levels.INFO)
+		return
+	end
+
+	-- Determine target window: use zortex target window if available,
+	-- otherwise fall back to the previous window
+	local target_win
+	local ok, buf_module = pcall(require, "zortex.utils.buffer")
+	if ok and buf_module.get_target_window then
+		target_win = buf_module.get_target_window()
+	end
+
+	-- Fallback: use the previous window (the one before quickfix was focused)
+	if not target_win or not vim.api.nvim_win_is_valid(target_win) then
+		local qf_win = vim.api.nvim_get_current_win()
+		vim.cmd("wincmd p")
+		target_win = vim.api.nvim_get_current_win()
+		-- If we're still in the quickfix window (no previous window), find any non-qf window
+		if target_win == qf_win then
+			for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+				if win ~= qf_win then
+					target_win = win
+					break
+				end
+			end
+		end
+	end
+
+	-- Load the buffer and jump
+	local bufnr = entry.bufnr
+	vim.api.nvim_win_set_buf(target_win, bufnr)
+	vim.api.nvim_win_set_cursor(target_win, { entry.lnum, math.max(0, entry.col - 1) })
+	vim.api.nvim_set_current_win(target_win)
+	vim.cmd("normal! zz")
+end
 
 function M.populate_quickfix(results)
 	local qf_list = {}
 
 	for _, result in ipairs(results) do
-		local text = string.format("[%s: %s] %s", result.component.type, result.component.text, result.text:sub(1, 80))
+		local link = M.build_result_link(result)
 
 		table.insert(qf_list, {
 			filename = result.file,
 			lnum = result.lnum,
 			col = result.col,
-			text = text,
+			text = link,
 			valid = 1,
 		})
 	end
 
 	vim.fn.setqflist(qf_list, "r")
 	if #qf_list > 0 then
+		-- Set custom display: show only the link text, no file/lnum/col
+		vim.o.quickfixtextfunc = "v:lua.require'zortex.utils.link_resolver'.quickfix_text_func"
+
 		vim.cmd("copen")
+
+		-- Map <CR> in the quickfix buffer to jump via target window
+		vim.api.nvim_buf_set_keymap(0, "n", "<CR>", "", {
+			noremap = true,
+			silent = true,
+			callback = M.quickfix_jump,
+		})
 	end
 end
 

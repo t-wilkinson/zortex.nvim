@@ -251,7 +251,51 @@ function M.extract_link_at(line, cursor_col)
 		offset = e or 0
 	end
 
-	-- 4. Check for zortex-style links
+	-- 4. Check for tag search links (@[...])
+	offset = 0
+	while offset < #line do
+		local s, e, content = string.find(line, "@%[([^%]]+)%]", offset + 1)
+		if not s then
+			break
+		end
+
+		if cursor_col >= (s - 1) and cursor_col < e then
+			-- Parse the content for AND/OR operators
+			local query_type = "single"
+			local terms = {}
+
+			if content:find(" %+ ") then
+				query_type = "or"
+				for term in content:gmatch("([^+]+)") do
+					local trimmed = M.trim(term)
+					if trimmed ~= "" then
+						table.insert(terms, trimmed)
+					end
+				end
+			elseif content:find(" & ") then
+				query_type = "and"
+				for term in content:gmatch("([^&]+)") do
+					local trimmed = M.trim(term)
+					if trimmed ~= "" then
+						table.insert(terms, trimmed)
+					end
+				end
+			else
+				terms = { M.trim(content) }
+			end
+
+			return {
+				type = "tag_search",
+				display_text = content,
+				terms = terms,
+				query_type = query_type, -- "single", "or", "and"
+				full_match_text = string.sub(line, s, e),
+			}
+		end
+		offset = e or 0
+	end
+
+	-- 5. Check for zortex-style links
 	offset = 0
 	while offset < #line do
 		local s, e = string.find(line, "%[([^%]]+)%]", offset + 1)
@@ -280,7 +324,7 @@ function M.extract_link_at(line, cursor_col)
 		offset = e or 0
 	end
 
-	-- 5. Check for URLs
+	-- 6. Check for URLs
 	offset = 0
 	while offset < #line do
 		local s, e = string.find(line, "https?://[^%s%]%)};]+", offset + 1)
@@ -299,7 +343,7 @@ function M.extract_link_at(line, cursor_col)
 		offset = e or 0
 	end
 
-	-- 6. @area(<link>) or @a(<link>)
+	-- 7. @area(<link>) or @a(<link>)
 	offset = 0
 	while offset < #line do
 		local s, e, value = string.find(line, "@area%(([^)]+)%)", offset + 1)
@@ -331,7 +375,7 @@ function M.extract_link_at(line, cursor_col)
 		offset = e or 0
 	end
 
-	-- 7. Check for file paths
+	-- 8. Check for file paths
 	offset = 0
 	while offset < #line do
 		local s, e, path = string.find(line, "([~%.]/[^%s]+)", offset + 1)
@@ -411,6 +455,40 @@ function M.parse_link_component(component)
 		attributes[key] = value
 	end
 
+	-- ---------------------------------------------------------------
+	-- Infix operators: "term1 + term2" (OR), "term1 & term2" (AND)
+	-- Detected before prefix checks. Spaces around the operator are
+	-- required so that "c++" or "r&d" aren't mis-parsed.
+	-- ---------------------------------------------------------------
+	if component:find(" %+ ") then
+		local tags = {}
+		for term in component:gmatch("([^+]+)") do
+			local trimmed = M.trim(term)
+			if trimmed ~= "" then
+				table.insert(tags, trimmed)
+			end
+		end
+		if #tags >= 2 then
+			return { type = "or_query", tags = tags, text = component, original = component, attributes = attributes }
+		end
+	end
+
+	if component:find(" & ") then
+		local tags = {}
+		for term in component:gmatch("([^&]+)") do
+			local trimmed = M.trim(term)
+			if trimmed ~= "" then
+				table.insert(tags, trimmed)
+			end
+		end
+		if #tags >= 2 then
+			return { type = "and_query", tags = tags, text = component, original = component, attributes = attributes }
+		end
+	end
+
+	-- ---------------------------------------------------------------
+	-- Prefix-based parsing (original syntax, also serves as fallback)
+	-- ---------------------------------------------------------------
 	if first_char == "@" then
 		return { type = "tag", text = component:sub(2), original = component, attributes = attributes }
 	elseif first_char == "#" then
@@ -433,10 +511,18 @@ function M.parse_link_component(component)
 	elseif first_char == "%" then
 		return { type = "query", text = component:sub(2), original = component, attributes = attributes }
 	elseif first_char == "+" then
-		-- AND Query: split by +
+		-- Legacy OR Query: +term1+term2
 		local tags = {}
 		local clean_text = component:gsub(attr_pattern, ""):gsub("%s+", " "):gsub("%s*$", "")
 		for tag in clean_text:gmatch("%+([^%+]+)") do
+			table.insert(tags, M.trim(tag))
+		end
+		return { type = "or_query", tags = tags, text = clean_text, original = component, attributes = attributes }
+	elseif first_char == "&" then
+		-- Legacy AND Query: &term1&term2
+		local tags = {}
+		local clean_text = component:gsub(attr_pattern, ""):gsub("%s+", " "):gsub("%s*$", "")
+		for tag in clean_text:gmatch("&([^&]+)") do
 			table.insert(tags, M.trim(tag))
 		end
 		return { type = "and_query", tags = tags, text = clean_text, original = component, attributes = attributes }

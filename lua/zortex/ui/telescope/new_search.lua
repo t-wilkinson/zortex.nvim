@@ -3,6 +3,7 @@ local M = {}
 local tree_module = require("zortex.core.tree")
 local fs = require("zortex.utils.filesystem")
 local highlights = require("zortex.features.highlights")
+local Config = require("zortex.config")
 
 local pickers = require("telescope.pickers")
 local finders = require("telescope.finders")
@@ -335,6 +336,43 @@ function M.search_lines(files, tokens)
 	return results
 end
 
+-- =============================================================================
+-- Note Creation
+-- =============================================================================
+
+local function create_new_note(prompt_bufnr, initial_text)
+	actions.close(prompt_bufnr)
+
+	-- Generate unique filename
+	local date = os.date("%Y-%m-%d")
+	local ext = Config.extension
+	math.randomseed(os.time() + os.clock() * 1000)
+
+	for _ = 1, 1000 do
+		local filename = string.format("%s.%03d%s", date, math.random(0, 999), ext)
+		local filepath = fs.get_file_path(filename)
+
+		if filepath and not fs.file_exists(filepath) then
+			vim.cmd("edit " .. vim.fn.fnameescape(filepath))
+			vim.defer_fn(function()
+				-- Set initial content
+				local lines = { "@@" }
+				if initial_text and initial_text ~= "" then
+					-- Add the search text as article name
+					lines[1] = "@@" .. initial_text
+				end
+
+				vim.api.nvim_buf_set_lines(0, 0, 0, false, lines)
+				vim.api.nvim_win_set_cursor(0, { 1, 2 + #(initial_text or "") })
+				vim.cmd("startinsert!")
+			end, 50)
+			return
+		end
+	end
+
+	vim.notify("Failed to create unique filename", vim.log.levels.ERROR)
+end
+
 -- ---------------------------------------------------------------------------
 -- Main picker
 -- ---------------------------------------------------------------------------
@@ -379,7 +417,7 @@ function M.structural_search(opts)
 			sorter = conf.generic_sorter(opts),
 			previewer = zortex_previewer(),
 			layout_strategy = "horizontal",
-			attach_mappings = function(prompt_bufnr, _)
+			attach_mappings = function(prompt_bufnr, map)
 				actions.select_default:replace(function()
 					local selection = action_state.get_selected_entry()
 					actions.close(prompt_bufnr)
@@ -391,6 +429,42 @@ function M.structural_search(opts)
 						vim.cmd("normal! zz")
 					end
 				end)
+
+				local function open_in(split_type)
+					return function()
+						local selection = action_state.get_selected_entry()
+						actions.close(prompt_bufnr)
+						if selection and selection.value then
+							local result = selection.value
+							vim.cmd(split_type .. " " .. vim.fn.fnameescape(result.filepath))
+							local lnum = result.result_type == "section" and result.node.start_line or result.lnum
+							vim.fn.cursor(lnum, 1)
+							vim.cmd("normal! zz")
+						end
+					end
+				end
+
+				-- Create new note with current query
+				map({ "i", "n" }, "<C-o>", function()
+					local current_picker = action_state.get_current_picker(prompt_bufnr)
+					local prompt = current_picker:_get_prompt()
+					create_new_note(prompt_bufnr, prompt)
+				end)
+
+				-- Open in splits
+				map({ "i", "n" }, "<C-x>", open_in("split"))
+				map({ "i", "n" }, "<C-v>", open_in("vsplit"))
+
+				-- Preview scrolling
+				map({ "i", "n" }, "<C-f>", actions.preview_scrolling_down)
+				map({ "i", "n" }, "<C-b>", actions.preview_scrolling_up)
+
+				-- Clear prompt
+				map("i", "<C-u>", function()
+					vim.api.nvim_buf_set_lines(prompt_bufnr, 0, 1, false, { "" })
+					vim.api.nvim_win_set_cursor(0, { 1, 0 })
+				end)
+
 				return true
 			end,
 		})

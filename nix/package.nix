@@ -21,7 +21,7 @@ pkgs.stdenv.mkDerivation {
   ];
 
   nativeBuildInputs = [
-    pkgs.makeWrapper
+    pkgs.buildPackages.makeWrapper
   ];
 
   installPhase = ''

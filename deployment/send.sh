@@ -9,7 +9,7 @@ NTFY_AUTH_TOKEN=${NTFY_AUTH_TOKEN:-""}
 if [ -n "$STATE_DIRECTORY" ]; then
   DEFAULT_DB_PATH="$STATE_DIRECTORY/notifications.db"
 else
-  DEFAULT_DB_PATH="$./data/notifications.db"
+  DEFAULT_DB_PATH="./data/notifications.db"
 fi
 DATABASE_PATH="${DATABASE_PATH:-$DEFAULT_DB_PATH}"
 LOG_FILE="${LOG_FILE:-/dev/stdout}" # Default to stdout so systemd captures it

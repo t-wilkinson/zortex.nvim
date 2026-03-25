@@ -18,6 +18,9 @@ pkgs.stdenv.mkDerivation {
 
   buildInputs = [
     pythonEnv
+  ];
+
+  nativeBuildInputs = [
     pkgs.makeWrapper
   ];
 

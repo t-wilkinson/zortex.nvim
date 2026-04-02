@@ -252,10 +252,11 @@ end
 function M.search_sections(files, tokens)
 	local results = {}
 	for _, filepath in ipairs(files) do
-		local tree = tree_module.get_tree(filepath)
-		if tree then
-			local lines = fs.read_lines(filepath)
-			if lines then
+		local lines = fs.read_lines(filepath)
+		-- Check if @Ignore exists in the first 5 lines
+		if lines and not table.concat(lines, "\n", 1, math.min(5, #lines)):find("@Ignore") then
+			local tree = tree_module.get_tree(filepath)
+			if tree then
 				local matched = tree_module.search_nodes(tree, function(node)
 					return node_matches(node, tokens, lines)
 				end)

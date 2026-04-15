@@ -63,7 +63,7 @@ function M.update_folds(bufnr)
 		else
 			local is_article = line:match("^@@")
 			local is_heading = line:match("^(#+)%s+")
-			local is_bold = line:match("^%s*%*%*[^%*]+%*%*:?%s*$")
+			local is_bold = line:match("^*%*%*[^%*]+:%*%*$")
 			local is_label = line:match("^%s*(%w[^:]*):%s*$")
 
 			local spaces = #line:match("^%s*")

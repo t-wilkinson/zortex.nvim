@@ -383,6 +383,13 @@ local Syntax = {
 				end,
 			},
 			{
+				regex = "^`([^`]+)`$",
+				range = function(match)
+					-- Only text
+					return match.start_col, match.end_col
+				end,
+			},
+			{
 				regex = "%s`([^`]+)`$",
 				range = function(match)
 					-- At end of line

@@ -165,6 +165,8 @@ function M.open_link()
 			link_resolver.populate_quickfix(results)
 			vim.notify(string.format("Found %d tag matches. Quickfix list populated.", #results), vim.log.levels.INFO)
 		end
+	elseif link_info.type == "website" then
+		open_external(link_info.url)
 	elseif link_info.type == "footnote" then
 		-- Handle footnote reference
 		local footnote_loc = link_resolver.search_footnote(link_info.ref_id)

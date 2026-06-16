@@ -13,6 +13,17 @@ local action_state = require("telescope.actions.state")
 local previewers = require("telescope.previewers")
 
 -- ---------------------------------------------------------------------------
+-- Small helpers
+-- ---------------------------------------------------------------------------
+
+-- ancestors + self, as a fresh list the caller may mutate freely
+local function full_path(node)
+	local path = vim.list_extend({}, node:get_path())
+	path[#path + 1] = node
+	return path
+end
+
+-- ---------------------------------------------------------------------------
 -- Tokenization
 -- ---------------------------------------------------------------------------
 
@@ -28,60 +39,6 @@ local function tokenize(query)
 		end
 	end
 	return tokens
-end
-
--- ---------------------------------------------------------------------------
--- Section matching
--- ---------------------------------------------------------------------------
-
--- Strict algorithm resolving path ancestors and explicit token requirements
-local function node_matches(node, query_tokens, lines)
-	local path = vim.list_extend({}, node:get_path())
-	table.insert(path, node)
-
-	local unmatched = {}
-	for _, token in ipairs(query_tokens) do
-		local matched = false
-		if token.type == "heading" then
-			for _, p in ipairs(path) do
-				if (p.type == "heading" or p.type == "bold_heading") and p.text:lower():find(token.text, 1, true) then
-					matched = true
-					break
-				end
-			end
-		elseif token.type == "label" then
-			for _, p in ipairs(path) do
-				if p.type == "label" and p.text:lower():find(token.text, 1, true) then
-					matched = true
-					break
-				end
-			end
-		else
-			for _, p in ipairs(path) do
-				if p.text:lower():find(token.text, 1, true) then
-					matched = true
-					break
-				end
-			end
-		end
-		if not matched then
-			table.insert(unmatched, token)
-		end
-	end
-
-	if #unmatched > 0 then
-		local content = table.concat(lines, "\n", node.start_line, node.end_line):lower()
-		for _, token in ipairs(unmatched) do
-			if token.type == "heading" or token.type == "label" then
-				return false -- Explicit tokens MUST exist strictly in structure/path
-			end
-			if not content:find(token.text, 1, true) then
-				return false
-			end
-		end
-	end
-
-	return true
 end
 
 -- ---------------------------------------------------------------------------
@@ -130,12 +87,10 @@ end
 -- ---------------------------------------------------------------------------
 
 local function get_clean_breadcrumb(node)
-	local path = vim.list_extend({}, node:get_path())
-	table.insert(path, node)
 	local parts = {}
-	for _, p in ipairs(path) do
+	for _, p in ipairs(full_path(node)) do
 		if p.type ~= "root" then
-			table.insert(parts, p.text)
+			parts[#parts + 1] = p.text
 		end
 	end
 	return table.concat(parts, " › ")
@@ -144,14 +99,11 @@ end
 -- Section result: coloured breadcrumb path only (no child preview lines)
 local function make_section_display(entry)
 	local node = entry.value.node
-	local path = vim.list_extend({}, node:get_path())
-	table.insert(path, node)
-
 	local display_str = ""
 	local hl_table = {}
 	local first = true
 
-	for _, p_node in ipairs(path) do
+	for _, p_node in ipairs(full_path(node)) do
 		if p_node.type ~= "root" then
 			if not first then
 				local sep_start = #display_str
@@ -246,33 +198,8 @@ local function zortex_previewer()
 end
 
 -- ---------------------------------------------------------------------------
--- Search backends (modular – each returns a flat list of result tables)
+-- Index helpers (shared by indexing + matching)
 -- ---------------------------------------------------------------------------
-
-function M.search_sections(files, tokens)
-	local results = {}
-	for _, filepath in ipairs(files) do
-		local lines = fs.read_lines(filepath)
-		-- Check if @Ignore exists in the first 5 lines
-		if lines and not table.concat(lines, "\n", 1, math.min(5, #lines)):find("@Ignore") then
-			local tree = tree_module.get_tree(filepath)
-			if tree then
-				local matched = tree_module.search_nodes(tree, function(node)
-					return node_matches(node, tokens, lines)
-				end)
-				for _, node in ipairs(matched) do
-					table.insert(results, {
-						result_type = "section",
-						filepath = filepath,
-						node = node,
-						breadcrumb = get_clean_breadcrumb(node),
-					})
-				end
-			end
-		end
-	end
-	return results
-end
 
 -- Collect set of line numbers that are structural section start lines
 local function collect_structural_lines(node, set)
@@ -294,47 +221,192 @@ local function get_article_for_line(tree, lnum)
 	return nil
 end
 
--- AND match: every token must appear somewhere in the line
-function M.search_lines(files, tokens)
-	local results = {}
-	if #tokens == 0 then
-		return results
-	end
+-- ---------------------------------------------------------------------------
+-- Indexing: ALL disk reads, tree parsing and lower-casing happen here, ONCE.
+-- The picker builds the index when it opens; each keystroke then filters this
+-- purely in-memory structure (see M.query_index).
+-- ---------------------------------------------------------------------------
 
+-- NOTE: @Ignore now excludes a file from BOTH section and line results.
+-- (The previous code only skipped ignored files for section results, so an
+-- ignored file could still surface line matches. That asymmetry looked like
+-- an oversight; this version is consistent. To restore the old behaviour,
+-- index ignored files too and skip them only in the section loop.)
+function M.build_index(files)
+	local index = {}
 	for _, filepath in ipairs(files) do
-		local tree = tree_module.get_tree(filepath)
-		if tree then
-			local lines = fs.read_lines(filepath)
-			if lines then
+		local lines = fs.read_lines(filepath)
+		if lines and not table.concat(lines, "\n", 1, math.min(5, #lines)):find("@Ignore") then
+			local tree = tree_module.get_tree(filepath)
+			if tree then
+				-- Lower-case every line a single time.
+				local lower_lines = {}
+				for i, l in ipairs(lines) do
+					lower_lines[i] = l:lower()
+				end
+
+				-- Structural start lines so the line scan can skip them.
 				local structural = {}
 				collect_structural_lines(tree, structural)
 
+				-- Pre-compute section candidates: each carries its typed,
+				-- lower-cased path (ancestors + self) for fast matching.
+				local sections = {}
+				local nodes = tree_module.search_nodes(tree, function()
+					return true
+				end)
+				for _, node in ipairs(nodes) do
+					local typed = {}
+					for _, p in ipairs(full_path(node)) do
+						typed[#typed + 1] = { type = p.type, text = (p.text or ""):lower() }
+					end
+					sections[#sections + 1] = {
+						node = node,
+						filepath = filepath,
+						breadcrumb = get_clean_breadcrumb(node),
+						path = typed,
+					}
+				end
+
+				-- Pre-compute line candidates (skip structural + blank lines).
+				local line_items = {}
 				for lnum, line in ipairs(lines) do
 					if not structural[lnum] and vim.trim(line) ~= "" then
-						local lower = line:lower()
-						local all_match = true
-						for _, token in ipairs(tokens) do
-							if not lower:find(token.text, 1, true) then
-								all_match = false
-								break
-							end
-						end
-						if all_match then
-							local article = get_article_for_line(tree, lnum)
-							table.insert(results, {
-								result_type = "line",
-								filepath = filepath,
-								lnum = lnum,
-								line = line,
-								article_name = article and article.text or nil,
-							})
-						end
+						local article = get_article_for_line(tree, lnum)
+						line_items[#line_items + 1] = {
+							filepath = filepath,
+							lnum = lnum,
+							line = line,
+							lower = lower_lines[lnum],
+							article_name = article and article.text or nil,
+						}
 					end
 				end
+
+				index[#index + 1] = {
+					lower_lines = lower_lines,
+					sections = sections,
+					lines = line_items,
+				}
+			end
+		end
+	end
+	return index
+end
+
+-- ---------------------------------------------------------------------------
+-- Matching (pure in-memory, no I/O)
+-- ---------------------------------------------------------------------------
+
+-- Does one pre-indexed section candidate satisfy the tokens?
+-- Faithful re-implementation of the old node_matches, but over data that was
+-- already resolved + lower-cased at index time.
+local function section_matches(entry, tokens, lower_lines)
+	local unmatched = {}
+	for _, tok in ipairs(tokens) do
+		local matched = false
+		for _, p in ipairs(entry.path) do
+			local type_ok = (tok.type == "general")
+				or (tok.type == "heading" and (p.type == "heading" or p.type == "bold_heading"))
+				or (tok.type == "label" and p.type == "label")
+			if type_ok and p.text:find(tok.text, 1, true) then
+				matched = true
+				break
+			end
+		end
+		if not matched then
+			unmatched[#unmatched + 1] = tok
+		end
+	end
+
+	-- Explicit #/: tokens MUST exist structurally; general tokens may live
+	-- anywhere inside the node's content range. Tokens never contain
+	-- whitespace, so a per-line scan is equivalent to concatenating the range.
+	for _, tok in ipairs(unmatched) do
+		if tok.type ~= "general" then
+			return false
+		end
+		local found = false
+		for lnum = entry.node.start_line, entry.node.end_line do
+			local l = lower_lines[lnum]
+			if l and l:find(tok.text, 1, true) then
+				found = true
+				break
+			end
+		end
+		if not found then
+			return false
+		end
+	end
+
+	return true
+end
+
+local function match_sections(index, tokens)
+	local results = {}
+	for _, file in ipairs(index) do
+		for _, sec in ipairs(file.sections) do
+			if section_matches(sec, tokens, file.lower_lines) then
+				results[#results + 1] = {
+					result_type = "section",
+					filepath = sec.filepath,
+					node = sec.node,
+					breadcrumb = sec.breadcrumb,
+				}
 			end
 		end
 	end
 	return results
+end
+
+-- AND match: every token must appear somewhere in the line.
+local function match_lines(index, tokens)
+	local results = {}
+	if #tokens == 0 then
+		return results
+	end
+	for _, file in ipairs(index) do
+		for _, ln in ipairs(file.lines) do
+			local all = true
+			for _, tok in ipairs(tokens) do
+				if not ln.lower:find(tok.text, 1, true) then
+					all = false
+					break
+				end
+			end
+			if all then
+				results[#results + 1] = {
+					result_type = "line",
+					filepath = ln.filepath,
+					lnum = ln.lnum,
+					line = ln.line,
+					article_name = ln.article_name,
+				}
+			end
+		end
+	end
+	return results
+end
+
+-- Full query over a pre-built index: sections ranked first, lines appended.
+function M.query_index(index, prompt)
+	local tokens = tokenize(prompt)
+	local results = match_sections(index, tokens)
+	vim.list_extend(results, match_lines(index, tokens))
+	return results
+end
+
+-- ---------------------------------------------------------------------------
+-- Backwards-compatible one-shot API
+-- (build a throwaway index, then query — preserves the old signatures)
+-- ---------------------------------------------------------------------------
+
+function M.search_sections(files, tokens)
+	return match_sections(M.build_index(files), tokens)
+end
+
+function M.search_lines(files, tokens)
+	return match_lines(M.build_index(files), tokens)
 end
 
 -- =============================================================================
@@ -382,18 +454,17 @@ function M.structural_search(opts)
 	opts = opts or {}
 	local files = fs.find_all_notes()
 
+	-- All disk reads + tree parsing happen ONCE, here. Each keystroke below
+	-- only filters this in-memory index.
+	local index = M.build_index(files)
+
 	pickers
 		.new(opts, {
 			prompt_title = "Zortex Structural Search",
+			debounce = 80, -- ms: coalesce rapid keystrokes (telescope picker option)
 			finder = finders.new_dynamic({
 				fn = function(prompt)
-					local tokens = tokenize(prompt)
-					-- Sections ranked first; line results appended after
-					local results = M.search_sections(files, tokens)
-					for _, r in ipairs(M.search_lines(files, tokens)) do
-						table.insert(results, r)
-					end
-					return results
+					return M.query_index(index, prompt)
 				end,
 				entry_maker = function(entry)
 					if entry.result_type == "section" then

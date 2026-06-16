@@ -8,6 +8,15 @@ local fs = require("zortex.utils.filesystem")
 local cache_file = vim.fn.stdpath("cache") .. "/zortex/trees.json"
 local cache_data = nil
 
+-- In-memory cache of *live* (rehydrated) trees, keyed by filepath.
+-- This avoids rebuilding the whole Section object graph from JSON on every
+-- get_tree() call. Entries are validated against the file mtime.
+--
+-- CAVEAT: callers receive a shared, mutable tree. Read-only consumers (e.g.
+-- search) are safe. Anything that mutates nodes in place (Section:update_bounds,
+-- etc.) must either operate on a copy or call M.invalidate() afterwards.
+local live_cache = {}
+
 -- Load cache from disk
 local function load_cache()
 	if cache_data then
@@ -178,15 +187,24 @@ function M.get_tree(filepath)
 	end
 	local mtime = stat.mtime.sec
 
+	-- Hottest path: a live tree is already in memory and still current.
+	local live = live_cache[filepath]
+	if live and live.mtime == mtime then
+		return live.tree
+	end
+
 	load_cache()
 	local cached = cache_data[filepath]
 
-	-- Return cached tree if mtime matches
+	-- Warm path: rehydrate from the on-disk JSON cache, then keep the live
+	-- tree so subsequent calls hit the fast path above.
 	if cached and cached.mtime == mtime then
-		return rehydrate(cached.root, nil)
+		local tree = rehydrate(cached.root, nil)
+		live_cache[filepath] = { mtime = mtime, tree = tree }
+		return tree
 	end
 
-	-- Reparse on cache miss or mtime jump
+	-- Cold path: reparse on cache miss or mtime change.
 	local tree = parse_tree(filepath)
 	if tree then
 		cache_data[filepath] = {
@@ -194,6 +212,7 @@ function M.get_tree(filepath)
 			root = dehydrate(tree),
 		}
 		save_cache()
+		live_cache[filepath] = { mtime = mtime, tree = tree }
 	end
 
 	return tree
@@ -205,6 +224,7 @@ function M.invalidate(filepath)
 		cache_data[filepath] = nil
 		save_cache()
 	end
+	live_cache[filepath] = nil
 end
 
 -- Perform arbitrary search traversal down the active tree
@@ -227,6 +247,9 @@ function M.setup()
 	vim.api.nvim_create_autocmd("BufWritePost", {
 		pattern = "*.zortex",
 		callback = function(args)
+			-- A save changes mtime; drop the stale live tree so get_tree
+			-- rebuilds it from the new file contents.
+			live_cache[args.file] = nil
 			M.get_tree(args.file)
 		end,
 	})

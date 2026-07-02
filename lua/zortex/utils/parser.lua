@@ -654,19 +654,111 @@ function M.parse_okr_date(line)
 end
 
 -- =============================================================================
+-- Structural hierarchy primitives (single source of truth)
+-- =============================================================================
+--
+-- These three functions are the ONE place that decides what a section line is,
+-- where it sits in the hierarchy, and what its display text is. The document
+-- tree (core/section.build_tree), the cached tree (core/tree), and
+-- build_section_path below all consume them, so the structure they produce is
+-- guaranteed to agree.
+
+-- Assign a strict numeric structural level to a line. Lower => higher up.
+--   ARTICLE      -> 0
+--   HEADING      -> 1..6   (the markdown heading level)
+--   BOLD_HEADING -> 7
+--   LABEL        -> 8 + indent
+-- Returns: level (number) or nil for non-section lines, plus the section_type.
+function M.calculate_level(line, in_code_block)
+	local section_type = M.detect_section_type(line, in_code_block)
+	if section_type == constants.SECTION_TYPE.ARTICLE then
+		return 0, section_type
+	elseif section_type == constants.SECTION_TYPE.HEADING then
+		return M.get_heading_level(line), section_type
+	elseif section_type == constants.SECTION_TYPE.BOLD_HEADING then
+		return 7, section_type
+	elseif section_type == constants.SECTION_TYPE.LABEL then
+		local indent = #(line:match("^%s*") or "")
+		return 8 + indent, section_type
+	end
+	return nil, section_type
+end
+
+-- Extract the human-readable text for a section line, given its type.
+function M.section_text(line, section_type)
+	if section_type == constants.SECTION_TYPE.ARTICLE then
+		return M.extract_article_name(line) or "Article"
+	elseif section_type == constants.SECTION_TYPE.HEADING then
+		local h = M.parse_heading(line)
+		return M.trim(h and h.text or line:gsub("^#+%s*", ""))
+	elseif section_type == constants.SECTION_TYPE.BOLD_HEADING then
+		local bh = M.parse_bold_heading(line)
+		return M.trim(bh and bh.text or line:match("%*%*(.-)%*%*") or line)
+	elseif section_type == constants.SECTION_TYPE.LABEL then
+		local lbl = M.parse_label(line)
+		return M.trim(lbl and lbl.text or line:match("^%s*(.-):") or line)
+	end
+	return M.trim(line)
+end
+
+-- Single structural pass over a buffer. Returns an ordered list of descriptors:
+--   { lnum = number, type = SECTION_TYPE, level = number, text = string }
+-- Encapsulates code-block tracking and the "article block" rule (@@ aliases are
+-- only recognised in the leading block of the file).
+function M.scan_sections(lines)
+	local sections = {}
+	if not lines then
+		return sections
+	end
+
+	local code_tracker = CodeBlockTracker:new()
+	local in_article_block = true
+
+	for lnum, line in ipairs(lines) do
+		local in_code = code_tracker:update(line)
+		local level, section_type = M.calculate_level(line, in_code)
+
+		-- Article continuity: @@ aliases only count in the leading block.
+		if level then
+			if section_type == constants.SECTION_TYPE.ARTICLE then
+				if not in_article_block then
+					level = nil
+				end
+			else
+				in_article_block = false
+			end
+		elseif M.trim(line) ~= "" then
+			in_article_block = false
+		end
+
+		if level then
+			sections[#sections + 1] = {
+				lnum = lnum,
+				type = section_type,
+				level = level,
+				text = M.section_text(line, section_type),
+			}
+		end
+	end
+
+	return sections
+end
+
+-- =============================================================================
 -- Sections
 -- =============================================================================
 
---  Build the section "breadcrumb" that leads to a given buffer line
----Return an ordered list of section‑objects that enclose `target_lnum`.
----Each element contains everything the rest of the code already expects:
----• `lnum`  – where the section starts
----• `type`  – one of constants.SECTION_TYPE.*
----• `priority`– numeric hierarchy value (lower ⇒ higher level)
----• `level`  – heading level (only for `HEADING`)
----• `text`    – raw text that represents the section (article title, heading,
----               bold heading, or label)
----• `display` – text to show in breadcrumbs / Telescope lists
+--  Build the section "breadcrumb" that leads to a given buffer line.
+---Return an ordered list of section descriptors that enclose `target_lnum`,
+---outermost first (article → … → innermost). Derived from the single
+---structural scan (M.scan_sections) so it always agrees with the document tree.
+---Each element contains:
+---• `lnum`     – where the section starts
+---• `type`     – one of constants.SECTION_TYPE.*
+---• `level`    – heading level (only for HEADING; nil otherwise)
+---• `priority` – numeric structural level (lower ⇒ higher in the hierarchy)
+---• `text`     – section text (article title, heading, bold heading, or label)
+---• `display`  – text to show in breadcrumbs / Telescope lists
 ---@param lines        string[]  -- full buffer ‑ 1‑indexed
 ---@param target_lnum  integer   -- line the user/caller is interested in
 ---@return table[]               -- top‑down path  (article → … → innermost)
@@ -675,69 +767,28 @@ function M.build_section_path(lines, target_lnum)
 		return {}
 	end
 
-	local path = {} ---@type table[]   -- final result (ordered)
-	local stack = {} ---@type table[]   -- working stack while we scan
-	local insert = table.insert
-	local remove = table.remove
-
-	-- Track code blocks
-	local code_tracker = CodeBlockTracker:new()
-
-	for lnum = 1, math.min(target_lnum, #lines) do
-		local line = lines[lnum]
-		local in_code_block = code_tracker:update(line)
-		local section_type = M.detect_section_type(line, in_code_block)
-
-		-- Skip plain text / tag‑only lines
-		if section_type ~= constants.SECTION_TYPE.TEXT and section_type ~= constants.SECTION_TYPE.TAG then
-			local heading_level = nil
-			if section_type == constants.SECTION_TYPE.HEADING then
-				heading_level = M.get_heading_level(line)
-			end
-
-			local priority = constants.SECTION_HIERARCHY.get_priority(section_type, heading_level)
-
-			-- Maintain a proper hierarchy: pop anything that is at the same
-			-- or deeper level than the current header we just met
-			while #stack > 0 and stack[#stack].priority >= priority do
-				remove(stack)
-			end
-
-			-- Build a section object recognised by the rest of the codebase
-			local section = {
-				lnum = lnum,
-				type = section_type,
-				priority = priority,
-				level = heading_level,
-				text = nil, -- filled in below
-			}
-
-			if section_type == constants.SECTION_TYPE.ARTICLE then
-				section.text = M.extract_article_name(line) or "Article"
-			elseif section_type == constants.SECTION_TYPE.HEADING then
-				local h = M.parse_heading(line)
-				section.text = h and h.text or M.trim(line:gsub("^#+%s*", ""))
-				section.level = h and h.level or heading_level
-			elseif section_type == constants.SECTION_TYPE.BOLD_HEADING then
-				local bh = M.parse_bold_heading(line)
-				section.text = bh and bh.text or M.trim(line:gsub("%*+", ""))
-			elseif section_type == constants.SECTION_TYPE.LABEL then
-				local lbl = M.parse_label(line)
-				section.text = lbl and lbl.text or line:gsub(":$", "")
-			end
-
-			-- Fallback so that `format_breadcrumb()` always has something to show
-			section.display = section.text or ("<unknown@" .. lnum .. ">")
-
-			insert(stack, section)
+	local stack = {}
+	for _, sec in ipairs(M.scan_sections(lines)) do
+		if sec.lnum > target_lnum then
+			break
 		end
+
+		-- Pop anything at the same or deeper level than the section we met.
+		while #stack > 0 and stack[#stack].priority >= sec.level do
+			table.remove(stack)
+		end
+
+		stack[#stack + 1] = {
+			lnum = sec.lnum,
+			type = sec.type,
+			level = (sec.type == constants.SECTION_TYPE.HEADING) and sec.level or nil,
+			priority = sec.level,
+			text = sec.text,
+			display = sec.text ~= "" and sec.text or ("<unknown@" .. sec.lnum .. ">"),
+		}
 	end
 
-	-- The stack already holds the correct order (outer → inner)
-	for i, s in ipairs(stack) do
-		path[i] = s
-	end
-	return path
+	return stack
 end
 
 --- Find the start of a section by searching backwards from a line.

@@ -12,59 +12,43 @@ local function get_toc_data(orig_buf)
 		return nil, nil, "Buffer is empty"
 	end
 
-	-- Build the section tree directly using parser and section
-	local builder = section.SectionTreeBuilder:new()
-	local code_tracker = parser.CodeBlockTracker:new()
-
-	for line_num, line in ipairs(lines) do
-		builder:update_current_end(line_num)
-		local in_code_block = code_tracker:update(line)
-
-		if not in_code_block then
-			local s = section.create_from_line(line, line_num, in_code_block)
-			if s then
-				builder:add_section(s)
-			end
-		end
+	-- Single canonical builder. Code-block tracking and the @@-alias rule are
+	-- handled inside build_tree, so the manual CodeBlockTracker loop is gone.
+	local root_section = section.build_tree(lines)
+	if not root_section then
+		return nil, nil, "Buffer is empty"
 	end
-
-	local root_section = builder:get_tree()
 
 	local toc_lines = {}
 	local toc_mappings = {} -- Maps TOC row (1-indexed) to original buffer lnum
 
-	-- Helper to recursively traverse the section tree and build TOC lines
-	local function traverse(sec, depth)
-		local valid_types = {
-			[constants.SECTION_TYPE.HEADING] = true,
-			[constants.SECTION_TYPE.BOLD_HEADING] = true,
-			[constants.SECTION_TYPE.LABEL] = true,
-		}
+	local valid_types = {
+		[constants.SECTION_TYPE.HEADING] = true,
+		[constants.SECTION_TYPE.BOLD_HEADING] = true,
+		[constants.SECTION_TYPE.LABEL] = true,
+	}
 
+	local function traverse(sec, depth)
 		local added = false
 		if valid_types[sec.type] then
 			local indent = string.rep("  ", depth)
-			local display_text = ""
-
-			-- Wrap the text in [ ] so features/highlights.lua treats them as Zortex links
+			local display_text
 			if sec.type == constants.SECTION_TYPE.HEADING then
 				display_text = indent .. "[" .. string.rep("#", sec.level or 1) .. " " .. sec.text .. "]"
 			elseif sec.type == constants.SECTION_TYPE.BOLD_HEADING then
 				display_text = indent .. "[**" .. sec.text .. "**:]"
-			elseif sec.type == constants.SECTION_TYPE.LABEL then
+			else -- LABEL
 				display_text = indent .. "[" .. sec.text .. ":]"
 			end
-
 			table.insert(toc_lines, display_text)
 			toc_mappings[#toc_lines] = sec.start_line
 			added = true
 		end
 
-		-- Determine indentation depth for child items
+		-- Headings under an article start at indent 0; the synthetic root and
+		-- article nodes don't consume an indent level.
 		local next_depth = added and (depth + 1) or depth
-
-		-- The Root article doesn't indent itself, but its immediate children should start at indent 0
-		if sec.type == constants.SECTION_TYPE.ARTICLE then
+		if sec.type == constants.SECTION_TYPE.ARTICLE or sec.type == "root" then
 			next_depth = 0
 		end
 
@@ -73,7 +57,6 @@ local function get_toc_data(orig_buf)
 		end
 	end
 
-	-- Start traversal from the document root
 	traverse(root_section, 0)
 
 	if #toc_lines == 0 then

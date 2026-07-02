@@ -1,8 +1,7 @@
 -- core/tree.lua - Persistent Structural Tree Module
 local M = {}
-local Section = require("zortex.core.section").Section
-local parser = require("zortex.utils.parser")
-local constants = require("zortex.constants")
+local section_module = require("zortex.core.section")
+local Section = section_module.Section
 local fs = require("zortex.utils.filesystem")
 
 local cache_file = vim.fn.stdpath("cache") .. "/zortex/trees.json"
@@ -83,101 +82,15 @@ local function rehydrate(data, parent)
 	return section
 end
 
--- Assigns strict numerical levels to Zortex hierarchy
-local function calculate_level(line, is_code)
-	local section_type = parser.detect_section_type(line, is_code)
-	if section_type == constants.SECTION_TYPE.ARTICLE then
-		return 0, section_type
-	elseif section_type == constants.SECTION_TYPE.HEADING then
-		local level = parser.get_heading_level(line)
-		return level, section_type -- Levels 1-6
-	elseif section_type == constants.SECTION_TYPE.BOLD_HEADING then
-		return 7, section_type
-	elseif section_type == constants.SECTION_TYPE.LABEL then
-		local indent = #line:match("^%s*")
-		return 8 + indent, section_type -- Base level 8 + indentation rules
-	end
-	return nil, section_type
-end
-
--- Parse lines into a structural tree
+-- Parse lines into a structural tree.
+-- The hierarchy logic lives in core/section.build_tree (which in turn uses
+-- parser.scan_sections), so there is a single source of truth for structure.
 local function parse_tree(filepath)
 	local lines = fs.read_lines(filepath)
 	if not lines then
 		return nil
 	end
-
-	local root = Section:new({
-		type = "root",
-		text = "Root",
-		start_line = 1,
-		end_line = #lines,
-	})
-	root.level = -1
-
-	local stack = { root }
-	local code_tracker = parser.CodeBlockTracker:new()
-	local in_article_block = true
-
-	for lnum, line in ipairs(lines) do
-		local in_code = code_tracker:update(line)
-		local level, section_type = calculate_level(line, in_code)
-
-		-- Article continuity check
-		if level then
-			if section_type == constants.SECTION_TYPE.ARTICLE then
-				if not in_article_block then
-					level = nil
-				end
-			else
-				in_article_block = false
-			end
-		else
-			if vim.trim(line) ~= "" then
-				in_article_block = false
-			end
-		end
-
-		if level then
-			local text = ""
-			if section_type == constants.SECTION_TYPE.ARTICLE then
-				text = parser.extract_article_name(line) or "Article"
-			elseif section_type == constants.SECTION_TYPE.HEADING then
-				local h = parser.parse_heading(line)
-				text = h and h.text or line:gsub("^#+%s*", "")
-			elseif section_type == constants.SECTION_TYPE.BOLD_HEADING then
-				local bh = parser.parse_bold_heading(line)
-				text = bh and bh.text or line:match("%*%*(.-)%*%*") or line
-			elseif section_type == constants.SECTION_TYPE.LABEL then
-				local lbl = parser.parse_label(line)
-				text = lbl and lbl.text or line:match("^%s*(.-):") or line
-			end
-
-			local section = Section:new({
-				type = section_type,
-				text = vim.trim(text),
-				start_line = lnum,
-				end_line = lnum,
-				level = level,
-			})
-
-			-- Enforce structural hierarchy popping
-			while #stack > 1 and stack[#stack].level >= level do
-				stack[#stack].end_line = lnum - 1
-				table.remove(stack)
-			end
-
-			stack[#stack]:add_child(section)
-			table.insert(stack, section)
-		end
-	end
-
-	-- Cap off the remaining sections in the stack
-	for i = 2, #stack do
-		stack[i].end_line = #lines
-	end
-
-	return root
+	return section_module.build_tree(lines)
 end
 
 function M.get_tree(filepath)

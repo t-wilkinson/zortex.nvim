@@ -426,42 +426,23 @@ function Document:parse(force)
 	if not force and not self:_needs_parse() then
 		return self.sections
 	end
-
 	local timer = Logger.start_timer("workspace.document.parse")
 
 	-- Extract article names first
 	self.article_names = self:_extract_article_names()
 
-	-- Build section tree
-	local builder = Section.SectionTreeBuilder:new()
-	local code_tracker = parser.CodeBlockTracker:new()
-
-	for line_num, line in ipairs(self.lines) do
-		builder:update_current_end(line_num)
-
-		local in_code_block = code_tracker:update(line)
-		if not in_code_block then
-			local section = Section.create_from_line(line, line_num, in_code_block)
-			if section then
-				builder:add_section(section)
-			end
-		end
-	end
-
-	self.sections = builder:get_tree()
-	self.sections.end_line = #self.lines
+	-- Build the section tree with the single canonical builder.
+	self.sections = Section.build_tree(self.lines)
+	self.sections.end_line = #self.lines -- build_tree already sets this; explicit for clarity
 
 	-- Clear dirty tracking
 	self.dirty_sections = {}
 	self.needs_full_reparse = false
 	self.last_parsed = os.time()
-
 	timer()
-
 	Events.emit("workspace:document_parsed", {
 		name = self.name,
 	})
-
 	return self.sections
 end
 

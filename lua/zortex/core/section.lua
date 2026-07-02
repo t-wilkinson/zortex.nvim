@@ -32,7 +32,6 @@ function Section:new(opts)
 	-- Computed properties (lazy)
 	section._path = nil
 	section._id = nil
-	section._breadcrumb = nil
 
 	-- Content
 	section.attributes = {}
@@ -82,17 +81,29 @@ function Section:get_path()
 	return self._path
 end
 
--- Get breadcrumb string
-function Section:get_breadcrumb()
-	if not self._breadcrumb then
-		local parts = {}
-		for _, section in ipairs(self:get_path()) do
-			table.insert(parts, section.text)
-		end
-		table.insert(parts, self.text)
-		self._breadcrumb = table.concat(parts, " > ")
+-- Get the path from root to this section, INCLUDING this section.
+-- Returns a fresh list the caller may mutate freely.
+function Section:get_full_path()
+	local path = {}
+	for _, ancestor in ipairs(self:get_path()) do
+		path[#path + 1] = ancestor
 	end
-	return self._breadcrumb
+	path[#path + 1] = self
+	return path
+end
+
+-- Get breadcrumb string. The synthetic root is omitted and `sep` defaults to
+-- " > ". This is the single breadcrumb builder used across the codebase; the
+-- search UI passes " › ".
+function Section:get_breadcrumb(sep)
+	sep = sep or " > "
+	local parts = {}
+	for _, section in ipairs(self:get_full_path()) do
+		if section.type ~= "root" then
+			parts[#parts + 1] = section.text
+		end
+	end
+	return table.concat(parts, sep)
 end
 
 -- Check if this section contains a line number
@@ -108,7 +119,6 @@ function Section:add_child(child)
 	-- Invalidate cached properties
 	child._path = nil
 	child._id = nil
-	child._breadcrumb = nil
 end
 
 -- Remove a child section
@@ -234,65 +244,63 @@ function Section:build_link(doc)
 end
 
 -- =============================================================================
--- Section Tree Builder
+-- Tree construction (single canonical builder)
 -- =============================================================================
 
-local SectionTreeBuilder = {}
-SectionTreeBuilder.__index = SectionTreeBuilder
+-- Build a full Section tree from buffer lines. This is the ONE place that
+-- assembles the document hierarchy: core/tree.lua (caching/persistence) and the
+-- search UI both go through it. All structural decisions come from
+-- parser.scan_sections, so the resulting tree always agrees with
+-- parser.build_section_path.
+--
+-- The root is a synthetic node of type "root" (level -1); callers that render
+-- breadcrumbs skip it (see Section:get_breadcrumb).
+function M.build_tree(lines)
+	if not lines then
+		return nil
+	end
 
-function SectionTreeBuilder:new()
-	return setmetatable({
-		root = Section:new({
-			type = constants.SECTION_TYPE.ARTICLE,
-			text = "Document Root",
-			start_line = 1,
-			end_line = 1,
-		}),
-		stack = {},
-		code_tracker = parser.CodeBlockTracker:new(),
-	}, self)
-end
+	local root = Section:new({
+		type = "root",
+		text = "Root",
+		start_line = 1,
+		end_line = #lines,
+	})
+	root.level = -1
 
--- Add a section to the tree
-function SectionTreeBuilder:add_section(section)
-	-- Find the appropriate parent
-	while #self.stack > 0 do
-		local potential_parent = self.stack[#self.stack]
-		if potential_parent:can_contain(section) and section.start_line <= potential_parent.end_line then
-			potential_parent:add_child(section)
-			table.insert(self.stack, section)
-			return
-		else
-			-- Pop sections that can't contain this one and finalize their end line
-			potential_parent.end_line = section.start_line - 1 -- <<< FIX #1: Finalize end_line
-			table.remove(self.stack)
+	local stack = { root }
+	for _, sec in ipairs(parser.scan_sections(lines)) do
+		local section = Section:new({
+			type = sec.type,
+			text = sec.text,
+			start_line = sec.lnum,
+			end_line = sec.lnum,
+			level = sec.level,
+		})
+
+		-- Close out any open sections at the same or deeper level.
+		while #stack > 1 and stack[#stack].level >= sec.level do
+			stack[#stack].end_line = sec.lnum - 1
+			table.remove(stack)
 		end
+
+		stack[#stack]:add_child(section)
+		stack[#stack + 1] = section
 	end
 
-	-- If no parent found, add to root
-	self.root:add_child(section)
-	table.insert(self.stack, section)
-end
-
--- Update the end line of the current section and its parents
-function SectionTreeBuilder:update_current_end(line_num)
-	-- <<< FIX #2: Update all sections in the stack
-	for _, section in ipairs(self.stack) do
-		section.end_line = line_num
+	-- Cap off whatever is still open at end of buffer.
+	for i = 2, #stack do
+		stack[i].end_line = #lines
 	end
-	self.root.end_line = line_num
-end
 
--- Get the built tree
-function SectionTreeBuilder:get_tree()
-	return self.root
+	return root
 end
 
 -- Module functions
 M.Section = Section
-M.SectionTreeBuilder = SectionTreeBuilder
 
--- Create section from parsed line
+-- Create a single Section from one line (factory; no hierarchy assembly).
+-- Returns nil for plain text / tag-only lines.
 function M.create_from_line(line, line_num, in_code_block)
 	local section_type = parser.detect_section_type(line, in_code_block)
 
@@ -305,27 +313,10 @@ function M.create_from_line(line, line_num, in_code_block)
 		start_line = line_num,
 		end_line = line_num,
 		raw_text = line,
+		text = parser.section_text(line, section_type),
 	}
-
-	-- Parse based on type
-	if section_type == constants.SECTION_TYPE.ARTICLE then
-		opts.text = parser.extract_article_name(line) or "Article"
-	elseif section_type == constants.SECTION_TYPE.HEADING then
-		local heading = parser.parse_heading(line)
-		if heading then
-			opts.text = heading.text
-			opts.level = heading.level
-		end
-	elseif section_type == constants.SECTION_TYPE.BOLD_HEADING then
-		local bold = parser.parse_bold_heading(line)
-		if bold then
-			opts.text = bold.text
-		end
-	elseif section_type == constants.SECTION_TYPE.LABEL then
-		local label = parser.parse_label(line)
-		if label then
-			opts.text = label.text
-		end
+	if section_type == constants.SECTION_TYPE.HEADING then
+		opts.level = parser.get_heading_level(line)
 	end
 
 	return Section:new(opts)

@@ -13,17 +13,6 @@ local action_state = require("telescope.actions.state")
 local previewers = require("telescope.previewers")
 
 -- ---------------------------------------------------------------------------
--- Small helpers
--- ---------------------------------------------------------------------------
-
--- ancestors + self, as a fresh list the caller may mutate freely
-local function full_path(node)
-	local path = vim.list_extend({}, node:get_path())
-	path[#path + 1] = node
-	return path
-end
-
--- ---------------------------------------------------------------------------
 -- Tokenization
 -- ---------------------------------------------------------------------------
 
@@ -86,24 +75,13 @@ end
 -- Display builders
 -- ---------------------------------------------------------------------------
 
-local function get_clean_breadcrumb(node)
-	local parts = {}
-	for _, p in ipairs(full_path(node)) do
-		if p.type ~= "root" then
-			parts[#parts + 1] = p.text
-		end
-	end
-	return table.concat(parts, " › ")
-end
-
--- Section result: coloured breadcrumb path only (no child preview lines)
 local function make_section_display(entry)
 	local node = entry.value.node
 	local display_str = ""
 	local hl_table = {}
 	local first = true
 
-	for _, p_node in ipairs(full_path(node)) do
+	for _, p_node in ipairs(node:get_full_path()) do
 		if p_node.type ~= "root" then
 			if not first then
 				local sep_start = #display_str
@@ -257,13 +235,13 @@ function M.build_index(files)
 				end)
 				for _, node in ipairs(nodes) do
 					local typed = {}
-					for _, p in ipairs(full_path(node)) do
+					for _, p in ipairs(node:get_full_path()) do
 						typed[#typed + 1] = { type = p.type, text = (p.text or ""):lower() }
 					end
 					sections[#sections + 1] = {
 						node = node,
 						filepath = filepath,
-						breadcrumb = get_clean_breadcrumb(node),
+						breadcrumb = node:get_breadcrumb(" › "),
 						path = typed,
 					}
 				end

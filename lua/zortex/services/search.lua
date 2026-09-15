@@ -107,50 +107,37 @@ local function create_search_document(filepath, lines, bufnr)
 		source = bufnr and "buffer" or "search_cache",
 		bufnr = bufnr,
 		sections = nil,
-		article_names = {}, -- Changed to array
+		article_names = {},
 		stats = {
 			sections = 0,
 			tasks = 0,
 		},
-		lines = lines, -- Keep lines for searching
+		lines = lines,
 	}
 
 	-- Extract all article names
 	doc.article_names = extract_all_article_names(lines)
 
-	-- Build section tree (similar to Document:parse_full but lighter)
-	local builder = Section.SectionTreeBuilder:new()
-	local code_tracker = parser.CodeBlockTracker:new()
+	-- Build section tree using the canonical builder
+	doc.sections = Section.build_tree(lines)
 
-	for line_num, line in ipairs(lines) do
-		builder:update_current_end(line_num)
+	if doc.sections then
+		-- Collect stats and attach tasks to their enclosing sections
+		for _, child in ipairs(doc.sections.children) do
+			doc.stats.sections = doc.stats.sections + 1
+		end
 
-		local in_code_block = code_tracker:update(line)
-		if not in_code_block then
-			local section = Section.create_from_line(line, line_num, in_code_block)
-			if section then
-				builder:add_section(section)
-			end
-
-			-- Parse tasks
-			local is_task = parser.is_task_line(line)
-			if is_task then
-				local current = builder.stack[#builder.stack] or builder.root
-				table.insert(current.tasks, {
+		local code_tracker = parser.CodeBlockTracker:new()
+		for line_num, line in ipairs(lines) do
+			local in_code_block = code_tracker:update(line)
+			if not in_code_block and parser.is_task_line(line) then
+				local target = doc.sections:find_child_at_line(line_num) or doc.sections
+				table.insert(target.tasks, {
 					line = line_num,
 					text = parser.get_task_text(line),
 				})
+				doc.stats.tasks = doc.stats.tasks + 1
 			end
-		end
-	end
-
-	doc.sections = builder:get_tree()
-	doc.sections.end_line = #lines
-
-	if doc.sections then
-		for _, child in ipairs(doc.sections.children) do
-			doc.stats.sections = doc.stats.sections + 1
-			doc.stats.tasks = doc.stats.tasks + #child.tasks
 		end
 	end
 

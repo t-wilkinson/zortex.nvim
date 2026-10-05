@@ -388,7 +388,7 @@ function M:format_pretty()
 	end
 
 	-- Display text
-	table.insert(parts, self.display_text)
+	table.insert(parts, " " .. self.display_text)
 
 	-- Other attributes
 	if self.attributes.notify then

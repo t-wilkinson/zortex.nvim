@@ -395,6 +395,7 @@ M.schemas = {
 		progress = { type = "progress" },
 		["repeat"] = { type = "string" },
 		notify = { type = "notify" },
+		n = "notify",
 		depends = { types = "string" }, -- Specifies task dependence
 		area = { type = "area" }, -- area-link
 		a = "area",
@@ -434,6 +435,7 @@ M.schemas = {
 		from = { type = "datetime" },
 		to = { type = "datetime" },
 		notify = { type = "notify" },
+		n = "notify",
 		["repeat"] = { type = "string" },
 		area = { type = "area" },
 		a = "area",
@@ -452,6 +454,7 @@ M.schemas = {
 		to = { type = "datetime" },
 		["repeat"] = { type = "string" },
 		notify = { type = "notify" },
+		n = "notify",
 		area = { type = "area" },
 		a = "area",
 	},

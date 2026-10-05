@@ -130,7 +130,8 @@ def get_zortex_calendar_view():
             # Clean up title: remove "Calendar: " prefix if present for cleaner view
             clean_title = item["title"].replace("Calendar: ", "")
             # Only show first line of message if it duplicates title
-            text_lines.append(f"- {item['time_str']} {clean_title}")
+            # text_lines.append(f"- {item['time_str']} {clean_title}")
+            text_lines.append(f"  {clean_title}")
         text_lines.append("")  # Empty line between days
 
     # Calculate next event summary

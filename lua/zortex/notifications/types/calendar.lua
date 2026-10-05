@@ -55,7 +55,7 @@ local function format_notification(entry, event_type, minutes_until)
 	local message = entry:format()
 
 	-- return title, message
-	return message, ""
+	return message, "-"
 end
 
 -- Sync calendar notifications

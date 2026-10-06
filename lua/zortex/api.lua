@@ -175,6 +175,10 @@ M.calendar = {
 	add_entry = function(date_str, text)
 		require("zortex.stores.calendar").add_entry(date_str, text)
 	end,
+
+	digest = function()
+		require("zortex.calendar.view").open_digest()
+	end,
 }
 
 M.skill_tree = function()

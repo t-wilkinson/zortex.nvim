@@ -952,8 +952,13 @@ function M.refresh()
 	api.nvim_buf_set_lines(CalendarState.bufnr, 0, -1, false, lines)
 	api.nvim_buf_set_option(CalendarState.bufnr, "modifiable", false)
 
-	-- Clear all highlights
+	-- Clear all highlights and extmarks
 	api.nvim_buf_clear_namespace(CalendarState.bufnr, CalendarState.ns_id, 0, -1)
+
+	-- The namespace clear destroyed all extmarks. We must nil out the old ID
+	-- so update_selected_extmark() doesn't accidentally delete a newly created highlight
+	-- that inherited the recycled ID.
+	CalendarState.selected_extmark_id = nil
 
 	-- Apply highlights
 	Renderer.apply_highlights(CalendarState.bufnr, highlights)

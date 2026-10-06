@@ -126,6 +126,9 @@ function M.setup(prefix)
 	cmd("Calendar", function()
 		api.calendar.open()
 	end, { desc = "Open Zortex calendar" })
+	cmd("CalendarDigest", function()
+		api.calendar.open_digest()
+	end, { desc = "Open Zortex Daily Digest" })
 
 	-- ===========================================================================
 	-- Telescope

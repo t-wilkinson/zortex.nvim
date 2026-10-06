@@ -22,8 +22,8 @@ function M.setup(key_prefix, cmd_prefix)
 
 	map("n", "l", "TOC", add_opts({ desc = "Open table of contents" }))
 	map("n", "L", "TOCPopup", add_opts({ desc = "Open table of contents" }))
-	map("n", "Co", "TOC", add_opts({ desc = "Open table of contents" }))
-	map("n", "Cp", "TOCPopup", add_opts({ desc = "Open table of contents in popup" }))
+	-- map("n", "Co", "TOC", add_opts({ desc = "Open table of contents" }))
+	-- map("n", "Cp", "TOCPopup", add_opts({ desc = "Open table of contents in popup" }))
 	map("n", "r", "FoldsReload", add_opts({ desc = "Open Zortex link" }))
 
 	-- Navigation
@@ -35,12 +35,12 @@ function M.setup(key_prefix, cmd_prefix)
 	--   require("zortex.ui.search").search_current_file()
 	-- end, { desc = "Search current file" })
 
-	map("n", "d", "Digest", add_opts({ desc = "Open daily digest" }))
-	map("n", "D", "DigestUpdate", add_opts({ desc = "Update daily digest " }))
-
 	-- Calendar
 	map("n", "c", "Calendar", { desc = "Open calendar" })
 	-- map("n", "A", "CalendarAdd", { desc = "Add calendar entry" })
+	map("n", "Cc", "CalendarDigest", add_opts({ desc = "Open calendar digest" }))
+	map("n", "Cd", "Digest", add_opts({ desc = "Open daily digest" }))
+	map("n", "CD", "DigestUpdate", add_opts({ desc = "Update daily digest " }))
 
 	-- Archive keymaps
 	map("n", "a", function()

@@ -142,6 +142,7 @@ def get_zortex_calendar_view():
                 "id": row["id"],
                 "date_str": dt.strftime("%Y-%m-%d"),
                 "time_str": dt.strftime("%H:%M"),
+                "message": row["message"],
                 "title": clean_title,
                 "is_current": is_current,
                 "is_past": is_past,

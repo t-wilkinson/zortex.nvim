@@ -59,7 +59,9 @@ local function format_notification(entry, event_type, minutes_until)
 	else
 		message = string.format("%s%s %s", message, verb, time_str)
 	end
-	return message, "-"
+	-- return title, message
+	-- return message, "-"
+	return entry.display_text, "-"
 end
 
 -- Sync calendar notifications

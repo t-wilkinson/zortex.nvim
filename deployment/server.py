@@ -340,7 +340,7 @@ def home():
                 position: absolute;
                 left: 25px;
                 top: var(--progress-percent);
-                transform: translateY(-50%);
+                transform: translateY(-70%);
                 display: flex;
                 align-items: center;
                 gap: 5px;

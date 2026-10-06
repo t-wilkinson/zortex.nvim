@@ -219,7 +219,7 @@ local defaults = {
 				event = "󰃰", -- nf-md-calendar_star
 				task = "󰄬", -- nf-md-checkbox_blank_circle_outline
 				task_done = "󰄱", -- nf-md-check_circle
-				notification = "󰍛", -- nf-md-bell_ring
+				notification = "🔔", -- nf-md-bell_ring
 				has_items = "󰸞", -- nf-md-dots_circle
 				none = " ",
 			},

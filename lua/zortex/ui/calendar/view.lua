@@ -300,16 +300,16 @@ function Renderer.render_month_view(date)
 	if CalendarState.current_date then
 		local date_str = datetime.format_datetime(CalendarState.current_date, "YYYY-MM-DD")
 		local entries = calendar_store.get_entries_for_date(date_str)
-		local pending_notifications = notifications.calendar.get_pending_for_date(date_str)
+		-- local pending_notifications = notifications.calendar.get_pending_for_date(date_str)
 
 		local summary_header = string.format(
 			"%s - %s",
 			os.date("%A, %B %d, %Y", os.time(CalendarState.current_date)),
 			#entries > 0 and string.format("%d items", #entries) or "No items"
 		)
-		if #pending_notifications > 0 then
-			summary_header = summary_header .. string.format(" • %d notifications", #pending_notifications)
-		end
+		-- if #pending_notifications > 0 then
+		-- 	summary_header = summary_header .. string.format(" • %d notifications", #pending_notifications)
+		-- end
 
 		table.insert(lines, left_pad_str .. MARGIN_STR .. summary_header)
 		table.insert(highlights, {
@@ -329,13 +329,30 @@ function Renderer.render_month_view(date)
 					icon = cfg.icons.event
 				end
 				if entry.attributes.notify then
-					icon = cfg.icons.notification
+					-- icon = cfg.icons.notification
+					icon = "•"
 				end
 
 				-- Use the entry's format method to get the properly formatted string
 				local formatted_entry = entry:format()
 				local entry_line = string.format("  %s %s", icon, formatted_entry)
 				table.insert(lines, left_pad_str .. MARGIN_STR .. entry_line)
+
+				-- Highlight the time (Byte-index aware for emojis)
+				local time_s, time_e = string.find(entry_line, "%d%d:%d%d%s*%-%s*%d%d:%d%d")
+				if not time_s then
+					time_s, time_e = string.find(entry_line, "%d%d:%d%d")
+				end
+
+				if time_s then
+					local offset = #left_pad_str + #MARGIN_STR
+					table.insert(highlights, {
+						line = #lines,
+						col = offset + time_s - 1, -- 0-based byte index
+						end_col = offset + time_e,
+						hl = cfg.colors.header, -- Reuse header color, or change to "Title"
+					})
+				end
 			end
 		else
 			table.insert(lines, left_pad_str .. MARGIN_STR .. "  (no entries)")
@@ -347,14 +364,14 @@ function Renderer.render_month_view(date)
 		end
 
 		-- Show pending notifications
-		if #pending_notifications > 0 then
-			table.insert(lines, "")
-			table.insert(lines, left_pad_str .. MARGIN_STR .. "Pending Notifications:")
-			for _, notif in ipairs(pending_notifications) do
-				local notif_line = string.format("  %s %s - %s", cfg.icons.notification, notif.time, notif.title)
-				table.insert(lines, left_pad_str .. MARGIN_STR .. notif_line)
-			end
-		end
+		-- if #pending_notifications > 0 then
+		-- 	table.insert(lines, "")
+		-- 	table.insert(lines, left_pad_str .. MARGIN_STR .. "Pending Notifications:")
+		-- 	for _, notif in ipairs(pending_notifications) do
+		-- 		local notif_line = string.format("  %s %s - %s", cfg.icons.notification, notif.time, notif.title)
+		-- 		table.insert(lines, left_pad_str .. MARGIN_STR .. notif_line)
+		-- 	end
+		-- end
 	end
 
 	-- ── Footer key‑hints (bottom) ───────────────────────────────────────────
@@ -442,6 +459,21 @@ function Renderer.render_digest_view()
 				local formatted_entry = entry:format()
 				local entry_line = string.format("    %s %s", icon, formatted_entry)
 				table.insert(lines, entry_line)
+
+				-- Highlight the time (Byte-index aware for emojis)
+				local time_s, time_e = string.find(entry_line, "%d%d:%d%d%s*%-%s*%d%d:%d%d")
+				if not time_s then
+					time_s, time_e = string.find(entry_line, "%d%d:%d%d")
+				end
+
+				if time_s then
+					table.insert(highlights, {
+						line = #lines,
+						col = time_s - 1, -- 0-based byte index
+						end_col = time_e,
+						hl = cfg.colors.header,
+					})
+				end
 			end
 			table.insert(lines, "")
 		end

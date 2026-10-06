@@ -53,13 +53,13 @@ function M.from_text(entry_text, current_date_str)
 	else
 		-- Check for time range format: "10:00 - 12:00 rest of text"
 		local at_time, from_time, to_time, remaining
-		working_text = working_text:match("^%s*%- (.*)$")
-
-		if not working_text then
-			return nil
+		local stripped_text = working_text:match("^%s*%- (.*)$")
+		if stripped_text then
+			working_text = stripped_text
 		end
 
-		from_time, to_time, remaining = working_text:match("(%d%d?:%d%d)%s*%-%s*(%d%d?:%d%d)%s+(.*)$")
+		-- Check for time range format: "10:00 - 12:00 rest of text"
+		from_time, to_time, remaining = working_text:match("^(%d%d?:%d%d)%s*%-%s*(%d%d?:%d%d)%s+(.*)$")
 		if from_time and to_time and remaining then
 			working_text = remaining
 			-- Add the time attributes
@@ -67,10 +67,15 @@ function M.from_text(entry_text, current_date_str)
 			working_text = attributes.update_attribute(working_text, "to", to_time)
 		else
 			-- Check for single time prefix: "10:00 rest of text"
-			at_time, remaining = entry_text:match("(%d%d?:%d%d)%s+(.*)$")
+			at_time, remaining = working_text:match("^(%d%d?:%d%d)%s+(.*)$")
 			if at_time and remaining then
 				working_text = remaining
 				working_text = attributes.update_attribute(working_text, "at", at_time)
+			else
+				-- If it lacks both a time pattern and the original bullet point, treat it as invalid
+				if not stripped_text then
+					return nil
+				end
 			end
 		end
 
@@ -84,6 +89,10 @@ function M.from_text(entry_text, current_date_str)
 		-- Determine type based on attributes
 		if attrs.from or attrs.to or attrs.at then
 			data.type = "event"
+
+			if data.attributes.notify == nil then
+				data.attributes.notify = true
+			end
 		end
 	end
 
@@ -297,8 +306,9 @@ end
 
 -- Get formatted time string
 function M:get_time_string()
-	if self.time and self.time.hour and self.time.min then
-		return string.format("%02d:%02d", self.time.hour, self.time.min)
+	local start_time = self:get_start_time()
+	if start_time and start_time.hour and start_time.min then
+		return string.format("%02d:%02d", start_time.hour, start_time.min)
 	elseif self.attributes.at then
 		return self.attributes.at
 	end
@@ -325,10 +335,11 @@ function M:get_sort_priority()
 	end
 
 	-- Add time-based priority
-	if self.time and self.time.hour ~= nil and self.time.min ~= nil then
+	local start_time = self:get_start_time()
+	if start_time and start_time.hour ~= nil and start_time.min ~= nil then
 		-- Timed entries are sorted by time, earlier first
-		priority = priority + (24 - self.time.hour) * 10 + (60 - self.time.min) / 6
-	elseif self.time then
+		priority = priority + (24 - start_time.hour) * 10 + (60 - start_time.min) / 6
+	elseif start_time then
 		-- All-day entries get a high priority to appear at the top of the list for that day
 		priority = priority + 300
 	end
@@ -392,7 +403,7 @@ function M:format_pretty()
 
 	-- Other attributes
 	if self.attributes.notify then
-		table.insert(attr_parts, "🔔")
+		-- table.insert(attr_parts, "🔔")
 	end
 
 	if self.attributes.p then

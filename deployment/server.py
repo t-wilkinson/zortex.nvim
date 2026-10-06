@@ -308,6 +308,44 @@ def home():
                 background-color: var(--accent);
             }
             .day-cell.empty { visibility: hidden; }
+
+            /* Progress bar styles */
+            .progress-wrapper {
+                display: flex;
+                height: 60px;
+                margin-left: 20px;
+                padding: 4px 0;
+                position: relative;
+            }
+            .vertical-track {
+                width: 4px;
+                height: 100%;
+                background-color: var(--surface-hover);
+                border-radius: 2px;
+                position: relative;
+                margin-right: 15px;
+            }
+            .vertical-progress {
+                width: 100%;
+                background-color: var(--accent);
+                border-radius: 2px;
+                position: absolute;
+                top: 0;
+                left: 0;
+                transition: height 0.5s ease;
+            }
+            .current-time-label {
+                font-size: 0.85rem;
+                color: var(--accent);
+                position: absolute;
+                left: 25px;
+                top: var(--progress-percent);
+                transform: translateY(-50%);
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                transition: top 0.5s ease;
+            }
         </style>
     </head>
     <body>
@@ -364,25 +402,55 @@ def home():
                 
                 const dayEvents = events.filter(e => e.date_str === dateStr);
                 
-                container.innerHTML = '';
+                let htmlOutput = '';
                 if (dayEvents.length === 0) {
-                    container.innerHTML = '<div style="opacity: 0.5; text-align: center; margin-top: 1rem;">No events scheduled for this day.</div>';
+                    htmlOutput = '<div style="opacity: 0.5; text-align: center; margin-top: 1rem;">No events scheduled for this day.</div>';
+                    container.innerHTML = htmlOutput;
                     return;
                 }
 
-                dayEvents.forEach(e => {
+                const now = new Date();
+                const nowMs = now.getTime();
+
+                dayEvents.forEach((e, index) => {
                     let titleClass = "event-title";
                     let prefix = "";
                     if (e.is_current) { titleClass += " current"; prefix = "▶ "; }
                     else if (e.is_past) { titleClass += " past"; }
 
-                    container.innerHTML += `
+                    htmlOutput += `
                         <div class="event-item">
                             <div class="event-time">${e.time_str}</div>
                             <div class="${titleClass}">${prefix}${e.title.replace('<', '&lt;')}</div>
                         </div>
                     `;
+
+                    // Inject progress bar if this is the active event and there is a subsequent event today
+                    if (isToday && e.is_current && index + 1 < dayEvents.length) {
+                        const nextE = dayEvents[index + 1];
+                        const currentMs = e.timestamp * 1000;
+                        const nextMs = nextE.timestamp * 1000;
+                        
+                        const totalDuration = nextMs - currentMs;
+                        let percent = 0;
+                        if (totalDuration > 0) {
+                            percent = Math.max(0, Math.min(100, ((nowMs - currentMs) / totalDuration) * 100));
+                        }
+                        
+                        const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                        htmlOutput += `
+                            <div class="progress-wrapper" style="--progress-percent: ${percent}%;">
+                                <div class="vertical-track">
+                                    <div class="vertical-progress" style="height: ${percent}%;"></div>
+                                </div>
+                                <div class="current-time-label">◀ ${timeString}</div>
+                            </div>
+                        `;
+                    }
                 });
+                
+                container.innerHTML = htmlOutput;
             }
 
             function renderCalendar() {

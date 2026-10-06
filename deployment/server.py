@@ -98,55 +98,105 @@ def init_database():
 
 
 def get_zortex_calendar_view():
-    """Generates the text-based calendar view and stats"""
+    """Generates the text-based and HTML calendar view and stats"""
+    now = datetime.now(LOCAL_TZ)
+    now_ts = now.timestamp()
+
+    # Calculate midnight today so we get ALL events for the current day
+    start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
+        # Fetch everything from today onward, ignoring whether it was sent
+        cursor.execute(
+            """
             SELECT * FROM notifications 
-            WHERE sent_at IS NULL
+            WHERE scheduled_time >= ?
             ORDER BY scheduled_time ASC
-        """)
+        """,
+            (start_of_today,),
+        )
         rows = cursor.fetchall()
 
+    # Find the current active item (the last one scheduled before 'now')
+    current_item_id = None
+    for row in rows:
+        if row["scheduled_time"] <= now_ts:
+            current_item_id = row["id"]
+        else:
+            break  # Stop checking once we hit the future
+
     notifications = []
+    pending_count = 0
     for row in rows:
         dt = datetime.fromtimestamp(row["scheduled_time"], LOCAL_TZ)
         notifications.append(
             {
+                "id": row["id"],
                 "date_str": dt.strftime("%Y-%m-%d"),
                 "time_str": dt.strftime("%H:%M"),
                 "title": row["title"],
-                "message": row["message"],
+                "is_current": row["id"] == current_item_id,
+                "is_past": row["scheduled_time"] < now_ts
+                and row["id"] != current_item_id,
                 "obj": row,
             }
         )
+        if row["sent_at"] is None:
+            pending_count += 1
 
-    # Generate the text block
+    # Generate both plain text and HTML blocks
     text_lines = []
+    html_lines = []
 
     for date, group in groupby(notifications, key=lambda x: x["date_str"]):
         text_lines.append(f"{date}:")
-        for item in group:
-            # Clean up title: remove "Calendar: " prefix if present for cleaner view
-            clean_title = item["title"].replace("Calendar: ", "")
-            # Only show first line of message if it duplicates title
-            # text_lines.append(f"- {item['time_str']} {clean_title}")
-            text_lines.append(f"  {clean_title}")
-        text_lines.append("")  # Empty line between days
+        html_lines.append(f"{date}:")
 
-    # Calculate next event summary
+        for item in group:
+            clean_title = item["title"].replace("Calendar: ", "")
+            # Basic escape so HTML doesn't break if a title contains < or >
+            safe_title = clean_title.replace("<", "&lt;").replace(">", "&gt;")
+
+            if item["is_current"]:
+                # Arrow indicator for text, bold + accent color + arrow for HTML
+                text_lines.append(f"  ▶ {item['time_str']} {clean_title}")
+                html_lines.append(
+                    f"  <b style='color: var(--accent);'>▶ {item['time_str']} {safe_title}</b>"
+                )
+            elif item["is_past"]:
+                # Dim past events in HTML
+                text_lines.append(f"    {item['time_str']} {clean_title}")
+                html_lines.append(
+                    f"  <span style='opacity: 0.4;'>  {item['time_str']} {safe_title}</span>"
+                )
+            else:
+                text_lines.append(f"    {item['time_str']} {clean_title}")
+                html_lines.append(f"    {item['time_str']} {safe_title}")
+
+        text_lines.append("")
+        html_lines.append("")
+
+    # Calculate next upcoming event
     next_event_str = "No events"
-    if notifications:
-        n = notifications[0]
-        # Clean title for the summary view as well
+    future_events = [n for n in notifications if n["obj"]["scheduled_time"] > now_ts]
+    if future_events:
+        n = future_events[0]
         clean_title = n["title"].replace("Calendar: ", "")
         next_event_str = f"{n['time_str']} {clean_title}"
 
     return {
-        "count": len(notifications),
+        "count": pending_count,
         "text_view": "\n".join(text_lines).strip(),
+        "html_view": "\n".join(html_lines).strip(),
         "next_event": next_event_str,
     }
+
+
+@app.route("/api/calendar", methods=["GET"])
+def api_calendar():
+    data = get_zortex_calendar_view()
+    return jsonify(data)
 
 
 @app.route("/", methods=["GET"])
@@ -208,21 +258,42 @@ def home():
     <body>
         <div class="container">
             <h1>Zortex Hub</h1>
-            <div class="stats">
+            <div class="stats" id="stats">
                 System Online • {{ count }} Pending Notifications
             </div>
             
             <div class="card">
-<pre>
-{{ text_view }}
-</pre>
+                <!-- Using the safe HTML view here so we get bolding and dimming -->
+                <pre id="calendar-view">
+{{ html_view | safe }}
+                </pre>
             </div>
         </div>
+        <script>
+            async function refreshCalendar() {
+                try {
+                    const response = await fetch('/api/calendar');
+                    if (!response.ok) return;
+                    const data = await response.json();
+                    
+                    document.getElementById('stats').textContent = 
+                        `System Online • ${data.count} Pending Notifications`;
+                    
+                    // Replaced textContent with innerHTML to allow styling
+                    document.getElementById('calendar-view').innerHTML = data.html_view;
+                } catch (err) {
+                    console.error('Failed to update calendar:', err);
+                }
+            }
+
+            // Poll every 30 seconds (30,000 ms)
+            setInterval(refreshCalendar, 30000);
+        </script>
     </body>
     </html>
     """
     return render_template_string(
-        html, count=data["count"], text_view=data["text_view"]
+        html, count=data["count"], html_view=data["html_view"]
     )
 
 
@@ -235,6 +306,7 @@ def api_summary():
             "status": "ok",
             "pending_count": data["count"],
             "calendar_text": data["text_view"],
+            "calendar_html": data["html_view"],
             "next_event": data["next_event"],
             "generated_at": datetime.now(LOCAL_TZ).isoformat(),
         }

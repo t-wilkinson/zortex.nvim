@@ -50,11 +50,15 @@ local function format_notification(entry, event_type, minutes_until)
 		time_str = string.format("in %d hours", math.floor(minutes_until / 60))
 	end
 
-	local verb = event_type == "end" and "ending" or "starting"
+	-- local verb = event_type == "end" and "ending" or "starting"
+	local verb = event_type == "end" and " ending" or ""
 	local title = string.format("Calendar: %s %s %s", entry.display_text, verb, time_str)
 	local message = entry:format()
 
-	-- return title, message
+	if minutes_until <= 0 then
+	else
+		message = string.format("%s%s %s", message, verb, time_str)
+	end
 	return message, "-"
 end
 

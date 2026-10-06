@@ -4,7 +4,7 @@ import os
 import sqlite3
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from itertools import groupby
 from flask import Flask, request, jsonify, render_template_string
 from contextlib import contextmanager
@@ -98,98 +98,88 @@ def init_database():
 
 
 def get_zortex_calendar_view():
-    """Generates the text-based and HTML calendar view and stats"""
+    """Generates the text-based calendar view, stats, and raw event data"""
     now = datetime.now(LOCAL_TZ)
     now_ts = now.timestamp()
 
-    # Calculate midnight today so we get ALL events for the current day
-    start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+    # Fetch events starting from 30 days ago to populate past calendar days
+    start_time = (
+        now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=30)
+    ).timestamp()
 
     with get_db() as conn:
         cursor = conn.cursor()
-        # Fetch everything from today onward, ignoring whether it was sent
         cursor.execute(
             """
             SELECT * FROM notifications 
             WHERE scheduled_time >= ?
             ORDER BY scheduled_time ASC
         """,
-            (start_of_today,),
+            (start_time,),
         )
         rows = cursor.fetchall()
 
-    # Find the current active item (the last one scheduled before 'now')
     current_item_id = None
     for row in rows:
         if row["scheduled_time"] <= now_ts:
             current_item_id = row["id"]
         else:
-            break  # Stop checking once we hit the future
+            break
 
     notifications = []
     pending_count = 0
+
     for row in rows:
         dt = datetime.fromtimestamp(row["scheduled_time"], LOCAL_TZ)
+        is_past = row["scheduled_time"] < now_ts and row["id"] != current_item_id
+        is_current = row["id"] == current_item_id
+
+        # Clean title matching your previous formatting[cite: 3]
+        clean_title = row["title"].replace("Calendar: ", "")
+
         notifications.append(
             {
                 "id": row["id"],
                 "date_str": dt.strftime("%Y-%m-%d"),
                 "time_str": dt.strftime("%H:%M"),
-                "title": row["title"],
-                "is_current": row["id"] == current_item_id,
-                "is_past": row["scheduled_time"] < now_ts
-                and row["id"] != current_item_id,
-                "obj": row,
+                "title": clean_title,
+                "is_current": is_current,
+                "is_past": is_past,
+                "timestamp": row["scheduled_time"],
             }
         )
         if row["sent_at"] is None:
             pending_count += 1
 
-    # Generate both plain text and HTML blocks
+    # Text view calculation for API/homelab backward compatibility[cite: 3]
     text_lines = []
-    html_lines = []
+    future_only = [
+        n
+        for n in notifications
+        if n["timestamp"]
+        >= (now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+    ]
 
-    for date, group in groupby(notifications, key=lambda x: x["date_str"]):
+    for date, group in groupby(future_only, key=lambda x: x["date_str"]):
         text_lines.append(f"{date}:")
-        html_lines.append(f"{date}:")
-
         for item in group:
-            clean_title = item["title"].replace("Calendar: ", "")
-            # Basic escape so HTML doesn't break if a title contains < or >
-            safe_title = clean_title.replace("<", "&lt;").replace(">", "&gt;")
-
             if item["is_current"]:
-                # Arrow indicator for text, bold + accent color + arrow for HTML
-                text_lines.append(f"  ▶ {item['time_str']} {clean_title}")
-                html_lines.append(
-                    f"  <b style='color: var(--accent);'>▶ {item['time_str']} {safe_title}</b>"
-                )
-            elif item["is_past"]:
-                # Dim past events in HTML
-                text_lines.append(f"    {item['time_str']} {clean_title}")
-                html_lines.append(
-                    f"  <span style='opacity: 0.4;'>  {item['time_str']} {safe_title}</span>"
-                )
+                text_lines.append(f"  ▶ {item['time_str']} {item['title']}")
             else:
-                text_lines.append(f"    {item['time_str']} {clean_title}")
-                html_lines.append(f"    {item['time_str']} {safe_title}")
-
+                text_lines.append(f"    {item['time_str']} {item['title']}")
         text_lines.append("")
-        html_lines.append("")
 
-    # Calculate next upcoming event
     next_event_str = "No events"
-    future_events = [n for n in notifications if n["obj"]["scheduled_time"] > now_ts]
+    future_events = [n for n in notifications if n["timestamp"] > now_ts]
     if future_events:
         n = future_events[0]
-        clean_title = n["title"].replace("Calendar: ", "")
-        next_event_str = f"{n['time_str']} {clean_title}"
+        next_event_str = f"{n['time_str']} {n['title']}"
 
     return {
         "count": pending_count,
         "text_view": "\n".join(text_lines).strip(),
-        "html_view": "\n".join(html_lines).strip(),
         "next_event": next_event_str,
+        "events": notifications,  # Passing raw data for the JS frontend
     }
 
 
@@ -201,7 +191,7 @@ def api_calendar():
 
 @app.route("/", methods=["GET"])
 def home():
-    """Render the 'Homey' Zortex Homepage"""
+    """Render the 'Homey' Zortex Homepage with interactive calendar"""
     data = get_zortex_calendar_view()
 
     html = """
@@ -217,7 +207,9 @@ def home():
                 --fg: #cdd6f4;
                 --accent: #89b4fa;
                 --surface: #313244;
+                --surface-hover: #45475a;
                 --green: #a6e3a1;
+                --dim: rgba(205, 214, 244, 0.4);
             }
             body {
                 background-color: var(--bg);
@@ -231,28 +223,90 @@ def home():
                 min-height: 100vh;
             }
             .container {
-                max-width: 800px;
+                max-width: 600px;
                 width: 100%;
             }
-            h1 { color: var(--accent); margin-bottom: 0.5rem; }
+            h1 { color: var(--accent); margin-bottom: 0.5rem; text-align: center; }
             .stats {
                 color: var(--green);
                 font-size: 0.9rem;
                 margin-bottom: 2rem;
                 opacity: 0.8;
+                text-align: center;
             }
             .card {
                 background-color: var(--surface);
                 padding: 1.5rem;
                 border-radius: 8px;
                 box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                overflow-x: auto;
+                margin-bottom: 1.5rem;
             }
-            pre {
-                margin: 0;
-                font-size: 0.95rem;
-                line-height: 1.5;
+            .day-header {
+                font-size: 1.2rem;
+                font-weight: bold;
+                margin-bottom: 1rem;
+                color: var(--accent);
+                border-bottom: 1px solid var(--surface-hover);
+                padding-bottom: 0.5rem;
             }
+            .event-list {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+                min-height: 100px;
+            }
+            .event-item {
+                display: flex;
+                gap: 1rem;
+            }
+            .event-time { opacity: 0.7; min-width: 50px; }
+            .event-title.current { color: var(--accent); font-weight: bold; }
+            .event-title.past { opacity: 0.4; }
+            
+            /* Calendar Grid Styles */
+            .calendar-controls {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 1rem;
+            }
+            .calendar-controls button {
+                background: none;
+                border: 1px solid var(--surface-hover);
+                color: var(--fg);
+                padding: 0.5rem 1rem;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+            .calendar-controls button:hover { background: var(--surface-hover); }
+            .calendar-grid {
+                display: grid;
+                grid-template-columns: repeat(7, 1fr);
+                gap: 5px;
+                text-align: center;
+            }
+            .weekday { font-weight: bold; opacity: 0.6; padding-bottom: 0.5rem; }
+            .day-cell {
+                padding: 0.75rem 0;
+                border-radius: 4px;
+                cursor: pointer;
+                border: 1px solid transparent;
+                position: relative;
+            }
+            .day-cell:hover { background-color: var(--surface-hover); }
+            .day-cell.active { border-color: var(--accent); background-color: rgba(137, 180, 250, 0.1); }
+            .day-cell.has-events::after {
+                content: '';
+                position: absolute;
+                bottom: 4px;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 4px;
+                height: 4px;
+                border-radius: 50%;
+                background-color: var(--accent);
+            }
+            .day-cell.empty { visibility: hidden; }
         </style>
     </head>
     <body>
@@ -262,39 +316,151 @@ def home():
                 System Online • {{ count }} Pending Notifications
             </div>
             
-            <div class="card">
-                <!-- Using the safe HTML view here so we get bolding and dimming -->
-                <pre id="calendar-view">
-{{ html_view | safe }}
-                </pre>
+            <!-- Daily List View -->
+            <div class="card" id="list-view">
+                <div class="day-header" id="selected-date-header">Loading...</div>
+                <div class="event-list" id="event-list-container"></div>
+            </div>
+
+            <!-- Navigable Calendar View -->
+            <div class="card" id="calendar-view">
+                <div class="calendar-controls">
+                    <button onclick="changeMonth(-1)">&lt; Prev</button>
+                    <div id="current-month-label" style="font-weight: bold;"></div>
+                    <button onclick="changeMonth(1)">Next &gt;</button>
+                </div>
+                <div class="calendar-grid">
+                    <div class="weekday">Su</div><div class="weekday">Mo</div>
+                    <div class="weekday">Tu</div><div class="weekday">We</div>
+                    <div class="weekday">Th</div><div class="weekday">Fr</div>
+                    <div class="weekday">Sa</div>
+                </div>
+                <div class="calendar-grid" id="calendar-days"></div>
             </div>
         </div>
+
         <script>
-            async function refreshCalendar() {
+            let events = [];
+            let currentDate = new Date();
+            let selectedDate = new Date(); // Defaults to today
+            
+            const localTzOffset = currentDate.getTimezoneOffset() * 60000;
+
+            function formatDateStr(date) {
+                // Returns YYYY-MM-DD in local time
+                const d = new Date(date.getTime() - localTzOffset);
+                return d.toISOString().split('T')[0];
+            }
+
+            function renderDayList() {
+                const header = document.getElementById('selected-date-header');
+                const container = document.getElementById('event-list-container');
+                
+                const dateStr = formatDateStr(selectedDate);
+                const isToday = dateStr === formatDateStr(new Date());
+                
+                header.textContent = isToday ? "Today's Events" : selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+                
+                const dayEvents = events.filter(e => e.date_str === dateStr);
+                
+                container.innerHTML = '';
+                if (dayEvents.length === 0) {
+                    container.innerHTML = '<div style="opacity: 0.5; text-align: center; margin-top: 1rem;">No events scheduled for this day.</div>';
+                    return;
+                }
+
+                dayEvents.forEach(e => {
+                    let titleClass = "event-title";
+                    let prefix = "";
+                    if (e.is_current) { titleClass += " current"; prefix = "▶ "; }
+                    else if (e.is_past) { titleClass += " past"; }
+
+                    container.innerHTML += `
+                        <div class="event-item">
+                            <div class="event-time">${e.time_str}</div>
+                            <div class="${titleClass}">${prefix}${e.title.replace('<', '&lt;')}</div>
+                        </div>
+                    `;
+                });
+            }
+
+            function renderCalendar() {
+                const container = document.getElementById('calendar-days');
+                const monthLabel = document.getElementById('current-month-label');
+                
+                const year = currentDate.getFullYear();
+                const month = currentDate.getMonth();
+                
+                monthLabel.textContent = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                
+                const firstDay = new Date(year, month, 1).getDay();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                
+                container.innerHTML = '';
+                
+                // Empty slots before 1st of month
+                for (let i = 0; i < firstDay; i++) {
+                    container.innerHTML += '<div class="day-cell empty"></div>';
+                }
+                
+                const selectedStr = formatDateStr(selectedDate);
+                const todayStr = formatDateStr(new Date());
+
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const iterDate = new Date(year, month, day);
+                    const iterStr = formatDateStr(iterDate);
+                    
+                    const hasEvents = events.some(e => e.date_str === iterStr);
+                    const isActive = iterStr === selectedStr;
+                    
+                    let classes = "day-cell";
+                    if (hasEvents) classes += " has-events";
+                    if (isActive) classes += " active";
+
+                    container.innerHTML += `
+                        <div class="${classes}" onclick="selectDate(${year}, ${month}, ${day})">
+                            ${day}
+                        </div>
+                    `;
+                }
+            }
+
+            function selectDate(year, month, day) {
+                selectedDate = new Date(year, month, day);
+                renderDayList();
+                renderCalendar();
+            }
+
+            function changeMonth(offset) {
+                currentDate.setMonth(currentDate.getMonth() + offset);
+                renderCalendar();
+            }
+
+            async function fetchData() {
                 try {
                     const response = await fetch('/api/calendar');
                     if (!response.ok) return;
                     const data = await response.json();
                     
-                    document.getElementById('stats').textContent = 
-                        `System Online • ${data.count} Pending Notifications`;
+                    events = data.events || [];
+                    document.getElementById('stats').textContent = `System Online • ${data.count} Pending Notifications`;
                     
-                    // Replaced textContent with innerHTML to allow styling
-                    document.getElementById('calendar-view').innerHTML = data.html_view;
+                    renderDayList();
+                    renderCalendar();
                 } catch (err) {
-                    console.error('Failed to update calendar:', err);
+                    console.error('Failed to fetch calendar data:', err);
                 }
             }
 
-            // Poll every 30 seconds (30,000 ms)
-            setInterval(refreshCalendar, 30000);
+            // Initial fetch and polling setup
+            fetchData();
+            setInterval(fetchData, 30000); // 30s refresh[cite: 3]
         </script>
     </body>
     </html>
     """
-    return render_template_string(
-        html, count=data["count"], html_view=data["html_view"]
-    )
+    # Note: Ensure you import timedelta from datetime at the top of server.py
+    return render_template_string(html, count=data["count"])
 
 
 @app.route("/api/summary", methods=["GET"])

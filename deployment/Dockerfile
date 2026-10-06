@@ -17,7 +17,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
 COPY server.py .
-COPY run.sh .
 COPY entrypoint.sh .
 COPY crontab /etc/cron.d/notification-cron
 

@@ -200,16 +200,11 @@ local function get_article_for_line(tree, lnum)
 end
 
 -- ---------------------------------------------------------------------------
--- Indexing: ALL disk reads, tree parsing and lower-casing happen here, ONCE.
+-- Indexing: ALL disk reads, tree parsing and lower-casing happen here, once.
 -- The picker builds the index when it opens; each keystroke then filters this
 -- purely in-memory structure (see M.query_index).
 -- ---------------------------------------------------------------------------
 
--- NOTE: @Ignore now excludes a file from BOTH section and line results.
--- (The previous code only skipped ignored files for section results, so an
--- ignored file could still surface line matches. That asymmetry looked like
--- an oversight; this version is consistent. To restore the old behaviour,
--- index ignored files too and skip them only in the section loop.)
 function M.build_index(files)
 	local index = {}
 	for _, filepath in ipairs(files) do

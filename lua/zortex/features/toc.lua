@@ -160,7 +160,7 @@ function M.show_toc()
 	vim.api.nvim_win_set_buf(toc_win, toc_buf)
 
 	setup_toc_window(toc_win, toc_buf, orig_win, orig_buf, toc_mappings)
-	vim.notify("Zortex TOC opened. Press <CR> to jump, 'q' to close.", vim.log.levels.INFO)
+	-- vim.notify("Zortex TOC opened. Press <CR> to jump, 'q' to close.", vim.log.levels.INFO)
 end
 
 -- Shows the Table of Contents in a floating popup window

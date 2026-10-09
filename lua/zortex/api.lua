@@ -146,24 +146,12 @@ M.search = {
 		require("zortex.ui.telescope.new_search").structural_search(opts)
 	end,
 
-	search = function(opts)
-		require("zortex.ui.telescope.search").search(opts)
-	end,
-
-	sections = function()
-		require("zortex.ui.telescope.search").search_sections()
-	end,
-
-	articles = function()
-		require("zortex.ui.telescope.search").search_articles()
-	end,
-
 	all = function()
 		require("zortex.ui.telescope.search").search_all()
 	end,
 
 	projects = function(opts)
-		require("zortex.ui.telescope").projects(opts)
+		require("zortex.ui.telescope.projects").projects(opts)
 	end,
 }
 

@@ -31,9 +31,15 @@ function M.setup(key_prefix, cmd_prefix)
 	-- map("n", "<CR>", "OpenLink", add_opts({ desc = "Open Zortex link" }))
 	map("n", "z", "SearchAll", add_opts({ desc = "Zortex search" }))
 	map("n", "Z", "SearchStructure", add_opts({ desc = "Zortex search" }))
+	map("n", "Z", "SearchStructure", add_opts({ desc = "Zortex search" }))
 	-- map("n", "?", function()
 	--   require("zortex.ui.search").search_current_file()
 	-- end, { desc = "Search current file" })
+
+	-- Telescope
+	-- map("n", "t", "Today", { desc = "Today's digest" })
+	map("n", "p", "Projects", { desc = "Browse projects" })
+	-- map("n", "f", "Telescope", { desc = "Zortex telescope" })
 
 	-- Calendar
 	map("n", "c", "Calendar", { desc = "Open calendar" })
@@ -46,11 +52,6 @@ function M.setup(key_prefix, cmd_prefix)
 	map("n", "a", function()
 		api.archive.section()
 	end, { desc = "Archive current project" })
-
-	-- Telescope
-	-- map("n", "t", "Today", { desc = "Today's digest" })
-	-- map("n", "p", "Projects", { desc = "Browse projects" })
-	-- map("n", "f", "Telescope", { desc = "Zortex telescope" })
 
 	-- Projects
 	map("n", "P", "ProjectsOpen", add_opts({ desc = "Open projects" }))

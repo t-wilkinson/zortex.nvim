@@ -57,6 +57,13 @@ However this is not how I think. Overtime, I found my usecase of a note system c
 - https://github.com/alok/notational-fzf-vim
   - Integrates with fzf to search note system
 
+### Developer documentation
+
+- [doc/Architecture.md](doc/Architecture.md): how the plugin is structured (core, links, entities, projects, areas, XP, UI) and the rules modules share
+- [doc/Projects.md](doc/Projects.md): projects and areas API, link format, picker keys
+- [doc/Changes.md](doc/Changes.md): what the `projects-api` branch changed, bug fixes, migration notes
+- Tests: `nvim --headless -u NONE -l tests/run.lua`
+
 ### Introduction
 
 > It only works on vim >= 8.1 and neovim

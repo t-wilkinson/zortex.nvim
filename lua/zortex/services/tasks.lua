@@ -1,4 +1,4 @@
--- services/task.lua - Stateless service for task operations using workspace
+-- services/tasks.lua - Task operations (toggle/complete/convert) on any note
 local M = {}
 
 local Events = require("zortex.core.event_bus")

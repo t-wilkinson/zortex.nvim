@@ -1,4 +1,4 @@
--- services/xp/init.lua - Simplified XP orchestration
+-- services/xp/core.lua - XP orchestration (task events -> XP context -> store)
 
 local M = {}
 

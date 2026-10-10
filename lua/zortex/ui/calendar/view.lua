@@ -527,6 +527,22 @@ function Renderer.apply_highlights(bufnr, highlights)
 	end
 end
 
+-- Byte offset (0-based) of display column `col` in `line`: the start of the
+-- first character at or after that column, clamped to the line length.
+local function display_col_to_byte(line, col)
+	local width, byte = 0, 0
+	local nchars = fn.strchars(line)
+	for i = 0, nchars - 1 do
+		if width >= col then
+			return byte
+		end
+		local ch = fn.strcharpart(line, i, 1)
+		width = width + fn.strwidth(ch)
+		byte = byte + #ch
+	end
+	return #line
+end
+
 function Renderer.update_selected_extmark()
 	if not CalendarState.current_date or not CalendarState.bufnr then
 		return
@@ -544,10 +560,11 @@ function Renderer.update_selected_extmark()
 		CalendarState.selected_extmark_id = nil
 	end
 
-	-- Convert *screen* columns → *byte* columns so multi‑byte icons don’t skew
+	-- Marks are in *display* columns; extmarks need *byte* columns. Wide icons
+	-- take two display columns but one character, so convert by width.
 	local line_txt = vim.api.nvim_buf_get_lines(CalendarState.bufnr, mark.line - 1, mark.line, false)[1] or ""
-	local byte_start = vim.str_byteindex(line_txt, "utf-32", mark.col)
-	local byte_end = vim.str_byteindex(line_txt, "utf-32", mark.end_col)
+	local byte_start = display_col_to_byte(line_txt, mark.col)
+	local byte_end = display_col_to_byte(line_txt, mark.end_col)
 
 	-- Whole‑cell background
 	CalendarState.selected_extmark_id =

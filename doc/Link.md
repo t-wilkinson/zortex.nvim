@@ -46,6 +46,12 @@ If a link starts with a section part (one of `@#*:%`) then search all files for 
 
 You can compose the components, with each component searching within the section that the leading link so far links to.
 
+The exact implemented rules (candidate narrowing, canonical first result,
+archived notes, the article-or-tag namespace that makes `[P/...]` reach every
+`@P` note, `[@Tag/...]`) are in [Architecture.md → Links](Architecture.md#links--utilslink_resolverlua).
+Project and area links follow them: `[P/#1 Programming/#1.4 - zortex]`,
+`[P/Flipping/#Subaru outback]`, `[A/#1 Personal Foundation/#1.2 Vitality]`.
+
 Examples:
 
 ```zortex

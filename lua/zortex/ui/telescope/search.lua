@@ -1,16 +1,95 @@
 -- ui/telescope/search.lua - Structural Search UI & Logic
+--
+-- Configuration (Config.ui.search, see config.lua):
+--   default_mode        "section" (sections + matching lines) | "article"
+--   max_results         cap on results per query
+--   token_filters       [n] = section types eligible for a structural match
+--                       when the prompt has n tokens ("all" = every type);
+--                       typing more tokens searches deeper into the tree.
+--                       Typed tokens (#heading, :label) ignore the filter.
+--   breadcrumb_display  which path parts to show for 1 / 2 / 3+ tokens
+--   min_score, access_decay_rate, history
+--                       reserved for ranking/history (not implemented yet)
 local M = {}
 local tree_module = require("zortex.core.tree")
 local fs = require("zortex.utils.filesystem")
 local highlights = require("zortex.features.highlights")
 local Config = require("zortex.config")
 
-local pickers = require("telescope.pickers")
-local finders = require("telescope.finders")
-local conf = require("telescope.config").values
-local actions = require("telescope.actions")
-local action_state = require("telescope.actions.state")
-local previewers = require("telescope.previewers")
+-- Telescope is optional: load it only when a picker opens.
+local function telescope()
+	return {
+		pickers = require("telescope.pickers"),
+		finders = require("telescope.finders"),
+		conf = require("telescope.config").values,
+		actions = require("telescope.actions"),
+		action_state = require("telescope.actions.state"),
+		previewers = require("telescope.previewers"),
+	}
+end
+
+-- ---------------------------------------------------------------------------
+-- Configuration
+-- ---------------------------------------------------------------------------
+
+-- Built-in defaults (Config.defaults.ui.search) overlaid with `opts`.
+function M.setup(opts)
+	local defaults = vim.deepcopy(Config.defaults and Config.defaults.ui and Config.defaults.ui.search or {})
+	M.config = vim.tbl_deep_extend("force", defaults, opts or {})
+	return M.config
+end
+
+local function cfg()
+	return M.config or M.setup()
+end
+
+-- Predicate: may `node` match structurally when the prompt has `n` tokens?
+local function section_filter(n)
+	local filters = cfg().token_filters or {}
+	local spec = filters[math.max(1, math.min(n, #filters))]
+	if spec == nil or spec == "all" then
+		return function()
+			return true
+		end
+	end
+	return function(node)
+		for _, rule in ipairs(spec) do
+			if type(rule) == "string" then
+				if node.type == rule then
+					return true
+				end
+			elseif node.type == rule[1] and (not rule.max_level or (node.level or 0) <= rule.max_level) then
+				return true
+			end
+		end
+		return false
+	end
+end
+
+-- Breadcrumb kinds for `n` tokens: "article", "heading", "heading_1_2",
+-- "bold_heading", "label".
+local function breadcrumb_kinds(n)
+	local display = cfg().breadcrumb_display or {}
+	local kinds = (n <= 1 and display.one_token) or (n == 2 and display.two_tokens) or display.three_plus_tokens
+	if not kinds then
+		return nil
+	end
+	local set = {}
+	for _, k in ipairs(kinds) do
+		set[k] = true
+	end
+	return set
+end
+
+local function in_breadcrumb(node, kinds)
+	if not kinds then
+		return true
+	end
+	if node.type == "heading" then
+		return kinds.heading or (kinds.heading_1_2 and (node.level or 0) <= 2) or false
+	end
+	return kinds[node.type] or false
+end
 
 -- ---------------------------------------------------------------------------
 -- Tokenization
@@ -80,9 +159,10 @@ local function make_section_display(entry)
 	local display_str = ""
 	local hl_table = {}
 	local first = true
+	local kinds = breadcrumb_kinds(entry.value.ntokens or 0)
 
 	for _, p_node in ipairs(node:get_full_path()) do
-		if p_node.type ~= "root" then
+		if p_node.type ~= "root" and (p_node == node or in_breadcrumb(p_node, kinds)) then
 			if not first then
 				local sep_start = #display_str
 				display_str = display_str .. " › "
@@ -130,7 +210,7 @@ end
 -- ---------------------------------------------------------------------------
 
 local function zortex_previewer()
-	return previewers.new_buffer_previewer({
+	return telescope().previewers.new_buffer_previewer({
 		title = "Zortex Preview",
 		define_preview = function(self, entry, status)
 			if not entry or not entry.value then
@@ -315,16 +395,17 @@ local function section_matches(entry, tokens, lower_lines)
 	return true
 end
 
-local function match_sections(index, tokens)
+local function match_sections(index, tokens, allowed)
 	local results = {}
 	for _, file in ipairs(index) do
 		for _, sec in ipairs(file.sections) do
-			if section_matches(sec, tokens, file.lower_lines) then
+			if allowed(sec.node) and section_matches(sec, tokens, file.lower_lines) then
 				results[#results + 1] = {
 					result_type = "section",
 					filepath = sec.filepath,
 					node = sec.node,
 					breadcrumb = sec.breadcrumb,
+					ntokens = #tokens,
 				}
 			end
 		end
@@ -361,11 +442,40 @@ local function match_lines(index, tokens)
 	return results
 end
 
--- Full query over a pre-built index: sections ranked first, lines appended.
-function M.query_index(index, prompt)
+-- Full query over a pre-built index.
+--   "section" mode: structural matches (filtered by token_filters) ranked
+--                   first, matching lines appended
+--   "article" mode: only articles whose content matches every token
+-- Results are capped at max_results.
+---@param opts { mode?: "section"|"article" }?
+function M.query_index(index, prompt, opts)
+	local c = cfg()
+	local mode = (opts and opts.mode) or c.default_mode or "section"
 	local tokens = tokenize(prompt)
-	local results = match_sections(index, tokens)
-	vim.list_extend(results, match_lines(index, tokens))
+
+	local results
+	if mode == "article" then
+		results = match_sections(index, tokens, function(node)
+			return node.type == "article"
+		end)
+	else
+		-- Typed tokens (#heading, :label) are explicit structural queries and
+		-- search every depth; token_filters only shape untyped searches.
+		local typed = false
+		for _, tok in ipairs(tokens) do
+			typed = typed or tok.type ~= "general"
+		end
+		local allowed = typed and function()
+			return true
+		end or section_filter(#tokens)
+		results = match_sections(index, tokens, allowed)
+		vim.list_extend(results, match_lines(index, tokens))
+	end
+
+	local max = c.max_results
+	if max and #results > max then
+		results = vim.list_slice(results, 1, max)
+	end
 	return results
 end
 
@@ -375,7 +485,7 @@ end
 -- ---------------------------------------------------------------------------
 
 function M.search_sections(files, tokens)
-	return match_sections(M.build_index(files), tokens)
+	return match_sections(M.build_index(files), tokens, section_filter(#tokens))
 end
 
 function M.search_lines(files, tokens)
@@ -387,7 +497,7 @@ end
 -- =============================================================================
 
 local function create_new_note(prompt_bufnr, initial_text)
-	actions.close(prompt_bufnr)
+	telescope().actions.close(prompt_bufnr)
 
 	-- Generate unique filename
 	local date = os.date("%Y-%m-%d")
@@ -425,6 +535,9 @@ end
 
 function M.structural_search(opts)
 	opts = opts or {}
+	local t = telescope()
+	local pickers, finders, conf, actions, action_state = t.pickers, t.finders, t.conf, t.actions, t.action_state
+	local mode = opts.mode or cfg().default_mode or "section"
 	local files = fs.find_all_notes()
 
 	-- All disk reads + tree parsing happen ONCE, here. Each keystroke below
@@ -433,11 +546,11 @@ function M.structural_search(opts)
 
 	pickers
 		.new(opts, {
-			prompt_title = "Zortex Structural Search",
+			prompt_title = "Zortex Structural Search (" .. mode .. ")",
 			debounce = 80, -- ms: coalesce rapid keystrokes (telescope picker option)
 			finder = finders.new_dynamic({
 				fn = function(prompt)
-					return M.query_index(index, prompt)
+					return M.query_index(index, prompt, { mode = mode })
 				end,
 				entry_maker = function(entry)
 					if entry.result_type == "section" then
@@ -494,6 +607,14 @@ function M.structural_search(opts)
 					local current_picker = action_state.get_current_picker(prompt_bufnr)
 					local prompt = current_picker:_get_prompt()
 					create_new_note(prompt_bufnr, prompt)
+				end)
+
+				-- Toggle section / article mode
+				map({ "i", "n" }, "<C-t>", function()
+					mode = mode == "article" and "section" or "article"
+					local picker = action_state.get_current_picker(prompt_bufnr)
+					picker.prompt_border:change_title("Zortex Structural Search (" .. mode .. ")")
+					picker:refresh(picker.finder, { reset_prompt = false })
 				end)
 
 				-- Open in splits

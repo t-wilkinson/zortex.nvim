@@ -1,4 +1,4 @@
--- core/buffer.lua - Buffer operations for Zortex
+-- utils/buffer.lua - Buffer operations for Zortex
 local M = {}
 
 local parser = require("zortex.utils.parser")

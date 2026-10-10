@@ -378,6 +378,10 @@ local function deep_merge_in_place(t1, t2)
 	end
 end
 
+-- Built-in defaults (read-only). Modules overlay their slice of these with the
+-- user's options, e.g. ui/telescope/search.setup(Config.ui.search).
+Config.defaults = defaults
+
 -- Initialize configuration
 function Config.setup(opts)
 	-- Merge default and user options in place to avoid cache issues

@@ -138,11 +138,9 @@ function M.setup(prefix)
 	-- Project management & archive
 	-- ===========================================================================
 	cmd("ProjectProgress", function()
-		local bufnr = vim.api.nvim_get_current_buf()
-		local progress_service = require("zortex.services.projects.progress")
-		local updated = progress_service.update_all_projects(bufnr)
+		local updated = require("zortex.services.projects").update_progress(0)
 		vim.notify(string.format("Updated %d projects", updated), vim.log.levels.INFO)
-	end, { desc = "Update all project progress in current buffer" })
+	end, { desc = "Write @progress(done/total) on every project heading in the current buffer" })
 
 	-- ===========================================================================
 	-- XP & Skill tree

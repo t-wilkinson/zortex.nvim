@@ -1,4 +1,10 @@
 -- core/section.lua - first-class representation of document structure
+--
+-- A Section is one node of a document's structural tree (root → article →
+-- headings → bold headings → labels). The tree is generic; domain models such
+-- as projects or areas are *derived* from it with M.derive (keep the node types
+-- you care about, everything else is content of the nearest kept ancestor) and
+-- aggregated with Section:fold.
 local M = {}
 
 local constants = require("zortex.constants")
@@ -11,64 +17,42 @@ local parser = require("zortex.utils.parser")
 local Section = {}
 Section.__index = Section
 
--- Create a new section
 function Section:new(opts)
 	local section = setmetatable({}, self)
 
-	-- Required fields
 	section.type = opts.type or constants.SECTION_TYPE.TEXT
-	section.text = opts.text or ""
+	section.text = opts.text or "" -- display text, attributes stripped
 	section.start_line = opts.start_line or 1
 	section.end_line = opts.end_line or section.start_line
+	section.level = opts.level -- structural level (see constants.SECTION_HIERARCHY)
+	section.names = opts.names -- article nodes: every @@ alias, primary first
 
-	-- Optional fields
-	section.level = opts.level -- For headings (1-6)
-	section.raw_text = opts.raw_text -- Original line text
-
-	-- Tree structure
 	section.parent = nil
 	section.children = {}
 
-	-- Computed properties (lazy)
 	section._path = nil
 	section._id = nil
-
-	-- Content
-	section.attributes = {}
-	section.tasks = {}
 
 	return section
 end
 
--- Get unique identifier for this section
+-- -----------------------------------------------------------------------------
+-- Identity & paths
+-- -----------------------------------------------------------------------------
+
+function Section:is_root()
+	return self.type == "root"
+end
+
+-- Unique identifier: lowercased "/"-joined path of texts.
 function Section:get_id()
 	if not self._id then
-		-- Generate based on path and text
-		local path_parts = {}
-		for _, ancestor in ipairs(self:get_path()) do
-			table.insert(path_parts, ancestor.text)
-		end
-		table.insert(path_parts, self.text)
-		self._id = table.concat(path_parts, "/"):gsub("%s+", "_"):lower()
+		self._id = table.concat(self:path_texts(), "/"):gsub("%s+", "_"):lower()
 	end
 	return self._id
 end
 
-function Section:get_lines(bufnr)
-	return require("zortex.utils.buffer").get_lines(bufnr, self.start_line, self.end_line)
-end
-
--- Get section priority (for hierarchy comparisons)
-function Section:get_priority()
-	return constants.SECTION_HIERARCHY.get_priority(self.type, self.level)
-end
-
--- Check if this section can contain another section type
-function Section:can_contain(other_section)
-	return constants.SECTION_HIERARCHY.can_contain(self.type, self.level, other_section.type, other_section.level)
-end
-
--- Get the path from root to this section
+-- Ancestors from the root down to (excluding) this section. Cached.
 function Section:get_path()
 	if not self._path then
 		self._path = {}
@@ -81,8 +65,7 @@ function Section:get_path()
 	return self._path
 end
 
--- Get the path from root to this section, INCLUDING this section.
--- Returns a fresh list the caller may mutate freely.
+-- Ancestors + self. Returns a fresh list the caller may mutate.
 function Section:get_full_path()
 	local path = {}
 	for _, ancestor in ipairs(self:get_path()) do
@@ -92,36 +75,70 @@ function Section:get_full_path()
 	return path
 end
 
--- Get breadcrumb string. The synthetic root is omitted and `sep` defaults to
--- " > ". This is the single breadcrumb builder used across the codebase; the
--- search UI passes " › ".
-function Section:get_breadcrumb(sep)
-	sep = sep or " > "
-	local parts = {}
-	for _, section in ipairs(self:get_full_path()) do
-		if section.type ~= "root" then
-			parts[#parts + 1] = section.text
+-- Texts of the full path, root omitted: { "Projects", "1 Programming", "1.4 - zortex" }
+function Section:path_texts()
+	local texts = {}
+	for _, s in ipairs(self:get_full_path()) do
+		if not s:is_root() then
+			texts[#texts + 1] = s.text
 		end
 	end
-	return table.concat(parts, sep)
+	return texts
 end
 
--- Check if this section contains a line number
+-- Breadcrumb string, root omitted; `sep` defaults to " > ".
+function Section:get_breadcrumb(sep)
+	return table.concat(self:path_texts(), sep or " > ")
+end
+
+function Section:depth()
+	return #self:get_path()
+end
+
+-- -----------------------------------------------------------------------------
+-- Lines
+-- -----------------------------------------------------------------------------
+
+function Section:get_lines(bufnr)
+	return require("zortex.utils.buffer").get_lines(bufnr, self.start_line, self.end_line)
+end
+
+-- The line number immediately preceding the first child section
+function Section:get_direct_end_line()
+	if self.children and #self.children > 0 then
+		return self.children[1].start_line - 1
+	end
+	return self.end_line
+end
+
+-- Only the lines belonging directly to this section (excluding sub-sections)
+function Section:get_direct_lines(bufnr)
+	return require("zortex.utils.buffer").get_lines(bufnr, self.start_line, self:get_direct_end_line())
+end
+
 function Section:contains_line(line_num)
 	return line_num >= self.start_line and line_num <= self.end_line
 end
 
--- Add a child section
+-- -----------------------------------------------------------------------------
+-- Hierarchy
+-- -----------------------------------------------------------------------------
+
+function Section:get_priority()
+	return self.level or constants.SECTION_HIERARCHY.get_priority(self.type)
+end
+
+function Section:can_contain(other_section)
+	return self:get_priority() < other_section:get_priority()
+end
+
 function Section:add_child(child)
 	child.parent = self
 	table.insert(self.children, child)
-
-	-- Invalidate cached properties
 	child._path = nil
 	child._id = nil
 end
 
--- Remove a child section
 function Section:remove_child(child)
 	for i, c in ipairs(self.children) do
 		if c == child then
@@ -133,30 +150,90 @@ function Section:remove_child(child)
 	return false
 end
 
--- Find child section containing line
+-- Deepest descendant containing line (nil if no child contains it)
 function Section:find_child_at_line(line_num)
 	for _, child in ipairs(self.children) do
 		if child:contains_line(line_num) then
-			-- Recursively search for deepest match
-			local deeper = child:find_child_at_line(line_num)
-			return deeper or child
+			return child:find_child_at_line(line_num) or child
 		end
 	end
 	return nil
 end
 
--- Get all descendant sections (depth-first)
-function Section:get_descendants()
-	local descendants = {}
-	local function collect(section)
-		for _, child in ipairs(section.children) do
-			table.insert(descendants, child)
-			collect(child)
-		end
+-- -----------------------------------------------------------------------------
+-- Traversal (generic; used by search, projects, areas, ...)
+-- -----------------------------------------------------------------------------
+
+-- Pre-order walk. If `fn` returns false the node's children are skipped.
+function Section:walk(fn)
+	if fn(self) == false then
+		return
 	end
-	collect(self)
-	return descendants
+	for _, child in ipairs(self.children) do
+		child:walk(fn)
+	end
 end
+
+-- All descendants (depth-first, excluding self)
+function Section:get_descendants()
+	local out = {}
+	for _, child in ipairs(self.children) do
+		child:walk(function(n)
+			out[#out + 1] = n
+		end)
+	end
+	return out
+end
+
+-- All nodes in the subtree (excluding a root node) matching `pred`
+function Section:filter(pred)
+	local out = {}
+	self:walk(function(n)
+		if not n:is_root() and pred(n) then
+			out[#out + 1] = n
+		end
+	end)
+	return out
+end
+
+-- First node in the subtree (pre-order, excluding a root node) matching `pred`
+function Section:find(pred)
+	local found
+	self:walk(function(n)
+		if found then
+			return false
+		end
+		if not n:is_root() and pred(n) then
+			found = n
+			return false
+		end
+	end)
+	return found
+end
+
+-- Post-order aggregation: fn(node, child_results) -> result
+function Section:fold(fn)
+	local child_results = {}
+	for i, child in ipairs(self.children) do
+		child_results[i] = child:fold(fn)
+	end
+	return fn(self, child_results)
+end
+
+-- Ancestors nearest-first, excluding self (and the root)
+function Section:ancestors()
+	local out = {}
+	local current = self.parent
+	while current and not current:is_root() do
+		out[#out + 1] = current
+		current = current.parent
+	end
+	return out
+end
+
+-- -----------------------------------------------------------------------------
+-- Editing helpers
+-- -----------------------------------------------------------------------------
 
 -- Update section bounds (after buffer changes)
 function Section:update_bounds(start_line, end_line)
@@ -164,7 +241,6 @@ function Section:update_bounds(start_line, end_line)
 
 	self.end_line = end_line
 
-	-- Update all following sections
 	local function shift_sections(section, diff)
 		section.start_line = section.start_line + diff
 		section.end_line = section.end_line + diff
@@ -173,7 +249,6 @@ function Section:update_bounds(start_line, end_line)
 		end
 	end
 
-	-- Shift siblings that come after this section
 	if self.parent then
 		local found_self = false
 		for _, sibling in ipairs(self.parent.children) do
@@ -186,7 +261,6 @@ function Section:update_bounds(start_line, end_line)
 	end
 end
 
--- Format section for display
 function Section:format_display()
 	local type_symbols = {
 		[constants.SECTION_TYPE.ARTICLE] = "📄",
@@ -195,87 +269,32 @@ function Section:format_display()
 		[constants.SECTION_TYPE.LABEL] = ":",
 		[constants.SECTION_TYPE.TAG] = "@",
 	}
-
-	local symbol = type_symbols[self.type] or ""
-	return string.format("%s %s", symbol, self.text)
-end
-
--- Build a link to a section
-function Section:build_link(doc)
-	if not self then
-		return nil
-	end
-
-	local components = {}
-	-- Do not add self to the path yet, process it separately
-	local path = self:get_path()
-
-	-- Prepend the document's primary article name if it exists
-	if doc and doc.article_names and #doc.article_names > 0 then
-		table.insert(components, 1, doc.article_names[1])
-	else
-		-- If there's no article, we can't create a valid project link
-		return nil
-	end
-
-	-- Add the path components (ancestors)
-	for _, s in ipairs(path) do
-		if s.type == "heading" then
-			table.insert(components, "#" .. s.text)
-		elseif s.type == "label" then
-			table.insert(components, ":" .. s.text)
-		end
-	end
-
-	-- Add the current section itself
-	if self.type == "heading" then
-		table.insert(components, "#" .. self.text)
-	elseif self.type == "label" then
-		table.insert(components, ":" .. self.text)
-	end
-
-	if #components <= 1 then
-		-- This means it's just an article link, which is not what this function is for.
-		-- It should link to a specific section *within* an article.
-		return nil
-	end
-
-	return "[" .. table.concat(components, "/") .. "]"
+	return string.format("%s %s", type_symbols[self.type] or "", self.text)
 end
 
 -- =============================================================================
 -- Tree construction (single canonical builder)
 -- =============================================================================
 
--- Build a full Section tree from buffer lines. This is the ONE place that
--- assembles the document hierarchy: core/tree.lua (caching/persistence) and the
--- search UI both go through it. All structural decisions come from
--- parser.scan_sections, so the resulting tree always agrees with
--- parser.build_section_path.
---
--- The root is a synthetic node of type "root" (level -1); callers that render
--- breadcrumbs skip it (see Section:get_breadcrumb).
-function M.build_tree(lines)
-	if not lines then
-		return nil
-	end
-
+-- Build a Section tree from scan descriptors (parser.scan_sections output).
+function M.build_tree_from_sections(sections, line_count)
 	local root = Section:new({
 		type = "root",
 		text = "Root",
 		start_line = 1,
-		end_line = #lines,
+		end_line = line_count,
 	})
 	root.level = -1
 
 	local stack = { root }
-	for _, sec in ipairs(parser.scan_sections(lines)) do
+	for _, sec in ipairs(sections) do
 		local section = Section:new({
 			type = sec.type,
 			text = sec.text,
 			start_line = sec.lnum,
 			end_line = sec.lnum,
 			level = sec.level,
+			names = sec.names,
 		})
 
 		-- Close out any open sections at the same or deeper level.
@@ -288,38 +307,49 @@ function M.build_tree(lines)
 		stack[#stack + 1] = section
 	end
 
-	-- Cap off whatever is still open at end of buffer.
 	for i = 2, #stack do
-		stack[i].end_line = #lines
+		stack[i].end_line = line_count
 	end
 
 	return root
 end
 
--- Module functions
-M.Section = Section
-
--- Create a single Section from one line (factory; no hierarchy assembly).
--- Returns nil for plain text / tag-only lines.
-function M.create_from_line(line, line_num, in_code_block)
-	local section_type = parser.detect_section_type(line, in_code_block)
-
-	if section_type == constants.SECTION_TYPE.TEXT or section_type == constants.SECTION_TYPE.TAG then
-		return nil -- These don't create sections
+-- Build a full Section tree from buffer lines. This is the ONE place that
+-- assembles the document hierarchy; all structural decisions come from
+-- parser.scan_sections, so the tree always agrees with parser.build_section_path.
+-- The root is a synthetic node of type "root" (level -1).
+function M.build_tree(lines)
+	if not lines then
+		return nil
 	end
-
-	local opts = {
-		type = section_type,
-		start_line = line_num,
-		end_line = line_num,
-		raw_text = line,
-		text = parser.section_text(line, section_type),
-	}
-	if section_type == constants.SECTION_TYPE.HEADING then
-		opts.level = parser.get_heading_level(line)
-	end
-
-	return Section:new(opts)
+	return M.build_tree_from_sections(parser.scan_sections(lines), #lines)
 end
+
+-- Derive a domain tree from a section tree.
+--   keep(node)          -> boolean: which sections become domain nodes
+--   make(node, parent)  -> domain object with a `children` list
+-- Sections that are not kept are skipped; their kept descendants attach to the
+-- nearest kept ancestor. Returns the list of top-level domain nodes.
+function M.derive(root, keep, make)
+	local roots = {}
+	local function visit(node, parent)
+		local current = parent
+		if not node:is_root() and keep(node) then
+			current = make(node, parent)
+			if parent then
+				table.insert(parent.children, current)
+			else
+				table.insert(roots, current)
+			end
+		end
+		for _, child in ipairs(node.children) do
+			visit(child, current)
+		end
+	end
+	visit(root, nil)
+	return roots
+end
+
+M.Section = Section
 
 return M

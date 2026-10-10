@@ -94,16 +94,10 @@ function M.find_files(dir, pattern)
 	return files
 end
 
+-- Deprecated alias: all note files, recursively. Prefer core/notes.files(),
+-- which also skips archived notes and orders results deterministically.
 function M.get_all_note_files()
-	local dir = Config.notes_dir
-	local files = {}
-
-	-- Find .zortex files
-	for _, file in ipairs(M.find_files(dir, "%" .. Config.extension .. "$")) do
-		table.insert(files, file)
-	end
-
-	return files
+	return M.find_all_notes()
 end
 
 -- Get all note files with basic filtering
@@ -183,7 +177,7 @@ function M.read_archive()
 
 	-- Create file if it doesn't exist
 	if not M.file_exists(archive_path) then
-		M.write_lines(archive_path, { "@XP(0)", "" })
+		M.write_lines(archive_path, { "@@Projects", "@@P", "@" .. constants.ARCHIVE_TAG, "" })
 	end
 
 	return M.read_lines(archive_path)

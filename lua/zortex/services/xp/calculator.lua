@@ -119,8 +119,9 @@ end
 
 -- Calculate project XP using curve system
 function M.calculate_project_xp(project)
-	local tasks = project.tasks or {}
-	local total_tasks = #tasks
+	local stats = project:stats()
+	local total_tasks = stats.total
+	local completed_tasks = stats.done
 
 	if total_tasks == 0 then
 		return {
@@ -140,14 +141,14 @@ function M.calculate_project_xp(project)
 	local phases = M._build_phase_map(curve, total_tasks)
 
 	-- Step 4: Calculate earned XP based on completion
-	local earned_xp = M._calculate_curve_xp(phases, project.completed_tasks, total_tasks, total_xp)
+	local earned_xp = M._calculate_curve_xp(phases, completed_tasks, total_tasks, total_xp)
 
 	return earned_xp,
 		{
 			total_xp = total_xp,
 			earned_xp = earned_xp,
-			completion_percent = (project.completed_tasks / total_tasks) * 100,
-			completed_tasks = project.completed_tasks,
+			completion_percent = (completed_tasks / total_tasks) * 100,
+			completed_tasks = completed_tasks,
 			total_tasks = total_tasks,
 			curve_type = curve.type,
 			phases = phases,
@@ -177,7 +178,7 @@ function M.calculate_project_total_xp(project)
 	else
 		-- Calculate from sum of task sizes
 		local total = 0
-		for _, task in ipairs(project.tasks or {}) do
+		for _, task in ipairs(project:tasks()) do
 			total = total + M.calculate_task_xp(task)
 		end
 

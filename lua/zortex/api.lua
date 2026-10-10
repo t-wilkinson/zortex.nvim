@@ -47,16 +47,22 @@ M.task = {
 -- 	require("zortex.ui.progress_dashboard").show(stats)
 -- end
 
+-- Write @progress(done/total) on every project heading of the projects buffer
 M.update_progress = function()
-	require("zortex.services.okr").update_progress()
-
-	-- Update project progress
 	local projects_file = fs.get_file_path(constants.FILES.PROJECTS)
 	local bufnr = vim.fn.bufnr(projects_file)
 	if bufnr > 0 then
-		require("zortex.services.projects").update_all_project_progress(bufnr)
+		return require("zortex.services.projects").update_progress(bufnr)
 	end
+	return 0
 end
+
+-- Projects (see services/projects for the full API)
+M.projects = setmetatable({}, {
+	__index = function(_, key)
+		return require("zortex.services.projects")[key]
+	end,
+})
 
 -- ===========================================================================
 -- Notifications
@@ -147,7 +153,7 @@ M.search = {
 	end,
 
 	projects = function(opts)
-		require("zortex.legacy.ui.telescope.projects").projects(opts)
+		require("zortex.ui.telescope.projects").projects(opts)
 	end,
 }
 
@@ -161,7 +167,7 @@ M.calendar = {
 	end,
 
 	digest = function()
-		require("zortex.calendar.view").open_digest()
+		require("zortex.ui.calendar.view").open_digest()
 	end,
 }
 

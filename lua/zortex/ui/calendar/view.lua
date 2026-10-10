@@ -481,15 +481,13 @@ function Renderer.render_digest_view()
 
 	-- Show high priority projects
 	if cfg.digest.show_high_priority then
-		local projects = require("zortex.services.projects")
-		projects.load()
-
-		local high_priority = {}
-		for _, project in ipairs(projects.get_all_projects()) do
-			if project.attributes.p == "1" or project.attributes.i == "1" then
-				table.insert(high_priority, project)
-			end
-		end
+		local high_priority = require("zortex.services.projects").query({
+			sort = "priority",
+			include_done = false,
+			filter = function(p)
+				return p.attributes.p == "1" or p.attributes.i == "1"
+			end,
+		})
 
 		if #high_priority > 0 then
 			table.insert(lines, string.rep("─", win_width))
@@ -512,11 +510,7 @@ function Renderer.render_digest_view()
 					priority_str = priority_str .. " [I1]"
 				end
 
-				local project_line = string.format(
-					"    • %s%s",
-					project.name:gsub("@%w+%b()", ""):gsub("@%w+", ""):gsub("^%s*(.-)%s*$", "%1"),
-					priority_str
-				)
+				local project_line = string.format("    • %s%s", project.name, priority_str)
 				table.insert(lines, project_line)
 			end
 		end

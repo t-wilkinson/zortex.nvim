@@ -58,8 +58,8 @@ function M.build_xp_context(data)
 	local okr_service = require("zortex.services.okr")
 	local areas_service = require("zortex.services.areas")
 
-	local section = projects_service.find_project(data.doc_context.section)
-	local project = projects_service.get_project(section, data.doc_context.doc)
+	local doc_context = data.doc_context
+	local project = doc_context and projects_service.at(doc_context.bufnr, doc_context.lnum)
 
 	local id, type
 	-- Extract area paths from all sources
@@ -67,8 +67,8 @@ function M.build_xp_context(data)
 
 	if project then
 		type = "project"
-		id = project.link
-		key_results, objectives = okr_service.get_key_results(project.link)
+		id = project.key
+		key_results, objectives = okr_service.get_key_results(project)
 	elseif data.task then
 		type = "task"
 		id = data.task.id
@@ -82,7 +82,7 @@ function M.build_xp_context(data)
 	for _, area_path in ipairs(area_paths) do
 		if project then
 			for _, key_result in ipairs(key_results) do
-				if key_result.linked_projects[project.link] then
+				if key_result.projects[project.key] then
 					areas[area_path] = {
 						type = "key_result",
 						key_result = key_result,

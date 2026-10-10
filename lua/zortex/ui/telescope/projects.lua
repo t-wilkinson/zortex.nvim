@@ -1,53 +1,184 @@
--- ui/telescope.lua - Telescope integration for Zortex
+-- ui/telescope/projects.lua - Project picker (a thin view over services/projects)
+--
+--   <CR>   open project          <C-x>/<C-v>  open in split / vsplit
+--   <C-l>  insert link at cursor <C-y>        yank link
+--   <C-s>  cycle sort order      <C-d>        toggle done projects
+--   <C-e>  toggle leaf-only
 local M = {}
 
+local P = require("zortex.services.projects")
+local score = require("zortex.services.projects.score")
 local datetime = require("zortex.utils.datetime")
-local parser = require("zortex.utils.parser")
-local projects = require("zortex.services.projects")
+
+local SORTS = { "score", "priority", "due", "remaining", "size", "completion", "path", "name" }
 
 -- =============================================================================
--- Helper Functions
+-- Formatting
 -- =============================================================================
 
----Calculate a numeric score used for intelligent project sorting.
-local function calculate_task_score(task)
-	local score = 0
-	-- Priority scoring
-	if task.attributes and task.attributes.priority then
-		local priority_scores = { p1 = 100, p2 = 50, p3 = 25 }
-		score = score + (priority_scores[task.attributes.priority] or 0)
+local function progress_bar(ratio, width)
+	local filled = math.floor(ratio * width + 0.5)
+	return string.rep("█", filled) .. string.rep("░", width - filled)
+end
+
+local function fmt_date(d)
+	return d and datetime.format_datetime(d, "YYYY-MM-DD") or nil
+end
+
+local function display_parts(project)
+	local r = project:rollup()
+	local progress = r.total > 0 and string.format("%d/%d", r.done, r.total) or ""
+	local indicators = score.indicators(project)
+	return {
+		ancestors = #project.path > 1 and (table.concat(project.path, " › ", 1, #project.path - 1) .. " › ") or "",
+		name = project.name,
+		progress = progress,
+		points = r.points_open > 0 and (r.points_open .. "pt") or "",
+		indicators = #indicators > 0 and ("[" .. table.concat(indicators, ",") .. "]") or "",
+	}
+end
+
+local function make_display(entry)
+	local d = entry.parts
+	local text, hls = "", {}
+	local function add(s, hl, sep)
+		if s == "" then
+			return
+		end
+		text = text .. (text ~= "" and sep or "")
+		local start = #text
+		text = text .. s
+		hls[#hls + 1] = { { start, #text }, hl }
 	end
-	-- Due‑date scoring
-	if task.attributes and task.attributes.due then
-		local due_dt = datetime.parse_datetime(task.attributes.due)
-		if due_dt then
-			local due_time = os.time(due_dt)
-			local now = os.time()
-			local days_until = (due_time - now) / 86400
-			if days_until < 0 then
-				score = score + 200 -- Overdue
-			elseif days_until < 1 then
-				score = score + 150 -- Due today
-			elseif days_until < 3 then
-				score = score + 75 -- Due soon
-			elseif days_until < 7 then
-				score = score + 30 -- Due this week
-			end
+	add(d.ancestors, "Comment", "")
+	add(d.name, entry.project:is_leaf() and "ZortexHeading2" or "ZortexHeading1", "")
+	add(d.progress, "Number", "  ")
+	add(d.points, "Comment", "  ")
+	add(d.indicators, "WarningMsg", "  ")
+	return text, hls
+end
+
+local function preview_lines(project)
+	local lines = {}
+	local function add(s)
+		lines[#lines + 1] = s
+	end
+
+	add(project:breadcrumb())
+	add(project.link or "")
+	add("")
+
+	local attrs = project.attributes
+	local meta = {}
+	if attrs.p then
+		meta[#meta + 1] = "priority " .. attrs.p
+	end
+	if attrs.i then
+		meta[#meta + 1] = "importance " .. attrs.i
+	end
+	if attrs.size then
+		meta[#meta + 1] = "size " .. attrs.size
+	end
+	if attrs.due then
+		meta[#meta + 1] = "due " .. fmt_date(attrs.due)
+	end
+	meta[#meta + 1] = string.format("score %.0f", score.project_score(project))
+	add(table.concat(meta, " · "))
+
+	local own, r = project:stats(), project:rollup()
+	add(string.format("Own:   %d/%d done  %d/%d pts", own.done, own.total, own.points_done, own.points))
+	if #project.children > 0 then
+		add(string.format("Total: %d/%d done  %d/%d pts", r.done, r.total, r.points_done, r.points))
+	end
+	if r.total > 0 then
+		add(string.format("[%s] %.0f%%", progress_bar(r.completion, 30), r.completion * 100))
+	end
+
+	local areas = project:areas({ inherit = true })
+	if #areas > 0 then
+		add("")
+		add("Areas:")
+		for _, a in ipairs(areas) do
+			add("  " .. (a.resolved and table.concat(a.path, " › ") or (a.link .. " (unresolved)")))
 		end
 	end
-	-- Completed tasks score lower
-	if task.completed then
-		score = score - 100
+
+	local krs = project:key_results({ inherit = true })
+	if #krs > 0 then
+		add("")
+		add("Key results:")
+		for _, kr in ipairs(krs) do
+			add(string.format("  %s %s: %s  (%s)", kr.completed and "☑" or "☐", kr.id, kr.text, kr.objective.title))
+		end
 	end
-	return score
+
+	local today = datetime.format_datetime(datetime.get_current_date(), "YYYY-MM-DD")
+	local upcoming = project:schedule({ descendants = true, from = today })
+	if #upcoming > 0 then
+		add("")
+		add("Scheduled:")
+		for i, item in ipairs(upcoming) do
+			if i > 5 then
+				add(string.format("  … %d more", #upcoming - 5))
+				break
+			end
+			add(string.format("  %s %s %s", item.date, item.time or "     ", item.entry.display_text))
+		end
+	end
+
+	local tasks = vim.list_slice(project:tasks())
+	if #tasks > 0 then
+		table.sort(tasks, function(a, b)
+			return score.task_score(a) > score.task_score(b)
+		end)
+		add("")
+		add("Tasks:")
+		for i, task in ipairs(tasks) do
+			if i > 15 then
+				add(string.format("  … %d more", #tasks - 15))
+				break
+			end
+			local extra = {}
+			if task.attributes.p then
+				extra[#extra + 1] = "p" .. task.attributes.p
+			end
+			if task.attributes.size then
+				extra[#extra + 1] = task.attributes.size
+			end
+			if task.attributes.due then
+				extra[#extra + 1] = "due " .. fmt_date(task.attributes.due)
+			end
+			add(
+				string.format(
+					"  %s %s%s",
+					task.completed and "☑" or "☐",
+					task.text,
+					#extra > 0 and ("  (" .. table.concat(extra, ", ") .. ")") or ""
+				)
+			)
+		end
+	end
+
+	if #project.children > 0 then
+		add("")
+		add("Sub-projects:")
+		for _, child in ipairs(project.children) do
+			local cr = child:rollup()
+			add(string.format("  %s  %d/%d", child.name, cr.done, cr.total))
+		end
+	end
+
+	return lines
 end
 
 -- =============================================================================
--- Projects View with Intelligent Sorting
+-- Picker
 -- =============================================================================
 
+---@param opts { sort?: string, leaf?: boolean, include_done?: boolean, include_roots?: boolean }?
 function M.projects(opts)
-	opts = opts or {}
+	opts = vim.tbl_extend("keep", opts or {}, { sort = "score", include_done = false })
+
 	local pickers = require("telescope.pickers")
 	local finders = require("telescope.finders")
 	local conf = require("telescope.config").values
@@ -55,170 +186,123 @@ function M.projects(opts)
 	local action_state = require("telescope.actions.state")
 	local previewers = require("telescope.previewers")
 
-	local entries = {}
-	local all_projects = projects.get_all_projects()
-
-	for _, project in ipairs(all_projects) do
-		-- Calculate project stats
-		local stats = projects.get_project_stats(project)
-		local project_score = 0
-		local has_priority = false
-		local has_due_today = false
-
-		-- Analyse tasks
-		for _, task in ipairs(project.tasks) do
-			local task_score = calculate_task_score(task)
-			project_score = project_score + task_score
-			if task.attributes and task.attributes.priority then
-				has_priority = true
-			end
-			if task.attributes and task.attributes.due then
-				local due_dt = datetime.parse_datetime(task.attributes.due)
-				if due_dt then
-					local due_date = os.date("%Y-%m-%d", os.time(due_dt))
-					if due_date == os.date("%Y-%m-%d") then
-						has_due_today = true
-					end
-				end
-			end
-		end
-
-		-- Average task score
-		if stats.total_tasks > 0 then
-			project_score = project_score / stats.total_tasks
-		end
-		-- Penalty for mostly completed projects
-		if stats.completion_rate > 0.8 then
-			project_score = project_score * 0.5
-		end
-
-		-- Build display string using full path
-		local path_str = projects.get_project_path(project)
-		local indicators = {}
-		if has_priority then
-			table.insert(indicators, "PRIORITY")
-		end
-		if has_due_today then
-			table.insert(indicators, "DUE")
-		end
-		local indicator_str = (#indicators > 0) and (" [" .. table.concat(indicators, ",") .. "]") or ""
-		local progress = (stats.total_tasks > 0) and string.format(" (%d/%d)", stats.completed_tasks, stats.total_tasks)
-			or ""
-
-		table.insert(entries, {
-			type = "project",
-			project = project,
-			display = string.format("📁 %s%s%s", path_str, progress, indicator_str),
-			ordinal = path_str,
-			score = project_score,
-			stats = stats,
-			has_priority = has_priority,
-			has_due_today = has_due_today,
+	local function make_finder()
+		local list = P.query({
+			sort = opts.sort,
+			leaf = opts.leaf,
+			include_done = opts.include_done,
+			include_roots = opts.include_roots,
+		})
+		return finders.new_table({
+			results = list,
+			entry_maker = function(project)
+				local entry = {
+					value = project,
+					project = project,
+					parts = display_parts(project),
+					ordinal = project:breadcrumb(" ") .. " " .. table.concat(project.tags, " "),
+					filename = project.file,
+					lnum = project.lnum,
+				}
+				entry.display = make_display
+				return entry
+			end,
 		})
 	end
 
-	-- Sort by score
-	table.sort(entries, function(a, b)
-		return a.score > b.score
-	end)
+	local function title()
+		local flags = {}
+		if opts.leaf then
+			flags[#flags + 1] = "leaf"
+		end
+		if opts.include_done then
+			flags[#flags + 1] = "+done"
+		end
+		return "Projects (" .. opts.sort .. (#flags > 0 and (", " .. table.concat(flags, ", ")) or "") .. ")"
+	end
 
-	-- Create picker
 	pickers
 		.new(opts, {
-			prompt_title = "Projects (Sorted by Priority)",
-			finder = finders.new_table({
-				results = entries,
-				entry_maker = function(entry)
-					return { value = entry, display = entry.display, ordinal = entry.ordinal }
-				end,
-			}),
+			prompt_title = title(),
+			finder = make_finder(),
+			-- Keep our sort order when the prompt is empty
 			sorter = conf.generic_sorter(opts),
 			previewer = previewers.new_buffer_previewer({
-				title = "Project Details",
+				title = "Project",
 				define_preview = function(self, entry)
-					local lines = {}
-					local e = entry.value
-					local project, stats = e.project, e.stats
-					table.insert(lines, "Project: " .. projects.get_project_path(project))
-					table.insert(lines, string.format("Score: %.1f", e.score))
-					if e.has_priority or e.has_due_today then
-						table.insert(lines, "")
-						if e.has_priority then
-							table.insert(lines, "⚡ Has priority tasks")
-						end
-						if e.has_due_today then
-							table.insert(lines, "📅 Tasks due today")
-						end
-					end
-					table.insert(lines, "")
-					table.insert(
-						lines,
-						string.format("Progress: %d/%d tasks completed", stats.completed_tasks, stats.total_tasks)
-					)
-					if stats.total_tasks > 0 then
-						local pct = stats.completion_rate * 100
-						local bar_width, filled = 30, math.floor(pct / 100 * 30)
-						local bar = string.rep("█", filled) .. string.rep("░", bar_width - filled)
-						table.insert(lines, string.format("[%s] %.0f%%", bar, pct))
-					end
-					if #project.tasks > 0 then
-						table.insert(lines, "")
-						table.insert(lines, "Tasks:")
-						table.insert(lines, string.rep("─", 40))
-						local sorted_tasks = vim.deepcopy(project.tasks)
-						for _, task in ipairs(sorted_tasks) do
-							task._score = calculate_task_score(task)
-						end
-						table.sort(sorted_tasks, function(a, b)
-							return a._score > b._score
-						end)
-						for i, task in ipairs(sorted_tasks) do
-							if i > 10 then
-								table.insert(lines, string.format("  ... and %d more tasks", #sorted_tasks - 10))
-								break
-							end
-							local line = "  "
-								.. (task.completed and "☑" or "☐")
-								.. " "
-								.. (parser.get_task_text(task.raw_text) or task.display_text)
-							local task_indicators = {}
-							if task.attributes then
-								if task.attributes.priority then
-									table.insert(task_indicators, task.attributes.priority)
-								end
-								if task.attributes.at then
-									table.insert(task_indicators, "🕐 " .. task.attributes.at)
-								end
-								if task.attributes.due then
-									table.insert(task_indicators, "📅 " .. task.attributes.due)
-								end
-							end
-							if #task_indicators > 0 then
-								line = line .. " (" .. table.concat(task_indicators, ", ") .. ")"
-							end
-							table.insert(lines, line)
-						end
-					end
-					vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
+					vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, preview_lines(entry.project))
 				end,
 			}),
 			attach_mappings = function(prompt_bufnr, map)
-				actions.select_default:replace(function()
-					actions.close(prompt_bufnr)
-					local selection = action_state.get_selected_entry()
-					if selection then
-						local e = selection.value
-						local projects_file = require("zortex.utils.filesystem").get_projects_file()
-						if projects_file then
-							vim.cmd("edit " .. vim.fn.fnameescape(projects_file))
-							vim.api.nvim_win_set_cursor(0, { e.project.line_num, 0 })
+				local function selected()
+					local s = action_state.get_selected_entry()
+					return s and s.project
+				end
+
+				local function open(cmd)
+					return function()
+						local project = selected()
+						actions.close(prompt_bufnr)
+						if project then
+							P.jump(project, cmd)
 						end
 					end
+				end
+
+				local function refresh()
+					local picker = action_state.get_current_picker(prompt_bufnr)
+					picker.prompt_border:change_title(title())
+					picker:refresh(make_finder(), { reset_prompt = false })
+				end
+
+				actions.select_default:replace(open("edit"))
+				map({ "i", "n" }, "<C-x>", open("split"))
+				map({ "i", "n" }, "<C-v>", open("vsplit"))
+
+				map({ "i", "n" }, "<C-l>", function()
+					local project = selected()
+					actions.close(prompt_bufnr)
+					if project and project.link then
+						vim.api.nvim_put({ project.link }, "c", true, true)
+					end
 				end)
+
+				map({ "i", "n" }, "<C-y>", function()
+					local project = selected()
+					if project and project.link then
+						vim.fn.setreg('"', project.link)
+						pcall(vim.fn.setreg, "+", project.link)
+						vim.notify("Yanked " .. project.link)
+					end
+				end)
+
+				map({ "i", "n" }, "<C-s>", function()
+					local idx = 1
+					for i, s in ipairs(SORTS) do
+						if s == opts.sort then
+							idx = i
+						end
+					end
+					opts.sort = SORTS[idx % #SORTS + 1]
+					refresh()
+				end)
+
+				map({ "i", "n" }, "<C-d>", function()
+					opts.include_done = not opts.include_done
+					refresh()
+				end)
+
+				map({ "i", "n" }, "<C-e>", function()
+					opts.leaf = not opts.leaf
+					refresh()
+				end)
+
 				return true
 			end,
 		})
 		:find()
 end
+
+M.preview_lines = preview_lines
 
 return M

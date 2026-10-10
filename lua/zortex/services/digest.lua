@@ -6,9 +6,7 @@ local Logger = require("zortex.core.logger")
 local datetime = require("zortex.utils.datetime")
 local fs = require("zortex.utils.filesystem")
 local calendar_store = require("zortex.stores.calendar")
-local workspace = require("zortex.core.workspace")
 local parser = require("zortex.utils.parser")
-local attributes = require("zortex.utils.attributes")
 local constants = require("zortex.constants")
 local Events = require("zortex.core.event_bus")
 
@@ -83,97 +81,33 @@ local function get_todays_tasks()
 	return tasks
 end
 
--- Get high priority projects and tasks
+-- High priority / importance (1-2) projects that still have work left
 local function get_priority_items()
-	local items = {
-		projects = {},
-		tasks = {},
-	}
-
-	-- Get projects
-	local projects_doc = workspace.projects()
-	if projects_doc and projects_doc.sections then
-		local function extract_projects(section, path)
-			if section.type == "heading" then
-				local lines = section:get_lines(projects_doc.bufnr)
-				local first_line = lines[1]
-				if first_line then
-					local attrs = attributes.parse_project_attributes(first_line)
-					local is_high_priority = attrs.p and tonumber(attrs.p) <= 2
-					local is_high_importance = attrs.i and tonumber(attrs.i) <= 2
-
-					if is_high_priority or is_high_importance then
-						table.insert(items.projects, {
-							name = section.text,
-							section = section,
-							attributes = attrs,
-							path = path,
-							priority = attrs.p,
-							importance = attrs.i,
-						})
-					end
-				end
-			end
-
-			-- Process children
-			for _, child in ipairs(section.children) do
-				extract_projects(child, path .. "/" .. section.text)
-			end
-		end
-
-		extract_projects(projects_doc.sections, "")
-	end
-
-	-- Sort by priority then importance
-	local sort_fn = function(a, b)
-		local a_pri = tonumber(a.priority or 999)
-		local a_imp = tonumber(a.importance or 999)
-		local b_pri = tonumber(b.priority or 999)
-		local b_imp = tonumber(b.importance or 999)
-
-		if a_pri ~= b_pri then
-			return a_pri < b_pri
-		else
-			return a_imp < b_imp
-		end
-	end
-
-	table.sort(items.projects, sort_fn)
-
-	return items
+	local projects = require("zortex.services.projects").query({
+		sort = "priority",
+		include_done = false,
+		filter = function(p)
+			local pri, imp = tonumber(p.attributes.p), tonumber(p.attributes.i)
+			return (pri and pri <= 2) or (imp and imp <= 2)
+		end,
+	})
+	return { projects = projects, tasks = {} }
 end
 
--- Get all incomplete tasks from projects
+-- All open tasks across projects, by due date then priority
 local function get_all_todos()
 	local todos = {}
-
-	local projects_doc = workspace.projects()
-	if projects_doc then
-		local lines = projects_doc.lines
-		for lnum, line in ipairs(lines) do
-			local task = parser.parse_task(line)
-			if task and not task.completed then
-				-- Get containing project
-				local section = projects_doc:get_section_at_line(lnum)
-				local project_section = section
-				while project_section and project_section.type ~= "heading" do
-					project_section = project_section.parent
-				end
-
-				table.insert(todos, {
-					task = task,
-					line = line,
-					lnum = lnum,
-					project = project_section and project_section.text,
-					priority = task.attributes.p,
-					importance = task.attributes.i,
-					due = task.attributes.due,
-				})
-			end
-		end
+	for _, task in ipairs(require("zortex.services.projects").tasks({ include_done = false })) do
+		table.insert(todos, {
+			task = task,
+			lnum = task.lnum,
+			project = task.project,
+			priority = task.attributes.p,
+			importance = task.attributes.i,
+			due = task.attributes.due,
+		})
 	end
 
-	-- Sort by due date, then priority
 	table.sort(todos, function(a, b)
 		if a.due and b.due then
 			return datetime.format_datetime(a.due, "YYYY-MM-DD") < datetime.format_datetime(b.due, "YYYY-MM-DD")
@@ -181,11 +115,8 @@ local function get_all_todos()
 			return true
 		elseif b.due then
 			return false
-		else
-			local a_pri = tonumber(a.priority or 999)
-			local b_pri = tonumber(b.priority or 999)
-			return a_pri < b_pri
 		end
+		return tonumber(a.priority or 999) < tonumber(b.priority or 999)
 	end)
 
 	return todos
@@ -260,13 +191,12 @@ function M.generate_digest()
 		table.insert(lines, "## High Priority Projects")
 		table.insert(lines, "")
 		for _, project in ipairs(priority_items.projects) do
-			local link = project.section:build_link(workspace.projects())
-			local line = string.format("- ![%s]", link:sub(2, -2))
-			if project.priority then
-				line = line .. " @p" .. project.priority
+			local line = string.format("- !%s", project.link)
+			if project.attributes.p then
+				line = line .. " @p" .. project.attributes.p
 			end
-			if project.importance then
-				line = line .. " @i" .. project.importance
+			if project.attributes.i then
+				line = line .. " @i" .. project.attributes.i
 			end
 			if project.attributes.due then
 				line = line .. " @due(" .. datetime.format_datetime(project.attributes.due, "YYYY-MM-DD") .. ")"
@@ -295,8 +225,8 @@ function M.generate_digest()
 		table.insert(lines, "")
 		for _, todo in ipairs(due_soon) do
 			local line = string.format("- [ ] %s", todo.task.text)
-			if todo.project then
-				line = line .. " ![Projects/#" .. todo.project .. "]"
+			if todo.project and todo.project.link then
+				line = line .. " !" .. todo.project.link
 			end
 			line = line .. " @due(" .. datetime.format_datetime(todo.due, "YYYY-MM-DD") .. ")"
 			table.insert(lines, line)
@@ -376,15 +306,14 @@ local function update_live_link(link_id)
 
 	-- Resolve the link to get current content
 	local link_resolver = require("zortex.utils.link_resolver")
-	local results = link_resolver.process_link(link_info.definition)
+	local result = link_resolver.resolve_first(link_info.definition)
 
-	if #results > 0 then
-		local result = results[1]
-		local doc = workspace.get_for_buffer(vim.fn.bufadd(result.file))
+	if result then
+		local doc = result.doc
 
 		if doc then
 			-- Get the line content
-			local line = doc:get_line(result.lnum)
+			local line = doc:line(result.lnum)
 
 			-- Check if content changed
 			if line ~= link_info.last_content then

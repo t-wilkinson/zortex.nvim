@@ -92,14 +92,7 @@ function M.detect_section_type(line, in_code_block)
 end
 
 function M.get_section_priority(line, in_code_block)
-	local section_type = M.detect_section_type(line, in_code_block)
-	local heading_level = nil
-
-	if section_type == constants.SECTION_TYPE.HEADING then
-		heading_level = M.get_heading_level(line)
-	end
-
-	return constants.SECTION_HIERARCHY.get_priority(section_type, heading_level)
+	return (M.calculate_level(line, in_code_block)) or constants.SECTION_HIERARCHY.levels[constants.SECTION_TYPE.TEXT]
 end
 
 -- =============================================================================
@@ -195,6 +188,29 @@ end
 -- Link Parsing
 -- =============================================================================
 
+--- Split "a + b" (OR) or "a & b" (AND) into terms. Spaces around the operator
+--- are required so "c++" or "r&d" are not split.
+---@return "single"|"or"|"and", string[]
+function M.split_query(content)
+	local query_type, sep = "single", nil
+	if content:find(" %+ ") then
+		query_type, sep = "or", "+"
+	elseif content:find(" & ") then
+		query_type, sep = "and", "&"
+	end
+	if not sep then
+		return query_type, { M.trim(content) }
+	end
+	local terms = {}
+	for term in content:gmatch("([^" .. sep .. "]+)") do
+		local trimmed = M.trim(term)
+		if trimmed ~= "" then
+			table.insert(terms, trimmed)
+		end
+	end
+	return query_type, terms
+end
+
 function M.extract_link_at(line, cursor_col)
 	-- 1. Check for footnote references
 	local offset = 0
@@ -260,29 +276,7 @@ function M.extract_link_at(line, cursor_col)
 		end
 
 		if cursor_col >= (s - 1) and cursor_col < e then
-			-- Parse the content for AND/OR operators
-			local query_type = "single"
-			local terms = {}
-
-			if content:find(" %+ ") then
-				query_type = "or"
-				for term in content:gmatch("([^+]+)") do
-					local trimmed = M.trim(term)
-					if trimmed ~= "" then
-						table.insert(terms, trimmed)
-					end
-				end
-			elseif content:find(" & ") then
-				query_type = "and"
-				for term in content:gmatch("([^&]+)") do
-					local trimmed = M.trim(term)
-					if trimmed ~= "" then
-						table.insert(terms, trimmed)
-					end
-				end
-			else
-				terms = { M.trim(content) }
-			end
+			local query_type, terms = M.split_query(content)
 
 			return {
 				type = "tag_search",
@@ -460,30 +454,15 @@ function M.parse_link_component(component)
 	-- Detected before prefix checks. Spaces around the operator are
 	-- required so that "c++" or "r&d" aren't mis-parsed.
 	-- ---------------------------------------------------------------
-	if component:find(" %+ ") then
-		local tags = {}
-		for term in component:gmatch("([^+]+)") do
-			local trimmed = M.trim(term)
-			if trimmed ~= "" then
-				table.insert(tags, trimmed)
-			end
-		end
-		if #tags >= 2 then
-			return { type = "or_query", tags = tags, text = component, original = component, attributes = attributes }
-		end
-	end
-
-	if component:find(" & ") then
-		local tags = {}
-		for term in component:gmatch("([^&]+)") do
-			local trimmed = M.trim(term)
-			if trimmed ~= "" then
-				table.insert(tags, trimmed)
-			end
-		end
-		if #tags >= 2 then
-			return { type = "and_query", tags = tags, text = component, original = component, attributes = attributes }
-		end
+	local query_type, tags = M.split_query(component)
+	if query_type ~= "single" and #tags >= 2 then
+		return {
+			type = query_type .. "_query",
+			tags = tags,
+			text = component,
+			original = component,
+			attributes = attributes,
+		}
 	end
 
 	-- ---------------------------------------------------------------
@@ -621,36 +600,59 @@ function M.extract_article_name(line)
 	return nil
 end
 
-function M.extract_tags_from_lines(lines, max_lines)
-	max_lines = max_lines or 15
-	local tags = {}
-	local seen = {}
-
-	for i = 1, math.min(max_lines, #lines) do
-		local line = lines[i]
-		-- Check for tags (@tag) and aliases (@@alias)
-		if line:match("^@+%w+") then
-			if not seen[line] then
-				table.insert(tags, line)
-				seen[line] = true
-			end
-		end
+--- Strip inline attributes (`@key(value)` and bare `@word`) from a piece of
+--- text, e.g. "1.4 - zortex @p1 @size(lg)" -> "1.4 - zortex". Only tokens that
+--- start a word are removed, so "me@example.com" is left alone.
+function M.strip_attributes(text)
+	if not text then
+		return ""
 	end
-
-	return tags
+	local s = " " .. text
+	s = s:gsub("%s@[%w_]+%b()", "")
+	s = s:gsub("%s@[%w_%-]+", "")
+	return M.trim((s:gsub("%s+", " ")))
 end
 
-function M.parse_okr_date(line)
-	local span, year, month, title = line:match("^## ([%w]+) (%d+) (%d+) (.+)$")
-	if span then
-		return {
-			span = span,
-			year = tonumber(year),
-			month = tonumber(month),
-			title = title,
-		}
+--- Parse the header block at the top of a note: article names (`@@Name`) and
+--- tags (`@Tag`). Blank lines are skipped; the header ends at the first other
+--- line. This is the ONLY header parser; workspace, documents, the notes index,
+--- link resolution and completion all use it.
+---@return { names: string[], tags: string[], name_lnum: integer?, last_lnum: integer, tag_lines: string[] }
+function M.parse_header(lines, max_lines)
+	local header = { names = {}, tags = {}, tag_lines = {}, name_lnum = nil, last_lnum = 0 }
+	if not lines then
+		return header
 	end
-	return nil
+	for lnum = 1, math.min(#lines, max_lines or 50) do
+		local line = lines[lnum]
+		local name = M.extract_article_name(line)
+		if name then
+			table.insert(header.names, name)
+			header.name_lnum = header.name_lnum or lnum
+			header.last_lnum = lnum
+		elseif line:match(constants.PATTERNS.TAG_LINE) then
+			table.insert(header.tags, M.trim(line:sub(2)))
+			table.insert(header.tag_lines, line)
+			header.last_lnum = lnum
+		elseif line:match("%S") then
+			break
+		end
+	end
+	return header
+end
+
+--- Case-insensitive membership test for header names / tags.
+function M.list_has(list, value)
+	if not list or not value then
+		return false
+	end
+	value = value:lower()
+	for _, v in ipairs(list) do
+		if v:lower() == value then
+			return true
+		end
+	end
+	return false
 end
 
 -- =============================================================================
@@ -663,81 +665,71 @@ end
 -- build_section_path below all consume them, so the structure they produce is
 -- guaranteed to agree.
 
--- Assign a strict numeric structural level to a line. Lower => higher up.
---   ARTICLE      -> 0
---   HEADING      -> 1..6   (the markdown heading level)
---   BOLD_HEADING -> 7
---   LABEL        -> 8 + indent
+-- Assign the structural level to a line (see constants.SECTION_HIERARCHY).
 -- Returns: level (number) or nil for non-section lines, plus the section_type.
 function M.calculate_level(line, in_code_block)
 	local section_type = M.detect_section_type(line, in_code_block)
-	if section_type == constants.SECTION_TYPE.ARTICLE then
-		return 0, section_type
-	elseif section_type == constants.SECTION_TYPE.HEADING then
-		return M.get_heading_level(line), section_type
-	elseif section_type == constants.SECTION_TYPE.BOLD_HEADING then
-		return 7, section_type
-	elseif section_type == constants.SECTION_TYPE.LABEL then
-		local indent = #(line:match("^%s*") or "")
-		return 8 + indent, section_type
+	if section_type == constants.SECTION_TYPE.TEXT or section_type == constants.SECTION_TYPE.TAG then
+		return nil, section_type
 	end
-	return nil, section_type
+	local heading_level = section_type == constants.SECTION_TYPE.HEADING and M.get_heading_level(line) or nil
+	local indent = section_type == constants.SECTION_TYPE.LABEL and #(line:match("^%s*") or "") or 0
+	return constants.SECTION_HIERARCHY.get_priority(section_type, heading_level, indent), section_type
 end
 
 -- Extract the human-readable text for a section line, given its type.
+-- Attributes are stripped: "## 1.4 - zortex @p1" -> "1.4 - zortex".
 function M.section_text(line, section_type)
 	if section_type == constants.SECTION_TYPE.ARTICLE then
 		return M.extract_article_name(line) or "Article"
 	elseif section_type == constants.SECTION_TYPE.HEADING then
 		local h = M.parse_heading(line)
-		return M.trim(h and h.text or line:gsub("^#+%s*", ""))
+		return M.strip_attributes(h and h.text or line:gsub("^#+%s*", ""))
 	elseif section_type == constants.SECTION_TYPE.BOLD_HEADING then
 		local bh = M.parse_bold_heading(line)
-		return M.trim(bh and bh.text or line:match("%*%*(.-)%*%*") or line)
+		return M.strip_attributes(bh and bh.text or line:match("%*%*(.-)%*%*") or line)
 	elseif section_type == constants.SECTION_TYPE.LABEL then
 		local lbl = M.parse_label(line)
-		return M.trim(lbl and lbl.text or line:match("^%s*(.-):") or line)
+		return M.strip_attributes(lbl and lbl.text or line:match("^%s*(.-):") or line)
 	end
 	return M.trim(line)
 end
 
 -- Single structural pass over a buffer. Returns an ordered list of descriptors:
---   { lnum = number, type = SECTION_TYPE, level = number, text = string }
--- Encapsulates code-block tracking and the "article block" rule (@@ aliases are
--- only recognised in the leading block of the file).
+--   { lnum = number, type = SECTION_TYPE, level = number, text = string, names = string[]? }
+-- The header block (`@@Name` aliases and `@Tag` lines) produces ONE article
+-- section at the first name, carrying every alias in `names`. `@@` lines
+-- outside the header are plain text.
 function M.scan_sections(lines)
 	local sections = {}
 	if not lines then
 		return sections
 	end
 
-	local code_tracker = CodeBlockTracker:new()
-	local in_article_block = true
+	local header = M.parse_header(lines)
+	if header.name_lnum then
+		sections[1] = {
+			lnum = header.name_lnum,
+			type = constants.SECTION_TYPE.ARTICLE,
+			level = 0,
+			text = header.names[1],
+			names = header.names,
+		}
+	end
 
+	local code_tracker = CodeBlockTracker:new()
 	for lnum, line in ipairs(lines) do
 		local in_code = code_tracker:update(line)
-		local level, section_type = M.calculate_level(line, in_code)
-
-		-- Article continuity: @@ aliases only count in the leading block.
-		if level then
-			if section_type == constants.SECTION_TYPE.ARTICLE then
-				if not in_article_block then
-					level = nil
-				end
-			else
-				in_article_block = false
+		if lnum > header.last_lnum then
+			local level, section_type = M.calculate_level(line, in_code)
+			if level and section_type ~= constants.SECTION_TYPE.ARTICLE then
+				sections[#sections + 1] = {
+					lnum = lnum,
+					type = section_type,
+					level = level,
+					text = M.section_text(line, section_type),
+				}
 			end
-		elseif M.trim(line) ~= "" then
-			in_article_block = false
-		end
-
-		if level then
-			sections[#sections + 1] = {
-				lnum = lnum,
-				type = section_type,
-				level = level,
-				text = M.section_text(line, section_type),
-			}
 		end
 	end
 
@@ -748,20 +740,15 @@ end
 -- Sections
 -- =============================================================================
 
---  Build the section "breadcrumb" that leads to a given buffer line.
 ---Return an ordered list of section descriptors that enclose `target_lnum`,
----outermost first (article → … → innermost). Derived from the single
----structural scan (M.scan_sections) so it always agrees with the document tree.
----Each element contains:
+---outermost first (article → … → innermost). Derived from M.scan_sections so
+---it always agrees with the document tree. Each element contains:
 ---• `lnum`     – where the section starts
 ---• `type`     – one of constants.SECTION_TYPE.*
 ---• `level`    – heading level (only for HEADING; nil otherwise)
----• `priority` – numeric structural level (lower ⇒ higher in the hierarchy)
----• `text`     – section text (article title, heading, bold heading, or label)
+---• `priority` – structural level (lower ⇒ higher in the hierarchy)
+---• `text`     – section text (attributes stripped)
 ---• `display`  – text to show in breadcrumbs / Telescope lists
----@param lines        string[]  -- full buffer ‑ 1‑indexed
----@param target_lnum  integer   -- line the user/caller is interested in
----@return table[]               -- top‑down path  (article → … → innermost)
 function M.build_section_path(lines, target_lnum)
 	if not lines or not target_lnum or target_lnum < 1 then
 		return {}
@@ -773,7 +760,6 @@ function M.build_section_path(lines, target_lnum)
 			break
 		end
 
-		-- Pop anything at the same or deeper level than the section we met.
 		while #stack > 0 and stack[#stack].priority >= sec.level do
 			table.remove(stack)
 		end
@@ -791,83 +777,32 @@ function M.build_section_path(lines, target_lnum)
 	return stack
 end
 
---- Find the start of a section by searching backwards from a line.
---- Searches upwards from `start_lnum` to find the first line that defines a
---- section with a priority that is less than or equal to (i.e., higher than
---- or the same level as) the given `priority`.
-function M.find_section_start(lines, start_lnum, section_type, heading_level)
-	local priority = constants.SECTION_HIERARCHY.get_priority(section_type, heading_level)
-	if not lines or not start_lnum or not priority then
-		return nil
-	end
-
-	-- Track code blocks backwards
-	local code_tracker = CodeBlockTracker:new()
-	-- First pass: determine code block state at start_lnum
-	for lnum = 1, start_lnum do
-		code_tracker:update(lines[lnum])
-	end
-
-	for lnum = start_lnum, 1, -1 do
-		local line = lines[lnum]
-		if line then
-			-- We need to track backwards for code blocks
-			-- This is a simplification - in practice you might need a more sophisticated approach
-			local in_code_block = lnum < start_lnum and code_tracker:is_in_code_block() or false
-
-			local line_priority = M.get_section_priority(line, in_code_block)
-
-			-- `get_section_priority` returns 999 for non-section lines,
-			-- so this check correctly ignores them unless a very high
-			-- priority is passed in.
-			if line_priority <= priority then
-				return lnum
-			end
-		end
-	end
-
-	return nil -- No containing section found
-end
-
+--- Find the last line of the section starting at `start_lnum`: the line before
+--- the next section at the same or a higher structural level. Works on raw
+--- lines (no tree needed); core/document nodes give the same answer.
 function M.find_section_end(lines, start_lnum, section_type, heading_level)
 	local num_lines = #lines
-	local start_priority = constants.SECTION_HIERARCHY.get_priority(section_type, heading_level)
 
-	-- Articles go to end of file
 	if section_type == constants.SECTION_TYPE.ARTICLE then
 		return num_lines
 	end
-
-	-- Tags are single-line
-	if section_type == constants.SECTION_TYPE.TAG then
+	if section_type == constants.SECTION_TYPE.TAG or section_type == constants.SECTION_TYPE.TEXT then
 		return start_lnum
 	end
 
-	-- Track code blocks
+	local start_line = lines[start_lnum] or ""
+	local indent = section_type == constants.SECTION_TYPE.LABEL and #(start_line:match("^%s*") or "") or 0
+	local start_level = constants.SECTION_HIERARCHY.get_priority(section_type, heading_level, indent)
+
 	local code_tracker = CodeBlockTracker:new()
-	-- First pass: determine code block state at start_lnum
 	for lnum = 1, start_lnum do
 		code_tracker:update(lines[lnum])
 	end
 
-	-- For other sections, find the next section of equal or higher priority
 	for i = start_lnum + 1, num_lines do
-		local line = lines[i]
-		local in_code_block = code_tracker:update(line)
-		local line_section_type = M.detect_section_type(line, in_code_block)
-
-		if line_section_type ~= constants.SECTION_TYPE.TEXT and line_section_type ~= constants.SECTION_TYPE.TAG then
-			local line_heading_level = nil
-			if line_section_type == constants.SECTION_TYPE.HEADING then
-				line_heading_level = M.get_heading_level(line)
-			end
-
-			local line_priority = constants.SECTION_HIERARCHY.get_priority(line_section_type, line_heading_level)
-
-			-- If we found a section of equal or higher priority, the current section ends here
-			if line_priority <= start_priority then
-				return i - 1
-			end
+		local level, line_type = M.calculate_level(lines[i], code_tracker:update(lines[i]))
+		if level and line_type ~= constants.SECTION_TYPE.ARTICLE and level <= start_level then
+			return i - 1
 		end
 	end
 

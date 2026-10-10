@@ -30,15 +30,24 @@ function M.load()
 		return false
 	end
 
-	state.entries = {}
 	local lines = fs.read_lines(path)
 	if not lines then
+		state.entries = {}
 		state.loaded = true
 		return false
 	end
 
+	state.entries = M.parse_lines(lines)
+	state.loaded = true
+	return true
+end
+
+-- Parse calendar lines into { ["YYYY-MM-DD"] = { CalendarEntry, ... } }.
+-- Each entry records the line it came from in `entry.lnum`.
+function M.parse_lines(lines)
+	local entries = {}
 	local current_date_str = nil
-	for _, line in ipairs(lines) do
+	for lnum, line in ipairs(lines) do
 		local y, m, d = line:match(constants.PATTERNS.CALENDAR_DATE_HEADING)
 		if y and m and d then
 			current_date_str = datetime.format_datetime({
@@ -46,20 +55,17 @@ function M.load()
 				month = tonumber(m),
 				day = tonumber(d),
 			}, "YYYY-MM-DD")
-			-- Always initialize as empty array, we'll merge duplicates
-			if not state.entries[current_date_str] then
-				state.entries[current_date_str] = {}
-			end
+			-- Duplicate date headings merge into one list
+			entries[current_date_str] = entries[current_date_str] or {}
 		elseif current_date_str then
 			local entry = CalendarEntry.from_text(line, current_date_str)
 			if entry then
-				table.insert(state.entries[current_date_str], entry)
+				entry.lnum = lnum
+				table.insert(entries[current_date_str], entry)
 			end
 		end
 	end
-
-	state.loaded = true
-	return true
+	return entries
 end
 
 function M.save()

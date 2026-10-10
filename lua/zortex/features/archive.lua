@@ -100,10 +100,13 @@ local function ensure_archive_file(archive_path, original_lines)
 			end
 		end
 
-		-- Add empty line after headers
-		if #header_lines > 0 then
-			table.insert(header_lines, "")
+		-- Mark the file archived so link resolution and projects skip it
+		if not parser.list_has(parser.parse_header(header_lines).tags, constants.ARCHIVE_TAG) then
+			table.insert(header_lines, "@" .. constants.ARCHIVE_TAG)
 		end
+
+		-- Add empty line after headers
+		table.insert(header_lines, "")
 
 		fs.write_lines(archive_path, header_lines)
 	end
@@ -178,20 +181,11 @@ local function find_merge_point(archive_lines, section_path, path_index)
 				for i = lnum + 1, section_end do
 					local inner_line = archive_lines[i]
 					local inner_in_code = code_tracker:update(inner_line)
-					local inner_type = parser.detect_section_type(inner_line, inner_in_code)
+					local inner_priority = parser.calculate_level(inner_line, inner_in_code)
 
-					if inner_type ~= constants.SECTION_TYPE.TEXT and inner_type ~= constants.SECTION_TYPE.TAG then
-						local inner_level = nil
-						if inner_type == constants.SECTION_TYPE.HEADING then
-							inner_level = parser.get_heading_level(inner_line)
-						end
-
-						local inner_priority = constants.SECTION_HIERARCHY.get_priority(inner_type, inner_level)
-
-						-- Insert before sections of equal or higher priority
-						if inner_priority <= next_priority then
-							return i, path_index + 1
-						end
+					-- Insert before sections of equal or higher level
+					if inner_priority and inner_priority <= next_priority then
+						return i, path_index + 1
 					end
 				end
 

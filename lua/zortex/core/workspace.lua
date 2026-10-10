@@ -28,7 +28,8 @@ function Document:new(opts)
 	doc.lines = {} -- Current lines (source of truth)
 	doc.original_lines = {} -- Lines from last save/load
 	doc.sections = nil -- Parsed section tree
-	doc.article_names = {} -- Extracted article names
+	doc.article_names = {} -- Extracted article names (@@ aliases)
+	doc.tags = {} -- Header tags (@Tag)
 
 	-- Change tracking
 	doc.dirty_lines = {} -- Set of modified line numbers
@@ -603,23 +604,9 @@ function Document:_get_default_content()
 end
 
 function Document:_extract_article_names()
-	local names = {}
-	local code_tracker = parser.CodeBlockTracker:new()
-
-	for i = 1, math.min(10, #self.lines) do
-		local in_code_block = code_tracker:update(self.lines[i])
-		if not in_code_block then
-			local name = parser.extract_article_name(self.lines[i])
-			if name then
-				table.insert(names, name)
-			elseif self.lines[i]:match("%S") then
-				-- Stop at first non-article line
-				break
-			end
-		end
-	end
-
-	return names
+	local header = parser.parse_header(self.lines)
+	self.tags = header.tags
+	return header.names
 end
 
 function Document:_calculate_checksum()

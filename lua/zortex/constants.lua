@@ -35,33 +35,31 @@ M.SECTION_TYPE = {
 	TEXT = "text",
 }
 
--- Section hierarchy and priorities (lower number = higher priority)
+-- Section hierarchy: ONE structural level scale used everywhere (tree building,
+-- section ends, navigation, breadcrumbs). Lower number = higher in the hierarchy.
+--   ARTICLE      -> 0
+--   HEADING      -> 1..6 (number of #)
+--   BOLD_HEADING -> 7
+--   LABEL        -> 8 + indent (indented labels nest under less-indented ones)
+--   TAG / TEXT   -> not structural (100 / 999)
 M.SECTION_HIERARCHY = {
-	priorities = {
-		[M.SECTION_TYPE.ARTICLE] = 10,
-		[M.SECTION_TYPE.HEADING] = {
-			[1] = 20,
-			[2] = 30,
-			[3] = 40,
-			[4] = 50,
-			[5] = 60,
-			[6] = 70,
-		},
-		[M.SECTION_TYPE.BOLD_HEADING] = 80,
-		[M.SECTION_TYPE.LABEL] = 90,
+	levels = {
+		[M.SECTION_TYPE.ARTICLE] = 0,
+		[M.SECTION_TYPE.BOLD_HEADING] = 7,
+		[M.SECTION_TYPE.LABEL] = 8,
 		[M.SECTION_TYPE.TAG] = 100,
 		[M.SECTION_TYPE.TEXT] = 999,
 	},
 
-	-- Get priority for a section type and level
-	get_priority = function(section_type, heading_level)
-		local priorities = M.SECTION_HIERARCHY.priorities
-
-		if section_type == M.SECTION_TYPE.HEADING and heading_level then
-			return priorities[section_type][heading_level] or 999
-		else
-			return priorities[section_type] or 999
+	-- Structural level for a section type. `heading_level` is the # count for
+	-- headings, `indent` the leading whitespace width for labels.
+	get_priority = function(section_type, heading_level, indent)
+		if section_type == M.SECTION_TYPE.HEADING then
+			return math.min(math.max(heading_level or 1, 1), 6)
+		elseif section_type == M.SECTION_TYPE.LABEL then
+			return M.SECTION_HIERARCHY.levels[section_type] + (indent or 0)
 		end
+		return M.SECTION_HIERARCHY.levels[section_type] or 999
 	end,
 
 	-- Check if parent can contain child
@@ -71,6 +69,27 @@ M.SECTION_HIERARCHY = {
 		return parent_priority < child_priority
 	end,
 }
+
+-- Tag that marks a standalone project article (a line "@P" in the file header),
+-- and the tag that marks archived files (excluded from link resolution).
+M.PROJECT_TAG = "P"
+M.ARCHIVE_TAG = "Archive"
+
+-- Size -> points. Tasks use xs..xl; projects may also use the larger sizes.
+-- Unsized tasks count as DEFAULT_TASK_SIZE. An explicit project @size(...)
+-- overrides the sum of its tasks.
+M.SIZE_POINTS = {
+	xs = 1,
+	sm = 2,
+	md = 3,
+	lg = 5,
+	xl = 8,
+	epic = 13,
+	legendary = 21,
+	mythic = 34,
+	ultimate = 55,
+}
+M.DEFAULT_TASK_SIZE = "md"
 
 -- Patterns for parsing
 M.PATTERNS = {
@@ -114,9 +133,10 @@ M.PATTERNS = {
 	CALENDAR_TIME_PREFIX = "^%s*(%d%d?:%d%d)%s+(.+)$",
 	CALENDAR_TIME_RANGE = "^%s*(%d%d?:%d%d)%s*%-%s*(%d%d?:%d%d)%s+(.+)$",
 
-	-- okr.zortex
-	OKR_DATE = "^## ([%w]+) (%d+) (%d+) (.+)$",
-	KEY_RESULT = "^%s*- KR%-",
+	-- okr.zortex (matched against heading text, attributes already stripped)
+	OBJECTIVE = "^(%w+)%-(%d%d%d%d)%-(%w+)%s+(.+)$", -- "3M-2026-Q1 Title"
+	OBJECTIVE_LEGACY = "^(%w+) (%d%d%d%d) (%d%d?) (.+)$", -- "3M 2026 01 Title"
+	KEY_RESULT = "^%s*%-%s*KR(%d*)[%-:]?%s*(.*)$", -- "- KR1: [ ] text", "- KR-text"
 }
 
 M.TASK_MARKS = {

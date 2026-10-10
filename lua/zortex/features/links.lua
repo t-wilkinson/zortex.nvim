@@ -33,13 +33,21 @@ local function open_external(target)
 	vim.fn.jobstart(cmd_parts, { detach = true })
 end
 
+local MEDIA_EXTENSIONS = { "mp4", "mkv", "mov", "png", "jpg", "jpeg", "gif", "webp", "pdf", "epub" }
+
+-- Files opened with the system handler instead of a buffer
+local function is_media(path)
+	local ext = (path:match("%.([%w]+)$") or ""):lower()
+	return vim.tbl_contains(MEDIA_EXTENSIONS, ext)
+end
+
 -- =============================================================================
 -- Navigation
 -- =============================================================================
 
 -- Jump to location
 local function jump_to_location(location, use_target_window)
-	local target_win = use_target_window and buffer.get_target_window() or vim.api.nconfig.get("t_current_win")()
+	local target_win = use_target_window and buffer.get_target_window() or vim.api.nvim_get_current_win()
 
 	-- Load file in target window
 	local bufnr = vim.fn.bufadd(location.file)
@@ -93,17 +101,7 @@ function M.open_link()
 
 		-- Check if this is a direct media file path before resolving as a note
 		local def = link_info.definition
-		local is_media = def:match("%.mp4$")
-			or def:match("%.mkv$")
-			or def:match("%.mov$")
-			or def:match("%.png$")
-			or def:match("%.jpg$")
-			or def:match("%.jpeg$")
-			or def:match("%.gif$")
-			or def:match("%.webp$")
-			or def:match("%.pdf$")
-			or def:match("%.epub$")
-		if is_media then
+		if is_media(def) then
 			local resolved_path = def
 			-- Resolve relative paths (./ or ../) relative to the current file
 			if def:sub(1, 2) == "./" or def:sub(1, 3) == "../" then
@@ -204,18 +202,7 @@ function M.open_link()
 
 		-- 3. Check extension to decide HOW to open (Media/PDF vs Note)
 		-- Add PDF and other non-text formats here
-		local is_media = full_path:match("%.mp4$")
-			or full_path:match("%.mkv$")
-			or full_path:match("%.mov$")
-			or full_path:match("%.png$")
-			or full_path:match("%.jpg$")
-			or full_path:match("%.jpeg$")
-			or full_path:match("%.gif$")
-			or full_path:match("%.webp$")
-			or full_path:match("%.pdf$")
-			or full_path:match("%.epub$")
-
-		if is_media then
+		if is_media(full_path) then
 			if fs.file_exists(full_path) then
 				open_external(full_path)
 			else
@@ -239,59 +226,31 @@ end
 -- Navigation Helpers
 -- =============================================================================
 
--- Navigate to next/previous section at same or higher level
+-- Navigate to next/previous section at the same or a higher structural level
+-- than the section the cursor is in (or on).
 function M.navigate_section(direction)
 	local lines = buffer.get_lines()
-	local current_lnum, _ = buffer.get_cursor_pos()
+	local current_lnum = buffer.get_cursor_pos()
+	local sections = parser.scan_sections(lines)
 
-	-- Get current section info
-	local current_section_type = parser.detect_section_type(lines[current_lnum])
-	local current_heading_level = nil
-	if current_section_type == constants.SECTION_TYPE.HEADING then
-		current_heading_level = parser.get_heading_level(lines[current_lnum])
-	end
-	local current_priority = constants.SECTION_HIERARCHY.get_priority(current_section_type, current_heading_level)
+	-- Level of the innermost section containing the cursor
+	local path = parser.build_section_path(lines, current_lnum)
+	local current_level = #path > 0 and path[#path].priority or math.huge
 
-	-- If we're not on a section header, find the containing section
-	if current_section_type == constants.SECTION_TYPE.TEXT or current_section_type == constants.SECTION_TYPE.TAG then
-		-- Build section path to current position
-		local section_path = parser.build_section_path(lines, current_lnum)
-		if #section_path > 0 then
-			local last_section = section_path[#section_path]
-			current_priority = last_section.priority
-		end
-	end
-
-	-- Search for next/previous section of same or higher priority
 	local target_lnum = nil
 	if direction == "next" then
-		for i = current_lnum + 1, #lines do
-			local section_type = parser.detect_section_type(lines[i])
-			if section_type ~= constants.SECTION_TYPE.TEXT and section_type ~= constants.SECTION_TYPE.TAG then
-				local heading_level = nil
-				if section_type == constants.SECTION_TYPE.HEADING then
-					heading_level = parser.get_heading_level(lines[i])
-				end
-				local priority = constants.SECTION_HIERARCHY.get_priority(section_type, heading_level)
-				if priority <= current_priority then
-					target_lnum = i
-					break
-				end
+		for _, sec in ipairs(sections) do
+			if sec.lnum > current_lnum and sec.level <= current_level then
+				target_lnum = sec.lnum
+				break
 			end
 		end
-	else -- previous
-		for i = current_lnum - 1, 1, -1 do
-			local section_type = parser.detect_section_type(lines[i])
-			if section_type ~= constants.SECTION_TYPE.TEXT and section_type ~= constants.SECTION_TYPE.TAG then
-				local heading_level = nil
-				if section_type == constants.SECTION_TYPE.HEADING then
-					heading_level = parser.get_heading_level(lines[i])
-				end
-				local priority = constants.SECTION_HIERARCHY.get_priority(section_type, heading_level)
-				if priority <= current_priority then
-					target_lnum = i
-					break
-				end
+	else
+		for i = #sections, 1, -1 do
+			local sec = sections[i]
+			if sec.lnum < current_lnum and sec.level <= current_level then
+				target_lnum = sec.lnum
+				break
 			end
 		end
 	end

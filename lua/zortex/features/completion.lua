@@ -13,26 +13,9 @@ local cache = {
 	last_update = 0,
 }
 
--- Extract all article names/aliases from the start of a file
+-- Article names/aliases from the file header (shared parser)
 local function extract_article_names(lines)
-	local names = {}
-
-	for i, line in ipairs(lines) do
-		local name = parser.extract_article_name(line)
-		if name then
-			table.insert(names, name)
-		else
-			-- Stop when we hit a non-article-name line
-			break
-		end
-
-		-- Safety limit
-		if i > 10 then
-			break
-		end
-	end
-
-	return names
+	return parser.parse_header(lines).names
 end
 
 -- Get structural elements from lines in file order
@@ -120,7 +103,7 @@ local function update_cache()
 
 	cache.articles = {}
 	cache.article_data = {}
-	local files = fs.get_all_note_files()
+	local files = require("zortex.core.notes").files()
 
 	for _, file in ipairs(files) do
 		local lines = fs.read_lines(file)

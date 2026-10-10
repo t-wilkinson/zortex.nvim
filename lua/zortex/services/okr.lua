@@ -1,146 +1,156 @@
--- services/objective.lua
+-- services/okr.lua - Objectives and key results
+--
+-- Objectives are headings whose (attribute-free) text looks like
+--   "3M-2026-Q1 Establish and maintain good habits/routine"
+-- Key results are list items under an objective:
+--   "- KR2: [ ] Make list of habits and routines [P/#1 Personal/#Habits]"
+-- Links inside a KR are resolved with the shared link resolver; links that land
+-- in a project are recorded by project KEY, so "[P/#1.4 - zortex]" and
+-- "[Projects/#1 Programming/#1.4 - zortex]" refer to the same project.
 local M = {}
 
+local constants = require("zortex.constants")
 local parser = require("zortex.utils.parser")
-local workspace = require("zortex.core.workspace")
+local attributes = require("zortex.utils.attributes")
+local Document = require("zortex.core.document")
+local fs = require("zortex.utils.filesystem")
 
--- Get current (incomplete) objectives
-function M.get_current_objectives()
-	local all_objectives = M.get_objectives()
-	local current = {}
+local OBJECTIVE_SCHEMA = vim.tbl_extend("force", attributes.schemas.project, {
+	created = { type = "date" },
+})
 
-	for _, obj in ipairs(all_objectives) do
-		if not obj.completed then
-			table.insert(current, obj)
-		end
+-- Parse objective heading text -> { span, year, period, title } or nil
+function M.parse_objective(text)
+	local span, year, period, title = text:match(constants.PATTERNS.OBJECTIVE)
+	if not span then
+		span, year, period, title = text:match(constants.PATTERNS.OBJECTIVE_LEGACY)
 	end
-
-	return current
+	if not span then
+		return nil
+	end
+	return { span = span, year = tonumber(year), period = period, title = title }
 end
 
--- Get key result that links to project_link
-function M.get_key_results(project_link)
-	local key_results = {}
-	local objectives = {} -- also return matching objective
-
-	local all_objectives = M.get_objectives()
-	for _, objective in ipairs(all_objectives) do
-		for _, key_result in objective.key_results do
-			for _, linked_project in key_result.linked_projects do
-				if project_link == linked_project.full_match_text then
-					table.insert(key_results, key_result)
-					table.insert(objectives, objective)
-				end
-			end
+-- Parse a key result line -> { id, text, completed, links } or nil
+function M.parse_key_result(line)
+	local num, rest = line:match(constants.PATTERNS.KEY_RESULT)
+	if not rest then
+		return nil
+	end
+	local mark, text = rest:match("^%[(.)%]%s*(.*)$")
+	local links = {}
+	for _, link in ipairs(parser.extract_all_links(rest)) do
+		if link.type == "link" or link.type == "live_link" then
+			links[#links + 1] = link.definition
 		end
 	end
-
-	return key_results, objectives
+	return {
+		id = "KR" .. num,
+		text = parser.strip_attributes(text or rest),
+		completed = mark == "x" or mark == "X",
+		links = links,
+	}
 end
 
--- Get objectives
+local function okr_file()
+	return fs.get_okr_file()
+end
+
+local cache = { doc = nil, signature = nil, objectives = nil }
+
+-- All objectives, in document order:
+-- { id, name, span, year, period, title, attributes, completed, lnum, file,
+--   path, section, key_results = { { id, text, completed, links, lnum,
+--   objective, projects = { [project_key] = Project } } } }
 function M.get_objectives()
-	local doc = workspace.okr()
+	local doc = Document.get(okr_file())
+	if not doc then
+		return {}
+	end
+	local signature = require("zortex.services.projects").signature()
+	if cache.doc == doc and cache.signature == signature then
+		return cache.objectives
+	end
+
+	local projects = require("zortex.services.projects")
 	local objectives = {}
-	local current_objective = nil
 
-	-- Walk through document sections
-	local function process_section(section)
-		-- Check if this is an objective heading
-		local okr_date = parser.parse_okr_date(section.raw_text or section.text)
-		if okr_date then
-			-- Save previous objective
-			if current_objective then
-				table.insert(objectives, current_objective)
-			end
-
-			-- Create new objective
-			current_objective = {
-				id = M._generate_objective_id(okr_date),
-				span = okr_date.span,
-				year = okr_date.year,
-				month = okr_date.month,
-				title = okr_date.title,
-				line_num = section.start_line,
-				key_results = {},
-				completed = false,
-				created_date = nil,
-			}
-
-			-- Extract metadata from section
-			local attrs = parser.parse_attributes(section.raw_text or section.text, {
-				created = { type = "date" },
-				done = { type = "date" },
-				area = { type = "area" },
-				a = "area",
-			})
-
-			if attrs.created then
-				current_objective.created_date = os.time(attrs.created)
-			end
-
-			if attrs.done then
-				current_objective.completed = true
-				current_objective.completed_date = os.time(attrs.done)
-			end
+	doc.tree:walk(function(node)
+		if node.type ~= "heading" then
+			return
+		end
+		local info = M.parse_objective(node.text)
+		if not info then
+			return
 		end
 
-		-- Check for key results in tasks
-		if current_objective then
-			for _, task in ipairs(section.tasks) do
-				if task.text:match("^KR%-") then
-					local kr = {
-						text = task.text:gsub("^KR%-", ""),
-						line_num = task.line,
-						completed = task.completed,
-						linked_projects = M._extract_project_links(task.text),
-					}
-					table.insert(current_objective.key_results, kr)
+		local attrs = attributes.parse_attributes(doc.lines[node.start_line] or "", OBJECTIVE_SCHEMA)
+		local path = node:path_texts()
+		local objective = {
+			id = string.format("%s_%d_%s_%s", info.span, info.year, info.period, (info.title:gsub("[^%w]", "_"))),
+			name = node.text,
+			span = info.span,
+			year = info.year,
+			period = info.period,
+			title = info.title,
+			attributes = attrs,
+			completed = attrs.done ~= nil,
+			lnum = node.start_line,
+			file = doc.filepath,
+			path = path,
+			section = path[#path - 1], -- e.g. "Current"
+			node = node,
+			key_results = {},
+		}
+
+		for lnum = node.start_line + 1, node:get_direct_end_line() do
+			local kr = M.parse_key_result(doc.lines[lnum])
+			if kr then
+				kr.lnum = lnum
+				kr.file = doc.filepath
+				kr.objective = objective
+				kr.projects = {}
+				for _, def in ipairs(kr.links) do
+					local project = projects.resolve(def)
+					if project then
+						kr.projects[project.key] = project
+					end
 				end
+				table.insert(objective.key_results, kr)
 			end
 		end
 
-		-- Process children
-		for _, child in ipairs(section.children) do
-			process_section(child)
-		end
-	end
+		table.insert(objectives, objective)
+	end)
 
-	if doc.sections then
-		process_section(doc.sections)
-	end
-
-	-- Add last objective
-	if current_objective then
-		table.insert(objectives, current_objective)
-	end
-
+	cache.doc, cache.signature, cache.objectives = doc, signature, objectives
 	return objectives
 end
 
-function M._generate_objective_id(date_info)
-	return string.format(
-		"%s_%d_%d_%s",
-		date_info.span,
-		date_info.year,
-		date_info.month,
-		date_info.title:gsub("[^%w]", "_")
-	)
+-- Objectives that are not marked done
+function M.get_current_objectives()
+	return vim.tbl_filter(function(o)
+		return not o.completed
+	end, M.get_objectives())
 end
 
-function M._extract_project_links(text)
-	local project_links = {}
-	local all_links = parser.extract_all_links(text)
-
-	for _, link_info in ipairs(all_links) do
-		if link_info.type == "link" then
-			if string.sub(link_info.full_match_text, 1, 2) == "[P" then
-				project_links[link_info.full_match_text] = link_info
+-- Key results linking to a project (Project, key or link). Also returns the
+-- objective of each key result, index-aligned.
+function M.get_key_results(project_ref)
+	local project = require("zortex.services.projects").lookup(project_ref)
+	if not project then
+		return {}, {}
+	end
+	local key_results, objectives = {}, {}
+	for _, objective in ipairs(M.get_objectives()) do
+		for _, kr in ipairs(objective.key_results) do
+			if kr.projects[project.key] then
+				table.insert(key_results, kr)
+				table.insert(objectives, objective)
 			end
 		end
 	end
-
-	return project_links
+	return key_results, objectives
 end
 
 return M

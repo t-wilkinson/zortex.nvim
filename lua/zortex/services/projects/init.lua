@@ -20,201 +20,43 @@ local M = {}
 local constants = require("zortex.constants")
 local Document = require("zortex.core.document")
 local notes = require("zortex.core.notes")
-local section = require("zortex.core.section")
+local entity = require("zortex.core.entity")
 local fs = require("zortex.utils.filesystem")
-local link_resolver = require("zortex.utils.link_resolver")
 local ProjectModule = require("zortex.services.projects.project")
 
 M.Project = ProjectModule.Project
-
--- =============================================================================
--- Sources
--- =============================================================================
 
 local function normalize(path)
 	return vim.fn.fnamemodify(path, ":p")
 end
 
--- Paths of every project source: the Projects file first, then @P notes.
-function M.sources()
-	local out, seen = {}, {}
-	local function add(path)
-		path = normalize(path)
-		if not seen[path] and vim.loop.fs_stat(path) then
-			seen[path] = true
-			out[#out + 1] = path
-		end
-	end
-	add(fs.get_projects_file())
-	for _, path in ipairs(notes.find_by_tag(constants.PROJECT_TAG)) do
-		add(path)
-	end
-	return out
-end
+-- Registry (core/entity): sources, roots, all, get, at, current, resolve,
+-- lookup, jump, for_document, signature.
+local registry = entity.registry({
+	kind = "project",
+	namespace = constants.PROJECT_TAG, -- links start with [P/...]
+	class = ProjectModule.Project,
+	init = ProjectModule.init,
+	keep = function(node)
+		return node.type == "heading"
+	end,
+	-- The Projects file first, then every note tagged @P
+	sources = function()
+		local out = { fs.get_projects_file() }
+		vim.list_extend(out, notes.find_by_tag(constants.PROJECT_TAG))
+		return out
+	end,
+	is_source = function(doc)
+		return doc.filepath == normalize(fs.get_projects_file()) or doc:has_tag(constants.PROJECT_TAG)
+	end,
+	-- Extra all() option: include_done = false hides finished projects
+	matches = function(p, opts)
+		return not (opts.include_done == false and p:is_done())
+	end,
+})
 
--- Changes whenever any project source changes (file mtime or buffer edits).
--- Lets consumers cache data derived from projects (OKR links, schedule).
-function M.signature()
-	local parts = {}
-	for _, path in ipairs(M.sources()) do
-		local doc = Document.get(path)
-		parts[#parts + 1] = path .. ":" .. tostring(doc and (doc.mtime or doc.changedtick))
-	end
-	return table.concat(parts, "|")
-end
-
-function M.is_source(doc)
-	if not doc or not doc.filepath then
-		return false
-	end
-	return doc.filepath == normalize(fs.get_projects_file()) or doc:has_tag(constants.PROJECT_TAG)
-end
-
--- =============================================================================
--- Building
--- =============================================================================
-
-local function is_project_node(node)
-	return node.type == "article" or node.type == "heading"
-end
-
--- Root projects of one document (cached on the immutable snapshot).
-function M.for_document(target)
-	local doc = Document.resolve(target)
-	if not doc then
-		return {}
-	end
-	if not doc._projects then
-		doc._projects = section.derive(doc.tree, is_project_node, function(node, parent)
-			return ProjectModule.new(doc, node, parent)
-		end)
-		-- A file without @@ names has headings but no article: wrap nothing,
-		-- such files are not valid project sources.
-		if doc._projects[1] and doc._projects[1].kind ~= "article" then
-			doc._projects = {}
-		end
-	end
-	return doc._projects
-end
-
--- Root projects across all sources, in source order.
-function M.roots()
-	local roots = {}
-	for _, path in ipairs(M.sources()) do
-		vim.list_extend(roots, M.for_document(path))
-	end
-	return roots
-end
-
--- =============================================================================
--- Lookup
--- =============================================================================
-
-local function matches(p, opts)
-	if opts.leaf and not p:is_leaf() then
-		return false
-	end
-	if opts.include_roots == false and p:is_root() then
-		return false
-	end
-	if opts.include_done == false and p:is_done() then
-		return false
-	end
-	if opts.filter and not opts.filter(p) then
-		return false
-	end
-	return true
-end
-
--- Flat, pre-ordered list of projects.
----@param opts { leaf?: boolean, include_roots?: boolean, include_done?: boolean, filter?: fun(p): boolean }?
-function M.all(opts)
-	opts = opts or {}
-	local out = {}
-	for _, root in ipairs(M.roots()) do
-		root:walk(function(p)
-			if matches(p, opts) then
-				out[#out + 1] = p
-			end
-		end)
-	end
-	return out
-end
-
--- Project by key ("Projects/1 Programming/1.4 - zortex"), case-insensitive.
-function M.get(key)
-	if not key then
-		return nil
-	end
-	local wanted = key:lower()
-	local found
-	for _, root in ipairs(M.roots()) do
-		root:walk(function(p)
-			if found then
-				return false
-			end
-			if p.key:lower() == wanted then
-				found = p
-				return false
-			end
-		end)
-		if found then
-			break
-		end
-	end
-	return found
-end
-
--- Innermost project containing `lnum` in a document (Document, path or bufnr).
--- Returns nil when the document is not a project source.
-function M.at(target, lnum)
-	local doc = Document.resolve(target)
-	if not doc or not M.is_source(doc) then
-		return nil
-	end
-	local found
-	for _, root in ipairs(M.for_document(doc)) do
-		root:walk(function(p)
-			if p:contains_line(lnum) then
-				found = p
-				return true
-			end
-			return false
-		end)
-	end
-	return found
-end
-
--- Project at the cursor in the current buffer.
-function M.current()
-	return M.at(vim.api.nvim_get_current_buf(), vim.api.nvim_win_get_cursor(0)[1])
-end
-
--- Resolve a link to the project that contains its canonical target, using the
--- exact same rules as following the link. Returns project, result.
-function M.resolve(link, opts)
-	local result, err = link_resolver.resolve_first(link, opts)
-	if not result then
-		return nil, err
-	end
-	local project = M.at(result.doc, result.lnum)
-	if not project then
-		return nil, "Link does not point into a project: " .. tostring(type(link) == "string" and link or "")
-	end
-	return project, result
-end
-
--- Accepts a Project, a key or a link.
-function M.lookup(ref)
-	if type(ref) == "table" then
-		return ref
-	elseif type(ref) == "string" then
-		if ref:match("^%[") or ref:find("#", 1, true) or ref:match("^@") then
-			return (M.resolve(ref))
-		end
-		return M.get(ref) or (M.resolve(ref))
-	end
-	return nil
+for name, fn in pairs(registry) do
+	M[name] = fn
 end
 
 -- =============================================================================
@@ -255,18 +97,6 @@ end
 -- =============================================================================
 -- Actions
 -- =============================================================================
-
--- Open a project in the current (or given) window.
-function M.jump(project, cmd)
-	project = M.lookup(project)
-	if not project then
-		return false
-	end
-	vim.cmd((cmd or "edit") .. " " .. vim.fn.fnameescape(project.file))
-	vim.api.nvim_win_set_cursor(0, { project.lnum, 0 })
-	vim.cmd("normal! zz")
-	return true
-end
 
 -- Write @progress(done/total) (sub-projects included) on every heading
 -- project of a buffer. Returns the number of headings updated.

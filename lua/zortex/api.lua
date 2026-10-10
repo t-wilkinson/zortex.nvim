@@ -40,7 +40,7 @@ M.task = {
 -- 	local stats = {
 -- 		tasks = require("zortex.stores.tasks").get_stats(),
 -- 		projects = require("zortex.services.project").get_all_stats(),
--- 		xp = require("zortex.services.xp").get_stats(),
+-- 		xp = require("zortex.services.xp.stats").get_stats(),
 -- 	}
 --
 -- 	-- Format and display stats
@@ -85,52 +85,24 @@ M.notifications = {
 -- ===========================================================================
 M.xp = {
 	overview = function()
-		require("zortex.services.xp").show_xp_overview()
+		require("zortex.services.xp.stats").show_stats()
 	end,
 
 	stats = function()
-		local xp_service = require("zortex.services.xp")
-		local stats = xp_service.get_stats()
+		require("zortex.services.xp.stats").show_stats()
+	end,
 
-		local lines = { "📊 XP Statistics", "" }
-
-		-- Season stats
-		if stats.season then
-			table.insert(lines, "🏆 Season: " .. stats.season.season.name)
-			table.insert(lines, string.format("   Level: %d", stats.season.level))
-			table.insert(lines, string.format("   XP: %d", stats.season.xp))
-			if stats.season.current_tier then
-				table.insert(lines, "   Tier: " .. stats.season.current_tier.name)
-			end
-			table.insert(lines, "")
-		end
-
-		-- Project stats
-		if next(stats.projects) then
-			table.insert(lines, "📁 Projects:")
-			for name, proj in pairs(stats.projects) do
-				table.insert(lines, string.format("   %s: Level %d (%d XP)", name, proj.level, proj.xp))
-			end
-			table.insert(lines, "")
-		end
-
-		-- Area stats
-		if stats.areas then
-			table.insert(lines, string.format("🏔️  Areas: %d total", stats.areas.total_areas))
-			table.insert(lines, string.format("   Total XP: %d", stats.areas.total_xp))
-			table.insert(lines, string.format("   Max Level: %d", stats.areas.max_level))
-		end
-
-		vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO, { title = "XP Stats" })
+	areas = function()
+		require("zortex.services.xp.stats").show_area_xp()
 	end,
 
 	season = {
 		start = function(name, end_date)
-			require("zortex.services.xp").start_season(name, end_date)
+			require("zortex.services.xp.stats").start_season(name, end_date)
 		end,
 
 		end_current = function()
-			local result = require("zortex.services.xp").end_season()
+			local result = require("zortex.services.xp.stats").end_season()
 			if result then
 				vim.notify("Ended season: " .. result.name, vim.log.levels.INFO)
 			else
@@ -139,10 +111,17 @@ M.xp = {
 		end,
 
 		status = function()
-			return require("zortex.services.xp").get_season_status()
+			return require("zortex.services.xp.stats").season_status()
 		end,
 	},
 }
+
+-- Areas (see services/areas for the full API)
+M.areas = setmetatable({}, {
+	__index = function(_, key)
+		return require("zortex.services.areas")[key]
+	end,
+})
 
 -- ===========================================================================
 -- UI

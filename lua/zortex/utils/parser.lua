@@ -454,8 +454,11 @@ function M.parse_link_component(component)
 	-- Detected before prefix checks. Spaces around the operator are
 	-- required so that "c++" or "r&d" aren't mis-parsed.
 	-- ---------------------------------------------------------------
+	-- Infix operators apply to untyped components only, so "#R & D" stays a
+	-- heading and "#4 Learning & Education" is not an AND query.
+	local typed = first_char == "#" or first_char == ":" or first_char == "-" or first_char == "*"
 	local query_type, tags = M.split_query(component)
-	if query_type ~= "single" and #tags >= 2 then
+	if not typed and query_type ~= "single" and #tags >= 2 then
 		return {
 			type = query_type .. "_query",
 			tags = tags,

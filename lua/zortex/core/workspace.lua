@@ -829,25 +829,64 @@ function Workspace:get(name)
 	return self.documents[name]
 end
 
--- Get document for buffer
+local function same_file(a, b)
+	return vim.fn.resolve(vim.fn.fnamemodify(a, ":p")) == vim.fn.resolve(vim.fn.fnamemodify(b, ":p"))
+end
+
+-- Get the core document (projects, areas, okr, archive) for a buffer
 function Workspace:get_for_buffer(bufnr)
 	local buffer_path = vim.api.nvim_buf_get_name(bufnr)
 	if buffer_path == "" then
 		return nil
 	end
 
-	-- Extract just the filename from the buffer path
-	local buffer_filename = vim.fn.fnamemodify(buffer_path, ":t")
-
-	-- Check each document by comparing filenames
-	for name, doc in pairs(self.documents) do
-		local doc_filename = vim.fn.fnamemodify(doc.filepath, ":t")
-		if buffer_filename == doc_filename then
+	for _, doc in pairs(self.documents) do
+		if same_file(buffer_path, doc.filepath) then
 			return doc
 		end
 	end
 
 	return nil
+end
+
+-- Document for any other note buffer (e.g. a standalone @P project), so task
+-- toggling and XP work everywhere. It is seeded FROM the buffer (never the
+-- file, so unsaved edits are kept), is never saved by the workspace, and is
+-- dropped when the buffer unloads.
+Workspace.notes = {} -- bufnr -> Document
+
+function Workspace:get_note_for_buffer(bufnr)
+	local existing = self.notes[bufnr]
+	if existing and existing.bufnr == bufnr then
+		return existing
+	end
+
+	local Config = require("zortex.config")
+	local path = vim.api.nvim_buf_get_name(bufnr)
+	if path == "" or not path:match(vim.pesc(Config.extension) .. "$") then
+		return nil
+	end
+
+	local doc = Document:new({
+		name = "note_" .. bufnr,
+		filepath = vim.fn.fnamemodify(path, ":p"),
+	})
+	doc.ephemeral = true
+	doc.lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+	doc.original_lines = vim.deepcopy(doc.lines)
+	doc.exists = fs.file_exists(doc.filepath)
+	doc:parse(true)
+	doc:attach_buffer(bufnr) -- lines already equal: nothing is written
+
+	self.notes[bufnr] = doc
+	vim.api.nvim_create_autocmd({ "BufUnload", "BufWipeout" }, {
+		buffer = bufnr,
+		once = true,
+		callback = function()
+			self.notes[bufnr] = nil
+		end,
+	})
+	return doc
 end
 
 -- Open document in buffer
@@ -887,7 +926,7 @@ function Workspace:save_all()
 	local saved = {}
 
 	for name, doc in pairs(self.documents) do
-		if doc:is_dirty() then
+		if not doc.ephemeral and doc:is_dirty() then
 			if doc:save() then
 				table.insert(saved, name)
 			end
@@ -1022,10 +1061,11 @@ M.get_current = function()
 	return Workspace:get_for_buffer(bufnr)
 end
 
--- Get the document context of the cursor
+-- Get the document context of the cursor. Works in core documents and in any
+-- other note buffer.
 M.get_doc_context = function()
 	local bufnr = vim.api.nvim_get_current_buf()
-	local doc = Workspace:get_for_buffer(bufnr)
+	local doc = Workspace:get_for_buffer(bufnr) or Workspace:get_note_for_buffer(bufnr)
 	local cursor = vim.api.nvim_win_get_cursor(0)
 	local lnum = cursor[1]
 	local col = cursor[2]

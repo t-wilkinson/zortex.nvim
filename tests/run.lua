@@ -6,13 +6,17 @@ local root = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p:h:h")
 vim.opt.rtp:prepend(root)
 package.path = root .. "/tests/?.lua;" .. package.path
 
--- Point zortex at the fixture notes without running Config.setup (which
--- would create directories inside the fixtures).
+-- Work on a throwaway copy of the fixture notes: stores (XP state, ...)
+-- create files inside notes_dir. Config.setup is skipped on purpose.
+local notes_dir = vim.fn.tempname() .. "/notes/"
+vim.fn.mkdir(notes_dir, "p")
+vim.fn.system({ "cp", "-r", root .. "/tests/fixtures/notes/.", notes_dir })
 local Config = require("zortex.config")
-Config.notes_dir = root .. "/tests/fixtures/notes/"
+Config.notes_dir = notes_dir
 Config.extension = ".zortex"
 
 local T = require("helpers")
+T.root = root
 local filter = arg[1]
 local files = vim.fn.glob(root .. "/tests/test_*.lua", false, true)
 table.sort(files)

@@ -3,11 +3,27 @@ local M = {}
 
 local config = require("zortex.config")
 local constants = require("zortex.constants")
-local xp_service = require("zortex.services.xp")
+local xp_stats = require("zortex.services.xp.stats")
+local areas = require("zortex.services.areas")
+local projects = require("zortex.services.projects")
 
 -- =============================================================================
 -- Display Helpers
 -- =============================================================================
+
+-- Default highlight links (users can override the groups)
+local function define_highlights()
+	local links = {
+		[constants.HIGHLIGHTS.SKILL_LEVEL_1_3] = "Comment",
+		[constants.HIGHLIGHTS.SKILL_LEVEL_4_6] = "String",
+		[constants.HIGHLIGHTS.SKILL_LEVEL_7_9] = "Function",
+		[constants.HIGHLIGHTS.SKILL_LEVEL_10_PLUS] = "Special",
+		[constants.HIGHLIGHTS.PROGRESS_BAR] = "DiagnosticOk",
+	}
+	for group, link in pairs(links) do
+		vim.api.nvim_set_hl(0, group, { link = link, default = true })
+	end
+end
 
 -- Create progress bar
 local function create_progress_bar(progress, width)
@@ -45,7 +61,7 @@ end
 -- =============================================================================
 
 local function render_season_section(lines, highlights)
-	local status = xp_service.get_season_status()
+	local status = xp_stats.season_status()
 
 	table.insert(lines, "")
 	table.insert(lines, "━━━ SEASON PROGRESS ━━━")
@@ -93,14 +109,13 @@ local function render_season_section(lines, highlights)
 	end
 
 	-- Project stats
-	local project_stats = skills.get_project_stats()
 	local active_projects = 0
 	local completed_projects = 0
 
-	for _, stats in pairs(project_stats) do
-		if stats.completion_rate >= 1.0 then
+	for _, project in ipairs(projects.all({ include_roots = false })) do
+		if project:is_done() then
 			completed_projects = completed_projects + 1
-		elseif stats.completed_tasks > 0 then
+		elseif project:stats().done > 0 then
 			active_projects = active_projects + 1
 		end
 	end
@@ -113,42 +128,30 @@ end
 -- Area Tree Display
 -- =============================================================================
 
-local function render_area_node(node, lines, highlights, indent_level, skip_self)
+-- Render an Area (services/areas) and its sub-areas. Levels come from the
+-- area's total XP (sub-areas included).
+local function render_area_node(node, lines, highlights, indent_level)
 	indent_level = indent_level or 0
 	local indent = string.rep("  ", indent_level)
+	local show_self = not node:is_root()
 
-	-- Skip root node and optionally skip self
-	if not skip_self and node.level > 0 then
-		-- Build line
-		local line_parts = { indent .. node.name }
+	if show_self then
+		local data = node:xp_data()
+		if data.total_xp > 0 and data.level then
+			local level_str = string.format("[Lvl %d]", data.level)
+			table.insert(lines, string.format("%s%s %s (%s XP)", indent, node.name, level_str, format_xp(data.total_xp)))
 
-		if node.xp_data then
-			-- Add level
-			table.insert(line_parts, string.format("[Lvl %d]", node.xp_data.level))
-
-			-- Add XP
-			table.insert(line_parts, string.format("(%s XP)", format_xp(node.xp_data.xp)))
-
-			table.insert(lines, table.concat(line_parts, " "))
-			local line_num = #lines
-
-			-- Highlight level
 			local level_start = #indent + #node.name + 1
-			local level_end = level_start + #string.format("[Lvl %d]", node.xp_data.level)
 			table.insert(highlights, {
-				line = line_num - 1,
+				line = #lines - 1,
 				col_start = level_start,
-				col_end = level_end,
-				group = get_level_highlight(node.xp_data.level),
+				col_end = level_start + #level_str,
+				group = get_level_highlight(data.level),
 			})
 
-			-- Progress bar for non-deep nodes
-			if indent_level < 3 and node.xp_data.progress then
-				local bar = create_progress_bar(node.xp_data.progress, 20)
-				local progress_line = string.format("%s  %s %.0f%% to next", indent, bar, node.xp_data.progress * 100)
-				table.insert(lines, progress_line)
-
-				-- Highlight progress bar
+			if indent_level < 3 and data.progress then
+				local bar = create_progress_bar(data.progress, 20)
+				table.insert(lines, string.format("%s  %s %.0f%% to next", indent, bar, data.progress * 100))
 				table.insert(highlights, {
 					line = #lines - 1,
 					col_start = #indent + 2,
@@ -157,19 +160,12 @@ local function render_area_node(node, lines, highlights, indent_level, skip_self
 				})
 			end
 		else
-			-- No XP data
-			table.insert(lines, line_parts[1] .. " [No XP]")
+			table.insert(lines, indent .. node.name .. " [No XP]")
 		end
 	end
 
-	-- Render children with proper indentation
-	local child_indent = indent_level
-	if not skip_self and node.level > 0 then
-		child_indent = indent_level + 1
-	end
-
 	for _, child in ipairs(node.children) do
-		render_area_node(child, lines, highlights, child_indent, false)
+		render_area_node(child, lines, highlights, show_self and (indent_level + 1) or indent_level)
 	end
 end
 
@@ -182,7 +178,7 @@ local function render_top_areas(tree, lines, highlights)
 	table.insert(lines, "━━━ TOP AREAS ━━━")
 	table.insert(lines, "")
 
-	local top_areas = skills.get_top_areas(tree, 5)
+	local top_areas = areas.top(5)
 
 	if #top_areas == 0 then
 		table.insert(lines, "No areas with XP yet!")
@@ -190,7 +186,7 @@ local function render_top_areas(tree, lines, highlights)
 	end
 
 	for i, area in ipairs(top_areas) do
-		local line = string.format("%d. %s - Level %d (%s XP)", i, area.name, area.level, format_xp(area.xp))
+		local line = string.format("%d. %s - Level %s (%s XP)", i, area.name, tostring(area.level or "?"), format_xp(area.xp))
 		table.insert(lines, line)
 
 		-- Highlight rank number
@@ -198,7 +194,7 @@ local function render_top_areas(tree, lines, highlights)
 			line = #lines - 1,
 			col_start = 0,
 			col_end = 2,
-			group = get_level_highlight(area.level),
+			group = get_level_highlight(area.level or 1),
 		})
 	end
 end
@@ -208,14 +204,20 @@ end
 -- =============================================================================
 
 function M.show()
+	define_highlights()
+
 	-- Get area tree
-	local tree = skills.get_area_tree()
+	local tree = areas.get_area_tree()
 	if not tree then
 		vim.notify("No areas.zortex file found", vim.log.levels.WARN)
 		return
 	end
 
-	local cfg = config.get("ui.skill_tree") or { width = 80, height = 35, border = "rounded" }
+	local cfg = vim.tbl_extend(
+		"force",
+		{ width = 80, height = 35, border = "rounded" },
+		(config.ui and config.ui.skill_tree) or {}
+	)
 
 	-- Create buffer
 	local buf = vim.api.nvim_create_buf(false, true)
@@ -285,7 +287,7 @@ function M.show()
 		M.show()
 	end, opts)
 	vim.keymap.set("n", "s", function()
-		local status = xp_service.get_season_status()
+		local status = xp_stats.season_status()
 		if status then
 			print(vim.inspect(status))
 		else

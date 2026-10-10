@@ -11,7 +11,6 @@ local M = {}
 local Document = require("zortex.core.document")
 local parser = require("zortex.utils.parser")
 local fs = require("zortex.utils.filesystem")
-local link_resolver = require("zortex.utils.link_resolver")
 
 local function projects()
 	return require("zortex.services.projects")
@@ -118,32 +117,16 @@ end
 -- Areas (PARA)
 -- =============================================================================
 
--- Resolve one area link -> { link, definition, resolved, name, path, key, file, lnum }
-local function resolve_area(area)
-	local node, result = link_resolver.resolve_node(area.definition)
-	if not node then
-		return { link = area.link, definition = area.definition, resolved = false }
-	end
-	local path = node:path_texts()
-	return {
-		link = area.link,
-		definition = area.definition,
-		resolved = true,
-		name = node.text,
-		path = path,
-		key = table.concat(path, "/"),
-		file = result.file,
-		lnum = result.lnum,
-	}
-end
-
+-- Areas (services/areas) declared by the project, or with opts.inherit by
+-- its nearest ancestor that declares any.
 ---@param opts { inherit?: boolean }?
 function M.areas(project, opts)
+	local areas = require("zortex.services.areas")
 	local current = project
 	while current do
 		local declared = current.attributes.area
 		if declared and #declared > 0 then
-			return vim.tbl_map(resolve_area, declared)
+			return areas.from_attributes(current.attributes)
 		end
 		if not (opts and opts.inherit) then
 			break

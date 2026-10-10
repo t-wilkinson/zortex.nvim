@@ -24,7 +24,13 @@ The tree path of clean texts (attributes removed):
 |--------|-----------------------------------------------|
 | `path` | `{ "Projects", "1 Programming", "1.4 - zortex" }` |
 | `key`  | `Projects/1 Programming/1.4 - zortex`          |
-| `link` | `[Projects/#1 Programming/#1.4 - zortex]`      |
+| `link` | `[P/#1 Programming/#1.4 - zortex]`             |
+
+Project links always start with `P`:
+
+- In the Projects article (alias `@@P`): `[P/#1 Programming/#1.4 - zortex]`
+- In a standalone `@P` note: `[P/Flipping/#Subaru outback]`, or `[P/Flipping]`
+  for its root
 
 ## Links
 
@@ -33,6 +39,10 @@ Project links resolve exactly like following a link (`utils/link_resolver`):
 - `[P/#1.4 - zortex]`: `P` matches any `@@` alias. `#1.4 - zortex` is a
   case-insensitive prefix match on a heading at any depth.
 - `[@P/#Subaru outback]`: `@P` selects notes whose header carries the tag.
+- An article component also reaches notes tagged with that name, after the
+  notes that declare it as an alias. `[P/...]` searches the Projects article
+  first, then every `@P` note. That is why `[P/Flipping/#Subaru]` and
+  `[P/#Subaru outback]` both work.
 - When several headings match, the first in note order is canonical, so a
   parent heading wins over children that share its prefix.
 
@@ -69,6 +79,30 @@ Sizes come from `@size(xs|sm|md|lg|xl)` (projects may also use `epic`,
 `legendary`, `mythic`, `ultimate`). Points are xs=1, sm=2, md=3, lg=5, xl=8,
 epic=13, … (`constants.SIZE_POINTS`). Unsized tasks count as `md`.
 
+## Areas
+
+Areas work the same way (`services/areas`). Headings, bold headings and labels
+in the Areas article are areas; deeper ones are sub-areas. Links start with `A`.
+
+```lua
+local A = require("zortex.services.areas")
+A.get("Areas/1 Personal Foundation/1.2 Vitality/Fitness").link
+--> "[A/#1 Personal Foundation/#1.2 Vitality/:Fitness]"
+A.resolve("Areas/#4.1")          -- what @a(4.1) expands to
+A.top(5)                         -- areas by total XP
+
+area:projects({ descendants = true })   -- projects inherit @a(...) from ancestors
+area:objectives()                       -- objectives whose @a(...) points here
+area:xp() / area:total_xp() / area:xp_data()  -- XP is stored under area keys
+
+p:areas({ inherit = true })      -- Area objects for a project
+p:area_links()                   -- its @a(...) links, including unresolved ones
+```
+
+XP is recorded under area **keys** (`Areas/4 Learning & Education/4.1 Education & Skills`).
+Task, project and objective area links are all resolved to these keys, so the
+skill tree and the XP store always agree.
+
 ## Picker
 
 `:ZortexProjects`
@@ -85,7 +119,13 @@ epic=13, … (`constants.SIZE_POINTS`). Unsized tasks count as `md`.
 
 ## Building blocks
 
-Areas or OKR can reuse these the same way projects do:
+Projects and areas are both built from these:
+
+- `core/entity`: the shared base. It provides `Entity` (path, key, link,
+  `walk`/`fold`/`ancestors`, own content range) and
+  `registry(spec)`, which gives each kind `roots`, `all`, `get`, `at`,
+  `current`, `resolve`, `lookup` and `jump` from a small spec (`kind`,
+  `namespace`, `keep(node)`, `sources()`, `is_source(doc)`, `class`).
 
 - `core/document`: cached snapshot of a note (lines, tree, names, tags).
   Prefers a modified buffer over the file on disk.

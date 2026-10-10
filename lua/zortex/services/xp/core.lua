@@ -77,7 +77,9 @@ function M.build_xp_context(data)
 	end
 
 	-- Linked key_result just increases amount of xp given to area
-	local area_paths = areas_service.extract_area_paths(data.task, project, unpack(objectives))
+	-- Area keys ("Areas/1 Personal Foundation/1.2 Vitality"), resolved through
+	-- links; projects inherit areas from their ancestors.
+	local area_paths = areas_service.keys_for(data.task, project, unpack(objectives))
 	local areas = {}
 	for _, area_path in ipairs(area_paths) do
 		if project then

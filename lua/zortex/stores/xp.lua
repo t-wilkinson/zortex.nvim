@@ -125,18 +125,32 @@ end
 -- =============================================================================
 
 -- Calculate XP required for a specific season level
+-- Config: xp.season.level_curve (older configs: xp.project.season_curve)
+local function season_curve()
+	return (cfg.season and cfg.season.level_curve) or (cfg.project and cfg.project.season_curve)
+end
+
 function M.calculate_season_level_xp(level)
-	local curve = cfg.project.season_curve
+	local curve = season_curve()
 	return math.floor(curve.base * math.pow(level, curve.exponent))
+end
+
+-- Highest level whose threshold `xp` reaches. Guards against curves that
+-- never grow (base <= 0 or exponent <= 0), which would loop forever.
+local function level_for(xp, curve, threshold)
+	if not curve or curve.base <= 0 or curve.exponent <= 0 then
+		return 1
+	end
+	local level = 1
+	while xp >= threshold(level + 1) do
+		level = level + 1
+	end
+	return level
 end
 
 -- Calculate level from total XP (season)
 function M.calculate_season_level(xp)
-	local level = 1
-	while xp >= M.calculate_season_level_xp(level + 1) do
-		level = level + 1
-	end
-	return level
+	return level_for(xp, season_curve(), M.calculate_season_level_xp)
 end
 
 -- Get progress towards next level
@@ -179,7 +193,7 @@ end
 
 -- Get tier information for a season level
 function M.get_season_tier(level)
-	local tiers = cfg.seasons.tiers
+	local tiers = (cfg.season and cfg.season.tiers) or (cfg.seasons and cfg.seasons.tiers) or {}
 	local current_tier = nil
 	local next_tier = nil
 
@@ -298,14 +312,11 @@ end
 
 -- Calculate level from total XP (area)
 function M.calculate_area_level(xp)
-	local level = 1
-	while xp >= M.calculate_area_level_xp(level + 1) do
-		level = level + 1
-	end
-	return level
+	return level_for(xp, cfg.area and cfg.area.level_curve, M.calculate_area_level_xp)
 end
 
 function M.get_area_xp(path)
+	store:ensure_loaded()
 	return store.data.area_xp[path] or nil
 end
 

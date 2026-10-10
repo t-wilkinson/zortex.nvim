@@ -368,99 +368,31 @@ local Events = require("zortex.core.event_bus")
 -- end
 
 -- =============================================================================
--- Area Commands
+-- Area & Season Commands (implemented in services/xp/stats)
 -- =============================================================================
 
--- Show area XP
 function M.show_area_xp()
-	local area_service = require("zortex.services.areas")
-	local top_areas = area_service.get_top_areas(10)
-
-	local lines = {}
-	table.insert(lines, "🗺️ Top Areas by XP")
-	table.insert(lines, string.rep("─", 40))
-
-	for i, area in ipairs(top_areas) do
-		table.insert(lines, string.format("%d. %s - Level %d (%d XP)", i, area.path, area.level, area.xp))
-	end
-
-	if #top_areas == 0 then
-		table.insert(lines, "No areas with XP yet")
-	end
-
-	vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO, {
-		title = "Area XP Rankings",
-		timeout = 5000,
-	})
+	return require("zortex.services.xp.stats").show_area_xp(10)
 end
 
--- =============================================================================
--- Season Commands
--- =============================================================================
-
--- Start a new season
 function M.start_season()
-	vim.ui.input({
-		prompt = "Season name: ",
-		default = "Q" .. os.date("%q") .. " " .. os.date("%Y"),
-	}, function(name)
-		if not name or name == "" then
-			return
-		end
-
-		vim.ui.input({
-			prompt = "Season duration (days): ",
-			default = "90",
-		}, function(days)
-			days = tonumber(days) or 90
-			local end_date = os.date("%Y-%m-%d", os.time() + (days * 86400))
-
-			xp_service.start_season(name, end_date)
-			vim.notify(string.format("Season '%s' started!\nEnds: %s", name, end_date), vim.log.levels.INFO)
-		end)
-	end)
+	return require("zortex.services.xp.stats").prompt_start_season()
 end
 
--- End current season
 function M.end_season()
-	local season_record = xp_service.end_season()
-
-	if season_record then
-		local lines = {}
-		table.insert(lines, string.format("Season '%s' completed!", season_record.name))
-		table.insert(lines, string.rep("─", 40))
-		table.insert(lines, string.format("Final Level: %d", season_record.final_level))
-		table.insert(lines, string.format("Total XP: %d", season_record.final_xp))
-		table.insert(lines, "")
-		table.insert(lines, "XP Sources:")
-		for source, amount in pairs(season_record.xp_sources) do
-			table.insert(lines, string.format("  %s: %d", source:gsub("_", " "), amount))
-		end
-
-		vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO, {
-			title = "Season Complete!",
-			timeout = 10000,
-		})
-	else
+	local season_record = require("zortex.services.xp.stats").end_season()
+	if not season_record then
 		vim.notify("No active season to end", vim.log.levels.WARN)
+		return
 	end
-end
-
--- Recalculate season XP from all sources
-function M.recalculate_season_xp()
-	local total_xp = xp_store.recalculate_season_xp()
-	local season_data = xp_store.get_season_data()
-
-	if season_data.current_season then
-		local new_level = xp_calculator.calculate_season_level(total_xp)
-		xp_store.set_season_data(total_xp, new_level)
-
-		vim.notify(string.format("Season XP recalculated: %d XP (Level %d)", total_xp, new_level), vim.log.levels.INFO)
-	else
-		vim.notify("No active season", vim.log.levels.WARN)
-	end
-
-	return total_xp
+	local lines = {
+		string.format("Season '%s' completed!", season_record.name),
+		string.rep("─", 40),
+		string.format("Final Level: %d", season_record.final_level),
+		string.format("Total XP: %d", season_record.final_xp),
+		string.format("Transactions: %d", vim.tbl_count(season_record.xp_transactions or {})),
+	}
+	vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO, { title = "Season Complete!", timeout = 10000 })
 end
 
 -- =============================================================================

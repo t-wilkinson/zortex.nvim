@@ -24,22 +24,13 @@ for _, name in ipairs({
 	end
 end
 
--- Pre-existing: these require modules that are not in the repository
--- (zortex.services.calendar, zortex.services.xp).
-local KNOWN_BROKEN = { ["zortex.ui.calendar"] = true, ["zortex.ui.skill_tree"] = true }
-
-local root = require("zortex.config").notes_dir:gsub("/tests/fixtures/notes/$", "")
+local root = T.root
 local files = vim.fn.globpath(root .. "/lua", "zortex/**/*.lua", false, true)
 table.sort(files)
 for _, file in ipairs(files) do
 	local mod = file:match("lua/(zortex/.*)%.lua$"):gsub("/init$", ""):gsub("/", ".")
-	if KNOWN_BROKEN[mod] then
-		print("  skip require " .. mod .. " (depends on a module missing from the repo)")
-		goto continue
-	end
 	T.test("require " .. mod, function()
 		local ok, err = pcall(require, mod)
 		T.ok(ok, tostring(err))
 	end)
-	::continue::
 end

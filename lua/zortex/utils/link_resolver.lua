@@ -3,7 +3,10 @@
 -- A link is a "/"-separated list of components, resolved left to right. Each
 -- component narrows the set of candidate (file, line range) pairs:
 --
---   Article   [Projects/...]   files whose header declares the alias (any @@ name)
+--   Article   [Projects/...]   files whose header declares the alias (any @@ name),
+--                              then files tagged with it: [P/...] reaches the
+--                              Projects article first, then every @P note, so
+--                              [P/Flipping/#Subaru] works for standalone projects
 --   Tag       [@P/...]         files whose header carries the tag; when no file
 --                              declares it, a line search for "@P" instead
 --   Heading   [.../#1.4 - z]   case-insensitive prefix match on heading lines at
@@ -259,11 +262,16 @@ function M.resolve(link, opts)
 	for i, comp in ipairs(parsed.components) do
 		local last = i == #parsed.components
 
-		-- Article and header-tag components select whole files.
-		local select_file
+		-- Article and header-tag components select whole files. An article
+		-- name ranks files that declare it as an alias before files that are
+		-- only tagged with it.
+		local select_file, rank
 		if not is_local and comp.type == "article" then
 			select_file = function(h)
-				return parser.list_has(h.names, comp.text)
+				return parser.list_has(h.names, comp.text) or parser.list_has(h.tags, comp.text)
+			end
+			rank = function(h)
+				return parser.list_has(h.names, comp.text) and 1 or 2
 			end
 		elseif not is_local and comp.type == "tag" then
 			local function has_tag(h)
@@ -288,6 +296,14 @@ function M.resolve(link, opts)
 			end
 			if #kept == 0 then
 				return {}, (comp.type == "article" and "No article found: " or "No notes tagged @") .. comp.text
+			end
+			if rank then
+				-- Stable partition: alias matches first, tag matches after
+				local first, second = {}, {}
+				for _, c in ipairs(kept) do
+					table.insert(rank(header(c)) == 1 and first or second, c)
+				end
+				kept = vim.list_extend(first, second)
 			end
 			cands = kept
 			if last then

@@ -1,13 +1,91 @@
--- features/calendar.lua - Calendar features using CalendarService
+-- ui/calendar/init.lua - Calendar commands (entry editing, search, stats, reminders)
+-- built on stores/calendar and the CalendarEntry model.
 local M = {}
 
-local constants = require("zortex.constants")
 local Config = require("zortex.config")
 local datetime = require("zortex.utils.datetime")
 local fs = require("zortex.utils.filesystem")
-local CalendarService = require("zortex.services.calendar")
 local Events = require("zortex.core.event_bus")
 local calendar_store = require("zortex.stores.calendar")
+
+-- =============================================================================
+-- Store access
+-- =============================================================================
+
+function M.load()
+	return calendar_store.load()
+end
+
+function M.add_entry(date_str, text)
+	return calendar_store.add_entry(date_str, text)
+end
+
+-- Entries whose text contains `query` (case-insensitive), sorted by date
+local function search_entries(query)
+	local needle = query:lower()
+	local results = {}
+	for _, item in ipairs(calendar_store.get_all_entries()) do
+		if (item.entry.raw_text or ""):lower():find(needle, 1, true) then
+			results[#results + 1] = item
+		end
+	end
+	table.sort(results, function(a, b)
+		return a.date < b.date
+	end)
+	return results
+end
+
+local function calendar_stats()
+	local stats = {
+		total_entries = 0,
+		entries_by_type = {},
+		entries_with_notifications = 0,
+		recurring_entries = 0,
+		completed_tasks = 0,
+		incomplete_tasks = 0,
+		entries_by_month = {},
+	}
+	for _, item in ipairs(calendar_store.get_all_entries()) do
+		local entry = item.entry
+		stats.total_entries = stats.total_entries + 1
+		stats.entries_by_type[entry.type] = (stats.entries_by_type[entry.type] or 0) + 1
+		local notify = entry.attributes.notify
+		if notify and notify ~= "no" then
+			stats.entries_with_notifications = stats.entries_with_notifications + 1
+		end
+		if entry.attributes["repeat"] or entry.attributes.every then
+			stats.recurring_entries = stats.recurring_entries + 1
+		end
+		if entry.type == "task" and entry.task then
+			if entry.task.completed then
+				stats.completed_tasks = stats.completed_tasks + 1
+			else
+				stats.incomplete_tasks = stats.incomplete_tasks + 1
+			end
+		end
+		local month = item.date:sub(1, 7)
+		stats.entries_by_month[month] = (stats.entries_by_month[month] or 0) + 1
+	end
+	return stats
+end
+
+-- Today's timed entries starting within the next `lookahead_minutes`
+local function pending_notifications(lookahead_minutes)
+	local now = os.date("*t")
+	local now_minutes = now.hour * 60 + now.min
+	local today = os.date("%Y-%m-%d")
+	local pending = {}
+	for _, entry in ipairs(calendar_store.get_entries_for_date(today)) do
+		local start = entry:get_start_time()
+		if start and start.hour then
+			local minutes_until = start.hour * 60 + (start.min or 0) - now_minutes
+			if minutes_until > 0 and minutes_until <= lookahead_minutes then
+				pending[#pending + 1] = { entry = entry, time = start, minutes_until = minutes_until }
+			end
+		end
+	end
+	return pending
+end
 
 -- =============================================================================
 -- Calendar UI Integration
@@ -66,7 +144,7 @@ end
 
 -- Search calendar entries
 function M.search(query)
-	local results = CalendarService.search(query)
+	local results = search_entries(query)
 
 	if #results == 0 then
 		vim.notify("No entries found matching: " .. query, vim.log.levels.INFO)
@@ -99,7 +177,7 @@ end
 
 -- Show calendar statistics
 function M.show_stats()
-	local stats = CalendarService.get_stats()
+	local stats = calendar_stats()
 	local lines = { "Calendar Statistics", "==================", "" }
 
 	-- Overall stats
@@ -119,7 +197,7 @@ function M.show_stats()
 	table.insert(lines, "")
 
 	-- Task stats
-	if stats.entries_by_type.task > 0 then
+	if (stats.entries_by_type.task or 0) > 0 then
 		table.insert(lines, "Tasks:")
 		table.insert(lines, string.format("  Completed: %d", stats.completed_tasks))
 		table.insert(lines, string.format("  Incomplete: %d", stats.incomplete_tasks))
@@ -154,7 +232,7 @@ end
 
 -- Get pending notifications
 function M.get_pending_notifications(lookahead_minutes)
-	return CalendarService.get_pending_notifications(lookahead_minutes)
+	return pending_notifications(lookahead_minutes or 15)
 end
 
 -- Check and show notifications

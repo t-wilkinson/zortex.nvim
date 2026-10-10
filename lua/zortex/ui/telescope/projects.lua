@@ -95,11 +95,17 @@ local function preview_lines(project)
 	end
 
 	local areas = project:areas({ inherit = true })
-	if #areas > 0 then
+	local broken = vim.tbl_filter(function(l)
+		return not l.area
+	end, project:area_links())
+	if #areas > 0 or #broken > 0 then
 		add("")
 		add("Areas:")
 		for _, a in ipairs(areas) do
-			add("  " .. (a.resolved and table.concat(a.path, " › ") or (a.link .. " (unresolved)")))
+			add("  " .. a:breadcrumb())
+		end
+		for _, l in ipairs(broken) do
+			add("  " .. l.link .. " (unresolved)")
 		end
 	end
 

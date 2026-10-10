@@ -179,6 +179,12 @@ local function make_section_display(entry)
 		end
 	end
 
+	if entry.value.archived then
+		local start = #display_str
+		display_str = display_str .. "  (archive)"
+		table.insert(hl_table, { { start, #display_str }, "Comment" })
+	end
+
 	return display_str, hl_table
 end
 
@@ -311,7 +317,13 @@ function M.build_index(files)
 				for _, node in ipairs(nodes) do
 					local typed = {}
 					for _, p in ipairs(node:get_full_path()) do
-						typed[#typed + 1] = { type = p.type, text = (p.text or ""):lower() }
+						if not p:is_root() then
+							local texts = { (p.text or ""):lower() }
+							for _, alias in ipairs(p.names or {}) do
+								texts[#texts + 1] = alias:lower()
+							end
+							typed[#typed + 1] = { type = p.type, text = texts[1], texts = texts }
+						end
 					end
 					sections[#sections + 1] = {
 						node = node,
@@ -337,6 +349,7 @@ function M.build_index(files)
 				end
 
 				index[#index + 1] = {
+					archived = require("zortex.core.notes").is_archived(filepath),
 					lower_lines = lower_lines,
 					sections = sections,
 					lines = line_items,
@@ -351,56 +364,140 @@ end
 -- Matching (pure in-memory, no I/O)
 -- ---------------------------------------------------------------------------
 
--- Does one pre-indexed section candidate satisfy the tokens?
--- Faithful re-implementation of the old node_matches, but over data that was
--- already resolved + lower-cased at index time.
-local function section_matches(entry, tokens, lower_lines)
-	local unmatched = {}
-	for _, tok in ipairs(tokens) do
-		local matched = false
-		for _, p in ipairs(entry.path) do
-			local type_ok = (tok.type == "general")
-				or (tok.type == "heading" and (p.type == "heading" or p.type == "bold_heading"))
-				or (tok.type == "label" and p.type == "label")
-			if type_ok and p.text:find(tok.text, 1, true) then
-				matched = true
-				break
-			end
+-- ---------------------------------------------------------------------------
+-- Ranking
+--
+-- Sections are ranked, not just matched. Sort key, most significant first:
+--   1. tier   0 = every token matches the section's own name (or an article
+--               alias), 1 = every token matches somewhere on its path,
+--               2 = some words only occur in its content
+--   2. level  structural level: article < H1 … H6 < bold heading < label
+--   3. live notes before archived ones (z/archive.*, @Archive)
+--   4. class  how the first token matches the section's own name:
+--               0 = name starts with it, 1 = a word in the name starts with
+--               it, 2 = inside a word, 3 = not in the name
+--   5. depth  shorter paths first, then note order
+-- So typing "p" lists articles whose name starts with P (Projects, or the
+-- @@P alias) before other articles, articles before headings, and so on.
+-- ---------------------------------------------------------------------------
+
+-- 0 = prefix, 1 = word start, 2 = inside a word, nil = absent
+local function match_class(text, needle)
+	local s = text:find(needle, 1, true)
+	if not s then
+		return nil
+	end
+	local best = 2
+	while s do
+		if s == 1 then
+			return 0
 		end
-		if not matched then
-			unmatched[#unmatched + 1] = tok
+		if text:sub(s - 1, s - 1):match("[^%w]") then
+			best = 1
+		end
+		s = text:find(needle, s + 1, true)
+	end
+	return best
+end
+
+-- Best class over a path element's name and aliases
+local function element_class(p, needle)
+	local best
+	for _, text in ipairs(p.texts or { p.text }) do
+		local c = match_class(text, needle)
+		if c and (not best or c < best) then
+			best = c
+		end
+	end
+	return best
+end
+
+local function type_ok(tok, p)
+	return tok.type == "general"
+		or (tok.type == "heading" and (p.type == "heading" or p.type == "bold_heading"))
+		or (tok.type == "label" and p.type == "label")
+end
+
+local function content_has(entry, lower_lines, needle)
+	for lnum = entry.node.start_line, entry.node.end_line do
+		local l = lower_lines[lnum]
+		if l and l:find(needle, 1, true) then
+			return true
+		end
+	end
+	return false
+end
+
+-- Rank one pre-indexed section against the tokens; nil when it doesn't match.
+-- Explicit #/: tokens MUST match structurally; general tokens may also match
+-- anywhere in the section's content.
+local function rank_section(entry, tokens, lower_lines, archived)
+	local self_el = entry.path[#entry.path]
+	local tier, class = 0, nil
+
+	for i, tok in ipairs(tokens) do
+		local own = self_el and type_ok(tok, self_el) and element_class(self_el, tok.text)
+		if own then
+			if i == 1 then
+				class = own
+			end
+		else
+			local on_path = false
+			for _, p in ipairs(entry.path) do
+				if type_ok(tok, p) and element_class(p, tok.text) then
+					on_path = true
+					break
+				end
+			end
+			if on_path then
+				tier = math.max(tier, 1)
+			elseif tok.type == "general" and content_has(entry, lower_lines, tok.text) then
+				tier = 2
+			else
+				return nil
+			end
 		end
 	end
 
-	-- Explicit #/: tokens MUST exist structurally; general tokens may live
-	-- anywhere inside the node's content range. Tokens never contain
-	-- whitespace, so a per-line scan is equivalent to concatenating the range.
-	for _, tok in ipairs(unmatched) do
-		if tok.type ~= "general" then
-			return false
-		end
-		local found = false
-		for lnum = entry.node.start_line, entry.node.end_line do
-			local l = lower_lines[lnum]
-			if l and l:find(tok.text, 1, true) then
-				found = true
-				break
-			end
-		end
-		if not found then
-			return false
-		end
-	end
+	return {
+		tier = tier,
+		level = entry.node.level or 99,
+		class = class or 3,
+		archived = archived and 1 or 0,
+		depth = #entry.path,
+	}
+end
 
-	return true
+local function compare_ranks(a, b)
+	local ra, rb = a.rank_key, b.rank_key
+	if ra.tier ~= rb.tier then
+		return ra.tier < rb.tier
+	end
+	if ra.level ~= rb.level then
+		return ra.level < rb.level
+	end
+	if ra.archived ~= rb.archived then
+		return ra.archived < rb.archived
+	end
+	if ra.class ~= rb.class then
+		return ra.class < rb.class
+	end
+	if ra.depth ~= rb.depth then
+		return ra.depth < rb.depth
+	end
+	return a.order < b.order
 end
 
 local function match_sections(index, tokens, allowed)
 	local results = {}
 	for _, file in ipairs(index) do
 		for _, sec in ipairs(file.sections) do
-			if allowed(sec.node) and section_matches(sec, tokens, file.lower_lines) then
+			local rank_key = allowed(sec.node) and rank_section(sec, tokens, file.lower_lines, file.archived)
+			if rank_key then
 				results[#results + 1] = {
+					rank_key = rank_key,
+					order = #results + 1,
+					archived = file.archived,
 					result_type = "section",
 					filepath = sec.filepath,
 					node = sec.node,
@@ -410,6 +507,7 @@ local function match_sections(index, tokens, allowed)
 			end
 		end
 	end
+	table.sort(results, compare_ranks)
 	return results
 end
 
@@ -475,6 +573,9 @@ function M.query_index(index, prompt, opts)
 	local max = c.max_results
 	if max and #results > max then
 		results = vim.list_slice(results, 1, max)
+	end
+	for i, r in ipairs(results) do
+		r.rank = i
 	end
 	return results
 end
@@ -572,7 +673,13 @@ function M.structural_search(opts)
 					end
 				end,
 			}),
-			sorter = conf.generic_sorter(opts),
+			-- Keep query_index's ranking; borrow the fuzzy sorter's highlighter
+			sorter = require("telescope.sorters").Sorter:new({
+				scoring_function = function(_, _, _, entry)
+					return entry.value.rank or math.huge
+				end,
+				highlighter = conf.generic_sorter(opts).highlighter,
+			}),
 			previewer = zortex_previewer(),
 			layout_strategy = "horizontal",
 			attach_mappings = function(prompt_bufnr, map)

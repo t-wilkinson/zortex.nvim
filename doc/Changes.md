@@ -26,6 +26,7 @@ in place:
 | Make projects first-class | Shared core, one link resolver, projects API, OKR rewrite, picker rebuilt, first round of fixes. |
 | Areas as first-class objects | `core/entity` base, `P/` project links, areas API, XP keyed by area, stale `services.xp` / `services.calendar` callers fixed, task toggling in any note. |
 | Search setup, calendar crash, docs | `search.setup()` with config overlay and implemented options, calendar selection crash, these docs. |
+| Hierarchy-first search ranking | Results ranked by what matched, then structural level, then archive status and how the name matched; the picker keeps that order. The synthetic root is no longer matchable. |
 
 ## New modules
 
@@ -82,6 +83,10 @@ in place:
   Architecture.md). With one untyped token, only articles and H1 headings
   match structurally, per your `token_filters`; typed `#`/`:` tokens search
   every depth. `<C-t>` toggles article mode.
+- **Search results are ranked by hierarchy:** own-name matches first, then
+  articles before headings before labels, then names that start with the
+  query. This replaces Telescope's fuzzy order. Archived sections are labelled
+  `(archive)` and rank after live ones.
 
 **XP**
 - **Project XP is keyed by project key**
@@ -142,6 +147,10 @@ in place:
 - `get_area_xp` didn't load the store first.
 - The level loops could spin forever on a flat curve.
 - The skill tree used highlight groups that were never defined.
+
+**Search**
+- The search index included the synthetic `Root` node in every path, so a
+  query like `ro` matched every section.
 
 **This change set**
 - `init.lua` called `ui.telescope.search.setup()`, which didn't exist.

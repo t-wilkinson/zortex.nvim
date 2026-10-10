@@ -346,6 +346,23 @@ arguments resets to the defaults. The search uses these settings:
 | `breadcrumb_display` | which path parts are shown for 1 / 2 / 3+ tokens (`article`, `heading`, `heading_1_2`, `bold_heading`, `label`); the match itself is always shown |
 | `min_score`, `access_decay_rate`, `history` | reserved; nothing reads them yet |
 
+**Ranking.** The search orders results itself, and the picker keeps that order:
+its sorter returns each result's rank and only borrows the fuzzy sorter's
+highlighter. Section results are sorted by:
+
+1. **What matched.** Every word matches the section's own name (or an
+   article alias, so `p` matches `@@P`), then every word matches somewhere on
+   its path, then some words only appear in its content.
+2. **Hierarchy.** Article, then H1 to H6, then bold heading, then label.
+3. **Live before archived.** Archived notes stay searchable and are shown
+   with `(archive)`.
+4. **How the first word matches the name.** Start of the name, then start of
+   a word, then inside a word.
+5. **Shorter path, then note order.**
+
+Matching lines come after all section results. So typing `p` lists Projects
+first, then other articles containing "p", then headings.
+
 Telescope is loaded lazily, so the plugin sets up without it. [Search.md](Search.md)
 is the fuller target spec; the table above is what is implemented.
 

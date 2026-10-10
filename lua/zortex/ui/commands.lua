@@ -104,21 +104,9 @@ function M.setup(prefix)
 		require("zortex.features.links").open_link()
 	end, { desc = "Open link under cursor" })
 
-	cmd("SearchStructure", function()
+	cmd("Search", function()
 		api.search.structural()
 	end, { desc = "Structure-based search" })
-	cmd("SearchSections", function()
-		api.search.sections()
-	end, { desc = "Section-based search" })
-	cmd("SearchArticles", function()
-		api.search.articles()
-	end, { desc = "Article-based search" })
-	cmd("SearchTasks", function()
-		api.search.tasks()
-	end, { desc = "Task-based search" })
-	cmd("SearchAll", function()
-		api.search.all()
-	end, { desc = "Search sections, articles, and tasks" })
 
 	-- ===========================================================================
 	-- Calendar

@@ -1,176 +1,385 @@
--- ui/telescope/search.lua - Search UI using independent document loading
+-- ui/telescope/search.lua - Structural Search UI & Logic
 local M = {}
-
-local SearchService = require("zortex.services.search")
+local tree_module = require("zortex.core.tree")
 local fs = require("zortex.utils.filesystem")
 local highlights = require("zortex.features.highlights")
 local Config = require("zortex.config")
-local constants = require("zortex.constants")
-local parser = require("zortex.utils.parser")
 
--- =============================================================================
--- Custom Sorter with Smart Scoring
--- =============================================================================
+local pickers = require("telescope.pickers")
+local finders = require("telescope.finders")
+local conf = require("telescope.config").values
+local actions = require("telescope.actions")
+local action_state = require("telescope.actions.state")
+local previewers = require("telescope.previewers")
 
-local function create_smart_sorter()
-	local sorters = require("telescope.sorters")
+-- ---------------------------------------------------------------------------
+-- Tokenization
+-- ---------------------------------------------------------------------------
 
-	return sorters.Sorter:new({
-		scoring_function = function(_, prompt, entry)
-			-- Entry already has a pre-calculated score from search service
-			if entry and entry.score then
-				-- Lower scores rank higher in Telescope
-				return 1000 / (entry.score + 1)
-			end
-			return 999999
-		end,
-
-		-- Disable highlighting since we handle it ourselves
-		highlighter = function()
-			return {}
-		end,
-	})
+local function tokenize(query)
+	local tokens = {}
+	for word in query:gmatch("%S+") do
+		if word:match("^#") then
+			table.insert(tokens, { type = "heading", text = word:sub(2):lower() })
+		elseif word:match("^:") then
+			table.insert(tokens, { type = "label", text = word:sub(2):lower() })
+		else
+			table.insert(tokens, { type = "general", text = word:lower() })
+		end
+	end
+	return tokens
 end
 
--- =============================================================================
--- Breadcrumb Display with Highlights
--- =============================================================================
+-- ---------------------------------------------------------------------------
+-- Highlight helpers
+-- ---------------------------------------------------------------------------
 
-local function format_breadcrumb_display(breadcrumb, breadcrumb_sections)
-	if not breadcrumb or breadcrumb == "" then
-		return { { "Untitled", "Comment" } }
+-- Maps a section node type to its Zortex highlight group
+local function get_hl_group(node)
+	local ntype = node.type and tostring(node.type):lower() or ""
+	if ntype == "article" then
+		return "ZortexArticle"
 	end
-
-	local display_parts = {}
-	local parts = {}
-	local current_pos = 1
-	local sep = " › "
-
-	-- Split breadcrumb by separator
-	while true do
-		local sep_start, sep_end = breadcrumb:find(sep, current_pos, true)
-		if not sep_start then
-			-- Last part
-			local part = breadcrumb:sub(current_pos)
-			if part ~= "" then
-				table.insert(parts, part)
-			end
-			break
-		else
-			-- Part before separator
-			local part = breadcrumb:sub(current_pos, sep_start - 1)
-			if part ~= "" then
-				table.insert(parts, part)
-			end
-			current_pos = sep_end + 1
-		end
+	if ntype == "heading" then
+		return "ZortexHeading" .. math.min(tonumber(node.level) or 1, 3)
 	end
-
-	-- Build display with highlights based on section path
-	for i, part in ipairs(parts) do
-		if i > 1 then
-			table.insert(display_parts, { sep, "Comment" })
-		end
-
-		-- Determine highlight based on section type from path
-		local hl_group = "Normal"
-		if breadcrumb_sections and breadcrumb_sections[i] then
-			local section = breadcrumb_sections[i]
-			if section.type == constants.SECTION_TYPE.ARTICLE then
-				hl_group = "Title"
-			elseif section.type == constants.SECTION_TYPE.HEADING then
-				if section.level == 1 then
-					hl_group = "ZortexHeading1"
-				elseif section.level == 2 then
-					hl_group = "ZortexHeading2"
-				else
-					hl_group = "ZortexHeading3"
-				end
-			elseif section.type == constants.SECTION_TYPE.BOLD_HEADING then
-				hl_group = "Bold"
-			elseif section.type == constants.SECTION_TYPE.LABEL then
-				hl_group = "Function"
-			end
-		elseif i == 1 then
-			hl_group = "Title" -- Article
-		elseif i == #parts then
-			hl_group = "Function" -- Target section
-		else
-			hl_group = "Type" -- Intermediate sections
-		end
-
-		table.insert(display_parts, { part, hl_group })
+	if ntype == "bold_heading" then
+		return "ZortexBoldHeading"
 	end
-
-	return display_parts
+	if ntype == "label" then
+		return "ZortexLabel"
+	end
+	return "Normal"
 end
 
--- =============================================================================
--- Enhanced Previewer
--- =============================================================================
+-- Maps a raw content line to its Zortex highlight group (mirrors highlights.lua patterns)
+local function get_line_hl_group(line)
+	if line:match("^%s*%-%s*%[x%]") then
+		return "ZortexTaskDone"
+	elseif line:match("^%s*%-%s*%[.?%]") then
+		return "ZortexTaskText"
+	elseif line:match("^%s*%-%s*%w[^:]*:%s") and not line:find("%.%s.-:") then
+		return "ZortexLabelListText"
+	elseif line:match("^%s*%-%s*%w[^:]*:$") and not line:find("%.%s.-:") then
+		return "ZortexLabelList"
+	elseif line:match("^%s*%-") then
+		local indent = #(line:match("^(%s*)") or "")
+		return "ZortexBullet" .. math.min(math.floor(indent / 2) + 1, 4)
+	elseif line:match("^%s*%d+%.") then
+		return "ZortexNumberList"
+	end
+	return "Normal"
+end
 
-local function create_zortex_previewer()
-	local previewers = require("telescope.previewers")
+-- ---------------------------------------------------------------------------
+-- Display builders
+-- ---------------------------------------------------------------------------
 
+local function make_section_display(entry)
+	local node = entry.value.node
+	local display_str = ""
+	local hl_table = {}
+	local first = true
+
+	for _, p_node in ipairs(node:get_full_path()) do
+		if p_node.type ~= "root" then
+			if not first then
+				local sep_start = #display_str
+				display_str = display_str .. " › "
+				table.insert(hl_table, { { sep_start, #display_str }, "Comment" })
+			end
+			first = false
+
+			local hl_group = get_hl_group(p_node)
+			local start_pos = #display_str
+			display_str = display_str .. (p_node.text or "Untitled")
+			if start_pos < #display_str then
+				table.insert(hl_table, { { start_pos, #display_str }, hl_group })
+			end
+		end
+	end
+
+	return display_str, hl_table
+end
+
+-- Line result: article name › trimmed line content with semantic highlight
+local function make_line_display(entry)
+	local result = entry.value
+	local display_str = ""
+	local hl_table = {}
+
+	if result.article_name then
+		display_str = result.article_name
+		table.insert(hl_table, { { 0, #display_str }, "ZortexArticle" })
+		local sep_start = #display_str
+		display_str = display_str .. " › "
+		table.insert(hl_table, { { sep_start, #display_str }, "Comment" })
+	end
+
+	local text_start = #display_str
+	display_str = display_str .. vim.trim(result.line)
+	if text_start < #display_str then
+		table.insert(hl_table, { { text_start, #display_str }, get_line_hl_group(result.line) })
+	end
+
+	return display_str, hl_table
+end
+
+-- ---------------------------------------------------------------------------
+-- Previewer
+-- ---------------------------------------------------------------------------
+
+local function zortex_previewer()
 	return previewers.new_buffer_previewer({
 		title = "Zortex Preview",
-
 		define_preview = function(self, entry, status)
 			if not entry or not entry.value then
 				return
 			end
-
 			local result = entry.value
+
 			local lines = fs.read_lines(result.filepath)
 			if not lines then
 				return
 			end
 
-			-- Set buffer content
 			vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
 
-			-- Apply highlighting and scroll to position
 			vim.schedule(function()
 				if vim.api.nvim_buf_is_valid(self.state.bufnr) then
-					-- Apply Zortex syntax highlighting
 					highlights.highlight_buffer(self.state.bufnr)
 
-					-- Highlight the target section
-					if result.section and result.section.start_line then
-						local ns_id = vim.api.nvim_create_namespace("zortex_search_highlight")
+					local ns_id = vim.api.nvim_create_namespace("zortex_search_preview")
+					local focus_line -- 0-indexed
 
-						-- Highlight the entire section
-						local end_line = result.section.end_line or result.section.start_line
-						for line = result.section.start_line - 1, end_line - 1 do
+					if result.result_type == "section" then
+						focus_line = result.node.start_line - 1
+						for line = focus_line, result.node.end_line - 1 do
 							if line < #lines then
 								vim.api.nvim_buf_add_highlight(self.state.bufnr, ns_id, "Visual", line, 0, -1)
 							end
 						end
-
-						-- Extra highlight for the section header
-						vim.api.nvim_buf_add_highlight(
-							self.state.bufnr,
-							ns_id,
-							"CursorLine",
-							result.section.start_line - 1,
-							0,
-							-1
-						)
-
-						-- Scroll to show the section
-						vim.api.nvim_win_call(status.preview_win, function()
-							vim.fn.cursor(result.section.start_line, 1)
-							vim.cmd("normal! zz")
-						end)
+					else
+						focus_line = result.lnum - 1
 					end
+
+					vim.api.nvim_buf_add_highlight(self.state.bufnr, ns_id, "CursorLine", focus_line, 0, -1)
+
+					vim.api.nvim_win_call(status.preview_win, function()
+						vim.fn.cursor(focus_line + 1, 1)
+						vim.cmd("normal! zz")
+					end)
 				end
 			end)
 		end,
-
-		get_buffer_by_name = function(_, entry)
-			return entry.value and entry.value.filepath
-		end,
 	})
+end
+
+-- ---------------------------------------------------------------------------
+-- Index helpers (shared by indexing + matching)
+-- ---------------------------------------------------------------------------
+
+-- Collect set of line numbers that are structural section start lines
+local function collect_structural_lines(node, set)
+	if node.type ~= "root" then
+		set[node.start_line] = true
+	end
+	for _, child in ipairs(node.children) do
+		collect_structural_lines(child, set)
+	end
+end
+
+-- Find the article node whose range contains lnum
+local function get_article_for_line(tree, lnum)
+	for _, child in ipairs(tree.children) do
+		if child.type == "article" and lnum >= child.start_line and lnum <= child.end_line then
+			return child
+		end
+	end
+	return nil
+end
+
+-- ---------------------------------------------------------------------------
+-- Indexing: ALL disk reads, tree parsing and lower-casing happen here, once.
+-- The picker builds the index when it opens; each keystroke then filters this
+-- purely in-memory structure (see M.query_index).
+-- ---------------------------------------------------------------------------
+
+function M.build_index(files)
+	local index = {}
+	for _, filepath in ipairs(files) do
+		local lines = fs.read_lines(filepath)
+		if lines and not table.concat(lines, "\n", 1, math.min(5, #lines)):find("@Ignore") then
+			local tree = tree_module.get_tree(filepath)
+			if tree then
+				-- Lower-case every line a single time.
+				local lower_lines = {}
+				for i, l in ipairs(lines) do
+					lower_lines[i] = l:lower()
+				end
+
+				-- Structural start lines so the line scan can skip them.
+				local structural = {}
+				collect_structural_lines(tree, structural)
+
+				-- Pre-compute section candidates: each carries its typed,
+				-- lower-cased path (ancestors + self) for fast matching.
+				local sections = {}
+				local nodes = tree_module.search_nodes(tree, function()
+					return true
+				end)
+				for _, node in ipairs(nodes) do
+					local typed = {}
+					for _, p in ipairs(node:get_full_path()) do
+						typed[#typed + 1] = { type = p.type, text = (p.text or ""):lower() }
+					end
+					sections[#sections + 1] = {
+						node = node,
+						filepath = filepath,
+						breadcrumb = node:get_breadcrumb(" › "),
+						path = typed,
+					}
+				end
+
+				-- Pre-compute line candidates (skip structural + blank lines).
+				local line_items = {}
+				for lnum, line in ipairs(lines) do
+					if not structural[lnum] and vim.trim(line) ~= "" then
+						local article = get_article_for_line(tree, lnum)
+						line_items[#line_items + 1] = {
+							filepath = filepath,
+							lnum = lnum,
+							line = line,
+							lower = lower_lines[lnum],
+							article_name = article and article.text or nil,
+						}
+					end
+				end
+
+				index[#index + 1] = {
+					lower_lines = lower_lines,
+					sections = sections,
+					lines = line_items,
+				}
+			end
+		end
+	end
+	return index
+end
+
+-- ---------------------------------------------------------------------------
+-- Matching (pure in-memory, no I/O)
+-- ---------------------------------------------------------------------------
+
+-- Does one pre-indexed section candidate satisfy the tokens?
+-- Faithful re-implementation of the old node_matches, but over data that was
+-- already resolved + lower-cased at index time.
+local function section_matches(entry, tokens, lower_lines)
+	local unmatched = {}
+	for _, tok in ipairs(tokens) do
+		local matched = false
+		for _, p in ipairs(entry.path) do
+			local type_ok = (tok.type == "general")
+				or (tok.type == "heading" and (p.type == "heading" or p.type == "bold_heading"))
+				or (tok.type == "label" and p.type == "label")
+			if type_ok and p.text:find(tok.text, 1, true) then
+				matched = true
+				break
+			end
+		end
+		if not matched then
+			unmatched[#unmatched + 1] = tok
+		end
+	end
+
+	-- Explicit #/: tokens MUST exist structurally; general tokens may live
+	-- anywhere inside the node's content range. Tokens never contain
+	-- whitespace, so a per-line scan is equivalent to concatenating the range.
+	for _, tok in ipairs(unmatched) do
+		if tok.type ~= "general" then
+			return false
+		end
+		local found = false
+		for lnum = entry.node.start_line, entry.node.end_line do
+			local l = lower_lines[lnum]
+			if l and l:find(tok.text, 1, true) then
+				found = true
+				break
+			end
+		end
+		if not found then
+			return false
+		end
+	end
+
+	return true
+end
+
+local function match_sections(index, tokens)
+	local results = {}
+	for _, file in ipairs(index) do
+		for _, sec in ipairs(file.sections) do
+			if section_matches(sec, tokens, file.lower_lines) then
+				results[#results + 1] = {
+					result_type = "section",
+					filepath = sec.filepath,
+					node = sec.node,
+					breadcrumb = sec.breadcrumb,
+				}
+			end
+		end
+	end
+	return results
+end
+
+-- AND match: every token must appear somewhere in the line.
+local function match_lines(index, tokens)
+	local results = {}
+	if #tokens == 0 then
+		return results
+	end
+	for _, file in ipairs(index) do
+		for _, ln in ipairs(file.lines) do
+			local all = true
+			for _, tok in ipairs(tokens) do
+				if not ln.lower:find(tok.text, 1, true) then
+					all = false
+					break
+				end
+			end
+			if all then
+				results[#results + 1] = {
+					result_type = "line",
+					filepath = ln.filepath,
+					lnum = ln.lnum,
+					line = ln.line,
+					article_name = ln.article_name,
+				}
+			end
+		end
+	end
+	return results
+end
+
+-- Full query over a pre-built index: sections ranked first, lines appended.
+function M.query_index(index, prompt)
+	local tokens = tokenize(prompt)
+	local results = match_sections(index, tokens)
+	vim.list_extend(results, match_lines(index, tokens))
+	return results
+end
+
+-- ---------------------------------------------------------------------------
+-- Backwards-compatible one-shot API
+-- (build a throwaway index, then query — preserves the old signatures)
+-- ---------------------------------------------------------------------------
+
+function M.search_sections(files, tokens)
+	return match_sections(M.build_index(files), tokens)
+end
+
+function M.search_lines(files, tokens)
+	return match_lines(M.build_index(files), tokens)
 end
 
 -- =============================================================================
@@ -178,7 +387,6 @@ end
 -- =============================================================================
 
 local function create_new_note(prompt_bufnr, initial_text)
-	local actions = require("telescope.actions")
 	actions.close(prompt_bufnr)
 
 	-- Generate unique filename
@@ -211,209 +419,86 @@ local function create_new_note(prompt_bufnr, initial_text)
 	vim.notify("Failed to create unique filename", vim.log.levels.ERROR)
 end
 
--- =============================================================================
--- Entry Display
--- =============================================================================
+-- ---------------------------------------------------------------------------
+-- Main picker
+-- ---------------------------------------------------------------------------
 
-local function make_display_function(entry)
-	if not entry or not entry.value then
-		return function()
-			return ""
-		end
-	end
-
-	local result = entry.value
-	local display_text = result.display_text or result.breadcrumb or ""
-	local breadcrumb_sections = result.breadcrumb_sections
-
-	-- For single article names without breadcrumb, just return simple text
-	if not result.breadcrumb or result.breadcrumb == "" then
-		return function()
-			return display_text
-		end
-	end
-
-	-- Format breadcrumb with highlights
-	local display_parts = format_breadcrumb_display(result.breadcrumb, breadcrumb_sections)
-
-	-- Return display function
-	return function()
-		local entry_display = require("telescope.pickers.entry_display")
-		local displayer = entry_display.create({
-			separator = "",
-			items = vim.tbl_map(function(part)
-				return { width = #part[1] }
-			end, display_parts),
-		})
-
-		local display_columns = {}
-		for _, part in ipairs(display_parts) do
-			table.insert(display_columns, part)
-		end
-
-		return displayer(display_columns)
-	end
-end
-
--- =============================================================================
--- Telescope Finder
--- =============================================================================
-
-function M.create_telescope_finder(opts)
-	local finders = require("telescope.finders")
-
-	-- Track current query for history
-	local current_query = ""
-
-	return finders.new_dynamic({
-		fn = function(prompt)
-			current_query = prompt
-			local results = SearchService.search(prompt, opts)
-
-			-- Store query in entry for history tracking
-			for _, result in ipairs(results) do
-				result._query = prompt
-			end
-
-			return results
-		end,
-
-		entry_maker = function(result)
-			if not result then
-				return nil
-			end
-
-			-- Build ordinal for fuzzy matching
-			local ordinal = (result.display_text or "")
-				.. " "
-				.. (result.breadcrumb or "")
-				.. " "
-				.. (result.filepath or "")
-			if result.section and result.section.text then
-				ordinal = ordinal .. " " .. result.section.text
-			end
-			-- Add article names to ordinal
-			if result.article_names then
-				for _, name in ipairs(result.article_names) do
-					ordinal = ordinal .. " " .. name
-				end
-			end
-
-			return {
-				value = result,
-				ordinal = ordinal,
-				display = make_display_function({ value = result }),
-				filename = result.filepath,
-				lnum = result.section and result.section.start_line or 1,
-				col = 1,
-				score = result.score, -- Pass through for sorter
-			}
-		end,
-	})
-end
-
--- =============================================================================
--- Main Search Function
--- =============================================================================
-
-function M.search(opts)
+function M.structural_search(opts)
 	opts = opts or {}
-	opts.search_mode = opts.search_mode or constants.SEARCH_MODES.SECTION
+	local files = fs.find_all_notes()
 
-	local pickers = require("telescope.pickers")
-	local actions = require("telescope.actions")
-	local action_state = require("telescope.actions.state")
-	local conf = require("telescope.config").values
+	-- All disk reads + tree parsing happen ONCE, here. Each keystroke below
+	-- only filters this in-memory index.
+	local index = M.build_index(files)
 
-	-- Determine prompt title
-	local prompt_title = "Zortex Search"
-	if opts.search_mode == constants.SEARCH_MODES.ARTICLE then
-		prompt_title = "Zortex Article Search"
-	elseif opts.search_mode == constants.SEARCH_MODES.TASK then
-		prompt_title = "Zortex Task Search"
-	elseif opts.search_mode == constants.SEARCH_MODES.ALL then
-		prompt_title = "Zortex All Search"
-	else
-		prompt_title = "Zortex Section Search"
-	end
-
-	-- Create picker
 	pickers
 		.new(opts, {
-			prompt_title = prompt_title,
-			finder = M.create_telescope_finder(opts),
-			sorter = create_smart_sorter(),
-			previewer = create_zortex_previewer(),
-			layout_strategy = "flex",
-			layout_config = {
-				flex = { flip_columns = 120 },
-				horizontal = { preview_width = 0.6 },
-				vertical = { preview_height = 0.4 },
-			},
-			attach_mappings = function(bufnr, map)
-				-- Default action - open and track
+			prompt_title = "Zortex Structural Search",
+			debounce = 80, -- ms: coalesce rapid keystrokes (telescope picker option)
+			finder = finders.new_dynamic({
+				fn = function(prompt)
+					return M.query_index(index, prompt)
+				end,
+				entry_maker = function(entry)
+					if entry.result_type == "section" then
+						return {
+							value = entry,
+							display = make_section_display,
+							ordinal = entry.breadcrumb,
+							filename = entry.filepath,
+							lnum = entry.node.start_line,
+						}
+					else
+						return {
+							value = entry,
+							display = make_line_display,
+							ordinal = entry.line,
+							filename = entry.filepath,
+							lnum = entry.lnum,
+						}
+					end
+				end,
+			}),
+			sorter = conf.generic_sorter(opts),
+			previewer = zortex_previewer(),
+			layout_strategy = "horizontal",
+			attach_mappings = function(prompt_bufnr, map)
 				actions.select_default:replace(function()
 					local selection = action_state.get_selected_entry()
+					actions.close(prompt_bufnr)
 					if selection and selection.value then
 						local result = selection.value
-
-						-- Add to search history
-						if result._query and result.section_path then
-							SearchService.SearchHistory.add({
-								tokens = vim.split(result._query, "%s+"),
-								selected_file = result.filepath,
-								selected_section = result.section and result.section.start_line,
-								section_path = result.section_path,
-							})
-						end
-
-						actions.close(bufnr)
-						SearchService.open_result(result)
+						vim.cmd("edit " .. vim.fn.fnameescape(result.filepath))
+						local lnum = result.result_type == "section" and result.node.start_line or result.lnum
+						vim.fn.cursor(lnum, 1)
+						vim.cmd("normal! zz")
 					end
 				end)
 
-				-- Open in split/vsplit
-				local function open_in(cmd)
+				local function open_in(split_type)
 					return function()
 						local selection = action_state.get_selected_entry()
+						actions.close(prompt_bufnr)
 						if selection and selection.value then
 							local result = selection.value
-
-							-- Add to search history
-							if result._query and result.section_path then
-								SearchService.SearchHistory.add({
-									tokens = vim.split(result._query, "%s+"),
-									selected_file = result.filepath,
-									selected_section = result.section and result.section.start_line,
-									section_path = result.section_path,
-								})
-							end
-
-							actions.close(bufnr)
-							SearchService.open_result(result, cmd)
+							vim.cmd(split_type .. " " .. vim.fn.fnameescape(result.filepath))
+							local lnum = result.result_type == "section" and result.node.start_line or result.lnum
+							vim.fn.cursor(lnum, 1)
+							vim.cmd("normal! zz")
 						end
 					end
 				end
 
 				-- Create new note with current query
 				map({ "i", "n" }, "<C-o>", function()
-					local current_picker = action_state.get_current_picker(bufnr)
+					local current_picker = action_state.get_current_picker(prompt_bufnr)
 					local prompt = current_picker:_get_prompt()
-					create_new_note(bufnr, prompt)
+					create_new_note(prompt_bufnr, prompt)
 				end)
 
 				-- Open in splits
 				map({ "i", "n" }, "<C-x>", open_in("split"))
 				map({ "i", "n" }, "<C-v>", open_in("vsplit"))
-
-				-- Refresh cache
-				map({ "i", "n" }, "<C-r>", function()
-					SearchService.refresh_all()
-					vim.notify("Search cache refreshed", vim.log.levels.INFO)
-					-- Refresh picker
-					local current_picker = action_state.get_current_picker(bufnr)
-					current_picker:refresh(M.create_telescope_finder(opts), { reset_prompt = false })
-				end)
 
 				-- Preview scrolling
 				map({ "i", "n" }, "<C-f>", actions.preview_scrolling_down)
@@ -421,7 +506,7 @@ function M.search(opts)
 
 				-- Clear prompt
 				map("i", "<C-u>", function()
-					vim.api.nvim_buf_set_lines(bufnr, 0, 1, false, { "" })
+					vim.api.nvim_buf_set_lines(prompt_bufnr, 0, 1, false, { "" })
 					vim.api.nvim_win_set_cursor(0, { 1, 0 })
 				end)
 
@@ -429,128 +514,6 @@ function M.search(opts)
 			end,
 		})
 		:find()
-end
-
--- =============================================================================
--- Search Variants
--- =============================================================================
-
-function M.search_sections(opts)
-	M.search(vim.tbl_extend("force", { search_mode = constants.SEARCH_MODES.SECTION }, opts or {}))
-end
-
-function M.search_articles(opts)
-	M.search(vim.tbl_extend("force", { search_mode = constants.SEARCH_MODES.ARTICLE }, opts or {}))
-end
-
-function M.search_tasks(opts)
-	M.search(vim.tbl_extend("force", { search_mode = constants.SEARCH_MODES.TASK }, opts or {}))
-end
-
-function M.search_all(opts)
-	M.search(vim.tbl_extend("force", { search_mode = constants.SEARCH_MODES.ALL }, opts or {}))
-end
-
--- =============================================================================
--- Quick Search Functions
--- =============================================================================
-
--- Get section at cursor position
-local function get_section_at_cursor()
-	local bufnr = vim.api.nvim_get_current_buf()
-	local cursor_line = vim.api.nvim_win_get_cursor(0)[1]
-	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-
-	-- Build section path to cursor position
-	local section_path = parser.build_section_path(lines, cursor_line)
-
-	if #section_path > 0 then
-		-- Return the innermost (last) section
-		return section_path[#section_path]
-	end
-
-	return nil
-end
-
-function M.search_current_word()
-	local word = vim.fn.expand("<cword>")
-	if word and word ~= "" then
-		M.search_sections({ default_text = word })
-	else
-		M.search_sections()
-	end
-end
-
-function M.search_current_section()
-	local bufnr = vim.api.nvim_get_current_buf()
-	local filepath = vim.api.nvim_buf_get_name(bufnr)
-
-	-- Check if this is a Zortex file
-	if not filepath or filepath == "" or not filepath:match("%" .. Config.extension .. "$") then
-		vim.notify("Not in a Zortex file", vim.log.levels.WARN)
-		return
-	end
-
-	-- Get the section at cursor
-	local section = get_section_at_cursor()
-
-	if section and section.text then
-		M.search_sections({ default_text = section.text })
-	else
-		-- No section found, just open search
-		M.search_sections()
-	end
-end
-
--- =============================================================================
--- History UI
--- =============================================================================
-
-function M.show_history()
-	local SearchHistory = SearchService.SearchHistory
-	if #SearchHistory.entries == 0 then
-		vim.notify("No search history", vim.log.levels.INFO)
-		return
-	end
-
-	local lines = { "Recent Searches:", "" }
-	for i, entry in ipairs(SearchHistory.entries) do
-		if i > 20 then
-			break
-		end
-
-		local time_str = os.date("%Y-%m-%d %H:%M", entry.timestamp)
-		local query = table.concat(entry.tokens or {}, " ")
-		local line = string.format("%d. [%s] %s", i, time_str, query)
-
-		if entry.selected_file then
-			local filename = vim.fn.fnamemodify(entry.selected_file, ":t")
-			line = line .. " → " .. filename
-
-			if entry.selected_section then
-				line = line .. ":" .. entry.selected_section
-			end
-		end
-
-		table.insert(lines, line)
-	end
-
-	vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO)
-end
-
--- =============================================================================
--- Setup
--- =============================================================================
-
-function M.setup(opts)
-	-- Pass options to search service
-	SearchService.setup(opts)
-
-	-- Setup highlight groups if not already defined
-	local highlights_defined = pcall(vim.api.nvim_get_hl_by_name, "ZortexHeading1", true)
-	if not highlights_defined then
-		highlights.setup_highlights()
-	end
 end
 
 return M

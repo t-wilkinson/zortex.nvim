@@ -143,15 +143,11 @@ M.xp = {
 -- ===========================================================================
 M.search = {
 	structural = function(opts)
-		require("zortex.ui.telescope.new_search").structural_search(opts)
-	end,
-
-	all = function()
-		require("zortex.ui.telescope.search").search_all()
+		require("zortex.ui.telescope.search").structural_search(opts)
 	end,
 
 	projects = function(opts)
-		require("zortex.ui.telescope.projects").projects(opts)
+		require("zortex.legacy.ui.telescope.projects").projects(opts)
 	end,
 }
 

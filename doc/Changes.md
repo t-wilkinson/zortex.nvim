@@ -25,7 +25,9 @@ in place:
 7. **Completion and link preview** built on the resolver.
 8. **Fixes:** every module now loads, `setup()` completes, the calendar opens,
    and the XP pipeline works end to end.
-9. **A headless test suite:** 168 tests, no dependencies.
+9. **A weekly review buffer** (`:ZortexReview`) and **search history** that
+   ranks recently and frequently opened notes and sections higher.
+10. **A headless test suite:** 177 tests, no dependencies.
 
 ## Commits
 
@@ -37,6 +39,7 @@ in place:
 | Hierarchy-first search ranking | The picker keeps the search's own order instead of re-sorting by fuzzy score; the synthetic root is no longer matchable. |
 | Restore ordered path search | Words match a section's path in order (last word = the section), with the original scoring, file grouping, document order, direct sub-sections and full breadcrumbs. |
 | Link index, agenda, OKR entities, editing layer | Persistent link index with backlinks; agenda + review API used by all digests; objectives as entities with KR progress; workspace replaced by an editing layer; calendar and task edits as line edits; completion and link preview on the resolver; several existing bugs fixed. |
+| Weekly review buffer, search history | `:ZortexReview [days]` renders `agenda.review()`; search records opened results in `.z/search_history.json` with decay and boosts matches. |
 
 ## New modules
 
@@ -49,6 +52,8 @@ in place:
 | `services/okr/init.lua`, `objective.lua` | Objective entities (`O/` namespace) and key results with computed progress. |
 | `services/agenda.lua` | Agenda over calendar entries, due tasks and due projects; `review()` findings. |
 | `features/preview.lua` | Floating preview of a link's target. |
+| `ui/review.lua` | Weekly review buffer over `agenda.review()`. |
+| `services/search_history.lua` | Decayed open counts per note and section (`.z/search_history.json`), used to boost search. |
 | `services/projects/init.lua` | Projects registry, `query`, `tasks`, `update_progress`. |
 | `services/projects/project.lua` | `Project` class (tasks, stats, rollup, points, relations). |
 | `services/projects/score.lua` | Scoring and sort comparators (moved out of the picker). |
@@ -145,7 +150,10 @@ in place:
   `… good habits/routine` is linked as `#… good habits`; prefix matching
   still finds the same heading.
 - **New commands:** `:ZortexLinkPreview` (`<prefix>K`), `:ZortexBrokenLinks`,
-  `:ZortexLinkIndexRebuild`.
+  `:ZortexLinkIndexRebuild`, `:ZortexReview [days]`.
+- **Search remembers what you open.** Notes and sections you open from search
+  rank higher among similar matches, fading over days (`access_decay_rate`,
+  `history.score_decay`).
 - **Completion suggests only links that resolve**, based on what's typed
   so far.
 
@@ -283,18 +291,20 @@ in place:
   (which now indexes the list `get_entries_for_date` returns).
 - **Link index file:** `notes_dir/.z/link_index.json` is created on first use;
   deleting it just triggers a full rebuild.
+- **Search history:** `notes_dir/.z/search_history.json` starts empty; the
+  old in-memory history is not migrated. Delete the file (or call
+  `require("zortex.services.search_history").clear()`) to reset ranking.
 
 ## Not done yet / ideas
 
 - **`:ProjectRename`:** rename or renumber a project heading and rewrite every
   link to it. The link index now makes this straightforward (it knows every
   link pointing at a heading).
-- **Weekly review buffer** rendering `agenda.review()`.
 - **Broken-link diagnostics** with `vim.diagnostic` (the data is
   `link_index.unresolved()`).
 - **Backlinks panel** for the section under the cursor.
-- **Search ranking and history** (`min_score`, `access_decay_rate`, `history`
-  in the config).
+- **`min_score` and `breadcrumb_display`** in the search config are still
+  unused.
 - **`doc/Search.md`** describes more token types (`@@`, `@`, `*`, escaped
   spaces) than the picker implements.
 - **Calendar highlights** in `ui/calendar/view.lua` still mix display and byte

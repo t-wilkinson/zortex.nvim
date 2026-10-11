@@ -1,0 +1,243 @@
+-- ui/review.lua - Weekly review buffer
+--
+-- :ZortexReview [days] renders services/agenda.review() into a read-only,
+-- Zortex-highlighted scratch buffer (zortex://review). Every finding links to
+-- its project, area or objective, so gx / K (preview) work as in any note.
+--
+--   <CR>   jump to the finding's source line (task, calendar entry, heading)
+--   gx     follow the link on the line
+--   K      preview the link on the line
+--   r      refresh (re-reads the notes)
+--   q      close
+--
+-- render(review) is pure: it returns the lines and a line -> location map,
+-- so other front ends (the digest, an app) can reuse the same layout.
+local M = {}
+
+local BUF_NAME = "zortex://review"
+
+local state = { bufnr = nil, days = 7, locations = {} }
+
+local function rel(path)
+	local dir = require("zortex.config").notes_dir or ""
+	if dir ~= "" and path:sub(1, #dir) == dir then
+		return path:sub(#dir + 1):gsub("^/", "")
+	end
+	return vim.fn.fnamemodify(path, ":~:.")
+end
+
+local function project_summary(p)
+	local r = p:rollup()
+	local parts = {}
+	if r.total > 0 then
+		parts[#parts + 1] = string.format("%d/%d done", r.done, r.total)
+	end
+	if r.points_open > 0 then
+		parts[#parts + 1] = string.format("%d pts open", r.points_open)
+	end
+	return #parts > 0 and ("  (" .. table.concat(parts, ", ") .. ")") or ""
+end
+
+-- One agenda item (overdue / due soon / completed)
+local function item_line(item)
+	local when = item.date or ""
+	if item.time then
+		when = when .. " " .. item.time
+	end
+	local where
+	if item.project and item.project.link then
+		where = item.project.link
+	elseif item.entry then
+		where = "(calendar)"
+	end
+	local line = string.format("- %s  %s", when, item.text or "")
+	if where then
+		line = line .. "  " .. where
+	end
+	local task = item.task
+	return line, {
+		file = item.file or (task and task.file) or (item.project and item.project.file),
+		lnum = item.lnum or (task and task.lnum) or (item.project and item.project.lnum),
+	}
+end
+
+local function entity_line(e, suffix)
+	return "- " .. (e.link or e.name) .. (suffix or ""), { file = e.file, lnum = e.lnum }
+end
+
+--- Lines and line -> { file, lnum } locations for a review.
+---@param r table result of agenda.review()
+---@param opts { days?: integer }?
+---@return string[] lines, table<integer, { file: string, lnum: integer }> locations
+function M.render(r, opts)
+	opts = opts or {}
+	local lines, locations = {}, {}
+
+	local function add(line, loc)
+		lines[#lines + 1] = line
+		if loc and loc.file and loc.lnum then
+			locations[#lines] = loc
+		end
+	end
+
+	local function section(title, list, fn, empty)
+		add("")
+		add(string.format("## %s (%d)", title, #list))
+		if #list == 0 then
+			add(empty or "  nothing")
+			return
+		end
+		for _, x in ipairs(list) do
+			add(fn(x))
+		end
+	end
+
+	local stale = {}
+	for _, p in ipairs(r.stale) do
+		stale[p] = true
+	end
+	local unscheduled = vim.tbl_filter(function(p)
+		return not stale[p]
+	end, r.unscheduled)
+
+	add("@@Weekly Review")
+	add(string.format("Today %s · looking back to %s, ahead to %s", r.today, r.from, r.to))
+	add(
+		string.format(
+			"%d overdue · %d due soon · %d completed · %d stale · %d broken links",
+			#r.overdue,
+			#r.due_soon,
+			#r.completed,
+			#r.stale,
+			#r.broken_links
+		)
+	)
+
+	add("")
+	add("# Tasks")
+	section("Overdue", r.overdue, item_line)
+	section("Due soon", r.due_soon, item_line)
+	section("Completed", r.completed, item_line)
+
+	add("")
+	add("# Projects")
+	section("Stale: no calendar time behind or ahead", r.stale, function(p)
+		return entity_line(p, project_summary(p))
+	end)
+	section("Unscheduled: open work, nothing on the calendar ahead", unscheduled, function(p)
+		return entity_line(p, project_summary(p))
+	end)
+	section("No next action", r.no_next_action, function(p)
+		return entity_line(p)
+	end)
+
+	add("")
+	add("# Goals")
+	section("Key results without projects", r.krs_without_projects, function(kr)
+		local o = kr.objective
+		local line = "- " .. (kr.id and (kr.id .. ": ") or "") .. (kr.text or "")
+		if o and o.link then
+			line = line .. "  " .. o.link
+		end
+		return line, { file = kr.file, lnum = kr.lnum }
+	end)
+	section("Objectives without key results", r.objectives_without_krs, function(o)
+		return entity_line(o)
+	end)
+	section("Areas without active projects", r.areas_without_projects, function(a)
+		return entity_line(a)
+	end)
+
+	add("")
+	add("# Notes")
+	section("Broken links", r.broken_links, function(ref)
+		return string.format("- %s:%d  %s", rel(ref.file), ref.lnum, ref.text or ""), { file = ref.file, lnum = ref.lnum }
+	end)
+
+	return lines, locations
+end
+
+-- =============================================================================
+-- Buffer
+-- =============================================================================
+
+local function jump()
+	local loc = state.locations[vim.api.nvim_win_get_cursor(0)[1]]
+	if not loc then
+		return
+	end
+	vim.cmd("edit " .. vim.fn.fnameescape(loc.file))
+	local last = vim.api.nvim_buf_line_count(0)
+	vim.api.nvim_win_set_cursor(0, { math.max(1, math.min(loc.lnum, last)), 0 })
+	vim.cmd("normal! zv")
+end
+
+local function get_buffer()
+	if state.bufnr and vim.api.nvim_buf_is_valid(state.bufnr) then
+		return state.bufnr
+	end
+	local buf = vim.fn.bufnr(BUF_NAME)
+	if buf == -1 then
+		buf = vim.api.nvim_create_buf(true, true)
+		vim.api.nvim_buf_set_name(buf, BUF_NAME)
+	end
+	vim.bo[buf].buftype = "nofile"
+	vim.bo[buf].bufhidden = "hide"
+	vim.bo[buf].swapfile = false
+
+	local map = function(lhs, fn, desc)
+		vim.keymap.set("n", lhs, fn, { buffer = buf, nowait = true, silent = true, desc = desc })
+	end
+	map("<CR>", jump, "Zortex review: jump to source")
+	map("gx", function()
+		require("zortex.features.links").open_link()
+	end, "Zortex review: follow link")
+	map("K", function()
+		require("zortex.features.preview").preview_link()
+	end, "Zortex review: preview link")
+	map("r", function()
+		M.refresh()
+	end, "Zortex review: refresh")
+	map("q", function()
+		vim.cmd("bdelete")
+	end, "Zortex review: close")
+
+	state.bufnr = buf
+	return buf
+end
+
+--- Re-render the review buffer (if open).
+function M.refresh()
+	local buf = state.bufnr
+	if not (buf and vim.api.nvim_buf_is_valid(buf)) then
+		return
+	end
+	local r = require("zortex.services.agenda").review({ days = state.days, today = state.today })
+	local lines, locations = M.render(r)
+	state.locations = locations
+	vim.bo[buf].modifiable = true
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+	vim.bo[buf].modifiable = false
+	vim.bo[buf].modified = false
+	pcall(require("zortex.features.highlights").highlight_buffer, buf)
+end
+
+--- Open the weekly review (default: last and next 7 days).
+---@param opts { days?: integer, today?: string }?
+---@return integer bufnr
+function M.open(opts)
+	opts = opts or {}
+	state.days = opts.days or 7
+	state.today = opts.today
+	local buf = get_buffer()
+	vim.api.nvim_set_current_buf(buf)
+	M.refresh()
+	return buf
+end
+
+-- Test hook
+function M._state()
+	return state
+end
+
+return M

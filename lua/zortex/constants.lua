@@ -23,6 +23,7 @@ M.FILES = {
 	TIMER_STATE = ".z/timer_state.json",
 	NOTIFICATIONS_STATE = ".z/notifications_state.json",
 	LINK_INDEX = ".z/link_index.json",
+	SEARCH_HISTORY = ".z/search_history.json",
 	LOG = ".z/logs",
 }
 

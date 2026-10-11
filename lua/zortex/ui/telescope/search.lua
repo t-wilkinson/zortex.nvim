@@ -26,7 +26,12 @@
 --                       prompt has n words ("all" = every type); bold
 --                       headings and labels above the first heading count
 --                       as H1. Typed words (#, :, *, @@) ignore the filter.
---   breadcrumb_display, min_score, access_decay_rate, history
+--   access_decay_rate   per-day decay of a note's "opened from search" score
+--   history             { enabled, max_entries, score_decay, propagation_decay }
+--                       per-section history (see services/search_history);
+--                       both add a boost so frequently/recently opened places
+--                       rank higher. Stored in notes_dir/.z/search_history.json
+--   breadcrumb_display, min_score
 --                       reserved (results always show the full breadcrumb)
 local M = {}
 local tree_module = require("zortex.core.tree")
@@ -375,6 +380,7 @@ function M.build_index(files)
 				end
 
 				index[#index + 1] = {
+					filepath = filepath,
 					archived = require("zortex.core.notes").is_archived(filepath),
 					lower_lines = lower_lines,
 					sections = sections,
@@ -502,9 +508,12 @@ end
 --   allowed(entry)    which sections may be results
 --   with_children     also list the direct sub-sections of each match
 local function match_sections(index, tokens, allowed, with_children)
+	local history = require("zortex.services.search_history")
+	local now = os.time()
 	local groups = {}
 	for _, file in ipairs(index) do
 		local results, best = {}, -math.huge
+		local file_boost = file.filepath and history.file_boost(file.filepath, now) or 0
 		local matched = {} -- node -> score of explicit matches in this file
 		for _, sec in ipairs(file.sections) do
 			local node = sec.node
@@ -520,6 +529,8 @@ local function match_sections(index, tokens, allowed, with_children)
 			end
 
 			if score then
+				-- Frequently/recently opened notes and sections rank higher
+				score = score + file_boost + history.section_boost(sec.filepath, sec.breadcrumb, now)
 				matched[node] = score
 				results[#results + 1] = section_result(sec, file, score)
 				best = math.max(best, score)
@@ -727,31 +738,23 @@ function M.structural_search(opts)
 			previewer = zortex_previewer(),
 			layout_strategy = "horizontal",
 			attach_mappings = function(prompt_bufnr, map)
-				actions.select_default:replace(function()
-					local selection = action_state.get_selected_entry()
-					actions.close(prompt_bufnr)
-					if selection and selection.value then
-						local result = selection.value
-						vim.cmd("edit " .. vim.fn.fnameescape(result.filepath))
-						local lnum = result.result_type == "section" and result.node.start_line or result.lnum
-						vim.fn.cursor(lnum, 1)
-						vim.cmd("normal! zz")
-					end
-				end)
-
-				local function open_in(split_type)
+				-- Open a result (recording it in the search history)
+				local function open_in(cmd)
 					return function()
 						local selection = action_state.get_selected_entry()
 						actions.close(prompt_bufnr)
 						if selection and selection.value then
 							local result = selection.value
-							vim.cmd(split_type .. " " .. vim.fn.fnameescape(result.filepath))
+							require("zortex.services.search_history").record(result)
+							vim.cmd(cmd .. " " .. vim.fn.fnameescape(result.filepath))
 							local lnum = result.result_type == "section" and result.node.start_line or result.lnum
 							vim.fn.cursor(lnum, 1)
 							vim.cmd("normal! zz")
 						end
 					end
 				end
+
+				actions.select_default:replace(open_in("edit"))
 
 				-- Create new note with current query
 				map({ "i", "n" }, "<C-o>", function()

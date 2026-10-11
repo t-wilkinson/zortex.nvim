@@ -414,6 +414,8 @@ accepted.
 | `notifications/types/digest.lua` | `agenda` |
 | `features/completion.lua` | `link_resolver`, `notes`, `document` |
 | `features/preview.lua` | `link_resolver`, `features/links` |
+| `ui/review.lua` | `agenda.review` |
+| `services/search_history.lua` | `ui/telescope/search` (records opens, adds boosts) |
 
 **Projects picker** (`ui/telescope/projects.lua`): rows show
 `ancestors › name  done/total  open-points  [P1,DUE]`.
@@ -470,7 +472,25 @@ calling `search.setup()` with no arguments resets to the defaults):
 | `default_mode` | `"section"`: sections, then lines. `"article"`: article names only. `<C-t>` toggles in the picker. |
 | `max_results` | caps the results of each query |
 | `token_filters[n]` | section types that may be a result when the prompt has `n` words (the last entry applies beyond). Bold headings and labels above the first heading count as H1. Typed words bypass it. |
-| `breadcrumb_display`, `min_score`, `access_decay_rate`, `history` | reserved; nothing reads them yet (results always show the full breadcrumb) |
+| `access_decay_rate` | per-day decay of a note's "opened from search" score (see history below) |
+| `history` | `{ enabled, max_entries, score_decay, propagation_decay }`: per-section history |
+| `breadcrumb_display`, `min_score` | reserved; nothing reads them yet (results always show the full breadcrumb) |
+
+**Search history** (`services/search_history.lua`, stored in
+`notes_dir/.z/search_history.json`). Opening a result (`<CR>`, `<C-x>`,
+`<C-v>`) records it:
+
+- the note's score gets +1, decaying by `access_decay_rate` per day
+- the section and its ancestors get +1, ×`propagation_decay` per level,
+  decaying by `history.score_decay`; sections are keyed by note +
+  breadcrumb, so the history survives edits that move lines; only the
+  `max_entries` strongest are kept
+- scores are stored as `(value, time)` and decayed on read:
+  `value · exp(−rate · days)`
+- a match's score gains `50·ln(1 + note score) + 30·ln(1 + section score)`.
+  Word quality is worth 100 per point, so history reorders similar matches
+  and files but never outranks a better match type (article vs heading)
+- `search_history.clear()` forgets everything
 
 Telescope is loaded lazily, so the plugin sets up without it. [Search.md](Search.md)
 is the fuller target spec; the table above is what is implemented.
@@ -489,6 +509,16 @@ headings, labels and bold headings. Every suggestion resolves.
 resolves to, Zortex-highlighted, focused on the matched line. `<CR>` opens the
 target, `q`/`<Esc>` close, moving the cursor closes it, and calling it again
 focuses it. Footnotes preview their definition.
+
+**Weekly review** (`ui/review.lua`, `:ZortexReview [days]`, default 7):
+`agenda.review()` rendered into a read-only, Zortex-highlighted scratch
+buffer `zortex://review`. Sections: Tasks (overdue, due soon, completed),
+Projects (stale, unscheduled, no next action, with done/total and open
+points), Goals (KRs without projects, objectives without KRs, areas without
+active projects) and Notes (broken links). Each line carries the link of its
+project/objective/area, so `gx` and `K` work; `<CR>` jumps to the source
+line, `r` refreshes, `q` closes. `render(review)` is pure (lines plus a
+line → location map) so other front ends can reuse the layout.
 
 **Skill tree** (`ui/skill_tree.lua`): season status from `xp/stats`, top areas
 from `areas.top`, and the area tree from Area objects. Levels come from

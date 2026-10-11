@@ -8,6 +8,10 @@
 --   q / <Esc> close
 -- The preview closes when the cursor moves; calling preview again while it is
 -- open focuses it (like LSP hover).
+--
+-- Hover: with ui.preview.on_hover = true, resting the cursor on a link
+-- (CursorHold, so 'updatetime' sets the delay) previews it without moving
+-- focus. Only the link under the cursor counts, and errors stay quiet.
 local M = {}
 
 local MAX_LINES = 200
@@ -21,7 +25,7 @@ function M.close()
 	if is_open() then
 		vim.api.nvim_win_close(state.win, true)
 	end
-	state.win, state.buf = nil, nil
+	state.win, state.buf, state.link = nil, nil, nil
 end
 
 -- What to show for a link: { lines, title, focus (1-based within lines), location }
@@ -77,21 +81,40 @@ local function target_content(link_info)
 	return nil, "Nothing to preview for this link"
 end
 
+local HOVER_TYPES = { link = true, live_link = true, footnote = true }
+
 --- Preview the link under the cursor (or the next one on the line).
-function M.preview_link()
-	if is_open() then
+---@param opts { hover?: boolean }?  hover: only the link under the cursor, never focus, no messages
+function M.preview_link(opts)
+	opts = opts or {}
+	local link_info
+	if opts.hover then
+		local line = vim.api.nvim_get_current_line()
+		link_info = require("zortex.utils.parser").extract_link_at(line, vim.api.nvim_win_get_cursor(0)[2])
+		if not (link_info and HOVER_TYPES[link_info.type]) then
+			return nil
+		end
+		if is_open() then
+			if state.link == link_info.full_match_text then
+				return state.win -- already showing it
+			end
+			M.close()
+		end
+	elseif is_open() then
 		vim.api.nvim_set_current_win(state.win)
 		return
 	end
 
-	local link_info = require("zortex.features.links").link_at_cursor()
+	link_info = link_info or require("zortex.features.links").link_at_cursor()
 	if not link_info then
 		vim.notify("No link found on current line", vim.log.levels.INFO)
 		return
 	end
 	local content, err = target_content(link_info)
 	if not content then
-		vim.notify(err, vim.log.levels.INFO)
+		if not opts.hover then
+			vim.notify(err, vim.log.levels.INFO)
+		end
 		return
 	end
 
@@ -137,7 +160,7 @@ function M.preview_link()
 	if content.focus then
 		pcall(vim.api.nvim_win_set_cursor, win, { content.focus, 0 })
 	end
-	state.win, state.buf = win, buf
+	state.win, state.buf, state.link = win, buf, link_info.full_match_text
 
 	local function open_target()
 		local location = content.location
@@ -161,6 +184,24 @@ function M.preview_link()
 		end,
 	})
 	return win
+end
+
+--- Preview links on hover when ui.preview.on_hover is set.
+function M.setup(opts)
+	opts = opts or {}
+	local group = vim.api.nvim_create_augroup("ZortexLinkPreviewHover", { clear = true })
+	if not opts.on_hover then
+		return
+	end
+	vim.api.nvim_create_autocmd("CursorHold", {
+		group = group,
+		pattern = opts.pattern or "*.zortex",
+		callback = function()
+			if vim.fn.mode() == "n" and vim.api.nvim_get_current_win() ~= state.win then
+				pcall(M.preview_link, { hover = true })
+			end
+		end,
+	})
 end
 
 -- Test hook

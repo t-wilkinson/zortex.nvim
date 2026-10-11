@@ -98,6 +98,37 @@ T.test("plan buffer puts items into the calendar day", function()
 		T.eq(items[1].time, "09:00")
 		T.eq(items[1].project and items[1].project.key, "Projects/1 Programming/1.4 - zortex")
 
+		-- i / o / O: text on the current / next / previous line, insert mode at line start
+		local function press(key)
+			vim.api.nvim_set_current_win(st.win)
+			vim.api.nvim_win_set_cursor(st.win, { first, 0 })
+			vim.fn.maparg(key, "n", false, true).callback()
+			vim.cmd("stopinsert")
+		end
+		local text = lines[first]
+		vim.api.nvim_win_set_cursor(st.cal_win, { h + 2, 0 }) -- "12:00 Lunch"
+		press("o")
+		T.eq(vim.api.nvim_get_current_win(), st.cal_win)
+		T.eq(vim.api.nvim_win_get_cursor(st.cal_win), { h + 3, 0 })
+		T.eq(vim.api.nvim_buf_get_lines(st.cal_buf, h + 2, h + 3, false)[1], text)
+		press("O")
+		T.eq(vim.api.nvim_win_get_cursor(st.cal_win), { h + 3, 0 })
+		T.eq(vim.api.nvim_buf_get_lines(st.cal_buf, h + 2, h + 4, false), { text, text })
+		vim.api.nvim_buf_set_lines(st.cal_buf, h + 2, h + 4, false, { "" })
+		vim.api.nvim_win_set_cursor(st.cal_win, { h + 3, 0 })
+		press("i")
+		T.eq(vim.api.nvim_buf_get_lines(st.cal_buf, h + 2, h + 3, false)[1], text)
+		vim.api.nvim_buf_set_lines(st.cal_buf, h + 2, h + 3, false, {})
+
+		-- p: "- text" after the day's last entry, focus stays in the plan buffer
+		vim.api.nvim_set_current_win(st.win)
+		vim.api.nvim_win_set_cursor(st.win, { first, 0 })
+		vim.fn.maparg("p", "n", false, true).callback()
+		T.eq(vim.api.nvim_get_current_win(), st.win)
+		local block = require("zortex.stores.calendar").date_block("2026-10-18", vim.api.nvim_buf_get_lines(st.cal_buf, 0, -1, false))
+		T.eq(vim.api.nvim_buf_get_lines(st.cal_buf, block.last_lnum - 1, block.last_lnum, false)[1], "- " .. text)
+		T.eq(block.last_lnum, h + 3) -- 09:00 …, 12:00 Lunch, then the new entry
+
 		ui.close()
 		vim.cmd("silent! bwipeout! " .. st.cal_buf)
 	end)

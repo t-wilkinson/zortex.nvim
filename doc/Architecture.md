@@ -649,6 +649,10 @@ After a section, its sub-sections, children first. `#`, `:` and `*` narrow to
 headings, labels and bold headings. Every suggestion resolves.
 `get_completions(line, col, opts)` is the testable core.
 
+**Hover preview:** with `ui.preview.on_hover = true`, resting the cursor on a
+link (`CursorHold`; `'updatetime'` is the delay) previews it without taking
+focus; moving away closes it.
+
 **Link preview** (`features/preview.lua`, `:ZortexLinkPreview`,
 `<prefix>K`): a floating window with the section the link under the cursor
 resolves to, Zortex-highlighted, focused on the matched line. `<CR>` opens the
@@ -669,10 +673,13 @@ focuses it. Footnotes preview their definition.
   levels, fewest active projects first).
 - Every line is exactly what gets written: plain text plus one explicit link
   to the item; badges (`TODO · P1 · due 10-12 · OKR`) are virtual text.
-- Keys: `<CR>`/`p` put at the calendar cursor (`planner.put`: single spaces,
-  never inside a `09:00` or `- ` marker, `- text` on a blank line), `o` new
-  entry below, `<C-n>`/`<C-p>` move the calendar cursor, `<Tab>` to the
-  calendar, `gx`/`K`, `r`, `q`. `query.plan()` returns the same candidates.
+- Keys: `i`/`o`/`O` put the text on the current / next / previous calendar
+  line (no marker) and jump there in insert mode at the line start to type a
+  time; `p` adds `- text` after the day's last entry and keeps focus in the
+  plan (`calendar.date_block`); `<CR>` puts at the calendar cursor
+  (`planner.put`: single spaces, never inside a `09:00` or `- ` marker);
+  `<C-n>`/`<C-p>` move the calendar cursor, `<Tab>` to the calendar,
+  `gx`/`K`, `r`, `q`. `query.plan()` returns the same candidates.
 
 **Projects sorting** adds OKR alignment: projects linked from open key results
 (directly or through an ancestor) get `score.weights.okr` (80, +20 per extra

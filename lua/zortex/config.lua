@@ -134,6 +134,11 @@ local defaults = {
 	},
 
 	ui = {
+		-- Link preview float (<prefix>K / :ZortexLinkPreview)
+		preview = {
+			on_hover = false, -- preview the link under the cursor on CursorHold ('updatetime' is the delay)
+		},
+
 		-- :ZortexPlan (ui/planner.lua, services/planner.lua)
 		planner = {
 			todo_link = "P/#TODOs", -- tasks under this project rank higher

@@ -55,3 +55,21 @@ T.test("unresolved links don't open a window", function()
 	T.eq(#vim.api.nvim_list_wins(), before)
 	vim.cmd("enew!")
 end)
+
+T.test("hover previews only the link under the cursor, without focus", function()
+	open_with("text [P/#1.4 - zortex] more")
+	vim.api.nvim_win_set_cursor(0, { 1, 0 }) -- on "text": nothing
+	T.eq(preview.preview_link({ hover = true }), nil)
+	local origin = vim.api.nvim_get_current_win()
+	vim.api.nvim_win_set_cursor(0, { 1, 8 })
+	local win = preview.preview_link({ hover = true })
+	T.ok(win and vim.api.nvim_win_is_valid(win), "opened")
+	T.eq(vim.api.nvim_get_current_win(), origin) -- focus stays
+	T.eq(preview.preview_link({ hover = true }), win) -- same link: kept
+	preview.close()
+
+	preview.setup({ on_hover = true, pattern = "*" })
+	T.eq(#vim.api.nvim_get_autocmds({ group = "ZortexLinkPreviewHover", event = "CursorHold" }), 1)
+	preview.setup({ on_hover = false })
+	T.eq(#vim.api.nvim_get_autocmds({ group = "ZortexLinkPreviewHover" }), 0)
+end)

@@ -8,9 +8,13 @@
 --      written: the item's text and an explicit link to it.
 --
 -- In the plan buffer:
---   <CR> / p   put the line at the calendar cursor (single spaces around it;
+--   i / o / O  put the text on the current / next / previous calendar line
+--              (no marker added) and jump there in insert mode at the start of
+--              the line, ready to type a time ("09:00 ")
+--   p          add "- text" after the day's last entry; stay in the plan buffer
+--              (walk the list adding what you want)
+--   <CR>       put the text at the calendar cursor (single spaces around it;
 --              never inside a "09:00" or "- " marker; "- text" on a blank line)
---   o          put it as a new entry below the calendar cursor
 --   <C-n> <C-p> move the calendar cursor down / up
 --   <Tab>      go to the calendar window
 --   gx / K     follow / preview the link on the line
@@ -84,8 +88,7 @@ local function current_item()
 end
 
 --- Put the candidate under the cursor at the calendar cursor.
----@param below boolean? new entry line below instead
-function M.put(below)
+function M.put()
 	local item = current_item()
 	local win = calendar_window()
 	if not item or not win then
@@ -93,23 +96,66 @@ function M.put(below)
 	end
 	local buf = vim.api.nvim_win_get_buf(win)
 	local row, col = unpack(vim.api.nvim_win_get_cursor(win))
-	local workspace = require("zortex.core.workspace")
-	if below then
-		local line = vim.api.nvim_buf_get_lines(buf, row - 1, row, false)[1] or ""
-		local indent = line:match("^%s*")
-		local new, end_col = planner.put(indent, 0, item.text)
-		workspace.insert_lines(buf, row + 1, { new })
-		vim.api.nvim_win_set_cursor(win, { row + 1, end_col })
-	else
-		local line = vim.api.nvim_buf_get_lines(buf, row - 1, row, false)[1] or ""
-		local new, end_col = planner.put(line, col, item.text)
-		workspace.set_line(buf, row, new)
-		vim.api.nvim_win_set_cursor(win, { row, math.max(0, end_col) })
-		if cfg().advance then
-			local last = vim.api.nvim_buf_line_count(buf)
-			vim.api.nvim_win_set_cursor(win, { math.min(row + 1, last), 0 })
-		end
+	local line = vim.api.nvim_buf_get_lines(buf, row - 1, row, false)[1] or ""
+	local new, end_col = planner.put(line, col, item.text)
+	require("zortex.core.workspace").set_line(buf, row, new)
+	vim.api.nvim_win_set_cursor(win, { row, math.max(0, end_col) })
+	if cfg().advance then
+		local last = vim.api.nvim_buf_line_count(buf)
+		vim.api.nvim_win_set_cursor(win, { math.min(row + 1, last), 0 })
 	end
+end
+
+--- Put the candidate's text on the calendar line `where` ("current", "next"
+--- or "previous" relative to the calendar cursor), without a marker, then go
+--- there in insert mode at the start of the line to type a time.
+function M.place(where)
+	local item = current_item()
+	local win = calendar_window()
+	if not item or not win then
+		return
+	end
+	local buf = vim.api.nvim_win_get_buf(win)
+	local workspace = require("zortex.core.workspace")
+	local row = vim.api.nvim_win_get_cursor(win)[1]
+	local line = vim.api.nvim_buf_get_lines(buf, row - 1, row, false)[1] or ""
+	local indent = line:match("^%s*")
+	local target
+	if where == "current" then
+		target = row
+		local new = line:find("%S") and (line:gsub("%s*$", "") .. " " .. item.text) or (indent .. item.text)
+		workspace.set_line(buf, row, new)
+	else
+		target = where == "next" and row + 1 or row
+		workspace.insert_lines(buf, target, { indent .. item.text })
+	end
+	vim.api.nvim_set_current_win(win)
+	vim.api.nvim_win_set_cursor(win, { target, #indent })
+	vim.cmd("startinsert")
+end
+
+--- Add "- text" after the last entry of the planned day; focus stays here.
+function M.append()
+	local item = current_item()
+	if not item or not state.date then
+		return
+	end
+	local calendar = require("zortex.stores.calendar")
+	local win = calendar_window()
+	local buf = win and vim.api.nvim_win_get_buf(win) or require("zortex.utils.filesystem").get_calendar_file()
+	local lines = require("zortex.core.workspace").get_lines(buf)
+	local block = calendar.date_block(state.date, lines)
+	if not block then
+		calendar.ensure_date(state.date, planner.template(state.date))
+		lines = require("zortex.core.workspace").get_lines(buf)
+		block = calendar.date_block(state.date, lines)
+	end
+	local at = block.last_lnum + 1
+	require("zortex.core.workspace").insert_lines(buf, at, { "- " .. item.text })
+	if win then
+		vim.api.nvim_win_set_cursor(win, { at, 0 })
+	end
+	vim.api.nvim_echo({ { "Added to " .. state.date .. ": " .. item.text, "Comment" } }, false, {})
 end
 
 local function move_calendar(delta)
@@ -141,15 +187,17 @@ local function plan_buffer()
 	local map = function(lhs, fn, desc)
 		vim.keymap.set("n", lhs, fn, { buffer = buf, nowait = true, silent = true, desc = "Zortex plan: " .. desc })
 	end
-	map("<CR>", function()
-		M.put(false)
-	end, "put at the calendar cursor")
-	map("p", function()
-		M.put(false)
-	end, "put at the calendar cursor")
+	map("<CR>", M.put, "put at the calendar cursor")
+	map("i", function()
+		M.place("current")
+	end, "put on the current calendar line, then type a time")
 	map("o", function()
-		M.put(true)
-	end, "put as a new entry below the calendar cursor")
+		M.place("next")
+	end, "put on a new line below, then type a time")
+	map("O", function()
+		M.place("previous")
+	end, "put on a new line above, then type a time")
+	map("p", M.append, "add as '- text' after the day's last entry")
 	map("<C-n>", function()
 		move_calendar(1)
 	end, "calendar cursor down")

@@ -144,6 +144,19 @@ end
 -- Single Entry Management (line edits)
 -- =============================================================================
 
+--- The block of `date_str` in `lines` (default: the current calendar):
+--- { date, heading_lnum, last_lnum } or nil. last_lnum is the day's last
+--- non-blank line.
+function M.date_block(date_str, lines)
+	lines = lines or workspace().get_lines(calendar_path())
+	for _, b in ipairs(date_blocks(require("zortex.core.document").from_lines(lines))) do
+		if b.date == date_str then
+			return b
+		end
+	end
+	return nil
+end
+
 --- Make sure `date_str` has a heading in the calendar, creating it in date
 --- order with `lines` (a day template) under it. Returns the heading's line
 --- number and whether it was created.

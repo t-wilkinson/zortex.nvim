@@ -106,7 +106,8 @@ Special notes:
 - **Structural search** (`<leader>zz`): words match a section's path in order
   (`2 4` finds `1 › 2 › 3 › 4`), results are breadcrumbs ranked by hierarchy,
   and what you open often ranks higher.
-- **Links**: follow (`<leader>zgx`), preview in a float (`<leader>zK`), complete while typing,
+- **Links**: follow (`<leader>zgx`), preview in a float (`<leader>zK`, or on
+  hover with `ui = { preview = { on_hover = true } }`), complete while typing,
   backlinks and broken links in the quickfix list. A persistent link index
   keeps this fast.
 - **Highlighting and folding** for the whole format, with concealed markers.
@@ -114,8 +115,9 @@ Special notes:
   results; `@progress` written back on request.
 - **Day planner** (`<leader>zm`): opens today's calendar day (created from
   your weekday/Saturday/Sunday template) next to a ranked list of TODOs,
-  high-priority and due tasks, OKR projects, key results and areas; `<CR>`
-  puts an item, with a link to it, at the calendar cursor.
+  high-priority and due tasks, OKR projects, key results and areas. `p` adds
+  an item (with a link to it) to the day and stays in the list; `i`/`o`/`O`
+  put it on the current/next/previous line and let you type its time.
 - **Weekly review** (`<leader>zw`): overdue and due tasks, completed work,
   stale and unscheduled projects, projects without a next action, KRs
   without projects, areas without projects, broken links. Every line links

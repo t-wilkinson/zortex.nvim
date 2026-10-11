@@ -324,6 +324,7 @@ function M.objectives()
 			krs[#krs + 1] = {
 				id = kr.id,
 				text = kr.text,
+				link = kr.link,
 				lnum = kr.lnum,
 				completed = kr.completed,
 				progress = kr:progress(),
@@ -396,7 +397,7 @@ function M.review(opts)
 		stale = keys(r.stale),
 		no_next_action = keys(r.no_next_action),
 		krs_without_projects = vim.tbl_map(function(kr)
-			return { id = kr.id, text = kr.text, objective = kr.objective.key, path = kr.file, rel = rel(kr.file), lnum = kr.lnum }
+			return { id = kr.id, text = kr.text, link = kr.link, objective = kr.objective.key, path = kr.file, rel = rel(kr.file), lnum = kr.lnum }
 		end, r.krs_without_projects),
 		objectives_without_krs = keys(r.objectives_without_krs),
 		areas_without_projects = keys(r.areas_without_projects),

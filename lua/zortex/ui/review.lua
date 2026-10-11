@@ -35,7 +35,7 @@ local function project_summary(p)
 	if r.points_open > 0 then
 		parts[#parts + 1] = string.format("%d pts open", r.points_open)
 	end
-	return #parts > 0 and ("  (" .. table.concat(parts, ", ") .. ")") or ""
+	return #parts > 0 and ("(" .. table.concat(parts, ", ") .. ")") or ""
 end
 
 -- One agenda item (overdue / due soon / completed)
@@ -50,9 +50,9 @@ local function item_line(item)
 	elseif item.entry then
 		where = "(calendar)"
 	end
-	local line = string.format("- %s  %s", when, item.text or "")
+	local line = string.format("- %s %s", when, item.text or "")
 	if where then
-		line = line .. "  " .. where
+		line = line .. " " .. where
 	end
 	local task = item.task
 	return line, {
@@ -62,7 +62,7 @@ local function item_line(item)
 end
 
 local function entity_line(e, suffix)
-	return "- " .. (e.link or e.name) .. (suffix or ""), { file = e.file, lnum = e.lnum }
+	return "- " .. (e.link or e.name) .. (suffix and (" " .. vim.trim(suffix)) or ""), { file = e.file, lnum = e.lnum }
 end
 
 --- Lines and line -> { file, lnum } locations for a review.
@@ -134,10 +134,10 @@ function M.render(r, opts)
 	add("")
 	add("# Goals")
 	section("Key results without projects", r.krs_without_projects, function(kr)
-		local o = kr.objective
 		local line = "- " .. (kr.id and (kr.id .. ": ") or "") .. (kr.text or "")
-		if o and o.link then
-			line = line .. "  " .. o.link
+		local link = kr.link or (kr.objective and kr.objective.link)
+		if link then
+			line = line .. " " .. link
 		end
 		return line, { file = kr.file, lnum = kr.lnum }
 	end)
@@ -151,7 +151,7 @@ function M.render(r, opts)
 	add("")
 	add("# Notes")
 	section("Broken links", r.broken_links, function(ref)
-		return string.format("- %s:%d  %s", rel(ref.file), ref.lnum, ref.text or ""), { file = ref.file, lnum = ref.lnum }
+		return string.format("- %s:%d %s", rel(ref.file), ref.lnum, ref.text or ""), { file = ref.file, lnum = ref.lnum }
 	end)
 
 	return lines, locations

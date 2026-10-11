@@ -41,6 +41,10 @@ function M.parse_key_result(line)
 	end
 	local id = item.key and item.key:match("^KR%d*$") and item.key
 	local text, completed = item.text, item.completed
+	if id then
+		-- Without a checkbox the key is still part of the item text
+		text = text:gsub("^" .. id .. ":%s*", "")
+	end
 	if not id then
 		-- Legacy forms: "- KR-text", "- KR1 text"
 		local num, rest = item.body:match("^KR(%d*)%-%s*(.*)$")
@@ -161,6 +165,8 @@ function Objective:parse_key_results()
 			kr.lnum = lnum
 			kr.file = self.file
 			kr.objective = self
+			-- Explicit link to the key result itself: [O/…/-KR1]
+			kr.link = self.link and (self.link:sub(1, -2) .. "/-" .. kr.id .. "]") or nil
 			krs[#krs + 1] = setmetatable(kr, KeyResult)
 		end
 	end

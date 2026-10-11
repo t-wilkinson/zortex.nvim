@@ -10,7 +10,7 @@ local P = require("zortex.services.projects")
 local score = require("zortex.services.projects.score")
 local datetime = require("zortex.utils.datetime")
 
-local SORTS = { "score", "priority", "due", "remaining", "size", "completion", "path", "name" }
+local SORTS = { "score", "okr", "priority", "due", "remaining", "size", "completion", "path", "name" }
 
 -- =============================================================================
 -- Formatting

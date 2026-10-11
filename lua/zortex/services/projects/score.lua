@@ -7,6 +7,49 @@ local datetime = require("zortex.utils.datetime")
 
 local PRIORITY_SCORE = { ["1"] = 100, ["2"] = 50, ["3"] = 25 }
 
+-- OKR alignment: a project linked from open key results (directly or through
+-- an ancestor) scores `okr` more, plus `okr_each` per extra key result.
+M.weights = { okr = 80, okr_each = 20, okr_max = 140 }
+
+-- { [project_key] = number of open KRs linking it }, rebuilt at most once a second
+local okr_cache = { time = nil, counts = nil }
+function M.okr_counts()
+	local now = vim.loop.now()
+	if okr_cache.counts and now - okr_cache.time < 1000 then
+		return okr_cache.counts
+	end
+	local counts = {}
+	local ok, krs = pcall(function()
+		return require("zortex.services.okr").key_results({ open = true })
+	end)
+	for _, kr in ipairs(ok and krs or {}) do
+		for key in pairs(kr.projects) do
+			counts[key] = (counts[key] or 0) + 1
+		end
+	end
+	okr_cache.time, okr_cache.counts = now, counts
+	return counts
+end
+
+--- Open key results linking this project or one of its ancestors.
+function M.okr_count(project)
+	local counts = M.okr_counts()
+	local n = counts[project.key] or 0
+	for _, ancestor in ipairs(project:ancestors()) do
+		n = n + (counts[ancestor.key] or 0)
+	end
+	return n
+end
+
+--- Score bonus for OKR alignment (see M.weights).
+function M.okr_bonus(project)
+	local n = M.okr_count(project)
+	if n == 0 then
+		return 0
+	end
+	return math.min(M.weights.okr + (n - 1) * M.weights.okr_each, M.weights.okr_max)
+end
+
 -- Days from today until a date table ({year, month, day}); nil if no date.
 local function days_until(date)
 	if type(date) ~= "table" or not date.year then
@@ -59,11 +102,12 @@ function M.next_due(project)
 	return best, best_days
 end
 
--- Project score: project priority/importance plus the average urgency of its
--- open tasks (sub-projects included); mostly-finished projects are damped.
+-- Project score: project priority/importance, OKR alignment, plus the
+-- average urgency of its open tasks (sub-projects included); mostly-finished
+-- projects are damped.
 function M.project_score(project)
 	local attrs = project.attributes or {}
-	local score = (PRIORITY_SCORE[attrs.p] or 0) + (PRIORITY_SCORE[attrs.i] or 0) / 2
+	local score = (PRIORITY_SCORE[attrs.p] or 0) + (PRIORITY_SCORE[attrs.i] or 0) / 2 + M.okr_bonus(project)
 
 	local open, total = 0, 0
 	for _, task in ipairs(project:all_tasks()) do
@@ -87,9 +131,12 @@ function M.project_score(project)
 	return score
 end
 
--- Project indicators for display: { "P1", "DUE", "OVERDUE", ... }
+-- Project indicators for display: { "OKR", "P1", "DUE", "OVERDUE", ... }
 function M.indicators(project)
 	local out = {}
+	if M.okr_count(project) > 0 then
+		out[#out + 1] = "OKR"
+	end
 	if project.attributes.p then
 		out[#out + 1] = "P" .. project.attributes.p
 	end
@@ -140,9 +187,13 @@ end
 
 M.comparators = {
 	score = by_key(M.project_score, false),
+	-- OKR-linked projects first within the same priority
 	priority = by_key(function(p)
-		return num_or(p.attributes.p, 99) * 100 + num_or(p.attributes.i, 99)
+		return num_or(p.attributes.p, 99) * 1000 + (M.okr_count(p) > 0 and 0 or 100) + num_or(p.attributes.i, 99)
 	end, true),
+	okr = by_key(function(p)
+		return M.okr_count(p) * 1000 + M.project_score(p)
+	end, false),
 	importance = by_key(function(p)
 		return num_or(p.attributes.i, 99) * 100 + num_or(p.attributes.p, 99)
 	end, true),

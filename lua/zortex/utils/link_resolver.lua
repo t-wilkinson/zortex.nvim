@@ -110,6 +110,24 @@ function M.search_lines(lines, component, start_line, end_line)
 	local require_all = component.type ~= "or_query"
 
 	local out = {}
+	if component.type == "listitem" then
+		-- A list item whose key ("- KR1: …") or text ("- [ ] Call the bank")
+		-- starts with the component text (case-insensitive)
+		local syntax = require("zortex.core.syntax")
+		local want = vim.trim(component.text):lower()
+		for lnum = start_line or 1, math.min(end_line or #lines, #lines) do
+			local line = lines[lnum]
+			local it = line:find("%S") and syntax.item(line)
+			if it then
+				local key = it.key and it.key:lower()
+				local body = syntax.strip_attributes(line:sub(it.content_col + 1)):lower()
+				if key == want or body:sub(1, #want) == want or (key and key:sub(1, #want) == want) then
+					out[#out + 1] = { lnum = lnum, col = (it.marker_col or 0) + 1 }
+				end
+			end
+		end
+		return out
+	end
 	for lnum = start_line or 1, math.min(end_line or #lines, #lines) do
 		local line = case_sensitive and lines[lnum] or lines[lnum]:lower()
 		local is_match, match_col = require_all, nil
@@ -359,6 +377,26 @@ function M.build_link(components)
 	return "[" .. table.concat(components, "/") .. "]"
 end
 
+--- Text usable inside a link component. Link text is limited to
+--- [A-Za-z0-9 _-().]: the longest prefix made of those characters (with
+--- balanced parentheses), trimmed. Section and item matches are prefix
+--- matches, so the shortened text still finds the same section.
+function M.component_text(text)
+	text = text or ""
+	local prefix = text:match("^[%w _%-%(%)%.]*")
+	local _, opens = prefix:gsub("%(", "")
+	local _, closes = prefix:gsub("%)", "")
+	if opens ~= closes then
+		prefix = prefix:match("^[^%(]*")
+	end
+	prefix = vim.trim(prefix)
+	if prefix == "" then
+		-- Nothing usable at the start: keep the text minus link syntax
+		prefix = vim.trim((text:gsub("[%[%]/]", "")))
+	end
+	return prefix
+end
+
 --- Typed path components of a section node: primary article name, then
 --- "#heading" / ":label" / "*bold" for every section on the way down.
 function M.node_components(doc, node)
@@ -367,13 +405,24 @@ function M.node_components(doc, node)
 		if s.type == "article" then
 			parts[#parts + 1] = (doc and doc:name()) or s.text
 		elseif SECTION_PREFIX[s.type] then
-			-- "/" separates components; section matches are prefix matches, so
-			-- the text up to the first "/" still finds the same section.
-			local text = s.text:find("/", 1, true) and vim.trim(s.text:match("^[^/]*")) or s.text
-			parts[#parts + 1] = SECTION_PREFIX[s.type] .. text
+			parts[#parts + 1] = SECTION_PREFIX[s.type] .. M.component_text(s.text)
 		end
 	end
 	return parts
+end
+
+--- Component for the list item on line `lnum`: "-KR1" for keyed items
+--- ("- KR1: [ ] …"), otherwise "-" + the item's text ("-Call the bank").
+function M.item_component(line)
+	local Item = require("zortex.core.item")
+	local item = Item.from_line(line)
+	if not item then
+		return nil
+	end
+	if item.key then
+		return "-" .. M.component_text(item.key)
+	end
+	return "-" .. M.component_text(item.text)
 end
 
 --- Canonical link to a section node, e.g. "[Projects/#1 Programming/#1.4 - zortex]".

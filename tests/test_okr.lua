@@ -48,3 +48,29 @@ T.test("get_key_results(project) still works for XP", function()
 	T.eq(#krs, 1)
 	T.eq(objs[1].title, "Establish and maintain good habits/routine")
 end)
+
+T.test("key results have explicit links that resolve to their line", function()
+	local okr = require("zortex.services.okr")
+	local resolver = require("zortex.utils.link_resolver")
+	for _, kr in ipairs(okr.key_results()) do
+		T.ok(kr.link and kr.link:match("/%-KR%d+%]$"), tostring(kr.link))
+		local r = resolver.resolve_first(kr.link)
+		T.ok(r and r.lnum == kr.lnum, kr.link .. " -> " .. (r and r.lnum or "nil") .. " want " .. kr.lnum)
+	end
+	-- the key is not repeated in the text, with or without a checkbox
+	local parse = okr.parse_key_result
+	T.eq(parse("- KR1: Zortex").text, "Zortex")
+	T.eq(parse("- KR1: [ ] Zortex").text, "Zortex")
+end)
+
+T.test("link text keeps [A-Za-z0-9 _-().] and still resolves", function()
+	local resolver = require("zortex.utils.link_resolver")
+	T.eq(resolver.component_text("Establish habits/routine"), "Establish habits")
+	T.eq(resolver.component_text("4 Learning & Education"), "4 Learning")
+	T.eq(resolver.component_text("Notes (draft v2.1)"), "Notes (draft v2.1)")
+	T.eq(resolver.component_text("Notes (draft: v2)"), "Notes")
+	T.eq(resolver.item_component("- [ ] Call the bank @p1"), "-Call the bank")
+	T.eq(resolver.item_component("- KR2: [ ] Make list"), "-KR2")
+	local r = resolver.resolve_first("[P/#1 Programming/#1.4 - zortex/-Improve website]")
+	T.ok(r and r.doc.lines[r.lnum]:find("Improve website", 1, true), r and r.doc.lines[r.lnum])
+end)

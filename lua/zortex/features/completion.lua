@@ -120,8 +120,8 @@ local function section_items(doc, node)
 	for _, n in ipairs(node:get_descendants()) do
 		local prefix = PREFIX[n.type]
 		if prefix then
-			-- Link components stop before "/" (see link_resolver.node_components)
-			local text = n.text:find("/", 1, true) and vim.trim(n.text:match("^[^/]*")) or n.text
+			-- Same shortening as generated links (link_resolver.component_text)
+			local text = link_resolver().component_text(n.text)
 			items[#items + 1] = {
 				label = prefix .. text,
 				kind = KIND[n.type],

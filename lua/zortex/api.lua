@@ -29,6 +29,7 @@
 --   z.search_history  record, boost, clear
 --   z.digest     digest note and email content
 --   z.review     weekly review buffer: open, render                       (ui/review)
+--   z.planner    day planning: candidates, template, put                  (services/planner)
 --   z.xp         XP views and seasons                                    (services/xp/stats)
 --   z.config     the merged configuration
 local M = {}
@@ -54,6 +55,7 @@ local SERVICES = {
 	search_history = "zortex.services.search_history",
 	digest = "zortex.services.digest",
 	review = "zortex.ui.review",
+	planner = "zortex.services.planner",
 	xp = "zortex.services.xp.stats",
 	config = "zortex.config",
 }

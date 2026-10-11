@@ -144,6 +144,49 @@ end
 -- Single Entry Management (line edits)
 -- =============================================================================
 
+--- Make sure `date_str` has a heading in the calendar, creating it in date
+--- order with `lines` (a day template) under it. Returns the heading's line
+--- number and whether it was created.
+function M.ensure_date(date_str, lines)
+	local date = datetime.parse_date(date_str)
+	if not date then
+		return nil, "Invalid date format"
+	end
+	date_str = datetime.format_datetime(date, "YYYY-MM-DD")
+	local path = workspace().ensure_file(calendar_path(), DEFAULT_HEADER)
+	local current = workspace().get_lines(path)
+	local blocks = date_blocks(require("zortex.core.document").from_lines(current))
+	for _, b in ipairs(blocks) do
+		if b.date == date_str then
+			return b.heading_lnum, false
+		end
+	end
+
+	local new_lines = { date_str .. ":" }
+	vim.list_extend(new_lines, lines or {})
+	new_lines[#new_lines + 1] = ""
+	local insert_at
+	for _, b in ipairs(blocks) do
+		if b.date > date_str then
+			insert_at = b.heading_lnum
+			break
+		end
+	end
+	if not insert_at then
+		insert_at = #current + 1
+		if #current > 0 and current[#current]:match("%S") then
+			table.insert(new_lines, 1, "")
+		end
+		table.remove(new_lines) -- no trailing blank at the end of the file
+	end
+	local ok, err = workspace().insert_lines(path, insert_at, new_lines)
+	if not ok then
+		return nil, err
+	end
+	notify_changed("calendar:entry_added", { date = date_str })
+	return insert_at + (new_lines[1] == "" and 1 or 0), true
+end
+
 -- Add an entry under its date heading, creating the heading (in date order)
 -- if needed. The entry is formatted like the other entries of that date.
 function M.add_entry(date_str, entry_text)

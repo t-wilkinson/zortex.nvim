@@ -134,6 +134,19 @@ local defaults = {
 	},
 
 	ui = {
+		-- :ZortexPlan (ui/planner.lua, services/planner.lua)
+		planner = {
+			todo_link = "P/#TODOs", -- tasks under this project rank higher
+			max_tasks = 30,
+			width = 70, -- plan window width
+			advance = false, -- after a put, move the calendar cursor to the next line
+			-- Lines for a new calendar day. Keys: monday … sunday override
+			-- weekday / saturday / sunday. e.g.
+			--   weekday = { "07:00 Morning routine [P/#1 Personal/#Habits]", "09:00", "12:00 Lunch", "13:00", "17:00" },
+			--   saturday = { "09:00", "14:00" },
+			templates = {},
+		},
+
 		search = {
 			default_mode = "section", -- or "article"
 			max_results = 500,

@@ -211,6 +211,11 @@ M.list = {
 		run = function(args)
 			require("zortex.ui.review").open({ days = tonumber(args and args.args) })
 		end },
+	{ id = "plan", command = "Plan", key = "m", group = "Plan", desc = "Plan a day: calendar day (from its template) plus ranked tasks, projects, KRs and areas to put on it", nargs = "?",
+		run = function(args)
+			local date = args and args.args ~= "" and args.args or nil
+			require("zortex.ui.planner").open({ date = date })
+		end },
 	{ id = "calendar", command = "Calendar", key = "c", group = "Plan", desc = "Calendar view",
 		run = call("zortex.ui.calendar.view", "open") },
 	{ id = "calendar_digest", command = "CalendarDigest", key = "Cc", group = "Plan", desc = "Calendar view with the digest panel",

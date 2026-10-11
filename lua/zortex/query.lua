@@ -13,6 +13,7 @@
 --   q.backlinks(path, lnum)         links pointing into a section
 --   q.agenda(from, to)              calendar, due tasks and due projects
 --   q.review({ days = 7 })          weekly review findings
+--   q.plan({ today })               ranked candidates for planning a day
 --   q.projects() / q.areas() / q.objectives()
 --   q.export(dir)                   all of the above as JSON files
 local M = {}
@@ -403,6 +404,17 @@ function M.review(opts)
 		areas_without_projects = keys(r.areas_without_projects),
 		broken_links = vim.tbl_map(ref_data, r.broken_links),
 	}
+end
+
+--- Candidates for planning a day (services/planner), ranked.
+function M.plan(opts)
+	local c = require("zortex.services.planner").candidates(opts)
+	local function list(items)
+		return vim.tbl_map(function(i)
+			return { kind = i.kind, text = i.text, badges = i.badges, score = i.score, path = i.file, rel = rel(i.file), lnum = i.lnum }
+		end, items)
+	end
+	return { tasks = list(c.tasks), projects = list(c.projects), key_results = list(c.key_results), areas = list(c.areas) }
 end
 
 -- =============================================================================

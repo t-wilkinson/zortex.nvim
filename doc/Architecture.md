@@ -232,8 +232,16 @@ narrows a list of candidates (file + line range):
 | Article | `P`, `Projects` | Files declaring the alias, **then** files tagged with it. |
 | Tag | `@P` | Files whose header has the tag. If no file declares it, a line search for `@P`. |
 | Heading | `#1.4 - zortex` | Heading lines whose text **starts with** the text, case-insensitive, at **any depth** in the current range. |
-| Label / bold / list item | `:Fitness`, `*X`, `-item` | Line searches. |
+| Label / bold | `:Fitness`, `*X` | Line searches. |
+| List item | `-KR1`, `-Call the bank` | A list item whose key (`- KR1: …`) or text (checkbox and attributes ignored) starts with the text. |
 | Query | `%text`, `a + b`, `a & b` | Line searches. Case-sensitive only if the query has an uppercase letter. |
+
+**Generated link text** keeps only `[A-Za-z0-9 _-().]`: `component_text`
+takes the longest such prefix (with balanced parentheses), so
+`#4 Learning & Education` is written `#4 Learning` and still resolves by
+prefix. `item_component(line)` gives `-KR1` for keyed items and `-<text>`
+otherwise; key results link as `[O/#Current/#3M-2026-Q1 …/-KR1]` and planner
+tasks as `[P/#…/-Improve website]`.
 
 **Rules for the result:**
 - For a non-final component, the **first match in each file** becomes the new
@@ -422,7 +430,8 @@ heading is an entity; headings matching `3M-2026-Q1 Title` (or the legacy
   (`@done`), `section` (parent heading), `key_results`, `progress()` (mean of
   its KRs), `areas()`, `projects()`, plus everything an entity has (`key`,
   `link` such as `[O/#Current/#3M-2026-Q1 Establish …]`, `backlinks()`, …).
-- **Key result:** `- KR1: [ ] text …` lines directly under an objective.
+- **Key result:** `- KR1: [ ] text …` lines directly under an objective;
+  `kr.link` is the explicit link to the line (`[O/…/-KR1]`).
   `id`, `text`, `completed` (checkbox), `lnum`, `objective`, `projects`
   (`{ [project_key] = Project }`, from the link index, computed on access),
   `project_list()`, `progress()` and `is_done()`.
@@ -646,6 +655,30 @@ resolves to, Zortex-highlighted, focused on the matched line. `<CR>` opens the
 target, `q`/`<Esc>` close, moving the cursor closes it, and calling it again
 focuses it. Footnotes preview their definition.
 
+**Day planner** (`ui/planner.lua` + `services/planner.lua`, `:ZortexPlan
+[date]`, `<prefix>m`): opens `calendar.zortex` at the day, creating it from
+`ui.planner.templates` (`monday` … `sunday` override `weekday` / `saturday` /
+`sunday`), and a `zortex://plan` window beside it with ranked candidates:
+
+- **Tasks** score by adding signals (`planner.weights`): in the TODO project
+  (`ui.planner.todo_link`, default `P/#TODOs`) 3, `@p1/2/3` 3/2/1, `@i1/2`
+  2/1, overdue 4, due today 3, within 3 days 2, within a week 1, project
+  linked from an open KR 2; overdue calendar tasks are included.
+- **Projects** that are OKR-linked or high priority/importance, **key
+  results** of current objectives (least progress first) and **areas** (two
+  levels, fewest active projects first).
+- Every line is exactly what gets written: plain text plus one explicit link
+  to the item; badges (`TODO · P1 · due 10-12 · OKR`) are virtual text.
+- Keys: `<CR>`/`p` put at the calendar cursor (`planner.put`: single spaces,
+  never inside a `09:00` or `- ` marker, `- text` on a blank line), `o` new
+  entry below, `<C-n>`/`<C-p>` move the calendar cursor, `<Tab>` to the
+  calendar, `gx`/`K`, `r`, `q`. `query.plan()` returns the same candidates.
+
+**Projects sorting** adds OKR alignment: projects linked from open key results
+(directly or through an ancestor) get `score.weights.okr` (80, +20 per extra
+KR, max 140) in `project_score`, an `OKR` indicator, and come first within a
+priority in the `priority` sort; the picker also has an `okr` sort.
+
 **Weekly review** (`ui/review.lua`, `:ZortexReview [days]`, default 7):
 `agenda.review()` rendered into a read-only, Zortex-highlighted scratch
 buffer `zortex://review`. Sections: Tasks (overdue, due soon, completed),
@@ -716,6 +749,7 @@ nvim --headless -u NONE -l tests/run.lua projects   # files whose name contains 
 | `test_okr` | objective entities, `O/` links, KR projects and progress |
 | `test_agenda` | day/range items, due tasks, review findings |
 | `test_completion` | link context, suggestions per position, every suggestion resolves |
+| `test_zq_planner` | put rules, templates, candidate ranking and links, putting into the calendar |
 | `test_zr_actions` | every action complete, targets exist, commands/keymaps/overrides, API, backlinks, README table up to date |
 | `test_zs_query` | every query function returns JSON-safe data; export |
 | `test_zt_state` | state files: defaults, versions, migration, corrupt files |

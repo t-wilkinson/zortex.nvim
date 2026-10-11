@@ -79,9 +79,9 @@ The body uses this structure (lower levels nest under higher ones):
 | `Label:` (indent to nest) | below bold headings |
 | `- item`, `1. item`, `A. item`, `14:00 item`, `16:00 - 17:00 item` | list items |
 | `- [ ] task`, `- [x] task` | tasks |
-| `- KR1: [ ] text` | a key result (in `okr.zortex`) |
+| `- KR1: [ ] text` | a key result (in `okr.zortex`), linked as `[O/…/-KR1]` |
 | `@p1` `@i2` `@size(md)` `@due(2026-10-12)` `@done(…)` `@a(4.1)` `@2h` | attributes |
-| `[Article/#Heading/:Label]`, `[P/#1.4 - zortex]`, `[/#Local heading]` | links (prefix match, first match wins) |
+| `[Article/#Heading/:Label/-Item]`, `[P/#1.4 - zortex]`, `[/#Local heading]` | links (prefix match, first match wins; generated link text uses `A-Z a-z 0-9 _ - ( ) .`) |
 | `![Article]`, `@[cars & parts]`, `[text](url)`, `[^1]` | live link, tag search, markdown link, footnote |
 | fenced code, `$$` math blocks, tables, `\| quotes`, `` `code` ``, `$math$` | as in markdown |
 
@@ -112,6 +112,10 @@ Special notes:
 - **Highlighting and folding** for the whole format, with concealed markers.
 - **Projects**: picker with progress, points, due dates, areas and key
   results; `@progress` written back on request.
+- **Day planner** (`<leader>zm`): opens today's calendar day (created from
+  your weekday/Saturday/Sunday template) next to a ranked list of TODOs,
+  high-priority and due tasks, OKR projects, key results and areas; `<CR>`
+  puts an item, with a link to it, at the calendar cursor.
 - **Weekly review** (`<leader>zw`): overdue and due tasks, completed work,
   stale and unscheduled projects, projects without a next action, KRs
   without projects, areas without projects, broken links. Every line links
@@ -183,6 +187,7 @@ require("zortex").setup({
 | Command | Keys | Action id | Does |
 |---|---|---|---|
 | `:ZortexReview …` | `<leader>zw` | `review` | Weekly review (optional window in days, default 7) |
+| `:ZortexPlan …` | `<leader>zm` | `plan` | Plan a day: calendar day (from its template) plus ranked tasks, projects, KRs and areas to put on it |
 | `:ZortexCalendar` | `<leader>zc` | `calendar` | Calendar view |
 | `:ZortexCalendarDigest` | `<leader>zCc` | `calendar_digest` | Calendar view with the digest panel |
 | `:ZortexDigest` | `<leader>zCd` | `digest` | Open the digest note |

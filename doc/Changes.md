@@ -35,7 +35,7 @@ in place:
     **plain-data API** (`zortex.query`, `:ZortexExport`) for anything outside
     Neovim.
 12. **Actions as data:** commands, keymaps, `:ZortexHelp` and the README table come from one list (`actions.lua`); `require("zortex")` exposes every service.
-13. **A headless test suite:** 200 tests, no dependencies.
+13. **A headless test suite:** 209 Lua tests plus the server's Python tests, no dependencies.
 
 ## Commits
 
@@ -52,6 +52,7 @@ in place:
 | One state module; smaller logger | `core/state` for `.z` files; persistence manager and base store removed; logger rewritten. |
 | Query API; search service | `zortex.query` (plain data, export); matching and ranking moved from the picker to `services/search`. |
 | Cleanups | One digest module (email sending works again), smaller event bus, dead code removed, `min_score` dropped. |
+| Planner, KR links, OKR weight, app rename | `:ZortexPlan` day planner with templates and ranked candidates; explicit `[…/-KR1]` and task links; link text limited to `[A-Za-z0-9 _-().]`; OKR bonus in project scoring; `app/` → `legacy/`, `deployment/` → `app/` with a Notes tab. |
 | Actions registry | `actions.lua` generates commands, keymaps and `api.actions`; `require("zortex")` exposes every service; `:checkhealth zortex`; README rewritten with a generated command table. |
 
 ## New modules
@@ -102,6 +103,25 @@ in place:
 | `stores/calendar.set_all_entries` | removed (unused; it rewrote the whole calendar) |
 
 ## Behaviour changes you may notice
+
+**Planning and links**
+- **`:ZortexPlan [date]`** (`m`): calendar day from a template plus ranked
+  tasks, projects, key results and areas to put on it.
+- **Key results link to themselves** (`[O/…/-KR1]`), and `-text` link
+  components match list items by key or text prefix (checkbox and
+  attributes ignored).
+- **Generated link text** is limited to `[A-Za-z0-9 _-().]`: area links like
+  `[A/#4 Learning & Education/…]` are now written `[A/#4 Learning/…]` (same
+  target). Existing links keep resolving.
+- **Review:** no repeated `KR1: KR1:`, single spaces before links.
+- **Projects:** OKR-aligned projects rank higher (`score`, `priority`, new
+  `okr` sort) and show an `OKR` indicator.
+
+**Repository layout**
+- `app/` (the old Next.js/Node app) is now `legacy/`; `deployment/` (the
+  Flask server) is now `app/`, with a Notes tab (search and browse the synced
+  notes folder). Docker/Nix paths were updated; the NixOS module gained
+  `notesDir`, `notesGroup`, `notesSpecial`.
 
 **Commands and keys** (all generated from `actions.lua`; `:ZortexHelp` lists them)
 - **New:** `:ZortexBacklinks` (`b`), `:ZortexSearchArticles` (`Z`, was a

@@ -13,6 +13,7 @@ Contents:
 4. [Search](#4-search)
 5. [Editing and maintenance](#5-editing-and-maintenance)
 6. [The web app](#6-the-web-app)
+7. [Tree-sitter grammar](#7-tree-sitter-grammar)
 
 ---
 
@@ -185,9 +186,9 @@ Editing is not a goal (at most, later, appending to an inbox).
   standard library for HTTP and file watching, and simple Nix packaging
   (`buildGoModule`). Rust would also fit; Python (Flask, like the current `app/`)
   is the easiest to write but the heaviest at runtime.
-- **Grammar:** see [Grammar options](#grammar-options) below. The short
-  version: a hand port tested against the conformance fixtures, or the Lua
-  grammar run inside Go.
+- **Grammar: decided — hand-port `core/syntax` to Go** and validate it
+  against the conformance fixtures (option A below). A tree-sitter grammar
+  is wanted later (section 7).
 - **What else to port (smallest first):**
   - header and notes index (names, aliases, tags, archived), from
     `core/notes`
@@ -279,8 +280,25 @@ two resolvers in sync becomes the main cost, **D** is the natural next step;
 
 ### Open questions
 
-- Grammar: A, C or D (see [Grammar options](#grammar-options))? Measure
-  gopher-lua parse time for the whole notes folder on the Pi if C is on the
-  table.
 - Does the app need its own search history? It should be kept separate from
   `.z/search_history.json` to avoid sync conflicts.
+
+## 7. Tree-sitter grammar
+
+A `tree-sitter-zortex` grammar, once the Go port and the conformance
+fixtures have settled the grammar's details.
+
+- **Why:** Neovim gets native highlighting, folding, text objects and
+  language injection in code blocks (and in `$math$`), with incremental
+  parsing; the Go app can use the same grammar through its bindings; other
+  editors come for free.
+- **Why later:** the context-sensitive parts are easy to get subtly wrong in
+  tree-sitter: the header block, labels nesting by indentation, matching
+  code fences, `$$` blocks, "a task is never a label", list items with keys
+  and checkboxes. These need a C external scanner. The AST fixtures
+  (`tests/fixtures/ast`) are the acceptance test: the tree-sitter tree,
+  mapped to the same line kinds and spans, must agree with them.
+- **Scope:** grammar (`grammar.js` + `src/scanner.c`), highlight and fold
+  queries mirroring `features/highlights.lua` groups, injections for fenced
+  code. Section levels, the link resolver and search stay in Lua/Go.
+

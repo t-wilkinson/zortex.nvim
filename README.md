@@ -284,7 +284,8 @@ z.syntax.parse(lines, { inline = true })  -- the grammar itself
 - [doc/Changes.md](doc/Changes.md): what the `projects-api` branch changed,
   and migration notes
 - [doc/Wishlist.md](doc/Wishlist.md): planned features and the web app plan
-- Tests: `nvim --headless -u NONE -l tests/run.lua`
+- Tests: `nvim --headless -u NONE -l tests/run.lua`; Go parser:
+  `go -C app test ./...`; server: `python3 -m unittest app/test_notes.py`
 
 ## XP Overview
 

@@ -734,7 +734,19 @@ its own slice the same way `search.setup` does. Relevant constants live in
 ```sh
 nvim --headless -u NONE -l tests/run.lua            # everything
 nvim --headless -u NONE -l tests/run.lua projects   # files whose name contains "projects"
+nvim --headless -u NONE -l tests/gen_ast.lua        # regenerate the AST fixtures (after a grammar change)
+go -C app test ./...                                # Go parser against the same fixtures
+python3 -m unittest app/test_notes.py               # server notes index and routes
 ```
+
+**One grammar, two implementations.** `core/syntax.lua` is the
+specification. `tests/gen_ast.lua` writes its output for every
+`tests/fixtures/{notes,syntax}/*.zortex` to `tests/fixtures/ast/`; the Lua
+suite (`test_syntax`) and the Go port (`app/syntax`, `TestConformance`)
+both compare against those files, so a change to the grammar is made in Lua,
+the fixtures are regenerated, and the Go port is fixed until it agrees again.
+`syntax/edge.zortex` collects corner cases and `syntax/random.zortex` is 600
+lines of shuffled syntax fragments.
 
 - `tests/run.lua` has no plugin dependencies. It copies
   `tests/fixtures/notes` to a temp directory (stores write state files into

@@ -1,0 +1,76 @@
+@@Edge cases
+@Tag-with-dash
+@key(value with (nested) parens)
+
+Costs $5 and $6, but $x$ is math and $$y$$ too; $ $ is not.
+Shell: echo $HOME and a$b$c inside words.
+Code ``with `ticks` inside`` and `unclosed
+Links [a] [ab] [ ] [x] [X] [-] [.] [^note] [^bad id] [](empty) [text]( ) [nested [x]]
+Live ![] ![L] ![ok] and tag @[a + b] @[c++] @[r&d] @[a & b & c]
+Attrs @p1 @size() @a(4.1) @key(unclosed and me@example.com @_x @-y (@in) "@quote"
+URLs https://a.b/c?d=e;f http://x) https:// http://
+Paths ./a ../b ~/c /etc/d and/or w/o ./ ../ ~/ / .hidden x./y
+Times 9:30 10:00-11:00 1:2 123:45 12:345 10:00: a:10:00 :10:00 7:00am
+Emphasis **bold** *it* **unclosed *x * not * **  ** *a*b* a*b*c **a *b* c** ***x***
+Mixed **[L] and `c` and $m$** *see [x]*
+
+# Heading with @attr(1) and [link] @done
+#NotHeading
+####### seven
+**Bold**
+**Bold with *star*:**
+**Spaced**:   
+**
+Label: text after colon
+Not a label: one. Two: three
+Sentence. Then label:
+Two:colons:
+	Tabbed label:
+  - Bulleted label:
+- [ ] Task ending with colon:
+- KR-legacy text
+- KR3 also legacy
+- Key:value no space
+- Long key that is definitely longer than sixty characters in total length: x
+* star bullet
+*not a bullet*
++ plus
+- 
+-
+-[x] tight checkbox
+- [x]tight text
+- [ ]  
+1.not ordered
+10. ordered
+Z. lettered
+ab. not lettered
+9:00 single digit hour
+09:00   -   10:30 spaced range
+09:00-10:30x not a range
+| a | b |
+| - | - |
+|:---|---:|
+| quote only
+> quote
+>not quote
+[^1]: footnote
+[^a.b-c_d]:no space
+~~~
+# inside tilde fence
+```
+still inside (different fence char)
+~~~~
+    ```python   
+- [ ] indented fence content
+    ``` trailing info does not close
+```
+$$
+# not a heading in math
+$$
+@@Not an article here
+@notatag here
+Unicode: café — “quotes” ☐ ✓ [lien éé] @tâche
+Trailing spaces label:   
+Unclosed ``` mid-line
+```js
+unclosed block to end of file

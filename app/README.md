@@ -29,6 +29,18 @@ Set `NOTES_DIR` to the synced notes folder (Docker: mount it read-only at
   `/api/notes/file?path=z/rust.zortex`.
 - Tests: `python3 -m unittest app/test_notes.py`.
 
+## Go
+
+`app/` is also a Go module (`github.com/t-wilkinson/zortex.nvim/app`), the
+start of the Go version of the app:
+
+- `syntax/`: the Zortex grammar, a port of `lua/zortex/core/syntax.lua`.
+  `go test ./...` checks it against every fixture in `../tests/fixtures/ast`,
+  which the Lua parser generates; both must agree byte for byte in their JSON.
+- `cmd/zortex`: `zortex parse [-pretty] FILE...` (AST as JSON),
+  `zortex sections FILE...` (outline), `zortex version`.
+- Nix: `nix build .#zortex`.
+
 ## Notifications
 
 - Flask API server to receive notification manifests

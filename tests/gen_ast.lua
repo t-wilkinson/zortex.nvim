@@ -4,8 +4,8 @@
 --
 -- Writes core/syntax output (with inline spans) for every fixture note to
 -- tests/fixtures/ast/<name>.json. test_syntax.lua checks the parser against
--- these files; an implementation of the Zortex grammar in another language
--- (e.g. the web app) can use the same pairs as its test suite.
+-- these files, and so does the Go port (app/syntax, `go -C app test ./...`):
+-- after changing the grammar here, regenerate and make the Go tests pass.
 local root = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p:h:h")
 vim.opt.rtp:prepend(root)
 

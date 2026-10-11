@@ -269,8 +269,11 @@ two resolvers in sync becomes the main cost, **D** is the natural next step;
 
 ### Phases
 
-1. **Grammar:** Go port of `core/syntax` passing all conformance fixtures,
-   plus a plugin-side generator for resolver and search fixtures.
+1. **Grammar — done:** `app/syntax` (Go port of `core/syntax`) passes every
+   conformance fixture, including `edge.zortex` (hand-picked corner cases)
+   and `random.zortex` (600 lines of shuffled syntax fragments). `zortex
+   parse` / `zortex sections` expose it; `nix/zortex.nix` builds it. Next: a
+   plugin-side generator for resolver and search fixtures.
 2. **Index and navigation:** notes index, folder views, rendered notes (no
    link resolution yet), file watching, the Nix package and module.
 3. **Links and search:** resolver plus fixtures, working links, backlinks,

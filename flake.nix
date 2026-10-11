@@ -24,6 +24,8 @@
         in
         {
           default = pkgs.callPackage ./nix/package.nix { };
+          # Go parser/CLI (app/cmd/zortex)
+          zortex = pkgs.callPackage ./nix/zortex.nix { };
         }
       );
 
@@ -43,6 +45,7 @@
               python3
               sqlite
               curl
+              go
               (python3.withPackages (
                 ps: with ps; [
                   flask

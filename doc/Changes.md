@@ -27,7 +27,14 @@ in place:
    and the XP pipeline works end to end.
 9. **A weekly review buffer** (`:ZortexReview`) and **search history** that
    ranks recently and frequently opened notes and sections higher.
-10. **A headless test suite:** 177 tests, no dependencies.
+10. **One parser and one item type:** `core/syntax` is the whole Zortex
+    grammar (lines and inline spans, plain Lua, conformance fixtures);
+    highlighting, folding, tasks, calendar, OKR, link extraction and search
+    all read it. Tasks, calendar entries and key results share `core/item`.
+11. **One way to keep state** (`core/state` for every `.z` file) and a
+    **plain-data API** (`zortex.query`, `:ZortexExport`) for anything outside
+    Neovim.
+12. **A headless test suite:** 195 tests, no dependencies.
 
 ## Commits
 
@@ -40,6 +47,10 @@ in place:
 | Restore ordered path search | Words match a section's path in order (last word = the section), with the original scoring, file grouping, document order, direct sub-sections and full breadcrumbs. |
 | Link index, agenda, OKR entities, editing layer | Persistent link index with backlinks; agenda + review API used by all digests; objectives as entities with KR progress; workspace replaced by an editing layer; calendar and task edits as line edits; completion and link preview on the resolver; several existing bugs fixed. |
 | Weekly review buffer, search history | `:ZortexReview [days]` renders `agenda.review()`; search records opened results in `.z/search_history.json` with decay and boosts matches. |
+| Universal parser and shared item type | `core/syntax` and `core/item`; documents carry the syntax; highlights, folding, TOC, archive, link index, resolver, projects, OKR, calendar and tasks moved onto it; AST conformance fixtures. |
+| One state module; smaller logger | `core/state` for `.z` files; persistence manager and base store removed; logger rewritten. |
+| Query API; search service | `zortex.query` (plain data, export); matching and ranking moved from the picker to `services/search`. |
+| Cleanups | One digest module (email sending works again), smaller event bus, dead code removed, `min_score` dropped. |
 
 ## New modules
 
@@ -54,6 +65,12 @@ in place:
 | `features/preview.lua` | Floating preview of a link's target. |
 | `ui/review.lua` | Weekly review buffer over `agenda.review()`. |
 | `services/search_history.lua` | Decayed open counts per note and section (`.z/search_history.json`), used to boost search. |
+| `core/syntax.lua` | The Zortex grammar: line kinds, list items, blocks, inline spans (plain Lua). |
+| `core/item.lua` | Shared list-item type for tasks, calendar entries and key results. |
+| `core/state.lua` | Versioned JSON state files in `.z` with atomic writes and recovery. |
+| `query.lua` | Plain-data API over notes, structure and the domain; JSON export. |
+| `services/search.lua` | Structural search index, matching and ranking (moved out of the picker). |
+| `tests/gen_ast.lua`, `tests/fixtures/ast/`, `tests/fixtures/syntax/` | Syntax conformance fixtures and their generator. |
 | `services/projects/init.lua` | Projects registry, `query`, `tasks`, `update_progress`. |
 | `services/projects/project.lua` | `Project` class (tasks, stats, rollup, points, relations). |
 | `services/projects/score.lua` | Scoring and sort comparators (moved out of the picker). |
@@ -73,9 +90,30 @@ in place:
 | JSON tree cache (`stdpath("cache")/zortex/trees.json`) | in-memory document cache; the old file can be deleted |
 | `core/workspace.lua` document manager (1,136 lines: change tracking, undo queue, debounced reparsing, autosave stubs) | `core/workspace.lua` editing layer (~150 lines) over buffers/files, reads via `core/document` |
 | `services/okr.lua` | `services/okr/` package (same `require` path) |
+| `stores/base.lua`, `stores/persistence_manager.lua`, `:ZortexSaveStores`, `core.persistence_manager` config | `core/state` (stores save when they change) |
+| `parser.CodeBlockTracker`, `detect_section_type`, `calculate_level`, `scan_sections`, `build_section_path`, `find_section_end`, `get_heading_level`, `parse_heading`, `parse_label`, `is_bold_heading`, … | `core/syntax` and the document tree (`doc.syntax`, `doc:node_at`, `node.end_line`) |
+| the 37 line patterns in `features/highlights.lua`, the regexes in `folding.lua` and `calendar_entry.from_text` | `core/syntax` |
 | `stores/calendar.set_all_entries` | removed (unused; it rewrote the whole calendar) |
 
 ## Behaviour changes you may notice
+
+**Parser**
+- **Indented code fences count** (```` ``` ```` inside a list item): lines
+  inside them are no longer headings, labels, tasks or links. Closing fences
+  must use the same character, be at least as long, and carry no info string.
+- **`$$` lines open and close math blocks**; nothing inside is structure.
+- **A task is never a label:** `- [ ] Do this:` is a task, not a section.
+- **`- Label:`** labels are named without the bullet (`:Label`, not
+  `:- Label`).
+- **Key results with checkboxes are tasks**, so `:ZortexTaskToggle` works on
+  `- KR1: [ ] …` lines.
+- **Attributes and file paths must start a word**, so `and/or` is no longer
+  a file path and `me@example.com` is not an attribute.
+- **`@a(...)` under the cursor opens its area** (the lookup was broken).
+- **Highlighting** comes from the same syntax: bulleted labels, `+`/`*`
+  bullets, ordered and time markers, and links inside bold text are now
+  highlighted; operators and punctuation are never painted inside links or
+  code.
 
 **Links**
 - **Generated project links start with `P`:** `[P/#1 Programming/#1.4 - zortex]`
@@ -239,6 +277,12 @@ in place:
 
 ## Duplicates removed
 
+- every line classifier (tree, highlights, folding, calendar, tasks, link
+  extraction, archive) → `core/syntax`
+- three task/entry/KR line parsers → `core/item`
+- two persistence mechanisms (base store + manager, ad-hoc JSON) → `core/state`
+- two digest formatters → `services/digest`
+- two logger implementations in one file → `core/logger`
 - 5 header parsers → `parser.parse_header`
 - 2 level scales → `constants.SECTION_HIERARCHY`
 - 3 link builders → `link_resolver.build_link` / `link_for_node`
@@ -294,20 +338,19 @@ in place:
 - **Search history:** `notes_dir/.z/search_history.json` starts empty; the
   old in-memory history is not migrated. Delete the file (or call
   `require("zortex.services.search_history").clear()`) to reset ranking.
+- **State files** keep their names (`xp_state.json`, `notifications_state.json`)
+  and are read as version 1, so nothing is lost. The link index is rebuilt
+  once (its version changed with the new extraction).
+- **Logs** move from a cwd-relative `.z/logs` to `notes_dir/.z/zortex.log`.
+- **Parser helpers:** code that called the removed `parser.*` structure
+  functions should use `require("zortex.core.document").get(path)` and its
+  `syntax`, `info(lnum)`, `items()`, `node_at(lnum)` and the tree, or
+  `core/syntax` directly for single lines.
+- **Search:** `require("zortex.ui.telescope.search")` still exposes
+  `setup`, `query_index`, … (re-exported); new code should use
+  `require("zortex.services.search")`.
 
 ## Not done yet / ideas
 
-- **`:ProjectRename`:** rename or renumber a project heading and rewrite every
-  link to it. The link index now makes this straightforward (it knows every
-  link pointing at a heading).
-- **Broken-link diagnostics** with `vim.diagnostic` (the data is
-  `link_index.unresolved()`).
-- **Backlinks panel** for the section under the cursor.
-- **`min_score` and `breadcrumb_display`** in the search config are still
-  unused.
-- **`doc/Search.md`** describes more token types (`@@`, `@`, `*`, escaped
-  spaces) than the picker implements.
-- **Calendar highlights** in `ui/calendar/view.lua` still mix display and byte
-  columns (the `shift_hl` / `icon_width` adjustment). It renders correctly with
-  the default icons, but switching it to `display_col_to_byte` would remove
-  the special case.
+Ideas, deferred integrations and the web app plan are collected in
+[Wishlist.md](Wishlist.md).

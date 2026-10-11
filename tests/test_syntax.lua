@@ -194,3 +194,44 @@ T.test("folds follow sections and indentation", function()
 	T.eq({ f[1], f[2], f[3], f[4], f[6], f[8], f[9], f[10] }, { ">0", ">1", ">2", "2", "1", ">2", ">3", "4" })
 	vim.cmd("bwipeout!")
 end)
+
+T.test("core/syntax runs without Neovim (no vim.* in the grammar)", function()
+	-- Load syntax.lua and constants.lua in an environment that has only the
+	-- Lua standard library, and parse the sample.
+	local function sandbox()
+		local env = {}
+		for _, k in ipairs({
+			"string",
+			"table",
+			"math",
+			"ipairs",
+			"pairs",
+			"next",
+			"select",
+			"tostring",
+			"tonumber",
+			"type",
+			"setmetatable",
+			"getmetatable",
+			"error",
+			"pcall",
+		}) do
+			env[k] = _G[k]
+		end
+		local loaded = {}
+		env.require = function(name)
+			if not loaded[name] then
+				local path = T.root .. "/lua/" .. name:gsub("%.", "/") .. ".lua"
+				local chunk = assert(loadfile(path))
+				setfenv(chunk, env)
+				loaded[name] = chunk()
+			end
+			return loaded[name]
+		end
+		return env
+	end
+	local syntax = sandbox().require("zortex.core.syntax")
+	local ast = syntax.parse(sample(), { inline = true })
+	local expected = require("zortex.core.syntax").parse(sample(), { inline = true })
+	T.eq(ast, expected)
+end)

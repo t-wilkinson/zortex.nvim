@@ -8,10 +8,18 @@ module agrees on. For the projects/areas API reference see
 
 ## Summary
 
-Every note is parsed **once** into a cached *document*. A document holds the
-lines, a structural tree, and the header (article names and tags). Everything
-else is built on documents:
+Every note is parsed **once**, by one grammar (`core/syntax`), into a cached
+*document*. A document holds the lines, the syntax of every line (what it is,
+where its inline spans are), a structural tree, and the header (article names
+and tags). Everything else is built on documents:
 
+- **One parser.** Highlighting, folding, the TOC, tasks, the calendar, OKR,
+  link extraction, search and the export all read the same syntax; nothing
+  re-parses lines with patterns of its own. The grammar is plain Lua with
+  conformance fixtures, so it can be ported (or run) outside Neovim.
+- **One item type.** Project tasks, calendar entries and key results are all
+  list items (`core/item`): marker, optional `Key:`, optional checkbox, text,
+  typed attributes.
 - **Links** resolve against documents with one resolver. A link means the same
   thing when you follow it, when completion suggests it, and when projects,
   OKRs or the calendar look it up.
@@ -27,27 +35,32 @@ else is built on documents:
   plus a `review()` for weekly reviews.
 - **Writes** go through a small editing layer (buffer if loaded, otherwise the
   file) as line edits; nothing regenerates a whole note.
-- **UI** (pickers, completion, preview, skill tree, calendar, digest) only
-  reads these APIs.
+- **State** in `notes_dir/.z` (link index, search history, XP, notifications)
+  goes through one versioned module (`core/state`).
+- **UI** (pickers, completion, preview, skill tree, calendar, digest, review)
+  only reads these APIs. **`zortex.query`** exposes the same model as plain
+  data (JSON-safe) for anything outside Neovim.
 
 ```
             ┌───────────────────────────────────────────────────────────┐
   UI        │ telescope/projects  telescope/search  skill_tree  calendar │
-            │ completion  preview  commands  keymaps  digest             │
+            │ highlights folding toc completion preview review commands  │
             └──────────────▲────────────────────────────▲────────────────┘
-                           │                            │
+                           │        query.lua (plain data, export)
             ┌──────────────┴──────────┐   ┌─────────────┴──────────────┐
   Domain    │ services/projects       │   │ services/xp (core, stats,  │
             │ services/areas  okr     │◄──┤  calculator) + stores/xp   │
             │ services/agenda  tasks  │   └────────────────────────────┘
+            │ services/search digest  │
             │ stores/calendar         │
             └──────────────▲──────────┘
                            │  entity.registry(spec)
             ┌──────────────┴──────────────────────────────────────────┐
   Core      │ core/entity   core/link_index   utils/link_resolver     │
             │ core/document ──► core/section (tree)   core/notes      │
-            │ core/workspace (edits)                                  │
-            │ utils/parser (levels, header, sections, links, tasks)   │
+            │ core/syntax (the grammar)   core/item (list items)      │
+            │ core/workspace (edits)   core/state (.z files)          │
+            │ utils/parser (link grammar)   core/event_bus  logger    │
             └─────────────────────────────────────────────────────────┘
 ```
 
@@ -61,8 +74,13 @@ else is built on documents:
 | Heading | `# …` to `###### …` | Levels 1 to 6. |
 | Bold heading | `**Text**` or `**Text**:` | Level 7. |
 | Label | `Text:` (no `. ` inside) | Level 8 + indent, so indented labels nest. |
-| Task | `- [ ] text`, `- [x] text` | Attributes come from the task text. |
+| List item | `- text`, `+ text`, `* text`, `1. text`, `A. text` | Bullet or ordered marker. |
+| Time item | `14:00 text`, `16:00 - 17:00 text` | Calendar events (and any timed line). |
+| Task | `- [ ] text`, `- [x] text` | A list item with a checkbox. |
+| Keyed item | `- KR1: [ ] text`, `- Label: text` | A `Key:` prefix, optionally followed by a checkbox. |
 | Attribute | `@key(value)`, `@p1`, `@2h` | Parsed with a schema (`utils/attributes`). |
+| Blocks | ```` ``` ```` fences, `$$` math, `\| a \| b \|` tables, `\| quote`, `> quote`, `[^1]: footnote` | Nothing inside a fence or math block is structure. |
+| Inline | `[link]`, `![live]`, `@[a & b]`, `[text](url)`, `[^1]`, URLs, `./paths`, `` `code` ``, `$math$`, `**bold**`, `*italic*`, `14:00` | Spans with byte columns. |
 
 **Special notes:**
 - `projects.zortex` is the Projects article (`@@Projects` / `@@P`).
@@ -86,35 +104,77 @@ else is built on documents:
 | tag / text | not structural |
 
 A section ends at the next section with a level **≤** its own. The tree builder,
-`parser.find_section_end`, breadcrumbs, section navigation and archive merging
-all use this one scale. Before this branch there were two scales (0–8 and
+breadcrumbs, section navigation, folding and archive merging all use this one
+scale. Before this branch there were two scales (0–8 and
 10–100), and some modules compared numbers from both.
 
-### Parser — `utils/parser.lua`
+### Syntax — `core/syntax.lua`
 
-These are the single sources of truth:
+The Zortex grammar, in one module. It is plain Lua (no `vim.*`), returns plain
+tables, and is the only code that decides what a line or a span is.
 
-- `parse_header(lines)` → `{ names, tags, tag_lines, name_lnum, last_lnum }`.
-  This is the only header parser; workspace, documents, notes, completion and
-  archive all use it.
-- `calculate_level(line)` and `section_text(line, type)`. Section text has
-  attributes stripped: `## 1.4 - zortex @p1 @size(lg)` → `1.4 - zortex`.
-- `strip_attributes(text)` only removes `@` tokens that start a word, so
-  `me@example.com` survives.
-- `scan_sections(lines)` makes one pass and returns flat descriptors. The
-  header produces **one** article descriptor carrying all its `names`.
-- `build_section_path(lines, lnum)` and `find_section_end(...)` give
-  lines-only answers that agree with the tree.
-- `split_link` / `parse_link_definition` / `parse_link_component` /
-  `split_query` parse links (`split_link` ignores `/` inside parentheses and
-  is shared with completion).
-  A typed component (`#…`, `:…`, `-…`, `*…`) is never split as a `+` / `&`
-  query, so `#4 Learning & Education` is a heading.
-- `parse_task(line)` parses tasks.
+- `parse(lines, { inline })` → `{ version, header, lines, sections, blocks }`.
+  `lines[lnum]` is a descriptor: `kind` (`blank`, `article`, `tag`,
+  `heading`, `bold_heading`, `label`, `item`, `text`, `fence`, `code`,
+  `math_fence`, `math`, `table`, `quote`, `footnote`), `indent`, and for
+  sections `section`, `level`, `text` (attributes stripped), `heading`
+  (`#` count). Items carry `item` = `{ marker, marker_type, marker_col,
+  time, key, key_col, mark, mark_col, content_col }`. `content_col` is where
+  inline content starts. `sections` are the structural lines in order (the
+  header gives **one** article carrying all its `names`); `blocks` are code,
+  math and table ranges.
+- `classify(line)` classifies a single line (no header or fence context).
+- `item(line)` parses a list item; a checkbox needs text after it.
+- `inline(line, from, to)` → non-overlapping spans `{ type, s, e, … }` with
+  0-based byte columns: `link`, `live_link`, `tag_search`, `markdown`,
+  `footnote_ref`, `url`, `filepath`, `attribute`, `code`, `math`, `bold`,
+  `italic` (with `children`), `time`. Attributes and file paths must start a
+  word (`me@example.com` is not an attribute); single-character brackets
+  (`[ ]`, `[x]`) and `[^…]` are not links; `$5 and $6` is not math.
+- `span_at(line, col)`, `links(line)`, `walk_spans` for link lookups.
+- `parse_header`, `strip_attributes`, `split_query`, `section_text`.
+
+**Conformance fixtures.** `tests/fixtures/ast/*.json` hold the parser's
+output for every fixture note plus `tests/fixtures/syntax/sample.zortex`
+(every construct). `test_syntax` checks the parser against them; regenerate
+with `nvim --headless -u NONE -l tests/gen_ast.lua` after a deliberate
+grammar change. Another implementation (for example the web app) can use the
+same pairs as its test suite.
+
+### Items — `core/item.lua`
+
+The shared type for anything written as a list item. `Item.from_line(line,
+{ lnum, file, info, schema, context })` returns `lnum`, `file`, `raw_text`,
+`indent`, `marker`, `marker_type`, `time`, `key`, `mark`, `mark_col`,
+`completed`, `body` (after marker, key and checkbox), `text` (attributes
+removed) and `attributes` (typed with a `utils/attributes` schema; `task` by
+default). `Item.task(line)` returns only items with a checkbox.
+`item:with_mark("x")` changes just the checkbox; `item:links()` lists link
+definitions.
+
+- **Project tasks** are the checkbox items in a project's own range
+  (`doc:items(s, e, { tasks = true })`).
+- **Key results** are items keyed `KRn` (`- KR2: [ ] …`); the legacy
+  `- KR-text` form still parses.
+- **Calendar entries** are the items under a date label; `CalendarEntry`
+  adds timing and recurrence.
+
+### Link grammar — `utils/parser.lua`
+
+`split_link` / `parse_link_definition` / `parse_link_component` turn a link
+definition into typed components (`split_link` ignores `/` inside
+parentheses and is shared with completion). A typed component (`#…`, `:…`,
+`-…`, `*…`) is never split as a `+` / `&` query, so `#4 Learning & Education`
+is a heading. The rest of the module is thin helpers over `core/syntax`:
+`parse_task` (an Item), `is_task_line`, `extract_link_at(line, col)` and
+`extract_all_links(line)` (the old result shapes, now from syntax spans;
+`@a(...)` resolves to its area link), `parse_header`, `strip_attributes`,
+`list_has`.
 
 ### Sections — `core/section.lua`
 
-`build_tree(lines)` assembles a `Section` tree under a synthetic `root`. Nodes
+`build_tree(lines, ast)` assembles a `Section` tree under a synthetic `root`
+from `ast.sections`. Nodes
 have `type`, `text` (clean), `level`, `start_line`, `end_line`, `children`,
 `parent`, and `names` (article nodes only).
 
@@ -131,7 +191,7 @@ have `type`, `text` (clean), `level`, `start_line`, `end_line`, `children`,
 
 ### Documents — `core/document.lua`
 
-A `Document` is an immutable snapshot `{ filepath, lines, tree, names, tags, header }`.
+A `Document` is an immutable snapshot `{ filepath, lines, syntax, tree, names, tags, header }`.
 
 - `Document.from_file(path)` is cached by mtime (seconds + nanoseconds) and size.
 - `Document.from_buffer(bufnr)` is cached by `changedtick`.
@@ -140,13 +200,16 @@ A `Document` is an immutable snapshot `{ filepath, lines, tree, names, tags, hea
 - `Document.resolve(x)` accepts a Document, a path or a bufnr.
 - Methods: `name()`, `has_name()`, `has_tag()`, `article()`, `node_at(lnum)`,
   `node_starting_at(lnum)`, `get_lines()`.
+- Syntax access: `info(lnum)` (the line descriptor), `inline(lnum)` (spans,
+  parsed on first use), `in_code(lnum)` (inside a fence or math block),
+  `items(s, e, { tasks, schema, context })` (core/item Items).
 
 Because snapshots are immutable, anything derived from one (projects, areas)
 is cached **on the snapshot**. When the file changes there is a new snapshot,
 and the cache goes with the old one.
 
-`core/tree.lua` is now a thin facade (`get_tree(path)` → `Document.get(path).tree`)
-used by structural search. The old JSON tree cache in `stdpath("cache")` is gone.
+`core/tree.lua` is a thin facade (`get_tree(path)` → `Document.get(path).tree`).
+The old JSON tree cache in `stdpath("cache")` is gone.
 
 ### Notes index — `core/notes.lua`
 
@@ -173,8 +236,7 @@ narrows a list of candidates (file + line range):
 
 **Rules for the result:**
 - For a non-final component, the **first match in each file** becomes the new
-  range: the section starting at that line (`doc:node_starting_at`), or
-  `find_section_end` as a fallback.
+  range: the section starting at that line (`doc:node_starting_at`).
 - Results come back in note order (top-level files first, then line order), and
   `results[1]` is the **canonical** target. So `[P/#1.4]` resolves to the first
   `1.4…` heading, which is the parent of any children sharing that prefix.
@@ -200,8 +262,10 @@ searches the Projects article first, then every `@P` note, so
 
 ### Link index — `core/link_index.lua`
 
-Every link (`[...]` and `@a(...)`) in every non-archived note, with where it
-resolves. Persisted to `notes_dir/.z/link_index.json`.
+Every link span (`[...]`, `![...]`; from `doc:inline`) in every non-archived
+note, with where it resolves. Persisted to `notes_dir/.z/link_index.json`
+(through `core/state`; the version is bumped when extraction changes, which
+forces a rebuild).
 
 | function | returns |
 |---|---|
@@ -280,6 +344,37 @@ Reads go through `core/document`; writes go through here:
 
 Every edit emits `workspace:lines_changed` `{ file, start_line, end_line, count }`.
 
+### State — `core/state.lua`
+
+Everything Zortex keeps in `notes_dir/.z` is one JSON file per name, opened
+with `State.open(name, { version, default, migrate })`:
+
+| method | does |
+|---|---|
+| `get()` | the data table, loaded on first use |
+| `save()` | atomic write (temp file, then rename) |
+| `reset()` / `reload()` | back to `default()` and save / forget the in-memory copy |
+
+Loading never fails: a missing file gives `default()`, a corrupt one is kept
+as `<name>.json.corrupt-<time>` and replaced, and a different version goes
+through `migrate(data, from)` (or is replaced). Files from before versioning
+count as version 1. Files: `link_index`, `search_history`, `xp_state`,
+`notifications_state`; logs go to `.z/zortex.log`. Stores save when they
+change; there is no persistence manager.
+
+### Events and logging
+
+`core/event_bus` carries a small set of domain events (the catalogue is at
+the top of the file): `task:completed/uncompleted/created` (→ XP, digest),
+`xp:awarded/removed`, `season:*`, `calendar:entry_*` (→ digest) and
+`workspace:lines_changed` (→ digest live links). Handlers run asynchronously
+in priority order; errors are reported, never raised into the emitter.
+
+`core/logger` is a leveled logger (`trace` … `error`) with timers
+(`start_timer(op)` returns a stop function). Entries go to a ring buffer
+(`:ZortexLogs`) and, when `core.logger.enabled`, to `.z/zortex.log`;
+`:ZortexPerformance` shows timer statistics.
+
 ## Domain layer
 
 ### Projects — `services/projects/`
@@ -293,7 +388,8 @@ Every edit emits `workspace:lines_changed` `{ file, start_line, end_line, count 
 
 **Rules:**
 - **Own content:** a project's own tasks run from its header line to its first
-  sub-project. Container projects have their own tasks.
+  sub-project. Container projects have their own tasks. Tasks are core/item
+  Items with `project` set.
 - **Points:** `@size(xs…xl)` maps to 1, 2, 3, 5, 8, and project-only sizes go
   up to `ultimate` = 55 (`constants.SIZE_POINTS`). Unsized tasks count as `md`.
   An explicit project `@size` overrides the sum of its tasks.
@@ -337,16 +433,16 @@ heading is an entity; headings matching `3M-2026-Q1 Title` (or the legacy
 
 ### Calendar — `stores/calendar.lua`
 
-- The file is the source of truth. Entries are parsed (`parse_lines`, each
-  entry with its `lnum`) from the current snapshot of `calendar.zortex`, and
-  re-parsed automatically whenever the file or its buffer changes.
+- The file is the source of truth. Date headings are top-level labels
+  `YYYY-MM-DD:`; entries are the list items under them (`parse_lines`, each
+  entry with its `lnum`), read from the current snapshot of `calendar.zortex`
+  and re-parsed whenever the file or its buffer changes.
 - **Edits are line edits** through `core/workspace`. `add_entry` inserts under
   the date's last entry (formatted like its siblings, `- ` for untimed
   entries) or creates the date heading in date order. `update_entry` replaces
   one line keeping its indentation. `delete_entry` / `delete_entry_by_index`
   (indexes the list `get_entries_for_date` returns) remove one line. The
-  header, notes, ordering and spacing are never rewritten, and `save()` is a
-  no-op.
+  header, notes, ordering and spacing are never rewritten.
 - `projects/relations.schedule_index()` maps calendar links to projects through
   the link index; `project:schedule({ descendants, from, to })` reads it.
 
@@ -368,8 +464,15 @@ One query over calendar entries, project tasks with `@due`, and projects with
 `unscheduled` (open work, no calendar time ahead), `stale` (also none in the
 last `days`), `no_next_action` (leaf projects without tasks),
 `krs_without_projects`, `objectives_without_krs`, `areas_without_projects`
-and `broken_links`. The calendar view's digest panel, `services/digest`
-(the digest note) and the email digest all use the agenda.
+and `broken_links`. The calendar view's digest panel and `services/digest`
+use the agenda.
+
+### Digest — `services/digest.lua`
+
+The daily digest's content, built from the agenda: the digest note
+(`digest.zortex`, with live links) and the email (`email(days)` → subject,
+text, html). `notifications/types/digest` only decides when to send the email
+and sends it through the notification manager.
 
 ### Tasks — `services/tasks.lua`
 
@@ -406,16 +509,16 @@ accepted.
 | module | uses |
 |---|---|
 | `ui/telescope/projects.lua` | `projects.query` |
-| `ui/telescope/search.lua` | `core/tree` and `Config.ui.search` (via `setup`) |
+| `ui/telescope/search.lua` | `services/search` (picker only) |
+| `features/highlights.lua`, `folding.lua`, `toc.lua` | `core/document` syntax and tree |
 | `ui/skill_tree.lua` | `areas`, `projects`, `xp/stats` |
 | `ui/calendar/view.lua` | `stores/calendar`, `agenda` (digest panel), `projects` |
 | `ui/calendar/init.lua` | `stores/calendar` |
-| `services/digest.lua` | `agenda`, `projects.query`, `link_resolver` |
-| `notifications/types/digest.lua` | `agenda` |
+| `notifications/types/digest.lua` | `services/digest` |
 | `features/completion.lua` | `link_resolver`, `notes`, `document` |
 | `features/preview.lua` | `link_resolver`, `features/links` |
 | `ui/review.lua` | `agenda.review` |
-| `services/search_history.lua` | `ui/telescope/search` (records opens, adds boosts) |
+| `services/search_history.lua` | `services/search` (adds boosts); the picker records opens |
 
 **Projects picker** (`ui/telescope/projects.lua`): rows show
 `ancestors › name  done/total  open-points  [P1,DUE]`.
@@ -425,8 +528,19 @@ accepted.
 - Keys: `<CR>`/`<C-x>`/`<C-v>` open, `<C-l>` inserts the link, `<C-y>` yanks it,
   `<C-s>` cycles the sort, `<C-d>` shows/hides done projects, `<C-e>` leaf-only.
 
-**Structural search** (`ui/telescope/search.lua`) works like the original
-search service. Results are sections shown as **full breadcrumbs** of their
+**Highlighting** (`features/highlights.lua`) paints from the document's
+syntax: each line kind and span type maps to a `Zortex*` group (headings,
+labels, bullets with concealed markers, checkboxes, task text, KR keys,
+objective ids, tables, quotes, code and math blocks, links with concealed
+brackets, attributes, bold/italic with concealed markers, …). Only visual
+decorations (operators, punctuation, quotes, percentages) are matched as
+patterns, and never inside a span. **Folding** derives levels from the same
+syntax (sections start folds; other lines nest by indentation), so code inside
+fences never opens a fold.
+
+**Structural search** (`services/search.lua` for matching and ranking,
+`ui/telescope/search.lua` for the picker) works like the original search
+service. Results are sections shown as **full breadcrumbs** of their
 hierarchy, followed by lines that contain every word.
 
 **Matching follows the path in order.** Search words are matched against a
@@ -474,7 +588,7 @@ calling `search.setup()` with no arguments resets to the defaults):
 | `token_filters[n]` | section types that may be a result when the prompt has `n` words (the last entry applies beyond). Bold headings and labels above the first heading count as H1. Typed words bypass it. |
 | `access_decay_rate` | per-day decay of a note's "opened from search" score (see history below) |
 | `history` | `{ enabled, max_entries, score_decay, propagation_decay }`: per-section history |
-| `breadcrumb_display`, `min_score` | reserved; nothing reads them yet (results always show the full breadcrumb) |
+| `breadcrumb_display` | reserved; nothing reads it yet (results always show the full breadcrumb) |
 
 **Search history** (`services/search_history.lua`, stored in
 `notes_dir/.z/search_history.json`). Opening a result (`<CR>`, `<C-x>`,
@@ -520,6 +634,15 @@ project/objective/area, so `gx` and `K` work; `<CR>` jumps to the source
 line, `r` refreshes, `q` closes. `render(review)` is pure (lines plus a
 line → location map) so other front ends can reuse the layout.
 
+**Query API** (`query.lua`): the model as plain data — `tree(dir)` (folders
+and notes with titles, tags, archived flag, mtime), `note(path)` (header,
+outline, lines and full syntax with spans), `search(prompt)`,
+`resolve(link)`, `backlinks(path, lnum)`, `broken_links()`, `projects()`,
+`areas()`, `objectives()`, `agenda(from, to)`, `review(opts)`, and
+`export(dir)` (`:ZortexExport [dir]`, default `notes_dir/.z/export`:
+`index.json` plus `notes/<rel>.json`). Dates are `YYYY-MM-DD` strings; every
+result survives `vim.json.encode`.
+
 **Skill tree** (`ui/skill_tree.lua`): season status from `xp/stats`, top areas
 from `areas.top`, and the area tree from Area objects. Levels come from
 `total_xp`. The highlight groups `ZortexSkillLevel1..4` and `ZortexProgressBar`
@@ -560,7 +683,8 @@ nvim --headless -u NONE -l tests/run.lua projects   # files whose name contains 
 
 | test file | covers |
 |---|---|
-| `test_core` | header, levels, tree, section ends, notes index |
+| `test_core` | header, levels, tree, notes index |
+| `test_syntax` | line kinds, items, inline spans, link lookups, Items for tasks/KRs/calendar, AST conformance fixtures, highlights, folds, the grammar loading with only the Lua standard library |
 | `test_links` | resolution rules, canonical results, archive handling, `[@P/…]`, round-trips |
 | `test_projects` | registry, stats/points, `P/` links, schedule, KRs, areas |
 | `test_areas` | area tree, `A/` links, projects/objectives, XP keys |
@@ -570,6 +694,11 @@ nvim --headless -u NONE -l tests/run.lua projects   # files whose name contains 
 | `test_okr` | objective entities, `O/` links, KR projects and progress |
 | `test_agenda` | day/range items, due tasks, review findings |
 | `test_completion` | link context, suggestions per position, every suggestion resolves |
+| `test_zs_query` | every query function returns JSON-safe data; export |
+| `test_zt_state` | state files: defaults, versions, migration, corrupt files |
+| `test_zu_review` | review buffer layout, links, jumps |
+| `test_zv_search_history` | recording, decay, persistence, boosts |
+| `test_zw_archive` | archiving merges under existing ancestors |
 | `test_zw_edits` | editing layer; calendar line edits keep the file intact; buffer vs file |
 | `test_zx_link_index` | backlinks, unresolved links, incremental refresh, reload from disk |
 | `test_zy_preview` | preview content, focus line, `<CR>` opens the target |
@@ -581,6 +710,10 @@ nvim --headless -u NONE -l tests/run.lua projects   # files whose name contains 
   `projects.resolve`, `areas.resolve`) and compare keys.
 - **Read notes through `core/document`.** That gives one parse, consistent
   structure, and live buffer contents.
+- **Ask `core/syntax` what a line is.** Don't match line patterns in feature
+  code; extend the grammar (and regenerate the fixtures) instead.
+- **List items are Items.** Tasks, entries and key results share `core/item`.
+- **State goes through `core/state`.**
 - **Domain objects are entities.** Put shared behaviour in `core/entity`, and
   only domain behaviour in the subclass.
 - **Keep the UI thin.** Pickers and views format API results; they don't

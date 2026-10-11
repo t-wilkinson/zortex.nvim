@@ -59,9 +59,10 @@ However this is not how I think. Overtime, I found my usecase of a note system c
 
 ### Developer documentation
 
-- [doc/Architecture.md](doc/Architecture.md): how the plugin is structured (core, links, entities, projects, areas, XP, UI) and the rules modules share
+- [doc/Architecture.md](doc/Architecture.md): how the plugin is structured (syntax, documents, links, entities, projects, areas, XP, state, query API, UI) and the rules modules share
 - [doc/Projects.md](doc/Projects.md): projects and areas API, link format, picker keys
 - [doc/Changes.md](doc/Changes.md): what the `projects-api` branch changed, bug fixes, migration notes
+- [doc/Wishlist.md](doc/Wishlist.md): planned features (review actions, area overview, integrations) and the web app plan
 - Tests: `nvim --headless -u NONE -l tests/run.lua`
 
 ### Introduction

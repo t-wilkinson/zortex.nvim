@@ -132,7 +132,6 @@ local defaults = {
 		search = {
 			default_mode = "section", -- or "article"
 			max_results = 500,
-			min_score = 0.1,
 			access_decay_rate = 0.1, -- per day
 			breadcrumb_display = {
 				one_token = { "article" },

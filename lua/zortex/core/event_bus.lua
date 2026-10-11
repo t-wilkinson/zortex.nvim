@@ -1,261 +1,99 @@
--- core/event_bus.lua - Event system with priority handling and async execution
+-- core/event_bus.lua - Domain events between services
+--
+--   Events.on("task:completed", function(data) ... end, { priority = 50, name = "xp" })
+--   Events.emit("task:completed", { task = task, doc_context = ctx })
+--
+-- Handlers run asynchronously (vim.schedule) in priority order (higher
+-- first); errors are reported, never raised into the emitter. Pass
+-- { async = false } to on() for a synchronous handler.
+--
+-- Events in use:
+--   task:completed, task:uncompleted, task:created   services/tasks  -> xp, digest
+--   xp:awarded, xp:removed                           services/xp     -> xp notifications
+--   season:started, season:ended, season:leveled_up  stores/xp       -> xp notifications
+--   calendar:entry_added, _removed, _updated         stores/calendar -> digest
+--   workspace:lines_changed                          core/workspace  -> digest live links
 local M = {}
 
--- Events
-------------
--- sed -n -e 's/.*Events.on("\([^"]*\)".*/\1/p' **/*.lua | sort | uniq
--- area:xp_added
--- buffer:synced
--- calendar:entry_added
--- calendar:entry_removed
--- calendar:loaded
--- document:changed
--- document:parsed
--- document:saved
--- document:unloaded
--- phase1:initialized
--- task:completed
--- task:completing
--- task:created
--- task:toggled
--- task:uncompleted
--- task:updated
--- test:event
--- test:middleware
--- test:perf
--- test:priority
--- test:remove
--- xp:area_level_up
--- xp:awarded
--- xp:distributed
-------------
+local handlers = {} -- event -> { { fn, priority, name, original } }
+local middleware = {}
+local stats = {} -- event -> { count, total_time, max_time }
 
--- Priority queue implementation
-local PriorityQueue = {}
-PriorityQueue.__index = PriorityQueue
-
-function PriorityQueue:new()
-	return setmetatable({ items = {} }, self)
+local function track(event, ms)
+	local s = stats[event] or { count = 0, total_time = 0, max_time = 0 }
+	s.count, s.total_time, s.max_time = s.count + 1, s.total_time + ms, math.max(s.max_time, ms)
+	stats[event] = s
 end
 
-function PriorityQueue:push(item, priority)
-	table.insert(self.items, { item = item, priority = priority })
-	table.sort(self.items, function(a, b)
-		return a.priority > b.priority
-	end)
-end
-
-function PriorityQueue:pop()
-	return table.remove(self.items, 1)
-end
-
-function PriorityQueue:is_empty()
-	return #self.items == 0
-end
-
--- Events implementation
-local Events = {
-	handlers = {}, -- event -> handler_list
-	middleware = {}, -- Global processors
-	is_processing = false,
-	stats = { -- Performance tracking
-		events = {}, -- event -> { count, total_time, max_time }
-	},
-}
-
--- Internal: ensure handler list exists
-function Events:ensure_handler_list(event)
-	if not self.handlers[event] then
-		self.handlers[event] = {}
-	end
-	return self.handlers[event]
-end
-
--- Register an event handler
-function Events:on(event, handler, opts)
-	opts = vim.tbl_extend("keep", opts or {}, {
-		priority = 50, -- Default priority (0-100)
-		async = true, -- Default async execution
-		max_time = 100, -- Warn if handler takes >100ms
-		name = nil, -- Optional handler name for debugging
-	})
-
-	-- Create wrapped handler with error handling and timing
-	local wrapped_handler = function(data)
+function M.on(event, handler, opts)
+	opts = opts or {}
+	local name = opts.name or (event .. "#" .. (#(handlers[event] or {}) + 1))
+	local function run(data)
 		local start = vim.loop.hrtime()
-		local handler_name = opts.name or string.format("%s_handler_%d", event, #self:ensure_handler_list(event) + 1)
-
-		local function run()
-			-- Execute with error handling
-			local ok, err = xpcall(handler, debug.traceback, data)
-
-			-- Track performance
-			local elapsed = (vim.loop.hrtime() - start) / 1e6 -- Convert to ms
-			self:track_performance(event, elapsed)
-
-			-- Warn on slow handlers
-			if elapsed > opts.max_time then
-				vim.notify(
-					string.format("[Events] Slow handler '%s' for event '%s': %.1fms", handler_name, event, elapsed),
-					vim.log.levels.WARN
-				)
-			end
-
-			-- Report errors
-			if not ok then
-				vim.notify(
-					string.format("[Events] Handler '%s' error for event '%s': %s", handler_name, event, err),
-					vim.log.levels.ERROR
-				)
-			end
-		end
-
-		-- Execute based on async setting
-		if opts.async then
-			vim.schedule(run)
-		else
-			run()
+		local ok, err = xpcall(handler, debug.traceback, data)
+		track(event, (vim.loop.hrtime() - start) / 1e6)
+		if not ok then
+			vim.notify(string.format("[Zortex] %s handler '%s' failed: %s", event, name, err), vim.log.levels.ERROR)
 		end
 	end
-
-	-- Store handler with metadata
-	local handlers = self:ensure_handler_list(event)
-	table.insert(handlers, {
-		fn = wrapped_handler,
-		priority = opts.priority,
-		name = opts.name,
-		original = handler, -- For removal
-	})
-
-	-- Sort by priority (higher priority first)
-	table.sort(handlers, function(a, b)
+	local list = handlers[event] or {}
+	handlers[event] = list
+	list[#list + 1] = {
+		fn = opts.async == false and run or function(data)
+			vim.schedule(function()
+				run(data)
+			end)
+		end,
+		priority = opts.priority or 50,
+		original = handler,
+	}
+	table.sort(list, function(a, b)
 		return a.priority > b.priority
 	end)
-
-	-- Return handle for removal
 	return {
-		event = event,
-		handler = handler,
 		remove = function()
-			self:off(event, handler)
+			M.off(event, handler)
 		end,
 	}
 end
 
--- Remove an event handler
-function Events:off(event, handler)
-	local handlers = self.handlers[event]
-	if not handlers then
-		return
-	end
-
-	for i = #handlers, 1, -1 do
-		if handlers[i].original == handler then
-			table.remove(handlers, i)
-			break
+function M.off(event, handler)
+	local list = handlers[event] or {}
+	for i = #list, 1, -1 do
+		if list[i].original == handler then
+			table.remove(list, i)
 		end
 	end
 end
 
--- Emit an event
-function Events:emit(event, data, opts)
-	opts = opts or {}
-	local handlers = self.handlers[event] or {}
-
-	-- Apply middleware
-	for _, mw in ipairs(self.middleware) do
+function M.emit(event, data)
+	for _, mw in ipairs(middleware) do
 		local continue, new_data = mw(event, data)
 		if not continue then
-			return -- Middleware can stop propagation
+			return
 		end
 		data = new_data or data
 	end
-
-	-- Execute handlers
-	if opts.sync then
-		-- Rare case: execute immediately in order
-		for _, h in ipairs(handlers) do
-			h.fn(data)
-		end
-	else
-		-- Normal case: let handlers self-schedule
-		for _, h in ipairs(handlers) do
-			h.fn(data)
-		end
+	for _, h in ipairs(handlers[event] or {}) do
+		h.fn(data)
 	end
 end
 
--- Add middleware
-function Events:add_middleware(fn)
-	table.insert(self.middleware, fn)
+--- fn(event, data) -> continue, data
+function M.add_middleware(fn)
+	middleware[#middleware + 1] = fn
 end
 
--- Track performance statistics
-function Events:track_performance(event, elapsed_ms)
-	if not self.stats.events[event] then
-		self.stats.events[event] = {
-			count = 0,
-			total_time = 0,
-			max_time = 0,
-			min_time = math.huge,
-		}
-	end
-
-	local stats = self.stats.events[event]
-	stats.count = stats.count + 1
-	stats.total_time = stats.total_time + elapsed_ms
-	stats.max_time = math.max(stats.max_time, elapsed_ms)
-	stats.min_time = math.min(stats.min_time, elapsed_ms)
-end
-
--- Get performance report
-function Events:get_performance_report()
+function M.get_performance_report()
 	local report = {}
-	for event, stats in pairs(self.stats.events) do
-		report[event] = {
-			count = stats.count,
-			avg_time = stats.total_time / stats.count,
-			max_time = stats.max_time,
-			min_time = stats.min_time,
-			total_time = stats.total_time,
-		}
+	for event, s in pairs(stats) do
+		report[event] = { count = s.count, avg_time = s.total_time / s.count, max_time = s.max_time }
 	end
 	return report
 end
 
--- Clear all handlers (useful for tests)
-function Events:clear()
-	self.handlers = {}
-	self.middleware = {}
-	self.stats.events = {}
-end
-
--- Create singleton instance
-M._instance = Events
-
--- Public API
-function M.on(event, handler, opts)
-	return M._instance:on(event, handler, opts)
-end
-
-function M.off(event, handler)
-	return M._instance:off(event, handler)
-end
-
-function M.emit(event, data, opts)
-	return M._instance:emit(event, data, opts)
-end
-
-function M.add_middleware(fn)
-	return M._instance:add_middleware(fn)
-end
-
-function M.get_performance_report()
-	return M._instance:get_performance_report()
-end
-
 function M.clear()
-	return M._instance:clear()
+	handlers, middleware, stats = {}, {}, {}
 end
 
 return M

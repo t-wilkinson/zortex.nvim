@@ -5,7 +5,6 @@ local M = {}
 local Config = require("zortex.config")
 local datetime = require("zortex.utils.datetime")
 local fs = require("zortex.utils.filesystem")
-local Events = require("zortex.core.event_bus")
 local calendar_store = require("zortex.stores.calendar")
 
 -- =============================================================================
@@ -248,12 +247,6 @@ function M.check_notifications()
 
 		vim.notify(msg, vim.log.levels.INFO)
 
-		-- Also emit event for notification system
-		Events.emit("calendar:notification_pending", {
-			entry = notif.entry,
-			time = notif.time,
-			minutes_until = notif.minutes_until,
-		})
 	end
 end
 

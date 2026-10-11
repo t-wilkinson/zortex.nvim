@@ -8,11 +8,16 @@ local defaults = {
 	special_articles = { "structure" }, -- Changes link opening behavior
 	debug = false,
 
+	-- Commands and keymaps are generated from zortex.actions (:ZortexHelp lists them)
 	commands = {
-		prefix = "Zortex",
+		prefix = "Zortex", -- :ZortexSearch, :ZortexReview, ...
 	},
 	keymaps = {
+		enabled = true,
 		prefix = "<leader>z",
+		-- Per-action overrides by action id: a key, a list of keys, or false.
+		-- e.g. { task_toggle = "t", search_articles = false, review = { "w", "R" } }
+		mappings = {},
 	},
 
 	core = {

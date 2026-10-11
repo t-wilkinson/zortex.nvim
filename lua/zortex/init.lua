@@ -1,42 +1,34 @@
--- init.lua - Main entry point for Zortex
-
--- Core modules
-local Config = require("zortex.config")
-local core = require("zortex.core")
-
--- Features
-
--- Initialize Zortex
-local function setup(opts)
-	-- Merge user config
-	Config.setup(opts)
-
-	-- Setup core systems
-	core.setup(Config)
-
-	-- Setup features
-	require("zortex.features.highlights").setup()
-	require("zortex.features.folding").setup()
-
-	local has_cmp, cmp = pcall(require, "cmp")
-	if has_cmp then
-		local completion = require("zortex.features.completion")
-		cmp.register_source("zortex", completion.new())
-	end
-
-	-- Notifications
-	require("zortex.notifications").setup(Config.notifications)
-
-	-- Setup UI
-	require("zortex.ui.commands").setup(Config.commands.prefix)
-	require("zortex.ui.keymaps").setup(Config.keymaps.prefix, Config.commands.prefix)
-	require("zortex.ui.calendar.view").setup(Config.ui.calendar)
-	require("zortex.services.search").setup(Config.ui.search)
-	require("zortex.ui.telescope.core").setup()
-end
-
+-- init.lua - require("zortex"): setup() plus the public API (zortex.api)
 local api = require("zortex.api")
 
-api.setup = setup
+function api.setup(opts)
+	local Config = require("zortex.config")
+	Config.setup(opts)
+
+	-- Core: logger, events, workspace, link index, XP pipeline
+	require("zortex.core").setup(Config)
+
+	-- Editor features
+	require("zortex.features.highlights").setup()
+	require("zortex.features.folding").setup()
+	local has_cmp, cmp = pcall(require, "cmp")
+	if has_cmp then
+		cmp.register_source("zortex", require("zortex.features.completion").new())
+	end
+
+	-- Services with configuration
+	require("zortex.services.search").setup(Config.ui.search)
+	require("zortex.ui.calendar.view").setup(Config.ui.calendar)
+	require("zortex.notifications").setup(Config.notifications)
+
+	-- Commands and keymaps, both generated from zortex.actions
+	local actions = require("zortex.actions")
+	actions.create_commands(Config.commands.prefix)
+	if Config.keymaps.enabled ~= false then
+		actions.create_keymaps(Config.keymaps.prefix, Config.keymaps.mappings)
+	end
+
+	require("zortex.ui.telescope.core").setup()
+end
 
 return api

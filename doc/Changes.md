@@ -34,7 +34,8 @@ in place:
 11. **One way to keep state** (`core/state` for every `.z` file) and a
     **plain-data API** (`zortex.query`, `:ZortexExport`) for anything outside
     Neovim.
-12. **A headless test suite:** 195 tests, no dependencies.
+12. **Actions as data:** commands, keymaps, `:ZortexHelp` and the README table come from one list (`actions.lua`); `require("zortex")` exposes every service.
+13. **A headless test suite:** 200 tests, no dependencies.
 
 ## Commits
 
@@ -51,6 +52,7 @@ in place:
 | One state module; smaller logger | `core/state` for `.z` files; persistence manager and base store removed; logger rewritten. |
 | Query API; search service | `zortex.query` (plain data, export); matching and ranking moved from the picker to `services/search`. |
 | Cleanups | One digest module (email sending works again), smaller event bus, dead code removed, `min_score` dropped. |
+| Actions registry | `actions.lua` generates commands, keymaps and `api.actions`; `require("zortex")` exposes every service; `:checkhealth zortex`; README rewritten with a generated command table. |
 
 ## New modules
 
@@ -69,6 +71,8 @@ in place:
 | `core/item.lua` | Shared list-item type for tasks, calendar entries and key results. |
 | `core/state.lua` | Versioned JSON state files in `.z` with atomic writes and recovery. |
 | `query.lua` | Plain-data API over notes, structure and the domain; JSON export. |
+| `actions.lua` | Every user-facing action once; commands, keymaps, `:ZortexHelp` and the README table come from it. |
+| `health.lua` | `:checkhealth zortex`. |
 | `services/search.lua` | Structural search index, matching and ranking (moved out of the picker). |
 | `tests/gen_ast.lua`, `tests/fixtures/ast/`, `tests/fixtures/syntax/` | Syntax conformance fixtures and their generator. |
 | `services/projects/init.lua` | Projects registry, `query`, `tasks`, `update_progress`. |
@@ -92,10 +96,31 @@ in place:
 | `services/okr.lua` | `services/okr/` package (same `require` path) |
 | `stores/base.lua`, `stores/persistence_manager.lua`, `:ZortexSaveStores`, `core.persistence_manager` config | `core/state` (stores save when they change) |
 | `parser.CodeBlockTracker`, `detect_section_type`, `calculate_level`, `scan_sections`, `build_section_path`, `find_section_end`, `get_heading_level`, `parse_heading`, `parse_label`, `is_bold_heading`, … | `core/syntax` and the document tree (`doc.syntax`, `doc:node_at`, `node.end_line`) |
+| `ui/commands.lua`, `ui/keymaps.lua` | `actions.lua` |
+| `autoload/health/zortex.vim` (checked the old Node preview server) | `lua/zortex/health.lua` |
 | the 37 line patterns in `features/highlights.lua`, the regexes in `folding.lua` and `calendar_entry.from_text` | `core/syntax` |
 | `stores/calendar.set_all_entries` | removed (unused; it rewrote the whole calendar) |
 
 ## Behaviour changes you may notice
+
+**Commands and keys** (all generated from `actions.lua`; `:ZortexHelp` lists them)
+- **New:** `:ZortexBacklinks` (`b`), `:ZortexSearchArticles` (`Z`, was a
+  second binding for search), `:ZortexSectionNext` / `Prev` / `Parent`
+  (`]`, `[`, `^`), `:ZortexFoldsUpdate` (`r`), `:ZortexArchiveSection` (`a`),
+  `:ZortexHelp` (`?`), `:ZortexReview` key `w`, `:ZortexTaskConvert` key
+  `tt`, `:ZortexXPAreas` key `xa`. Keys are under `keymaps.prefix`.
+- **Merged:** `:ZortexXPInfo` → `:ZortexXPStats` (they did the same thing);
+  `:ZortexSystemStatus` and `:ZortexDebug` → `:ZortexStatus`. The `xi` key is
+  gone (use `xs`).
+- **Fixed:** `:ZortexCalendarDigest` called a function that didn't exist;
+  `:ZortexTaskConvert` never wrote the converted line; `:ZortexSeasonStart`
+  without arguments now prompts.
+- **Configurable:** `keymaps.mappings = { <action id> = key | {keys} | false }`
+  and `keymaps.enabled`.
+- **API:** `require("zortex")` exposes services by name and
+  `actions.<id>()`; the old ad-hoc tables (`api.task`, `api.search.structural`,
+  `api.calendar.digest`, `api.xp.season`, …) are replaced by
+  `z.actions.task_toggle()`, `z.search`, `z.xp`, … (see the README).
 
 **Parser**
 - **Indented code fences count** (```` ``` ```` inside a list item): lines

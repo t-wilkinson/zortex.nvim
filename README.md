@@ -1,12 +1,13 @@
-# Zortex Calendar System
+# zortex.nvim
 
 ### What is this?
 
 This is mean to be a second brain. An all-in-one personal management system. The goal is to allow one to store notes, todo lists, schedules, thoughts, etc. in a single location. It includes:
 
-- A derivative of markdown which you can visualize in the browser, which utilizes [Markdown It](https://github.com/markdown-it/markdown-it).
-- Useful functions and shortcuts for managing information in the markdown files.
-- Fast file searching through a simple and predictable plain-text format. Currently I have 300 pages, at 38,000 lines, and can still immediately find what I need.
+- A plain-text note format (a derivative of markdown) with articles, headings, labels, tasks, attributes and links between notes.
+- Projects, areas (PARA), objectives and key results (OKR) and a calendar, all written in that format and connected through links.
+- Fast structural search over every note. Currently I have 300 pages, at 38,000 lines, and can still immediately find what I need.
+- A weekly review, a daily digest, notifications and an XP system on top.
 
 ### Purpose
 
@@ -36,355 +37,247 @@ However this is not how I think. Overtime, I found my usecase of a note system c
 - Zettelkasten (german for note "zettel" desk "kasten") was a note taking system popularized by Niklas Luhmann, a very prolific sociologist.
 - Cortex, latin for bark. Its found in the word "neocortex" and "cerebral cortex". The neocortex is a key component in cognition. The Zortex is meant to be a sort of second brain.
 
-### Required programs
+## Install
 
-- rsync: transfer local wiki to remote server through SSH
-- bat: preview files
-- fd: sourcing files
-
-### Code stolen from/inspired by
-
-- https://github.com/iamcco/markdown-preview.nvim
-
-  - Integrates with markdown-it and vim to preview markdown-type buffers in the browser
-  - Converted class components to functional components
-  - Changed variables from "g:mkdp*\*" to "g:zortex*\*"
-
-- https://github.com/markdown-it/markdown-it
-
-  - Provides wonderful markdown processing in the browser
-
-- https://github.com/alok/notational-fzf-vim
-  - Integrates with fzf to search note system
-
-### Developer documentation
-
-- [doc/Architecture.md](doc/Architecture.md): how the plugin is structured (syntax, documents, links, entities, projects, areas, XP, state, query API, UI) and the rules modules share
-- [doc/Projects.md](doc/Projects.md): projects and areas API, link format, picker keys
-- [doc/Changes.md](doc/Changes.md): what the `projects-api` branch changed, bug fixes, migration notes
-- [doc/Wishlist.md](doc/Wishlist.md): planned features (review actions, area overview, integrations) and the web app plan
-- Tests: `nvim --headless -u NONE -l tests/run.lua`
-
-### Introduction
-
-> It only works on vim >= 8.1 and neovim
-
-Preview markdown on your modern browser with synchronised scrolling and flexible configuration
-
-Main features:
-
-- Cross platform (macos/linux/windows)
-- Synchronised scrolling
-- Fast asynchronous updates
-- [Katex](https://github.com/Khan/KaTeX) for typesetting of math
-- [Plantuml](https://github.com/plantuml/plantuml)
-- [Mermaid](https://github.com/knsv/mermaid)
-- [Chart.js](https://github.com/chartjs/Chart.js)
-- [sequence-diagrams](https://github.com/bramp/js-sequence-diagrams)
-- [flowchart](https://github.com/adrai/flowchart.js)
-- [dot](https://github.com/mdaines/viz.js)
-- [Toc](https://github.com/nagaozen/markdown-it-toc-done-right)
-- Emoji
-- Task lists
-- Local images
-- Flexible configuration
-
-![screenshot](https://user-images.githubusercontent.com/5492542/47603494-28e90000-da1f-11e8-9079-30646e551e7a.gif)
-
-### install & usage
-
-```vim
-" If you have node.js and yarn
-Plug "t-wilkinson/zortex.nvim", { 'do': 'cd app && yarn install' }
-```
-
-### Zortex Config:
-
-- Please take a look at `plugin/zortex.vim` for config defaults and documentation
-
-Commands:
-
-```vim
-:ZortexSearch
-:ZortexSearchUnique
-
-:ZortexCopyZettelId
-:ZortexCopyZettel
-:ZortexBranchToOutline
-:ZortexBranchToArticle
-:ZortexListitemToZettel
-:ZortexResourceToZettel
-:ZortexOpenStructure
-
-:ZortexStartServer " call this before preview
-:ZortexStopServer
-:ZortexPreview
-:ZortexPreviewStop
-:ZortexPreviewToggle
-```
-
-### Reference
-
-- [coc.nvim](https://github.com/neoclide/coc.nvim)
-- [@chemzqm/neovim](https://github.com/neoclide/neovim)
-- [chart.js](https://github.com/chartjs/Chart.js)
-- [highlight](https://github.com/highlightjs/highlight.js)
-- [neovim/node-client](https://github.com/neovim/node-client)
-- [next.js](https://github.com/zeit/next.js)
-- [markdown.css](https://github.com/iamcco/markdown.css)
-- [markdown-it](https://github.com/markdown-it/markdown-it)
-- [markdown-it-katex](https://github.com/waylonflinn/markdown-it-katex)
-- [markdown-it-plantuml](https://github.com/gmunguia/markdown-it-plantuml)
-- [markdown-it-chart](https://github.com/tylingsoft/markdown-it-chart)
-- [mermaid](https://github.com/knsv/mermaid)
-- [opener](https://github.com/domenic/opener)
-- [sequence-diagrams](https://github.com/bramp/js-sequence-diagrams)
-- [socket.io](https://github.com/socketio/socket.io)
-
-### Use case ideas
-
-- I like to open a split browser in full screen next to my terminal window.
-
-### TODOS
-
-- Change the FZF title when searching so you don't see that super long shortened path.
-- Convert original resource link to tag setup `[name]{author=...; ref=...}` -> `#author=...#[name](ref)`
-- When searching files, initially populate each file with only the article names for quick searching. it is possible to do some form of multiprocessing
-
-### Ideal searching behavior
-
-- The left side of search should be either the modified or created article time and the article name.
-- Each file should be named a unique article name.
-- Searching should be plain text using rg or fzf. rg or fzf should get each article file path and return the name of each match and if possible the matching phrase.
-- It might be better to do a custom searching window using a lazyvim plugin.
-
-**Better file names:**
-[] Write script to move the article name and remove the article name? We would be limited by os by file names. Also wouldn't ease code if we are still doing aliases.
-
-An enhanced calendar system for Neovim that integrates with your OKR, PARA, and GTD note-taking system.
-
-## Features
-
-- **Unified Calendar View**: Shows tasks from both `calendar.zortex` and `projects.zortex` files
-- **Telescope Integration**: Searchable digest view of dates and projects
-- **Project Task Integration**: Automatically displays project tasks with date/time attributes in the calendar
-- **Header Preservation**: Fixed the bug where adding entries would delete file headers
-- **Multiple Views**: Month view with 3-month display and week view
-- **Smart Task Detection**: Recognizes tasks with `@due`, `@at`, and time prefixes (HH:MM)
-
-## Installation
-
-Place the Lua files in your Neovim configuration:
-
-```
-~/.config/nvim/lua/zortex/calendar/
-├── init.lua
-├── data.lua
-├── ui.lua
-├── projects.lua
-└── telescope.lua
-```
-
-## Setup
-
-Add to your Neovim configuration:
+With [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ```lua
-require('zortex.calendar').setup({
-  notes_dir = "~/path/to/your/notes",  -- Directory containing .zortex files
+{
+  "t-wilkinson/zortex.nvim",
+  dependencies = { "nvim-telescope/telescope.nvim" }, -- optional: search and project pickers
+  config = function()
+    require("zortex").setup({
+      notes_dir = "~/zortex/",
+      keymaps = { prefix = "<leader>z" },
+    })
+  end,
+}
+```
+
+Optional: [nvim-cmp](https://github.com/hrsh7th/nvim-cmp) for link completion
+(the `zortex` source is registered automatically). `:checkhealth zortex`
+checks the setup.
+
+## Notes
+
+Every note is a `.zortex` file under `notes_dir` (subfolders included; `z/`
+is the usual place for the library). A note starts with a header:
+
+```
+@@Projects          article name (the first @@ line)
+@@P                 alias
+@Me                 tag
+@size(lg)           header attribute
+```
+
+The body uses this structure (lower levels nest under higher ones):
+
+| Write | Is |
+|---|---|
+| `# Heading` … `###### Heading` | heading, levels 1–6 |
+| `**Bold heading**:` | below headings |
+| `Label:` (indent to nest) | below bold headings |
+| `- item`, `1. item`, `A. item`, `14:00 item`, `16:00 - 17:00 item` | list items |
+| `- [ ] task`, `- [x] task` | tasks |
+| `- KR1: [ ] text` | a key result (in `okr.zortex`) |
+| `@p1` `@i2` `@size(md)` `@due(2026-10-12)` `@done(…)` `@a(4.1)` `@2h` | attributes |
+| `[Article/#Heading/:Label]`, `[P/#1.4 - zortex]`, `[/#Local heading]` | links (prefix match, first match wins) |
+| `![Article]`, `@[cars & parts]`, `[text](url)`, `[^1]` | live link, tag search, markdown link, footnote |
+| fenced code, `$$` math blocks, tables, `\| quotes`, `` `code` ``, `$math$` | as in markdown |
+
+Special notes:
+
+- **`projects.zortex`** (`@@Projects` / `@@P`): headings are projects and
+  sub-projects; any note tagged `@P` is a project too. Link them as `[P/…]`.
+- **`areas.zortex`** (`@@Areas` / `@@A`): headings and labels are areas;
+  `@a(4.1)` on a project or objective links it to an area.
+- **`okr.zortex`**: headings like `## 3M-2026-Q1 Title` are objectives; their
+  `- KRn:` items are key results, and project links on a KR drive its
+  progress.
+- **`calendar.zortex`**: `YYYY-MM-DD:` labels with entries under them
+  (`- [ ] task`, `14:00 event`, `- note`).
+- Notes tagged `@Archive` (or named `z/archive.*`) are left out of links,
+  projects and search ranking.
+
+[doc/Projects.md](doc/Projects.md) has the full projects and areas reference.
+
+## What it does
+
+- **Structural search** (`<leader>zz`): words match a section's path in order
+  (`2 4` finds `1 › 2 › 3 › 4`), results are breadcrumbs ranked by hierarchy,
+  and what you open often ranks higher.
+- **Links**: follow (`<leader>zgx`), preview in a float (`<leader>zK`), complete while typing,
+  backlinks and broken links in the quickfix list. A persistent link index
+  keeps this fast.
+- **Highlighting and folding** for the whole format, with concealed markers.
+- **Projects**: picker with progress, points, due dates, areas and key
+  results; `@progress` written back on request.
+- **Weekly review** (`<leader>zw`): overdue and due tasks, completed work,
+  stale and unscheduled projects, projects without a next action, KRs
+  without projects, areas without projects, broken links. Every line links
+  to its source.
+- **Calendar**: month/week views with project tasks and due dates, a digest
+  panel, iCal import/export, notifications.
+- **XP and seasons** from completed tasks, distributed to areas; a skill tree.
+- **Export** (`:ZortexExport`): the notes and the whole model as JSON.
+
+## Commands and keys
+
+Every action is one entry in [`lua/zortex/actions.lua`](lua/zortex/actions.lua);
+commands, keymaps and `require("zortex").actions` are generated from it, and
+`:ZortexHelp` (`<leader>z?`) lists them with your prefixes. Change a key with
+`keymaps.mappings`:
+
+```lua
+require("zortex").setup({
   keymaps = {
-    open_calendar = "<leader>zc",       -- Open calendar view
-    telescope_digest = "<leader>zd",    -- Open Telescope digest
-    today_digest = "<leader>zt",        -- Show today's digest notification
-  }
+    prefix = "<leader>z",
+    mappings = { task_toggle = "t", search_articles = false, review = { "w", "R" } },
+  },
 })
 ```
 
-## Usage
+<!-- actions:start -->
+**Find**
 
-### Commands
+| Command | Keys | Action id | Does |
+|---|---|---|---|
+| `:ZortexSearch` | `<leader>zz` | `search` | Search sections and lines (structural search) |
+| `:ZortexSearchArticles` | `<leader>zZ` | `search_articles` | Search article names |
+| `:ZortexProjects` | `<leader>zp` | `projects` | Browse projects |
+| `:ZortexTOC` | `<leader>zl` | `toc` | Table of contents of this note |
+| `:ZortexTOCPopup` | `<leader>zL` | `toc_popup` | Table of contents in a popup |
 
-- `:ZortexCalendar` - Open the calendar view
-- `:ZortexDigest` - Open Telescope digest view (calendar + projects)
-- `:ZortexCalendarTelescope` - Calendar-only Telescope view
-- `:ZortexTodayDigest` - Show today's tasks/events as notification
-- `:ZortexSetupNotifications` - Setup system notifications for events
+**Links**
 
-### Calendar Navigation
+| Command | Keys | Action id | Does |
+|---|---|---|---|
+| `:ZortexLinkOpen` | `<leader>zgx` | `link_open` | Follow the link under the cursor |
+| `:ZortexLinkPreview` | `<leader>zK` | `link_preview` | Preview the link target in a float |
+| `:ZortexBacklinks` | `<leader>zb` | `backlinks` | Links into the section under the cursor (quickfix) |
+| `:ZortexBrokenLinks` | `<leader>zB` | `broken_links` | Links that resolve nowhere (quickfix) |
+| `:ZortexLinkIndexRebuild` |  | `link_index_rebuild` | Rebuild the link index from scratch |
 
-In the calendar view:
+**Structure**
 
-- `h/l` - Navigate days
-- `j/k` - Navigate weeks
-- `J/K` - Navigate months
-- `H/L` - Navigate years
-- `w` - Switch to week view
-- `m` - Switch to month view
-- `a` - Add entry for selected date
-- `<CR>` - Go to selected date in calendar file
-- `t` - Jump to today
-- `q`/`<Esc>` - Close calendar
+| Command | Keys | Action id | Does |
+|---|---|---|---|
+| `:ZortexSectionNext` | `<leader>z]` | `section_next` | Next section at the same or higher level |
+| `:ZortexSectionPrev` | `<leader>z[` | `section_prev` | Previous section at the same or higher level |
+| `:ZortexSectionParent` | `<leader>z^` | `section_parent` | Parent section |
+| `:ZortexFoldsUpdate` | `<leader>zr` | `folds_update` | Recompute folds |
+| `:ZortexArchiveSection` | `<leader>za` | `archive_section` | Move the section under the cursor to the note's z/archive file |
 
-### Telescope Digest
+**Tasks**
 
-The digest view shows:
+| Command | Keys | Action id | Does |
+|---|---|---|---|
+| `:ZortexTaskToggle` | `<leader>zT` | `task_toggle` | Toggle the task on this line (makes one if needed) |
+| `:ZortexTaskComplete` | `<leader>ztc` | `task_complete` | Complete the task on this line |
+| `:ZortexTaskUncomplete` | `<leader>ztu` | `task_uncomplete` | Reopen the task on this line |
+| `:ZortexTaskConvert` | `<leader>ztt` | `task_convert` | Turn this line into a task |
+| `:ZortexProjectProgress` | `<leader>zu` | `project_progress` | Write @progress(done/total) on project headings in this buffer |
 
-- **Calendar Dates**: Searchable by MM-DD-YYYY or long date format
-- **Projects**: Searchable by project name or area (parent heading)
+**Plan**
 
-Each project shows:
+| Command | Keys | Action id | Does |
+|---|---|---|---|
+| `:ZortexReview …` | `<leader>zw` | `review` | Weekly review (optional window in days, default 7) |
+| `:ZortexCalendar` | `<leader>zc` | `calendar` | Calendar view |
+| `:ZortexCalendarDigest` | `<leader>zCc` | `calendar_digest` | Calendar view with the digest panel |
+| `:ZortexDigest` | `<leader>zCd` | `digest` | Open the digest note |
+| `:ZortexDigestUpdate` | `<leader>zCD` | `digest_update` | Regenerate the digest note |
+| `:ZortexNotificationsSync` |  | `notifications_sync` | Sync calendar notifications to the server |
+| `:ZortexIcalImport` |  | `ical_import` | Import an iCal file or URL into the calendar |
+| `:ZortexIcalExport` |  | `ical_export` | Export the calendar to an iCal file |
 
-- Project name with area in brackets
-- Number of tasks
-- All tasks, resources, and notes in preview
+**Files**
 
-### File Formats
+| Command | Keys | Action id | Does |
+|---|---|---|---|
+| `:ZortexOpenProjects` | `<leader>zfp` `<leader>zP` | `open_projects` | Open projects.zortex |
+| `:ZortexOpenAreas` | `<leader>zfa` | `open_areas` | Open areas.zortex |
+| `:ZortexOpenOKR` | `<leader>zfo` | `open_okr` | Open okr.zortex |
+| `:ZortexOpenCalendar` | `<leader>zfc` | `open_calendar` | Open calendar.zortex |
 
-#### calendar.zortex
+**XP**
 
+| Command | Keys | Action id | Does |
+|---|---|---|---|
+| `:ZortexSkillTree` | `<leader>zk` | `skill_tree` | Skill tree and season progress |
+| `:ZortexXPStats` | `<leader>zxs` | `xp_stats` | XP statistics |
+| `:ZortexXPAreas` | `<leader>zxa` | `xp_areas` | Top areas by XP |
+| `:ZortexSeasonStatus` |  | `season_status` | Current season |
+| `:ZortexSeasonStart …` |  | `season_start` | Start a season: [name] [end YYYY-MM-DD] (prompts without args) |
+| `:ZortexSeasonEnd` |  | `season_end` | End the current season |
+
+**System**
+
+| Command | Keys | Action id | Does |
+|---|---|---|---|
+| `:ZortexExport …` |  | `export` | Export notes and the model as JSON (default notes_dir/.z/export) |
+| `:ZortexStatus` |  | `status` | Counts, state directory and event timings |
+| `:ZortexLogs …` |  | `logs` | Recent log entries (optional count) |
+| `:ZortexLogLevel …` |  | `log_level` | Set the log level |
+| `:ZortexPerformance` |  | `performance` | Timer statistics |
+| `:ZortexClearLogs` |  | `clear_logs` | Clear logs and timers |
+| `:ZortexHelp` | `<leader>z?` | `help` | List commands and keys |
+<!-- actions:end -->
+
+Inside the calendar view: `h/j/k/l` days and weeks, `H/J/K/L` years and
+months, `t` today, `a` add, `e` edit, `x` delete, `<CR>` entries, `v` toggle
+month/week, `d` digest panel, `/` search, `gf` go to the file, `n` sync
+notifications, `?` help, `q` close (`ui.calendar.keymaps`). In the review
+buffer: `<CR>` jump to the source, `gx`/`K` follow or preview, `r` refresh,
+`q` close.
+
+## Lua API
+
+`require("zortex")` is the API. Services load on first use:
+
+```lua
+local z = require("zortex")
+
+z.actions.review()                        -- any action by id
+z.run("review", { args = "14" })          -- with command-style arguments
+
+z.query.search("1.4 zortex")              -- plain data, JSON-safe
+z.query.note("projects.zortex")           -- header, outline, full syntax
+z.query.tree("z")                         -- folders and notes
+z.query.review({ days = 7 })
+
+z.projects.all()                          -- Project entities
+z.projects.resolve("[P/#1.4 - zortex]"):rollup()
+z.okr.key_results({ open = true })
+z.agenda.upcoming(7)
+z.links.resolve_first("[A/#1 Personal Foundation]")
+z.document.get(path).syntax               -- the parsed note
+z.syntax.parse(lines, { inline = true })  -- the grammar itself
 ```
-Article Name
-tags: #tag1 #tag2
 
-01-15-2024:
-  - [ ] Task with no time
-  - 10:00 Meeting with team
-  - [x] Completed task @due(2024-01-20)
-  - [ ] Task with notification @notify(30min)
-```
+| name | module | what |
+|---|---|---|
+| `query` | `zortex.query` | plain-data views: `tree`, `note`, `search`, `resolve`, `backlinks`, `broken_links`, `projects`, `areas`, `objectives`, `agenda`, `review`, `export` |
+| `projects`, `areas`, `okr` | `services/*` | entities: `all`, `get`, `at`, `resolve`, plus `query`/`tasks` (projects), `objectives`/`key_results` (OKR) |
+| `agenda` | `services/agenda` | `day`, `range`, `upcoming`, `review` |
+| `calendar` | `stores/calendar` | entries by date, `add_entry`, `update_entry`, `delete_entry` |
+| `tasks` | `services/tasks` | toggle/complete on the cursor line, `find_task_by_id` |
+| `search`, `search_history` | `services/*` | structural search and its ranking history |
+| `digest`, `review`, `xp` | | digest note and email, review buffer, XP and seasons |
+| `notes`, `document`, `syntax`, `item` | `core/*` | note index, parsed snapshots, grammar, list items |
+| `links`, `link_index` | | link resolution and the index of every link |
+| `workspace`, `state`, `events`, `config` | | line edits, `.z` state files, domain events, configuration |
 
-#### projects.zortex
+## Documentation
 
-```
-Article Name
-tags: #projects #para
-
-# Work
-
-## Project Alpha
-- [ ] Design mockups @due(2024-01-20)
-- [ ] 14:00 Client presentation @at(2024-01-18)
-- [x] Setup repository
-Resources:
-- Design guidelines document
-- Client feedback form
-
-## Project Beta
-- [ ] Code review @due(2024-01-19 15:00)
-- [ ] Deploy to staging
-```
-
-### Task Attributes
-
-Both calendar and project tasks support:
-
-- `@due(YYYY-MM-DD)` or `@due(MM-DD-YYYY)` - Due date
-- `@at(YYYY-MM-DD HH:MM)` - Specific date/time
-- `@from(date)` / `@to(date)` - Date ranges
-- `@repeat(daily/weekly)` - Recurring tasks
-- `@notify(30min)` or `@n(1h)` - Notifications
-- `HH:MM` prefix - Time for the task
-- `HH:MM-HH:MM` prefix - Time range
-
-### Visual Indicators
-
-- `[25]` - Selected date
-- `>15` - Today's date
-- `.10` - Date with tasks
-- `●20` - Date with events
-- `*5` - Date with notes
-- `☐` - Incomplete task
-- `☑` - Complete task
-- `⚠` - Important task
-- `◐` - In progress task
-- `⏸` - Paused task
-
-## Tips
-
-1. **Project Tasks in Calendar**: Any project task with date/time attributes will automatically appear in the calendar view for that date.
-
-2. **Quick Search**: Use the Telescope digest to quickly find any date or project. The search works with partial matches.
-
-3. **Project Context**: When viewing project tasks in the calendar, the project name appears in brackets [Project Name] for context.
-
-4. **Notifications**: Use `@notify(30min)` to get system notifications before events. Run `:ZortexSetupNotifications` to schedule them.
-
-## Troubleshooting
-
-If file headers are being deleted when adding entries:
-
-- The fix has been applied to preserve headers
-- Headers are any lines before the first date entry
-- Make sure your calendar.zortex has proper date format: `MM-DD-YYYY:`
-
-For best notification support on macOS, install one of:
-
-1. terminal-notifier (Recommended):
-   brew install terminal-notifier
-
-2. alerter:
-   brew install alerter
-
-Without these, notifications may not appear due to
-macOS security restrictions on terminal apps.
-
-After installing, restart Neovim and try again.
-
-Alternative: Use :ZortexDigest for buffer view
-
-## IDK More stuff
-
-Files in our zortex:
-
-- vision.zortex: File that doesn't link to anything. Purely conceptual vision of who I want to be and what I want to focus on.
-- okr.zortex:
-  - Objectives:
-    - Objectives have a one to many (usually 1-4) relationship with key results.
-    - Each Objective will have the heading of "## <span code> YYYY MM Title"
-    - Span codes: M, Q, Y, 5Y, 10Y, <n>Y
-  - Key results:
-    - Will formatted as "- KR-<n>" so KR-1, KR-2, etc.
-    - Will link to a project via zortex link starting with "[Projects/...]" or "[P/...]"
-  - Current objectives will be under the heading "# Current"
-  - Previous objectives will be under the heading "# Previous", sorted by "YYYY MM" with most recent at the top.
-- projects.zortex:
-  - Projects are the first-class citizens of the XP system. That importance is delegated by connections to the okr system.
-  - Projects provide a grouping for tasks, notes, resources.
-- for now ignore files like areas.zortex
-
-**XP calculation**:
-`Total XP = (Base XP * Multipliers)`
-Base XP:
-
-- Connection to OKR: If a project is connected to a key result should increase base XP rewarded.
-  Multipliers:
-- Current OKR: Less XP the more distant the temporal colocation
-- Priority: Higher priority tasks @p1, @p2, @p3 get an XP multiplier.
-- Importance: @i1, @i2, @i3 get an XP multiplier
-- Size: tasks that have a size (@xs @sm @md @lg @xl) Larger tasks (@lg, @xl) or larger time estimation @est() or duration @2h are worth more. Let config.yaml specify defaults, but assume tasks to be a certain size/time duration. Let me know what you choose. Have an alignment for each task size to a specific duration.
-
-## Notifications
-
-```
-┌──────────────┐     ┌─────────────┐     ┌──────────────┐     ┌─────────────┐
-│ Zortex.nvim  │────▶│ API Gateway │────▶│    Lambda    │────▶│  DynamoDB   │
-│   (Client)   │     │   (HTTPS)   │     │  (Manifest   │     │   (State)   │
-└──────────────┘     └─────────────┘     │  Processor)  │     └─────────────┘
-                                         └──────────────┘              │
-                                                   │                   │
-                                                   ▼                   ▼
-                                          ┌──────────────┐     ┌──────────────┐
-                                          │ EventBridge  │────▶│   Lambda     │
-                                          │ (Scheduler)  │     │(Notification │
-                                          └──────────────┘     │   Sender)    │
-                                                               └──────┬───────┘
-                                                                      │
-                                                                      ▼
-                                                              ┌──────────────┐
-                                                              │  ntfy.sh     │
-                                                              │   (Push)     │
-                                                              └──────────────┘
-```
+- [doc/Architecture.md](doc/Architecture.md): how the plugin is built (syntax,
+  documents, links, entities, domain, state, query API, UI) and the rules
+  modules share
+- [doc/Projects.md](doc/Projects.md): projects and areas reference
+- [doc/Changes.md](doc/Changes.md): what the `projects-api` branch changed,
+  and migration notes
+- [doc/Wishlist.md](doc/Wishlist.md): planned features and the web app plan
+- Tests: `nvim --headless -u NONE -l tests/run.lua`
 
 ## XP Overview
 

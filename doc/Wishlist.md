@@ -150,7 +150,7 @@ Deferred for now; listed so the pieces fit together later.
 
 A small, read-mostly web app for the notes, deployed as a **NixOS service on
 a Raspberry Pi 4** that already runs other servers. It reads a **synced
-zortex directory** (for example Syncthing) and must work **without Neovim**.
+zortex directory** (Syncthing) and must work **without Neovim**.
 The important features are:
 
 1. **Note search** with the same ordered-path matching and ranking as the
@@ -185,13 +185,9 @@ Editing is not a goal (at most, later, appending to an inbox).
   standard library for HTTP and file watching, and simple Nix packaging
   (`buildGoModule`). Rust would also fit; Python (Flask, like `deployment/`)
   is the easiest to write but the heaviest at runtime.
-- **Grammar: port `core/syntax` (~700 lines) to a Go package** and run the
-  conformance fixtures as its test suite: parse each fixture, compare with the
-  JSON. The fixtures make drift visible the moment either side changes.
-  *Alternative:* embed a Lua 5.1 interpreter (gopher-lua) and run
-  `core/syntax.lua` unchanged. That's one grammar instead of two, at the cost
-  of slower parsing and an interpreter in the process. Worth a quick
-  measurement on the Pi before choosing.
+- **Grammar:** see [Grammar options](#grammar-options) below. The short
+  version: a hand port tested against the conformance fixtures, or the Lua
+  grammar run inside Go.
 - **What else to port (smallest first):**
   - header and notes index (names, aliases, tags, archived), from
     `core/notes`
@@ -224,6 +220,26 @@ Editing is not a goal (at most, later, appending to an inbox).
   `objectives()`, `agenda()`, `review()`), so the plugin and the app can
   share fixtures for those too.
 
+### Grammar options
+
+The parser is only part of what the app needs: the link resolver, search and
+the notes index have to exist in Go too. So the real choice is how much of
+the core gets two implementations.
+
+| option | one source of truth? | runtime | cost | notes |
+|---|---|---|---|---|
+| **A. Hand port to Go + fixtures** | no, but drift is caught by `tests/fixtures/ast` | fastest; pure Go, `CGO_ENABLED=0` | ~700 lines for the grammar; resolver and search later, each with its own fixtures | Simplest to reason about. Recommended for the grammar. |
+| **B. Shared rule file** (patterns read by both) | lexical rules only | fast | a rule format plus two small interpreters | Lua patterns and Go RE2 are different languages (Lua has no alternation, RE2 has no `%b()` balance or frontier patterns), so the file needs its own subset translated to both. It only covers tokens, not the stateful parts (header, fences, levels, "a task is not a label"), which stay code in each language. Little gain over A. |
+| **C. Run `core/syntax.lua` in Go** with gopher-lua (a pure-Go Lua 5.1) | yes, for the grammar | slower than native Go; fine with incremental re-parse on file change | small; the grammar already runs with only the Lua standard library (`test_syntax` checks this) | Measure on the Pi. Extending this to the resolver and search would mean moving their `vim.*` calls (files, JSON, time) behind a small host interface. |
+| **D. Go core, Neovim as a client** | yes, for everything | Go speed everywhere | large: the plugin keeps highlighting and editing in Lua but asks a `zortex` binary (a long-running job over stdio or msgpack-RPC) for parse, resolve, search and index | One implementation for the plugin and the app (`zortex serve`). The plugin then needs a binary: Nix, `go install`, or release builds. |
+| **E. Tree-sitter grammar** | yes, for the grammar | fast, incremental | large: `grammar.js` plus a C external scanner for the context-sensitive parts | Neovim gets native highlighting, folding and language injection in code blocks; Go uses it through cgo bindings. Section levels, the resolver and search still have to be written per language. |
+
+**Suggested path:** start with **A** for the grammar, since the fixtures
+already exist and pure Go keeps cross-compiling for the Pi trivial. Reuse the
+same approach for the resolver and search with generated fixtures. If keeping
+two resolvers in sync becomes the main cost, **D** is the natural next step;
+**C** is a cheap experiment to run first if you'd rather not port at all.
+
 ### Nix
 
 - The flake exports `packages.<system>.zortex-app` (`buildGoModule`) and
@@ -242,6 +258,9 @@ Editing is not a goal (at most, later, appending to an inbox).
     `/home`), `NoNewPrivileges`, `PrivateTmp`
   - `MemoryMax` from the option
   - `Restart = "on-failure"`
+- **Syncthing:** NixOS's `services.syncthing` can run on the Pi. Give the app
+  read access to the synced folder (group membership, `ReadOnlyPaths`), and
+  watch it with fsnotify/inotify.
 - **Exposure:** bind to localhost and publish it through the existing reverse
   proxy with authentication (or Tailscale only). The notes are private.
 - **Notifications:** the `deployment/` server (Flask + SQLite + ntfy) can stay
@@ -260,9 +279,8 @@ Editing is not a goal (at most, later, appending to an inbox).
 
 ### Open questions
 
-- Port the grammar, or embed Lua? Measure gopher-lua parse time for the whole
-  notes folder on the Pi first.
-- Which sync tool, and does it run on the Pi (Syncthing) or is the folder
-  pushed (git, rsync)? This decides whether to watch the folder or poll it.
+- Grammar: A, C or D (see [Grammar options](#grammar-options))? Measure
+  gopher-lua parse time for the whole notes folder on the Pi if C is on the
+  table.
 - Does the app need its own search history? It should be kept separate from
   `.z/search_history.json` to avoid sync conflicts.

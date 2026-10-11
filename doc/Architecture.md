@@ -44,7 +44,8 @@ and tags). Everything else is built on documents:
 ```
             ┌───────────────────────────────────────────────────────────┐
   UI        │ telescope/projects  telescope/search  skill_tree  calendar │
-            │ highlights folding toc completion preview review commands  │
+            │ highlights folding toc completion preview review           │
+            │ actions.lua ──► commands, keymaps, api.actions, :ZortexHelp│
             └──────────────▲────────────────────────────▲────────────────┘
                            │        query.lua (plain data, export)
             ┌──────────────┴──────────┐   ┌─────────────┴──────────────┐
@@ -497,12 +498,33 @@ handlers run asynchronously (`vim.schedule`).
 **Reading and display:**
 - `xp/stats` gives season status, per-project XP, area stats, season
   start/end, and the stats and area-ranking displays.
-- `api.xp.*`, the `XP*` and `Season*` commands, and the skill tree all use
+- `require("zortex").xp`, the `XP*` and `Season*` actions, and the skill tree all use
   `xp/stats`.
 
 **Config read by `stores/xp`:** `xp.season.level_curve`, `xp.season.tiers`
 and `xp.area.level_curve`. The older `xp.project.season_curve` key is still
 accepted.
+
+## Entry points: API, actions, commands, keymaps
+
+- **`require("zortex")`** (`init.lua` + `api.lua`) is `setup(opts)` plus the
+  public API: every service by name, loaded on first use (`z.query`,
+  `z.projects`, `z.areas`, `z.okr`, `z.agenda`, `z.calendar`, `z.tasks`,
+  `z.search`, `z.links`, `z.link_index`, `z.document`, `z.syntax`, `z.item`,
+  `z.notes`, `z.workspace`, `z.state`, `z.events`, `z.digest`, `z.review`,
+  `z.xp`, `z.config`; the table is `api.SERVICES`), `z.actions.<id>()` and
+  `z.run(id, args)`.
+- **`actions.lua`** lists every user-facing action once: `id`, `command`,
+  default `key`, `desc`, `group`, `run` (or `call(module, fn, ...)`, whose
+  target `test_zr_actions` checks exists). `create_commands(prefix)` and
+  `create_keymaps(prefix, mappings)` generate `:Zortex<Command>` and
+  `<prefix><key>` from it, so a description is written once and a command can
+  never point at a function that doesn't exist. `Config.keymaps.mappings`
+  overrides keys by id (a key, a list, or `false`); `keymaps.enabled = false`
+  skips them. `:ZortexHelp` and the README table (`tests/gen_docs.lua`,
+  checked by a test) are generated from the same list.
+- **`health.lua`**: `:checkhealth zortex` (notes dir, counts, broken links,
+  state dir, optional integrations).
 
 ## UI layer
 
@@ -694,6 +716,7 @@ nvim --headless -u NONE -l tests/run.lua projects   # files whose name contains 
 | `test_okr` | objective entities, `O/` links, KR projects and progress |
 | `test_agenda` | day/range items, due tasks, review findings |
 | `test_completion` | link context, suggestions per position, every suggestion resolves |
+| `test_zr_actions` | every action complete, targets exist, commands/keymaps/overrides, API, backlinks, README table up to date |
 | `test_zs_query` | every query function returns JSON-safe data; export |
 | `test_zt_state` | state files: defaults, versions, migration, corrupt files |
 | `test_zu_review` | review buffer layout, links, jumps |

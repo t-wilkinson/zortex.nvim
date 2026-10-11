@@ -223,21 +223,6 @@ function M.setup(prefix)
 	end, { desc = "End the current season" })
 
 	-- ===========================================================================
-	-- Task management
-	-- ===========================================================================
-	cmd("TaskToggle", function()
-		api.task.toggle()
-	end, { desc = "Toggle the task on current line" })
-
-	cmd("TaskComplete", function()
-		api.task.complete()
-	end, { desc = "Complete the task on current line" })
-
-	cmd("TaskUncomplete", function()
-		api.task.uncomplete()
-	end, { desc = "Uncomplete the task on current line" })
-
-	-- ===========================================================================
 	-- System Management
 	-- ===========================================================================
 	cmd("SystemStatus", function()

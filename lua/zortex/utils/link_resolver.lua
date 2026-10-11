@@ -399,7 +399,10 @@ function M.node_components(doc, node)
 		if s.type == "article" then
 			parts[#parts + 1] = (doc and doc:name()) or s.text
 		elseif SECTION_PREFIX[s.type] then
-			parts[#parts + 1] = SECTION_PREFIX[s.type] .. s.text
+			-- "/" separates components; section matches are prefix matches, so
+			-- the text up to the first "/" still finds the same section.
+			local text = s.text:find("/", 1, true) and vim.trim(s.text:match("^[^/]*")) or s.text
+			parts[#parts + 1] = SECTION_PREFIX[s.type] .. text
 		end
 	end
 	return parts

@@ -222,11 +222,9 @@ M.debug = function()
 		"",
 	}
 
-	-- Workspace status
-	local workspace = require("zortex.core.workspace")
-	local docs = workspace.get_all_documents()
-	table.insert(lines, "Documents:")
-	table.insert(lines, "  Loaded: " .. #docs)
+	-- Notes
+	table.insert(lines, "Notes:")
+	table.insert(lines, "  Indexed: " .. #require("zortex.core.notes").files())
 
 	-- Event bus performance
 	local events = require("zortex.core.event_bus")

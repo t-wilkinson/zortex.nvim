@@ -82,9 +82,21 @@ end
 -- Task Completion Operations
 -- =============================================================================
 
+-- The task's line with its checkbox set to `mark` and @done(...) added or
+-- removed. Edits the original line in place, so every other attribute, tag
+-- and spacing is kept exactly as written.
 function M.build_task_line(task)
+	local line = task.raw_text
 	local mark = task.completed and constants.TASK_MARKS.COMPLETED or constants.TASK_MARKS.TODO
-	return task.indent .. "- [" .. mark .. "] " .. task.text .. " " .. attributes.to_line(task.attributes)
+	line = line:gsub("^(%s*%-%s*%[).(%])", "%1" .. mark .. "%2", 1)
+	if task.completed then
+		local done = task.attributes and task.attributes.done
+		local value = type(done) == "string" and done or os.date("%Y-%m-%d")
+		line = attributes.update_attribute(line, "done", value)
+	else
+		line = attributes.remove_attribute(line, "done")
+	end
+	return line
 end
 
 -- Complete a task
@@ -101,7 +113,7 @@ function M.complete_task(task, doc_context)
 	local new_line = M.build_task_line(task)
 
 	-- Update document
-	local success = doc_context.doc:change_line(doc_context.lnum, new_line)
+	local success = workspace.set_line(doc_context.bufnr, doc_context.lnum, new_line)
 	if not success then
 		return nil, "Failed to update line"
 	end
@@ -125,7 +137,7 @@ function M.uncomplete_task(task, doc_context)
 	local new_line = M.build_task_line(task)
 
 	-- Update document
-	local success = doc_context.doc:change_line(doc_context.lnum, new_line)
+	local success = workspace.set_line(doc_context.bufnr, doc_context.lnum, new_line)
 	if not success then
 		return nil, "Failed to update line"
 	end
@@ -180,7 +192,7 @@ function M.change_task_completion(doc_context, should_complete)
 		-- After converting, the toggle action is complete for this call.
 		local new_line
 		task, new_line = M.convert_line_to_task(doc_context.line)
-		doc_context.doc:change_line(doc_context.lnum, new_line)
+		workspace.set_line(doc_context.bufnr, doc_context.lnum, new_line)
 
 		-- Emit event
 		Events.emit("task:created", { task = task, doc_context = doc_context })
@@ -192,7 +204,7 @@ function M.change_task_completion(doc_context, should_complete)
 	if not task.attributes or not task.attributes.id then
 		local id = generate_task_id()
 		local new_line = attributes.add_attribute(doc_context.line, "id", id)
-		doc_context.doc:change_line(doc_context.lnum, new_line)
+		workspace.set_line(doc_context.bufnr, doc_context.lnum, new_line)
 		task = parser.parse_task(new_line)
 
 		if not task then
@@ -228,8 +240,7 @@ end
 function M.toggle_current_task()
 	local doc_context = workspace.get_doc_context()
 	if not doc_context then
-		Logger.error("tasks", "No workspace context")
-		return nil, "No workspace context"
+		return nil, "Not in a note buffer"
 	end
 	return M.change_task_completion(doc_context, nil)
 end
@@ -237,7 +248,7 @@ end
 function M.complete_current_task()
 	local doc_context = workspace.get_doc_context()
 	if not doc_context then
-		return nil, "No workspace context"
+		return nil, "Not in a note buffer"
 	end
 	return M.change_task_completion(doc_context, true)
 end
@@ -245,7 +256,7 @@ end
 function M.uncomplete_current_task()
 	local doc_context = workspace.get_doc_context()
 	if not doc_context then
-		return nil, "No workspace context"
+		return nil, "Not in a note buffer"
 	end
 	return M.change_task_completion(doc_context, false)
 end

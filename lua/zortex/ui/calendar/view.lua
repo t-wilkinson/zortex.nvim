@@ -423,28 +423,31 @@ function Renderer.render_digest_view()
 	table.insert(lines, string.rep("─", win_width))
 	table.insert(lines, "")
 
-	-- Show entries for today and next 7 days
-	for i = 0, cfg.digest.show_upcoming_days do
-		local date = datetime.add_days(today, i)
-		local date_str = datetime.format_datetime(date, "YYYY-MM-DD")
-		local entries = calendar_store.get_entries_for_date(date_str)
+	-- Today and the next days (services/agenda: calendar entries plus project
+	-- tasks/projects due that day)
+	local days = require("zortex.services.agenda").upcoming(cfg.digest.show_upcoming_days + 1)
+	local today_str = datetime.format_datetime(today, "YYYY-MM-DD")
+	for _, day in ipairs(days) do
+		local date = datetime.parse_date(day.date)
+		local offset = datetime.days_between(datetime.parse_date(today_str), date)
 
-		if #entries > 0 then
-			-- Date header
-			local date_header = datetime.format_relative_date(date)
-			if i > 1 then
-				date_header = date_header .. string.format(" (%s)", os.date("%b %d", os.time(date)))
-			end
-			table.insert(lines, string.format("  %s", date_header))
-			table.insert(highlights, {
-				line = #lines,
-				col = 2,
-				end_col = 2 + fn.strwidth(date_header),
-				hl = cfg.colors.digest_header,
-			})
+		-- Date header
+		local date_header = datetime.format_relative_date(date)
+		if offset > 1 then
+			date_header = date_header .. string.format(" (%s)", os.date("%b %d", os.time(date)))
+		end
+		table.insert(lines, string.format("  %s", date_header))
+		table.insert(highlights, {
+			line = #lines,
+			col = 2,
+			end_col = 2 + fn.strwidth(date_header),
+			hl = cfg.colors.digest_header,
+		})
 
-			-- Entries
-			for _, entry in ipairs(entries) do
+		for _, item in ipairs(day.items) do
+			local entry_line
+			if item.entry then
+				local entry = item.entry
 				local icon = cfg.icons.has_items
 				if entry.type == "task" then
 					icon = entry.task.completed and cfg.icons.task_done or cfg.icons.task
@@ -454,29 +457,31 @@ function Renderer.render_digest_view()
 				if entry.attributes.notify then
 					icon = cfg.icons.notification
 				end
-
-				-- Use the formatted entry display
-				local formatted_entry = entry:format()
-				local entry_line = string.format("    %s %s", icon, formatted_entry)
-				table.insert(lines, entry_line)
-
-				-- Highlight the time (Byte-index aware for emojis)
-				local time_s, time_e = string.find(entry_line, "%d%d:%d%d%s*%-%s*%d%d:%d%d")
-				if not time_s then
-					time_s, time_e = string.find(entry_line, "%d%d:%d%d")
-				end
-
-				if time_s then
-					table.insert(highlights, {
-						line = #lines,
-						col = time_s - 1, -- 0-based byte index
-						end_col = time_e,
-						hl = cfg.colors.header,
-					})
-				end
+				entry_line = string.format("    %s %s", icon, entry:format())
+			else
+				-- Project task or project due today
+				local icon = item.done and cfg.icons.task_done or cfg.icons.task
+				local where = item.project and (" · " .. item.project:breadcrumb()) or ""
+				local what = item.kind == "project_due" and ("Project due: " .. item.text) or (item.text .. " (due)")
+				entry_line = string.format("    %s %s%s", icon, what, where)
 			end
-			table.insert(lines, "")
+			table.insert(lines, entry_line)
+
+			-- Highlight the time (byte-index aware for emojis)
+			local time_s, time_e = string.find(entry_line, "%d%d:%d%d%s*%-%s*%d%d:%d%d")
+			if not time_s then
+				time_s, time_e = string.find(entry_line, "%d%d:%d%d")
+			end
+			if time_s then
+				table.insert(highlights, {
+					line = #lines,
+					col = time_s - 1, -- 0-based byte index
+					end_col = time_e,
+					hl = cfg.colors.header,
+				})
+			end
 		end
+		table.insert(lines, "")
 	end
 
 	-- Show high priority projects

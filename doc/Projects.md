@@ -73,6 +73,7 @@ p:rollup()     -- same, including sub-projects
 p:points()     -- explicit @size(...) wins, else the sum of task points
 p:is_done()    p:is_leaf()     p:is_root()
 p:walk(fn)     p:fold(fn)      p:ancestors()  p:descendants()
+p:backlinks({ descendants = true })  -- links pointing at the project (core/link_index)
 p:schedule({ descendants = true, from = "2026-10-01", to = "2026-10-31" })
 p:key_results({ inherit = true })
 p:areas({ inherit = true })

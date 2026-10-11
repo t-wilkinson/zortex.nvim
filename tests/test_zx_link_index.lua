@@ -1,0 +1,81 @@
+local T = require("helpers")
+local fs = require("zortex.utils.filesystem")
+local link_index = require("zortex.core.link_index")
+local link_resolver = require("zortex.utils.link_resolver")
+local P = require("zortex.services.projects")
+
+local function short(path)
+	return vim.fn.fnamemodify(path, ":t")
+end
+
+T.test("index is persisted under notes_dir/.z", function()
+	link_index.rebuild()
+	T.ok(fs.file_exists(T.fixture(".z/link_index.json")), "link_index.json written")
+end)
+
+T.test("backlinks of a project (own content vs subtree)", function()
+	local zortex = P.get("Projects/1 Programming/1.4 - zortex")
+	local own = vim.tbl_map(function(r)
+		return short(r.file) .. ":" .. r.lnum
+	end, zortex:backlinks())
+	T.eq(own, { "calendar.zortex:5", "calendar.zortex:11", "okr.zortex:14" })
+	local all = zortex:backlinks({ descendants = true })
+	T.eq(#all, 4) -- + KR2 -> 1.4.1
+end)
+
+T.test("backlinks of a section node", function()
+	local Document = require("zortex.core.document")
+	local doc = Document.get(T.fixture("projects.zortex"))
+	local node = doc:node_starting_at(7) -- # 1 Programming
+	local refs = link_index.backlinks({ doc = doc, node = node })
+	T.eq(#refs, 1) -- "15:00 Reflect on [P/#1 Programming]"
+	T.eq(refs[1].text, "[P/#1 Programming]")
+end)
+
+T.test("unresolved links", function()
+	local broken = link_index.unresolved()
+	T.eq(#broken, 1)
+	T.eq(short(broken[1].file), "areas.zortex")
+	T.eq(broken[1].text, "[P/#No such project]")
+end)
+
+T.test("incremental refresh re-resolves links affected by a change", function()
+	local probe = T.fixture("probe.zortex")
+	fs.write_lines(probe, { "@@Probe", "", "- compare [P/#1.4]" })
+	link_index.refresh(true)
+	local function probe_target()
+		local refs = link_index.links_from(probe)
+		local t = refs[1].target
+		return fs.read_lines(t.file)[t.lnum]
+	end
+	T.eq(probe_target(), "## 1.4 - esp32")
+
+	-- A new earlier "1.4" heading in the Projects file changes the canonical target
+	local pfile = T.fixture("projects.zortex")
+	local original = fs.read_lines(pfile)
+	local edited = vim.list_slice(original)
+	table.insert(edited, 10, "## 1.4 - abc")
+	fs.write_lines(pfile, edited)
+	link_index.refresh(true)
+	T.eq(probe_target(), "## 1.4 - abc")
+
+	fs.write_lines(pfile, original)
+	os.remove(probe)
+	link_index.refresh(true)
+	T.eq(link_index.links_from(probe)[1], nil)
+end)
+
+T.test("nothing is re-resolved when no note changed (loaded from disk)", function()
+	link_index.refresh(true)
+	link_index._reset() -- drop memory; next refresh loads link_index.json
+	local calls = 0
+	local orig = link_resolver.resolve_first
+	link_resolver.resolve_first = function(...)
+		calls = calls + 1
+		return orig(...)
+	end
+	link_index.refresh(true)
+	link_resolver.resolve_first = orig
+	T.eq(calls, 0)
+	T.ok(#link_index.unresolved() == 1, "state restored from disk")
+end)

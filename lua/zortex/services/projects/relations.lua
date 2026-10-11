@@ -9,7 +9,6 @@
 local M = {}
 
 local Document = require("zortex.core.document")
-local parser = require("zortex.utils.parser")
 local fs = require("zortex.utils.filesystem")
 
 local function projects()
@@ -22,9 +21,12 @@ end
 
 local schedule_cache = { doc = nil, signature = nil, index = nil }
 
--- { [project_key] = { { date, time, entry, lnum, link, project }, ... } }
+-- { [project_key] = { { date, time, entry, lnum, file, link, project }, ... } }
+-- Built from the link index: every link in calendar.zortex whose target lies
+-- in a project.
 function M.schedule_index()
-	local doc = Document.get(fs.get_calendar_file())
+	local path = fs.get_calendar_file()
+	local doc = Document.get(path)
 	if not doc then
 		return {}
 	end
@@ -33,27 +35,29 @@ function M.schedule_index()
 		return schedule_cache.index
 	end
 
-	local calendar = require("zortex.stores.calendar")
-	local index = {}
-	for date, entries in pairs(calendar.parse_lines(doc.lines)) do
+	-- Calendar entries by line
+	local entry_at = {}
+	for date, entries in pairs(require("zortex.stores.calendar").parse_lines(doc.lines)) do
 		for _, entry in ipairs(entries) do
-			for _, link in ipairs(parser.extract_all_links(entry.raw_text)) do
-				if link.type == "link" or link.type == "live_link" then
-					local project = projects().resolve(link.definition)
-					if project then
-						index[project.key] = index[project.key] or {}
-						table.insert(index[project.key], {
-							date = date,
-							time = entry:get_time_string(), -- "HH:MM" or nil
-							entry = entry,
-							lnum = entry.lnum,
-							file = doc.filepath,
-							link = link.full_match_text,
-							project = project,
-						})
-					end
-				end
-			end
+			entry_at[entry.lnum] = { date = date, entry = entry }
+		end
+	end
+
+	local index = {}
+	for _, ref in ipairs(require("zortex.core.link_index").links_from(path)) do
+		local at = entry_at[ref.lnum]
+		local project = at and ref.target and projects().at(ref.target.file, ref.target.lnum)
+		if project then
+			index[project.key] = index[project.key] or {}
+			table.insert(index[project.key], {
+				date = at.date,
+				time = at.entry:get_time_string(), -- "HH:MM" or nil
+				entry = at.entry,
+				lnum = ref.lnum,
+				file = doc.filepath,
+				link = ref.text,
+				project = project,
+			})
 		end
 	end
 

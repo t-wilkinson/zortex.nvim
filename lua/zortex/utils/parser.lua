@@ -300,8 +300,8 @@ function M.extract_link_at(line, cursor_col)
 		if cursor_col >= (s - 1) and cursor_col < e then
 			local content = string.sub(line, s + 1, e - 1)
 
-			-- Skip if this is a footnote
-			if content:sub(1, 1) == "^" then
+			-- Skip footnotes and task checkboxes ("[ ]", "[x]", "[-]", ...)
+			if content:sub(1, 1) == "^" or content:match("^[ xX%-%.]$") then
 				offset = e or 0
 				goto continue
 			end
@@ -515,46 +515,30 @@ function M.parse_link_component(component)
 	end
 end
 
--- Smart parse_link_definition that handles slashes within parentheses
-function M.parse_link_definition(definition)
-	if not definition or definition == "" then
-		return nil
-	end
-
-	definition = M.trim(definition)
-
-	-- Strip outer brackets if present
+--- Split a link definition into raw component strings, ignoring "/" inside
+--- parentheses (attribute values). Strips outer brackets.
+---@return string[] components, "global"|"local" scope
+function M.split_link(definition)
+	definition = M.trim(definition or "")
 	if definition:sub(1, 1) == "[" and definition:sub(-1) == "]" then
 		definition = definition:sub(2, -2)
 	end
-
-	local result = {
-		scope = "global",
-		components = {},
-	}
-
-	-- Check for local scope
+	local scope = "global"
 	if definition:sub(1, 1) == "/" then
-		result.scope = "local"
+		scope = "local"
 		definition = definition:sub(2)
 	end
 
-	-- Smart split by "/" that ignores slashes within parentheses
-	local components = {}
-	local current = ""
-	local paren_depth = 0
-
+	local components, current, depth = {}, "", 0
 	for i = 1, #definition do
 		local char = definition:sub(i, i)
-
 		if char == "(" then
-			paren_depth = paren_depth + 1
+			depth = depth + 1
 			current = current .. char
 		elseif char == ")" then
-			paren_depth = paren_depth - 1
+			depth = depth - 1
 			current = current .. char
-		elseif char == "/" and paren_depth == 0 then
-			-- Only split on "/" when not inside parentheses
+		elseif char == "/" and depth == 0 then
 			if current ~= "" then
 				table.insert(components, M.trim(current))
 			end
@@ -563,11 +547,21 @@ function M.parse_link_definition(definition)
 			current = current .. char
 		end
 	end
-
-	-- Add the last component
 	if current ~= "" then
 		table.insert(components, M.trim(current))
 	end
+	return components, scope
+end
+
+-- parse_link_definition: components typed by parse_link_component
+function M.parse_link_definition(definition)
+	if not definition or definition == "" then
+		return nil
+	end
+
+	local components, scope = M.split_link(definition)
+	local result = { scope = scope, components = {} }
+	definition = table.concat(components, "/")
 
 	-- Parse each component
 	for _, component in ipairs(components) do

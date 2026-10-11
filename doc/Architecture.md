@@ -15,28 +15,38 @@ else is built on documents:
 - **Links** resolve against documents with one resolver. A link means the same
   thing when you follow it, when completion suggests it, and when projects,
   OKRs or the calendar look it up.
-- **Projects** and **areas** are *entities*: objects derived from sections of
-  the tree, each with a stable key (its tree path) and a canonical link.
+- **A link index** records every link in every note and where it resolves,
+  persisted in `notes_dir/.z/link_index.json`. Backlinks, project schedules,
+  KR → project links and broken-link reports all read it.
+- **Projects**, **areas** and **objectives** are *entities*: objects derived
+  from sections of the tree, each with a stable key (its tree path) and a
+  canonical link.
 - **Relations** connect them: calendar entries, key results and area links are
   resolved to entity keys, never compared as link text.
-- **UI** (pickers, skill tree, calendar, digest) only reads these APIs.
+- **The agenda** combines the calendar, due tasks and projects into one query
+  plus a `review()` for weekly reviews.
+- **Writes** go through a small editing layer (buffer if loaded, otherwise the
+  file) as line edits; nothing regenerates a whole note.
+- **UI** (pickers, completion, preview, skill tree, calendar, digest) only
+  reads these APIs.
 
 ```
             ┌───────────────────────────────────────────────────────────┐
   UI        │ telescope/projects  telescope/search  skill_tree  calendar │
-            │ commands  keymaps  digest                                  │
+            │ completion  preview  commands  keymaps  digest             │
             └──────────────▲────────────────────────────▲────────────────┘
                            │                            │
             ┌──────────────┴──────────┐   ┌─────────────┴──────────────┐
   Domain    │ services/projects       │   │ services/xp (core, stats,  │
-            │ services/areas          │◄──┤  calculator) + stores/xp   │
-            │ services/okr  tasks     │   └────────────────────────────┘
-            │ projects/relations      │
+            │ services/areas  okr     │◄──┤  calculator) + stores/xp   │
+            │ services/agenda  tasks  │   └────────────────────────────┘
+            │ stores/calendar         │
             └──────────────▲──────────┘
                            │  entity.registry(spec)
             ┌──────────────┴──────────────────────────────────────────┐
-  Core      │ core/entity   utils/link_resolver   core/notes          │
-            │ core/document ──► core/section (tree)                   │
+  Core      │ core/entity   core/link_index   utils/link_resolver     │
+            │ core/document ──► core/section (tree)   core/notes      │
+            │ core/workspace (edits)                                  │
             │ utils/parser (levels, header, sections, links, tasks)   │
             └─────────────────────────────────────────────────────────┘
 ```
@@ -95,7 +105,9 @@ These are the single sources of truth:
   header produces **one** article descriptor carrying all its `names`.
 - `build_section_path(lines, lnum)` and `find_section_end(...)` give
   lines-only answers that agree with the tree.
-- `parse_link_definition` / `parse_link_component` / `split_query` parse links.
+- `split_link` / `parse_link_definition` / `parse_link_component` /
+  `split_query` parse links (`split_link` ignores `/` inside parentheses and
+  is shared with completion).
   A typed component (`#…`, `:…`, `-…`, `*…`) is never split as a `+` / `&`
   query, so `#4 Learning & Education` is a heading.
 - `parse_task(line)` parses tasks.
@@ -186,10 +198,36 @@ searches the Projects article first, then every `@P` note, so
 | `build_result_link(result)` | link shown in the quickfix list |
 | `search_lines`, `section_end`, `get_section_end` | building blocks |
 
+### Link index — `core/link_index.lua`
+
+Every link (`[...]` and `@a(...)`) in every non-archived note, with where it
+resolves. Persisted to `notes_dir/.z/link_index.json`.
+
+| function | returns |
+|---|---|
+| `links_from(file)` | links found in a note, each `{ file, lnum, col, text, definition, target = { file, lnum } }` |
+| `references(file, s, e)` | links whose target lies in lines `s..e` of `file` |
+| `backlinks(entity_or_{doc,node}, { descendants })` | links into an item's own content, or its whole subtree |
+| `unresolved()` | links that resolve nowhere (`:ZortexBrokenLinks` puts them in quickfix) |
+| `refresh(force)`, `rebuild()` | update now (normally lazy, at most once a second) / start over (`:ZortexLinkIndexRebuild`) |
+
+**Incremental refresh.** A note is re-read when its mtime/size changes (or, for
+a modified buffer, its changedtick). A link is re-resolved only if:
+- its own note changed,
+- its current target's note changed,
+- it was unresolved,
+- its first component is not an article or tag (it searches every note), or
+- its first component is an article or tag that a changed note declares.
+
+If any changed note's header (aliases, tags) changed, every link is
+re-resolved. Given how the resolver narrows candidates, no other link can
+change target, so the cached results stay exact. Checkboxes (`[ ]`, `[x]`)
+are not links.
+
 ### Entities — `core/entity.lua`
 
 An *entity* is a domain object that lives at a section and forms its own tree.
-Projects and areas are entities.
+Projects, areas and objectives are entities.
 
 `Entity` (the base class) provides:
 - fields: `name`, `kind` (the section type), `file`, `lnum`, `start_line`,
@@ -198,6 +236,7 @@ Projects and areas are entities.
 - structure: `is_root`, `is_leaf`, `own_range` (header line → first child
   entity), `lines`, `walk`, `fold`, `ancestors`, `descendants`, `root`,
   `contains`, `breadcrumb`
+- `backlinks({ descendants })` from the link index
 
 `entity.registry(spec)` builds the lookup API for one kind:
 
@@ -224,15 +263,22 @@ choose the source notes, which section types count, and a namespace. See
 
 ### Workspace — `core/workspace.lua`
 
-This is the stateful editing layer behind task toggling. It is unchanged in
-design apart from three things:
+A small editing layer (it replaced a 1,100-line stateful document manager).
+Reads go through `core/document`; writes go through here:
 
-- It reads headers with `parser.parse_header` and exposes `doc.tags`.
-- It finds core documents by comparing resolved full paths, not just file names.
-- `get_doc_context()` also works in **any** note buffer through
-  `get_note_for_buffer`. That document is seeded from the buffer (so unsaved
-  edits are never overwritten), is never saved by the workspace, and is
-  dropped when the buffer unloads.
+- if the note is loaded in a buffer, the **buffer** is edited (unsaved, undo
+  works, you save as usual)
+- otherwise the **file** is edited directly
+
+| function | does |
+|---|---|
+| `set_lines(target, s, e, lines)` | replace lines `s..e` (`e = s - 1` inserts); target is a path or bufnr |
+| `set_line`, `insert_lines`, `delete_lines` | shorthands |
+| `get_lines(target)`, `document(target)` | current content / snapshot |
+| `ensure_file(path, lines)` | create a note if missing |
+| `get_doc_context()` | `{ bufnr, filepath, doc, section, lnum, col, line }` for the cursor in any note buffer |
+
+Every edit emits `workspace:lines_changed` `{ file, start_line, end_line, count }`.
 
 ## Domain layer
 
@@ -268,28 +314,68 @@ are areas, and the namespace is `A`.
   `@a(...)` values), `keys_for(...)` (XP area keys for tasks, projects and
   objectives; projects inherit areas from ancestors), `top(n)`, `get_area_tree()`.
 
-### OKR — `services/okr.lua`
+### OKR — `services/okr/`
 
-- **Objectives** are headings whose clean text matches `3M-2026-Q1 Title`, or
-  the legacy `3M 2026 01 Title`.
-- **Key results** are `- KR1: [ ] text …` lines directly under an objective.
-- Each KR's links are resolved to **projects by key** (`kr.projects[key]`).
-- Results are cached per (okr document, projects signature).
-- API: `get_objectives()`, `get_current_objectives()`,
-  `get_key_results(project_or_key_or_link)`, `parse_objective`, `parse_key_result`.
+Objectives are entities (registry over `okr.zortex`, namespace `O`). Every
+heading is an entity; headings matching `3M-2026-Q1 Title` (or the legacy
+`3M 2026 01 Title`) are objectives (`is_objective`), others such as
+`# Current` are containers.
 
-### Calendar
+- **Objective:** `span`, `year`, `period`, `title`, `attributes`, `completed`
+  (`@done`), `section` (parent heading), `key_results`, `progress()` (mean of
+  its KRs), `areas()`, `projects()`, plus everything an entity has (`key`,
+  `link` such as `[O/#Current/#3M-2026-Q1 Establish …]`, `backlinks()`, …).
+- **Key result:** `- KR1: [ ] text …` lines directly under an objective.
+  `id`, `text`, `completed` (checkbox), `lnum`, `objective`, `projects`
+  (`{ [project_key] = Project }`, from the link index, computed on access),
+  `project_list()`, `progress()` and `is_done()`.
+- **KR progress** = points done / points across the linked projects'
+  subtrees. A checked KR is 1. A KR without project links is 0 until checked.
+- API: `objectives({ current })`, `key_results({ open })`,
+  `get_key_results(project)`, the registry functions (`get`, `resolve`, `at`,
+  …), and the older `get_objectives()` / `get_current_objectives()`.
 
-- `stores/calendar.parse_lines(lines)` is the one parser for `calendar.zortex`.
-  It returns `{ ["YYYY-MM-DD"] = { CalendarEntry… } }`, and each entry carries
-  `lnum`. The store's `load()` and the schedule index both use it.
-- `projects/relations.schedule_index()` resolves every link in every entry to a
-  project key. `project:schedule({ descendants, from, to })` reads from it.
+### Calendar — `stores/calendar.lua`
+
+- The file is the source of truth. Entries are parsed (`parse_lines`, each
+  entry with its `lnum`) from the current snapshot of `calendar.zortex`, and
+  re-parsed automatically whenever the file or its buffer changes.
+- **Edits are line edits** through `core/workspace`. `add_entry` inserts under
+  the date's last entry (formatted like its siblings, `- ` for untimed
+  entries) or creates the date heading in date order. `update_entry` replaces
+  one line keeping its indentation. `delete_entry` / `delete_entry_by_index`
+  (indexes the list `get_entries_for_date` returns) remove one line. The
+  header, notes, ordering and spacing are never rewritten, and `save()` is a
+  no-op.
+- `projects/relations.schedule_index()` maps calendar links to projects through
+  the link index; `project:schedule({ descendants, from, to })` reads it.
+
+### Agenda — `services/agenda.lua`
+
+One query over calendar entries, project tasks with `@due`, and projects with
+`@due`. Items: `kind` (`event`/`task`/`note`/`due`/`project_due`), `date`,
+`time`, `text`, `done`, `priority`, `entry` / `task` / `project`, `file`,
+`lnum`. Within a day, timed items come first in time order, then by priority.
+
+| function | returns |
+|---|---|
+| `day(date)` | items for one day |
+| `range(from, to, { kinds, include_empty, include_done })` | `{ { date, items } }` |
+| `upcoming(days)` | today and the following days |
+| `review({ days, today })` | weekly review findings (below) |
+
+`review()` returns `overdue`, `due_soon`, `completed` (by `@done` date),
+`unscheduled` (open work, no calendar time ahead), `stale` (also none in the
+last `days`), `no_next_action` (leaf projects without tasks),
+`krs_without_projects`, `objectives_without_krs`, `areas_without_projects`
+and `broken_links`. The calendar view's digest panel, `services/digest`
+(the digest note) and the email digest all use the agenda.
 
 ### Tasks — `services/tasks.lua`
 
 `toggle_current_task` / `complete_current_task` / `uncomplete_current_task`
-work in any note. `find_task_by_id` searches project sources and the calendar.
+work in any note. Toggling edits the line in place: only the checkbox and
+`@done(...)` change, so other attributes, tags and indentation stay as written. `find_task_by_id` searches project sources and the calendar.
 Completing a task emits `task:completed` with the document context. Event
 handlers run asynchronously (`vim.schedule`).
 
@@ -322,9 +408,12 @@ accepted.
 | `ui/telescope/projects.lua` | `projects.query` |
 | `ui/telescope/search.lua` | `core/tree` and `Config.ui.search` (via `setup`) |
 | `ui/skill_tree.lua` | `areas`, `projects`, `xp/stats` |
-| `ui/calendar/view.lua` | `stores/calendar`, `projects` |
+| `ui/calendar/view.lua` | `stores/calendar`, `agenda` (digest panel), `projects` |
 | `ui/calendar/init.lua` | `stores/calendar` |
-| `services/digest.lua` | `projects.query`, `projects.tasks`, `link_resolver` |
+| `services/digest.lua` | `agenda`, `projects.query`, `link_resolver` |
+| `notifications/types/digest.lua` | `agenda` |
+| `features/completion.lua` | `link_resolver`, `notes`, `document` |
+| `features/preview.lua` | `link_resolver`, `features/links` |
 
 **Projects picker** (`ui/telescope/projects.lua`): rows show
 `ancestors › name  done/total  open-points  [P1,DUE]`.
@@ -386,6 +475,21 @@ calling `search.setup()` with no arguments resets to the defaults):
 Telescope is loaded lazily, so the plugin sets up without it. [Search.md](Search.md)
 is the fuller target spec; the table above is what is implemented.
 
+**Completion** (`features/completion.lua`, an nvim-cmp source): the
+components already typed are resolved with the link resolver, and the
+suggestions are what can come next. After `[` that's article names and aliases
+(`[@` gives tags). After an article, its sections; when the article was
+reached through a tag (`[P/` reaching an `@P` note), the note's own name.
+After a section, its sub-sections, children first. `#`, `:` and `*` narrow to
+headings, labels and bold headings. Every suggestion resolves.
+`get_completions(line, col, opts)` is the testable core.
+
+**Link preview** (`features/preview.lua`, `:ZortexLinkPreview`,
+`<prefix>K`): a floating window with the section the link under the cursor
+resolves to, Zortex-highlighted, focused on the matched line. `<CR>` opens the
+target, `q`/`<Esc>` close, moving the cursor closes it, and calling it again
+focuses it. Footnotes preview their definition.
+
 **Skill tree** (`ui/skill_tree.lua`): season status from `xp/stats`, top areas
 from `areas.top`, and the area tree from Area objects. Levels come from
 `total_xp`. The highlight groups `ZortexSkillLevel1..4` and `ZortexProgressBar`
@@ -433,6 +537,12 @@ nvim --headless -u NONE -l tests/run.lua projects   # files whose name contains 
 | `test_search` | config overlay, token filters, typed tokens, modes |
 | `test_tasks` | toggling in a standalone note without losing unsaved edits; XP context |
 | `test_load` | every module under `lua/zortex` loads (Telescope stubbed) |
+| `test_okr` | objective entities, `O/` links, KR projects and progress |
+| `test_agenda` | day/range items, due tasks, review findings |
+| `test_completion` | link context, suggestions per position, every suggestion resolves |
+| `test_zw_edits` | editing layer; calendar line edits keep the file intact; buffer vs file |
+| `test_zx_link_index` | backlinks, unresolved links, incremental refresh, reload from disk |
+| `test_zy_preview` | preview content, focus line, `<CR>` opens the target |
 | `test_zz_setup` | full `require("zortex").setup()`, then opening and navigating the calendar |
 
 ## Conventions

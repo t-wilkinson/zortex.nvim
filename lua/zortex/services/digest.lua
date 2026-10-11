@@ -5,7 +5,6 @@ local Config = require("zortex.config")
 local Logger = require("zortex.core.logger")
 local datetime = require("zortex.utils.datetime")
 local fs = require("zortex.utils.filesystem")
-local calendar_store = require("zortex.stores.calendar")
 local parser = require("zortex.utils.parser")
 local constants = require("zortex.constants")
 local Events = require("zortex.core.event_bus")
@@ -25,59 +24,30 @@ local state = {
 -- Data Collection
 -- =============================================================================
 
--- Get calendar events for the next month
+local function agenda()
+	return require("zortex.services.agenda")
+end
+
+-- Calendar events for the next month: { { date, entry }, ... } by date
 local function get_upcoming_events()
-	calendar_store.ensure_loaded()
-
 	local events = {}
-	local today = datetime.get_current_date()
-	local end_date = datetime.add_days(today, 30)
-
-	local entries_by_date = calendar_store.get_entries_in_range(
-		datetime.format_datetime(today, "YYYY-MM-DD"),
-		datetime.format_datetime(end_date, "YYYY-MM-DD")
-	)
-
-	-- Convert to flat list with dates
-	for date_str, date_entries in pairs(entries_by_date) do
-		for _, entry in ipairs(date_entries) do
-			if entry.type == "event" then
-				table.insert(events, {
-					date = date_str,
-					entry = entry,
-					priority = entry.attributes.p,
-					importance = entry.attributes.i,
-				})
-			end
+	for _, day in ipairs(agenda().upcoming(31, { kinds = { event = true } })) do
+		for _, item in ipairs(day.items) do
+			events[#events + 1] = { date = day.date, entry = item.entry, priority = item.priority }
 		end
 	end
-
-	-- Sort by date
-	table.sort(events, function(a, b)
-		return a.date < b.date
-	end)
-
 	return events
 end
 
--- Get today's tasks from calendar
+-- Today's open calendar tasks
 local function get_todays_tasks()
-	calendar_store.ensure_loaded()
-
-	local today_str = datetime.format_datetime(datetime.get_current_date(), "YYYY-MM-DD")
-	local entries = calendar_store.get_entries_for_date(today_str)
-
 	local tasks = {}
-	for _, entry in ipairs(entries) do
-		if entry.type == "task" and not entry.task.completed then
-			table.insert(tasks, {
-				entry = entry,
-				priority = entry.attributes.p,
-				importance = entry.attributes.i,
-			})
+	local today = os.date("%Y-%m-%d")
+	for _, item in ipairs(agenda().day(today)) do
+		if item.kind == "task" and not item.done then
+			tasks[#tasks + 1] = { entry = item.entry, priority = item.priority, importance = item.entry.attributes.i }
 		end
 	end
-
 	return tasks
 end
 
@@ -92,34 +62,6 @@ local function get_priority_items()
 		end,
 	})
 	return { projects = projects, tasks = {} }
-end
-
--- All open tasks across projects, by due date then priority
-local function get_all_todos()
-	local todos = {}
-	for _, task in ipairs(require("zortex.services.projects").tasks({ include_done = false })) do
-		table.insert(todos, {
-			task = task,
-			lnum = task.lnum,
-			project = task.project,
-			priority = task.attributes.p,
-			importance = task.attributes.i,
-			due = task.attributes.due,
-		})
-	end
-
-	table.sort(todos, function(a, b)
-		if a.due and b.due then
-			return datetime.format_datetime(a.due, "YYYY-MM-DD") < datetime.format_datetime(b.due, "YYYY-MM-DD")
-		elseif a.due then
-			return true
-		elseif b.due then
-			return false
-		end
-		return tonumber(a.priority or 999) < tonumber(b.priority or 999)
-	end)
-
-	return todos
 end
 
 -- =============================================================================
@@ -206,29 +148,21 @@ function M.generate_digest()
 		table.insert(lines, "")
 	end
 
-	-- Upcoming Due Tasks
-	local todos = get_all_todos()
+	-- Upcoming Due Tasks (project tasks due in the next 8 days)
 	local due_soon = {}
-	local today = datetime.get_current_date()
-
-	for _, todo in ipairs(todos) do
-		if todo.due then
-			local days_until = datetime.days_between(today, todo.due)
-			if days_until <= 7 and days_until >= 0 then
-				table.insert(due_soon, todo)
-			end
-		end
+	for _, day in ipairs(agenda().upcoming(8, { kinds = { due = true } })) do
+		vim.list_extend(due_soon, day.items)
 	end
 
 	if #due_soon > 0 then
 		table.insert(lines, "## Tasks Due This Week")
 		table.insert(lines, "")
-		for _, todo in ipairs(due_soon) do
-			local line = string.format("- [ ] %s", todo.task.text)
-			if todo.project and todo.project.link then
-				line = line .. " !" .. todo.project.link
+		for _, item in ipairs(due_soon) do
+			local line = string.format("- [ ] %s", item.text)
+			if item.project and item.project.link then
+				line = line .. " !" .. item.project.link
 			end
-			line = line .. " @due(" .. datetime.format_datetime(todo.due, "YYYY-MM-DD") .. ")"
+			line = line .. " @due(" .. item.date .. ")"
 			table.insert(lines, line)
 		end
 		table.insert(lines, "")

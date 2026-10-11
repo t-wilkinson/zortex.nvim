@@ -13,11 +13,19 @@ in place:
    notes index, and generic tree helpers.
 2. **One link resolver.** It keeps the existing "follow a link" rules, runs on
    documents, and adds `[@P/…]` and the `P/` namespace.
-3. **Projects and areas as entities** on a common base (`core/entity`), with
-   relations to the calendar, OKRs and areas resolved by key.
-4. **Fixes:** every module now loads, `setup()` completes, the calendar opens,
+3. **Projects, areas and objectives as entities** on a common base
+   (`core/entity`), with relations to the calendar, OKRs and areas resolved
+   by key; KR progress computed from linked projects.
+4. **A persistent link index** (`.z/link_index.json`) with backlinks and
+   broken-link reports, refreshed incrementally.
+5. **One agenda query** for the calendar view, digest note and email digest,
+   plus a `review()` API for weekly reviews.
+6. **Safe editing:** a small editing layer replaces the old workspace; the
+   calendar and task toggling edit single lines instead of rewriting.
+7. **Completion and link preview** built on the resolver.
+8. **Fixes:** every module now loads, `setup()` completes, the calendar opens,
    and the XP pipeline works end to end.
-5. **A headless test suite:** 119 tests, no dependencies.
+9. **A headless test suite:** 168 tests, no dependencies.
 
 ## Commits
 
@@ -28,6 +36,7 @@ in place:
 | Search setup, calendar crash, docs | `search.setup()` with config overlay and implemented options, calendar selection crash, these docs. |
 | Hierarchy-first search ranking | The picker keeps the search's own order instead of re-sorting by fuzzy score; the synthetic root is no longer matchable. |
 | Restore ordered path search | Words match a section's path in order (last word = the section), with the original scoring, file grouping, document order, direct sub-sections and full breadcrumbs. |
+| Link index, agenda, OKR entities, editing layer | Persistent link index with backlinks; agenda + review API used by all digests; objectives as entities with KR progress; workspace replaced by an editing layer; calendar and task edits as line edits; completion and link preview on the resolver; several existing bugs fixed. |
 
 ## New modules
 
@@ -36,6 +45,10 @@ in place:
 | `core/document.lua` | Cached note snapshots (file by mtime, modified buffer by changedtick). |
 | `core/notes.lua` | Recursive note list and header index (`find_by_name`, `find_by_tag`); archived notes excluded. |
 | `core/entity.lua` | `Entity` base class plus `registry(spec)` lookup API, shared by projects and areas. |
+| `core/link_index.lua` | Every link in every note with its resolved target; backlinks, unresolved links; persisted in `.z/link_index.json`. |
+| `services/okr/init.lua`, `objective.lua` | Objective entities (`O/` namespace) and key results with computed progress. |
+| `services/agenda.lua` | Agenda over calendar entries, due tasks and due projects; `review()` findings. |
+| `features/preview.lua` | Floating preview of a link's target. |
 | `services/projects/init.lua` | Projects registry, `query`, `tasks`, `update_progress`. |
 | `services/projects/project.lua` | `Project` class (tasks, stats, rollup, points, relations). |
 | `services/projects/score.lua` | Scoring and sort comparators (moved out of the picker). |
@@ -53,6 +66,9 @@ in place:
 | `services/areas.lua` | `services/areas/` package (same `require` path) |
 | `services/ids.lua` | `services/tasks.find_task_by_id` (it was a copy) |
 | JSON tree cache (`stdpath("cache")/zortex/trees.json`) | in-memory document cache; the old file can be deleted |
+| `core/workspace.lua` document manager (1,136 lines: change tracking, undo queue, debounced reparsing, autosave stubs) | `core/workspace.lua` editing layer (~150 lines) over buffers/files, reads via `core/document` |
+| `services/okr.lua` | `services/okr/` package (same `require` path) |
+| `stores/calendar.set_all_entries` | removed (unused; it rewrote the whole calendar) |
 
 ## Behaviour changes you may notice
 
@@ -105,6 +121,33 @@ in place:
 **Tasks**
 - **`TaskToggle` and friends work in every note**, including standalone `@P`
   projects, and award XP there.
+- **Toggling only changes the checkbox and `@done(...)`.** Other attributes,
+  tags, their order and the indentation stay exactly as written.
+
+**Calendar**
+- **Calendar edits from the UI are line edits.** Adding an entry inserts one
+  line under its date (styled like the other entries; untimed entries get
+  `- `), or adds the date heading in date order. Editing or deleting changes
+  exactly one line. Date headings stay when their last entry is deleted.
+- **If `calendar.zortex` is open in a buffer, edits go to the buffer** (save
+  it as usual); otherwise to the file.
+- **The calendar store reloads by itself** when the file or buffer changes.
+- **The calendar digest panel shows project tasks and projects due** that day,
+  not just calendar entries.
+
+**OKR**
+- **Objectives have `O/` links** (`[O/#Current/#3M-2026-Q1 Establish …]`) and
+  **KR progress is computed** from the projects a KR links to (points done /
+  points). A checked KR counts as done. The projects picker shows it.
+
+**Links**
+- **Generated links stop a component at `/`.** A heading like
+  `… good habits/routine` is linked as `#… good habits`; prefix matching
+  still finds the same heading.
+- **New commands:** `:ZortexLinkPreview` (`<prefix>K`), `:ZortexBrokenLinks`,
+  `:ZortexLinkIndexRebuild`.
+- **Completion suggests only links that resolve**, based on what's typed
+  so far.
 
 ## Bug fixes
 
@@ -159,13 +202,32 @@ in place:
 - The search index included the synthetic `Root` node in every path, so a
   query like `ro` matched every section.
 
-**This change set**
+**Search setup and calendar view**
 - `init.lua` called `ui.telescope.search.setup()`, which didn't exist.
   `search.lua` also required Telescope when it loaded, so setup failed without
   Telescope installed.
 - The calendar crashed on open (`str_byteindex: index out of range`). Cell
   positions are display columns, but they were converted as character
   indices, which breaks on rows with wide icons.
+
+**Editing, links, tasks (latest change set)**
+- `stores/calendar.save()` regenerated `calendar.zortex` from parsed entries
+  on every add, edit or delete (and again via the persistence manager). It
+  dropped the header and notes, re-sorted entries by priority, re-indented
+  them and removed empty dates.
+- The calendar's delete dialog listed `get_entries_for_date` (sorted, with
+  recurring entries) but deleted by index from the raw per-date list, so it
+  could delete the wrong entry.
+- Toggling a task rebuilt the line from parsed attributes: bare tags and area
+  lists became `@context(table: 0x…)` / `@area(table: 0x…)`, `@p1` became
+  `@p(1)`, and attributes were reordered.
+- `attributes.remove_attribute` collapsed all whitespace on the line, so
+  un-completing a task lost its indentation.
+- `parser.extract_all_links` treated task checkboxes (`[ ]`, `[x]`) as links,
+  so calendar tasks and KRs carried bogus links.
+- Keymaps pointed at commands that don't exist: `gx` → `OpenLink` (the
+  command is `LinkOpen`), `P` → `ProjectsOpen`, `u` → `UpdateProgress`, `r` →
+  `FoldsReload`.
 
 ## Duplicates removed
 
@@ -178,6 +240,13 @@ in place:
 - 2 media-extension checks in `features/links.lua` → `is_media`
 - duplicate task-id helpers (`services/ids.lua`)
 - project/area structure code → `core/entity`
+- per-feature link resolution (schedule index, OKR) → `core/link_index`
+- three "upcoming items" builders (calendar view panel, digest note, email
+  digest) → `services/agenda`
+- completion's own file cache, structure scanner and section-bounds walker →
+  the resolver plus `section_items`
+- the workspace's document copy, change log and reparse timers → buffers +
+  `core/document`
 
 ## Migration notes
 
@@ -205,10 +274,25 @@ in place:
   | `section.create_from_line` | removed (unused) |
   | `Section:build_link` | `link_resolver.link_for_node` |
 
+- **Workspace API:** the old `Document` methods (`change_line`, `add_lines`,
+  `save`, `undo`, …) and the `projects()`/`areas()`/`okr()` accessors are gone.
+  Use `core/workspace.set_lines` / `set_line` / `insert_lines` /
+  `delete_lines` for edits and `core/document` (or the projects/areas/OKR
+  registries) for reads.
+- **`stores/calendar`:** use `delete_entry(entry)` or `delete_entry_by_index`
+  (which now indexes the list `get_entries_for_date` returns).
+- **Link index file:** `notes_dir/.z/link_index.json` is created on first use;
+  deleting it just triggers a full rebuild.
+
 ## Not done yet / ideas
 
 - **`:ProjectRename`:** rename or renumber a project heading and rewrite every
-  link to it.
+  link to it. The link index now makes this straightforward (it knows every
+  link pointing at a heading).
+- **Weekly review buffer** rendering `agenda.review()`.
+- **Broken-link diagnostics** with `vim.diagnostic` (the data is
+  `link_index.unresolved()`).
+- **Backlinks panel** for the section under the cursor.
 - **Search ranking and history** (`min_score`, `access_decay_rate`, `history`
   in the config).
 - **`doc/Search.md`** describes more token types (`@@`, `@`, `*`, escaped

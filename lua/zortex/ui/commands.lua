@@ -100,6 +100,16 @@ function M.setup(prefix)
 	-- ===========================================================================
 	-- Navigation
 	-- ===========================================================================
+	cmd("LinkPreview", function()
+		require("zortex.features.preview").preview_link()
+	end, { desc = "Preview the target of the link under the cursor" })
+	cmd("BrokenLinks", function()
+		require("zortex.core.link_index").broken_links_quickfix()
+	end, { desc = "List links that resolve nowhere (quickfix)" })
+	cmd("LinkIndexRebuild", function()
+		require("zortex.core.link_index").rebuild()
+		vim.notify("Link index rebuilt", vim.log.levels.INFO)
+	end, { desc = "Rebuild the link index from scratch" })
 	cmd("LinkOpen", function()
 		require("zortex.features.links").open_link()
 	end, { desc = "Open link under cursor" })

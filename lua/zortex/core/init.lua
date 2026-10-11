@@ -26,6 +26,7 @@ function M.setup(opts)
 	end
 
 	workspace.setup()
+	require("zortex.core.link_index").setup()
 
 	-- Initialize services
 	require("zortex.stores.xp").setup(opts.xp)

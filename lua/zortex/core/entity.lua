@@ -169,6 +169,12 @@ function Entity:breadcrumb(sep)
 	return table.concat(self.path, sep or " › ")
 end
 
+-- Links (from any note) pointing into this entity's own content, or with
+-- opts.descendants anywhere in its subtree. See core/link_index.
+function Entity:backlinks(opts)
+	return require("zortex.core.link_index").backlinks(self, opts)
+end
+
 -- =============================================================================
 -- Registry
 -- =============================================================================

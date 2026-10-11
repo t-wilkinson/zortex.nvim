@@ -1,36 +1,23 @@
 -- notifications/types/digest.lua - Daily digest email notifications
 local M = {}
 
-local calendar_store = require("zortex.stores.calendar")
 local datetime = require("zortex.utils.datetime")
 local store = require("zortex.stores.notifications")
 
 local cfg = {}
 
--- Generate digest content
+-- Calendar entries for the next `days_ahead` days (from services/agenda),
+-- as { ["YYYY-MM-DD"] = { CalendarEntry, ... } }, or nil when empty.
 local function generate_digest(days_ahead)
-	days_ahead = days_ahead or 7
-	local today = datetime.get_current_date()
-	local entries_by_date = {}
-	local has_content = false
-
-	-- Collect entries for the specified number of days
-	for i = 0, days_ahead - 1 do
-		local date = datetime.add_days(today, i)
-		local date_str = datetime.format_datetime(date, "YYYY-MM-DD")
-		local entries = calendar_store.get_entries_for_date(date_str)
-
-		if #entries > 0 then
-			entries_by_date[date_str] = entries
-			has_content = true
-		end
+	local entries_by_date, has_content = {}, false
+	local kinds = { event = true, task = true, note = true }
+	for _, day in ipairs(require("zortex.services.agenda").upcoming(days_ahead or 7, { kinds = kinds })) do
+		entries_by_date[day.date] = vim.tbl_map(function(item)
+			return item.entry
+		end, day.items)
+		has_content = true
 	end
-
-	if not has_content then
-		return nil
-	end
-
-	return entries_by_date
+	return has_content and entries_by_date or nil
 end
 
 -- Format digest content (returns both text and HTML)

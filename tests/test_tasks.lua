@@ -41,3 +41,15 @@ T.test("find_task_by_id searches project sources", function()
 	local task, doc, lnum = tasks.find_task_by_id("nope")
 	T.eq(task, nil)
 end)
+
+T.test("toggling edits the checkbox and @done only, keeping other attributes", function()
+	local parser = require("zortex.utils.parser")
+	local line = "  - [ ] Call mom @home @p1 @a(1.2) @id(abc12)"
+	local task = parser.parse_task(line)
+	task.completed = true
+	local done = tasks.build_task_line(task)
+	T.eq(done, "  - [x] Call mom @home @p1 @a(1.2) @id(abc12) @done(" .. os.date("%Y-%m-%d") .. ")")
+	local undone = parser.parse_task(done)
+	undone.completed = false
+	T.eq(tasks.build_task_line(undone), line)
+end)

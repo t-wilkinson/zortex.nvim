@@ -365,7 +365,12 @@ function M.remove_attribute(line, key)
 		return line
 	end
 
-	return line:gsub("@" .. key .. "%(([^)]+)%)", ""):gsub("%s+", " "):gsub("%s$", "")
+	-- Remove the attribute and the whitespace before it; leave the rest of the
+	-- line (indentation, spacing) untouched.
+	local pattern = "@" .. vim.pesc(key) .. "%([^)]*%)"
+	line = line:gsub("%s+" .. pattern, "")
+	line = line:gsub(pattern, "")
+	return line
 end
 
 -- Add attribute if not present

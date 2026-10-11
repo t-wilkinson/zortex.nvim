@@ -114,7 +114,16 @@ local function preview_lines(project)
 		add("")
 		add("Key results:")
 		for _, kr in ipairs(krs) do
-			add(string.format("  %s %s: %s  (%s)", kr.completed and "☑" or "☐", kr.id, kr.text, kr.objective.title))
+			add(
+				string.format(
+					"  %s %s: %s  %d%%  (%s)",
+					kr:is_done() and "☑" or "☐",
+					kr.id,
+					kr.text,
+					math.floor(kr:progress() * 100 + 0.5),
+					kr.objective.title
+				)
+			)
 		end
 	end
 

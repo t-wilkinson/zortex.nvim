@@ -66,28 +66,30 @@ end
 -- Main Link Opening Function
 -- =============================================================================
 
--- Open link at cursor or search forward
-function M.open_link()
+-- The link under the cursor, or the next one to its right on the line.
+function M.link_at_cursor()
 	local line = buffer.get_current_line()
 	local _, cursor_col = buffer.get_cursor_pos()
-
-	-- First try to extract link at cursor position
 	local link_info = parser.extract_link_at(line, cursor_col)
-
-	-- If no link at cursor, search forward on the line
 	if not link_info then
-		-- Search forward from cursor + 1
 		for col = cursor_col + 1, #line - 1 do
 			link_info = parser.extract_link_at(line, col)
 			if link_info then
 				break
 			end
 		end
+	end
+	return link_info
+end
 
-		if not link_info then
-			vim.notify("No link found on current line", vim.log.levels.INFO)
-			return
-		end
+M.jump_to_location = jump_to_location
+
+-- Open link at cursor or search forward
+function M.open_link()
+	local link_info = M.link_at_cursor()
+	if not link_info then
+		vim.notify("No link found on current line", vim.log.levels.INFO)
+		return
 	end
 
 	-- Handle different link types

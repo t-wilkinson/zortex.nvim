@@ -5,8 +5,8 @@ result
 .venv
 .terraform
 
-app/.env.remote
-app/lib
+legacy/.env.remote
+legacy/lib
 
 *.s[a-w][a-z]
 *.un~
@@ -81,5 +81,5 @@ typings/
 # dotenv environment variables file
 .env
 
-app/.next/
-app/bin/
+legacy/.next/
+legacy/bin/

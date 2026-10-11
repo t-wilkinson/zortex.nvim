@@ -14,7 +14,7 @@ let
 in
 {
   options.services.zortex = {
-    enable = mkEnableOption "Zortex Notification Server";
+    enable = mkEnableOption "Zortex app (notifications, calendar dashboard, notes browser)";
 
     port = mkOption {
       type = types.port;
@@ -47,6 +47,26 @@ in
         description = "Optional authentication token for ntfy.";
         # Note: For better security in production, consider using systemd LoadCredential.
       };
+    };
+
+    notesDir = mkOption {
+      type = types.nullOr types.path;
+      default = null;
+      example = "/var/lib/syncthing/zortex";
+      description = "Synced zortex notes folder to browse and search (read-only). Null disables the Notes tab.";
+    };
+
+    notesGroup = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      example = "syncthing";
+      description = "Extra group that gives the service read access to notesDir.";
+    };
+
+    notesSpecial = mkOption {
+      type = types.listOf types.str;
+      default = [ "calendar" "structure" "projects" "areas" "okr" ];
+      description = "Top-level notes shown by default (other top-level *.zortex files are hidden unless 'all' is ticked).";
     };
 
     timezone = mkOption {
@@ -90,10 +110,15 @@ in
         NTFY_SERVER_URL = cfg.ntfy.url;
         NTFY_TOPIC = cfg.ntfy.topic;
         NTFY_AUTH_TOKEN = if cfg.ntfy.authToken != null then cfg.ntfy.authToken else "";
+        NOTES_SPECIAL = concatStringsSep "," cfg.notesSpecial;
+      } // optionalAttrs (cfg.notesDir != null) {
+        NOTES_DIR = toString cfg.notesDir;
       };
 
       serviceConfig = {
         ExecStart = "${zortexPkg}/bin/zortex-server";
+        ReadOnlyPaths = optional (cfg.notesDir != null) (toString cfg.notesDir);
+        SupplementaryGroups = optional (cfg.notesGroup != null) cfg.notesGroup;
         User = "zortex";
         Group = "zortex";
         Restart = "always";

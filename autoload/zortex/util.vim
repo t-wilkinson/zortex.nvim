@@ -1,5 +1,5 @@
 let s:zortex_root_dir = expand('<sfile>:h:h:h')
-let s:pre_build = s:zortex_root_dir . '/app/bin/local-'
+let s:pre_build = s:zortex_root_dir . '/legacy/bin/local-'
 let s:package_file = s:zortex_root_dir . '/package.json'
 
 " echo message
@@ -151,19 +151,19 @@ endfunction
 
 function! zortex#util#install(...)
   let l:version = zortex#util#pre_build_version()
-  let l:info = json_decode(join(readfile(s:zortex_root_dir . '/app/package.json'), ''))
+  let l:info = json_decode(join(readfile(s:zortex_root_dir . '/legacy/package.json'), ''))
   if s:trim(l:version) ==# s:trim(l:info.version)
     return
   endif
   let obj = json_decode(join(readfile(s:package_file)))
   let cmd = (zortex#util#get_platform() ==# 'win' ? 'install.cmd' : './install.sh') . ' v'.obj['version']
   if get(a:, '1', v:false) ==# v:true
-    execute 'lcd ' . s:zortex_root_dir . '/app'
+    execute 'lcd ' . s:zortex_root_dir . '/legacy'
     execute '!' . cmd
   else
     call zortex#util#open_terminal({
           \ 'cmd': cmd,
-          \ 'cwd': s:zortex_root_dir . '/app',
+          \ 'cwd': s:zortex_root_dir . '/legacy',
           \ 'Callback': function('s:zortex_installed')
           \})
     wincmd p

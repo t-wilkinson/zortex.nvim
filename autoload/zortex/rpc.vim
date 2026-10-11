@@ -38,12 +38,12 @@ function! s:start_vim_server(cmd) abort
 endfunction
 
 function! zortex#rpc#start_server() abort
-  let l:zortex_server_script = s:zortex_root_dir . '/app/bin/load-' . zortex#util#get_platform()
+  let l:zortex_server_script = s:zortex_root_dir . '/legacy/bin/load-' . zortex#util#get_platform()
   if executable('node')
-    let l:zortex_server_script = s:zortex_root_dir . '/app/lib/bin/load.js'
-    let l:cmd = ['node', l:zortex_server_script, '--path', s:zortex_root_dir . '/app/lib/bin/local.js']
+    let l:zortex_server_script = s:zortex_root_dir . '/legacy/lib/bin/load.js'
+    let l:cmd = ['node', l:zortex_server_script, '--path', s:zortex_root_dir . '/legacy/lib/bin/local.js']
   elseif executable(l:zortex_server_script)
-    let l:cmd = [l:zortex_server_script, '--path', s:zortex_root_dir . '/app/lib/bin/local.js']
+    let l:cmd = [l:zortex_server_script, '--path', s:zortex_root_dir . '/legacy/lib/bin/local.js']
   endif
 
   if exists('l:cmd')

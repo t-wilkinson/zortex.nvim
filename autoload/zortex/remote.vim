@@ -28,7 +28,7 @@ function! s:save_env_variables() abort
                 \ "NOTES_DIR": g:zortex_remote_server_dir . '/notes'
                 \ }
     let exports = map(items(l:env_variables), {_, x -> x[0].'='.x[1]})
-    call writefile(l:exports, g:zortex_root_dir . '/app/.env.remote')
+    call writefile(l:exports, g:zortex_root_dir . '/legacy/.env.remote')
 endfunction
 
 function! zortex#remote#sync() abort
@@ -40,21 +40,21 @@ function! zortex#remote#sync() abort
     let remote_root = g:zortex_remote_server.':'.g:zortex_remote_server_dir.'/'
 
     " env variables
-    call Sync('app/.env.remote', remote_root.'.env')
+    call Sync('legacy/.env.remote', remote_root.'.env')
 
     " notes dir
     " call Sync(g:zortex_notes_dir.'/', remote_root.'notes')
 
     " static files
-    call Sync('app/_static', remote_root)
-    call Sync('app/out', remote_root)
+    call Sync('legacy/_static', remote_root)
+    call Sync('legacy/out', remote_root)
 
     " remote server
-    call Sync('app/remote.js', remote_root)
-    call Sync('app/bin', remote_root)
+    call Sync('legacy/remote.js', remote_root)
+    call Sync('legacy/bin', remote_root)
 
     " libraries
-    call Sync('app/lib', remote_root)
+    call Sync('legacy/lib', remote_root)
     call Sync('node_modules', remote_root)
 
     return ids

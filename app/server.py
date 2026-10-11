@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# deployment/server.py
+# app/server.py
 import os
 import sqlite3
 import json
@@ -9,6 +9,8 @@ from itertools import groupby
 from flask import Flask, request, jsonify, render_template_string
 from contextlib import contextmanager
 from zoneinfo import ZoneInfo
+
+from notes import NotesIndex, classify, DEFAULT_SPECIAL
 
 app = Flask(__name__)
 
@@ -27,6 +29,15 @@ try:
     LOCAL_TZ = ZoneInfo(TZ_NAME)
 except Exception:
     LOCAL_TZ = timezone.utc
+
+# Notes folder (optional): the synced zortex directory, read-only
+NOTES_DIR = os.environ.get("NOTES_DIR")
+NOTES_SPECIAL = [x for x in os.environ.get("NOTES_SPECIAL", ",".join(DEFAULT_SPECIAL)).split(",") if x.strip()]
+NOTES = (
+    NotesIndex(NOTES_DIR, os.environ.get("NOTES_EXTENSION", ".zortex"), NOTES_SPECIAL)
+    if NOTES_DIR and os.path.isdir(os.path.expanduser(NOTES_DIR))
+    else None
+)
 
 # Setup logging
 logging.basicConfig(
@@ -195,7 +206,7 @@ def home():
     """Render the 'Homey' Zortex Homepage with interactive calendar"""
     data = get_zortex_calendar_view()
 
-    html = """
+    html = r"""
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -227,6 +238,48 @@ def home():
                 max-width: 600px;
                 width: 100%;
             }
+            .container.wide { max-width: 1100px; }
+            .tabs { display: flex; justify-content: center; gap: 0.5rem; margin-bottom: 1.5rem; }
+            .tabs button {
+                background: none; color: var(--fg); border: 1px solid var(--surface-hover);
+                padding: 0.4rem 1.2rem; border-radius: 4px; cursor: pointer; font: inherit;
+            }
+            .tabs button.active { border-color: var(--accent); color: var(--accent); }
+            .hidden { display: none !important; }
+
+            /* Notes */
+            .notes-layout { display: grid; grid-template-columns: minmax(220px, 1fr) 2fr; gap: 1.5rem; }
+            @media (max-width: 800px) { .notes-layout { grid-template-columns: 1fr; } }
+            .notes-search { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1rem; }
+            .notes-search input[type=search] {
+                flex: 1; background: var(--bg); color: var(--fg); border: 1px solid var(--surface-hover);
+                border-radius: 4px; padding: 0.5rem 0.75rem; font: inherit;
+            }
+            .notes-search label { font-size: 0.8rem; opacity: 0.7; white-space: nowrap; }
+            .tree, .results { font-size: 0.9rem; }
+            .tree details { margin-left: 0.75rem; }
+            .tree summary { cursor: pointer; color: var(--accent); }
+            .note-link { display: block; padding: 2px 0 2px 0.75rem; cursor: pointer; color: var(--fg); text-decoration: none; }
+            .note-link:hover { color: var(--accent); }
+            .note-link.archived { opacity: 0.45; }
+            .note-link .meta { opacity: 0.45; font-size: 0.8em; margin-left: 0.4rem; }
+            .results h3 { font-size: 0.8rem; opacity: 0.6; text-transform: uppercase; margin: 0.75rem 0 0.25rem; }
+            .line-hit .loc { opacity: 0.45; font-size: 0.8em; }
+            .viewer { white-space: pre-wrap; font-size: 0.9rem; line-height: 1.45; overflow-x: auto; }
+            .viewer .ln { display: block; padding: 0 0.25rem; }
+            .viewer .ln.target { background: rgba(137, 180, 250, 0.15); }
+            .k-article { color: #c4a7e7; font-weight: bold; }
+            .k-tag { color: #ea9a97; }
+            .k-heading { color: #eb6f92; font-weight: bold; }
+            .k-heading.h2 { color: #ea9a97; } .k-heading.h3 { color: #f6c177; }
+            .k-bold_heading { color: #56949f; font-weight: bold; }
+            .k-label { color: #3e8fb0; font-weight: bold; }
+            .k-task { color: #f6c177; }
+            .k-task_done { color: #908caa; text-decoration: line-through; }
+            .k-code, .k-fence { color: #f2ae49; background: rgba(0,0,0,0.2); }
+            .k-quote, .k-table { color: #908caa; }
+            .viewer .zl { color: #3e8fb0; }
+            .viewer .attr { color: #908caa; font-style: italic; }
             h1 { color: var(--accent); margin-bottom: 0.5rem; text-align: center; }
             .stats {
                 color: var(--green);
@@ -354,7 +407,30 @@ def home():
             <div class="stats" id="stats">
                 System Online • {{ count }} Pending Notifications
             </div>
-            
+
+            <div class="tabs">
+                <button id="tab-calendar" class="active" onclick="showTab('calendar')">Calendar</button>
+                <button id="tab-notes" onclick="showTab('notes')">Notes</button>
+            </div>
+
+            <!-- Notes tab: search, folder tree, viewer -->
+            <div id="notes-tab" class="hidden">
+                <div class="card">
+                    <div class="notes-search">
+                        <input type="search" id="notes-query" placeholder="Search notes (names, aliases, tags, paths, lines)" autocomplete="off">
+                        <label><input type="checkbox" id="notes-all"> all top-level notes</label>
+                    </div>
+                    <div class="notes-layout">
+                        <div>
+                            <div class="results" id="notes-results"></div>
+                            <div class="tree" id="notes-tree"></div>
+                        </div>
+                        <div class="viewer" id="notes-viewer"><span style="opacity:0.5">Pick a note.</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="calendar-tab">
             <!-- Daily List View -->
             <div class="card" id="list-view">
                 <div class="day-header" id="selected-date-header">Loading...</div>
@@ -375,6 +451,7 @@ def home():
                     <div class="weekday">Sa</div>
                 </div>
                 <div class="calendar-grid" id="calendar-days"></div>
+            </div>
             </div>
         </div>
 
@@ -521,6 +598,98 @@ def home():
                 }
             }
 
+            // ---------------------------------------------------------------
+            // Notes tab
+            // ---------------------------------------------------------------
+            const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            let notesLoaded = false, searchTimer = null;
+
+            function showTab(name) {
+                const notes = name === 'notes';
+                document.getElementById('notes-tab').classList.toggle('hidden', !notes);
+                document.getElementById('calendar-tab').classList.toggle('hidden', notes);
+                document.getElementById('tab-notes').classList.toggle('active', notes);
+                document.getElementById('tab-calendar').classList.toggle('active', !notes);
+                document.querySelector('.container').classList.toggle('wide', notes);
+                if (notes && !notesLoaded) { notesLoaded = true; loadTree(); }
+                if (!location.hash.startsWith('#' + name)) history.replaceState(null, '', '#' + name);
+            }
+
+            const allFlag = () => document.getElementById('notes-all').checked ? '1' : '0';
+
+            function noteLink(n) {
+                const meta = n.names && n.names.length > 1 ? n.names.slice(1).join(', ') : '';
+                return `<a class="note-link ${n.archived ? 'archived' : ''}" onclick="openNote('${encodeURIComponent(n.rel)}')">` +
+                    `${esc(n.title)}<span class="meta">${esc(n.rel)}${meta ? ' · ' + esc(meta) : ''}</span></a>`;
+            }
+
+            function renderFolder(f, open) {
+                let html = f.notes.map(noteLink).join('');
+                for (const d of f.dirs) {
+                    html += `<details ${open ? 'open' : ''}><summary>${esc(d.name)}/</summary>${renderFolder(d, false)}</details>`;
+                }
+                return html;
+            }
+
+            async function loadTree() {
+                const el = document.getElementById('notes-tree');
+                const res = await fetch('/api/notes/tree?all=' + allFlag());
+                if (!res.ok) { el.innerHTML = '<span style="opacity:0.6">Notes are not configured (set NOTES_DIR).</span>'; return; }
+                el.innerHTML = renderFolder(await res.json(), true);
+            }
+
+            async function runSearch() {
+                const q = document.getElementById('notes-query').value.trim();
+                const el = document.getElementById('notes-results');
+                const tree = document.getElementById('notes-tree');
+                if (!q) { el.innerHTML = ''; tree.classList.remove('hidden'); return; }
+                tree.classList.add('hidden');
+                const res = await fetch(`/api/notes/search?q=${encodeURIComponent(q)}&all=${allFlag()}`);
+                if (!res.ok) return;
+                const data = await res.json();
+                let html = `<h3>Notes (${data.notes.length})</h3>` + (data.notes.map(noteLink).join('') || '<span style="opacity:0.5">none</span>');
+                if (data.lines.length) {
+                    html += `<h3>Lines (${data.lines.length})</h3>` + data.lines.map(l =>
+                        `<a class="note-link line-hit" onclick="openNote('${encodeURIComponent(l.rel)}', ${l.lnum})">${esc(l.text)}` +
+                        `<span class="loc"> ${esc(l.title)}:${l.lnum}</span></a>`).join('');
+                }
+                el.innerHTML = html;
+            }
+
+            function inline(text) {
+                return esc(text)
+                    .replace(/\[([^\]]+)\]/g, '<span class="zl">[$1]</span>')
+                    .replace(/(^|\s)(@\w+(\([^)]*\))?)/g, '$1<span class="attr">$2</span>');
+            }
+
+            async function openNote(encRel, lnum) {
+                const rel = decodeURIComponent(encRel);
+                const res = await fetch('/api/notes/file?path=' + encodeURIComponent(rel));
+                const el = document.getElementById('notes-viewer');
+                if (!res.ok) { el.textContent = 'Not found: ' + rel; return; }
+                const note = await res.json();
+                el.innerHTML = note.lines.map((l, i) => {
+                    const cls = `ln k-${l.kind}${l.level ? ' h' + l.level : ''}${lnum === i + 1 ? ' target' : ''}`;
+                    const body = (l.kind === 'code' || l.kind === 'fence') ? esc(l.text) : inline(l.text);
+                    return `<span class="${cls}" id="L${i + 1}">${body || ' '}</span>`;
+                }).join('');
+                history.replaceState(null, '', `#notes/${rel}${lnum ? ':' + lnum : ''}`);
+                const target = lnum && document.getElementById('L' + lnum);
+                if (target) target.scrollIntoView({ block: 'center' });
+            }
+
+            document.getElementById('notes-query').addEventListener('input', () => {
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(runSearch, 150);
+            });
+            document.getElementById('notes-all').addEventListener('change', () => { loadTree(); runSearch(); });
+
+            if (location.hash.startsWith('#notes')) {
+                showTab('notes');
+                const m = location.hash.match(/^#notes\/(.+?)(?::(\d+))?$/);
+                if (m) openNote(encodeURIComponent(m[1]), m[2] ? Number(m[2]) : undefined);
+            }
+
             // Initial fetch and polling setup
             fetchData();
             setInterval(fetchData, 30000); // 30s refresh[cite: 3]
@@ -530,6 +699,51 @@ def home():
     """
     # Note: Ensure you import timedelta from datetime at the top of server.py
     return render_template_string(html, count=data["count"])
+
+
+# ==============================================================================
+#  Notes: tree, search, file (read-only)
+# ==============================================================================
+
+
+def _notes_or_error():
+    if NOTES is None:
+        return None, (jsonify({"error": "NOTES_DIR is not set or does not exist"}), 404)
+    return NOTES, None
+
+
+def _flag(name):
+    return request.args.get(name, "0").lower() in ("1", "true", "yes")
+
+
+@app.route("/api/notes/tree", methods=["GET"])
+def api_notes_tree():
+    notes, err = _notes_or_error()
+    if err:
+        return err
+    return jsonify(notes.tree(include_all=_flag("all")))
+
+
+@app.route("/api/notes/search", methods=["GET"])
+def api_notes_search():
+    notes, err = _notes_or_error()
+    if err:
+        return err
+    limit = min(int(request.args.get("limit", 50)), 200)
+    return jsonify(notes.search(request.args.get("q", ""), include_all=_flag("all"), limit=limit))
+
+
+@app.route("/api/notes/file", methods=["GET"])
+def api_notes_file():
+    notes, err = _notes_or_error()
+    if err:
+        return err
+    rel = request.args.get("path", "")
+    lines = notes.read_lines(rel)
+    if lines is None:
+        return jsonify({"error": "not found"}), 404
+    names = [l[2:].strip() for l in lines[:20] if l.startswith("@@")]
+    return jsonify({"rel": rel, "title": names[0] if names else rel, "lines": classify(lines)})
 
 
 @app.route("/api/summary", methods=["GET"])

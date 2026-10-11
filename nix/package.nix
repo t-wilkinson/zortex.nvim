@@ -11,10 +11,10 @@ let
 
 in
 pkgs.stdenv.mkDerivation {
-  pname = "zortex-server";
+  pname = "zortex-app";
   version = "1.0.0";
 
-  src = ../deployment;
+  src = ../app;
 
   buildInputs = [
     pythonEnv
@@ -29,7 +29,7 @@ pkgs.stdenv.mkDerivation {
     mkdir -p $out/libexec
 
     # Install the server script
-    cp server.py $out/libexec/server.py
+    cp server.py notes.py $out/libexec/
 
     # Create an executable wrapper for the server
     makeWrapper ${pythonEnv}/bin/python $out/bin/zortex-server \
@@ -52,7 +52,7 @@ pkgs.stdenv.mkDerivation {
   '';
 
   meta = with pkgs.lib; {
-    description = "Zortex Notification Server and Sender";
+    description = "Zortex app: notification API, calendar dashboard and read-only notes browser";
     license = licenses.mit; # Adjust as needed
     platforms = platforms.linux;
   };

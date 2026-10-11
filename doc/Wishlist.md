@@ -183,7 +183,7 @@ Editing is not a goal (at most, later, appending to an inbox).
 
 - **Language: Go.** A single static binary, small resident memory, a mature
   standard library for HTTP and file watching, and simple Nix packaging
-  (`buildGoModule`). Rust would also fit; Python (Flask, like `deployment/`)
+  (`buildGoModule`). Rust would also fit; Python (Flask, like the current `app/`)
   is the easiest to write but the heaviest at runtime.
 - **Grammar:** see [Grammar options](#grammar-options) below. The short
   version: a hand port tested against the conformance fixtures, or the Lua
@@ -263,7 +263,7 @@ two resolvers in sync becomes the main cost, **D** is the natural next step;
   watch it with fsnotify/inotify.
 - **Exposure:** bind to localhost and publish it through the existing reverse
   proxy with authentication (or Tailscale only). The notes are private.
-- **Notifications:** the `deployment/` server (Flask + SQLite + ntfy) can stay
+- **Notifications:** the current `app/` server (Flask + SQLite + ntfy) can stay
   a separate service, or later become a route in the app.
 
 ### Phases

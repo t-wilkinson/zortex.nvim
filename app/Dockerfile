@@ -1,4 +1,4 @@
-# deployment/Dockerfile
+# app/Dockerfile
 FROM python:3.11-slim
 
 # Install cron and curl
@@ -16,7 +16,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
-COPY server.py .
+COPY server.py notes.py ./
 COPY entrypoint.sh .
 COPY crontab /etc/cron.d/notification-cron
 

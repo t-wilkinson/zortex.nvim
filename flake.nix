@@ -59,8 +59,8 @@
               mkdir -p $(dirname $DATABASE_PATH)
 
               echo "Zortex dev environment ready."
-              echo "Run 'python deployment/server.py' to start server."
-              echo "Run './deployment/send.sh' to process queue."
+              echo "Run 'python app/server.py' to start server."
+              echo "Run './app/send.sh' to process queue."
             '';
           };
         }

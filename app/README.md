@@ -1,8 +1,35 @@
-# Zortex Notification Server
+# Zortex app
 
-A Docker container that receives notification manifests from the Zortex note system and sends them to an ntfy server at scheduled times.
+The server side of Zortex: a small Flask + SQLite service with
 
-## Features
+- the **notification API** (the plugin pushes calendar notifications; a cron
+  job / systemd timer sends them to ntfy),
+- a **dashboard** with a **Calendar** tab (scheduled notifications) and a
+  **Notes** tab: search and browse a synced zortex folder (read-only).
+
+It replaces the old Node app, now in [`../legacy`](../legacy). A Go version is
+planned ([doc/Wishlist.md](../doc/Wishlist.md)).
+
+## Notes tab
+
+Set `NOTES_DIR` to the synced notes folder (Docker: mount it read-only at
+`/notes`, see `docker-compose.yml`; NixOS: `services.zortex.notesDir`, plus
+`notesGroup = "syncthing"` for read access).
+
+- **Search** matches every word against note names, aliases, tags and paths
+  (exact, prefix, substring, like the plugin; archived notes last), then lists
+  lines containing every word.
+- **Browse** the folder tree; open a note to read it with basic highlighting;
+  links like `/#notes/z/rust.zortex:12` open a note at a line.
+- **Hidden by default:** top-level `*.zortex` files other than the special
+  ones (`NOTES_SPECIAL`, default `calendar,structure,projects,areas,okr`; tick
+  "all top-level notes" to see them), hidden folders (`.z`, `.stversions`,
+  …) and Syncthing temp/conflict files. Nothing is ever written to the folder.
+- JSON: `GET /api/notes/tree?all=0`, `/api/notes/search?q=…&all=0&limit=50`,
+  `/api/notes/file?path=z/rust.zortex`.
+- Tests: `python3 -m unittest app/test_notes.py`.
+
+## Notifications
 
 - Flask API server to receive notification manifests
 - SQLite database for persistent notification storage

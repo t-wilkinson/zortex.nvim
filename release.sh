@@ -4,7 +4,7 @@ set -e
 [ "$TRACE" ] && set -x
 
 # Create tag and push
-tag="v$(node -p "require('./app/package.json').version")"
+tag="v$(node -p "require('./legacy/package.json').version")"
 git tag -f "$tag" -m "Release $tag"
 git push --tags
 
@@ -22,7 +22,7 @@ curl -X POST -H "Authorization: token $GITHUB_API_TOKEN" \
   "$GH_REPO/releases"
 
 # upload assets
-cd ./app/bin
+cd ./legacy/bin
 tar -zcf "${PROJECT_NAME}-macos.tar.gz" "${PROJECT_NAME}-macos"
 tar -zcf "${PROJECT_NAME}-linux.tar.gz" "${PROJECT_NAME}-linux"
 zip "${PROJECT_NAME}-win.zip" "${PROJECT_NAME}-win.exe"

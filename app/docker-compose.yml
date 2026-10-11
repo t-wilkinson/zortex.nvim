@@ -1,4 +1,4 @@
-# deployment/docker-compose.yml
+# app/docker-compose.yml
 services:
   zortex:
     build: ./ # ./zortex
@@ -15,7 +15,13 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - TZ=${TZ:-America/New_York}
 
+      # Notes tab: the synced zortex folder, mounted read-only below
+      - NOTES_DIR=/notes
+      # - NOTES_SPECIAL=calendar,structure,projects,areas,okr
+
     volumes:
+      # Synced notes (read-only)
+      - ${NOTES_PATH:-./notes}:/notes:ro
       # Persist database
       - zortex_data:/app/data
       # - /mnt/drive/zortex:/app/data

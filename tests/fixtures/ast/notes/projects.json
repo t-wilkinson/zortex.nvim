@@ -1,0 +1,503 @@
+{
+  "blocks": [],
+  "header": {
+    "last_lnum": 2,
+    "name_lnum": 1,
+    "names": [
+      "Projects",
+      "P"
+    ],
+    "tag_lines": [],
+    "tags": []
+  },
+  "lines": [
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [],
+      "kind": "article",
+      "level": 0,
+      "names": [
+        "Projects",
+        "P"
+      ],
+      "section": true,
+      "text": "Projects"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [],
+      "kind": "article",
+      "text": "P"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 6,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 6,
+        "mark": " ",
+        "mark_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 2,
+      "heading": 1,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 19,
+          "key": "p1",
+          "s": 16,
+          "type": "attribute"
+        }
+      ],
+      "kind": "heading",
+      "level": 1,
+      "section": true,
+      "text": "1 Programming"
+    },
+    {
+      "content_col": 6,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 6,
+        "mark": " ",
+        "mark_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 6,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 6,
+        "mark": " ",
+        "mark_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 3,
+      "heading": 2,
+      "indent": 0,
+      "inline": [],
+      "kind": "heading",
+      "level": 2,
+      "section": true,
+      "text": "1.4 - esp32"
+    },
+    {
+      "content_col": 6,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 28,
+          "key": "size",
+          "s": 19,
+          "type": "attribute",
+          "value": "sm"
+        }
+      ],
+      "item": {
+        "content_col": 6,
+        "mark": " ",
+        "mark_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 3,
+      "heading": 2,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 25,
+          "key": "size",
+          "s": 16,
+          "type": "attribute",
+          "value": "lg"
+        },
+        {
+          "e": 33,
+          "key": "a",
+          "s": 26,
+          "type": "attribute",
+          "value": "4.1"
+        }
+      ],
+      "kind": "heading",
+      "level": 2,
+      "section": true,
+      "text": "1.4 - zortex"
+    },
+    {
+      "content_col": 6,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 45,
+          "key": "size",
+          "s": 36,
+          "type": "attribute",
+          "value": "md"
+        }
+      ],
+      "item": {
+        "content_col": 6,
+        "mark": " ",
+        "mark_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 6,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 25,
+          "key": "p1",
+          "s": 22,
+          "type": "attribute"
+        },
+        {
+          "e": 35,
+          "key": "size",
+          "s": 26,
+          "type": "attribute",
+          "value": "xl"
+        }
+      ],
+      "item": {
+        "content_col": 6,
+        "mark": " ",
+        "mark_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 6,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 40,
+          "key": "due",
+          "s": 24,
+          "type": "attribute",
+          "value": "2026-10-12"
+        }
+      ],
+      "item": {
+        "content_col": 6,
+        "mark": " ",
+        "mark_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 6,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 33,
+          "key": "size",
+          "s": 24,
+          "type": "attribute",
+          "value": "xs"
+        }
+      ],
+      "item": {
+        "content_col": 6,
+        "mark": "x",
+        "mark_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 6,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 6,
+        "mark": "x",
+        "mark_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "label",
+      "level": 8,
+      "section": true,
+      "text": "Notes"
+    },
+    {
+      "content_col": 6,
+      "indent": 4,
+      "inline": [],
+      "item": {
+        "content_col": 6,
+        "marker": "-",
+        "marker_col": 4,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 4,
+      "heading": 3,
+      "indent": 0,
+      "inline": [],
+      "kind": "heading",
+      "level": 3,
+      "section": true,
+      "text": "1.4.1 - zortex search"
+    },
+    {
+      "content_col": 6,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 34,
+          "key": "size",
+          "s": 25,
+          "type": "attribute",
+          "value": "sm"
+        }
+      ],
+      "item": {
+        "content_col": 6,
+        "mark": " ",
+        "mark_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 2,
+      "heading": 1,
+      "indent": 0,
+      "inline": [],
+      "kind": "heading",
+      "level": 1,
+      "section": true,
+      "text": "1 Personal"
+    },
+    {
+      "content_col": 3,
+      "heading": 2,
+      "indent": 0,
+      "inline": [],
+      "kind": "heading",
+      "level": 2,
+      "section": true,
+      "text": "Habits"
+    },
+    {
+      "content_col": 6,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 38,
+          "key": "due",
+          "s": 22,
+          "type": "attribute",
+          "value": "2026-10-01"
+        }
+      ],
+      "item": {
+        "content_col": 6,
+        "mark": " ",
+        "mark_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 6,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 39,
+          "key": "done",
+          "s": 22,
+          "type": "attribute",
+          "value": "2026-10-08"
+        }
+      ],
+      "item": {
+        "content_col": 6,
+        "mark": "x",
+        "mark_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    }
+  ],
+  "sections": [
+    {
+      "level": 0,
+      "lnum": 1,
+      "names": [
+        "Projects",
+        "P"
+      ],
+      "text": "Projects",
+      "type": "article"
+    },
+    {
+      "level": 1,
+      "lnum": 7,
+      "text": "1 Programming",
+      "type": "heading"
+    },
+    {
+      "level": 2,
+      "lnum": 11,
+      "text": "1.4 - esp32",
+      "type": "heading"
+    },
+    {
+      "level": 2,
+      "lnum": 14,
+      "text": "1.4 - zortex",
+      "type": "heading"
+    },
+    {
+      "level": 8,
+      "lnum": 23,
+      "text": "Notes",
+      "type": "label"
+    },
+    {
+      "level": 3,
+      "lnum": 26,
+      "text": "1.4.1 - zortex search",
+      "type": "heading"
+    },
+    {
+      "level": 1,
+      "lnum": 29,
+      "text": "1 Personal",
+      "type": "heading"
+    },
+    {
+      "level": 2,
+      "lnum": 30,
+      "text": "Habits",
+      "type": "heading"
+    }
+  ],
+  "version": 1
+}

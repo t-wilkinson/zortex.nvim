@@ -3,7 +3,7 @@ local M = {}
 local M_mt = { __index = M }
 
 local Config = require("zortex.config")
-local parser = require("zortex.utils.parser")
+local Item = require("zortex.core.item")
 local datetime = require("zortex.utils.datetime")
 local attributes = require("zortex.utils.attributes")
 local constants = require("zortex.constants")
@@ -30,69 +30,50 @@ function M:new(data)
 	return entry
 end
 
--- Parse a calendar entry from text
+-- Parse a calendar entry from a line under a date heading. Entries are list
+-- items (core/item): "- [ ] task", "- note", "14:00 event",
+-- "16:00 - 17:00 event", "- 09:00 event". Other lines are not entries.
 function M.from_text(entry_text, current_date_str)
+	local context = { default_date_str = current_date_str }
+	local item = Item.from_line(entry_text, { context = context })
+	if not item then
+		return nil
+	end
+
 	local data = {
 		raw_text = entry_text,
 		date_context = current_date_str,
 	}
 
-	local working_text = entry_text
-
-	-- Check for task checkbox at the beginning
-	local task = parser.parse_task(working_text, {
-		default_date_str = current_date_str,
-	})
-
-	if task then
-		-- It's a task - extract the checkbox and parse status
+	if item.mark then
 		data.type = "task"
-		data.task = task
-		data.attributes = task.attributes
-		data.display_text = task.text
+		data.task = item
+		data.attributes = item.attributes
+		data.display_text = item.text
+		return M:new(data)
+	end
+
+	-- Time prefix: on the item itself ("14:00 text") or after a bullet ("- 14:00 text")
+	local working_text = item.marker_type == "time" and vim.trim(entry_text) or item.body
+	local from_time, to_time, remaining = working_text:match("^(%d%d?:%d%d)%s*%-%s*(%d%d?:%d%d)%s+(.*)$")
+	if from_time then
+		working_text = attributes.update_attribute(remaining, "from", from_time)
+		working_text = attributes.update_attribute(working_text, "to", to_time)
 	else
-		-- Check for time range format: "10:00 - 12:00 rest of text"
-		local at_time, from_time, to_time, remaining
-		local stripped_text = working_text:match("^%s*%- (.*)$")
-		if stripped_text then
-			working_text = stripped_text
+		local at_time, rest = working_text:match("^(%d%d?:%d%d)%s+(.*)$")
+		if at_time then
+			working_text = attributes.update_attribute(rest, "at", at_time)
 		end
+	end
 
-		-- Check for time range format: "10:00 - 12:00 rest of text"
-		from_time, to_time, remaining = working_text:match("^(%d%d?:%d%d)%s*%-%s*(%d%d?:%d%d)%s+(.*)$")
-		if from_time and to_time and remaining then
-			working_text = remaining
-			-- Add the time attributes
-			working_text = attributes.update_attribute(working_text, "from", from_time)
-			working_text = attributes.update_attribute(working_text, "to", to_time)
-		else
-			-- Check for single time prefix: "10:00 rest of text"
-			at_time, remaining = working_text:match("^(%d%d?:%d%d)%s+(.*)$")
-			if at_time and remaining then
-				working_text = remaining
-				working_text = attributes.update_attribute(working_text, "at", at_time)
-			else
-				-- If it lacks both a time pattern and the original bullet point, treat it as invalid
-				if not stripped_text then
-					return nil
-				end
-			end
-		end
-
-		-- Parse attributes
-		local attrs, remaining_text = attributes.parse_calendar_attributes(working_text, {
-			default_date_str = current_date_str,
-		})
-		data.attributes = attrs or {}
-		data.display_text = remaining_text
-
-		-- Determine type based on attributes
-		if attrs.from or attrs.to or attrs.at then
-			data.type = "event"
-
-			if data.attributes.notify == nil then
-				data.attributes.notify = true
-			end
+	local attrs, remaining_text = attributes.parse_calendar_attributes(working_text, context)
+	data.attributes = attrs or {}
+	data.display_text = remaining_text
+	data.type = "note"
+	if attrs.from or attrs.to or attrs.at then
+		data.type = "event"
+		if data.attributes.notify == nil then
+			data.attributes.notify = true
 		end
 	end
 

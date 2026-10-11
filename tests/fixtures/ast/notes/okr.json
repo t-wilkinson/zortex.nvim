@@ -1,0 +1,269 @@
+{
+  "blocks": [],
+  "header": {
+    "last_lnum": 4,
+    "name_lnum": 1,
+    "names": [
+      "Objectives",
+      "OKR",
+      "O"
+    ],
+    "tag_lines": [
+      "@Me"
+    ],
+    "tags": [
+      "Me"
+    ]
+  },
+  "lines": [
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [],
+      "kind": "article",
+      "level": 0,
+      "names": [
+        "Objectives",
+        "OKR",
+        "O"
+      ],
+      "section": true,
+      "text": "Objectives"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [],
+      "kind": "article",
+      "text": "OKR"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [],
+      "kind": "article",
+      "text": "O"
+    },
+    {
+      "content_col": 1,
+      "indent": 0,
+      "inline": [],
+      "kind": "tag"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 2,
+      "heading": 1,
+      "indent": 0,
+      "inline": [],
+      "kind": "heading",
+      "level": 1,
+      "section": true,
+      "text": "Current"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 3,
+      "heading": 2,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 60,
+          "key": "p2",
+          "s": 57,
+          "type": "attribute"
+        },
+        {
+          "e": 64,
+          "key": "sm",
+          "s": 61,
+          "type": "attribute"
+        },
+        {
+          "e": 72,
+          "key": "a",
+          "s": 65,
+          "type": "attribute",
+          "value": "2.1"
+        }
+      ],
+      "kind": "heading",
+      "level": 2,
+      "section": true,
+      "text": "3M-2026-Q1 Establish and maintain good habits/routine"
+    },
+    {
+      "content_col": 11,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 11,
+        "key": "KR1",
+        "key_col": 2,
+        "mark": " ",
+        "mark_col": 7,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 11,
+      "indent": 0,
+      "inline": [
+        {
+          "definition": "P/#1 Personal/#Habits",
+          "e": 67,
+          "s": 44,
+          "type": "link"
+        }
+      ],
+      "item": {
+        "content_col": 11,
+        "key": "KR2",
+        "key_col": 2,
+        "mark": " ",
+        "mark_col": 7,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 11,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 11,
+        "key": "KR3",
+        "key_col": 2,
+        "mark": " ",
+        "mark_col": 7,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 3,
+      "heading": 2,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 38,
+          "key": "p1",
+          "s": 35,
+          "type": "attribute"
+        },
+        {
+          "e": 46,
+          "key": "a",
+          "s": 39,
+          "type": "attribute",
+          "value": "4.1"
+        }
+      ],
+      "kind": "heading",
+      "level": 2,
+      "section": true,
+      "text": "3M-2026-Q1 Ship zortex projects"
+    },
+    {
+      "content_col": 11,
+      "indent": 0,
+      "inline": [
+        {
+          "definition": "P/#1.4 - zortex",
+          "e": 41,
+          "s": 24,
+          "type": "link"
+        }
+      ],
+      "item": {
+        "content_col": 11,
+        "key": "KR1",
+        "key_col": 2,
+        "mark": "x",
+        "mark_col": 7,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 11,
+      "indent": 0,
+      "inline": [
+        {
+          "definition": "Projects/#1 Programming/#1.4 - zortex/#1.4.1",
+          "e": 70,
+          "s": 24,
+          "type": "link"
+        }
+      ],
+      "item": {
+        "content_col": 11,
+        "key": "KR2",
+        "key_col": 2,
+        "mark": " ",
+        "mark_col": 7,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    }
+  ],
+  "sections": [
+    {
+      "level": 0,
+      "lnum": 1,
+      "names": [
+        "Objectives",
+        "OKR",
+        "O"
+      ],
+      "text": "Objectives",
+      "type": "article"
+    },
+    {
+      "level": 1,
+      "lnum": 6,
+      "text": "Current",
+      "type": "heading"
+    },
+    {
+      "level": 2,
+      "lnum": 8,
+      "text": "3M-2026-Q1 Establish and maintain good habits/routine",
+      "type": "heading"
+    },
+    {
+      "level": 2,
+      "lnum": 13,
+      "text": "3M-2026-Q1 Ship zortex projects",
+      "type": "heading"
+    }
+  ],
+  "version": 1
+}

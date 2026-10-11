@@ -137,59 +137,27 @@ end
 -- Section Boundaries
 -- =============================================================================
 
--- Lines-only variant (used by completion, which works on raw lines)
-function M.get_section_end(lines, start_lnum, component)
-	-- Map component type to section type
-	local section_type = constants.SECTION_TYPE.TEXT
-	local heading_level = nil
-
-	if component.type == "article" then
-		section_type = constants.SECTION_TYPE.ARTICLE
-	elseif component.type == "heading" then
-		section_type = constants.SECTION_TYPE.HEADING
-		-- Extract heading level from the line
-		heading_level = parser.get_heading_level(lines[start_lnum])
-	elseif component.type == "tag" then
-		section_type = constants.SECTION_TYPE.TAG
-	elseif component.type == "label" then
-		section_type = constants.SECTION_TYPE.LABEL
-	elseif component.type == "highlight" then
-		-- Bold headings in search context
-		if parser.is_bold_heading(lines[start_lnum]) then
-			section_type = constants.SECTION_TYPE.BOLD_HEADING
-		else
-			-- Just a highlighted text, single line
-			return start_lnum
-		end
-	elseif
-		component.type == "listitem"
-		or component.type == "query"
-		or component.type == "and_query"
-		or component.type == "or_query"
-	then
-		-- These don't create sections, just single line matches
-		return start_lnum
-	end
-
-	-- Use the unified parser function
-	return parser.find_section_end(lines, start_lnum, section_type, heading_level)
-end
-
 local SINGLE_LINE = { listitem = true, query = true, and_query = true, or_query = true, tag = true }
 
--- Range a match narrows to: the section that starts at the matched line.
+-- Range a match narrows to: the section that starts at the matched line (a
+-- single line for list items, queries, tags and plain highlights).
 function M.section_end(doc, lnum, component)
 	if SINGLE_LINE[component.type] then
 		return lnum
 	end
-	if component.type == "highlight" and not parser.is_bold_heading(doc.lines[lnum] or "") then
+	local node = doc:node_starting_at(lnum)
+	if component.type == "highlight" and not (node and node.type == "bold_heading") then
 		return lnum
 	end
-	local node = doc:node_starting_at(lnum)
 	if node then
 		return node.end_line
 	end
-	return M.get_section_end(doc.lines, lnum, component)
+	return component.type == "article" and #doc.lines or lnum
+end
+
+--- Lines-only variant: the end of the section starting at `start_lnum`.
+function M.get_section_end(lines, start_lnum, component)
+	return M.section_end(require("zortex.core.document").from_lines(lines), start_lnum, component)
 end
 
 -- =============================================================================
@@ -579,16 +547,10 @@ function M.build_result_link(result)
 		parts = M.node_components(result.doc, node)
 		section_lnum = not node:is_root() and node.start_line or nil
 	elseif result.lines then
-		parts = {}
-		local path = parser.build_section_path(result.lines, result.lnum)
-		for _, section in ipairs(path) do
-			if section.type == constants.SECTION_TYPE.ARTICLE then
-				parts[#parts + 1] = section.text
-			elseif SECTION_PREFIX[section.type] then
-				parts[#parts + 1] = SECTION_PREFIX[section.type] .. section.text
-			end
-		end
-		section_lnum = #path > 0 and path[#path].lnum or nil
+		local doc = require("zortex.core.document").from_lines(result.lines)
+		local node = doc:node_at(result.lnum)
+		parts = M.node_components(doc, node)
+		section_lnum = not node:is_root() and node.start_line or nil
 	else
 		local comp = result.component
 		return (comp and comp.original) and ("[" .. comp.original .. "]") or "[?]"

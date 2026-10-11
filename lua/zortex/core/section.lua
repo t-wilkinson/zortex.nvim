@@ -8,7 +8,6 @@
 local M = {}
 
 local constants = require("zortex.constants")
-local parser = require("zortex.utils.parser")
 
 -- =============================================================================
 -- Section class
@@ -276,7 +275,7 @@ end
 -- Tree construction (single canonical builder)
 -- =============================================================================
 
--- Build a Section tree from scan descriptors (parser.scan_sections output).
+-- Build a Section tree from section descriptors (core/syntax `ast.sections`).
 function M.build_tree_from_sections(sections, line_count)
 	local root = Section:new({
 		type = "root",
@@ -314,15 +313,15 @@ function M.build_tree_from_sections(sections, line_count)
 	return root
 end
 
--- Build a full Section tree from buffer lines. This is the ONE place that
--- assembles the document hierarchy; all structural decisions come from
--- parser.scan_sections, so the tree always agrees with parser.build_section_path.
--- The root is a synthetic node of type "root" (level -1).
-function M.build_tree(lines)
+-- Build a full Section tree from buffer lines. All structural decisions come
+-- from core/syntax (pass `ast` when the lines were already parsed). The root
+-- is a synthetic node of type "root" (level -1).
+function M.build_tree(lines, ast)
 	if not lines then
 		return nil
 	end
-	return M.build_tree_from_sections(parser.scan_sections(lines), #lines)
+	ast = ast or require("zortex.core.syntax").parse(lines)
+	return M.build_tree_from_sections(ast.sections, #lines)
 end
 
 -- Derive a domain tree from a section tree.

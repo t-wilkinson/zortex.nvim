@@ -13,6 +13,7 @@ local M = {}
 local constants = require("zortex.constants")
 local parser = require("zortex.utils.parser")
 local attributes = require("zortex.utils.attributes")
+local Item = require("zortex.core.item")
 local Entity = require("zortex.core.entity").Entity
 
 local OBJECTIVE_SCHEMA = vim.tbl_extend("force", attributes.schemas.project, {
@@ -31,25 +32,30 @@ function M.parse_objective(text)
 	return { span = span, year = tonumber(year), period = period, title = title }
 end
 
--- Parse a key result line -> { id, text, completed, links } or nil
+-- Parse a key result line -> { id, text, completed, links } or nil.
+-- A key result is a list item keyed "KRn": "- KR2: [ ] Text [P/...]".
 function M.parse_key_result(line)
-	local num, rest = line:match(constants.PATTERNS.KEY_RESULT)
-	if not rest then
+	local item = Item.from_line(line)
+	if not item then
 		return nil
 	end
-	local mark, text = rest:match("^%[(.)%]%s*(.*)$")
-	local links = {}
-	for _, link in ipairs(parser.extract_all_links(rest)) do
-		if link.type == "link" or link.type == "live_link" then
-			links[#links + 1] = link.definition
+	local id = item.key and item.key:match("^KR%d*$") and item.key
+	local text, completed = item.text, item.completed
+	if not id then
+		-- Legacy forms: "- KR-text", "- KR1 text"
+		local num, rest = item.body:match("^KR(%d*)%-%s*(.*)$")
+		if not num then
+			num, rest = item.body:match("^KR(%d+)%s+(.*)$")
 		end
+		if not num then
+			return nil
+		end
+		id = "KR" .. num
+		local mark, after = rest:match("^%[(.)%]%s*(.*)$")
+		completed = mark == "x" or mark == "X"
+		text = parser.strip_attributes(after or rest)
 	end
-	return {
-		id = "KR" .. num,
-		text = parser.strip_attributes(text or rest),
-		completed = mark == "x" or mark == "X",
-		links = links,
-	}
+	return { id = id, text = text, completed = completed, links = item:links() }
 end
 
 -- =============================================================================

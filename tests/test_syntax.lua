@@ -1,0 +1,196 @@
+local T = require("helpers")
+local syntax = require("zortex.core.syntax")
+local Item = require("zortex.core.item")
+
+local function sample()
+	return vim.fn.readfile(T.root .. "/tests/fixtures/syntax/sample.zortex")
+end
+
+local function find(lines, text)
+	for i, l in ipairs(lines) do
+		if l == text then
+			return i
+		end
+	end
+	error("line not found: " .. text)
+end
+
+T.test("line kinds and structure", function()
+	local lines = sample()
+	local ast = syntax.parse(lines)
+	local kind = function(text)
+		return ast.lines[find(lines, text)]
+	end
+	T.eq(ast.header.names, { "Syntax sample", "Sample" })
+	T.eq(ast.header.tags, { "Example", "size(lg)" })
+	T.eq(kind("# Heading one @p1 @a(4.1)").text, "Heading one")
+	T.eq(kind("**Bold heading**:").kind, "bold_heading")
+	T.eq(kind("  Indented label:").level, 10)
+	local bl = kind("- Bulleted label:")
+	T.eq({ bl.kind, bl.text, bl.item.marker }, { "label", "Bulleted label", "-" })
+	T.eq(kind("# not a heading").kind, "code") -- inside a fence
+	T.eq(kind("- [ ] not a task").kind, "code")
+	T.eq(kind("\\int_0^1 x\\,dx").kind, "math")
+	T.eq(kind("|-------|-------|").separator, true)
+	T.eq(kind("| a quote line").kind, "quote")
+	T.eq(kind("[^1]: The footnote with https://example.com and ./images/pic.png").kind, "footnote")
+	T.eq(kind("Key: value text with @home and an email me@example.com.").key, "Key")
+
+	local types = vim.tbl_map(function(s)
+		return s.type .. ":" .. s.text
+	end, ast.sections)
+	T.eq(types, {
+		"article:Syntax sample",
+		"heading:Heading one",
+		"bold_heading:Bold heading",
+		"label:Label",
+		"label:Indented label",
+		"label:Bulleted label",
+		"heading:3M-2026-Q1 Objective title",
+		"heading:Tasks",
+	})
+	T.eq(vim.tbl_map(function(b)
+		return b.kind
+	end, ast.blocks), { "table", "code", "math" })
+end)
+
+T.test("list items: markers, keys, checkboxes, times", function()
+	local it = syntax.item("- KR1: [ ] Key result [P/#1 Programming]")
+	T.eq({ it.marker, it.key, it.mark, it.key_col, it.mark_col }, { "-", "KR1", " ", 2, 7 })
+	it = syntax.item("16:00 - 17:00 Ranged entry")
+	T.eq({ it.marker_type, it.time.from, it.time.to, it.content_col }, { "time", "16:00", "17:00", 14 })
+	it = syntax.item("  - [x] Nested")
+	T.eq({ it.marker_col, it.mark, it.content_col }, { 2, "x", 8 })
+	T.eq(syntax.item("B. lettered").marker_type, "ordered")
+	T.eq(syntax.item("**bold** text"), nil)
+	T.eq(syntax.item("-5 degrees"), nil)
+	T.eq(syntax.item("- [ ]").mark, nil) -- a checkbox needs text
+end)
+
+T.test("inline spans", function()
+	local line = "See @[cars & parts], ![Live] and [text](https://x.io) at 10:30, me@x.com @p1 **b [L]**"
+	local spans = syntax.inline(line)
+	local got = vim.tbl_map(function(s)
+		return s.type .. "=" .. line:sub(s.s + 1, s.e)
+	end, spans)
+	T.eq(got, {
+		"tag_search=@[cars & parts]",
+		"live_link=![Live]",
+		"markdown=[text](https://x.io)",
+		"time=10:30",
+		"attribute=@p1",
+		"bold=**b [L]**",
+	})
+	T.eq(spans[1].terms, { "cars", "parts" })
+	T.eq(spans[#spans].children[1].definition, "L")
+	-- checkboxes and footnotes are not links; "$5 and $6" is not math
+	T.eq(#syntax.links("- [x] done [^1] costs $5 and $6"), 0)
+	T.eq(#syntax.inline("costs $5 and $6"), 0)
+end)
+
+T.test("parser.extract_link_at keeps its result shape", function()
+	local parser = require("zortex.utils.parser")
+	local line = "go to [P/#1.4 - zortex] or https://x.io or [^2] @a(4.1)"
+	local l = parser.extract_link_at(line, 8)
+	T.eq({ l.type, l.definition, l.full_match_text, l.col }, { "link", "P/#1.4 - zortex", "[P/#1.4 - zortex]", 7 })
+	T.eq(parser.extract_link_at(line, 30).type, "website")
+	T.eq(parser.extract_link_at(line, line:find("%[%^") + 1).type, "footnote")
+	local area = parser.extract_link_at(line, #line - 2)
+	T.eq({ area.type, area.definition }, { "link", "Areas/#4.1" })
+	T.eq(parser.extract_link_at(line, 2), nil)
+end)
+
+T.test("items: tasks, key results, calendar entries share one type", function()
+	local task = Item.task("  - [ ] Call mom @home @p1 @size(sm)")
+	T.eq({ task.text, task.completed, task.attributes.size, task.attributes.p, task.indent }, { "Call mom", false, "sm", "1", 2 })
+	T.eq(task:with_mark("x"), "  - [x] Call mom @home @p1 @size(sm)")
+	T.eq(Item.task("- plain bullet"), nil)
+
+	local kr = require("zortex.services.okr.objective").parse_key_result("- KR2: [x] Ship it [P/#1 Programming]")
+	T.eq({ kr.id, kr.completed, kr.links }, { "KR2", true, { "P/#1 Programming" } })
+
+	local CalendarEntry = require("zortex.services.calendar_entry")
+	local ev = CalendarEntry.from_text("16:00 - 17:00 Wrench", "2026-10-09")
+	T.eq({ ev.type, ev.display_text, ev:get_time_string() }, { "event", "Wrench", "16:00" })
+	T.eq(CalendarEntry.from_text("- [x] Order parts", "2026-10-06").type, "task")
+	T.eq(CalendarEntry.from_text("just a note line", "2026-10-06"), nil)
+end)
+
+T.test("conformance: fixtures parse to tests/fixtures/ast", function()
+	local gen = dofile(T.root .. "/tests/gen_ast.lua")
+	local sources = gen.sources()
+	T.ok(#sources >= 6, "fixtures found")
+	for _, src in ipairs(sources) do
+		local expected = vim.json.decode(table.concat(vim.fn.readfile(gen.ast_path(src.name)), "\n"))
+		local actual = vim.json.decode(vim.json.encode(gen.parse(src.path)))
+		T.eq(actual, expected, src.name .. " (regenerate with: nvim --headless -u NONE -l tests/gen_ast.lua)")
+	end
+end)
+
+T.test("highlights paint from the syntax", function()
+	local hl = require("zortex.features.highlights")
+	vim.cmd("enew!")
+	local buf = vim.api.nvim_get_current_buf()
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, sample())
+	hl.highlight_buffer(buf)
+	local ns = vim.api.nvim_create_namespace("zortex_highlights")
+	local groups = {}
+	for _, m in ipairs(vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, { details = true })) do
+		if m[4].hl_group then
+			groups[m[4].hl_group] = true
+		end
+	end
+	for _, g in ipairs({
+		"ZortexArticle",
+		"ZortexHeading1",
+		"ZortexBoldHeading",
+		"ZortexLabel",
+		"ZortexLabelList",
+		"ZortexObjective",
+		"ZortexKeyResult",
+		"ZortexKeyResultDone",
+		"ZortexTaskText",
+		"ZortexTaskDone",
+		"ZortexLink",
+		"ZortexAttribute",
+		"ZortexCodeBlock",
+		"ZortexMathBlock",
+		"ZortexTableSeparator",
+		"ZortexBlockQuote",
+		"ZortexTime",
+		"ZortexMarkdownLink",
+		"ZortexFootnote",
+		"ZortexURL",
+		"ZortexBold",
+		"ZortexItalic",
+		"ZortexCodeInline",
+		"ZortexMathInline",
+		"ZortexLabelText",
+		"ZortexPercent",
+	}) do
+		T.ok(groups[g], "painted " .. g)
+	end
+	vim.cmd("bwipeout!")
+end)
+
+T.test("folds follow sections and indentation", function()
+	local folding = require("zortex.features.folding")
+	vim.cmd("enew!")
+	local buf = vim.api.nvim_get_current_buf()
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+		"@@Note",
+		"# One",
+		"- item",
+		"  - child",
+		"```",
+		"# code, not a heading",
+		"```",
+		"## Two",
+		"Label:",
+		"  text",
+	})
+	folding.update_folds(buf)
+	local f = vim.b[buf].zortex_folds
+	T.eq({ f[1], f[2], f[3], f[4], f[6], f[8], f[9], f[10] }, { ">0", ">1", ">2", "2", "1", ">2", ">3", "4" })
+	vim.cmd("bwipeout!")
+end)

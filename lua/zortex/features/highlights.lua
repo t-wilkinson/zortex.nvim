@@ -1,1055 +1,376 @@
--- features/highlights.lua - Complete syntax highlighting for Zortex
+-- features/highlights.lua - Syntax highlighting and conceal for Zortex
+--
+-- Highlights are painted from the document's syntax (core/syntax via
+-- core/document), not from patterns of their own: every line already says
+-- what it is (heading, label, item with checkbox, table row, ...) and where
+-- its inline spans are (links, attributes, code, math, bold, ...). Only a few
+-- purely visual decorations (operators, punctuation, quotes, percentages) are
+-- matched here, and never inside a span.
 local M = {}
 
---------------------------------------------------------------------------
--- Syntax map ----------------------------------------------------------
---------------------------------------------------------------------------
-local Syntax = {
-	----------------------------------------------------------------------
-	-- Headings (dynamic level → group name) ------------------------------
-	----------------------------------------------------------------------
-	Heading = {
-		patterns = {
-			{
-				regex = "^(#+)%s+",
-				dynamic_group = function(caps)
-					local level = #caps[1]
-					return "ZortexHeading" .. math.min(level, 3)
-				end,
-				range = function(match, line)
-					return 0, -1 -- full line
-				end,
-				full_width = true,
-			},
-		},
-	},
+local Document = require("zortex.core.document")
 
-	----------------------------------------------------------------------
-	-- Article titles -----------------------------------------------------
-	----------------------------------------------------------------------
-	Article = {
-		opts = { bold = true, fg = "#c4a7e7" },
-		patterns = {
-			{
-				regex = "^@@",
-				range = function()
-					return 0, -1
-				end,
-			},
-		},
-	},
+local NS = vim.api.nvim_create_namespace("zortex_highlights")
 
-	----------------------------------------------------------------------
-	-- Tags ---------------------------------------------------------------
-	----------------------------------------------------------------------
-	Tag = {
-		opts = { fg = "#ea9a97" },
-		patterns = {
-			{
-				regex = "^@[^@([]",
-				range = function()
-					return 0, -1
-				end,
-			},
-		},
-	},
+-- =============================================================================
+-- Highlight groups
+-- =============================================================================
 
-	----------------------------------------------------------------------
-	-- Bold headings ------------------------------------------------------
-	----------------------------------------------------------------------
-	BoldHeading = {
-		opts = { bold = true, fg = "#56949f" },
-		patterns = {
-			{
-				-- The colon (optional) is now inside the main regex
-				regex = "^%*%*([^%*]+)%*%*(:?)",
-				range = function(match)
-					return 2, -3 -- Full line highlight
-				end,
-				conceal = {
-					type = "markers",
-					chars = 2,
-				},
-			},
-		},
-	},
-
-	----------------------------------------------------------------------
-	-- Labels (4 distinct types) ------------------------------------------
-	----------------------------------------------------------------------
-	Label = {
-		opts = { bold = true, fg = "#3e8fb0" },
-		patterns = {
-			{
-				-- Label:\n
-				regex = "^(%w[^:]*):$",
-				condition = function(line)
-					return not line:find("%.%s.-:")
-				end,
-				range = function(match)
-					return 0, match.end_col - 1
-				end,
-			},
-		},
-	},
-
-	LabelText = {
-		opts = { bold = true, fg = "#f6c177" },
-		patterns = {
-			{
-				-- Label: text
-				regex = "^(%w[^:]*):%s",
-				condition = function(line)
-					return not line:find("%.%s.-:")
-				end,
-				range = function(match)
-					return 0, match.start_col + #match.caps[1] + 1
-				end,
-			},
-		},
-	},
-
-	LabelList = {
-		opts = { bold = false, fg = "#3e8fb0" },
-		patterns = {
-			{
-				--     - Label:\n
-				regex = "^%s*-%s*(%w[^:]*):$",
-				condition = function(line)
-					return not line:find("%.%s.-:")
-				end,
-				range = function(match, line)
-					local label_end = line:find(":")
-					return 0, label_end
-				end,
-			},
-		},
-	},
-
-	LabelListText = {
-		opts = { bold = false, fg = "#f6c177" },
-		patterns = {
-			{
-				--     - Label: text
-				regex = "^%s*-%s*(%w[^:]*):%s",
-				condition = function(line)
-					return not line:find("%.%s.-:")
-				end,
-				range = function(match, line)
-					local label_end = line:find(":")
-					return 0, label_end
-				end,
-			},
-		},
-	},
-
-	----------------------------------------------------------------------
-	-- List bullets (dynamic based on indent) -----------------------------
-	----------------------------------------------------------------------
-	ListBullet = {
-		patterns = {
-			{
-				regex = "^(%s*)(%-)",
-				dynamic_group = function(caps, line)
-					local indent_level = math.floor(#caps[1] / 2) + 1
-					return "ZortexBullet" .. math.min(indent_level, 4)
-				end,
-				conceal = {
-					type = "bullet",
-					get_text = function(caps, line)
-						local indent_level = math.floor(#caps[1] / 2) + 1
-						local bullets = { "•", "◦", "▸", "▹" }
-						return bullets[math.min(indent_level, #bullets)]
-					end,
-				},
-			},
-		},
-	},
-
-	----------------------------------------------------------------------
-	-- Number lists -------------------------------------------------------
-	----------------------------------------------------------------------
-	NumberList = {
-		opts = { fg = "#3e8fb0", bold = true },
-		patterns = {
-			{
-				regex = "^(%s*)(%d+)%.",
-				range = function(match)
-					return match.start_col, match.end_col
-				end,
-			},
-		},
-	},
-
-	----------------------------------------------------------------------
-	-- Text lists (A. B. C. etc) ------------------------------------------
-	----------------------------------------------------------------------
-	TextList = {
-		opts = { fg = "#3e8fb0", bold = true },
-		patterns = {
-			{
-				regex = "^(%s*)([A-Z]%w*)%.",
-				range = function(match)
-					return match.start_col, match.end_col
-				end,
-			},
-		},
-	},
-
-	----------------------------------------------------------------------
-	-- Tasks with checkboxes ----------------------------------------------
-	----------------------------------------------------------------------
-	TaskCheckbox = {
-		opts = { fg = "#ea9a97" },
-		patterns = {
-			{
-				regex = "(%s*)%-%s*(%[(.?)%])",
-				range = function(match)
-					local checkbox_start = match.start_col + #match.caps[1] + 1
-					local checkbox_end = checkbox_start + #match.caps[2] + 1
-					return checkbox_start, checkbox_end
-				end,
-				conceal = {
-					type = "task",
-					get_text = function(caps)
-						local marker = caps[3]:lower()
-						if marker == "" or marker == " " then
-							return " "
-						end
-						return nil -- keep original
-					end,
-				},
-			},
-		},
-	},
-
-	TaskText = {
-		opts = { fg = "#f6c177" },
-		patterns = {
-			{
-				regex = "(%s*)%-%s*%[(.?)%]%s+(.+)",
-				range = function(match)
-					-- Find the position after "] "
-					local bracket_pos = match.line:find("%]", match.start_col)
-					if bracket_pos then
-						-- Start highlighting after the space following ]
-						local text_start = bracket_pos + 1
-						-- Skip any spaces
-						while text_start <= #match.line and match.line:sub(text_start, text_start):match("%s") do
-							text_start = text_start + 1
-						end
-						return text_start - 1, -1
-					end
-					return nil, nil
-				end,
-				condition = function(line, match)
-					local marker = match.caps[2]:lower()
-					return marker ~= "x"
-				end,
-			},
-		},
-	},
-
-	TaskDone = {
-		opts = { fg = "#908caa", strikethrough = true },
-		patterns = {
-			{
-				regex = "(%s*)%-%s*%[(.?)%]%s+(.+)",
-				range = function(match)
-					-- Same logic as TaskText
-					local bracket_pos = match.line:find("%]", match.start_col)
-					if bracket_pos then
-						local text_start = bracket_pos + 1
-						while text_start <= #match.line and match.line:sub(text_start, text_start):match("%s") do
-							text_start = text_start + 1
-						end
-						return text_start - 1, -1
-					end
-					return nil, nil
-				end,
-				condition = function(line, match)
-					local marker = match.caps[2]:lower()
-					return marker == "x"
-				end,
-			},
-		},
-	},
-
-	----------------------------------------------------------------------
-	-- Links and references -----------------------------------------------
-	----------------------------------------------------------------------
-	MarkdownLink = {
-		opts = { fg = "#3e8fb0", underline = true },
-		patterns = {
-			{
-				regex = "%[([^]]+)%]%(([^)]+)%)", -- Matches [Text](url)
-				range = function(match)
-					-- Highlight only the "Text" part inside []
-					return match.start_col + 1, match.start_col + 1 + #match.caps[1]
-				end,
-				conceal = {
-					type = "markdown_url",
-					icon = "🔗",
-				},
-			},
-		},
-	},
-
-	Link = {
-		opts = { fg = "#3e8fb0", underline = true },
-		patterns = {
-			{
-				regex = "%[([^]]+)%]",
-				condition = function(line, match)
-					local char_after = line:sub(match.end_col + 1, match.end_col + 1)
-					if char_after == "(" then
-						return false
-					end
-
-					-- Not a footnote and not a task
-					local char = line:sub(match.start_col + 2, match.start_col + 2)
-					local task_chars = " xX~@"
-					return char ~= "^" and not (match.caps[1]:len() == 1 and task_chars:find(match.caps[1], 1, true))
-				end,
-				range = function(match)
-					return match.start_col + 1, match.end_col - 1
-				end,
-				conceal = {
-					type = "link",
-					brackets = true,
-					icon = "🔗",
-				},
-			},
-		},
-	},
-
-	Footnote = {
-		opts = { fg = "#9ccfd8", italic = true },
-		patterns = { "%[%^([^]]+)%]" },
-	},
-
-	URL = {
-		opts = { fg = "#3e8fb0", underline = true },
-		patterns = { "https?://[^%s]+" },
-	},
-
-	----------------------------------------------------------------------
-	-- Text styling -------------------------------------------------------
-	----------------------------------------------------------------------
-	Bold = {
-		opts = { bold = true },
-		patterns = {
-			{
-				regex = "%*%*([^%*]+)%*%*",
-				condition = function(line)
-					-- Not a bold heading
-					return not line:match("^%*%*[^%*]+%*%*:?$")
-				end,
-				conceal = { type = "markers", chars = 2 },
-			},
-		},
-	},
-
-	Italic = {
-		opts = { italic = true },
-		patterns = {
-			{
-				regex = "%*([^%*]+)%*",
-				condition = function(line, match)
-					-- Not within bold text
-					for s, e in line:gmatch("()%*%*[^%*]+%*%*()") do
-						if match.start_col >= s - 1 and match.end_col <= e - 1 then
-							return false
-						end
-					end
-					return true
-				end,
-				conceal = { type = "markers", chars = 1 },
-			},
-		},
-	},
-
-	----------------------------------------------------------------------
-	-- Code and LaTeX -----------------------------------------------------
-	----------------------------------------------------------------------
-	CodeInline = {
-		opts = { fg = "#f2ae49", bg = "#2d2a2e" },
-		patterns = {
-			{
-				regex = "%s`([^`]+)`[%s.]",
-				range = function(match)
-					-- Adjust to exclude leading space
-					return match.start_col + 1, match.end_col - 1
-				end,
-			},
-			{
-				regex = "^`([^`]+)`$",
-				range = function(match)
-					-- Only text
-					return match.start_col, match.end_col
-				end,
-			},
-			{
-				regex = "%s`([^`]+)`$",
-				range = function(match)
-					-- At end of line
-					return match.start_col + 1, match.end_col
-				end,
-			},
-			{
-				regex = "^`([^`]+)`%s",
-				range = function(match)
-					-- At start of line
-					return match.start_col, match.end_col - 1
-				end,
-			},
-		},
-	},
-
-	MathInline = {
-		opts = { fg = "#a9d977", italic = true },
-		patterns = {
-			{
-				regex = "%s%$([^%s$][^$]*)%$%s",
-				range = function(match)
-					return match.start_col + 1, match.end_col - 1
-				end,
-			},
-			{
-				regex = "%s%$([^%s$][^$]*)%$$",
-				range = function(match)
-					return match.start_col + 1, match.end_col
-				end,
-			},
-			{
-				regex = "^%$([^%s$][^$]*)%$%s",
-				range = function(match)
-					return match.start_col, match.end_col - 1
-				end,
-			},
-		},
-	},
-
-	MathBlock = {
-		opts = { fg = "#a9d977", italic = true },
-		patterns = {
-			"%$%$(.-)%$%$",
-			"\\%[(.-)\\%]",
-		},
-	},
-
-	----------------------------------------------------------------------
-	-- Attributes (ONLY on headings and tasks) ----------------------------
-	----------------------------------------------------------------------
-	Attribute = {
-		opts = { fg = "#908caa", italic = true },
-		patterns = {
-			{
-				regex = "%s@%w+%(.-%)",
-				condition = function(line)
-					-- Only on lines with headings or tasks
-					return line:match("^#") or line:match("^%s*-%s*")
-				end,
-			},
-			{
-				regex = "%s@%w+",
-				condition = function(line, match)
-					-- Only on lines with headings or tasks, and not followed by (
-					return (line:match("^#") or line:match("^%s*-%s*"))
-						and not line:sub(match.end_col + 1, match.end_col + 1):match("%(")
-				end,
-			},
-		},
-	},
-
-	----------------------------------------------------------------------
-	-- OKR
-	----------------------------------------------------------------------
-	Objective = {
-		opts = { fg = "#ebbcba", bold = true }, -- Distinct color for ID parts
-		patterns = {
-			-- Part 1: Duration (e.g., 1M)
-			{
-				regex = "^##%s+(%d+[MY])%-(%d+)%-(%w%d)",
-				capture = 1,
-			},
-			-- Part 2: Year (e.g., 2026)
-			{
-				regex = "^##%s+(%d+[MY])%-(%d+)%-(%w%d)",
-				capture = 2,
-			},
-			-- Part 3: Quarter (e.g., Q1)
-			{
-				regex = "^##%s+(%d+[MY])%-(%d+)%-(%w%d)",
-				capture = 3,
-			},
-		},
-	},
-
-	KeyResult = {
-		opts = { fg = "#c4a7e7", bold = true }, -- Purple and bold for KR labels
-		patterns = {
-			{
-				-- Matches: - KR1: ...
-				regex = "^%s*-%s*(KR%d+:)",
-				capture = 1,
-			},
-		},
-	},
-
-	KeyResultCheckbox = {
-		opts = { fg = "#ea9a97" },
-		patterns = {
-			{
-				regex = "(%s*)%-%s*KR%d:%s*(%[(.?)%])",
-				range = function(match)
-					local checkbox_start = match.start_col + #match.caps[1] + 1
-					local checkbox_end = checkbox_start + #match.caps[2] + 1
-					return checkbox_start, checkbox_end
-				end,
-				conceal = {
-					type = "task",
-					get_text = function(caps)
-						local marker = caps[3]:lower()
-						if marker == "" or marker == " " then
-							return " "
-						end
-						return nil -- keep original
-					end,
-				},
-			},
-		},
-	},
-
-	KeyResultText = {
-		opts = { fg = "#f6c177" },
-		patterns = {
-			{
-				regex = "(%s*)%-%sKR%d:%s*%[(.?)%]%s+(.+)",
-				range = function(match)
-					-- Find the position after "] "
-					local bracket_pos = match.line:find("%]", match.start_col)
-					if bracket_pos then
-						-- Start highlighting after the space following ]
-						local text_start = bracket_pos + 1
-						-- Skip any spaces
-						while text_start <= #match.line and match.line:sub(text_start, text_start):match("%s") do
-							text_start = text_start + 1
-						end
-						return text_start - 1, -1
-					end
-					return nil, nil
-				end,
-				condition = function(line, match)
-					local marker = match.caps[2]:lower()
-					return marker ~= "x"
-				end,
-			},
-		},
-	},
-
-	KeyResultDone = {
-		opts = { fg = "#908caa", strikethrough = true },
-		patterns = {
-			{
-				regex = "(%s*)%-%sKR%d:%s*%[(.?)%]%s+(.+)",
-				range = function(match)
-					-- Same logic as TaskText
-					local bracket_pos = match.line:find("%]", match.start_col)
-					if bracket_pos then
-						local text_start = bracket_pos + 1
-						while text_start <= #match.line and match.line:sub(text_start, text_start):match("%s") do
-							text_start = text_start + 1
-						end
-						return text_start - 1, -1
-					end
-					return nil, nil
-				end,
-				condition = function(line, match)
-					local marker = match.caps[2]:lower()
-					return marker == "x"
-				end,
-			},
-		},
-	},
-
-	----------------------------------------------------------------------
-	-- Special elements ---------------------------------------------------
-	----------------------------------------------------------------------
-	Time = {
-		opts = { fg = "#f6c177" },
-		patterns = { "%d%d?:%d%d" },
-	},
-
-	Percent = {
-		opts = { fg = "#9ccfd8" },
-		patterns = { "%d+%%" },
-	},
-
-	Operator = {
-		opts = { fg = "#ea9a97" },
-		patterns = {
-			{ regex = "%s(→)%s", capture = 1 },
-			{ regex = "%s(→)%s", capture = 1 },
-			{ regex = "%s(:=)%s", capture = 1 },
-			{ regex = "%s(<->)%s", capture = 1 },
-			{ regex = "%s(->)%s", capture = 1 },
-			{ regex = "%s(<-)%s", capture = 1 },
-			{ regex = "%s(=>)%s", capture = 1 },
-			{ regex = "%s(~>)%s", capture = 1 },
-			{ regex = "%s(!=)%s", capture = 1 },
-			{ regex = "%s(+)%s", capture = 1 },
-			{ regex = "%s(vs.)%s", capture = 1 },
-		},
-	},
-
-	Punctuation = {
-		opts = { fg = "#ea9a97" },
-		patterns = {
-			{ regex = "(%.)%s", capture = 1 },
-			{ regex = "(%.)$", capture = 1 },
-			{ regex = "(;)%s", capture = 1 },
-			{ regex = "(,)%s", capture = 1 },
-			{ regex = "(?)%s", capture = 1 },
-			{ regex = "(?)$", capture = 1 },
-		},
-	},
-
-	BlockQuote = {
-		opts = { fg = "#908caa" }, -- Cyan/Pine color for pipe text
-		patterns = {
-			{
-				regex = "^%s*|[^|]*$",
-				range = function(match)
-					return match.start_col, match.end_col
-				end,
-			},
-		},
-	},
-
-	Quote = {
-		opts = { fg = "#c4a7e7", italic = true },
-		patterns = { '"([^"]*)"' },
-	},
-
-	----------------------------------------------------------------------
-	-- Tables -------------------------------------------------------------
-	----------------------------------------------------------------------
-	TableSeparator = {
-		opts = { fg = "#908caa", bold = true }, -- Distinct color for the divider line
-		patterns = {
-			{
-				-- Matches the separator line: |---| or |:---:|
-				regex = "^%s*|[|%-%:%s]*|$",
-				condition = function(line)
-					-- Must contain at least one dash and multiple pipes
-					return line:find("%-") and select(2, line:gsub("|", "")) > 1
-				end,
-				range = function(match)
-					return match.start_col, match.end_col
-				end,
-			},
-		},
-	},
-
-	TableBorder = {
-		opts = { fg = "#524f67" }, -- Muted/Subtle color for table structure pipes
-		patterns = {
-			{
-				regex = "|",
-				condition = function(line)
-					local _, count = line:gsub("|", "")
-					return count > 1
-				end,
-			},
-		},
-	},
+local GROUPS = {
+	ZortexHeading1 = { bold = true, italic = true, fg = "#eb6f92", bg = "#2a273f" },
+	ZortexHeading2 = { bold = true, italic = true, fg = "#ea9a97", bg = "#232136" },
+	ZortexHeading3 = { bold = true, italic = true, fg = "#f6c177", bg = "#1e1c1f" },
+	ZortexBullet1 = { fg = "#3e8fb0" },
+	ZortexBullet2 = { fg = "#9ccfd8" },
+	ZortexBullet3 = { fg = "#c4a7e7" },
+	ZortexBullet4 = { fg = "#908caa" },
+	ZortexCodeBlock = { fg = "#f2ae49", bg = "#1e1c1f" },
+	ZortexArticle = { bold = true, fg = "#c4a7e7" },
+	ZortexTag = { fg = "#ea9a97" },
+	ZortexBoldHeading = { bold = true, fg = "#56949f" },
+	ZortexLabel = { bold = true, fg = "#3e8fb0" },
+	ZortexLabelText = { bold = true, fg = "#f6c177" },
+	ZortexLabelList = { bold = false, fg = "#3e8fb0" },
+	ZortexLabelListText = { bold = false, fg = "#f6c177" },
+	ZortexNumberList = { fg = "#3e8fb0", bold = true },
+	ZortexTextList = { fg = "#3e8fb0", bold = true },
+	ZortexTaskCheckbox = { fg = "#ea9a97" },
+	ZortexTaskText = { fg = "#f6c177" },
+	ZortexTaskDone = { fg = "#908caa", strikethrough = true },
+	ZortexMarkdownLink = { fg = "#3e8fb0", underline = true },
+	ZortexLink = { fg = "#3e8fb0", underline = true },
+	ZortexFootnote = { fg = "#9ccfd8", italic = true },
+	ZortexURL = { fg = "#3e8fb0", underline = true },
+	ZortexBold = { bold = true },
+	ZortexItalic = { italic = true },
+	ZortexCodeInline = { fg = "#f2ae49", bg = "#2d2a2e" },
+	ZortexMathInline = { fg = "#a9d977", italic = true },
+	ZortexMathBlock = { fg = "#a9d977", italic = true },
+	ZortexAttribute = { fg = "#908caa", italic = true },
+	ZortexObjective = { fg = "#ebbcba", bold = true },
+	ZortexKeyResult = { fg = "#c4a7e7", bold = true },
+	ZortexKeyResultCheckbox = { fg = "#ea9a97" },
+	ZortexKeyResultText = { fg = "#f6c177" },
+	ZortexKeyResultDone = { fg = "#908caa", strikethrough = true },
+	ZortexTime = { fg = "#f6c177" },
+	ZortexPercent = { fg = "#9ccfd8" },
+	ZortexOperator = { fg = "#ea9a97" },
+	ZortexPunctuation = { fg = "#ea9a97" },
+	ZortexBlockQuote = { fg = "#908caa" },
+	ZortexQuote = { fg = "#c4a7e7", italic = true },
+	ZortexTableSeparator = { fg = "#908caa", bold = true },
+	ZortexTableBorder = { fg = "#524f67" },
 }
 
---------------------------------------------------------------------------
--- Highlight groups setup ----------------------------------------------
---------------------------------------------------------------------------
-local function setup_highlight_groups()
-	-- Heading colors
-	vim.api.nvim_set_hl(0, "ZortexHeading1", { bold = true, italic = true, fg = "#eb6f92", bg = "#2a273f" })
-	vim.api.nvim_set_hl(0, "ZortexHeading2", { bold = true, italic = true, fg = "#ea9a97", bg = "#232136" })
-	vim.api.nvim_set_hl(0, "ZortexHeading3", { bold = true, italic = true, fg = "#f6c177", bg = "#1e1c1f" })
-
-	-- Bullet colors
-	vim.api.nvim_set_hl(0, "ZortexBullet1", { fg = "#3e8fb0" })
-	vim.api.nvim_set_hl(0, "ZortexBullet2", { fg = "#9ccfd8" })
-	vim.api.nvim_set_hl(0, "ZortexBullet3", { fg = "#c4a7e7" })
-	vim.api.nvim_set_hl(0, "ZortexBullet4", { fg = "#908caa" })
-
-	-- Code block highlight
-	vim.api.nvim_set_hl(0, "ZortexCodeBlock", { fg = "#f2ae49", bg = "#1e1c1f" })
-
-	-- Set up highlights from syntax definitions
-	for name, def in pairs(Syntax) do
-		if def.opts then
-			vim.api.nvim_set_hl(0, "Zortex" .. name, def.opts)
-		end
+function M.setup_highlights()
+	for name, opts in pairs(GROUPS) do
+		vim.api.nvim_set_hl(0, name, opts)
 	end
 end
 
---------------------------------------------------------------------------
--- Pattern matching engine ---------------------------------------------
---------------------------------------------------------------------------
-local function find_pattern_matches(line, pattern_def)
-	local matches = {}
-	local regex = pattern_def.regex or pattern_def
-	local is_string = type(pattern_def) == "string"
+-- =============================================================================
+-- Painting helpers
+-- =============================================================================
 
-	local start = 1
-	while true do
-		local s, e, cap1, cap2, cap3 = line:find(regex, start)
-		if not s then
-			break
-		end
+local BULLETS = { "•", "◦", "▸", "▹" }
+local LINK_ICON = "🔗"
 
-		local match = {
-			start_col = s - 1,
-			end_col = e,
-			caps = { cap1, cap2, cap3 },
-			line = line,
-		}
+local function paint(buf, row, group, s, e)
+	if s and e and e > s then
+		vim.api.nvim_buf_add_highlight(buf, NS, group, row, s, e)
+	end
+end
 
-		-- Apply condition check
-		if not is_string and pattern_def.condition then
-			if pattern_def.condition(line, match) then
-				table.insert(matches, match)
+local function conceal(buf, row, s, e)
+	vim.api.nvim_buf_set_extmark(buf, NS, row, s, { end_col = e, conceal = "" })
+end
+
+local function overlay(buf, row, col, text, group, conceal_char)
+	vim.api.nvim_buf_set_extmark(buf, NS, row, col, {
+		virt_text = { { text, group } },
+		virt_text_pos = "overlay",
+		conceal = conceal_char,
+	})
+end
+
+local function icon(buf, row, col)
+	vim.api.nvim_buf_set_extmark(buf, NS, row, col, {
+		virt_text = { { LINK_ICON, "ZortexLinkDelimiter" } },
+		virt_text_pos = "inline",
+	})
+end
+
+-- =============================================================================
+-- Inline spans
+-- =============================================================================
+
+local ATTRIBUTE_KINDS = { heading = true, item = true, label = true, bold_heading = true }
+
+local function paint_spans(buf, row, spans, kind)
+	for _, span in ipairs(spans) do
+		local t, s, e = span.type, span.s, span.e
+		if t == "link" or t == "live_link" or t == "tag_search" then
+			-- "[" ... "]" (after "!" or "@" for live links and tag searches)
+			local open = t == "link" and s or s + 1
+			paint(buf, row, "ZortexLink", open + 1, e - 1)
+			conceal(buf, row, open, open + 1)
+			icon(buf, row, open)
+			conceal(buf, row, e - 1, e)
+		elseif t == "markdown" then
+			paint(buf, row, "ZortexMarkdownLink", s + 1, s + 1 + #span.text)
+			conceal(buf, row, s, s + 1)
+			icon(buf, row, s)
+			conceal(buf, row, s + 1 + #span.text, e)
+		elseif t == "footnote_ref" then
+			paint(buf, row, "ZortexFootnote", s, e)
+		elseif t == "url" then
+			paint(buf, row, "ZortexURL", s, e)
+		elseif t == "bold" or t == "italic" then
+			paint(buf, row, t == "bold" and "ZortexBold" or "ZortexItalic", s, e)
+			conceal(buf, row, s, span.inner_s)
+			conceal(buf, row, span.inner_e, e)
+			paint_spans(buf, row, span.children or {}, kind)
+		elseif t == "code" then
+			paint(buf, row, "ZortexCodeInline", s, e)
+		elseif t == "math" then
+			paint(buf, row, span.display and "ZortexMathBlock" or "ZortexMathInline", s, e)
+		elseif t == "attribute" then
+			if ATTRIBUTE_KINDS[kind] then
+				paint(buf, row, "ZortexAttribute", s, e)
 			end
-		else
-			table.insert(matches, match)
+		elseif t == "time" then
+			paint(buf, row, "ZortexTime", s, e)
 		end
-
-		start = e + 1
-	end
-
-	return matches
-end
-
---------------------------------------------------------------------------
--- Code block tracking -------------------------------------------------
---------------------------------------------------------------------------
--- Table keyed by bufnr → { {start_row, end_row}, ... }
-local code_block_ranges = {}
-
---- Detect all fenced code‑blocks in the buffer.
---  * opening fence  : INDENT … ```[lang]\n  (lang optional)
---  * closing fence  : INDENT … ```        (same INDENT, no lang needed)
---  The INDENT (any mix of spaces/tabs) **must match** for the fences to
---  pair, mirroring GitHub‑flavoured Markdown behaviour inside lists.
-local function find_code_blocks(bufnr)
-	code_block_ranges[bufnr] = {}
-
-	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-
-	local in_block = false ---@type boolean
-	local block_start = nil ---@type integer|nil
-	local block_indent = "" ---@type string  -- stores the exact indent that opened the block
-
-	---@param line string
-	---@return string indent|nil, string lang
-	local function parse_fence(line)
-		-- capture leading whitespace + ```, optionally language id, then only
-		-- whitespace to EOL. eg: "    ```python   "
-		return line:match("^([ \t]*)```([%w%-%+_]*)%s*$")
-	end
-
-	for i, line in ipairs(lines) do
-		local indent, _ = parse_fence(line)
-		if indent then
-			if not in_block then
-				-- Opening fence → start new block
-				in_block = true
-				block_start = i - 1 -- 0‑indexed row for nvim API
-				block_indent = indent
-			else
-				-- Potential closing fence: only accept if indent matches opener
-				if indent == block_indent then
-					in_block = false
-					table.insert(code_block_ranges[bufnr], { block_start, i - 1 })
-					block_start = nil
-					block_indent = ""
-				end
-			end
-		end
-	end
-
-	-- Handle unclosed fence at EOF
-	if in_block and block_start then
-		table.insert(code_block_ranges[bufnr], { block_start, #lines - 1 })
 	end
 end
 
---- Return true if the given row is inside any recorded code‑block.
-local function is_in_code_block(bufnr, row)
-	for _, range in ipairs(code_block_ranges[bufnr] or {}) do
-		if row >= range[1] and row <= range[2] then
+-- Visual-only decorations, skipped inside spans
+local DECORATIONS = {
+	{ "%d+%%", "ZortexPercent" },
+	{ "%s()→()%s", "ZortexOperator" },
+	{ "%s():=()%s", "ZortexOperator" },
+	{ "%s()<%->()%s", "ZortexOperator" },
+	{ "%s()%->()%s", "ZortexOperator" },
+	{ "%s()<%-()%s", "ZortexOperator" },
+	{ "%s()=>()%s", "ZortexOperator" },
+	{ "%s()~>()%s", "ZortexOperator" },
+	{ "%s()!=()%s", "ZortexOperator" },
+	{ "%s()%+()%s", "ZortexOperator" },
+	{ "%s()vs%.()%s", "ZortexOperator" },
+	{ "()[%.;,%?]()%s", "ZortexPunctuation" },
+	{ "()[%.%?]()$", "ZortexPunctuation" },
+	{ '"[^"]*"', "ZortexQuote" },
+}
+
+local function covered(spans, s, e)
+	for _, span in ipairs(spans) do
+		if s < span.e and e > span.s then
 			return true
 		end
 	end
 	return false
 end
 
---------------------------------------------------------------------------
--- Main highlighting function ------------------------------------------
---------------------------------------------------------------------------
-function M.highlight_buffer(bufnr)
-	bufnr = bufnr or 0
-	local ns_id = vim.api.nvim_create_namespace("zortex_highlights")
+local function paint_decorations(buf, row, line, spans, from)
+	for _, deco in ipairs(DECORATIONS) do
+		local pattern, group = deco[1], deco[2]
+		local init = from + 1
+		while true do
+			local ms, me, cs, ce = line:find(pattern, init)
+			if not ms then
+				break
+			end
+			local s, e
+			if cs then
+				s, e = cs - 1, ce - 1 -- position captures: the operator itself
+			else
+				s, e = ms - 1, me
+			end
+			if e > s and not covered(spans, s, e) then
+				paint(buf, row, group, s, e)
+			end
+			init = math.max(me, ms) + 1
+		end
+	end
+end
 
-	-- Clear
-	vim.api.nvim_buf_clear_namespace(bufnr, ns_id, 0, -1)
+-- =============================================================================
+-- Lines
+-- =============================================================================
 
-	-- Re‑index fenced blocks *first*
-	find_code_blocks(bufnr)
+local function bullet_level(indent)
+	return math.min(math.floor(indent / 2) + 1, #BULLETS)
+end
 
-	-- Block background highlight
-	for _, range in ipairs(code_block_ranges[bufnr]) do
-		for row = range[1], range[2] do
-			vim.api.nvim_buf_add_highlight(bufnr, ns_id, "ZortexCodeBlock", row, 0, -1)
+local function paint_item(buf, row, line, d, it)
+	local is_kr = it.key and it.key:match("^KR%d+$")
+
+	-- Marker
+	if it.marker_type == "bullet" then
+		local level = bullet_level(d.indent)
+		local group = "ZortexBullet" .. level
+		paint(buf, row, group, 0, it.marker_col + 1)
+		overlay(buf, row, it.marker_col, BULLETS[level], group, "")
+	elseif it.marker_type == "ordered" then
+		local group = it.marker:match("^%d") and "ZortexNumberList" or "ZortexTextList"
+		paint(buf, row, group, 0, it.marker_col + #it.marker)
+	elseif it.marker_type == "time" then
+		for ts, te in it.marker:gmatch("()%d%d?:%d%d()") do
+			paint(buf, row, "ZortexTime", it.marker_col + ts - 1, it.marker_col + te - 1)
 		end
 	end
 
-	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-
-	-- Ordered processing list (unchanged)
-	local processing_order = {
-		"Article",
-		"Tag",
-		"Heading",
-		"BoldHeading",
-		"Objective",
-		"KeyResult",
-		"KeyResultCheckbox",
-		"KeyResultText",
-		"KeyResultDone",
-		"NumberList",
-		"TextList",
-		"TaskCheckbox",
-		"TaskText",
-		"TaskDone",
-		"Label",
-		"LabelText",
-		"LabelList",
-		"LabelListText",
-		"ListBullet",
-		"MarkdownLink",
-		"Link",
-		"Footnote",
-		"URL",
-		"Bold",
-		"Italic",
-		"CodeInline",
-		"MathInline",
-		"MathBlock",
-		"Attribute",
-		"Time",
-		"Percent",
-		"Operator",
-		"Punctuation",
-		"Quote",
-		"BlockQuote",
-		"TableSeparator",
-		"TableBorder",
-	}
-
-	for lnum, line in ipairs(lines) do
-		local row = lnum - 1 -- 0‑indexed
-
-		-- Skip highlighting for lines *inside* fenced block (but *not* the fences)
-		if is_in_code_block(bufnr, row) and not line:match("^[ \t]*```") then
-			goto continue
+	-- Key ("KR1:", "Label:")
+	if it.key then
+		if is_kr then
+			paint(buf, row, "ZortexKeyResult", it.key_col, it.key_col + #it.key + 1)
+		else
+			paint(buf, row, "ZortexLabelListText", 0, it.key_col + #it.key + 1)
 		end
+	end
 
-		-- Process each syntax type in order
-		for _, syntax_name in ipairs(processing_order) do
-			local syntax_def = Syntax[syntax_name]
-			if syntax_def then
-				for _, pattern_def in ipairs(syntax_def.patterns) do
-					local matches = find_pattern_matches(line, pattern_def)
+	-- Checkbox and task text
+	if it.mark then
+		local prefix = is_kr and "ZortexKeyResult" or "ZortexTask"
+		paint(buf, row, prefix .. "Checkbox", it.mark_col, it.mark_col + 3)
+		if it.mark == " " then
+			vim.api.nvim_buf_set_extmark(buf, NS, row, it.mark_col + 1, {
+				virt_text = { { " ", "ZortexTaskCheckbox" } },
+				virt_text_pos = "overlay",
+				conceal = " ",
+			})
+		end
+		local done = it.mark == "x" or it.mark == "X"
+		local text_group = is_kr and (done and "ZortexKeyResultDone" or "ZortexKeyResultText")
+			or (done and "ZortexTaskDone" or "ZortexTaskText")
+		paint(buf, row, text_group, it.content_col, #line)
+	end
+end
 
-					for _, match in ipairs(matches) do
-						-- Determine highlight group
-						local hl_group
-						if type(pattern_def) == "table" and pattern_def.dynamic_group then
-							hl_group = pattern_def.dynamic_group(match.caps, line)
-						else
-							hl_group = "Zortex" .. syntax_name
-						end
+local function paint_line(buf, row, line, d, spans)
+	local kind = d.kind
+	if kind == "code" or kind == "fence" then
+		paint(buf, row, "ZortexCodeBlock", 0, #line)
+		return
+	elseif kind == "math" or kind == "math_fence" then
+		paint(buf, row, "ZortexMathBlock", 0, #line)
+		return
+	elseif kind == "blank" then
+		return
+	end
 
-						-- Determine range
-						local start_col, end_col
-						if type(pattern_def) == "table" and pattern_def.range then
-							start_col, end_col = pattern_def.range(match, line)
-						elseif type(pattern_def) == "table" and pattern_def.capture then
-							-- Highlight only the captured group
-							local cap_val = match.caps[pattern_def.capture]
-							if cap_val then
-								local cap_start = line:find(cap_val, match.start_col + 1, true)
-								if cap_start then
-									start_col = cap_start - 1
-									end_col = start_col + #cap_val
-								end
-							end
-						else
-							start_col = match.start_col
-							end_col = match.end_col
-						end
-
-						-- Apply highlight
-						if start_col and end_col then
-							if type(pattern_def) == "table" and pattern_def.full_width then
-								-- 1. Apply the text styling (bold, italic, fg) precisely to the text
-								vim.api.nvim_buf_add_highlight(bufnr, ns_id, hl_group, row, start_col, end_col)
-
-								-- 2. Paint the background across the entire window width
-								vim.api.nvim_buf_set_extmark(bufnr, ns_id, row, 0, {
-									line_hl_group = hl_group,
-								})
-							else
-								-- Standard text highlight
-								vim.api.nvim_buf_add_highlight(bufnr, ns_id, hl_group, row, start_col, end_col)
-							end
-						end
-
-						-- Handle concealing
-						if type(pattern_def) == "table" and pattern_def.conceal then
-							local conceal = pattern_def.conceal
-
-							if conceal.type == "bullet" then
-								local marker_col = #match.caps[1]
-								local bullet_text = conceal.get_text(match.caps, line)
-								vim.api.nvim_buf_set_extmark(bufnr, ns_id, row, marker_col, {
-									virt_text = { { bullet_text, hl_group } },
-									virt_text_pos = "overlay",
-									conceal = "",
-								})
-							elseif conceal.type == "task" then
-								local text = conceal.get_text(match.caps)
-								if text then
-									local checkbox_start = line:find("%[", match.start_col)
-									if checkbox_start then
-										vim.api.nvim_buf_set_extmark(bufnr, ns_id, row, checkbox_start, {
-											virt_text = { { text, "ZortexTaskCheckbox" } },
-											virt_text_pos = "overlay",
-											conceal = " ",
-										})
-									end
-								end
-							elseif conceal.type == "markdown_url" then
-								-- Hide the opening bracket '['
-								vim.api.nvim_buf_set_extmark(bufnr, ns_id, row, match.start_col, {
-									conceal = "",
-									end_col = match.start_col + 1,
-								})
-
-								-- Add the icon before the text
-								vim.api.nvim_buf_set_extmark(bufnr, ns_id, row, match.start_col, {
-									virt_text = { { conceal.icon, "ZortexLinkDelimiter" } },
-									virt_text_pos = "inline",
-								})
-
-								-- Hide the middle part and URL: '](url)' and the closing ')'
-								-- The structure is [Text](Url)
-								-- match.caps[1] is Text
-								-- match.caps[2] is Url
-								local text_len = #match.caps[1]
-								local middle_start = match.start_col + 1 + text_len -- position of ']'
-
-								-- Hide everything from ']' to the end ')'
-								vim.api.nvim_buf_set_extmark(bufnr, ns_id, row, middle_start, {
-									conceal = "",
-									end_col = match.end_col,
-								})
-							elseif conceal.type == "link" then
-								-- Hide opening bracket and show icon
-								vim.api.nvim_buf_set_extmark(bufnr, ns_id, row, match.start_col, {
-									conceal = "",
-									end_col = match.start_col + 1,
-								})
-								vim.api.nvim_buf_set_extmark(bufnr, ns_id, row, match.start_col, {
-									virt_text = { { conceal.icon, "ZortexLinkDelimiter" } },
-									virt_text_pos = "inline",
-								})
-								-- Hide closing bracket
-								vim.api.nvim_buf_set_extmark(bufnr, ns_id, row, match.end_col - 1, {
-									conceal = "",
-									end_col = match.end_col,
-								})
-							elseif conceal.type == "markers" then
-								-- Conceal start markers
-								vim.api.nvim_buf_set_extmark(bufnr, ns_id, row, match.start_col, {
-									conceal = "",
-									end_col = match.start_col + conceal.chars,
-								})
-								-- Conceal end markers
-								vim.api.nvim_buf_set_extmark(bufnr, ns_id, row, match.end_col - conceal.chars, {
-									conceal = "",
-									end_col = match.end_col,
-								})
-							end
-						end
-					end
-				end
+	if kind == "article" then
+		paint(buf, row, "ZortexArticle", 0, #line)
+	elseif kind == "tag" then
+		paint(buf, row, "ZortexTag", 0, #line)
+	elseif kind == "heading" then
+		local group = "ZortexHeading" .. math.min(d.heading, 3)
+		paint(buf, row, group, 0, #line)
+		vim.api.nvim_buf_set_extmark(buf, NS, row, 0, { line_hl_group = group })
+		-- Objective ids: "## 3M-2026-Q1 Title"
+		local caps = { line:match("^##%s+()(%d+[MY])()%-()(%d+)()%-()(%w%d)()") }
+		for i = 1, #caps, 3 do
+			paint(buf, row, "ZortexObjective", caps[i] - 1, caps[i + 2] - 1)
+		end
+	elseif kind == "bold_heading" then
+		paint(buf, row, "ZortexBoldHeading", d.content_col, d.content_end)
+		conceal(buf, row, 0, 2)
+		conceal(buf, row, d.content_end, d.content_end + 2)
+	elseif kind == "label" then
+		local colon = #line - 1
+		if d.item then
+			paint_item(buf, row, line, d, d.item)
+			paint(buf, row, "ZortexLabelList", 0, colon + 1)
+		else
+			paint(buf, row, "ZortexLabel", 0, colon)
+		end
+	elseif kind == "item" then
+		paint_item(buf, row, line, d, d.item)
+	elseif kind == "text" and d.key then
+		paint(buf, row, "ZortexLabelText", 0, d.key_col + #d.key + 1)
+	elseif kind == "table" then
+		if d.separator then
+			paint(buf, row, "ZortexTableSeparator", 0, #line)
+		else
+			for col in line:gmatch("()|") do
+				paint(buf, row, "ZortexTableBorder", col - 1, col)
 			end
 		end
+	elseif kind == "quote" then
+		paint(buf, row, "ZortexBlockQuote", 0, #line)
+	elseif kind == "footnote" then
+		paint(buf, row, "ZortexFootnote", 0, #line:match("^%[%^[^%]]+%]"))
+	end
 
-		::continue::
+	paint_spans(buf, row, spans, kind)
+	if kind ~= "article" and kind ~= "tag" then
+		paint_decorations(buf, row, line, spans, d.content_col or 0)
 	end
 end
 
---------------------------------------------------------------------------
--- Setup functions -----------------------------------------------------
---------------------------------------------------------------------------
-function M.setup()
-	M.setup_autocmd()
-	M.setup_highlights()
+--- Repaint a buffer from its document syntax.
+function M.highlight_buffer(bufnr)
+	bufnr = (bufnr == nil or bufnr == 0) and vim.api.nvim_get_current_buf() or bufnr
+	local doc = Document.from_buffer(bufnr)
+	if not doc then
+		return
+	end
+	vim.api.nvim_buf_clear_namespace(bufnr, NS, 0, -1)
+	for lnum, d in ipairs(doc.syntax.lines) do
+		local ok, err = pcall(paint_line, bufnr, lnum - 1, doc.lines[lnum], d, doc:inline(lnum))
+		if not ok then
+			require("zortex.core.logger").debug("highlights", "line failed", { lnum = lnum, err = err })
+		end
+	end
 end
+
+-- =============================================================================
+-- Fold text
+-- =============================================================================
 
 function M.zortex_fold_text()
 	local start_line = vim.fn.getline(vim.v.foldstart)
 	local fold_count = " ⋯ (" .. (vim.v.foldend - vim.v.foldstart + 1) .. " lines)"
 
-	-- 1. Determine Highlight for the current line (Headings or Labels)
+	local d = Document.from_buffer(0):info(vim.v.foldstart) or {}
 	local hl_group = "Normal"
-
-	if start_line:match("^(#+)%s+") then
-		local level = math.min(#start_line:match("^(#+)"), 3)
-		hl_group = "ZortexHeading" .. level
-	elseif start_line:match("^%s*-%s*([^:]+):") then
-		hl_group = "ZortexLabelList"
-	elseif start_line:match("^([^:]+):") and not start_line:find("%.%s.-:") then
-		hl_group = "ZortexLabel"
+	if d.kind == "heading" then
+		hl_group = "ZortexHeading" .. math.min(d.heading, 3)
+	elseif d.kind == "label" then
+		hl_group = d.item and "ZortexLabelList" or "ZortexLabel"
+	elseif d.kind == "bold_heading" then
+		hl_group = "ZortexBoldHeading"
 	end
 
-	-- 2. Find the "Next non-empty line" within the fold for a preview
+	-- First non-empty line inside the fold, as a preview
 	local preview_text = ""
 	for i = vim.v.foldstart + 1, vim.v.foldend do
-		local next_line = vim.fn.getline(i)
-		local trimmed = next_line:gsub("^%s+", "") -- Remove leading whitespace
+		local trimmed = vim.fn.getline(i):gsub("^%s+", "")
 		if trimmed ~= "" then
 			preview_text = " → " .. trimmed
 			break
 		end
 	end
 
-	-- 3. Return the multi-part highlight chunk (NVIM 0.10+)
 	return {
 		{ start_line, hl_group },
-		{ preview_text, "Comment" }, -- Preview text in a muted color
-		{ fold_count, "NonText" }, -- Line count in a different muted color
+		{ preview_text, "Comment" },
+		{ fold_count, "NonText" },
 	}
 end
 
-M.setup_highlights = setup_highlight_groups
+-- =============================================================================
+-- Setup
+-- =============================================================================
+
+function M.setup()
+	M.setup_autocmd()
+	M.setup_highlights()
+end
 
 function M.setup_autocmd()
 	local group = vim.api.nvim_create_augroup("ZortexHighlights", { clear = true })
 
-	-- Enable concealing
 	vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
 		group = group,
 		pattern = "*.zortex",
@@ -1060,7 +381,6 @@ function M.setup_autocmd()
 		end,
 	})
 
-	-- Apply highlighting
 	vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile", "TextChanged", "InsertLeave" }, {
 		group = group,
 		pattern = "*.zortex",

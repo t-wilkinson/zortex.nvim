@@ -17,7 +17,6 @@
 -- core/entity; this file adds tasks, stats and relations.
 local M = {}
 
-local parser = require("zortex.utils.parser")
 local attributes = require("zortex.utils.attributes")
 local constants = require("zortex.constants")
 local Entity = require("zortex.core.entity").Entity
@@ -52,23 +51,13 @@ end
 -- Content
 -- =============================================================================
 
--- Own tasks, each { text, completed, attributes, indent, lnum, file, project }.
+-- Own tasks: core/item Items with a checkbox, plus `project`.
 function Project:tasks()
 	if not self._tasks then
-		self._tasks = {}
 		local s, e = self:own_range()
-		local tracker = parser.CodeBlockTracker:new()
-		for lnum = s + 1, e do
-			local line = self.doc.lines[lnum]
-			if not tracker:update(line) then
-				local task = parser.parse_task(line)
-				if task then
-					task.lnum = lnum
-					task.file = self.file
-					task.project = self
-					table.insert(self._tasks, task)
-				end
-			end
+		self._tasks = self.doc:items(s + 1, e, { tasks = true })
+		for _, task in ipairs(self._tasks) do
+			task.project = self
 		end
 	end
 	return self._tasks
@@ -88,9 +77,9 @@ function Project:notes()
 	local out = {}
 	local s, e = self:own_range()
 	for lnum = s + 1, e do
-		local line = self.doc.lines[lnum]
-		if line:match("%S") and not parser.is_task_line(line) then
-			out[#out + 1] = { lnum = lnum, text = line }
+		local d = self.doc:info(lnum)
+		if d.kind ~= "blank" and not (d.item and d.item.mark) then
+			out[#out + 1] = { lnum = lnum, text = self.doc.lines[lnum] }
 		end
 	end
 	return out

@@ -46,7 +46,7 @@ end
 function M.load()
 	local doc = current_doc()
 	state.doc = doc
-	state.entries = doc and M.parse_lines(doc.lines) or {}
+	state.entries = doc and M.parse_lines(doc.lines, doc) or {}
 	state.loaded = true
 	if not doc then
 		Logger.warn("calendar.load", "Calendar file not found", { path = calendar_path() })
@@ -54,26 +54,46 @@ function M.load()
 	return doc ~= nil
 end
 
+-- Date blocks in file order: { date, heading_lnum, last_lnum }. A date
+-- heading is a top-level label "YYYY-MM-DD:"; its block runs to the next date
+-- heading, and last_lnum is its last non-blank line.
+local function date_blocks(doc)
+	local blocks = {}
+	for _, sec in ipairs(doc.syntax.sections) do
+		if sec.type == "label" and doc:info(sec.lnum).indent == 0 then
+			local y, m, d = sec.text:match("^(%d%d%d%d)%-(%d%d)%-(%d%d)$")
+			if y then
+				blocks[#blocks + 1] = { date = string.format("%s-%s-%s", y, m, d), heading_lnum = sec.lnum }
+			end
+		end
+	end
+	for i, block in ipairs(blocks) do
+		local stop = blocks[i + 1] and (blocks[i + 1].heading_lnum - 1) or #doc.lines
+		block.last_lnum = block.heading_lnum
+		for lnum = block.heading_lnum + 1, stop do
+			if doc.lines[lnum]:match("%S") then
+				block.last_lnum = lnum
+			end
+		end
+	end
+	return blocks
+end
+
 -- Parse calendar lines into { ["YYYY-MM-DD"] = { CalendarEntry, ... } }.
--- Each entry records the line it came from in `entry.lnum`.
-function M.parse_lines(lines)
+-- Entries are the list items under each date heading; each records its line
+-- in `entry.lnum`. Duplicate date headings merge into one list.
+function M.parse_lines(lines, doc)
+	doc = doc or require("zortex.core.document").from_lines(lines)
 	local entries = {}
-	local current_date_str = nil
-	for lnum, line in ipairs(lines) do
-		local y, m, d = line:match(constants.PATTERNS.CALENDAR_DATE_HEADING)
-		if y and m and d then
-			current_date_str = datetime.format_datetime({
-				year = tonumber(y),
-				month = tonumber(m),
-				day = tonumber(d),
-			}, "YYYY-MM-DD")
-			-- Duplicate date headings merge into one list
-			entries[current_date_str] = entries[current_date_str] or {}
-		elseif current_date_str then
-			local entry = CalendarEntry.from_text(line, current_date_str)
-			if entry then
-				entry.lnum = lnum
-				table.insert(entries[current_date_str], entry)
+	for _, block in ipairs(date_blocks(doc)) do
+		entries[block.date] = entries[block.date] or {}
+		for lnum = block.heading_lnum + 1, block.last_lnum do
+			if doc:info(lnum).item then
+				local entry = CalendarEntry.from_text(doc.lines[lnum], block.date)
+				if entry then
+					entry.lnum = lnum
+					table.insert(entries[block.date], entry)
+				end
 			end
 		end
 	end
@@ -95,27 +115,6 @@ end
 -- =============================================================================
 -- Line layout helpers
 -- =============================================================================
-
--- Date blocks in file order: { date, heading_lnum, last_lnum, entry_lnums }.
--- last_lnum is the last non-blank line belonging to the date.
-local function date_blocks(lines)
-	local blocks = {}
-	local current
-	for lnum, line in ipairs(lines) do
-		local y, m, d = line:match(constants.PATTERNS.CALENDAR_DATE_HEADING)
-		if y then
-			current = {
-				date = string.format("%04d-%02d-%02d", tonumber(y), tonumber(m), tonumber(d)),
-				heading_lnum = lnum,
-				last_lnum = lnum,
-			}
-			blocks[#blocks + 1] = current
-		elseif current and line:match("%S") then
-			current.last_lnum = lnum
-		end
-	end
-	return blocks
-end
 
 -- Format a new entry like its siblings (indent and "- " style). Lines without
 -- a leading time need "- " to be read as entries.
@@ -164,7 +163,7 @@ function M.add_entry(date_str, entry_text)
 
 	local path = workspace().ensure_file(calendar_path(), DEFAULT_HEADER)
 	local lines = workspace().get_lines(path)
-	local blocks = date_blocks(lines)
+	local blocks = date_blocks(require("zortex.core.document").from_lines(lines))
 
 	local ok, err
 	local block

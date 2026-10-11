@@ -1,13 +1,16 @@
--- core/document.lua - Read-only snapshot of a note: lines + structural tree + header
+-- core/document.lua - Read-only snapshot of a note: lines, syntax, tree, header
 --
 -- Every consumer that needs to look at a note (link resolution, projects, OKR,
--- search, ...) goes through here, so they all see the same structure.
+-- search, highlighting, folding, ...) goes through here, so they all see the
+-- same structure. The syntax (core/syntax) is parsed once per snapshot; inline
+-- spans are parsed lazily per line.
 -- Snapshots are cached: by mtime for files on disk, by changedtick for
 -- modified buffers. M.get(path) prefers a modified, loaded buffer over the file
 -- so live edits are visible before they are saved.
 local M = {}
 
 local parser = require("zortex.utils.parser")
+local syntax = require("zortex.core.syntax")
 local section = require("zortex.core.section")
 local fs = require("zortex.utils.filesystem")
 
@@ -19,14 +22,16 @@ Document.__index = Document
 -- =============================================================================
 
 function M.from_lines(lines, filepath, meta)
-	local header = parser.parse_header(lines)
+	local ast = syntax.parse(lines)
+	local header = ast.header
 	local doc = setmetatable({
 		filepath = filepath,
 		lines = lines,
+		syntax = ast, -- core/syntax output: per-line descriptors, blocks, sections
 		names = header.names, -- every @@ alias, primary first
 		tags = header.tags, -- every @Tag in the header
 		header = header,
-		tree = section.build_tree(lines),
+		tree = section.build_tree(lines, ast),
 		mtime = meta and meta.mtime,
 		changedtick = meta and meta.changedtick,
 		_by_start = nil,
@@ -165,6 +170,56 @@ function Document:node_starting_at(lnum)
 		end)
 	end
 	return self._by_start[lnum]
+end
+
+-- =============================================================================
+-- Syntax access
+-- =============================================================================
+
+-- Syntax descriptor of a line (see core/syntax)
+function Document:info(lnum)
+	return self.syntax.lines[lnum]
+end
+
+-- Inline spans of a line (parsed on first use)
+function Document:inline(lnum)
+	local d = self.syntax.lines[lnum]
+	if not d then
+		return {}
+	end
+	if not d.inline then
+		d.inline = d.content_col and syntax.inline(self.lines[lnum], d.content_col, d.content_end) or {}
+	end
+	return d.inline
+end
+
+local CODE_KINDS = { code = true, fence = true, math = true, math_fence = true }
+
+-- True inside fenced code or math blocks (fence lines included)
+function Document:in_code(lnum)
+	local d = self.syntax.lines[lnum]
+	return d ~= nil and CODE_KINDS[d.kind] == true
+end
+
+--- List items (core/item) on lines s..e (default: whole note).
+---@param opts { tasks?: boolean, schema?: table|string, context?: table }?
+function Document:items(s, e, opts)
+	opts = opts or {}
+	local Item = require("zortex.core.item")
+	local out = {}
+	for lnum = s or 1, math.min(e or #self.lines, #self.lines) do
+		local d = self.syntax.lines[lnum]
+		if d.item and (not opts.tasks or d.item.mark) then
+			out[#out + 1] = Item.from_line(self.lines[lnum], {
+				lnum = lnum,
+				file = self.filepath,
+				info = d,
+				schema = opts.schema,
+				context = opts.context,
+			})
+		end
+	end
+	return out
 end
 
 M.Document = Document

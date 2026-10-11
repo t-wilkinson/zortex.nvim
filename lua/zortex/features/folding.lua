@@ -1,4 +1,4 @@
--- features/folding.lua - Folding logic for Zortex
+-- features/folding.lua - Fold levels from the document syntax
 local M = {}
 
 -- Define a global function for Neovim's foldexpr to call
@@ -31,7 +31,8 @@ function M.update_folds(bufnr)
 		include_empty = config.fold_empty_lines -- Fallback alias
 	end
 
-	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+	local doc = require("zortex.core.document").from_buffer(bufnr)
+	local lines = doc.lines
 
 	local raw_levels = {}
 	local explicit_starters = {}
@@ -40,71 +41,55 @@ function M.update_folds(bufnr)
 	-- Pass 1: Find next non-blank lines for lookahead
 	local last_non_blank = nil
 	for i = #lines, 1, -1 do
-		local is_blank = lines[i]:match("^%s*$") ~= nil
-		if not is_blank then
-			next_non_blank[i] = last_non_blank
+		next_non_blank[i] = last_non_blank
+		if lines[i]:match("%S") then
 			last_non_blank = i
-		else
-			next_non_blank[i] = last_non_blank
 		end
 	end
 
-	-- Pass 2: Calculate raw hierarchical levels for each line
+	-- Pass 2: Hierarchical level of each line, from the document syntax.
+	-- Sections start explicit folds (article 0, heading n, bold heading below
+	-- the heading, label below that); other lines nest by indentation.
 	local base_level = 0
 	local bold_level = 0
 	local label_level = 0
 	local indent_stack = { 0 }
 
 	for i, line in ipairs(lines) do
-		local is_blank = line:match("^%s*$") ~= nil
-
-		if is_blank then
+		local d = doc:info(i)
+		if d.kind == "blank" then
 			raw_levels[i] = -1 -- Blank placeholder
 		else
-			local is_article = line:match("^@@")
-			local is_heading = line:match("^(#+)%s+")
-			local is_bold = line:match("^*%*%*[^%*]+:%*%*$")
-			local is_label = line:match("^%s*(%w[^:]*):%s*$")
-
-			local spaces = #line:match("^%s*")
-
-			if is_article then
-				base_level = 0
-				bold_level = 0
-				label_level = 0
+			local spaces = d.indent or #line:match("^%s*")
+			if d.kind == "article" and d.section then
+				base_level, bold_level, label_level = 0, 0, 0
 				indent_stack = { spaces }
 				raw_levels[i] = 0
 				explicit_starters[i] = ">0"
-			elseif is_heading then
-				base_level = #line:match("^(#+)")
-				bold_level = 0
-				label_level = 0
+			elseif d.kind == "heading" then
+				base_level, bold_level, label_level = d.heading, 0, 0
 				indent_stack = { spaces }
 				raw_levels[i] = base_level
 				explicit_starters[i] = ">" .. base_level
-			elseif is_bold then
-				bold_level = 1
-				label_level = 0
+			elseif d.kind == "bold_heading" then
+				bold_level, label_level = 1, 0
 				indent_stack = { spaces }
 				raw_levels[i] = base_level + bold_level
 				explicit_starters[i] = ">" .. raw_levels[i]
-			elseif is_label then
+			elseif d.kind == "label" and not d.item then
 				label_level = 1
 				indent_stack = { spaces }
 				raw_levels[i] = base_level + bold_level + label_level
 				explicit_starters[i] = ">" .. raw_levels[i]
 			else
-				-- Indented text / Lists
+				-- Indented text / lists
 				while #indent_stack > 1 and spaces < indent_stack[#indent_stack] do
 					table.remove(indent_stack)
 				end
-
 				if spaces > indent_stack[#indent_stack] then
 					table.insert(indent_stack, spaces)
 				end
-
-				local indent_level = #indent_stack - 1
-				raw_levels[i] = base_level + bold_level + label_level + indent_level
+				raw_levels[i] = base_level + bold_level + label_level + (#indent_stack - 1)
 			end
 		end
 	end

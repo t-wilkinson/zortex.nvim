@@ -46,16 +46,6 @@ T.test("labels nest inside headings; headings never nest inside labels", functio
 	T.eq(kinds, { "label:Notes", "heading:1.4.1 - zortex search" })
 end)
 
-T.test("find_section_end agrees with tree end_line", function()
-	local doc = Document.from_file(T.fixture("projects.zortex"))
-	doc.tree:walk(function(n)
-		if not n:is_root() and n.type ~= "article" then
-			local hl = n.type == "heading" and parser.get_heading_level(doc.lines[n.start_line]) or nil
-			T.eq(parser.find_section_end(doc.lines, n.start_line, n.type, hl), n.end_line, n.text)
-		end
-	end)
-end)
-
 T.test("notes index skips archives and orders top-level first", function()
 	local files = vim.tbl_map(function(p)
 		return vim.fn.fnamemodify(p, ":t")

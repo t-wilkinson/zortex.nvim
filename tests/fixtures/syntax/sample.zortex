@@ -1,0 +1,49 @@
+@@Syntax sample
+@@Sample
+@Example
+@size(lg)
+
+Intro paragraph with **bold**, *italic*, `code`, $x^2$ and a [Link/#Heading].
+Key: value text with @home and an email me@example.com.
+
+# Heading one @p1 @a(4.1)
+**Bold heading**:
+Label:
+  Indented label:
+- Bulleted label:
+
+## 3M-2026-Q1 Objective title @p2
+- KR1: [ ] Key result [P/#1 Programming]
+- KR2: [x] Done key result
+
+### Tasks
+- [ ] Open task @size(sm) @due(2026-10-12)
+- [x] Done task @done(2026-10-08)
+  - [ ] Nested task
+- plain bullet with [^1]
++ plus bullet
+* star bullet
+1. numbered
+B. lettered
+14:00 Timed entry [Flipping]
+16:00 - 17:00 Ranged entry
+- 09:00 Bulleted time
+
+| col a | col b |
+|-------|-------|
+| 1     | 2     |
+
+| a quote line
+> another quote
+
+```lua
+# not a heading
+- [ ] not a task
+```
+
+$$
+\int_0^1 x\,dx
+$$
+
+[^1]: The footnote with https://example.com and ./images/pic.png
+See @[cars & parts], ![Live link] and [text](https://example.com) at 10:30, 50% done.

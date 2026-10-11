@@ -1,21 +1,13 @@
 -- features/toc.lua - Table of Contents for Zortex documents
 local M = {}
 
-local parser = require("zortex.utils.parser")
-local section = require("zortex.core.section")
 local constants = require("zortex.constants")
 
 -- --- Helper: Parses buffer and builds the TOC text and line mappings
 local function get_toc_data(orig_buf)
-	local lines = vim.api.nvim_buf_get_lines(orig_buf, 0, -1, false)
-	if #lines == 0 then
-		return nil, nil, "Buffer is empty"
-	end
-
-	-- Single canonical builder. Code-block tracking and the @@-alias rule are
-	-- handled inside build_tree, so the manual CodeBlockTracker loop is gone.
-	local root_section = section.build_tree(lines)
-	if not root_section then
+	local doc = require("zortex.core.document").from_buffer(orig_buf)
+	local root_section = doc and doc.tree
+	if not root_section or #doc.lines == 0 then
 		return nil, nil, "Buffer is empty"
 	end
 

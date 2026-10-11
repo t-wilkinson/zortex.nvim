@@ -1,0 +1,682 @@
+{
+  "blocks": [
+    {
+      "finish": 34,
+      "kind": "table",
+      "start": 32
+    },
+    {
+      "finish": 42,
+      "kind": "code",
+      "lang": "lua",
+      "start": 39
+    },
+    {
+      "finish": 46,
+      "kind": "math",
+      "start": 44
+    }
+  ],
+  "header": {
+    "last_lnum": 4,
+    "name_lnum": 1,
+    "names": [
+      "Syntax sample",
+      "Sample"
+    ],
+    "tag_lines": [
+      "@Example",
+      "@size(lg)"
+    ],
+    "tags": [
+      "Example",
+      "size(lg)"
+    ]
+  },
+  "lines": [
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [],
+      "kind": "article",
+      "level": 0,
+      "names": [
+        "Syntax sample",
+        "Sample"
+      ],
+      "section": true,
+      "text": "Syntax sample"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [],
+      "kind": "article",
+      "text": "Sample"
+    },
+    {
+      "content_col": 1,
+      "indent": 0,
+      "inline": [],
+      "kind": "tag"
+    },
+    {
+      "content_col": 1,
+      "indent": 0,
+      "inline": [],
+      "kind": "tag"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [
+        {
+          "children": [],
+          "e": 29,
+          "inner_e": 27,
+          "inner_s": 23,
+          "s": 21,
+          "type": "bold"
+        },
+        {
+          "children": [],
+          "e": 39,
+          "inner_e": 38,
+          "inner_s": 32,
+          "s": 31,
+          "type": "italic"
+        },
+        {
+          "e": 47,
+          "inner_e": 46,
+          "inner_s": 42,
+          "s": 41,
+          "type": "code"
+        },
+        {
+          "display": false,
+          "e": 54,
+          "inner_e": 53,
+          "inner_s": 50,
+          "s": 49,
+          "type": "math"
+        },
+        {
+          "definition": "Link/#Heading",
+          "e": 76,
+          "s": 61,
+          "type": "link"
+        }
+      ],
+      "kind": "text"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 26,
+          "key": "home",
+          "s": 21,
+          "type": "attribute"
+        }
+      ],
+      "key": "Key",
+      "key_col": 0,
+      "key_len": 5,
+      "kind": "text"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 2,
+      "heading": 1,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 17,
+          "key": "p1",
+          "s": 14,
+          "type": "attribute"
+        },
+        {
+          "e": 25,
+          "key": "a",
+          "s": 18,
+          "type": "attribute",
+          "value": "4.1"
+        }
+      ],
+      "kind": "heading",
+      "level": 1,
+      "section": true,
+      "text": "Heading one"
+    },
+    {
+      "content_col": 2,
+      "content_end": 14,
+      "indent": 0,
+      "inline": [],
+      "kind": "bold_heading",
+      "level": 7,
+      "section": true,
+      "text": "Bold heading"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "label",
+      "level": 8,
+      "section": true,
+      "text": "Label"
+    },
+    {
+      "content_col": 2,
+      "indent": 2,
+      "inline": [],
+      "kind": "label",
+      "level": 10,
+      "section": true,
+      "text": "Indented label"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "label",
+      "level": 8,
+      "section": true,
+      "text": "Bulleted label"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 3,
+      "heading": 2,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 33,
+          "key": "p2",
+          "s": 30,
+          "type": "attribute"
+        }
+      ],
+      "kind": "heading",
+      "level": 2,
+      "section": true,
+      "text": "3M-2026-Q1 Objective title"
+    },
+    {
+      "content_col": 11,
+      "indent": 0,
+      "inline": [
+        {
+          "definition": "P/#1 Programming",
+          "e": 40,
+          "s": 22,
+          "type": "link"
+        }
+      ],
+      "item": {
+        "content_col": 11,
+        "key": "KR1",
+        "key_col": 2,
+        "mark": " ",
+        "mark_col": 7,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 11,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 11,
+        "key": "KR2",
+        "key_col": 2,
+        "mark": "x",
+        "mark_col": 7,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 4,
+      "heading": 3,
+      "indent": 0,
+      "inline": [],
+      "kind": "heading",
+      "level": 3,
+      "section": true,
+      "text": "Tasks"
+    },
+    {
+      "content_col": 6,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 25,
+          "key": "size",
+          "s": 16,
+          "type": "attribute",
+          "value": "sm"
+        },
+        {
+          "e": 42,
+          "key": "due",
+          "s": 26,
+          "type": "attribute",
+          "value": "2026-10-12"
+        }
+      ],
+      "item": {
+        "content_col": 6,
+        "mark": " ",
+        "mark_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 6,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 33,
+          "key": "done",
+          "s": 16,
+          "type": "attribute",
+          "value": "2026-10-08"
+        }
+      ],
+      "item": {
+        "content_col": 6,
+        "mark": "x",
+        "mark_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 8,
+      "indent": 2,
+      "inline": [],
+      "item": {
+        "content_col": 8,
+        "mark": " ",
+        "mark_col": 4,
+        "marker": "-",
+        "marker_col": 2,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 24,
+          "id": "1",
+          "s": 20,
+          "type": "footnote_ref"
+        }
+      ],
+      "item": {
+        "content_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 2,
+        "marker": "+",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 2,
+        "marker": "*",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 3,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 3,
+        "marker": "1.",
+        "marker_col": 0,
+        "marker_type": "ordered"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 3,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 3,
+        "marker": "B.",
+        "marker_col": 0,
+        "marker_type": "ordered"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 6,
+      "indent": 0,
+      "inline": [
+        {
+          "definition": "Flipping",
+          "e": 28,
+          "s": 18,
+          "type": "link"
+        }
+      ],
+      "item": {
+        "content_col": 6,
+        "marker": "14:00",
+        "marker_col": 0,
+        "marker_type": "time",
+        "time": {
+          "at": "14:00"
+        }
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 14,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 14,
+        "marker": "16:00 - 17:00",
+        "marker_col": 0,
+        "marker_type": "time",
+        "time": {
+          "from": "16:00",
+          "to": "17:00"
+        }
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 7,
+          "s": 2,
+          "type": "time",
+          "value": "09:00"
+        }
+      ],
+      "item": {
+        "content_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "table",
+      "separator": false
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "table",
+      "separator": true
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "table",
+      "separator": false
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 1,
+      "indent": 0,
+      "inline": [],
+      "kind": "quote"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [],
+      "kind": "quote"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "indent": 0,
+      "kind": "fence",
+      "lang": "lua"
+    },
+    {
+      "indent": 0,
+      "kind": "code"
+    },
+    {
+      "indent": 0,
+      "kind": "code"
+    },
+    {
+      "close": true,
+      "indent": 0,
+      "kind": "fence"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "indent": 0,
+      "kind": "math_fence"
+    },
+    {
+      "indent": 0,
+      "kind": "math"
+    },
+    {
+      "close": true,
+      "indent": 0,
+      "kind": "math_fence"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 6,
+      "id": "1",
+      "indent": 0,
+      "inline": [
+        {
+          "e": 43,
+          "s": 24,
+          "type": "url",
+          "url": "https://example.com"
+        },
+        {
+          "e": 64,
+          "path": "./images/pic.png",
+          "s": 48,
+          "type": "filepath"
+        }
+      ],
+      "kind": "footnote"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [
+        {
+          "content": "cars & parts",
+          "e": 19,
+          "query_type": "and",
+          "s": 4,
+          "terms": [
+            "cars",
+            "parts"
+          ],
+          "type": "tag_search"
+        },
+        {
+          "definition": "Live link",
+          "e": 33,
+          "s": 21,
+          "type": "live_link"
+        },
+        {
+          "e": 65,
+          "s": 38,
+          "text": "text",
+          "type": "markdown",
+          "url": "https://example.com"
+        },
+        {
+          "e": 74,
+          "s": 69,
+          "type": "time",
+          "value": "10:30"
+        }
+      ],
+      "kind": "text"
+    }
+  ],
+  "sections": [
+    {
+      "level": 0,
+      "lnum": 1,
+      "names": [
+        "Syntax sample",
+        "Sample"
+      ],
+      "text": "Syntax sample",
+      "type": "article"
+    },
+    {
+      "level": 1,
+      "lnum": 9,
+      "text": "Heading one",
+      "type": "heading"
+    },
+    {
+      "level": 7,
+      "lnum": 10,
+      "text": "Bold heading",
+      "type": "bold_heading"
+    },
+    {
+      "level": 8,
+      "lnum": 11,
+      "text": "Label",
+      "type": "label"
+    },
+    {
+      "level": 10,
+      "lnum": 12,
+      "text": "Indented label",
+      "type": "label"
+    },
+    {
+      "level": 8,
+      "lnum": 13,
+      "text": "Bulleted label",
+      "type": "label"
+    },
+    {
+      "level": 2,
+      "lnum": 15,
+      "text": "3M-2026-Q1 Objective title",
+      "type": "heading"
+    },
+    {
+      "level": 3,
+      "lnum": 19,
+      "text": "Tasks",
+      "type": "heading"
+    }
+  ],
+  "version": 1
+}

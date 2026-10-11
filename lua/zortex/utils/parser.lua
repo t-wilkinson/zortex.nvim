@@ -1,435 +1,125 @@
--- utils/parser.lua - Consolidated parsing logic for Zortex
+-- utils/parser.lua - Link grammar, plus the line-level helpers most callers need
+--
+-- What a line or an inline span *is* is decided by core/syntax (the one
+-- Zortex parser). This module keeps the grammar of link definitions
+-- ("[Article/#Heading/:Label]" -> typed components) and thin helpers over
+-- core/syntax for callers that work on single lines.
 local M = {}
 
-local constants = require("zortex.constants")
+local syntax = require("zortex.core.syntax")
 
 -- =============================================================================
--- String Utilities
+-- Strings
 -- =============================================================================
 
-function M.trim(str)
-	return str:match("^%s*(.-)%s*$") or ""
-end
+M.trim = syntax.trim
+M.strip_attributes = syntax.strip_attributes
+M.split_query = syntax.split_query
+M.parse_header = syntax.parse_header
 
 function M.escape_pattern(text)
 	if not text then
 		return ""
 	end
-	return text:gsub("([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1")
+	return (text:gsub("([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1"))
 end
 
--- =============================================================================
--- Code Block Detection
--- =============================================================================
-
-local CodeBlockTracker = {}
-CodeBlockTracker.__index = CodeBlockTracker
-
-function CodeBlockTracker:new()
-	return setmetatable({
-		in_code_block = false,
-		fence_pattern = nil,
-	}, self)
-end
-
-function CodeBlockTracker:update(line)
-	-- Check for code fence (``` or ~~~)
-	local fence = line:match("^(%`%`%`+)") or line:match("^(~~~+)")
-
-	if fence then
-		if self.in_code_block and fence == self.fence_pattern then
-			-- End of code block
-			self.in_code_block = false
-			self.fence_pattern = nil
-		elseif not self.in_code_block then
-			-- Start of code block
-			self.in_code_block = true
-			self.fence_pattern = fence
+--- Case-insensitive membership test for header names / tags.
+function M.list_has(list, value)
+	if not list or not value then
+		return false
+	end
+	value = value:lower()
+	for _, v in ipairs(list) do
+		if v:lower() == value then
+			return true
 		end
 	end
-
-	return self.in_code_block
+	return false
 end
 
-function CodeBlockTracker:is_in_code_block()
-	return self.in_code_block
-end
-
--- Export for use by other modules
-M.CodeBlockTracker = CodeBlockTracker
-
--- =============================================================================
--- Section Detection & Parsing
--- =============================================================================
-
-function M.detect_section_type(line, in_code_block)
-	-- Skip section detection if we're in a code block
-	if in_code_block then
-		return constants.SECTION_TYPE.TEXT
-	end
-
-	if not line or line == "" then
-		return constants.SECTION_TYPE.TEXT
-	end
-	if line:match(constants.PATTERNS.ARTICLE_TITLE) then
-		return constants.SECTION_TYPE.ARTICLE
-	end
-	if line:match(constants.PATTERNS.TAG_LINE) then
-		return constants.SECTION_TYPE.TAG
-	end
-	if line:match(constants.PATTERNS.HEADING) then
-		return constants.SECTION_TYPE.HEADING
-	end
-	if line:match(constants.PATTERNS.BOLD_HEADING) then
-		return constants.SECTION_TYPE.BOLD_HEADING
-	end
-	-- Label pattern must not contain sentence periods (". ")
-	local potential_label = line:match("^([^:]+):$")
-	if potential_label and not potential_label:match("%.%s") then
-		return constants.SECTION_TYPE.LABEL
-	end
-	return constants.SECTION_TYPE.TEXT
-end
-
-function M.get_section_priority(line, in_code_block)
-	return (M.calculate_level(line, in_code_block)) or constants.SECTION_HIERARCHY.levels[constants.SECTION_TYPE.TEXT]
+function M.extract_article_name(line)
+	local name = line:match("^@@(.+)")
+	return name and M.trim(name) or nil
 end
 
 -- =============================================================================
--- Heading Parsing
+-- Tasks (see core/item)
 -- =============================================================================
 
-function M.get_heading_level(line)
-	local hashes = line:match(constants.PATTERNS.HEADING_LEVEL)
-	return hashes and #hashes or 0
-end
-
-function M.parse_heading(line)
-	local level, text = line:match(constants.PATTERNS.HEADING)
-	if level and text then
-		return {
-			level = #level,
-			text = M.trim(text),
-			raw = line,
-		}
-	end
-	return nil
-end
-
-function M.is_bold_heading(line)
-	return line:match(constants.PATTERNS.BOLD_HEADING) ~= nil
-end
-
-function M.parse_bold_heading(line)
-	local text = line:match(constants.PATTERNS.BOLD_HEADING)
-	if text then
-		return {
-			text = M.trim(text),
-			raw = line,
-		}
-	end
-	return nil
-end
-
-function M.parse_label(line)
-	local text = line:match("^([^:]+):$")
-	if text and not text:match("%.%s") then
-		return {
-			text = M.trim(text),
-			raw = line,
-		}
-	end
-	return nil
-end
-
--- =============================================================================
--- Task Parsing
--- =============================================================================
-
-function M.parse_task(line, parser_context)
+--- The task on a line (an Item with a checkbox), or nil.
+function M.parse_task(line, context)
 	if not line then
 		return nil
 	end
-	local indent, mark, text = line:match(constants.PATTERNS.TASK)
-
-	if not mark or not text then
-		return nil
-	end
-	local attributes
-
-	attributes, text = require("zortex.utils.attributes").parse_task_attributes(text, parser_context)
-
-	return {
-		indent = indent,
-		mark = mark,
-		text = text,
-		completed = mark == "x" or mark == "X",
-		attributes = attributes,
-		raw_text = line,
-	}
+	return require("zortex.core.item").task(line, { context = context })
 end
 
 function M.is_task_line(line)
-	if not line then
+	local it = line and syntax.item(line)
+	if not (it and it.mark) then
 		return false, false
 	end
-	local mark = line:match(constants.PATTERNS.TASK_CHECKBOX)
-	if not mark then
-		return false, false
-	end
-	return true, (mark == "x" or mark == "X")
-end
-
-function M.get_task_text(line)
-	return line:match(constants.PATTERNS.TASK_TEXT)
+	return true, (it.mark == "x" or it.mark == "X")
 end
 
 -- =============================================================================
--- Link Parsing
+-- Links on a line
 -- =============================================================================
 
---- Split "a + b" (OR) or "a & b" (AND) into terms. Spaces around the operator
---- are required so "c++" or "r&d" are not split.
----@return "single"|"or"|"and", string[]
-function M.split_query(content)
-	local query_type, sep = "single", nil
-	if content:find(" %+ ") then
-		query_type, sep = "or", "+"
-	elseif content:find(" & ") then
-		query_type, sep = "and", "&"
-	end
-	if not sep then
-		return query_type, { M.trim(content) }
-	end
-	local terms = {}
-	for term in content:gmatch("([^" .. sep .. "]+)") do
-		local trimmed = M.trim(term)
-		if trimmed ~= "" then
-			table.insert(terms, trimmed)
+-- Old-style link info for a syntax span (features/links, link_index, OKR)
+local function link_info(line, span)
+	local full = line:sub(span.s + 1, span.e)
+	local info = { full_match_text = full, col = span.s + 1 }
+	local t = span.type
+	if t == "footnote_ref" then
+		info.type, info.ref_id, info.display_text = "footnote", span.id, full
+	elseif t == "markdown" then
+		info.type, info.display_text, info.url = "markdown", span.text, span.url
+	elseif t == "live_link" or t == "link" then
+		info.type, info.display_text, info.definition = t, span.definition, span.definition
+	elseif t == "tag_search" then
+		info.type, info.display_text = "tag_search", span.content
+		info.terms, info.query_type = span.terms, span.query_type
+	elseif t == "url" then
+		info.type, info.url, info.display_text = "website", span.url, span.url
+	elseif t == "filepath" then
+		info.type, info.path, info.display_text = "filepath", span.path, span.path
+	elseif t == "attribute" and (span.key == "a" or span.key == "area") and span.value then
+		-- @a(4.1) / @area(...) link to the area
+		local area = require("zortex.utils.attributes").attribute_parsers.area(span.value)[1]
+		if not area then
+			return nil
 		end
+		info.type, info.display_text, info.definition = "link", area.definition, area.definition
+	else
+		return nil
 	end
-	return query_type, terms
+	return info
 end
 
-function M.extract_link_at(line, cursor_col)
-	-- 1. Check for footnote references
-	local offset = 0
-	while offset < #line do
-		local s, e, ref_id = string.find(line, "%[%^([A-Za-z0-9_.-]+)%]", offset + 1)
-		if not s then
-			break
-		end
-		if cursor_col >= (s - 1) and cursor_col < e then
-			return {
-				type = "footnote",
-				ref_id = ref_id,
-				display_text = string.sub(line, s, e),
-				full_match_text = string.sub(line, s, e),
-			}
-		end
-		offset = e or 0
-	end
-
-	-- 2. Check for markdown-style links
-	offset = 0
-	while offset < #line do
-		local s, e, text, url = string.find(line, "%[([^%]]*)%]%(([^%)]+)%)", offset + 1)
-		if not s then
-			break
-		end
-		if cursor_col >= (s - 1) and cursor_col < e then
-			return {
-				type = "markdown",
-				display_text = text,
-				url = url,
-				full_match_text = string.sub(line, s, e),
-			}
-		end
-		offset = e or 0
-	end
-
-	-- 3. Check for live links (![...])
-	offset = 0
-	while offset < #line do
-		local s, e, content = string.find(line, "!%[([^%]]+)%]", offset + 1)
-		if not s then
-			break
-		end
-
-		if cursor_col >= (s - 1) and cursor_col < e then
-			return {
-				type = "live_link",
-				display_text = content,
-				definition = content,
-				full_match_text = string.sub(line, s, e),
-			}
-		end
-		offset = e or 0
-	end
-
-	-- 4. Check for tag search links (@[...])
-	offset = 0
-	while offset < #line do
-		local s, e, content = string.find(line, "@%[([^%]]+)%]", offset + 1)
-		if not s then
-			break
-		end
-
-		if cursor_col >= (s - 1) and cursor_col < e then
-			local query_type, terms = M.split_query(content)
-
-			return {
-				type = "tag_search",
-				display_text = content,
-				terms = terms,
-				query_type = query_type, -- "single", "or", "and"
-				full_match_text = string.sub(line, s, e),
-			}
-		end
-		offset = e or 0
-	end
-
-	-- 5. Check for zortex-style links
-	offset = 0
-	while offset < #line do
-		local s, e = string.find(line, "%[([^%]]+)%]", offset + 1)
-		if not s then
-			break
-		end
-
-		if cursor_col >= (s - 1) and cursor_col < e then
-			local content = string.sub(line, s + 1, e - 1)
-
-			-- Skip footnotes and task checkboxes ("[ ]", "[x]", "[-]", ...)
-			if content:sub(1, 1) == "^" or content:match("^[ xX%-%.]$") then
-				offset = e or 0
-				goto continue
-			end
-
-			return {
-				type = "link",
-				display_text = content,
-				definition = content,
-				full_match_text = string.sub(line, s, e),
-			}
-		end
-
-		::continue::
-		offset = e or 0
-	end
-
-	-- 6. Check for URLs
-	offset = 0
-	while offset < #line do
-		local s, e = string.find(line, "https?://[^%s%]%)};]+", offset + 1)
-		if not s then
-			break
-		end
-		if cursor_col >= (s - 1) and cursor_col < e then
-			local url = string.sub(line, s, e)
-			return {
-				type = "website",
-				url = url,
-				display_text = url,
-				full_match_text = url,
-			}
-		end
-		offset = e or 0
-	end
-
-	-- 7. @area(<link>) or @a(<link>)
-	offset = 0
-	while offset < #line do
-		local s, e, value = string.find(line, "@area%(([^)]+)%)", offset + 1)
-		if not s then
-			s, e, value = string.find(line, "@a%(([^)]+)%)", offset + 1)
-		end
-
-		if not s then
-			break
-		end
-
-		if cursor_col >= (s - 1) and cursor_col < e then
-			local area_links = require("zortex.utils.attributes").attribute_parsers.area(value)
-
-			if #area_links == 0 then
-				break
-			end
-
-			-- Only use the first area_link for now
-			local area_link = area_links[1]
-
-			return {
-				type = "link",
-				display_text = area_link.definition,
-				definition = area_link.definition,
-				full_match_text = string.sub(line, s, e),
-			}
-		end
-		offset = e or 0
-	end
-
-	-- 8. Check for file paths
-	offset = 0
-	while offset < #line do
-		local s, e, path = string.find(line, "([~%.]/[^%s]+)", offset + 1)
-		if not s then
-			s, e, path = string.find(line, "(/[^%s]+)", offset + 1)
-		end
-		if not s then
-			break
-		end
-		if cursor_col >= (s - 1) and cursor_col < e then
-			return {
-				type = "filepath",
-				path = path,
-				display_text = path,
-				full_match_text = path,
-			}
-		end
-		offset = e or 0
-	end
-
-	return nil
+--- The link (any kind) under 0-based byte column `col`, or nil:
+--- { type, display_text, definition?, url?, ref_id?, terms?, query_type?, path?, full_match_text, col }
+function M.extract_link_at(line, col)
+	local span = syntax.span_at(line, col)
+	return span and link_info(line, span) or nil
 end
 
+--- Every link on a line, in order (same shape as extract_link_at).
 function M.extract_all_links(line)
-	local links = {}
-	local offset = 0
-
-	while offset < #line do
-		local link = M.extract_link_at(line, offset)
-		if link then
-			table.insert(links, link)
-			-- Move past this link
-			local _, end_pos = line:find(M.escape_pattern(link.full_match_text), offset + 1)
-			offset = end_pos or offset + 1
-		else
-			offset = offset + 1
+	local out = {}
+	syntax.walk_spans(syntax.inline(line), function(span)
+		local info = link_info(line, span)
+		if info then
+			out[#out + 1] = info
 		end
-	end
-
-	return links
+	end)
+	return out
 end
 
--- Escape special characters in link components
-function M.escape_link_component(text)
-	if not text then
-		return ""
-	end
-	-- For now, we don't need to escape since we handle parentheses properly
-	-- But this function is here for future use if needed
-	return text
-end
-
--- Unescape link components
-function M.unescape_link_component(text)
-	if not text then
-		return ""
-	end
-	-- Corresponding unescape function
-	return text
-end
+-- =============================================================================
+-- Link definitions
+-- =============================================================================
 
 -- Enhanced parse_link_component that handles attributes
 function M.parse_link_component(component)
@@ -583,227 +273,6 @@ function M.parse_link_definition(definition)
 	end
 
 	return result
-end
-
--- =============================================================================
--- Other Parsing Functions
--- =============================================================================
-
-function M.extract_article_name(line)
-	local name = line:match("^@@(.+)")
-	if name then
-		return M.trim(name)
-	end
-	return nil
-end
-
---- Strip inline attributes (`@key(value)` and bare `@word`) from a piece of
---- text, e.g. "1.4 - zortex @p1 @size(lg)" -> "1.4 - zortex". Only tokens that
---- start a word are removed, so "me@example.com" is left alone.
-function M.strip_attributes(text)
-	if not text then
-		return ""
-	end
-	local s = " " .. text
-	s = s:gsub("%s@[%w_]+%b()", "")
-	s = s:gsub("%s@[%w_%-]+", "")
-	return M.trim((s:gsub("%s+", " ")))
-end
-
---- Parse the header block at the top of a note: article names (`@@Name`) and
---- tags (`@Tag`). Blank lines are skipped; the header ends at the first other
---- line. This is the ONLY header parser; workspace, documents, the notes index,
---- link resolution and completion all use it.
----@return { names: string[], tags: string[], name_lnum: integer?, last_lnum: integer, tag_lines: string[] }
-function M.parse_header(lines, max_lines)
-	local header = { names = {}, tags = {}, tag_lines = {}, name_lnum = nil, last_lnum = 0 }
-	if not lines then
-		return header
-	end
-	for lnum = 1, math.min(#lines, max_lines or 50) do
-		local line = lines[lnum]
-		local name = M.extract_article_name(line)
-		if name then
-			table.insert(header.names, name)
-			header.name_lnum = header.name_lnum or lnum
-			header.last_lnum = lnum
-		elseif line:match(constants.PATTERNS.TAG_LINE) then
-			table.insert(header.tags, M.trim(line:sub(2)))
-			table.insert(header.tag_lines, line)
-			header.last_lnum = lnum
-		elseif line:match("%S") then
-			break
-		end
-	end
-	return header
-end
-
---- Case-insensitive membership test for header names / tags.
-function M.list_has(list, value)
-	if not list or not value then
-		return false
-	end
-	value = value:lower()
-	for _, v in ipairs(list) do
-		if v:lower() == value then
-			return true
-		end
-	end
-	return false
-end
-
--- =============================================================================
--- Structural hierarchy primitives (single source of truth)
--- =============================================================================
---
--- These three functions are the ONE place that decides what a section line is,
--- where it sits in the hierarchy, and what its display text is. The document
--- tree (core/section.build_tree), the cached tree (core/tree), and
--- build_section_path below all consume them, so the structure they produce is
--- guaranteed to agree.
-
--- Assign the structural level to a line (see constants.SECTION_HIERARCHY).
--- Returns: level (number) or nil for non-section lines, plus the section_type.
-function M.calculate_level(line, in_code_block)
-	local section_type = M.detect_section_type(line, in_code_block)
-	if section_type == constants.SECTION_TYPE.TEXT or section_type == constants.SECTION_TYPE.TAG then
-		return nil, section_type
-	end
-	local heading_level = section_type == constants.SECTION_TYPE.HEADING and M.get_heading_level(line) or nil
-	local indent = section_type == constants.SECTION_TYPE.LABEL and #(line:match("^%s*") or "") or 0
-	return constants.SECTION_HIERARCHY.get_priority(section_type, heading_level, indent), section_type
-end
-
--- Extract the human-readable text for a section line, given its type.
--- Attributes are stripped: "## 1.4 - zortex @p1" -> "1.4 - zortex".
-function M.section_text(line, section_type)
-	if section_type == constants.SECTION_TYPE.ARTICLE then
-		return M.extract_article_name(line) or "Article"
-	elseif section_type == constants.SECTION_TYPE.HEADING then
-		local h = M.parse_heading(line)
-		return M.strip_attributes(h and h.text or line:gsub("^#+%s*", ""))
-	elseif section_type == constants.SECTION_TYPE.BOLD_HEADING then
-		local bh = M.parse_bold_heading(line)
-		return M.strip_attributes(bh and bh.text or line:match("%*%*(.-)%*%*") or line)
-	elseif section_type == constants.SECTION_TYPE.LABEL then
-		local lbl = M.parse_label(line)
-		return M.strip_attributes(lbl and lbl.text or line:match("^%s*(.-):") or line)
-	end
-	return M.trim(line)
-end
-
--- Single structural pass over a buffer. Returns an ordered list of descriptors:
---   { lnum = number, type = SECTION_TYPE, level = number, text = string, names = string[]? }
--- The header block (`@@Name` aliases and `@Tag` lines) produces ONE article
--- section at the first name, carrying every alias in `names`. `@@` lines
--- outside the header are plain text.
-function M.scan_sections(lines)
-	local sections = {}
-	if not lines then
-		return sections
-	end
-
-	local header = M.parse_header(lines)
-	if header.name_lnum then
-		sections[1] = {
-			lnum = header.name_lnum,
-			type = constants.SECTION_TYPE.ARTICLE,
-			level = 0,
-			text = header.names[1],
-			names = header.names,
-		}
-	end
-
-	local code_tracker = CodeBlockTracker:new()
-	for lnum, line in ipairs(lines) do
-		local in_code = code_tracker:update(line)
-		if lnum > header.last_lnum then
-			local level, section_type = M.calculate_level(line, in_code)
-			if level and section_type ~= constants.SECTION_TYPE.ARTICLE then
-				sections[#sections + 1] = {
-					lnum = lnum,
-					type = section_type,
-					level = level,
-					text = M.section_text(line, section_type),
-				}
-			end
-		end
-	end
-
-	return sections
-end
-
--- =============================================================================
--- Sections
--- =============================================================================
-
----Return an ordered list of section descriptors that enclose `target_lnum`,
----outermost first (article → … → innermost). Derived from M.scan_sections so
----it always agrees with the document tree. Each element contains:
----• `lnum`     – where the section starts
----• `type`     – one of constants.SECTION_TYPE.*
----• `level`    – heading level (only for HEADING; nil otherwise)
----• `priority` – structural level (lower ⇒ higher in the hierarchy)
----• `text`     – section text (attributes stripped)
----• `display`  – text to show in breadcrumbs / Telescope lists
-function M.build_section_path(lines, target_lnum)
-	if not lines or not target_lnum or target_lnum < 1 then
-		return {}
-	end
-
-	local stack = {}
-	for _, sec in ipairs(M.scan_sections(lines)) do
-		if sec.lnum > target_lnum then
-			break
-		end
-
-		while #stack > 0 and stack[#stack].priority >= sec.level do
-			table.remove(stack)
-		end
-
-		stack[#stack + 1] = {
-			lnum = sec.lnum,
-			type = sec.type,
-			level = (sec.type == constants.SECTION_TYPE.HEADING) and sec.level or nil,
-			priority = sec.level,
-			text = sec.text,
-			display = sec.text ~= "" and sec.text or ("<unknown@" .. sec.lnum .. ">"),
-		}
-	end
-
-	return stack
-end
-
---- Find the last line of the section starting at `start_lnum`: the line before
---- the next section at the same or a higher structural level. Works on raw
---- lines (no tree needed); core/document nodes give the same answer.
-function M.find_section_end(lines, start_lnum, section_type, heading_level)
-	local num_lines = #lines
-
-	if section_type == constants.SECTION_TYPE.ARTICLE then
-		return num_lines
-	end
-	if section_type == constants.SECTION_TYPE.TAG or section_type == constants.SECTION_TYPE.TEXT then
-		return start_lnum
-	end
-
-	local start_line = lines[start_lnum] or ""
-	local indent = section_type == constants.SECTION_TYPE.LABEL and #(start_line:match("^%s*") or "") or 0
-	local start_level = constants.SECTION_HIERARCHY.get_priority(section_type, heading_level, indent)
-
-	local code_tracker = CodeBlockTracker:new()
-	for lnum = 1, start_lnum do
-		code_tracker:update(lines[lnum])
-	end
-
-	for i = start_lnum + 1, num_lines do
-		local level, line_type = M.calculate_level(lines[i], code_tracker:update(lines[i]))
-		if level and line_type ~= constants.SECTION_TYPE.ARTICLE and level <= start_level then
-			return i - 1
-		end
-	end
-
-	return num_lines
 end
 
 return M

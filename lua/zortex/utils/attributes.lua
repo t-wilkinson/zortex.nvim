@@ -243,6 +243,8 @@ local attribute_parsers = {
 	end,
 }
 
+M.attribute_parsers = attribute_parsers
+
 -- Parse @key(value) attributes from text
 -- @param parser_context table Context of the text being parsed to optionally pass to functions like parse_datetime() default_date_str.
 --  The attribute parsers know how to take the parser_context and pass relevant information to functions as necessary.

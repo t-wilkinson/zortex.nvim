@@ -86,9 +86,8 @@ end
 -- removed. Edits the original line in place, so every other attribute, tag
 -- and spacing is kept exactly as written.
 function M.build_task_line(task)
-	local line = task.raw_text
 	local mark = task.completed and constants.TASK_MARKS.COMPLETED or constants.TASK_MARKS.TODO
-	line = line:gsub("^(%s*%-%s*%[).(%])", "%1" .. mark .. "%2", 1)
+	local line = task:with_mark(mark)
 	if task.completed then
 		local done = task.attributes and task.attributes.done
 		local value = type(done) == "string" and done or os.date("%Y-%m-%d")

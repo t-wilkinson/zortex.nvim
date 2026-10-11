@@ -231,29 +231,23 @@ end
 -- Navigate to next/previous section at the same or a higher structural level
 -- than the section the cursor is in (or on).
 function M.navigate_section(direction)
-	local lines = buffer.get_lines()
+	local doc = require("zortex.core.document").from_buffer(0)
 	local current_lnum = buffer.get_cursor_pos()
-	local sections = parser.scan_sections(lines)
+	local current = doc:node_at(current_lnum)
+	local current_level = current:is_root() and math.huge or current.level
 
-	-- Level of the innermost section containing the cursor
-	local path = parser.build_section_path(lines, current_lnum)
-	local current_level = #path > 0 and path[#path].priority or math.huge
-
+	local sections = doc.syntax.sections
 	local target_lnum = nil
-	if direction == "next" then
-		for _, sec in ipairs(sections) do
-			if sec.lnum > current_lnum and sec.level <= current_level then
-				target_lnum = sec.lnum
-				break
-			end
-		end
-	else
-		for i = #sections, 1, -1 do
-			local sec = sections[i]
-			if sec.lnum < current_lnum and sec.level <= current_level then
-				target_lnum = sec.lnum
-				break
-			end
+	local first, last, step = 1, #sections, 1
+	if direction ~= "next" then
+		first, last, step = #sections, 1, -1
+	end
+	for i = first, last, step do
+		local sec = sections[i]
+		local ahead = direction == "next" and sec.lnum > current_lnum or direction ~= "next" and sec.lnum < current_lnum
+		if ahead and sec.level <= current_level then
+			target_lnum = sec.lnum
+			break
 		end
 	end
 
@@ -267,22 +261,15 @@ end
 
 -- Navigate to parent section
 function M.navigate_parent()
-	local lines = buffer.get_lines()
-	local current_lnum, _ = buffer.get_cursor_pos()
-
-	-- Build section path to current position
-	local section_path = parser.build_section_path(lines, current_lnum)
-
-	if #section_path > 1 then
-		-- Go to parent section (second to last in path)
-		local parent = section_path[#section_path - 1]
-		buffer.set_cursor_pos(parent.lnum, 0)
-		vim.cmd("normal! zz")
-	elseif #section_path == 1 then
-		-- Already at top level, go to start of file
-		buffer.set_cursor_pos(1, 0)
-	else
+	local doc = require("zortex.core.document").from_buffer(0)
+	local node = doc:node_at(buffer.get_cursor_pos())
+	if node:is_root() then
 		vim.notify("No parent section found", vim.log.levels.INFO)
+	elseif node.parent and not node.parent:is_root() then
+		buffer.set_cursor_pos(node.parent.start_line, 0)
+		vim.cmd("normal! zz")
+	else
+		buffer.set_cursor_pos(1, 0)
 	end
 end
 

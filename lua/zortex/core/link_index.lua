@@ -24,7 +24,7 @@ local constants = require("zortex.constants")
 local parser = require("zortex.utils.parser")
 local fs = require("zortex.utils.filesystem")
 
-local VERSION = 1
+local VERSION = 2 -- bump when link extraction changes (forces a rebuild)
 local REFRESH_TTL_MS = 1000
 
 local state = {
@@ -104,21 +104,18 @@ local function first_component(def)
 end
 
 local function extract_links(doc)
+	local syntax = require("zortex.core.syntax")
 	local links = {}
-	local tracker = parser.CodeBlockTracker:new()
 	for lnum, line in ipairs(doc.lines) do
-		if not tracker:update(line) and line:find("[", 1, true) then
-			for _, link in ipairs(parser.extract_all_links(line)) do
-				if (link.type == "link" or link.type == "live_link") and link.definition then
-					local col = line:find(link.full_match_text, 1, true) or 1
-					links[#links + 1] = {
-						lnum = lnum,
-						col = col,
-						text = link.full_match_text,
-						definition = link.definition,
-						first = first_component(link.definition),
-					}
-				end
+		if line:find("[", 1, true) and not doc:in_code(lnum) then
+			for _, span in ipairs(syntax.links(line, doc:inline(lnum))) do
+				links[#links + 1] = {
+					lnum = lnum,
+					col = span.s + 1,
+					text = line:sub(span.s + 1, span.e),
+					definition = span.definition,
+					first = first_component(span.definition),
+				}
 			end
 		end
 	end

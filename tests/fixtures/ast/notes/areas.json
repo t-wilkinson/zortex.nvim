@@ -1,0 +1,266 @@
+{
+  "blocks": [],
+  "header": {
+    "last_lnum": 3,
+    "name_lnum": 1,
+    "names": [
+      "Areas",
+      "A"
+    ],
+    "tag_lines": [
+      "@Me"
+    ],
+    "tags": [
+      "Me"
+    ]
+  },
+  "lines": [
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [],
+      "kind": "article",
+      "level": 0,
+      "names": [
+        "Areas",
+        "A"
+      ],
+      "section": true,
+      "text": "Areas"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [],
+      "kind": "article",
+      "text": "A"
+    },
+    {
+      "content_col": 1,
+      "indent": 0,
+      "inline": [],
+      "kind": "tag"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 2,
+      "heading": 1,
+      "indent": 0,
+      "inline": [],
+      "kind": "heading",
+      "level": 1,
+      "section": true,
+      "text": "1 Personal Foundation"
+    },
+    {
+      "content_col": 3,
+      "heading": 2,
+      "indent": 0,
+      "inline": [],
+      "kind": "heading",
+      "level": 2,
+      "section": true,
+      "text": "1.1 Core values"
+    },
+    {
+      "content_col": 6,
+      "indent": 4,
+      "inline": [],
+      "item": {
+        "content_col": 6,
+        "marker": "-",
+        "marker_col": 4,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 3,
+      "heading": 2,
+      "indent": 0,
+      "inline": [],
+      "kind": "heading",
+      "level": 2,
+      "section": true,
+      "text": "1.2 Vitality"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "label",
+      "level": 8,
+      "section": true,
+      "text": "Fitness"
+    },
+    {
+      "content_col": 6,
+      "indent": 4,
+      "inline": [],
+      "item": {
+        "content_col": 6,
+        "marker": "-",
+        "marker_col": 4,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 6,
+      "indent": 4,
+      "inline": [],
+      "item": {
+        "content_col": 6,
+        "marker": "-",
+        "marker_col": 4,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 2,
+      "heading": 1,
+      "indent": 0,
+      "inline": [],
+      "kind": "heading",
+      "level": 1,
+      "section": true,
+      "text": "4 Learning & Education"
+    },
+    {
+      "content_col": 3,
+      "heading": 2,
+      "indent": 0,
+      "inline": [],
+      "kind": "heading",
+      "level": 2,
+      "section": true,
+      "text": "4.1 Education & Skills"
+    },
+    {
+      "content_col": 6,
+      "indent": 4,
+      "inline": [],
+      "item": {
+        "content_col": 6,
+        "marker": "-",
+        "marker_col": 4,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 6,
+      "indent": 4,
+      "inline": [],
+      "item": {
+        "content_col": 6,
+        "marker": "-",
+        "marker_col": 4,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 3,
+      "heading": 2,
+      "indent": 0,
+      "inline": [],
+      "kind": "heading",
+      "level": 2,
+      "section": true,
+      "text": "4.2 Personal Interests"
+    },
+    {
+      "content_col": 6,
+      "indent": 4,
+      "inline": [],
+      "item": {
+        "content_col": 6,
+        "marker": "-",
+        "marker_col": 4,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 6,
+      "indent": 4,
+      "inline": [
+        {
+          "definition": "P/#No such project",
+          "e": 30,
+          "s": 10,
+          "type": "link"
+        }
+      ],
+      "item": {
+        "content_col": 6,
+        "marker": "-",
+        "marker_col": 4,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    }
+  ],
+  "sections": [
+    {
+      "level": 0,
+      "lnum": 1,
+      "names": [
+        "Areas",
+        "A"
+      ],
+      "text": "Areas",
+      "type": "article"
+    },
+    {
+      "level": 1,
+      "lnum": 5,
+      "text": "1 Personal Foundation",
+      "type": "heading"
+    },
+    {
+      "level": 2,
+      "lnum": 6,
+      "text": "1.1 Core values",
+      "type": "heading"
+    },
+    {
+      "level": 2,
+      "lnum": 8,
+      "text": "1.2 Vitality",
+      "type": "heading"
+    },
+    {
+      "level": 8,
+      "lnum": 9,
+      "text": "Fitness",
+      "type": "label"
+    },
+    {
+      "level": 1,
+      "lnum": 12,
+      "text": "4 Learning & Education",
+      "type": "heading"
+    },
+    {
+      "level": 2,
+      "lnum": 13,
+      "text": "4.1 Education & Skills",
+      "type": "heading"
+    },
+    {
+      "level": 2,
+      "lnum": 16,
+      "text": "4.2 Personal Interests",
+      "type": "heading"
+    }
+  ],
+  "version": 1
+}

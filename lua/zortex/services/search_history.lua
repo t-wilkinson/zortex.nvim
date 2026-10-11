@@ -28,7 +28,7 @@ local store = require("zortex.core.state").open("search_history", {
 })
 
 local function cfg()
-	local search = require("zortex.ui.telescope.search")
+	local search = require("zortex.services.search")
 	return (search.config or search.setup()) or {}
 end
 

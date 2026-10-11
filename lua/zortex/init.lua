@@ -31,7 +31,7 @@ local function setup(opts)
 	require("zortex.ui.commands").setup(Config.commands.prefix)
 	require("zortex.ui.keymaps").setup(Config.keymaps.prefix, Config.commands.prefix)
 	require("zortex.ui.calendar.view").setup(Config.ui.calendar)
-	require("zortex.ui.telescope.search").setup(Config.ui.search)
+	require("zortex.services.search").setup(Config.ui.search)
 	require("zortex.ui.telescope.core").setup()
 end
 

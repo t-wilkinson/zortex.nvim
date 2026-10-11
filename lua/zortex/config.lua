@@ -371,7 +371,7 @@ local function deep_merge_in_place(t1, t2)
 end
 
 -- Built-in defaults (read-only). Modules overlay their slice of these with the
--- user's options, e.g. ui/telescope/search.setup(Config.ui.search).
+-- user's options, e.g. services/search.setup(Config.ui.search).
 Config.defaults = defaults
 
 -- Initialize configuration

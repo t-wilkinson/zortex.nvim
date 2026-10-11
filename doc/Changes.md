@@ -26,7 +26,8 @@ in place:
 | Make projects first-class | Shared core, one link resolver, projects API, OKR rewrite, picker rebuilt, first round of fixes. |
 | Areas as first-class objects | `core/entity` base, `P/` project links, areas API, XP keyed by area, stale `services.xp` / `services.calendar` callers fixed, task toggling in any note. |
 | Search setup, calendar crash, docs | `search.setup()` with config overlay and implemented options, calendar selection crash, these docs. |
-| Hierarchy-first search ranking | Results ranked by what matched, then structural level, then archive status and how the name matched; the picker keeps that order. The synthetic root is no longer matchable. |
+| Hierarchy-first search ranking | The picker keeps the search's own order instead of re-sorting by fuzzy score; the synthetic root is no longer matchable. |
+| Restore ordered path search | Words match a section's path in order (last word = the section), with the original scoring, file grouping, document order, direct sub-sections and full breadcrumbs. |
 
 ## New modules
 
@@ -83,10 +84,16 @@ in place:
   Architecture.md). With one untyped token, only articles and H1 headings
   match structurally, per your `token_filters`; typed `#`/`:` tokens search
   every depth. `<C-t>` toggles article mode.
-- **Search results are ranked by hierarchy:** own-name matches first, then
-  articles before headings before labels, then names that start with the
-  query. This replaces Telescope's fuzzy order. Archived sections are labelled
-  `(archive)` and rank after live ones.
+- **Search works like the original search service again** (removed in
+  `28a3ce2`). Words match a section's path in order, so `2 4` finds
+  `1 › 2 › 3 › 4` but not `4 › 2`. Results use the original scoring (word
+  quality plus a type bonus favouring articles, then headings by level), are
+  grouped by file in document order, list each match's direct sub-sections,
+  and show the full breadcrumb. `@@`, `#`, `:` and `*` restrict a word to one
+  section type, and `_` is a space. This replaces Telescope's fuzzy order.
+  Archived sections are labelled `(archive)` and come after live ones.
+- **Article mode matches article names**, as it originally did, rather than
+  article content.
 
 **XP**
 - **Project XP is keyed by project key**

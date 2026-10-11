@@ -1,15 +1,33 @@
 -- ui/telescope/search.lua - Structural Search UI & Logic
 --
+-- Results are sections shown as breadcrumbs of their hierarchy, then matching
+-- lines. Search words are matched against a section's PATH, in order:
+-- earlier words match ancestors, the last word matches the section itself,
+-- and consecutive words may share one section. So "2 4" finds 1 › 2 › 3 › 4,
+-- 2 › 4 and 2 › 3 › 4, but not 4 › 2.
+--
+-- Word syntax: "@@name" articles only, "#name" headings only, ":name" labels
+-- only, "*name" bold headings only, plain words any section. "_" or "\ "
+-- inside a word is a space ("1.4_zortex"). A prefix alone ("@@") matches any
+-- section of that type.
+--
+-- Ranking (as in the original search service):
+--   score  = 100 × word quality (exact 3, prefix 2, substring 1, summed)
+--          + type bonus (article 2000, heading 1000 − 50 × level,
+--            bold heading 400, label 300)
+--   order  = files grouped by their best score (live notes before archived),
+--            then document order inside a file, so parents precede children.
+--   The direct sub-sections of a match are listed under it.
+--
 -- Configuration (Config.ui.search, see config.lua):
 --   default_mode        "section" (sections + matching lines) | "article"
 --   max_results         cap on results per query
---   token_filters       [n] = section types eligible for a structural match
---                       when the prompt has n tokens ("all" = every type);
---                       typing more tokens searches deeper into the tree.
---                       Typed tokens (#heading, :label) ignore the filter.
---   breadcrumb_display  which path parts to show for 1 / 2 / 3+ tokens
---   min_score, access_decay_rate, history
---                       reserved for ranking/history (not implemented yet)
+--   token_filters       [n] = section types that may be a result when the
+--                       prompt has n words ("all" = every type); bold
+--                       headings and labels above the first heading count
+--                       as H1. Typed words (#, :, *, @@) ignore the filter.
+--   breadcrumb_display, min_score, access_decay_rate, history
+--                       reserved (results always show the full breadcrumb)
 local M = {}
 local tree_module = require("zortex.core.tree")
 local fs = require("zortex.utils.filesystem")
@@ -43,7 +61,9 @@ local function cfg()
 	return M.config or M.setup()
 end
 
--- Predicate: may `node` match structurally when the prompt has `n` tokens?
+-- Predicate over index entries: may this section be a result when the
+-- prompt has `n` words? Bold headings and labels above the first heading of
+-- their article are treated as level-1 headings (as before).
 local function section_filter(n)
 	local filters = cfg().token_filters or {}
 	local spec = filters[math.max(1, math.min(n, #filters))]
@@ -52,59 +72,58 @@ local function section_filter(n)
 			return true
 		end
 	end
-	return function(node)
+
+	local function allows(node_type, level)
 		for _, rule in ipairs(spec) do
 			if type(rule) == "string" then
-				if node.type == rule then
+				if node_type == rule then
 					return true
 				end
-			elseif node.type == rule[1] and (not rule.max_level or (node.level or 0) <= rule.max_level) then
+			elseif node_type == rule[1] and (not rule.max_level or (level or 0) <= rule.max_level) then
 				return true
 			end
 		end
 		return false
 	end
-end
 
--- Breadcrumb kinds for `n` tokens: "article", "heading", "heading_1_2",
--- "bold_heading", "label".
-local function breadcrumb_kinds(n)
-	local display = cfg().breadcrumb_display or {}
-	local kinds = (n <= 1 and display.one_token) or (n == 2 and display.two_tokens) or display.three_plus_tokens
-	if not kinds then
-		return nil
+	return function(entry)
+		local node = entry.node
+		if entry.root_level and (node.type == "bold_heading" or node.type == "label") then
+			return allows("heading", 1)
+		end
+		return allows(node.type, node.level)
 	end
-	local set = {}
-	for _, k in ipairs(kinds) do
-		set[k] = true
-	end
-	return set
-end
-
-local function in_breadcrumb(node, kinds)
-	if not kinds then
-		return true
-	end
-	if node.type == "heading" then
-		return kinds.heading or (kinds.heading_1_2 and (node.level or 0) <= 2) or false
-	end
-	return kinds[node.type] or false
 end
 
 -- ---------------------------------------------------------------------------
 -- Tokenization
 -- ---------------------------------------------------------------------------
 
+local TOKEN_PREFIXES = {
+	{ "@@", "article" },
+	{ "#", "heading" },
+	{ ":", "label" },
+	{ "*", "bold_heading" },
+}
+
+-- Split a prompt into typed words. "\ " and "_" are spaces inside a word.
 local function tokenize(query)
 	local tokens = {}
-	for word in query:gmatch("%S+") do
-		if word:match("^#") then
-			table.insert(tokens, { type = "heading", text = word:sub(2):lower() })
-		elseif word:match("^:") then
-			table.insert(tokens, { type = "label", text = word:sub(2):lower() })
-		else
-			table.insert(tokens, { type = "general", text = word:lower() })
+	local escaped = (query or ""):gsub("\\ ", "\0")
+	for word in escaped:gmatch("%S+") do
+		word = word:gsub("%z", " "):gsub("_", " "):lower()
+		local kind = "general"
+		for _, pref in ipairs(TOKEN_PREFIXES) do
+			if word:sub(1, #pref[1]) == pref[1] then
+				kind = pref[2]
+				word = word:sub(#pref[1] + 1)
+				if kind == "heading" then
+					word = word:gsub("^#+", "")
+				end
+				break
+			end
 		end
+		tokens[#tokens + 1] = { type = kind, text = word }
 	end
 	return tokens
 end
@@ -159,10 +178,9 @@ local function make_section_display(entry)
 	local display_str = ""
 	local hl_table = {}
 	local first = true
-	local kinds = breadcrumb_kinds(entry.value.ntokens or 0)
 
 	for _, p_node in ipairs(node:get_full_path()) do
-		if p_node.type ~= "root" and (p_node == node or in_breadcrumb(p_node, kinds)) then
+		if p_node.type ~= "root" then
 			if not first then
 				local sep_start = #display_str
 				display_str = display_str .. " › "
@@ -315,6 +333,13 @@ function M.build_index(files)
 					return true
 				end)
 				for _, node in ipairs(nodes) do
+					local root_level = true
+					for _, anc in ipairs(node:ancestors()) do
+						if anc.type == "heading" then
+							root_level = false
+							break
+						end
+					end
 					local typed = {}
 					for _, p in ipairs(node:get_full_path()) do
 						if not p:is_root() then
@@ -330,6 +355,7 @@ function M.build_index(files)
 						filepath = filepath,
 						breadcrumb = node:get_breadcrumb(" › "),
 						path = typed,
+						root_level = root_level,
 					}
 				end
 
@@ -365,150 +391,162 @@ end
 -- ---------------------------------------------------------------------------
 
 -- ---------------------------------------------------------------------------
--- Ranking
---
--- Sections are ranked, not just matched. Sort key, most significant first:
---   1. tier   0 = every token matches the section's own name (or an article
---               alias), 1 = every token matches somewhere on its path,
---               2 = some words only occur in its content
---   2. level  structural level: article < H1 … H6 < bold heading < label
---   3. live notes before archived ones (z/archive.*, @Archive)
---   4. class  how the first token matches the section's own name:
---               0 = name starts with it, 1 = a word in the name starts with
---               it, 2 = inside a word, 3 = not in the name
---   5. depth  shorter paths first, then note order
--- So typing "p" lists articles whose name starts with P (Projects, or the
--- @@P alias) before other articles, articles before headings, and so on.
+-- Ordered path matching & scoring
 -- ---------------------------------------------------------------------------
 
--- 0 = prefix, 1 = word start, 2 = inside a word, nil = absent
-local function match_class(text, needle)
-	local s = text:find(needle, 1, true)
-	if not s then
+local TYPE_OK = {
+	general = function()
+		return true
+	end,
+	article = function(t)
+		return t == "article"
+	end,
+	heading = function(t)
+		return t == "heading"
+	end,
+	label = function(t)
+		return t == "label"
+	end,
+	bold_heading = function(t)
+		return t == "bold_heading"
+	end,
+}
+
+-- Quality of one word on one path element: exact 3, prefix 2, substring 1,
+-- 0 = no match. Article aliases count; a bare prefix ("@@") matches any
+-- element of its type.
+local function token_score(tok, el)
+	if not TYPE_OK[tok.type](el.type) then
+		return 0
+	end
+	if tok.text == "" then
+		return 1
+	end
+	local best = 0
+	for _, text in ipairs(el.texts or { el.text }) do
+		local q = 0
+		if text == tok.text then
+			q = 3
+		elseif text:sub(1, #tok.text) == tok.text then
+			q = 2
+		elseif text:find(tok.text, 1, true) then
+			q = 1
+		end
+		if q > best then
+			best = q
+		end
+	end
+	return best
+end
+
+-- Best total word quality for matching the words along `path` in order, with
+-- the LAST word on the last element (the section itself). Consecutive words
+-- may share an element. nil when there is no such match.
+-- best[j][i]: words 1..j matched, word j on element i.
+local function path_match(path, tokens)
+	local n, m = #path, #tokens
+	if n == 0 then
 		return nil
 	end
-	local best = 2
-	while s do
-		if s == 1 then
-			return 0
-		end
-		if text:sub(s - 1, s - 1):match("[^%w]") then
-			best = 1
-		end
-		s = text:find(needle, s + 1, true)
+	local prev = {}
+	for i = 1, n do
+		local q = token_score(tokens[1], path[i])
+		prev[i] = q > 0 and q or nil
 	end
-	return best
-end
-
--- Best class over a path element's name and aliases
-local function element_class(p, needle)
-	local best
-	for _, text in ipairs(p.texts or { p.text }) do
-		local c = match_class(text, needle)
-		if c and (not best or c < best) then
-			best = c
-		end
-	end
-	return best
-end
-
-local function type_ok(tok, p)
-	return tok.type == "general"
-		or (tok.type == "heading" and (p.type == "heading" or p.type == "bold_heading"))
-		or (tok.type == "label" and p.type == "label")
-end
-
-local function content_has(entry, lower_lines, needle)
-	for lnum = entry.node.start_line, entry.node.end_line do
-		local l = lower_lines[lnum]
-		if l and l:find(needle, 1, true) then
-			return true
-		end
-	end
-	return false
-end
-
--- Rank one pre-indexed section against the tokens; nil when it doesn't match.
--- Explicit #/: tokens MUST match structurally; general tokens may also match
--- anywhere in the section's content.
-local function rank_section(entry, tokens, lower_lines, archived)
-	local self_el = entry.path[#entry.path]
-	local tier, class = 0, nil
-
-	for i, tok in ipairs(tokens) do
-		local own = self_el and type_ok(tok, self_el) and element_class(self_el, tok.text)
-		if own then
-			if i == 1 then
-				class = own
+	for j = 2, m do
+		local cur, run = {}, nil -- run = best of prev[1..i]
+		for i = 1, n do
+			if prev[i] and (not run or prev[i] > run) then
+				run = prev[i]
 			end
-		else
-			local on_path = false
-			for _, p in ipairs(entry.path) do
-				if type_ok(tok, p) and element_class(p, tok.text) then
-					on_path = true
-					break
-				end
-			end
-			if on_path then
-				tier = math.max(tier, 1)
-			elseif tok.type == "general" and content_has(entry, lower_lines, tok.text) then
-				tier = 2
-			else
-				return nil
+			local q = token_score(tokens[j], path[i])
+			if run and q > 0 then
+				cur[i] = run + q
 			end
 		end
+		prev = cur
 	end
+	return prev[n]
+end
 
-	return {
-		tier = tier,
-		level = entry.node.level or 99,
-		class = class or 3,
-		archived = archived and 1 or 0,
-		depth = #entry.path,
+local function type_bonus(node)
+	if node.type == "article" then
+		return 2000
+	elseif node.type == "heading" then
+		return 1000 - (node.level or 1) * 50
+	elseif node.type == "bold_heading" then
+		return 400
+	elseif node.type == "label" then
+		return 300
+	end
+	return 0
+end
+
+local function section_result(sec, file, score, extra)
+	local r = {
+		result_type = "section",
+		filepath = sec.filepath,
+		node = sec.node,
+		breadcrumb = sec.breadcrumb,
+		score = score,
+		archived = file.archived,
 	}
+	for k, v in pairs(extra or {}) do
+		r[k] = v
+	end
+	return r
 end
 
-local function compare_ranks(a, b)
-	local ra, rb = a.rank_key, b.rank_key
-	if ra.tier ~= rb.tier then
-		return ra.tier < rb.tier
-	end
-	if ra.level ~= rb.level then
-		return ra.level < rb.level
-	end
-	if ra.archived ~= rb.archived then
-		return ra.archived < rb.archived
-	end
-	if ra.class ~= rb.class then
-		return ra.class < rb.class
-	end
-	if ra.depth ~= rb.depth then
-		return ra.depth < rb.depth
-	end
-	return a.order < b.order
-end
-
-local function match_sections(index, tokens, allowed)
-	local results = {}
+-- Section results, grouped by file (best file first, live before archived),
+-- in document order within a file.
+--   allowed(entry)    which sections may be results
+--   with_children     also list the direct sub-sections of each match
+local function match_sections(index, tokens, allowed, with_children)
+	local groups = {}
 	for _, file in ipairs(index) do
+		local results, best = {}, -math.huge
+		local matched = {} -- node -> score of explicit matches in this file
 		for _, sec in ipairs(file.sections) do
-			local rank_key = allowed(sec.node) and rank_section(sec, tokens, file.lower_lines, file.archived)
-			if rank_key then
-				results[#results + 1] = {
-					rank_key = rank_key,
-					order = #results + 1,
-					archived = file.archived,
-					result_type = "section",
-					filepath = sec.filepath,
-					node = sec.node,
-					breadcrumb = sec.breadcrumb,
-					ntokens = #tokens,
-				}
+			local node = sec.node
+			local score
+			if #tokens == 0 then
+				-- Empty prompt: top-level sections only
+				if #sec.path == 1 and allowed(sec) then
+					score = type_bonus(node)
+				end
+			elseif allowed(sec) then
+				local q = path_match(sec.path, tokens)
+				score = q and (q * 100 + type_bonus(node)) or nil
+			end
+
+			if score then
+				matched[node] = score
+				results[#results + 1] = section_result(sec, file, score)
+				best = math.max(best, score)
+			elseif with_children and #tokens > 0 and node.parent and matched[node.parent] then
+				results[#results + 1] = section_result(sec, file, matched[node.parent], { child = true })
 			end
 		end
+		if #results > 0 then
+			groups[#groups + 1] = { file = file, results = results, best = best }
+		end
 	end
-	table.sort(results, compare_ranks)
-	return results
+
+	table.sort(groups, function(a, b)
+		if a.file.archived ~= b.file.archived then
+			return not a.file.archived
+		end
+		if a.best ~= b.best then
+			return a.best > b.best
+		end
+		return a.results[1].filepath < b.results[1].filepath
+	end)
+
+	local out = {}
+	for _, g in ipairs(groups) do
+		vim.list_extend(out, g.results) -- already in document order
+	end
+	return out
 end
 
 -- AND match: every token must appear somewhere in the line.
@@ -541,10 +579,10 @@ local function match_lines(index, tokens)
 end
 
 -- Full query over a pre-built index.
---   "section" mode: structural matches (filtered by token_filters) ranked
---                   first, matching lines appended
---   "article" mode: only articles whose content matches every token
--- Results are capped at max_results.
+--   "section" mode: section matches (with their direct sub-sections), then
+--                   lines containing every word
+--   "article" mode: articles only
+-- Results are capped at max_results and numbered (`rank`) for the picker.
 ---@param opts { mode?: "section"|"article" }?
 function M.query_index(index, prompt, opts)
 	local c = cfg()
@@ -553,12 +591,12 @@ function M.query_index(index, prompt, opts)
 
 	local results
 	if mode == "article" then
-		results = match_sections(index, tokens, function(node)
-			return node.type == "article"
-		end)
+		results = match_sections(index, tokens, function(entry)
+			return entry.node.type == "article"
+		end, false)
 	else
-		-- Typed tokens (#heading, :label) are explicit structural queries and
-		-- search every depth; token_filters only shape untyped searches.
+		-- Typed words (#, :, *, @@) are explicit structural queries and may
+		-- match at any depth; token_filters only shape untyped searches.
 		local typed = false
 		for _, tok in ipairs(tokens) do
 			typed = typed or tok.type ~= "general"
@@ -566,7 +604,7 @@ function M.query_index(index, prompt, opts)
 		local allowed = typed and function()
 			return true
 		end or section_filter(#tokens)
-		results = match_sections(index, tokens, allowed)
+		results = match_sections(index, tokens, allowed, true)
 		vim.list_extend(results, match_lines(index, tokens))
 	end
 
@@ -585,13 +623,19 @@ end
 -- (build a throwaway index, then query — preserves the old signatures)
 -- ---------------------------------------------------------------------------
 
-function M.search_sections(files, tokens)
-	return match_sections(M.build_index(files), tokens, section_filter(#tokens))
+function M.search_sections(files, prompt)
+	local tokens = type(prompt) == "string" and tokenize(prompt) or prompt
+	return match_sections(M.build_index(files), tokens, section_filter(#tokens), true)
 end
 
-function M.search_lines(files, tokens)
+function M.search_lines(files, prompt)
+	local tokens = type(prompt) == "string" and tokenize(prompt) or prompt
 	return match_lines(M.build_index(files), tokens)
 end
+
+-- Exposed for tests
+M._tokenize = tokenize
+M._path_match = path_match
 
 -- =============================================================================
 -- Note Creation

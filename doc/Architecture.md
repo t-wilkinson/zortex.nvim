@@ -334,34 +334,54 @@ accepted.
 - Keys: `<CR>`/`<C-x>`/`<C-v>` open, `<C-l>` inserts the link, `<C-y>` yanks it,
   `<C-s>` cycles the sort, `<C-d>` shows/hides done projects, `<C-e>` leaf-only.
 
-**Structural search** (`ui/telescope/search.lua`): `setup(opts)` deep-merges
-`opts` over `Config.defaults.ui.search`. Calling `search.setup()` with no
-arguments resets to the defaults. The search uses these settings:
+**Structural search** (`ui/telescope/search.lua`) works like the original
+search service. Results are sections shown as **full breadcrumbs** of their
+hierarchy, followed by lines that contain every word.
+
+**Matching follows the path in order.** Search words are matched against a
+section's path (article → headings → … → the section itself):
+
+- earlier words match ancestors and the **last word matches the section
+  itself**; consecutive words may match the same section
+- `2 4` finds `1 › 2 › 3 › 4`, `2 › 4` and `2 › 3 › 4`, but not `4 › 2`, and
+  not `2 › 4 › 5` (`4` is not the section itself)
+- the best assignment of words to path parts is found exactly (a small dynamic
+  program), not greedily
+- the direct sub-sections of a match are listed under it
+
+| word | matches |
+|---|---|
+| `plain` | any section (article aliases count, so `p` matches `@@P`) |
+| `@@name` | articles only |
+| `#name` | headings only |
+| `:name` | labels only |
+| `*name` | bold headings only |
+| `@@`, `#`, … alone | any section of that type |
+| `a_b`, `a\ b` | a word containing a space |
+
+**Ranking.** Each match is scored, and the picker keeps that order (its sorter
+returns each result's rank and only borrows the fuzzy sorter's highlighter):
+
+- score = 100 × word quality (per word: exact 3, prefix 2, substring 1)
+  + type bonus (article 2000, heading 1000 − 50 × level, bold heading 400,
+  label 300)
+- **files are grouped**, best-scoring file first, live notes before archived
+  ones (shown with `(archive)`)
+- inside a file, results stay in **document order**, so parents sit above
+  their children
+
+So typing `p` lists the Projects file first (exact alias match on its
+article), with its sections in order, then the next best file.
+
+**Settings** (`setup(opts)` deep-merges `opts` over `Config.defaults.ui.search`;
+calling `search.setup()` with no arguments resets to the defaults):
 
 | option | effect |
 |---|---|
-| `default_mode` | `"section"`: structural matches, then matching lines. `"article"`: articles only. `<C-t>` toggles in the picker. |
+| `default_mode` | `"section"`: sections, then lines. `"article"`: article names only. `<C-t>` toggles in the picker. |
 | `max_results` | caps the results of each query |
-| `token_filters[n]` | section types eligible for a structural match when the prompt has `n` tokens (the last entry applies beyond). Typed tokens (`#…`, `:…`) bypass it. |
-| `breadcrumb_display` | which path parts are shown for 1 / 2 / 3+ tokens (`article`, `heading`, `heading_1_2`, `bold_heading`, `label`); the match itself is always shown |
-| `min_score`, `access_decay_rate`, `history` | reserved; nothing reads them yet |
-
-**Ranking.** The search orders results itself, and the picker keeps that order:
-its sorter returns each result's rank and only borrows the fuzzy sorter's
-highlighter. Section results are sorted by:
-
-1. **What matched.** Every word matches the section's own name (or an
-   article alias, so `p` matches `@@P`), then every word matches somewhere on
-   its path, then some words only appear in its content.
-2. **Hierarchy.** Article, then H1 to H6, then bold heading, then label.
-3. **Live before archived.** Archived notes stay searchable and are shown
-   with `(archive)`.
-4. **How the first word matches the name.** Start of the name, then start of
-   a word, then inside a word.
-5. **Shorter path, then note order.**
-
-Matching lines come after all section results. So typing `p` lists Projects
-first, then other articles containing "p", then headings.
+| `token_filters[n]` | section types that may be a result when the prompt has `n` words (the last entry applies beyond). Bold headings and labels above the first heading count as H1. Typed words bypass it. |
+| `breadcrumb_display`, `min_score`, `access_decay_rate`, `history` | reserved; nothing reads them yet (results always show the full breadcrumb) |
 
 Telescope is loaded lazily, so the plugin sets up without it. [Search.md](Search.md)
 is the fuller target spec; the table above is what is implemented.

@@ -5,9 +5,6 @@ local Events = require("zortex.core.event_bus")
 local workspace = require("zortex.core.workspace")
 local Logger = require("zortex.core.logger")
 
--- Services
-local PersistenceManager = require("zortex.stores.persistence_manager")
-
 -- =============================================================================
 -- System Initialization
 -- =============================================================================
@@ -37,9 +34,6 @@ function M.setup(opts)
 	-- require("zortex.services.xp.notifications").init()
 	-- require("zortex.services.xp.commands").setup()
 
-	-- Initialize persistence manager
-	PersistenceManager.setup(opts.core.persistence_manager)
-
 	stop_timer()
 end
 
@@ -52,7 +46,6 @@ function M.get_status()
 	return {
 		event_bus = Events.get_performance_report(),
 		workspace = {},
-		persistence = PersistenceManager.get_status(),
 	}
 end
 

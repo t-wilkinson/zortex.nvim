@@ -201,14 +201,8 @@ M.health = function()
 		vim.health.report_ok(string.format("Events active (%d events tracked)", event_count))
 	end
 
-	-- Check persistence
-	if status.persistence then
-		if status.persistence.initialized then
-			vim.health.report_ok("Persistence manager active")
-		else
-			vim.health.report_warn("Persistence manager not initialized")
-		end
-	end
+	-- State files
+	vim.health.report_info("State directory: " .. require("zortex.core.state").path(""):gsub("%.json$", ""))
 end
 
 M.debug = function()

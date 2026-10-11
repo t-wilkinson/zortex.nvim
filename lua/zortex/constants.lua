@@ -17,14 +17,8 @@ M.FILES = {
 	-- System library
 	SYSTEM_LIBRARY = ".z",
 
-	-- State files
-	XP_STATE_DATA = ".z/xp_state.json",
-	CALENDAR_STATE = ".z/calendar_state.json",
-	TIMER_STATE = ".z/timer_state.json",
-	NOTIFICATIONS_STATE = ".z/notifications_state.json",
-	LINK_INDEX = ".z/link_index.json",
-	SEARCH_HISTORY = ".z/search_history.json",
-	LOG = ".z/logs",
+	-- State files live in .z/<name>.json (core/state): link_index,
+	-- search_history, xp_state, notifications_state. Logs: .z/zortex.log
 }
 
 -- Section types

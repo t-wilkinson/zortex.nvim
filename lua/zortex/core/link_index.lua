@@ -20,9 +20,7 @@
 -- re-resolved. Refreshes are lazy (on query) and throttled.
 local M = {}
 
-local constants = require("zortex.constants")
 local parser = require("zortex.utils.parser")
-local fs = require("zortex.utils.filesystem")
 
 local VERSION = 2 -- bump when link extraction changes (forces a rebuild)
 local REFRESH_TTL_MS = 1000
@@ -42,9 +40,12 @@ local function Document()
 	return require("zortex.core.document")
 end
 
-local function index_path()
-	return fs.get_file_path(constants.FILES.LINK_INDEX)
-end
+local store = require("zortex.core.state").open("link_index", {
+	version = VERSION,
+	default = function()
+		return { files = {} }
+	end,
+})
 
 -- =============================================================================
 -- Persistence
@@ -52,19 +53,16 @@ end
 
 local function load_from_disk()
 	state.loaded = true
-	local data = fs.read_json(index_path())
-	if type(data) == "table" and data.version == VERSION and type(data.files) == "table" then
-		state.files = data.files
-	else
-		state.files = {}
-	end
+	store:reload()
+	state.files = store:get().files or {}
 end
 
 local function save_to_disk()
 	if not state.dirty then
 		return
 	end
-	fs.write_json(index_path(), { version = VERSION, files = state.files })
+	store:get().files = state.files
+	store:save()
 	state.dirty = false
 end
 

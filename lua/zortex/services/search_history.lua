@@ -16,39 +16,31 @@
 -- result's score, so frequently and recently opened places rank higher.
 local M = {}
 
-local constants = require("zortex.constants")
-local fs = require("zortex.utils.filesystem")
-
 local VERSION = 1
 local DAY = 86400
 local FILE_WEIGHT, SECTION_WEIGHT = 50, 30 -- score points per log-unit (match quality is 100/point)
 
-local state = { data = nil }
+local store = require("zortex.core.state").open("search_history", {
+	version = VERSION,
+	default = function()
+		return { files = {}, sections = {} }
+	end,
+})
 
 local function cfg()
 	local search = require("zortex.ui.telescope.search")
 	return (search.config or search.setup()) or {}
 end
 
-local function history_path()
-	return fs.get_file_path(constants.FILES.SEARCH_HISTORY)
-end
-
 local function data()
-	if not state.data then
-		local d = fs.read_json(history_path())
-		if type(d) ~= "table" or d.version ~= VERSION then
-			d = { version = VERSION, files = {}, sections = {} }
-		end
-		d.files = d.files or {}
-		d.sections = d.sections or {}
-		state.data = d
-	end
-	return state.data
+	local d = store:get()
+	d.files = d.files or {}
+	d.sections = d.sections or {}
+	return d
 end
 
 local function save()
-	fs.write_json(history_path(), data())
+	store:save()
 end
 
 local function decayed(entry, rate, now)
@@ -154,13 +146,12 @@ end
 
 --- Forget everything (memory and disk).
 function M.clear()
-	state.data = { version = VERSION, files = {}, sections = {} }
-	save()
+	store:reset()
 end
 
 -- Test hook: drop the in-memory copy (next read loads from disk)
 function M._reload()
-	state.data = nil
+	store:reload()
 end
 
 return M

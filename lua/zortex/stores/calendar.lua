@@ -107,11 +107,6 @@ function M.ensure_loaded()
 	end
 end
 
--- Edits are written immediately; kept for the persistence manager.
-function M.save()
-	return true
-end
-
 -- =============================================================================
 -- Line layout helpers
 -- =============================================================================

@@ -2,31 +2,30 @@
 local M = {}
 
 local Events = require("zortex.core.event_bus")
-local BaseStore = require("zortex.stores.base")
-local constants = require("zortex.constants")
+local State = require("zortex.core.state")
 
 -- Create the singleton store
-local store = BaseStore:new(constants.FILES.XP_STATE_DATA)
+local store = State.open("xp_state", {
+	version = 1,
+	default = function()
+		return {
+			-- Simple XP totals
+			season_xp = 0,
+			season_level = 1,
+			area_xp = {}, -- path -> total
+			-- project_xp = {}, -- name -> total
+
+			-- Transaction log for reversibility
+			xp_transactions = {}, -- id -> {type, amount, distributions, timestamp}
+
+			-- Season management
+			current_season = nil,
+			season_history = {},
+		}
+	end,
+})
 local cfg = {} -- Config.xp
 
--- Add to init_empty function:
-function store:init_empty()
-	self.data = {
-		-- Simple XP totals
-		season_xp = 0,
-		season_level = 1,
-		area_xp = {}, -- path -> total
-		-- project_xp = {}, -- name -> total
-
-		-- Transaction log for reversibility
-		xp_transactions = {}, -- id -> {type, amount, distributions, timestamp}
-
-		-- Season management
-		current_season = nil,
-		season_history = {},
-	}
-	self.loaded = true
-end
 
 -- =============================================================================
 -- XP Transactions
@@ -58,17 +57,15 @@ function M.build_xp_transaction(entity_type, entity_id, xp_amount, distributions
 end
 
 function M.get_xp_transaction(id)
-	store:ensure_loaded()
-	return store.data.xp_transactions[id]
+	return store:get().xp_transactions[id]
 end
 
 -- Transaction management
 function M.record_xp_transaction(transaction)
-	store:ensure_loaded()
 	local xp_change = 0
 
 	-- Remove transaction if exists
-	local old_transaction = store.data.xp_transactions[transaction.id]
+	local old_transaction = store:get().xp_transactions[transaction.id]
 	if old_transaction then
 		xp_change = xp_change - M.remove_xp_transaction(transaction.id).base_xp
 	end
@@ -77,17 +74,17 @@ function M.record_xp_transaction(transaction)
 	if transaction.base_xp == 0 then
 		return xp_change
 	end
-	store.data.xp_transactions[transaction.id] = transaction
+	store:get().xp_transactions[transaction.id] = transaction
 	xp_change = xp_change + transaction.base_xp
 
 	-- Update store total season xp and area xp
-	if store.data.current_season then
-		store.data.season_xp = store.data.season_xp + transaction.season_xp
+	if store:get().current_season then
+		store:get().season_xp = store:get().season_xp + transaction.season_xp
 		M.update_season_level()
 	end
 
 	for area_path, area_xp in pairs(transaction.area_xp) do
-		store.data.area_xp[area_path] = (store.data.area_xp[area_path] or 0) + area_xp
+		store:get().area_xp[area_path] = (store:get().area_xp[area_path] or 0) + area_xp
 	end
 
 	store:save()
@@ -96,25 +93,24 @@ function M.record_xp_transaction(transaction)
 end
 
 function M.remove_xp_transaction(id)
-	store:ensure_loaded()
-	local transaction = store.data.xp_transactions[id]
+	local transaction = store:get().xp_transactions[id]
 
 	if not transaction then
 		store:save()
 		return nil
 	end
 
-	if store.data.current_season then
-		local new_season_xp = store.data.season_xp - transaction.season_xp
-		store.data.season_xp = math.max(new_season_xp, 0)
+	if store:get().current_season then
+		local new_season_xp = store:get().season_xp - transaction.season_xp
+		store:get().season_xp = math.max(new_season_xp, 0)
 	end
 
 	for area_path, area_xp in pairs(transaction.area_xp) do
-		local new_area_xp = (store.data.area_xp[area_path] or 0) - area_xp
-		store.data.area_xp[area_path] = math.max(new_area_xp, 0)
+		local new_area_xp = (store:get().area_xp[area_path] or 0) - area_xp
+		store:get().area_xp[area_path] = math.max(new_area_xp, 0)
 	end
 
-	store.data.xp_transactions[id] = nil
+	store:get().xp_transactions[id] = nil
 	store:save()
 
 	return transaction
@@ -172,17 +168,17 @@ end
 
 -- Check for level ups
 function M.update_season_level()
-	if not store.data.current_season then
+	if not store:get().current_season then
 		return nil
 	end
 
 	-- Check for season level up
-	local old_level = store.data.season_level
-	local new_level = M.calculate_season_level(store.data.season_xp)
+	local old_level = store:get().season_level
+	local new_level = M.calculate_season_level(store:get().season_xp)
 
 	-- Update if level-up (for now don't change if level-down)
 	if new_level > old_level then
-		store.data.season_level = new_level
+		store:get().season_level = new_level
 		Events.emit("season:leveled_up", {
 			old_level = old_level,
 			new_level = new_level,
@@ -221,18 +217,17 @@ end
 -- =============================================================================
 
 function M.get_season_data()
-	store:ensure_loaded()
-	if not store.data.current_season then
+	if not store:get().current_season then
 		return nil
 	end
 
-	local xp = store.data.season_xp
-	local level = M.calculate_season_level(store.data.season_xp)
+	local xp = store:get().season_xp
+	local level = M.calculate_season_level(store:get().season_xp)
 	local tier_info = M.get_season_tier(level)
 	local progress = M.get_level_progress(xp, level, M.calculate_season_level_xp)
 
 	return {
-		season = store.data.current_season,
+		season = store:get().current_season,
 		xp = xp,
 		level = level,
 		current_tier = tier_info.current,
@@ -243,9 +238,8 @@ function M.get_season_data()
 end
 
 function M.start_season(name, end_date)
-	store:ensure_loaded()
 	M.reset_season()
-	store.data.current_season = {
+	store:get().current_season = {
 		name = name,
 		start_date = os.date("%Y-%m-%d"),
 		end_date = end_date,
@@ -260,23 +254,22 @@ function M.start_season(name, end_date)
 end
 
 function M.end_season()
-	store:ensure_loaded()
-	if not store.data.current_season then
+	if not store:get().current_season then
 		return nil
 	end
 
 	-- Archive season with source breakdown
 	local season_record = {
-		name = store.data.current_season.name,
-		start_date = store.data.current_season.start_date,
+		name = store:get().current_season.name,
+		start_date = store:get().current_season.start_date,
 		end_date = os.date("%Y-%m-%d"),
-		final_level = store.data.season_level,
-		final_xp = store.data.season_xp,
+		final_level = store:get().season_level,
+		final_xp = store:get().season_xp,
 
 		-- Move all transactions, include for target "area", as these were earned in this season
-		xp_transactions = vim.deepcopy(store.data.xp_transactions),
+		xp_transactions = vim.deepcopy(store:get().xp_transactions),
 	}
-	table.insert(store.data.season_history, season_record)
+	table.insert(store:get().season_history, season_record)
 
 	-- Reset season data
 	M.reset_season()
@@ -291,14 +284,13 @@ function M.end_season()
 end
 
 function M.reset_season()
-	store:ensure_loaded()
 
-	store.data.current_season = nil
-	store.data.season_xp = 0
-	store.data.season_level = 1
-	store.data.xp_transactions = {}
+	store:get().current_season = nil
+	store:get().season_xp = 0
+	store:get().season_level = 1
+	store:get().xp_transactions = {}
 
-	store:mark_dirty()
+	store:save()
 end
 -- =============================================================================
 -- Area Methods
@@ -316,8 +308,7 @@ function M.calculate_area_level(xp)
 end
 
 function M.get_area_xp(path)
-	store:ensure_loaded()
-	return store.data.area_xp[path] or nil
+	return store:get().area_xp[path] or nil
 end
 
 -- -- Get area statistics
@@ -376,8 +367,7 @@ end
 
 -- Force operations
 function M.reload()
-	store.loaded = false
-	store:load()
+	store:reload()
 end
 
 function M.save()

@@ -1,48 +1,39 @@
 -- stores/notifications.lua - Unified persistence for notification system
 local M = {}
 
-local BaseStore = require("zortex.stores.base")
-local constants = require("zortex.constants")
+local State = require("zortex.core.state")
 
-local store = BaseStore:new(constants.FILES.NOTIFICATIONS_STATE)
+local store = State.open("notifications_state", {
+	version = 1,
+	default = function()
+		return {
+			-- Unified notification state
+			notification_state = {
+				scheduled = {}, -- All scheduled notifications
+				sent = {}, -- Deduplication tracking
+			},
 
--- Override init_empty for the main store to define the data structure
-function store:init_empty()
-	self.data = {
-		-- Unified notification state
-		notification_state = {
-			scheduled = {}, -- All scheduled notifications
-			sent = {}, -- Deduplication tracking
-		},
+			-- Legacy/specific module state
+			pomodoro = {}, -- Pomodoro session state
+			digest = {}, -- Digest-related state
+		}
+	end,
+})
 
-		-- Legacy/specific module state
-		pomodoro = {}, -- Pomodoro session state
-		digest = {}, -- Digest-related state
-	}
-	self.loaded = true
-end
-
--- Load and migrate if needed
-function store:load()
-	local success = BaseStore.load(self)
-	return success
-end
 
 -- ===========================================================================
 -- Notification State
 -- ===========================================================================
 
 function M.get_notification_state()
-	store:ensure_loaded()
-	return store.data.notification_state or {
+	return store:get().notification_state or {
 		scheduled = {},
 		sent = {},
 	}
 end
 
 function M.save_notification_state(state_data)
-	store:ensure_loaded()
-	store.data.notification_state = state_data
+	store:get().notification_state = state_data
 	return store:save()
 end
 
@@ -51,13 +42,11 @@ end
 -- ===========================================================================
 
 function M.get_pomodoro()
-	store:ensure_loaded()
-	return store.data.pomodoro
+	return store:get().pomodoro
 end
 
 function M.save_pomodoro(pomodoro_data)
-	store:ensure_loaded()
-	store.data.pomodoro = pomodoro_data
+	store:get().pomodoro = pomodoro_data
 	return store:save()
 end
 
@@ -66,17 +55,15 @@ end
 -- ===========================================================================
 
 function M.get_digest_state()
-	store:ensure_loaded()
-	return store.data.digest or {}
+	return store:get().digest or {}
 end
 
 function M.update_digest_state(digest_data)
-	store:ensure_loaded()
-	if not store.data.digest then
-		store.data.digest = {}
+	if not store:get().digest then
+		store:get().digest = {}
 	end
 	for k, v in pairs(digest_data) do
-		store.data.digest[k] = v
+		store:get().digest[k] = v
 	end
 	return store:save()
 end
@@ -143,8 +130,7 @@ end
 -- ===========================================================================
 
 function M.reload()
-	store.loaded = false
-	store:load()
+	store:reload()
 end
 
 function M.save()

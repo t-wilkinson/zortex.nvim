@@ -16,14 +16,6 @@ local defaults = {
 	},
 
 	core = {
-		persistence_manager = {
-			enabled = true,
-			save_interval = 5000, -- 5 seconds
-			save_on_exit = true,
-			save_on_events = true,
-			batch_saves = true,
-		},
-
 		logger = {
 			enabled = false,
 			log_events = false,

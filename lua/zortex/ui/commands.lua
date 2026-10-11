@@ -233,13 +233,6 @@ function M.setup(prefix)
 		api.debug()
 	end, { desc = "Show Zortex system status" })
 
-	cmd("SaveStores", function()
-		local persistence_manager = require("zortex.stores.persistence_manager")
-		local results = persistence_manager.save_all()
-		vim.notify(string.format("Saved %d stores", #results.saved), vim.log.levels.INFO)
-	end, { desc = "Force save all stores" })
-
-	-- Create user commands
 	cmd("Digest", function()
 		api.digest.open()
 	end, { desc = "Open daily digest" })

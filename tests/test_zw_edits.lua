@@ -93,7 +93,7 @@ T.test("edits go to a loaded buffer (unsaved), and the store sees them", functio
 	calendar.load()
 end)
 
-T.test("save() no longer rewrites the calendar", function()
-	calendar.save()
+T.test("loading the calendar never rewrites it", function()
+	calendar.load()
 	T.eq(fs.read_lines(cal_path), original)
 end)

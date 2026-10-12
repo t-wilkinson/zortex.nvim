@@ -37,7 +37,8 @@ in place:
 12. **Actions as data:** commands, keymaps, `:ZortexHelp` and the README table come from one list (`actions.lua`); `require("zortex")` exposes every service.
 13. **A headless test suite:** 214 Lua tests plus the server's Python tests, no dependencies.
 14. **A Go port** of the grammar, notes index, link resolver and search
-    (`app/`), held to the Lua behaviour by generated fixtures.
+    (`app/`), held to the Lua behaviour by generated fixtures, and the
+    **notes web app** on top of it (`zortex serve`, `services.zortex.web`).
 
 ## Commits
 
@@ -60,6 +61,7 @@ in place:
 | Go grammar | `app/syntax` ports `core/syntax` and passes every AST fixture; `zortex parse`/`sections`; `nix build .#zortex`. |
 | Dashboard file viewer | The Notes tab browses every file in the folder; PDFs, images, media and text open in the browser (ranges, sandboxed HTML/SVG). |
 | Link module; calendar split; patterns | `utils/parser` + `utils/link_resolver` → `core/link` (buffer-side following stays in `features/links`); calendar entries are Items (`services/calendar_entry` + `format`); `ui/calendar/view` split into `view`, `render`, `keys`; `constants.PATTERNS` removed; fixes below. |
+| Notes web app | `zortex serve` (`app/web`): rendered notes with resolved links and backlinks, live structural search, file browser and viewer, tags, broken links, JSON API; polling rescans with background rebuilds; notes index scanned mode and header catalog (resolving 64k links went from minutes to ~2 s); `services.zortex.web` in the NixOS module (hardened unit, `GOMEMLIMIT`). |
 | Go resolver and search | `app/notes`, `app/links`, `app/search`; `tests/gen_links.lua` writes `resolve.json` and `search.json`, checked by `test_links` and the Go tests; `zortex resolve`/`search`; search uses the notes index's file order. |
 
 ## New modules
@@ -88,6 +90,7 @@ in place:
 | `ui/calendar/render.lua`, `ui/calendar/keys.lua` | Calendar view content and keys (split out of `view.lua`). |
 | `tests/gen_links.lua`, `tests/fixtures/resolve.json`, `search.json` | Resolver and search conformance fixtures and their generator. |
 | `app/syntax`, `app/notes`, `app/links`, `app/search`, `app/cmd/zortex` | Go port: grammar, notes index, resolver, search, CLI. |
+| `app/web` | The notes web app (`zortex serve`). |
 | `services/projects/init.lua` | Projects registry, `query`, `tasks`, `update_progress`. |
 | `services/projects/project.lua` | `Project` class (tasks, stats, rollup, points, relations). |
 | `services/projects/score.lua` | Scoring and sort comparators (moved out of the picker). |

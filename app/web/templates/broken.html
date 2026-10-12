@@ -1,0 +1,15 @@
+{{define "content"}}
+<section class="narrow wide">
+  <h1>Broken links</h1>
+  {{if .Broken}}
+  <table class="listing">
+    <thead><tr><th>Link</th><th>In</th><th>Why</th></tr></thead>
+    <tbody>
+    {{range .Broken}}
+    <tr><td><code>[{{.Def}}]</code></td><td><a href="{{noteURL .From .Lnum}}">{{.From}}:{{.Lnum}}</a></td><td class="dim">{{.Err}}</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}<p>Every link resolves.</p>{{end}}
+</section>
+{{end}}

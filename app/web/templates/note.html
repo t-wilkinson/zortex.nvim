@@ -1,0 +1,44 @@
+{{define "content"}}
+<div class="note-layout">
+  <aside class="toc" aria-label="Outline">
+    {{if .TOC}}
+    <h2>Outline</h2>
+    <ol>
+      {{range .TOC}}<li style="--depth:{{.Depth}}"><a href="#L{{.Lnum}}">{{.Text}}</a></li>{{end}}
+    </ol>
+    {{end}}
+    {{if .BackCount}}<p class="toc-back"><a href="#backlinks">{{.BackCount}} backlink{{if ne .BackCount 1}}s{{end}}</a></p>{{end}}
+  </aside>
+  <article class="note">
+    <nav class="crumbs">{{range $i, $c := .Crumbs}}{{if $i}}<span>/</span>{{end}}<a href="{{$c.URL}}">{{$c.Name}}</a>{{end}}</nav>
+    <header class="note-head">
+      <h1>{{.Title}}</h1>
+      <p class="meta">
+        {{range .Aliases}}<span class="alias">@@{{.}}</span>{{end}}
+        {{range .Tags}}<a class="tag" href="{{u "/tag/"}}{{.}}">@{{.}}</a>{{end}}
+        {{if .Archived}}<span class="archived">archived</span>{{end}}
+        <span class="dim">changed {{ago .ModTime}}</span>
+        <a class="dim" href="{{.Raw}}">raw</a>
+      </p>
+    </header>
+    <div class="body">{{.Body}}</div>
+    <section class="backlinks" id="backlinks">
+      <h2>Linked from</h2>
+      {{if .Backlinks}}
+      {{range .Backlinks}}
+      <div class="back-group">
+        <h3><a href="{{noteURL .From 0}}">{{.Title}}</a> <span class="dim">{{.From}}</span></h3>
+        <ul>
+          {{range .Links}}
+          <li><a href="{{noteURL .From .Lnum}}"><span class="bc">{{.Breadcrumb}}</span><span class="src">{{.Line}}</span></a></li>
+          {{end}}
+        </ul>
+      </div>
+      {{end}}
+      {{else}}
+      <p class="dim">No other note links here.</p>
+      {{end}}
+    </section>
+  </article>
+</div>
+{{end}}

@@ -1,0 +1,24 @@
+{{define "content"}}
+<section class="home">
+  <form class="big-search" action="{{u "/search"}}" method="get" role="search">
+    <input type="search" name="q" placeholder="Search sections and lines: proj zortex, #habits, @@okr, :notes" aria-label="Search notes" autofocus autocomplete="off">
+  </form>
+  <div class="cols">
+    {{if .Special}}
+    <div class="panel">
+      <h2>Notes</h2>
+      <ul class="plain">
+        {{range .Special}}<li><a href="{{noteURL . 0}}">{{title .}}</a> <span class="dim">{{.}}</span></li>{{end}}
+      </ul>
+    </div>
+    {{end}}
+    <div class="panel">
+      <h2>Recently changed</h2>
+      <ul class="plain">
+        {{range .Recent}}<li><a href="{{noteURL .Rel 0}}">{{.Title}}</a> <span class="dim">{{dir .Rel}}</span> <span class="when">{{ago .ModTime}}</span></li>{{end}}
+      </ul>
+    </div>
+  </div>
+  <p class="stats dim">{{.Notes}} notes · {{.Links}} links · <a href="{{u "/broken"}}">{{.Broken}} broken</a> · <a href="{{u "/tags"}}">{{.Tags}} tags</a> · indexed {{ago .Built}}</p>
+</section>
+{{end}}

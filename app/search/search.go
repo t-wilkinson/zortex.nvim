@@ -61,16 +61,18 @@ type section struct {
 	rootLevel  bool // no heading above it
 }
 
+// line is a searchable (non-structural, non-blank) line; its text is
+// file.text[lnum-1]. lower is the same string when the line has no
+// uppercase letters, so most lines cost no copy.
 type line struct {
-	rel   string
-	lnum  int
-	text  string
+	lnum  int32
 	lower string
 }
 
 type file struct {
 	rel      string
 	archived bool
+	text     []string // the note's lines (shared with the Document)
 	sections []section
 	lines    []line
 }
@@ -88,7 +90,7 @@ func Build(ix *notes.Index, rels []string) *Index {
 		if doc == nil || doc.HasTag("Ignore") {
 			continue
 		}
-		f := file{rel: rel, archived: ix.IsArchived(rel)}
+		f := file{rel: rel, archived: ix.IsArchived(rel), text: doc.Lines}
 		structural := map[int]bool{}
 		for _, n := range doc.Sections() {
 			structural[n.Start] = true
@@ -112,7 +114,7 @@ func Build(ix *notes.Index, rels []string) *Index {
 		for i, text := range doc.Lines {
 			lnum := i + 1
 			if !structural[lnum] && syntax.Trim(text) != "" {
-				f.lines = append(f.lines, line{rel: rel, lnum: lnum, text: text, lower: syntax.Lower(text)})
+				f.lines = append(f.lines, line{lnum: int32(lnum), lower: syntax.Lower(text)})
 			}
 		}
 		out.files = append(out.files, f)
@@ -374,7 +376,7 @@ func matchLines(idx *Index, tokens []Token) []Result {
 				}
 			}
 			if all {
-				out = append(out, Result{Type: "line", Rel: ln.rel, Lnum: ln.lnum, Line: ln.text, Archived: f.archived})
+				out = append(out, Result{Type: "line", Rel: f.rel, Lnum: int(ln.lnum), Line: f.text[ln.lnum-1], Archived: f.archived})
 			}
 		}
 	}

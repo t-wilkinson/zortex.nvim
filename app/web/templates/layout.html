@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{if .Title}}{{.Title}} · {{end}}{{.Site}}</title>
+<link rel="stylesheet" href="{{u "/static/style.css"}}">
+<link rel="icon" href="{{u "/static/icon.svg"}}" type="image/svg+xml">
+<script src="{{u "/static/app.js"}}" defer></script>
+</head>
+<body data-base="{{.Base}}">
+<header class="top">
+  <a class="brand" href="{{u "/"}}">{{.Site}}</a>
+  <form class="quick" action="{{u "/search"}}" method="get" role="search">
+    <input type="search" name="q" value="{{.Query}}" placeholder="Search notes  ( / )" aria-label="Search notes" autocomplete="off" id="quick">
+  </form>
+  <nav class="links">
+    <a href="{{fileURL ""}}">Files</a>
+    <a href="{{u "/tags"}}">Tags</a>
+    <a href="{{u "/broken"}}">Broken</a>
+  </nav>
+</header>
+<main>
+{{block "content" .}}{{end}}
+</main>
+</body>
+</html>

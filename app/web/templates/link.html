@@ -1,0 +1,17 @@
+{{define "content"}}
+<section class="narrow">
+  <h1 class="linkdef">[{{.Def}}]</h1>
+  {{if .From}}<p class="dim">from <a href="{{noteURL .From 0}}">{{.From}}</a></p>{{end}}
+  {{if .Error}}
+  <p class="error">{{.Error}}</p>
+  <p><a href="{{u "/search"}}?q={{.Def}}">Search for it instead</a></p>
+  {{else}}
+  <p>{{len .Targets}} matches; the first is where the link goes.</p>
+  <ol class="targets">
+    {{range .Targets}}
+    <li><a href="{{noteURL .Rel .Lnum}}"><strong>{{.Title}}</strong>{{if .Breadcrumb}} <span class="bc">{{.Breadcrumb}}</span>{{end}}</a><div class="src">{{.Line}}</div><div class="dim">{{.Rel}}:{{.Lnum}}</div></li>
+    {{end}}
+  </ol>
+  {{end}}
+</section>
+{{end}}

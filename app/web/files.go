@@ -1,0 +1,311 @@
+package web
+
+import (
+	"io"
+	"mime"
+	"net/http"
+	"os"
+	"path"
+	"path/filepath"
+	"sort"
+	"strings"
+	"time"
+	"unicode/utf8"
+)
+
+// The file browser lists every file in the notes folder, like the
+// dashboard's Notes tab: hidden folders (.z, .git, .stversions) and
+// Syncthing artefacts are never shown, and at the top level only the
+// special notes (Config.Special) unless ?all=1.
+
+var extraTypes = map[string]string{
+	".pdf": "application/pdf", ".epub": "application/epub+zip", ".md": "text/markdown",
+	".markdown": "text/markdown", ".org": "text/plain", ".txt": "text/plain", ".log": "text/plain",
+	".csv": "text/csv", ".tsv": "text/tab-separated-values", ".json": "application/json",
+	".yaml": "text/plain", ".yml": "text/plain", ".toml": "text/plain", ".lua": "text/plain",
+	".py": "text/plain", ".go": "text/plain", ".rs": "text/plain", ".sh": "text/plain",
+	".nix": "text/plain", ".tex": "text/plain", ".bib": "text/plain", ".zortex": "text/plain",
+	".webp": "image/webp", ".avif": "image/avif", ".heic": "image/heic", ".svg": "image/svg+xml",
+	".mp4": "video/mp4", ".m4v": "video/mp4", ".webm": "video/webm", ".mkv": "video/x-matroska",
+	".mov": "video/quicktime", ".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".ogg": "audio/ogg",
+	".opus": "audio/ogg", ".flac": "audio/flac", ".wav": "audio/wav",
+	".html": "text/html", ".htm": "text/html", ".xml": "application/xml",
+	".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif",
+}
+
+func mimeOf(name string) string {
+	ext := strings.ToLower(filepath.Ext(name))
+	if t, ok := extraTypes[ext]; ok {
+		return t
+	}
+	if t := mime.TypeByExtension(ext); t != "" {
+		return t
+	}
+	return "application/octet-stream"
+}
+
+// viewKind: how the viewer shows a file.
+func viewKind(mimeType string) string {
+	base := strings.SplitN(mimeType, ";", 2)[0]
+	switch {
+	case base == "application/pdf":
+		return "pdf"
+	case base == "text/html" || base == "image/svg+xml":
+		return "html" // sandboxed frame
+	case strings.HasPrefix(base, "image/"):
+		return "image"
+	case strings.HasPrefix(base, "video/"):
+		return "video"
+	case strings.HasPrefix(base, "audio/"):
+		return "audio"
+	case strings.HasPrefix(base, "text/"), base == "application/json", base == "application/xml":
+		return "text"
+	}
+	return "other"
+}
+
+// activeType: served with a sandbox CSP so it can't run script on our origin.
+func activeType(mimeType string) bool {
+	base := strings.SplitN(mimeType, ";", 2)[0]
+	return base == "text/html" || base == "image/svg+xml" || base == "application/xml" ||
+		base == "text/xml" || strings.Contains(base, "javascript")
+}
+
+func isSyncArtifact(name string) bool {
+	return strings.HasPrefix(name, ".syncthing.") || strings.Contains(name, ".sync-conflict-") ||
+		strings.HasSuffix(name, ".tmp") || strings.HasPrefix(name, "~syncthing~")
+}
+
+// entry is a row of a folder listing.
+type entry struct {
+	Name    string
+	Rel     string
+	Dir     bool
+	Note    bool
+	Title   string // note title (article name) or file name
+	Size    int64
+	ModTime time.Time
+	Kind    string
+	Hidden  bool // top-level note not in Special (shown with ?all=1)
+}
+
+// resolvePath maps a rel path to an absolute path inside the folder,
+// refusing anything (including symlinks) that leads outside it.
+func (s *Server) resolvePath(rel string) (string, os.FileInfo, bool) {
+	rel, ok := cleanRel(rel)
+	if !ok {
+		return "", nil, false
+	}
+	p := s.ix.Path(rel)
+	real, err := filepath.EvalSymlinks(p)
+	if err != nil {
+		return "", nil, false
+	}
+	root, err := filepath.EvalSymlinks(s.ix.Root)
+	if err != nil {
+		return "", nil, false
+	}
+	if real != root && !strings.HasPrefix(real, root+string(filepath.Separator)) {
+		return "", nil, false
+	}
+	st, err := os.Stat(real)
+	if err != nil {
+		return "", nil, false
+	}
+	return real, st, true
+}
+
+func (s *Server) listDir(rel string, all bool) ([]entry, int, error) {
+	abs, _, ok := s.resolvePath(rel)
+	if !ok {
+		return nil, 0, os.ErrNotExist
+	}
+	des, err := os.ReadDir(abs)
+	if err != nil {
+		return nil, 0, err
+	}
+	var out []entry
+	hidden := 0
+	for _, de := range des {
+		name := de.Name()
+		if strings.HasPrefix(name, ".") || isSyncArtifact(name) {
+			continue
+		}
+		erel := name
+		if rel != "" {
+			erel = rel + "/" + name
+		}
+		info, err := de.Info()
+		if err != nil {
+			continue
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			if _, st, ok := s.resolvePath(erel); ok {
+				info = st
+			} else {
+				continue
+			}
+		}
+		e := entry{Name: name, Rel: erel, Dir: info.IsDir(), Size: info.Size(), ModTime: info.ModTime(), Title: name}
+		if !e.Dir {
+			e.Note = s.isNote(name)
+			e.Kind = viewKind(mimeOf(name))
+			if e.Note {
+				e.Kind = "note"
+				if d := s.ix.Doc(erel); d != nil {
+					e.Title = d.Title()
+				}
+			}
+			if rel == "" && !s.isSpecial(erel) {
+				e.Hidden = true
+				hidden++
+				if !all {
+					continue
+				}
+			}
+		}
+		out = append(out, e)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		a, b := out[i], out[j]
+		if a.Dir != b.Dir {
+			return a.Dir
+		}
+		return strings.ToLower(a.Name) < strings.ToLower(b.Name)
+	})
+	return out, hidden, nil
+}
+
+// crumb is a breadcrumb link.
+type crumb struct {
+	Name string
+	URL  string
+}
+
+func (s *Server) crumbs(rel string) []crumb {
+	out := []crumb{{Name: "notes", URL: s.fileURL("")}}
+	if rel == "" {
+		return out
+	}
+	parts := strings.Split(rel, "/")
+	for i := range parts {
+		out = append(out, crumb{Name: parts[i], URL: s.fileURL(strings.Join(parts[:i+1], "/"))})
+	}
+	return out
+}
+
+func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
+	rel, ok := cleanRel(r.PathValue("rel"))
+	if !ok {
+		s.notFound(w, r, "No such file")
+		return
+	}
+	_, st, ok := s.resolvePath(rel)
+	if !ok {
+		s.notFound(w, r, "No such file: "+rel)
+		return
+	}
+	if !st.IsDir() {
+		if s.isNote(rel) {
+			http.Redirect(w, r, s.noteURL(rel, 0), http.StatusFound)
+			return
+		}
+		s.fileView(w, r, rel, st)
+		return
+	}
+	all := r.URL.Query().Get("all") == "1"
+	entries, hidden, err := s.listDir(rel, all)
+	if err != nil {
+		s.notFound(w, r, "Can't read folder: "+rel)
+		return
+	}
+	title := "notes"
+	if rel != "" {
+		title = path.Base(rel)
+	}
+	s.render(w, r, "files", http.StatusOK, map[string]any{
+		"Title":   title,
+		"Rel":     rel,
+		"Crumbs":  s.crumbs(rel),
+		"Entries": entries,
+		"Hidden":  hidden,
+		"All":     all,
+		"Root":    rel == "",
+	})
+}
+
+const maxTextView = 1 << 20
+
+func (s *Server) fileView(w http.ResponseWriter, r *http.Request, rel string, st os.FileInfo) {
+	mt := mimeOf(rel)
+	data := map[string]any{
+		"Title":   path.Base(rel),
+		"Rel":     rel,
+		"Crumbs":  s.crumbs(rel),
+		"Kind":    viewKind(mt),
+		"Mime":    mt,
+		"Size":    st.Size(),
+		"ModTime": st.ModTime(),
+		"Raw":     s.rawURL(rel),
+	}
+	if data["Kind"] == "text" {
+		abs, _, _ := s.resolvePath(rel)
+		if f, err := os.Open(abs); err == nil {
+			buf, _ := io.ReadAll(io.LimitReader(f, maxTextView+1))
+			f.Close()
+			data["Truncated"] = len(buf) > maxTextView
+			if len(buf) > maxTextView {
+				buf = buf[:maxTextView]
+			}
+			data["Text"] = strings.ToValidUTF8(string(buf), string(utf8.RuneError))
+		}
+	}
+	s.render(w, r, "file", http.StatusOK, data)
+}
+
+// handleRaw serves a file as is: ranges and conditional requests (video,
+// PDFs), ?download=1 for an attachment, and a sandbox CSP for types that
+// could run script.
+func (s *Server) handleRaw(w http.ResponseWriter, r *http.Request) {
+	rel, ok := cleanRel(r.PathValue("rel"))
+	abs, st, found := s.resolvePath(rel)
+	if !ok || !found || st.IsDir() {
+		http.NotFound(w, r)
+		return
+	}
+	f, err := os.Open(abs)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	defer f.Close()
+	mt := mimeOf(rel)
+	if strings.HasPrefix(mt, "text/") && !strings.Contains(mt, "charset") {
+		mt += "; charset=utf-8"
+	}
+	h := w.Header()
+	h.Set("Content-Type", mt)
+	h.Set("Cache-Control", "private, max-age=0, must-revalidate")
+	if activeType(mt) {
+		h.Set("Content-Security-Policy", "sandbox")
+	}
+	disp := "inline"
+	if r.URL.Query().Get("download") == "1" {
+		disp = "attachment"
+	}
+	h.Set("Content-Disposition", disp+`; filename*=UTF-8''`+urlPathEscape(path.Base(rel)))
+	http.ServeContent(w, r, path.Base(rel), st.ModTime(), f)
+}
+
+func urlPathEscape(s string) string {
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || strings.IndexByte("-._~", c) >= 0 {
+			b.WriteByte(c)
+		} else {
+			b.WriteString("%" + strings.ToUpper(string("0123456789abcdef"[c>>4])+string("0123456789abcdef"[c&15])))
+		}
+	}
+	return b.String()
+}

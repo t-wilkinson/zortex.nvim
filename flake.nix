@@ -1,5 +1,5 @@
 {
-  description = "Zortex Notification Server Flake";
+  description = "Zortex: Neovim plugin, notes web app and notification server";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -24,7 +24,7 @@
         in
         {
           default = pkgs.callPackage ./nix/package.nix { };
-          # Go parser/CLI (app/cmd/zortex)
+          # Go CLI and notes web app (app/cmd/zortex: `zortex serve`)
           zortex = pkgs.callPackage ./nix/zortex.nix { };
         }
       );

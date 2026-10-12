@@ -283,9 +283,13 @@ z.syntax.parse(lines, { inline = true })  -- the grammar itself
 - [doc/Projects.md](doc/Projects.md): projects and areas reference
 - [doc/Changes.md](doc/Changes.md): what the `projects-api` branch changed,
   and migration notes
-- [doc/Wishlist.md](doc/Wishlist.md): planned features and the web app plan
-- Tests: `nvim --headless -u NONE -l tests/run.lua`; Go parser:
-  `go -C app test ./...`; server: `python3 -m unittest app/test_notes.py`
+- [doc/Wishlist.md](doc/Wishlist.md): planned features and ideas
+- [app/README.md](app/README.md): the notes web app (`zortex serve`: rendered
+  notes, links, backlinks, search, file browser) and the notification server,
+  with the NixOS module (`services.zortex`)
+- Tests: `nvim --headless -u NONE -l tests/run.lua`; Go (parser, resolver,
+  search, web app): `go -C app test ./...`; notification server:
+  `python3 -m unittest app/test_notes.py`
 
 ## XP Overview
 

@@ -273,14 +273,15 @@ two resolvers in sync becomes the main cost, **D** is the natural next step;
    conformance fixture, including `edge.zortex` (hand-picked corner cases)
    and `random.zortex` (600 lines of shuffled syntax fragments). `zortex
    parse` / `zortex sections` expose it; `nix/zortex.nix` builds it.
-2. **Index and navigation:** notes index, folder views, rendered notes (no
-   link resolution yet), file watching, the Nix package and module.
-3. **Links and search — ported:** `app/notes` (notes index, documents,
-   section trees), `app/links` (the resolver) and `app/search` (structural
-   search) agree with the plugin on `tests/fixtures/resolve.json` (73 links)
-   and `search.json` (31 prompts); `zortex resolve` / `zortex search` expose
-   them. Still to do: the web pages that use them, backlinks, search
-   history.
+2. **Index and navigation — done:** `zortex serve` (`app/web`): rendered
+   notes, file browser and viewer, rescans on a timer (polling instead of
+   fsnotify: no dependency, and it works the same on Syncthing folders),
+   `services.zortex.web` in the NixOS module. See [app/README](../app/README.md).
+3. **Links and search — done:** `app/notes`, `app/links` and `app/search`
+   agree with the plugin on `tests/fixtures/resolve.json` (73 links) and
+   `search.json` (31 prompts); the web app resolves links while rendering,
+   shows backlinks, broken links and tags, and has a live search page.
+   Still to do: search history (kept apart from `.z/search_history.json`).
 4. **Domain views:** projects, OKR, calendar, review and area overview, using
    the `zortex.query` shapes.
 

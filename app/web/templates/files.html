@@ -1,0 +1,22 @@
+{{define "content"}}
+<section class="narrow wide">
+  <nav class="crumbs">{{range $i, $c := .Crumbs}}{{if $i}}<span>/</span>{{end}}<a href="{{$c.URL}}">{{$c.Name}}</a>{{end}}</nav>
+  {{if and .Root .Hidden}}
+  <p class="dim toggle">{{if .All}}Showing every top-level file. <a href="{{fileURL ""}}">Only the main notes</a>{{else}}{{.Hidden}} other top-level files hidden. <a href="{{fileURL ""}}?all=1">Show all</a>{{end}}</p>
+  {{end}}
+  <table class="listing">
+    <thead><tr><th>Name</th><th class="num">Size</th><th>Changed</th></tr></thead>
+    <tbody>
+    {{range .Entries}}
+    <tr class="{{if .Dir}}dir{{else}}{{.Kind}}{{end}}{{if .Hidden}} extra{{end}}">
+      <td><a href="{{if .Note}}{{noteURL .Rel 0}}{{else}}{{fileURL .Rel}}{{end}}"><span class="ico" aria-hidden="true"></span>{{if .Dir}}{{.Name}}/{{else if .Note}}{{.Title}}{{if ne .Title (base .Rel)}} <span class="dim">{{.Name}}</span>{{end}}{{else}}{{.Name}}{{end}}</a></td>
+      <td class="num">{{if not .Dir}}{{size .Size}}{{end}}</td>
+      <td class="when">{{ago .ModTime}}</td>
+    </tr>
+    {{else}}
+    <tr><td colspan="3" class="dim">Empty folder</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+</section>
+{{end}}

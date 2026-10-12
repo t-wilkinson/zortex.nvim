@@ -1,0 +1,10 @@
+{{define "content"}}
+<section class="search-page">
+  <form class="big-search" action="{{u "/search"}}" method="get" role="search" id="search-form">
+    <input type="search" name="q" value="{{.Query}}" placeholder="Words match a section path in order: proj zortex search" aria-label="Search notes" autofocus autocomplete="off" id="search-input">
+    <label class="mode"><input type="checkbox" name="mode" value="article" {{if eq .Mode "article"}}checked{{end}}> articles only</label>
+  </form>
+  <p class="help dim">Earlier words match parent sections, the last word the section itself. Prefixes: <code>@@</code> article, <code>#</code> heading, <code>:</code> label, <code>*</code> bold. <code>_</code> or <code>\ </code> joins words. Lines containing every word come after the sections.</p>
+  <div id="results">{{template "results" .}}</div>
+</section>
+{{end}}

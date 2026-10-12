@@ -1,0 +1,10 @@
+{{define "content"}}
+<section class="narrow">
+  <h1>Tags</h1>
+  {{if .Tags}}
+  <ul class="tag-cloud">
+    {{range .Tags}}<li><a class="tag" href="{{u "/tag/"}}{{.Name}}">@{{.Name}}</a> <span class="dim">{{len .Notes}}</span></li>{{end}}
+  </ul>
+  {{else}}<p class="dim">No note has header tags.</p>{{end}}
+</section>
+{{end}}

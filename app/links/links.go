@@ -413,19 +413,34 @@ func Resolve(ix *notes.Index, link string, opts Options) ([]Result, error) {
 	}
 
 	var cands []candidate
+	var cat *notes.Catalog
+	include := false
+	// whole: cands is still every (included) note, so header components can
+	// use the catalog's lookups instead of checking each note
+	whole := false
 	if def.Local {
 		if opts.From == nil {
 			return nil, errors.New("No buffer to resolve a local link in")
 		}
 		cands = []candidate{{rel: opts.From.Rel, doc: opts.From}}
 	} else {
-		include := mentionsArchive(def)
+		include = mentionsArchive(def)
 		if opts.IncludeArchived != nil {
 			include = *opts.IncludeArchived
 		}
-		for _, rel := range ix.Files(include) {
-			cands = append(cands, candidate{rel: rel})
+		cat = ix.Catalog()
+		whole = true // cands is built from the catalog only if needed
+	}
+	included := func(rels []string) []candidate {
+		var out []candidate
+		for _, rel := range rels {
+			if include || !cat.IsArchived(rel) {
+				if d := ix.Doc(rel); d != nil {
+					out = append(out, candidate{rel: rel, doc: d})
+				}
+			}
 		}
+		return out
 	}
 	load := func(c *candidate) *notes.Document {
 		if c.doc == nil {
@@ -437,6 +452,51 @@ func Resolve(ix *notes.Index, link string, opts Options) ([]Result, error) {
 	var results []Result
 	for i, comp := range def.Components {
 		last := i == len(def.Components)-1
+
+		// Header components on every note: straight from the catalog
+		if whole && (comp.Type == "article" || comp.Type == "tag") {
+			var kept []candidate
+			if comp.Type == "article" {
+				kept = included(cat.WithName(comp.Text))
+				named := map[string]bool{}
+				for _, c := range kept {
+					named[c.rel] = true
+				}
+				for _, c := range included(cat.WithTag(comp.Text)) {
+					if !named[c.rel] {
+						kept = append(kept, c)
+					}
+				}
+				if len(kept) == 0 {
+					return nil, errors.New("No article found: " + comp.Text)
+				}
+			} else {
+				kept = included(cat.WithTag(comp.Text))
+			}
+			if len(kept) > 0 {
+				whole = false
+				cands = kept
+				if last {
+					for _, c := range cands {
+						lnum := c.doc.Header().NameLnum
+						if lnum == 0 {
+							lnum = 1
+						}
+						results = append(results, Result{Doc: c.doc, Lnum: lnum, Col: 1, Component: comp})
+					}
+				}
+				continue
+			}
+			// a tag no note carries: a line search for "@tag" (below)
+		}
+		if whole {
+			files := cat.Files(include)
+			cands = make([]candidate, len(files))
+			for k, rel := range files {
+				cands[k] = candidate{rel: rel}
+			}
+			whole = false
+		}
 
 		// Article and header-tag components select whole files
 		var selectFile func(h syntax.Header) bool

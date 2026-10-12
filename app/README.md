@@ -1,16 +1,83 @@
 # Zortex app
 
-The server side of Zortex: a small Flask + SQLite service with
+The server side of Zortex, in two independent parts:
 
-- the **notification API** (the plugin pushes calendar notifications; a cron
-  job / systemd timer sends them to ntfy),
-- a **dashboard** with a **Calendar** tab (scheduled notifications) and a
-  **Notes** tab: search and browse a synced zortex folder (read-only).
+- **`zortex serve`** (Go, this folder's Go module): the notes web app.
+  Rendered notes with working links and backlinks, structural search, a
+  browser for every file in the folder (PDFs, images, media, text), tags
+  and broken links. Read-only, one static binary, no dependencies.
+- **The notification server** (Flask + SQLite): the notification API (the
+  plugin pushes calendar notifications; a systemd timer sends them to ntfy)
+  and a dashboard with a Calendar tab and a simpler Notes tab.
 
-It replaces the old Node app, now in [`../legacy`](../legacy). A Go version is
-planned ([doc/Wishlist.md](../doc/Wishlist.md)).
+It replaces the old Node app, now in [`../legacy`](../legacy).
 
-## Notes tab
+## Web app: `zortex serve`
+
+```sh
+go -C app run ./cmd/zortex serve -dir ~/notes            # http://127.0.0.1:8090/
+nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
+```
+
+| page | what |
+|---|---|
+| `/` | search box, the main notes (`-special`), recently changed notes, counts |
+| `/n/<path>` | a rendered note: outline, every line anchored (`#L12`), links resolved with the plugin's rules (to the canonical target; `⁺` when there are more), broken links in red, file paths and markdown links to the file viewer, "Linked from" (backlinks) |
+| `/search?q=` | structural search, the plugin's ranking: sections whose path matches the words in order, then lines with every word; results update as you type, `↑`/`↓` + Enter, `/` focuses search anywhere |
+| `/link?to=&from=` | resolve a link: one target redirects, several are listed, failures say why |
+| `/f/<path>` | file browser (top level: the main notes unless "show all"; hidden folders and Syncthing artefacts never) and viewer: PDF, image, video, audio (with seeking), text, sandboxed HTML/SVG |
+| `/raw/<path>` | the file as is: byte ranges, `?download=1`; HTML/SVG/XML with `Content-Security-Policy: sandbox`; nothing outside the folder, no hidden files |
+| `/tags`, `/tag/<name>` | header tags and their notes |
+| `/broken` | links that don't resolve |
+| `/api/search?q=`, `/api/resolve?to=&from=`, `/api/backlinks?rel=` | JSON |
+| `/healthz` | counts and last index time |
+
+Flags (each also an environment variable): `-dir` (`ZORTEX_NOTES_DIR`),
+`-addr` (`ZORTEX_ADDR`, default `127.0.0.1:8090`), `-base` (`ZORTEX_BASE`:
+the URL prefix when a proxy serves it below `/`, e.g. `/notes`), `-title`
+(`ZORTEX_TITLE`), `-poll` (`ZORTEX_POLL`, default `10s`), `-special`
+(`ZORTEX_SPECIAL`, default `calendar,structure,projects,areas,okr`).
+
+**How it stays light.** The folder is read once at start and rescanned every
+`-poll`. A rescan re-parses only files whose modification time or size
+changed; when anything changed, the search index, backlinks, tags and broken
+links are rebuilt in the background and swapped in. Notes keep their text,
+section tree and a compact per-line summary; a page re-parses the one note it
+shows. Measured on 2,000 generated notes (16 MB, 64,000 links): first index
+about 2 s, rebuild about 2.5 s, search 30–60 ms, a note page 5 ms, about
+120 MB resident with `GOMEMLIMIT=120MiB` (a typical folder is far smaller).
+There is no login: bind to localhost and put a proxy with authentication in
+front.
+
+### NixOS
+
+```nix
+{
+  imports = [ zortex.nixosModules.default ];
+  services.zortex = {
+    notesDir = "/var/lib/syncthing/zortex";
+    notesGroup = "syncthing";        # read access to the synced folder
+    web = {
+      enable = true;                 # zortex-web.service on 127.0.0.1:8090
+      # basePath = "/notes";         # when proxied below "/"
+      # pollInterval = "30s";
+      # memoryLimit = "96MiB";       # GOMEMLIMIT (default 128MiB)
+    };
+    enable = true;                   # the notification server (optional)
+  };
+
+  services.nginx.virtualHosts."notes.home.lab" = {
+    locations."/".proxyPass = "http://127.0.0.1:8090";
+    basicAuthFile = "/run/secrets/notes-htpasswd";
+  };
+}
+```
+
+`zortex-web` runs as the `zortex` user with read-only access to `notesDir`
+and the usual systemd hardening (read-only system and home, no
+capabilities, no new privileges, a system call filter).
+
+## Notes tab (notification server)
 
 Set `NOTES_DIR` to the synced notes folder (Docker: mount it read-only at
 `/notes`, see `docker-compose.yml`; NixOS: `services.zortex.notesDir`, plus
@@ -39,24 +106,27 @@ Set `NOTES_DIR` to the synced notes folder (Docker: mount it read-only at
   dashboard's origin.
 - Tests: `python3 -m unittest app/test_notes.py`.
 
-## Go
+## Go packages
 
-`app/` is also a Go module (`github.com/t-wilkinson/zortex.nvim/app`), the
-start of the Go version of the app:
+`app/` is a Go module (`github.com/t-wilkinson/zortex.nvim/app`):
 
 - `syntax/`: the Zortex grammar, a port of `lua/zortex/core/syntax.lua`.
   `go test ./...` checks it against every fixture in `../tests/fixtures/ast`,
   which the Lua parser generates; both must agree byte for byte in their JSON.
 - `notes/`: a notes folder: which files are notes, archived or not, parsed
-  documents (cached by mtime and size) and section trees.
+  documents (cached by mtime and size) and section trees. Live mode reads
+  the disk on every call (the CLI); after `Scan` it serves the last scan
+  (the server), with a `Catalog` of names, tags and archived notes.
 - `links/`: the link resolver (`Resolve`, `ResolveFirst`, `Parse`), checked
   against `../tests/fixtures/resolve.json`.
 - `search/`: the structural search (`Build`, `Query`), checked against
   `../tests/fixtures/search.json`. Search history boosts are not ported.
+- `web/`: the web app (handlers, note rendering, file browser); templates
+  and static files are embedded. `web_test.go` runs it over the fixtures.
 - `cmd/zortex`: `zortex parse [-pretty] FILE...` (AST as JSON),
   `zortex sections FILE...` (outline), `zortex resolve [-from REL] LINK...`,
-  `zortex search [-mode article] PROMPT...`, `zortex version`. `-dir`
-  defaults to `$ZORTEX_NOTES_DIR`, then the current folder.
+  `zortex search [-mode article] PROMPT...`, `zortex serve`, `zortex version`.
+  `-dir` defaults to `$ZORTEX_NOTES_DIR`, then the current folder.
 - Nix: `nix build .#zortex`.
 
 ## Notifications

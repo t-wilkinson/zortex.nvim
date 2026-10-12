@@ -1,0 +1,24 @@
+{{define "results"}}
+{{if .Groups}}
+<p class="count dim">{{.Total}} result{{if ne .Total 1}}s{{end}}{{if lt .Shown .Total}} (showing {{.Shown}}){{end}}</p>
+<ol class="results">
+  {{range .Groups}}
+  {{$rel := .Rel}}
+  <li class="group{{if .Archived}} archived{{end}}">
+    <div class="file"><a href="{{noteURL .Rel 0}}">{{.Title}}</a> <span class="dim">{{.Rel}}</span>{{if .Archived}} <span class="archived">archived</span>{{end}}</div>
+    <ul>
+      {{range .Items}}
+      {{if .Line}}
+      <li class="hit line"><a href="{{noteURL $rel .Lnum}}"><span class="lnum">{{.Lnum}}</span><span class="text">{{.Text}}</span></a></li>
+      {{else}}
+      <li class="hit section{{if .Child}} child{{end}}"><a href="{{noteURL $rel .Lnum}}">{{range .Crumbs}}<span class="crumb">{{.}}</span>{{end}}<span class="name">{{.Name}}</span></a></li>
+      {{end}}
+      {{end}}
+    </ul>
+  </li>
+  {{end}}
+</ol>
+{{else if .Query}}
+<p class="empty">Nothing matches <strong>{{.Query}}</strong>.</p>
+{{end}}
+{{end}}

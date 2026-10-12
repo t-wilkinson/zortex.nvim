@@ -34,10 +34,21 @@ func TestConformance(t *testing.T) {
 	if len(cases) < 50 {
 		t.Fatalf("expected the resolve fixtures, found %d cases", len(cases))
 	}
-	ix, err := notes.Open("../../tests/fixtures/notes", ".zortex")
+	live, err := notes.Open("../../tests/fixtures/notes", ".zortex")
 	if err != nil {
 		t.Fatal(err)
 	}
+	scanned, _ := notes.Open("../../tests/fixtures/notes", ".zortex")
+	scanned.Scan()
+	for _, mode := range []struct {
+		name string
+		ix   *notes.Index
+	}{{"live", live}, {"scanned", scanned}} {
+		t.Run(mode.name, func(t *testing.T) { conform(t, mode.ix, cases) })
+	}
+}
+
+func conform(t *testing.T, ix *notes.Index, cases []resolveCase) {
 	for _, c := range cases {
 		name := c.Link
 		if c.From != "" {

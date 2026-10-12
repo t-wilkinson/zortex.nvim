@@ -51,6 +51,7 @@ let
     "-base"
     web.basePath
   ]
+  ++ optionals web.writable [ "-writable" ]
   ++ optionals (web.resourceExtensions != null) [
     "-resources"
     (concatStringsSep "," web.resourceExtensions)
@@ -224,6 +225,18 @@ in
         '';
       };
 
+      writable = mkOption {
+        type = types.bool;
+        default = false;
+        description = ''
+          Let the web app edit notes: toggle tasks, edit, add and remove
+          lines, add to inbox.zortex. notesDir must be writable by the
+          service (use notesGroup with a group-writable folder, e.g. the
+          Syncthing group). Edits are line-level and refused when the note
+          changed since the page was loaded.
+        '';
+      };
+
       openFirewall = mkOption {
         type = types.bool;
         default = false;
@@ -286,8 +299,10 @@ in
         # Read-only notes, writable state, nothing else
         StateDirectory = mkIf (cfg.dataDir == "/var/lib/zortex") "zortex";
         StateDirectoryMode = "0750";
-        ReadWritePaths = optional (cfg.dataDir != "/var/lib/zortex") (toString cfg.dataDir);
-        ReadOnlyPaths = optional (cfg.notesDir != null) (toString cfg.notesDir);
+        ReadWritePaths =
+          optional (cfg.dataDir != "/var/lib/zortex") (toString cfg.dataDir)
+          ++ optional (cfg.notesDir != null && web.writable) (toString cfg.notesDir);
+        ReadOnlyPaths = optional (cfg.notesDir != null && !web.writable) (toString cfg.notesDir);
         ProtectSystem = "strict";
         # notesDir may live in a home directory (a Syncthing user's)
         ProtectHome = "read-only";
@@ -319,7 +334,8 @@ in
           "@system-service"
           "~@privileged"
         ];
-        UMask = "0077";
+        # writable notes stay group-writable so Syncthing can keep syncing them
+        UMask = if web.writable then "0007" else "0077";
       };
     };
 

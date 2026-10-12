@@ -177,6 +177,24 @@ function M.init(opts)
 		end,
 		desc = "Zortex: update XP",
 	})
+	-- Notes changed elsewhere (tasks completed in the web app, Syncthing):
+	-- reload open notes and count their XP when you come back to Neovim.
+	vim.api.nvim_create_autocmd({ "FocusGained", "VimResume" }, {
+		group = group,
+		callback = function()
+			pcall(vim.cmd, "silent! checktime")
+			M.schedule_refresh(500)
+		end,
+		desc = "Zortex: pick up notes changed elsewhere",
+	})
+	vim.api.nvim_create_autocmd("FileChangedShellPost", {
+		group = group,
+		pattern = "*" .. ext,
+		callback = function()
+			M.schedule_refresh(300)
+		end,
+		desc = "Zortex: update XP after a note changed on disk",
+	})
 	-- learn the current totals without announcing them
 	vim.defer_fn(function()
 		pcall(M.refresh)

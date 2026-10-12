@@ -90,6 +90,19 @@ about 2 s, rebuild about 2.5 s, search 30–60 ms, a note page 5 ms, about
 There is no login: bind to localhost and put a proxy with authentication in
 front.
 
+**Editing (`-writable`, `ZORTEX_WRITABLE=1`; NixOS `web.writable`).** Note
+pages get clickable checkboxes and an Edit mode (tap a line: To-do · Done ·
+Plain · Edit text · Add below · Delete); the home page checks off calendar
+tasks and adds tasks and notes to `inbox.zortex`. Edits are single lines,
+refused when the note changed since the page loaded, and written
+atomically (through a `.syncthing.*.tmp` file Syncthing ignores). Task
+edits match Neovim's exactly: `app/edit` is tested against
+`tests/fixtures/edits.json`, which `tests/gen_edits.lua` writes from the
+plugin's `tasks.edit_line`. XP isn't computed on the server: Neovim counts
+completed tasks from their `@done` dates when it next runs (it reloads
+changed notes on focus), and until then the home page shows how many web
+completions are waiting.
+
 State flags (with `-data`): `-data` (`ZORTEX_DATA_DIR`, or systemd's
 `STATE_DIRECTORY`), `-ntfy-url` (`NTFY_SERVER_URL`), `-ntfy-topic`
 (`NTFY_TOPIC`), `-ntfy-token` (`NTFY_AUTH_TOKEN`) or `-ntfy-token-file`,
@@ -139,6 +152,8 @@ the usual systemd hardening.
 | `POST /api/pomodoro/{start,pause,resume,toggle,skip,stop,restart}` | drive the clock |
 | `GET /api/xp` | the XP summary Neovim published (season, daily XP, areas, recent awards), or `{"available": false}` |
 | `POST /api/xp` | Neovim publishes it after every XP change (`X-API-Key` when set); it also writes `.z/xp_summary.json` into the notes folder, and the newer of the two is shown |
+| `POST /api/edit` | `-writable` only: `{rel, lnum, expect, op, text?, kind?}` with `op` `open` / `done` / `toggle` / `text` (task state, exactly as Neovim's toggle: `@done(today)`, an `@id`), `set` (new text after the line's marker; `@id`/`@done` kept), `delete`, `insert` (after `lnum`; `kind` `task` / `note` / `text`). `expect` is the line as the page saw it: if the note changed since, nothing is written and the reply is 409 with the current note |
+| `POST /api/inbox` | `-writable` only: `{text, kind: "task" \| "note"}` appended to `inbox.zortex` (created when missing) |
 | `POST /api/pomodoro/settings` | `{work, short_break, long_break, long_break_after, auto_start_break, auto_start_work}` (minutes; partial updates are fine) |
 
 `/notify`, `/pending` and `/test` require `X-API-Key` when `-api-key` is set.

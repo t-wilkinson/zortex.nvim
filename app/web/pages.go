@@ -206,6 +206,7 @@ func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 		"HasCalendar":    calRel != "" || s.alerts != nil,
 		"CalendarRel":    calRel,
 		"HasState":       s.alerts != nil,
+		"Writable":       s.cfg.Writable,
 		"Structure":      snap.structure,
 		"StructureShown": shown,
 		"Special":        special,
@@ -271,6 +272,8 @@ func (s *Server) renderNotePage(w http.ResponseWriter, r *http.Request, rel, nav
 		"Raw":       s.rawURL(rel),
 		"Folder":    s.fileURL(path.Dir(rel)),
 		"Structure": side,
+		"Writable":  s.cfg.Writable,
+		"Src":       s.editorData(doc.Lines),
 		"NavTab":    nav,
 	})
 }

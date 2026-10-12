@@ -60,6 +60,9 @@ type Config struct {
 	SendInterval time.Duration
 	// Calendar is the calendar note (default "calendar" + Ext).
 	Calendar string
+	// Writable lets the web app edit notes: toggle tasks, edit, add and
+	// remove lines, add to the inbox (see edit.go). Off: read-only.
+	Writable bool
 	// ResourceExts: extensions of the files tracked as resources (backlinks,
 	// unlinked list); nil: DefaultResourceExts.
 	ResourceExts []string
@@ -87,6 +90,9 @@ type Server struct {
 	sender *alerts.Sender  // nil without DataDir
 	pomo   *pomodoro.Clock // nil without DataDir
 	xp     xpCache         // XP summary published by Neovim
+
+	editMu      sync.Mutex    // one edit at a time
+	completions completionLog // tasks completed on the web, until Neovim counts them
 }
 
 // Backlink is a link in one note (or Markdown file) to a line of another
@@ -368,6 +374,9 @@ func (s *Server) Handler() http.Handler {
 	// XP summary published by Neovim (the ledger lives there)
 	mux.HandleFunc("GET /api/xp", s.apiXP)
 	mux.HandleFunc("POST /api/xp", s.apiXPPost)
+	// editing notes (-writable)
+	mux.HandleFunc("POST /api/edit", s.apiEdit)
+	mux.HandleFunc("POST /api/inbox", s.apiInbox)
 	mux.Handle("GET /static/", s.cacheStatic(s.static))
 	var h http.Handler = mux
 	if base := s.cfg.Base; base != "" {

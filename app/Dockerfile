@@ -17,6 +17,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
 COPY server.py notes.py ./
+# the theme shared with the notes web app (served at /static/)
+COPY web/static/style.css web/static/icon.svg ./web/static/
 COPY entrypoint.sh .
 COPY crontab /etc/cron.d/notification-cron
 

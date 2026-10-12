@@ -142,7 +142,13 @@ class RoutesTest(unittest.TestCase):
         self.assertEqual(client.get("/api/notes/search?q=rust").get_json()["notes"][0]["title"], "Rust")
         self.assertEqual(client.get("/api/notes/file?path=z/rust.zortex").get_json()["lines"][2]["kind"], "heading")
         self.assertEqual(client.get("/api/notes/file?path=../x.zortex").status_code, 404)
-        self.assertIn(b"notes-tab", client.get("/").data)
+        page = client.get("/").data
+        self.assertNotIn(b"notes-tab", page)  # the notes UI is the web app now
+        self.assertIn(b'<a href="/" aria-current="page">Calendar</a>', page)
+        self.assertNotIn(b">Files</a>", page)  # no NOTES_URL: no notes tabs
+        self.assertEqual(client.get("/static/style.css").status_code, 200)
+        self.assertEqual(client.get("/static/server.py").status_code, 404)
+        self.assertEqual(client.get("/api/summary").get_json()["status"], "ok")
 
         # other files: metadata, raw content with ranges, downloads, sandboxing
         info = client.get("/api/notes/file?path=z/paper.pdf").get_json()
@@ -162,6 +168,28 @@ class RoutesTest(unittest.TestCase):
         self.assertTrue(r.content_type.startswith("text/plain"))
         tmp.cleanup()
         dbdir.cleanup()
+
+    def test_shared_nav(self):
+        try:
+            import flask  # noqa: F401
+        except ImportError:
+            self.skipTest("flask not installed")
+        dbdir = tempfile.TemporaryDirectory()
+        os.environ["DATABASE_PATH"] = os.path.join(dbdir.name, "n.db")
+        os.environ["NOTES_URL"] = "/notes"
+        import importlib
+        import server
+
+        try:
+            importlib.reload(server)
+            server.init_database()
+            page = server.app.test_client().get("/").data
+            for link in (b'href="/notes/f/">Files', b'href="/notes/tags">Tags', b'href="/notes/broken">Broken',
+                         b'action="/notes/search"', b'class="brand" href="/notes/"'):
+                self.assertIn(link, page)
+        finally:
+            del os.environ["NOTES_URL"]
+            dbdir.cleanup()
 
 
 if __name__ == "__main__":

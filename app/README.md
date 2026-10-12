@@ -8,7 +8,13 @@ The server side of Zortex, in two independent parts:
   and broken links. Read-only, one static binary, no dependencies.
 - **The notification server** (Flask + SQLite): the notification API (the
   plugin pushes calendar notifications; a systemd timer sends them to ntfy)
-  and a dashboard with a Calendar tab and a simpler Notes tab.
+  and the **Calendar** page.
+
+The two look and navigate as one site: the Calendar page uses the web app's
+stylesheet (`web/static/style.css`, served by both) and the same top bar
+(notes search, Files · Tags · Broken · Calendar). Each needs the other's
+URL: `zortex serve -calendar URL` and the server's `NOTES_URL`; the NixOS
+module sets both when the web app runs under a `basePath` on the same host.
 
 It replaces the old Node app, now in [`../legacy`](../legacy).
 
@@ -36,7 +42,8 @@ Flags (each also an environment variable): `-dir` (`ZORTEX_NOTES_DIR`),
 `-addr` (`ZORTEX_ADDR`, default `127.0.0.1:8090`), `-base` (`ZORTEX_BASE`:
 the URL prefix when a proxy serves it below `/`, e.g. `/notes`), `-title`
 (`ZORTEX_TITLE`), `-poll` (`ZORTEX_POLL`, default `10s`), `-special`
-(`ZORTEX_SPECIAL`, default `calendar,structure,projects,areas,okr`).
+(`ZORTEX_SPECIAL`, default `calendar,structure,projects,areas,okr`),
+`-calendar` (`ZORTEX_CALENDAR_URL`: the Calendar tab's link, e.g. `/`).
 
 **How it stays light.** The folder is read once at start and rescanned every
 `-poll`. A rescan re-parses only files whose modification time or size
@@ -75,7 +82,9 @@ front.
 
 The web app and the notification server are separate services on separate
 ports (8090 and 5000): a proxy entry for the dashboard doesn't reach the web
-app. To serve both on one host, give the web app a prefix and route it:
+app. To serve both on one host, give the web app a prefix and route it (the
+module then links the two top bars: `web.calendarUrl = "/"`, `notesUrl =
+"/notes"`; with separate domains, set those two options to the full URLs):
 
 ```nix
 services.zortex.web.basePath = "/notes";
@@ -89,33 +98,17 @@ services.nginx.virtualHosts."zortex.home.lab".locations = {
 and the usual systemd hardening (read-only system and home, no
 capabilities, no new privileges, a system call filter).
 
-## Notes tab (notification server)
+## Notes API (notification server)
 
-Set `NOTES_DIR` to the synced notes folder (Docker: mount it read-only at
-`/notes`, see `docker-compose.yml`; NixOS: `services.zortex.notesDir`, plus
-`notesGroup = "syncthing"` for read access).
+The dashboard's Notes tab is gone: the web app replaces it, and the
+Calendar page links to it. With `NOTES_DIR` set (NixOS:
+`services.zortex.notesDir`), the server still answers the read-only JSON
+endpoints for other tools:
 
-- **Search** matches every word against note names, aliases, tags and paths
-  (exact, prefix, substring, like the plugin; archived notes last), then lists
-  lines containing every word. Other files match by name, folder and
-  extension (`pdf papers`).
-- **Other files** (PDFs, images, video, audio, text, …) are listed next to
-  the notes and open in the viewer: PDFs in the browser's PDF viewer, images,
-  `<video>`/`<audio>` (with seeking), text files up to 2 MB inline; anything
-  else gets open/download links. Untick "other files" to see notes only.
-- **Browse** the folder tree; open a note to read it with basic highlighting;
-  links like `/#notes/z/rust.zortex:12` open a note at a line.
-- **Hidden by default:** top-level files other than the special notes (`NOTES_SPECIAL`, default `calendar,structure,projects,areas,okr`; tick
-  "all top-level notes" to see them), hidden folders (`.z`, `.stversions`,
-  …) and Syncthing temp/conflict files. Nothing is ever written to the folder.
-- JSON: `GET /api/notes/tree?all=0&files=1`,
-  `/api/notes/search?q=…&all=0&files=1&limit=50`,
-  `/api/notes/file?path=z/rust.zortex` (a note's lines, or a file's metadata).
-- Raw files: `GET /api/notes/raw?path=z/papers/x.pdf` (`&download=1` to
-  save). Served with their MIME type and byte ranges; only files inside the
-  folder (no `..`, no symlinks out, no hidden files); HTML/SVG/XML are served
-  with `Content-Security-Policy: sandbox` so they can't run script on the
-  dashboard's origin.
+- `GET /api/notes/tree?all=0&files=1`, `/api/notes/search?q=…&all=0&files=1&limit=50`,
+  `/api/notes/file?path=z/rust.zortex` (a note's lines, or a file's metadata)
+- `GET /api/notes/raw?path=z/papers/x.pdf` (`&download=1`): byte ranges, only
+  files inside the folder, HTML/SVG/XML with `Content-Security-Policy: sandbox`
 - Tests: `python3 -m unittest app/test_notes.py`.
 
 ## Go packages

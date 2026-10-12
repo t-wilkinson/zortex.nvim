@@ -15,9 +15,10 @@
     <input type="search" name="q" value="{{.Query}}" placeholder="Search notes  ( / )" aria-label="Search notes" autocomplete="off" id="quick">
   </form>
   <nav class="links">
-    <a href="{{fileURL ""}}">Files</a>
-    <a href="{{u "/tags"}}">Tags</a>
-    <a href="{{u "/broken"}}">Broken</a>
+    <a href="{{fileURL ""}}"{{if eq .Nav "files"}} aria-current="page"{{end}}>Files</a>
+    <a href="{{u "/tags"}}"{{if eq .Nav "tags"}} aria-current="page"{{end}}>Tags</a>
+    <a href="{{u "/broken"}}"{{if eq .Nav "broken"}} aria-current="page"{{end}}>Broken</a>
+    {{if .Calendar}}<a href="{{.Calendar}}">Calendar</a>{{end}}
   </nav>
 </header>
 <main>

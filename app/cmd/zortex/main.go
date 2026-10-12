@@ -39,7 +39,7 @@ func usage() {
   zortex sections FILE...
   zortex resolve [-dir DIR] [-from REL] LINK...
   zortex search [-dir DIR] [-mode section|article] [-n N] PROMPT...
-  zortex serve [-dir DIR] [-addr HOST:PORT] [-base /PREFIX] [-title T] [-poll D] [-special a,b]
+  zortex serve [-dir DIR] [-addr HOST:PORT] [-base /PREFIX] [-title T] [-poll D] [-special a,b] [-calendar URL]
   zortex version`)
 	os.Exit(2)
 }
@@ -135,6 +135,7 @@ func serveCmd(args []string) {
 	title := fs.String("title", envOr("ZORTEX_TITLE", "Zortex"), "site title ($ZORTEX_TITLE)")
 	poll := fs.Duration("poll", 10*time.Second, "how often to rescan the folder (negative: never)")
 	special := fs.String("special", envOr("ZORTEX_SPECIAL", strings.Join(web.DefaultSpecial, ",")), "top-level notes listed by default ($ZORTEX_SPECIAL)")
+	calendar := fs.String("calendar", os.Getenv("ZORTEX_CALENDAR_URL"), "URL of the notification server's calendar, shown as the Calendar tab ($ZORTEX_CALENDAR_URL)")
 	_ = fs.Parse(args)
 	if v := os.Getenv("ZORTEX_POLL"); v != "" && !flagSet(fs, "poll") {
 		if d, err := time.ParseDuration(v); err == nil {
@@ -144,12 +145,13 @@ func serveCmd(args []string) {
 
 	logger := log.New(os.Stderr, "", log.LstdFlags)
 	srv, err := web.New(web.Config{
-		Root:    *dir,
-		Title:   *title,
-		Base:    *base,
-		Poll:    *poll,
-		Special: strings.Split(*special, ","),
-		Logger:  logger,
+		Root:        *dir,
+		Title:       *title,
+		Base:        *base,
+		Poll:        *poll,
+		Special:     strings.Split(*special, ","),
+		CalendarURL: *calendar,
+		Logger:      logger,
 	})
 	if err != nil {
 		logger.Fatal(err)

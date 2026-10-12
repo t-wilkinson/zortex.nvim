@@ -28,8 +28,11 @@ pkgs.stdenv.mkDerivation {
     mkdir -p $out/bin
     mkdir -p $out/libexec
 
-    # Install the server script
+    # Install the server script, and the theme it shares with the notes web
+    # app (served at /static/; server.py finds it next to itself)
     cp server.py notes.py $out/libexec/
+    mkdir -p $out/libexec/web/static
+    cp web/static/style.css web/static/icon.svg $out/libexec/web/static/
 
     # Create an executable wrapper for the server
     makeWrapper ${pythonEnv}/bin/python $out/bin/zortex-server \

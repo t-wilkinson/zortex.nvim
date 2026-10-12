@@ -8,6 +8,7 @@ from datetime import datetime, timezone, timedelta
 from itertools import groupby
 from flask import Flask, request, jsonify, render_template_string, send_file
 from contextlib import contextmanager
+from html import escape as html_escape
 from zoneinfo import ZoneInfo
 
 from notes import NotesIndex, classify, guess_mime, DEFAULT_SPECIAL
@@ -29,6 +30,16 @@ try:
     LOCAL_TZ = ZoneInfo(TZ_NAME)
 except Exception:
     LOCAL_TZ = timezone.utc
+
+# The notes web app (zortex serve): its URL as the browser sees it, e.g.
+# "/notes" on the same host or "https://notes.home.lab". It provides the top
+# bar's Files, Tags and Broken tabs and the search box; empty leaves them out.
+NOTES_URL = os.environ.get("NOTES_URL", "")
+SITE_TITLE = os.environ.get("ZORTEX_TITLE", "Zortex")
+# The shared theme lives with the notes app (app/web/static)
+STATIC_DIR = os.environ.get(
+    "ZORTEX_STATIC_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "web", "static")
+)
 
 # Notes folder (optional): the synced zortex directory, read-only
 NOTES_DIR = os.environ.get("NOTES_DIR")
@@ -203,559 +214,205 @@ def api_calendar():
 
 @app.route("/", methods=["GET"])
 def home():
-    """Render the 'Homey' Zortex Homepage with interactive calendar"""
+    """The calendar: the selected day's notifications and a month grid, under
+    the top bar shared with the notes web app (zortex serve)."""
     data = get_zortex_calendar_view()
+    notes = NOTES_URL.rstrip("/")
+    return render_template_string(
+        CALENDAR_HTML,
+        count=data["count"],
+        next_event=data["next_event"],
+        site=SITE_TITLE,
+        notes=notes,
+        has_notes=bool(NOTES_URL),
+    )
 
-    html = r"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Zortex Hub</title>
-        <style>
-            :root {
-                --bg: #1e1e2e;
-                --fg: #cdd6f4;
-                --accent: #89b4fa;
-                --surface: #313244;
-                --surface-hover: #45475a;
-                --green: #a6e3a1;
-                --dim: rgba(205, 214, 244, 0.4);
-            }
-            body {
-                background-color: var(--bg);
-                color: var(--fg);
-                font-family: 'JetBrains Mono', 'Fira Code', monospace;
-                margin: 0;
-                padding: 2rem;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                min-height: 100vh;
-            }
-            .container {
-                max-width: 600px;
-                width: 100%;
-            }
-            .container.wide { max-width: 1100px; }
-            .tabs { display: flex; justify-content: center; gap: 0.5rem; margin-bottom: 1.5rem; }
-            .tabs button {
-                background: none; color: var(--fg); border: 1px solid var(--surface-hover);
-                padding: 0.4rem 1.2rem; border-radius: 4px; cursor: pointer; font: inherit;
-            }
-            .tabs button.active { border-color: var(--accent); color: var(--accent); }
-            .hidden { display: none !important; }
 
-            /* Notes */
-            .notes-layout { display: grid; grid-template-columns: minmax(220px, 1fr) 2fr; gap: 1.5rem; }
-            @media (max-width: 800px) { .notes-layout { grid-template-columns: 1fr; } }
-            .notes-search { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1rem; }
-            .notes-search input[type=search] {
-                flex: 1; background: var(--bg); color: var(--fg); border: 1px solid var(--surface-hover);
-                border-radius: 4px; padding: 0.5rem 0.75rem; font: inherit;
-            }
-            .notes-search label { font-size: 0.8rem; opacity: 0.7; white-space: nowrap; }
-            .tree, .results { font-size: 0.9rem; }
-            .tree details { margin-left: 0.75rem; }
-            .tree summary { cursor: pointer; color: var(--accent); }
-            .note-link { display: block; padding: 2px 0 2px 0.75rem; cursor: pointer; color: var(--fg); text-decoration: none; }
-            .note-link:hover { color: var(--accent); }
-            .note-link.archived { opacity: 0.45; }
-            .note-link .meta { opacity: 0.45; font-size: 0.8em; margin-left: 0.4rem; }
-            .results h3 { font-size: 0.8rem; opacity: 0.6; text-transform: uppercase; margin: 0.75rem 0 0.25rem; }
-            .line-hit .loc { opacity: 0.45; font-size: 0.8em; }
-            .viewer { white-space: pre-wrap; font-size: 0.9rem; line-height: 1.45; overflow-x: auto; }
-            .viewer .ln { display: block; padding: 0 0.25rem; }
-            .viewer .ln.target { background: rgba(137, 180, 250, 0.15); }
-            .k-article { color: #c4a7e7; font-weight: bold; }
-            .k-tag { color: #ea9a97; }
-            .k-heading { color: #eb6f92; font-weight: bold; }
-            .k-heading.h2 { color: #ea9a97; } .k-heading.h3 { color: #f6c177; }
-            .k-bold_heading { color: #56949f; font-weight: bold; }
-            .k-label { color: #3e8fb0; font-weight: bold; }
-            .k-task { color: #f6c177; }
-            .k-task_done { color: #908caa; text-decoration: line-through; }
-            .k-code, .k-fence { color: #f2ae49; background: rgba(0,0,0,0.2); }
-            .k-quote, .k-table { color: #908caa; }
-            .viewer .zl { color: #3e8fb0; }
-            .viewer.file { white-space: normal; }
-            .file-head { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: baseline; margin-bottom: 0.75rem; }
-            .file-head .name { color: var(--accent); font-weight: bold; word-break: break-all; }
-            .file-head .meta, .note-link .badge { opacity: 0.5; font-size: 0.8em; }
-            .file-head a { color: var(--fg); opacity: 0.8; font-size: 0.85em; }
-            .file-frame { width: 100%; height: 80vh; border: 0; border-radius: 4px; background: #fff; }
-            .file-media { max-width: 100%; max-height: 80vh; display: block; border-radius: 4px; }
-            .file-text { white-space: pre-wrap; font-size: 0.85rem; background: rgba(0,0,0,0.2); padding: 0.75rem; border-radius: 4px; overflow-x: auto; }
-            .note-link .badge { margin-left: 0.3rem; text-transform: uppercase; }
-            .viewer .attr { color: #908caa; font-style: italic; }
-            h1 { color: var(--accent); margin-bottom: 0.5rem; text-align: center; }
-            .stats {
-                color: var(--green);
-                font-size: 0.9rem;
-                margin-bottom: 2rem;
-                opacity: 0.8;
-                text-align: center;
-            }
-            .card {
-                background-color: var(--surface);
-                padding: 1.5rem;
-                border-radius: 8px;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                margin-bottom: 1.5rem;
-            }
-            .day-header {
-                font-size: 1.2rem;
-                font-weight: bold;
-                margin-bottom: 1rem;
-                color: var(--accent);
-                border-bottom: 1px solid var(--surface-hover);
-                padding-bottom: 0.5rem;
-            }
-            .event-list {
-                display: flex;
-                flex-direction: column;
-                gap: 0.5rem;
-                min-height: 100px;
-            }
-            .event-item {
-                display: flex;
-                gap: 1rem;
-            }
-            .event-time { opacity: 0.7; min-width: 50px; }
-            .event-title.current { color: var(--accent); font-weight: bold; }
-            .event-title.past { opacity: 0.4; }
-            
-            /* Calendar Grid Styles */
-            .calendar-controls {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 1rem;
-            }
-            .calendar-controls button {
-                background: none;
-                border: 1px solid var(--surface-hover);
-                color: var(--fg);
-                padding: 0.5rem 1rem;
-                border-radius: 4px;
-                cursor: pointer;
-            }
-            .calendar-controls button:hover { background: var(--surface-hover); }
-            .calendar-grid {
-                display: grid;
-                grid-template-columns: repeat(7, 1fr);
-                gap: 5px;
-                text-align: center;
-            }
-            .weekday { font-weight: bold; opacity: 0.6; padding-bottom: 0.5rem; }
-            .day-cell {
-                padding: 0.75rem 0;
-                border-radius: 4px;
-                cursor: pointer;
-                border: 1px solid transparent;
-                position: relative;
-            }
-            .day-cell:hover { background-color: var(--surface-hover); }
-            .day-cell.active { border-color: var(--accent); background-color: rgba(137, 180, 250, 0.1); }
-            .day-cell.has-events::after {
-                content: '';
-                position: absolute;
-                bottom: 4px;
-                left: 50%;
-                transform: translateX(-50%);
-                width: 4px;
-                height: 4px;
-                border-radius: 50%;
-                background-color: var(--accent);
-            }
-            .day-cell.empty { visibility: hidden; }
+@app.route("/static/<name>", methods=["GET"])
+def static_file(name):
+    """The shared theme (style.css) and icon, from the notes app's files."""
+    if name not in ("style.css", "icon.svg"):
+        return jsonify({"error": "not found"}), 404
+    path = os.path.join(STATIC_DIR, name)
+    if not os.path.isfile(path):
+        return jsonify({"error": "not found"}), 404
+    response = send_file(path, max_age=3600)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
 
-            /* Progress bar styles */
-            .progress-wrapper {
-                display: flex;
-                height: 60px;
-                margin-left: 20px;
-                padding: 4px 0;
-                position: relative;
-            }
-            .vertical-track {
-                width: 4px;
-                height: 100%;
-                background-color: var(--surface-hover);
-                border-radius: 2px;
-                position: relative;
-                margin-right: 15px;
-            }
-            .vertical-progress {
-                width: 100%;
-                background-color: var(--accent);
-                border-radius: 2px;
-                position: absolute;
-                top: 0;
-                left: 0;
-                transition: height 0.5s ease;
-            }
-            .current-time-label {
-                font-size: 0.85rem;
-                color: var(--accent);
-                position: absolute;
-                left: 25px;
-                top: var(--progress-percent);
-                transform: translateY(-70%);
-                display: flex;
-                align-items: center;
-                gap: 5px;
-                transition: top 0.5s ease;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>Zortex Hub</h1>
-            <div class="stats" id="stats">
-                System Online • {{ count }} Pending Notifications
-            </div>
 
-            <div class="tabs">
-                <button id="tab-calendar" class="active" onclick="showTab('calendar')">Calendar</button>
-                <button id="tab-notes" onclick="showTab('notes')">Notes</button>
-            </div>
+# Shares the notes app's top bar (templates/layout.html) and stylesheet
+# (web/static/style.css): brand, notes search, Files · Tags · Broken ·
+# Calendar. Without NOTES_URL the notes links are left out.
+CALENDAR_HTML = r"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calendar · {{ site }}</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+<style>
+  .cal-page { max-width: 64rem; margin: 0 auto; }
+  .cal-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 1rem; margin: 0.4rem 0 1.1rem; }
+  .cal-head h1 { margin: 0; font-size: 1.7rem; }
+  .cal-head .dim { font-size: 0.9rem; }
+  .cal-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 1rem; align-items: start; }
+  .panel h2 { margin: 0.5rem 0 0.7rem; }
+  .event-list { min-height: 6rem; padding-bottom: 0.3rem; }
+  .event-item { display: flex; gap: 0.9rem; align-items: baseline; padding: 0.32rem 0; border-bottom: 1px solid color-mix(in srgb, var(--rule) 60%, transparent); }
+  .event-item:last-child { border-bottom: 0; }
+  .event-time { flex: none; min-width: 3.2rem; font-family: var(--mono); font-size: 0.86em; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .event-title { min-width: 0; overflow-wrap: anywhere; }
+  .event-title.current { font-weight: 600; }
+  .event-title.current::before { content: "▶ "; color: var(--accent); }
+  .event-item.past .event-time, .event-item.past .event-title { color: var(--dim); }
+  .empty-day { color: var(--dim); text-align: center; padding: 1.5rem 0 1rem; }
+  .now-row { display: flex; align-items: center; gap: 0.6rem; margin: 0.15rem 0 0.15rem 1.2rem; height: 3.2rem; }
+  .now-track { position: relative; width: 3px; height: 100%; border-radius: 2px; background: var(--rule); }
+  .now-fill { position: absolute; inset: 0 0 auto 0; border-radius: 2px; background: var(--accent); }
+  .now-label { font-family: var(--mono); font-size: 0.8rem; color: var(--accent); }
+  .cal-controls { display: flex; justify-content: space-between; align-items: center; margin: 0.4rem 0 0.6rem; }
+  .cal-controls h2 { margin: 0; }
+  .cal-controls button, .day-cell { font: inherit; color: var(--ink); cursor: pointer; }
+  .cal-controls button { background: var(--bg); border: 1px solid var(--rule); border-radius: 6px; padding: 0.15rem 0.65rem; }
+  .cal-controls button:hover { border-color: var(--accent); color: var(--accent); }
+  .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; text-align: center; }
+  .weekday { color: var(--dim); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; padding: 0.2rem 0 0.35rem; }
+  .day-cell { position: relative; background: none; border: 1px solid transparent; border-radius: 6px; padding: 0.5rem 0 0.6rem; font-variant-numeric: tabular-nums; }
+  .day-cell:hover { background: var(--accent-soft); }
+  .day-cell:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .day-cell.today { color: var(--accent); font-weight: 700; }
+  .day-cell.active { border-color: var(--accent); background: var(--accent-soft); }
+  .day-cell.has-events::after { content: ""; position: absolute; left: 50%; bottom: 0.22rem; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--accent); }
+  .day-cell.blank { visibility: hidden; }
+  @media (max-width: 50rem) { .cal-cols { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="{{ notes }}/">{{ site }}</a>
+  {% if has_notes %}
+  <form class="quick" action="{{ notes }}/search" method="get" role="search">
+    <input type="search" name="q" placeholder="Search notes  ( / )" aria-label="Search notes" autocomplete="off" id="quick">
+  </form>
+  {% else %}<div class="quick"></div>{% endif %}
+  <nav class="links">
+    {% if has_notes %}
+    <a href="{{ notes }}/f/">Files</a>
+    <a href="{{ notes }}/tags">Tags</a>
+    <a href="{{ notes }}/broken">Broken</a>
+    {% endif %}
+    <a href="/" aria-current="page">Calendar</a>
+  </nav>
+</header>
+<main>
+<section class="cal-page">
+  <div class="cal-head">
+    <h1>Calendar</h1>
+    <span class="dim" id="stats">{{ count }} pending notification{{ "" if count == 1 else "s" }} · next: {{ next_event }}</span>
+  </div>
+  <div class="cal-cols">
+    <div class="panel">
+      <h2 id="day-header">Today</h2>
+      <div class="event-list" id="event-list"></div>
+    </div>
+    <div class="panel">
+      <div class="cal-controls">
+        <button type="button" onclick="changeMonth(-1)" aria-label="Previous month">‹</button>
+        <h2 id="month-label"></h2>
+        <button type="button" onclick="changeMonth(1)" aria-label="Next month">›</button>
+      </div>
+      <div class="calendar-grid" aria-hidden="true">
+        <div class="weekday">Su</div><div class="weekday">Mo</div><div class="weekday">Tu</div><div class="weekday">We</div>
+        <div class="weekday">Th</div><div class="weekday">Fr</div><div class="weekday">Sa</div>
+      </div>
+      <div class="calendar-grid" id="calendar-days"></div>
+    </div>
+  </div>
+</section>
+</main>
+<script>
+(function () {
+  "use strict";
+  let events = [];
+  const shown = new Date();      // month on display
+  let selected = new Date();     // day on display
+  const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-            <!-- Notes tab: search, folder tree, viewer -->
-            <div id="notes-tab" class="hidden">
-                <div class="card">
-                    <div class="notes-search">
-                        <input type="search" id="notes-query" placeholder="Search notes and files (names, aliases, tags, paths, lines)" autocomplete="off">
-                        <label><input type="checkbox" id="notes-files" checked> other files</label>
-                        <label><input type="checkbox" id="notes-all"> all top-level files</label>
-                    </div>
-                    <div class="notes-layout">
-                        <div>
-                            <div class="results" id="notes-results"></div>
-                            <div class="tree" id="notes-tree"></div>
-                        </div>
-                        <div class="viewer" id="notes-viewer"><span style="opacity:0.5">Pick a note.</span></div>
-                    </div>
-                </div>
-            </div>
+  function renderDay() {
+    const key = dayKey(selected), today = key === dayKey(new Date());
+    document.getElementById("day-header").textContent = today ? "Today"
+      : selected.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
+    const list = document.getElementById("event-list");
+    const day = events.filter((e) => e.date_str === key);
+    if (!day.length) { list.innerHTML = '<div class="empty-day">Nothing scheduled.</div>'; return; }
+    const now = Date.now();
+    let html = "";
+    day.forEach((e, i) => {
+      html += `<div class="event-item${e.is_past ? " past" : ""}"><span class="event-time">${esc(e.time_str)}</span>` +
+        `<span class="event-title${e.is_current ? " current" : ""}">${esc(e.title)}</span></div>`;
+      // where "now" sits between the current entry and the next one today
+      if (today && e.is_current && i + 1 < day.length) {
+        const start = e.timestamp * 1000, end = day[i + 1].timestamp * 1000;
+        const pct = end > start ? Math.max(0, Math.min(100, (now - start) / (end - start) * 100)) : 0;
+        const label = new Date(now).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        html += `<div class="now-row"><div class="now-track"><div class="now-fill" style="height:${pct}%"></div></div>` +
+          `<span class="now-label">◀ ${esc(label)}</span></div>`;
+      }
+    });
+    list.innerHTML = html;
+  }
 
-            <div id="calendar-tab">
-            <!-- Daily List View -->
-            <div class="card" id="list-view">
-                <div class="day-header" id="selected-date-header">Loading...</div>
-                <div class="event-list" id="event-list-container"></div>
-            </div>
+  function renderMonth() {
+    const y = shown.getFullYear(), m = shown.getMonth();
+    document.getElementById("month-label").textContent = shown.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+    const first = new Date(y, m, 1).getDay(), days = new Date(y, m + 1, 0).getDate();
+    const busy = new Set(events.map((e) => e.date_str));
+    const sel = dayKey(selected), today = dayKey(new Date());
+    let html = '<span class="day-cell blank"></span>'.repeat(first);
+    for (let d = 1; d <= days; d++) {
+      const key = dayKey(new Date(y, m, d));
+      const cls = ["day-cell", busy.has(key) && "has-events", key === sel && "active", key === today && "today"].filter(Boolean).join(" ");
+      html += `<button type="button" class="${cls}" data-day="${d}" aria-label="${key}${busy.has(key) ? ", has events" : ""}">${d}</button>`;
+    }
+    document.getElementById("calendar-days").innerHTML = html;
+  }
 
-            <!-- Navigable Calendar View -->
-            <div class="card" id="calendar-view">
-                <div class="calendar-controls">
-                    <button onclick="changeMonth(-1)">&lt; Prev</button>
-                    <div id="current-month-label" style="font-weight: bold;"></div>
-                    <button onclick="changeMonth(1)">Next &gt;</button>
-                </div>
-                <div class="calendar-grid">
-                    <div class="weekday">Su</div><div class="weekday">Mo</div>
-                    <div class="weekday">Tu</div><div class="weekday">We</div>
-                    <div class="weekday">Th</div><div class="weekday">Fr</div>
-                    <div class="weekday">Sa</div>
-                </div>
-                <div class="calendar-grid" id="calendar-days"></div>
-            </div>
-            </div>
-        </div>
+  document.getElementById("calendar-days").addEventListener("click", (ev) => {
+    const b = ev.target.closest("button[data-day]");
+    if (!b) return;
+    selected = new Date(shown.getFullYear(), shown.getMonth(), Number(b.dataset.day));
+    renderDay(); renderMonth();
+  });
+  window.changeMonth = (n) => { shown.setDate(1); shown.setMonth(shown.getMonth() + n); renderMonth(); };
 
-        <script>
-            let events = [];
-            let currentDate = new Date();
-            let selectedDate = new Date(); // Defaults to today
-            
-            const localTzOffset = currentDate.getTimezoneOffset() * 60000;
+  async function refresh() {
+    try {
+      const r = await fetch("/api/calendar");
+      if (!r.ok) return;
+      const data = await r.json();
+      events = data.events || [];
+      document.getElementById("stats").textContent =
+        `${data.count} pending notification${data.count === 1 ? "" : "s"} · next: ${data.next_event}`;
+      renderDay(); renderMonth();
+    } catch (err) { console.error("calendar refresh failed", err); }
+  }
 
-            function formatDateStr(date) {
-                // Returns YYYY-MM-DD in local time
-                const d = new Date(date.getTime() - localTzOffset);
-                return d.toISOString().split('T')[0];
-            }
+  document.addEventListener("keydown", (e) => {
+    const box = document.getElementById("quick");
+    const el = document.activeElement;
+    if (box && e.key === "/" && !(el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA"))) { e.preventDefault(); box.focus(); }
+  });
 
-            function renderDayList() {
-                const header = document.getElementById('selected-date-header');
-                const container = document.getElementById('event-list-container');
-                
-                const dateStr = formatDateStr(selectedDate);
-                const isToday = dateStr === formatDateStr(new Date());
-                
-                header.textContent = isToday ? "Today's Events" : selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
-                
-                const dayEvents = events.filter(e => e.date_str === dateStr);
-                
-                let htmlOutput = '';
-                if (dayEvents.length === 0) {
-                    htmlOutput = '<div style="opacity: 0.5; text-align: center; margin-top: 1rem;">No events scheduled for this day.</div>';
-                    container.innerHTML = htmlOutput;
-                    return;
-                }
-
-                const now = new Date();
-                const nowMs = now.getTime();
-
-                dayEvents.forEach((e, index) => {
-                    let titleClass = "event-title";
-                    let prefix = "";
-                    if (e.is_current) { titleClass += " current"; prefix = "▶ "; }
-                    else if (e.is_past) { titleClass += " past"; }
-
-                    htmlOutput += `
-                        <div class="event-item">
-                            <div class="event-time">${e.time_str}</div>
-                            <div class="${titleClass}">${prefix}${e.title.replace('<', '&lt;')}</div>
-                        </div>
-                    `;
-
-                    // Inject progress bar if this is the active event and there is a subsequent event today
-                    if (isToday && e.is_current && index + 1 < dayEvents.length) {
-                        const nextE = dayEvents[index + 1];
-                        const currentMs = e.timestamp * 1000;
-                        const nextMs = nextE.timestamp * 1000;
-                        
-                        const totalDuration = nextMs - currentMs;
-                        let percent = 0;
-                        if (totalDuration > 0) {
-                            percent = Math.max(0, Math.min(100, ((nowMs - currentMs) / totalDuration) * 100));
-                        }
-                        
-                        const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-                        htmlOutput += `
-                            <div class="progress-wrapper" style="--progress-percent: ${percent}%;">
-                                <div class="vertical-track">
-                                    <div class="vertical-progress" style="height: ${percent}%;"></div>
-                                </div>
-                                <div class="current-time-label">◀ ${timeString}</div>
-                            </div>
-                        `;
-                    }
-                });
-                
-                container.innerHTML = htmlOutput;
-            }
-
-            function renderCalendar() {
-                const container = document.getElementById('calendar-days');
-                const monthLabel = document.getElementById('current-month-label');
-                
-                const year = currentDate.getFullYear();
-                const month = currentDate.getMonth();
-                
-                monthLabel.textContent = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                
-                const firstDay = new Date(year, month, 1).getDay();
-                const daysInMonth = new Date(year, month + 1, 0).getDate();
-                
-                container.innerHTML = '';
-                
-                // Empty slots before 1st of month
-                for (let i = 0; i < firstDay; i++) {
-                    container.innerHTML += '<div class="day-cell empty"></div>';
-                }
-                
-                const selectedStr = formatDateStr(selectedDate);
-                const todayStr = formatDateStr(new Date());
-
-                for (let day = 1; day <= daysInMonth; day++) {
-                    const iterDate = new Date(year, month, day);
-                    const iterStr = formatDateStr(iterDate);
-                    
-                    const hasEvents = events.some(e => e.date_str === iterStr);
-                    const isActive = iterStr === selectedStr;
-                    
-                    let classes = "day-cell";
-                    if (hasEvents) classes += " has-events";
-                    if (isActive) classes += " active";
-
-                    container.innerHTML += `
-                        <div class="${classes}" onclick="selectDate(${year}, ${month}, ${day})">
-                            ${day}
-                        </div>
-                    `;
-                }
-            }
-
-            function selectDate(year, month, day) {
-                selectedDate = new Date(year, month, day);
-                renderDayList();
-                renderCalendar();
-            }
-
-            function changeMonth(offset) {
-                currentDate.setMonth(currentDate.getMonth() + offset);
-                renderCalendar();
-            }
-
-            async function fetchData() {
-                try {
-                    const response = await fetch('/api/calendar');
-                    if (!response.ok) return;
-                    const data = await response.json();
-                    
-                    events = data.events || [];
-                    document.getElementById('stats').textContent = `System Online • ${data.count} Pending Notifications`;
-                    
-                    renderDayList();
-                    renderCalendar();
-                } catch (err) {
-                    console.error('Failed to fetch calendar data:', err);
-                }
-            }
-
-            // ---------------------------------------------------------------
-            // Notes tab
-            // ---------------------------------------------------------------
-            const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            let notesLoaded = false, searchTimer = null;
-
-            function showTab(name) {
-                const notes = name === 'notes';
-                document.getElementById('notes-tab').classList.toggle('hidden', !notes);
-                document.getElementById('calendar-tab').classList.toggle('hidden', notes);
-                document.getElementById('tab-notes').classList.toggle('active', notes);
-                document.getElementById('tab-calendar').classList.toggle('active', !notes);
-                document.querySelector('.container').classList.toggle('wide', notes);
-                if (notes && !notesLoaded) { notesLoaded = true; loadTree(); }
-                if (!location.hash.startsWith('#' + name)) history.replaceState(null, '', '#' + name);
-            }
-
-            const allFlag = () => document.getElementById('notes-all').checked ? '1' : '0';
-            const filesFlag = () => document.getElementById('notes-files').checked ? '1' : '0';
-            const flags = () => `all=${allFlag()}&files=${filesFlag()}`;
-            const rawUrl = (rel, download) => '/api/notes/raw?path=' + encodeURIComponent(rel) + (download ? '&download=1' : '');
-            const ICONS = { zortex: '', pdf: '📄 ', image: '🖼 ', video: '🎞 ', audio: '🎵 ', text: '📝 ', other: '📦 ' };
-
-            function humanSize(n) {
-                if (n == null) return '';
-                const units = ['B', 'KB', 'MB', 'GB'];
-                let i = 0;
-                while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
-                return `${n < 10 && i ? n.toFixed(1) : Math.round(n)} ${units[i]}`;
-            }
-
-            function noteLink(n) {
-                const isFile = n.kind === 'file';
-                const meta = !isFile && n.names && n.names.length > 1 ? n.names.slice(1).join(', ') : '';
-                const where = isFile ? n.rel.replace(/[^/]*$/, '') : n.rel;
-                const badge = isFile ? `<span class="badge">${esc(humanSize(n.size))}</span>` : '';
-                return `<a class="note-link ${n.archived ? 'archived' : ''}" onclick="openNote('${encodeURIComponent(n.rel)}')">` +
-                    `${ICONS[n.view] || ''}${esc(n.title)}${badge}<span class="meta">${esc(where)}${meta ? ' · ' + esc(meta) : ''}</span></a>`;
-            }
-
-            function renderFolder(f, open) {
-                let html = f.notes.map(noteLink).join('');
-                for (const d of f.dirs) {
-                    html += `<details ${open ? 'open' : ''}><summary>${esc(d.name)}/</summary>${renderFolder(d, false)}</details>`;
-                }
-                return html;
-            }
-
-            async function loadTree() {
-                const el = document.getElementById('notes-tree');
-                const res = await fetch('/api/notes/tree?' + flags());
-                if (!res.ok) { el.innerHTML = '<span style="opacity:0.6">Notes are not configured (set NOTES_DIR).</span>'; return; }
-                el.innerHTML = renderFolder(await res.json(), true);
-            }
-
-            async function runSearch() {
-                const q = document.getElementById('notes-query').value.trim();
-                const el = document.getElementById('notes-results');
-                const tree = document.getElementById('notes-tree');
-                if (!q) { el.innerHTML = ''; tree.classList.remove('hidden'); return; }
-                tree.classList.add('hidden');
-                const res = await fetch(`/api/notes/search?q=${encodeURIComponent(q)}&${flags()}`);
-                if (!res.ok) return;
-                const data = await res.json();
-                let html = `<h3>Results (${data.notes.length})</h3>` + (data.notes.map(noteLink).join('') || '<span style="opacity:0.5">none</span>');
-                if (data.lines.length) {
-                    html += `<h3>Lines (${data.lines.length})</h3>` + data.lines.map(l =>
-                        `<a class="note-link line-hit" onclick="openNote('${encodeURIComponent(l.rel)}', ${l.lnum})">${esc(l.text)}` +
-                        `<span class="loc"> ${esc(l.title)}:${l.lnum}</span></a>`).join('');
-                }
-                el.innerHTML = html;
-            }
-
-            function inline(text) {
-                return esc(text)
-                    .replace(/\[([^\]]+)\]/g, '<span class="zl">[$1]</span>')
-                    .replace(/(^|\s)(@\w+(\([^)]*\))?)/g, '$1<span class="attr">$2</span>');
-            }
-
-            const TEXT_LIMIT = 2 * 1024 * 1024; // show text files up to 2 MB inline
-
-            async function showFile(el, f) {
-                const url = rawUrl(f.rel);
-                const when = f.mtime ? new Date(f.mtime * 1000).toLocaleString() : '';
-                let html = `<div class="file-head"><span class="name">${ICONS[f.view] || ''}${esc(f.title)}</span>` +
-                    `<span class="meta">${esc(f.mime)} · ${esc(humanSize(f.size))}${when ? ' · ' + esc(when) : ''}</span>` +
-                    `<a href="${url}" target="_blank" rel="noopener">open ↗</a><a href="${rawUrl(f.rel, true)}">download</a></div>`;
-                if (f.view === 'pdf') {
-                    html += `<iframe class="file-frame" src="${url}" title="${esc(f.title)}"></iframe>`;
-                } else if (f.view === 'image') {
-                    html += `<a href="${url}" target="_blank" rel="noopener"><img class="file-media" src="${url}" alt="${esc(f.title)}"></a>`;
-                } else if (f.view === 'video') {
-                    html += `<video class="file-media" src="${url}" controls preload="metadata"></video>`;
-                } else if (f.view === 'audio') {
-                    html += `<audio src="${url}" controls preload="metadata" style="width:100%"></audio>`;
-                } else if (f.view === 'text' && f.size <= TEXT_LIMIT) {
-                    const res = await fetch(url);
-                    html += `<pre class="file-text">${esc(res.ok ? await res.text() : 'Could not read the file.')}</pre>`;
-                } else {
-                    html += `<div style="opacity:0.6">No preview for this type; use open or download.</div>`;
-                }
-                el.innerHTML = html;
-            }
-
-            async function openNote(encRel, lnum) {
-                const rel = decodeURIComponent(encRel);
-                const res = await fetch('/api/notes/file?path=' + encodeURIComponent(rel));
-                const el = document.getElementById('notes-viewer');
-                if (!res.ok) { el.classList.remove('file'); el.textContent = 'Not found: ' + rel; return; }
-                const note = await res.json();
-                history.replaceState(null, '', `#notes/${rel}${lnum ? ':' + lnum : ''}`);
-                if (note.kind === 'file') {
-                    el.classList.add('file');
-                    await showFile(el, note);
-                    return;
-                }
-                el.classList.remove('file');
-                el.innerHTML = note.lines.map((l, i) => {
-                    const cls = `ln k-${l.kind}${l.level ? ' h' + l.level : ''}${lnum === i + 1 ? ' target' : ''}`;
-                    const body = (l.kind === 'code' || l.kind === 'fence') ? esc(l.text) : inline(l.text);
-                    return `<span class="${cls}" id="L${i + 1}">${body || ' '}</span>`;
-                }).join('');
-                const target = lnum && document.getElementById('L' + lnum);
-                if (target) target.scrollIntoView({ block: 'center' });
-            }
-
-            document.getElementById('notes-query').addEventListener('input', () => {
-                clearTimeout(searchTimer);
-                searchTimer = setTimeout(runSearch, 150);
-            });
-            document.getElementById('notes-all').addEventListener('change', () => { loadTree(); runSearch(); });
-            document.getElementById('notes-files').addEventListener('change', () => { loadTree(); runSearch(); });
-
-            if (location.hash.startsWith('#notes')) {
-                showTab('notes');
-                const m = location.hash.match(/^#notes\/(.+?)(?::(\d+))?$/);
-                if (m) openNote(encodeURIComponent(m[1]), m[2] ? Number(m[2]) : undefined);
-            }
-
-            // Initial fetch and polling setup
-            fetchData();
-            setInterval(fetchData, 30000); // 30s refresh[cite: 3]
-        </script>
-    </body>
-    </html>
-    """
-    # Note: Ensure you import timedelta from datetime at the top of server.py
-    return render_template_string(html, count=data["count"])
+  refresh();
+  setInterval(refresh, 30000);
+})();
+</script>
+</body>
+</html>
+"""
 
 
 # ==============================================================================
@@ -856,7 +513,7 @@ def api_summary():
             "status": "ok",
             "pending_count": data["count"],
             "calendar_text": data["text_view"],
-            "calendar_html": data["html_view"],
+            "calendar_html": "<pre>" + html_escape(data["text_view"]) + "</pre>",
             "next_event": data["next_event"],
             "generated_at": datetime.now(LOCAL_TZ).isoformat(),
         }

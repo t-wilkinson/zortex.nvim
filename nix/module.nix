@@ -42,6 +42,10 @@ let
       "-base"
       web.basePath
     ]
+    ++ optionals (web.calendarUrl != null) [
+      "-calendar"
+      web.calendarUrl
+    ]
     ++ web.extraArgs;
 in
 {
@@ -106,6 +110,20 @@ in
         Top-level notes shown by default in file listings (other top-level
         files are hidden until "show all"); the web app also lists them on
         its home page.
+      '';
+    };
+
+    notesUrl = mkOption {
+      type = types.nullOr types.str;
+      default = if web.enable && web.basePath != "" then web.basePath else null;
+      defaultText = literalExpression ''if web.enable && web.basePath != "" then web.basePath else null'';
+      example = "https://notes.home.lab";
+      description = ''
+        URL of the notes web app as the browser sees it. The notification
+        server's dashboard links to it from the shared top bar (search,
+        Files, Tags, Broken). Defaults to web.basePath when both run on one
+        host; set it when the web app has its own domain. Null leaves the
+        notes links out.
       '';
     };
 
@@ -181,6 +199,19 @@ in
         '';
       };
 
+      calendarUrl = mkOption {
+        type = types.nullOr types.str;
+        default = if cfg.enable && web.basePath != "" then "/" else null;
+        defaultText = literalExpression ''if enable && web.basePath != "" then "/" else null'';
+        example = "https://zortex.home.lab/";
+        description = ''
+          URL of the notification server's calendar as the browser sees it,
+          shown as the Calendar tab of the shared top bar. Defaults to "/"
+          when both run on one host (web app under basePath); set it when
+          they have separate domains. Null hides the tab.
+        '';
+      };
+
       openFirewall = mkOption {
         type = types.bool;
         default = false;
@@ -226,6 +257,10 @@ in
             NTFY_TOPIC = cfg.ntfy.topic;
             NTFY_AUTH_TOKEN = if cfg.ntfy.authToken != null then cfg.ntfy.authToken else "";
             NOTES_SPECIAL = concatStringsSep "," cfg.notesSpecial;
+            ZORTEX_TITLE = web.title;
+          }
+          // optionalAttrs (cfg.notesUrl != null) {
+            NOTES_URL = cfg.notesUrl;
           }
           // optionalAttrs (cfg.notesDir != null) {
             NOTES_DIR = toString cfg.notesDir;

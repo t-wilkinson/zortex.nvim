@@ -64,6 +64,8 @@ func (s *Server) parseTemplates() error {
 func (s *Server) render(w http.ResponseWriter, r *http.Request, page string, status int, data map[string]any) {
 	data["Site"] = s.cfg.Title
 	data["Base"] = s.cfg.Base
+	data["Calendar"] = s.cfg.CalendarURL
+	data["Nav"] = navOf[page]
 	if _, ok := data["Query"]; !ok {
 		data["Query"] = ""
 	}
@@ -82,6 +84,9 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, page string, sta
 	w.WriteHeader(status)
 	_, _ = buf.WriteTo(w)
 }
+
+// navOf: which top-bar tab a page belongs to.
+var navOf = map[string]string{"files": "files", "file": "files", "tags": "tags", "tag": "tags", "broken": "broken"}
 
 func (s *Server) notFound(w http.ResponseWriter, r *http.Request, msg string) {
 	s.render(w, r, "error", http.StatusNotFound, map[string]any{"Title": "Not found", "Message": msg})

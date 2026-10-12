@@ -61,6 +61,7 @@ in place:
 | Go grammar | `app/syntax` ports `core/syntax` and passes every AST fixture; `zortex parse`/`sections`; `nix build .#zortex`. |
 | Dashboard file viewer | The Notes tab browses every file in the folder; PDFs, images, media and text open in the browser (ranges, sandboxed HTML/SVG). |
 | Link module; calendar split; patterns | `utils/parser` + `utils/link_resolver` → `core/link` (buffer-side following stays in `features/links`); calendar entries are Items (`services/calendar_entry` + `format`); `ui/calendar/view` split into `view`, `render`, `keys`; `constants.PATTERNS` removed; fixes below. |
+| One site | The notification server's page becomes the Calendar page on the web app's theme and top bar (Files · Tags · Broken · Calendar, notes search); its Notes tab is removed; `NOTES_URL` / `-calendar` link the two (set by the module); `/api/summary` no longer fails on a missing `html_view`. |
 | Notes web app | `zortex serve` (`app/web`): rendered notes with resolved links and backlinks, live structural search, file browser and viewer, tags, broken links, JSON API; polling rescans with background rebuilds; notes index scanned mode and header catalog (resolving 64k links went from minutes to ~2 s); `services.zortex.web` in the NixOS module (hardened unit, `GOMEMLIMIT`). |
 | Go resolver and search | `app/notes`, `app/links`, `app/search`; `tests/gen_links.lua` writes `resolve.json` and `search.json`, checked by `test_links` and the Go tests; `zortex resolve`/`search`; search uses the notes index's file order. |
 

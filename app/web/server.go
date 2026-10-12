@@ -45,7 +45,10 @@ type Config struct {
 	Base    string        // URL path prefix when served below "/", e.g. "/notes"
 	Poll    time.Duration // rescan interval (default 10s; <0: never)
 	Special []string      // top-level notes shown in the file browser root and on the home page
-	Logger  *log.Logger
+	// CalendarURL is the notification server's dashboard (the Calendar tab in
+	// the top bar, shared by both sites); empty hides the tab.
+	CalendarURL string
+	Logger      *log.Logger
 }
 
 // DefaultSpecial are the top-level notes listed by default (the plugin's

@@ -199,6 +199,18 @@ func TestOtherPages(t *testing.T) {
 	expect(t, ts, "/static/style.css", 200, `--accent`)
 }
 
+func TestNav(t *testing.T) {
+	s, _, ts := newTestServer(t, "")
+	home := expect(t, ts, "/", 200)
+	nav := home[strings.Index(home, `<nav class="links">`):]
+	if nav = nav[:strings.Index(nav, "</nav>")]; strings.Contains(nav, "Calendar") {
+		t.Error("Calendar tab without a CalendarURL")
+	}
+	s.cfg.CalendarURL = "/"
+	expect(t, ts, "/tags", 200, `<a href="/">Calendar</a>`, `href="/tags" aria-current="page"`)
+	expect(t, ts, "/f/z", 200, `href="/f/" aria-current="page"`)
+}
+
 func TestBasePath(t *testing.T) {
 	_, _, ts := newTestServer(t, "/notes/")
 	expect(t, ts, "/notes/n/links.zortex", 200, `href="/notes/n/projects.zortex#L14"`, `href="/notes/static/style.css"`)

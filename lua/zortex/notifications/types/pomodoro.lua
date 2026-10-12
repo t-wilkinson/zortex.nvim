@@ -253,7 +253,7 @@ end
 
 local function ensure_timer()
 	if L.running and not timer then
-		timer = vim.uv.new_timer()
+		timer = (vim.uv or vim.loop).new_timer()
 		timer:start(1000, 1000, vim.schedule_wrap(local_tick))
 	elseif not L.running then
 		stop_timer()
@@ -366,7 +366,7 @@ end
 -- Server clock
 -- =============================================================================
 
-local R = { state = nil, fetched = 0, ends_local = nil, poll = nil, last_version = nil }
+local R = { state = nil, fetched = 0, ends_local = nil, poll = nil, failed_at = nil }
 
 local function adopt(st)
 	if type(st) ~= "table" or st.enabled == false or not st.phase then
@@ -399,7 +399,7 @@ local function ensure_poll()
 	if R.poll then
 		return
 	end
-	R.poll = vim.uv.new_timer()
+	R.poll = (vim.uv or vim.loop).new_timer()
 	R.poll:start(
 		1000,
 		1000,
@@ -505,12 +505,16 @@ end
 function M.status()
 	local st
 	if remote() then
-		if not R.state then
-			-- first call: fetch synchronously (short timeout) so commands have an answer
-			local ok, body = server.request_sync("GET", "/api/pomodoro", nil, 3)
+		if not R.state and (not R.failed_at or os.time() - R.failed_at > 30) then
+			-- first call: fetch synchronously (short timeout) so commands have an
+			-- answer; after a failure, don't block again for 30 s (statuslines)
+			local ok, body = server.request_sync("GET", "/api/pomodoro", nil, 2)
 			if ok then
 				adopt(body)
 				ensure_poll()
+				R.failed_at = nil
+			else
+				R.failed_at = os.time()
 			end
 		end
 		if not R.state then

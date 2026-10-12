@@ -15,6 +15,7 @@
 --   q.review({ days = 7 })          weekly review findings
 --   q.plan({ today })               ranked candidates for planning a day
 --   q.projects() / q.areas() / q.objectives()
+--   q.xp({ days })                  season, area levels, recent awards (the XP ledger)
 --   q.export(dir)                   all of the above as JSON files
 local M = {}
 
@@ -304,7 +305,7 @@ function M.areas()
 			rel = rel(a.file),
 			lnum = a.lnum,
 			parent = a.parent and a.parent.key or nil,
-			xp = a:total_xp(),
+			xp = math.floor(a:total_xp() + 0.5),
 			projects = vim.tbl_map(function(p)
 				return p.key
 			end, a:projects()),
@@ -314,6 +315,58 @@ function M.areas()
 		}
 	end
 	return out
+end
+
+--- XP: the current season, every area with XP, and awards of the last
+--- `opts.days` days (default 30), newest first. All derived from the notes.
+function M.xp(opts)
+	opts = opts or {}
+	local stats = require("zortex.services.xp.stats")
+	local store = require("zortex.stores.xp")
+	local function round(x)
+		return math.floor(x + 0.5)
+	end
+	local season = stats.season_status()
+	local areas = {}
+	for _, a in ipairs(require("zortex.services.areas").top()) do
+		areas[#areas + 1] = { key = a.key, name = a.name, xp = round(a.xp), level = a.level }
+	end
+	local awards = {}
+	for _, e in ipairs(stats.recent(opts.limit or 200, opts.days or 30)) do
+		local shares = {}
+		for key, amount in pairs(e.areas) do
+			shares[key] = math.floor(amount * 10 + 0.5) / 10
+		end
+		awards[#awards + 1] = {
+			date = e.date,
+			xp = math.floor(e.xp * 10 + 0.5) / 10,
+			season_xp = math.floor(e.season_xp * 10 + 0.5) / 10,
+			source = e.source,
+			title = e.title,
+			project = e.project,
+			rel = e.file and rel(e.file),
+			lnum = e.lnum,
+			areas = shares,
+		}
+	end
+	return {
+		season = season and {
+			name = season.season.name,
+			start_date = season.season.start_date,
+			end_date = season.season.end_date,
+			xp = season.xp,
+			level = season.level,
+			tier = season.current_tier and season.current_tier.name or nil,
+			next_tier = season.next_tier and season.next_tier.name or nil,
+			xp_to_next = season.progress.xp_to_next,
+			progress = season.progress_to_next,
+			days_left = season.days_left,
+		} or nil,
+		history = vim.deepcopy(store.season_history()),
+		daily = stats.daily(14),
+		areas = areas,
+		awards = awards,
+	}
 end
 
 --- Objectives with key results and progress.
@@ -447,6 +500,7 @@ function M.export(dir)
 		areas = M.areas(),
 		objectives = M.objectives(),
 		review = M.review(),
+		xp = M.xp(),
 	})
 	return dir, count
 end

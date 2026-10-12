@@ -83,9 +83,9 @@ type Server struct {
 	snap      atomic.Pointer[snapshot]
 	rebuildMu sync.Mutex
 
-	alerts *alerts.Store    // nil without DataDir
-	sender *alerts.Sender   // nil without DataDir
-	pomo   *pomodoro.Clock  // nil without DataDir
+	alerts *alerts.Store   // nil without DataDir
+	sender *alerts.Sender  // nil without DataDir
+	pomo   *pomodoro.Clock // nil without DataDir
 }
 
 // Backlink is a link in one note (or Markdown file) to a line of another

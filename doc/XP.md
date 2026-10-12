@@ -1,43 +1,96 @@
-Here is a precise conceptual overview of the gamified system we've designed, summarizing the core mechanics and key considerations.
+# XP
 
-### **Core System Overview**
+Two progression loops, one source of truth:
 
-The system is composed of two distinct but interconnected progression loops, each serving a different psychological purpose:
+1. **Areas (the main quest)**: long-term mastery. Each PARA area is a skill
+   that levels up over years on a steep curve (`1000 × level^2.5`).
+2. **Seasons (the battle pass)**: short-term momentum. A season is a date
+   window (a quarter, say); the XP earned inside it levels you through tiers
+   on a gentle curve (`100 × level^1.2`).
 
-1.  **Area XP System (The Main Quest):** This is your long-term progression system focused on **mastery and identity**. Each of your PARA Areas (e.g., "Expert Writer," "Healthy Athlete") is treated as a skill that you level up over years. Its purpose is to reward strategic, patient effort towards your most significant goals.
+## XP is read off the notes
 
-2.  **Project XP System (The Seasonal Battle Pass):** This is your short-term momentum engine focused on **execution and accomplishment**. It operates in user-defined "Seasons" (e.g., quarterly) and rewards the day-to-day work of completing tasks within your PARA Projects. Its purpose is to make work engaging and provide a steady stream of tangible rewards.
+Nothing is recorded when you check a task. `services/xp/ledger` rebuilds
+every award from the notes whenever one changes:
 
----
+| source | when | worth | areas get |
+|---|---|---|---|
+| **Project task** | a task in a project is checked; dated by its `@done(...)` | the project's pool, paid out over its tasks on the curve below | `project.area` (20%) of it, or `project.key_result` (100%) when a key result links the project |
+| **Project done** | the project heading is marked `@done(...)` | whatever of the pool the curve hasn't paid yet | same as above |
+| **Task** | a checked task anywhere else (calendar, any note); dated by `@done(...)` | `base_xp × size × priority × importance` | `task.area` (10%) to its own `@a(...)` |
+| **Objective** | an OKR objective marked `@done(...)` | `objective.base_xp × time span` (`3M`≈Q, `1Y`, `5Y`…) × priority × importance | `objective.area` (100%) to its `@a(...)`; not counted for seasons |
 
-### **XP Functions & Curves**
+A project's **pool** is `@xp(n)` when given, else `project.base_xp ×
+@size(...)` (× priority × importance), else the sum of its tasks' XP. Tasks
+moved to `z/archive.*` still count under the same project, so archiving never
+takes XP away.
 
-The "feel" of the progression is controlled by different mathematical curves for each system.
+**The project curve** front-loads the first tasks (overcoming inertia),
+pays steadily through the middle and rewards finishing:
 
-- **Area XP Curve (Exponential):** To level up an Area, you use an **exponential curve** (e.g., $XP = 1000 \times \text{Level}^{2.5}$). This means each new level requires significantly more XP than the last. This models the real-world difficulty of true mastery, ensuring that high levels remain meaningful and hard-won achievements.
+| project | initiation | execution | completion |
+|---|---|---|---|
+| 1-5 tasks | first task 40% | next 2: 40% | the rest 20% |
+| 6-15 tasks | first 3: 25% | 60% of tasks: 50% | the rest 25% |
+| 16+ tasks | first 15%: 20% | middle 70%: 50% | the rest 30% |
 
-- **Project XP Curve (Polynomial & Hybrid):** This system has two curves:
-  1.  **Seasonal Leveling:** To advance through the seasonal "Battle Pass" tiers, you use a **low-power polynomial curve** (e.g., $XP = 100 \times \text{Level}^{1.2}$). This provides a stable, predictable progression with a slight acceleration to keep it engaging over a short season.
-  2.  **Task Rewards:** To earn the XP for the season, each project follows a **3-stage hybrid reward structure**:
-      - **Initiation:** The first few tasks give a large, front-loaded amount of XP (a logarithmic reward) to overcome inertia.
-      - **Execution:** The main body of tasks gives a standard, flat amount of XP (a linear reward) to maintain momentum.
-      - **Completion:** The final task awards a massive XP bonus, creating a powerful incentive to finish projects.
+Every pool pays out exactly 100% once all its tasks are done. Adding tasks to
+a project re-spreads the same pool over more tasks.
 
-### **How XP is Awarded & Configured**
+**Areas.** An award's area share is split over its areas, most specific first
+(the task's own `@a`, then the project's, then the areas of objectives whose
+key results link the project), on harmonic weights (1, ½, ⅓, …). An area's
+total is its own XP plus `area.bubble` (75%) of each sub-area's total, so
+progress in a sub-skill counts towards the broader one.
 
-- **User Configuration:** You, the user, can configure the core variables of the XP formulas (the base numbers and exponents) to tune the system's difficulty to your personal preference. You also manually define the start and end of each "Season" and can set your own rewards for the Battle Pass tiers.
+**Seasons** count the `season` share of every award dated inside the window
+(`:ZortexSeasonStart [name] [end] [start]`; a start in the past counts what
+you already did since then). Ending a season archives its final XP and level.
 
-- **Area XP Rewards:** Area XP is awarded when you complete a strategic **Objective**. The base XP value is modified by two key factors:
+**Dates.** Toggling a task adds `@done(today)`. A task checked by hand gets
+`@done(today)` when the note is saved, if it was newly checked in that edit
+(`xp.stamp_done_on_save`). Completions without a date count for areas but
+not for seasons.
 
-  - **Time-Horizon Multiplier:** Objectives with a longer planned duration (e.g., a 1-year goal) grant significantly more XP than short-term ones.
-  - **Relevance Decay:** The potential XP from old, uncompleted objectives slowly decreases over time, encouraging you to focus on current priorities.
+## Why derived?
 
-- **Project XP Rewards:** Project XP is awarded automatically as you complete **individual tasks** within a project, following the 3-stage reward model described above.
+The previous version kept a transaction log and running totals, and they
+drifted: a standalone task's completion crashed the handler (its id was read
+from the wrong field), unchecking a standalone task kept its XP, starting a
+season wiped the log but not the area totals (so completing more tasks of a
+project counted its earlier tasks again), the curve never paid out the last
+phase, area shares ignored the configuration, the largest share went to
+whichever area came first in a hash table, and tasks checked by hand, on a
+phone, or in a renamed project were never counted. Deriving XP from the
+notes removes the whole class of problems: the same notes always give the
+same XP.
 
-### **Key System Mechanics**
+## Using it
 
-- **Area XP Bubbling (Inheritance):** This is a core feature of the Area system. When an Area gains XP, a large percentage of that XP (e.g., 75%) "bubbles up" and is also awarded to its designated `parentArea`. This process is recursive, ensuring that progress in a specific sub-skill contributes to the mastery of the broader domain.
+| command | |
+|---|---|
+| `:ZortexXPStats` (`<leader>zxs`) | season, projects in progress, recent awards, areas |
+| `:ZortexXPExplain` (`<leader>zxe`) | how the project at the cursor earned its XP, award by award |
+| `:ZortexXPAreas` (`<leader>zxa`) | top areas |
+| `:ZortexSkillTree` (`<leader>zk`) | season progress and the area tree |
+| `:ZortexSeasonStart` / `SeasonStatus` / `SeasonEnd` | seasons |
 
-- **System Integration (The 10% Rule):** The two systems are linked. When you complete a project, **10%** of the _total_ Project XP you earned from it is transferred as a bonus to its linked Area. This reinforces the idea that tactical execution (Projects) serves long-term strategy (Areas), without devaluing the primary method of Area growth (completing OKRs).
+From Lua: `require("zortex").query.xp()` (plain data: season, areas, daily
+XP, recent awards), `require("zortex.services.xp.ledger").get()` (every
+award), `require("zortex").xp` (views). Events: `xp:awarded`, `xp:removed`,
+`season:leveled_up`, `area:leveled_up`.
 
-- **Core Consideration (Goodhart's Law):** A critical aspect to remember is the risk of "gaming your own system"—optimizing for points instead of genuine progress. The design mitigates this by encouraging regular qualitative reviews and focusing on the _process_ of doing good work, using the XP system as a guide rather than an absolute measure of success.
+## Configuration
+
+`Config.xp` (see `lua/zortex/config.lua`): `sources.task|project|objective`
+(`base_xp`, `sizes`, `season`, `area`, `key_result`), `area.level_curve`,
+`area.bubble`, `season.level_curve`, `season.tiers`,
+`modifiers.priority_multipliers|importance_multipliers`,
+`stamp_done_on_save`, `notify_min`. Task sizes not listed in `sizes` (`2xl`
+… `5xl`) scale with the same size points as project progress.
+
+## Keeping it honest
+
+The risk of any points system is optimizing for points (Goodhart's law). The
+XP here only follows work you planned: projects, their tasks and objectives.
+Use it as a mirror in the weekly review, not as a target.

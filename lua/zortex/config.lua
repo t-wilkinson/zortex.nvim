@@ -287,16 +287,21 @@ local defaults = {
 		},
 	},
 
+	-- XP is read off the notes (services/xp/ledger): completed tasks with their
+	-- @done dates, projects (a pool paid out over their tasks) and objectives
+	-- marked @done. Nothing is stored but seasons; see doc/XP.md.
 	xp = {
-		sources = {
-			task = {
-				season = 1.0,
-				area = 0.1, -- to each linked area
-				area_bubble = 0.75,
+		stamp_done_on_save = true, -- tasks checked by hand get @done(today) on save
+		notify_min = 5, -- announce awards of at least this much XP
 
-				base_xp = 10, -- 1 hour, 2 pomodoros
+		sources = {
+			-- A completed task outside projects (calendar, any note)
+			task = {
+				base_xp = 10, -- md task: ~1 hour, 2 pomodoros
+				season = 1.0, -- share counted for the season
+				area = 0.1, -- share to its @a(...) areas
+				-- Size multipliers; sizes not listed scale with constants.SIZE_POINTS
 				sizes = {
-					-- Think of base xp in terms of minutes/pomodoro cycles that it would take.
 					xs = { multiplier = 0.2 }, -- ~0.5 pomodoros, 5-15 minutes
 					sm = { multiplier = 0.5 },
 					md = { multiplier = 1 }, -- 2 pomodoros, 1 hour
@@ -305,12 +310,14 @@ local defaults = {
 				},
 			},
 
+			-- A project's pool (@xp(n), else base_xp × @size, else the sum of its
+			-- tasks' XP), paid out over its tasks on the initiation / execution /
+			-- completion curve
 			project = {
-				season = 1.0,
-				area = 0.2,
-				area_bubble = 0.75,
-
 				base_xp = 70, -- 7 hours, 14 pomodoros
+				season = 1.0,
+				area = 0.2, -- share to its areas
+				key_result = 1.0, -- share to its areas when a key result links to it
 				sizes = {
 					xs = { multiplier = 0.5 }, -- a couple hours
 					sm = { multiplier = 0.8 }, -- one day
@@ -324,47 +331,25 @@ local defaults = {
 				},
 			},
 
+			-- An objective marked @done: area XP (the long game), by time span
 			objective = {
+				base_xp = 20,
+				season = 0, -- objectives don't count for seasons
 				area = 1.0,
-				area_bubble = 0.75,
-
-				base_xp = 20, -- 20 hours, 40 pomodoros
-				sizes = {
-					M = 0.5,
-					Q = 1.5,
-					Y = 2.0,
-					["5Y"] = 3.0,
-					["10Y"] = 4.0,
-				},
-			},
-
-			daily_review = {
-				season = 1.0, -- 100% to season
-				bonus_multiplier = 1.5, -- 50% bonus for consistency
+				sizes = { M = 0.5, Q = 1.5, Y = 2.0, ["5Y"] = 3.0, ["10Y"] = 4.0 },
 			},
 		},
 
-		-- Area XP System (Long-term Mastery)
+		-- Areas: long-term mastery. XP = base * level^exponent
 		area = {
-			-- XP = base * level^exponent
-			level_curve = {
-				base = 1000,
-				exponent = 2.5,
-			},
+			level_curve = { base = 1000, exponent = 2.5 },
+			bubble = 0.75, -- share of a sub-area's XP that also counts for its parent
 		},
 
-		-- Season Configuration
+		-- Seasons: date windows over the same XP (battle pass)
 		season = {
-			-- XP = base * level^exponent
-			level_curve = {
-				base = 100,
-				exponent = 1.2,
-			},
-
-			-- Default season length (days)
-			default_length = 90, -- Quarterly
-
-			-- Battle pass tiers
+			level_curve = { base = 100, exponent = 1.2 },
+			default_length = 90, -- days
 			tiers = {
 				{ name = "Bronze", required_level = 1 },
 				{ name = "Silver", required_level = 5 },
@@ -376,22 +361,8 @@ local defaults = {
 		},
 
 		modifiers = {
-			-- -- Relevance decay (per day)
-			-- decay_rate = 0.001, -- 0.1% per day
-			-- decay_grace_days = 30, -- No decay for first 30 days
-
-			priority_multipliers = {
-				[1] = 1.5,
-				[2] = 1.2,
-				[3] = 1.0,
-				default = 1,
-			},
-			importance_multipliers = {
-				[1] = 1.5,
-				[2] = 1.2,
-				[3] = 1.0,
-				default = 1,
-			},
+			priority_multipliers = { [1] = 1.5, [2] = 1.2, [3] = 1.0, default = 1 },
+			importance_multipliers = { [1] = 1.5, [2] = 1.2, [3] = 1.0, default = 1 },
 		},
 	},
 }

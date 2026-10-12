@@ -77,7 +77,9 @@ local function season_start(args)
 		return require("zortex.services.xp.stats").prompt_start_season()
 	end
 	local end_date = fargs[2] or os.date("%Y-%m-%d", os.time() + 90 * 86400)
-	require("zortex.services.xp.stats").start_season(fargs[1], end_date)
+	-- an optional third argument backdates the start: completions dated from
+	-- then on count (XP is read off @done dates)
+	require("zortex.services.xp.stats").start_season(fargs[1], end_date, fargs[3])
 	notify("Started season: " .. fargs[1])
 end
 
@@ -88,11 +90,13 @@ local function season_status()
 	end
 	notify(
 		string.format(
-			"%s: level %d (%s tier), %.0f%% to next",
+			"%s: level %d (%s tier), %d XP, %.0f%% to next%s",
 			status.season.name,
 			status.level,
 			status.current_tier and status.current_tier.name or "no",
-			(status.progress_to_next or 0) * 100
+			status.xp,
+			(status.progress_to_next or 0) * 100,
+			status.days_left and string.format(", %d days left", status.days_left) or ""
 		)
 	)
 end
@@ -529,12 +533,20 @@ M.list = {
 		desc = "Top areas by XP",
 		run = call("zortex.services.xp.stats", "show_area_xp"),
 	},
+	{
+		id = "xp_explain",
+		command = "XPExplain",
+		key = "xe",
+		group = "XP",
+		desc = "How the project at the cursor earned its XP",
+		run = call("zortex.services.xp.stats", "explain_project"),
+	},
 	{ id = "season_status", command = "SeasonStatus", group = "XP", desc = "Current season", run = season_status },
 	{
 		id = "season_start",
 		command = "SeasonStart",
 		group = "XP",
-		desc = "Start a season: [name] [end YYYY-MM-DD] (prompts without args)",
+		desc = "Start a season: [name] [end YYYY-MM-DD] [start YYYY-MM-DD] (prompts without args)",
 		nargs = "*",
 		run = season_start,
 	},

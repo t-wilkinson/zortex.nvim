@@ -318,8 +318,8 @@ func (s *Server) handleNotify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		UserID        string           `json:"user_id"`
-		Operation     string           `json:"operation"`
+		UserID        string            `json:"user_id"`
+		Operation     string            `json:"operation"`
 		Notifications []alerts.Incoming `json:"notifications"`
 		Notification  alerts.Incoming   `json:"notification"`
 	}

@@ -382,7 +382,7 @@ change; there is no persistence manager.
 
 `core/event_bus` carries a small set of domain events (the catalogue is at
 the top of the file): `task:completed/uncompleted/created` (→ XP, digest),
-`xp:awarded/removed`, `season:*`, `calendar:entry_*` (→ digest) and
+`xp:awarded/removed`, `season:*`, `area:leveled_up`, `calendar:entry_*` (→ digest) and
 `workspace:lines_changed` (→ digest live links). Handlers run asynchronously
 in priority order; errors are reported, never raised into the emitter.
 
@@ -502,26 +502,24 @@ handlers run asynchronously (`vim.schedule`).
 
 ### XP — `services/xp/*` + `stores/xp.lua`
 
-**When a task changes:**
+XP is derived, not recorded (see [XP.md](XP.md)):
 
-1. `xp/core.build_xp_context`:
-   - finds the project with `projects.at(bufnr, lnum)`
-   - finds its key results with `okr.get_key_results(project)`
-   - finds area keys with `areas.keys_for(task, project, objectives…)`
-2. `xp/calculator` computes the XP amount and its distribution (season and areas).
-3. `stores/xp` records the transaction. Transaction ids are project keys, and
-   area XP is stored under **area keys**.
-
-**Reading and display:**
-
-- `xp/stats` gives season status, per-project XP, area stats, season
-  start/end, and the stats and area-ranking displays.
-- `require("zortex").xp`, the `XP*` and `Season*` actions, and the skill tree all use
-  `xp/stats`.
-
-**Config read by `stores/xp`:** `xp.season.level_curve`, `xp.season.tiers`
-and `xp.area.level_curve`. The older `xp.project.season_curve` key is still
-accepted.
+- `xp/ledger` builds every award from the notes: project tasks (each
+  project's pool paid out on the curve, live and archived tasks grouped by
+  project key, dated by `@done`), other completed tasks (a cheap line scan of
+  every note, not a full parse), and objectives marked `@done`. It is cached
+  by the notes' mtimes / changedticks and rebuilt only when one changes.
+- `xp/calculator` holds the formulas (task XP, project pool and curve,
+  objective XP, area shares); it is pure.
+- `xp/core` rebuilds after `task:completed/uncompleted` and saves of notes,
+  compares with the last totals and emits `xp:awarded/removed`,
+  `season:leveled_up`, `area:leveled_up`. It also stamps `@done(today)` on
+  tasks checked by hand when a note is saved.
+- `stores/xp` keeps only seasons (name, date window, history), the level
+  curves and the levels last announced.
+- `xp/stats` (`require("zortex").xp`), the `XP*` and `Season*` actions, the
+  skill tree and `query.xp()` read the ledger. `Area:xp()` / `total_xp()`
+  read it too (sub-areas count `xp.area.bubble` toward their parent).
 
 ## Entry points: API, actions, commands, keymaps
 
@@ -747,8 +745,7 @@ nvim --headless -u NONE -l tests/run.lua            # everything
 nvim --headless -u NONE -l tests/run.lua projects   # files whose name contains "projects"
 nvim --headless -u NONE -l tests/gen_ast.lua        # regenerate the AST fixtures (after a grammar change)
 nvim --headless -u NONE -l tests/gen_links.lua      # regenerate the resolve/search fixtures (after a resolver or search change)
-go -C app test ./...                                # Go parser, resolver and search against the same fixtures
-python3 -m unittest app/test_notes.py               # server notes index and routes
+go -C app test ./...                                # Go parser, resolver, search, web app, notifications, pomodoro
 ```
 
 **One grammar, two implementations.** `core/syntax.lua` is the

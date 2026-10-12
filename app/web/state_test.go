@@ -16,18 +16,29 @@ import (
 	"github.com/t-wilkinson/zortex.nvim/app/alerts"
 )
 
+// published collects what the ntfy stub received.
+type published struct {
+	mu   sync.Mutex
+	msgs []map[string]any
+}
+
+func (p *published) list() []map[string]any {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return append([]map[string]any(nil), p.msgs...)
+}
+
 // newStateServer: the test server with a data dir and an ntfy stub.
-func newStateServer(t *testing.T, apiKey string) (*Server, string, *httptest.Server, *[]map[string]any) {
+func newStateServer(t *testing.T, apiKey string) (*Server, string, *httptest.Server, *published) {
 	t.Helper()
 	s, dir, ts := newTestServer(t, "")
-	var mu sync.Mutex
-	published := &[]map[string]any{}
+	pub := &published{}
 	ntfy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var m map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&m)
-		mu.Lock()
-		*published = append(*published, m)
-		mu.Unlock()
+		pub.mu.Lock()
+		pub.msgs = append(pub.msgs, m)
+		pub.mu.Unlock()
 	}))
 	t.Cleanup(ntfy.Close)
 	s.cfg.DataDir = t.TempDir()
@@ -38,7 +49,7 @@ func newStateServer(t *testing.T, apiKey string) (*Server, string, *httptest.Ser
 		t.Fatal(err)
 	}
 	t.Cleanup(s.pomo.Close)
-	return s, dir, ts, published
+	return s, dir, ts, pub
 }
 
 func post(t *testing.T, ts *httptest.Server, path, body string, header map[string]string) (int, map[string]any) {
@@ -115,7 +126,7 @@ func TestCalendarFromNote(t *testing.T) {
 }
 
 func TestPomodoroAPI(t *testing.T) {
-	_, _, ts, published := newStateServer(t, "")
+	_, _, ts, pub := newStateServer(t, "")
 	expect(t, ts, "/api/pomodoro", 200, `"phase":"idle"`, `"enabled":true`, `"ntfy":true`)
 	// not JSON: refused (a cross-site form could send this)
 	resp, _ := http.Post(ts.URL+"/api/pomodoro/start", "application/x-www-form-urlencoded", strings.NewReader(""))
@@ -139,11 +150,11 @@ func TestPomodoroAPI(t *testing.T) {
 	}
 	post(t, ts, "/api/pomodoro/skip", "{}", nil) // work -> break
 	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) && len(*published) < 2 {
+	for time.Now().Before(deadline) && len(pub.list()) < 2 {
 		time.Sleep(20 * time.Millisecond)
 	}
 	var tags []string
-	for _, m := range *published {
+	for _, m := range pub.list() {
 		for _, tg := range m["tags"].([]any) {
 			tags = append(tags, tg.(string))
 		}

@@ -1,119 +1,182 @@
--- services/xp/core.lua - XP orchestration (task events -> XP context -> store)
-
+-- services/xp/core.lua - Keep XP current and announce changes
+--
+-- The ledger (services/xp/ledger) is rebuilt whenever a note changes. This
+-- module watches for that (task toggles, saving a note) and, comparing with
+-- the last totals, emits:
+--
+--   xp:awarded / xp:removed   { amount, season_amount, entries }
+--   season:leveled_up         { old_level, new_level, tier_info }
+--   area:leveled_up           { key, old_level, new_level }
 local M = {}
 
 local Events = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
-local xp_calculator = require("zortex.services.xp.calculator")
-local xp_store = require("zortex.stores.xp")
 
-function M.update_xp(context)
-	local end_timer = Logger.start_timer("xp.award")
+local last = nil -- { total, season }
+local pending = nil
 
-	-- Calculate total xp that the context (task or project) is worth
-	local xp_amount = xp_calculator.calculate_xp(context)
-
-	-- Calculate how much xp goes to where
-	local distributions = xp_calculator.calculate_distributions(xp_amount, context.areas)
-
-	-- Create transaction and update store
-	local transaction = xp_store.build_xp_transaction(context.type, context.id, xp_amount, distributions)
-	local xp_change = xp_store.record_xp_transaction(transaction)
-
-	if xp_change > 0 then
-		Events.emit("xp:awarded", {
-			source = context.type,
-			source_id = context.id,
-			amount = xp_change,
-			transaction = transaction,
-		})
-	elseif xp_change < 0 then
-		Events.emit("xp:removed", {
-			source = context.type,
-			source_id = context.id,
-			amount = xp_change,
-			transaction = transaction,
-		})
-	end
-
-	end_timer()
+local function ledger()
+	return require("zortex.services.xp.ledger")
 end
 
--- Initialize with event handlers
-function M.init()
-	-- Task events
-	Events.on("task:completed", function(data)
-		M.update_xp(M.build_xp_context(data))
-	end)
-
-	Events.on("task:uncompleted", function(data)
-		M.update_xp(M.build_xp_context(data))
-	end)
+local function area_levels(l)
+	local store = require("zortex.stores.xp")
+	local levels = {}
+	for _, area in ipairs(require("zortex.services.areas").all({ include_roots = false })) do
+		local total = area:total_xp(l)
+		if total > 0 then
+			levels[area.key] = store.calculate_area_level(total)
+		end
+	end
+	return levels
 end
 
--- Build XP context
--- This is a key function that provides the bulk of the necessary context for efficiently calculating xp
-function M.build_xp_context(data)
-	local projects_service = require("zortex.services.projects")
-	local okr_service = require("zortex.services.okr")
-	local areas_service = require("zortex.services.areas")
-
-	local doc_context = data.doc_context
-	local project = doc_context and projects_service.at(doc_context.bufnr, doc_context.lnum)
-
-	local id, type
-	-- Extract area paths from all sources
-	local key_results, objectives = {}, {}
-
-	if project then
-		type = "project"
-		id = project.key
-		key_results, objectives = okr_service.get_key_results(project)
-	elseif data.task then
-		type = "task"
-		id = data.task.id
-	else
-		return nil
+--- Rebuild (if anything changed) and announce the difference.
+function M.refresh()
+	local stop = Logger.start_timer("xp.refresh")
+	local store = require("zortex.stores.xp")
+	local L = ledger()
+	local ok, l = pcall(L.get)
+	if not ok then
+		Logger.error("xp", "ledger failed", { error = l })
+		stop()
+		return
 	end
+	local season = store.current_season()
+	local season_xp = L.season_xp(season, l)
+	local now = { total = l.total, season = season_xp }
 
-	-- Linked key_result just increases amount of xp given to area
-	-- Area keys ("Areas/1 Personal Foundation/1.2 Vitality"), resolved through
-	-- links; projects inherit areas from their ancestors.
-	local area_paths = areas_service.keys_for(data.task, project, unpack(objectives))
-	local areas = {}
-	for _, area_path in ipairs(area_paths) do
-		if project then
-			for _, key_result in ipairs(key_results) do
-				if key_result.projects[project.key] then
-					areas[area_path] = {
-						type = "key_result",
-						key_result = key_result,
-					}
+	if last and math.abs(now.total - last.total) >= 0.5 then
+		local diff = now.total - last.total
+		local function round(x)
+			return x < 0 and -math.floor(-x + 0.5) or math.floor(x + 0.5)
+		end
+		Events.emit(diff > 0 and "xp:awarded" or "xp:removed", {
+			amount = round(diff),
+			season_amount = round(now.season - last.season),
+			total = now.total,
+		})
+	end
+	last = now
+
+	local season_level = season and store.calculate_season_level(season_xp) or nil
+	local ok_levels, levels = pcall(area_levels, l)
+	local ups = store.update_seen(season_level, ok_levels and levels or {})
+	if ups.season then
+		Events.emit("season:leveled_up", {
+			old_level = ups.season.old,
+			new_level = ups.season.new,
+			tier_info = store.get_season_tier(ups.season.new),
+		})
+	end
+	for _, up in ipairs(ups.areas) do
+		Events.emit("area:leveled_up", { key = up.key, old_level = up.old, new_level = up.new })
+	end
+	stop()
+end
+
+--- Refresh soon (coalesces bursts of edits).
+function M.schedule_refresh(delay)
+	if pending then
+		pending:stop()
+		pending:close()
+	end
+	pending = (vim.uv or vim.loop).new_timer()
+	pending:start(
+		delay or 300,
+		0,
+		vim.schedule_wrap(function()
+			if pending then
+				pending:close()
+				pending = nil
+			end
+			M.refresh()
+		end)
+	)
+end
+
+-- =============================================================================
+-- @done on save
+-- =============================================================================
+
+-- Tasks checked by hand ("[ ]" -> "[x]" typed, not toggled) get @done(today)
+-- when the note is saved, so their XP lands on the right day. Only tasks
+-- that are newly checked in this edit are stamped: a checked line identical
+-- to the file on disk is old and left alone.
+function M.stamp_done(bufnr)
+	local Item = require("zortex.core.item")
+	local attributes = require("zortex.utils.attributes")
+	local path = vim.api.nvim_buf_get_name(bufnr)
+	if path == "" then
+		return 0
+	end
+	local disk = {}
+	for _, line in ipairs(require("zortex.utils.filesystem").read_lines(path) or {}) do
+		disk[line] = true
+	end
+	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+	local today = os.date("%Y-%m-%d")
+	local stamped = 0
+	for i, line in ipairs(lines) do
+		if not disk[line] and line:find("[xX]%]") then
+			local task = Item.task(line)
+			if task and task.completed and not task.attributes.done then
+				local new = attributes.update_attribute(line, "done", today)
+				if new ~= line then
+					vim.api.nvim_buf_set_lines(bufnr, i - 1, i, false, { new })
+					stamped = stamped + 1
 				end
 			end
 		end
-		if not areas[area_path] then
-			areas[area_path] = {
-				type = "basic",
-			}
-		end
 	end
+	return stamped
+end
 
-	return {
-		id = id,
-		type = type,
-		areas = areas,
+-- =============================================================================
+-- Setup
+-- =============================================================================
 
-		doc_context = data.doc_context,
-		task = data.task,
+function M.init(opts)
+	opts = opts or {}
+	Events.on("task:completed", function()
+		M.schedule_refresh()
+	end, { name = "xp.task_completed" })
+	Events.on("task:uncompleted", function()
+		M.schedule_refresh()
+	end, { name = "xp.task_uncompleted" })
+	Events.on("season:started", function()
+		M.schedule_refresh(0)
+	end, { name = "xp.season_started" })
 
-		-- Project a task falls under
-		project = project,
+	local group = vim.api.nvim_create_augroup("ZortexXP", { clear = true })
+	local ext = require("zortex.config").extension or ".zortex"
+	if opts.stamp_done_on_save ~= false then
+		vim.api.nvim_create_autocmd("BufWritePre", {
+			group = group,
+			pattern = "*" .. ext,
+			callback = function(ev)
+				pcall(M.stamp_done, ev.buf)
+			end,
+			desc = "Zortex: add @done(today) to tasks checked by hand",
+		})
+	end
+	vim.api.nvim_create_autocmd("BufWritePost", {
+		group = group,
+		pattern = "*" .. ext,
+		callback = function()
+			M.schedule_refresh(500)
+		end,
+		desc = "Zortex: update XP",
+	})
+	-- learn the current totals without announcing them
+	vim.defer_fn(function()
+		pcall(M.refresh)
+	end, 1500)
+end
 
-		-- OKR Key result that links to a project
-		key_results = key_results,
-		objectives = objectives,
-	}
+--- Forget the last totals (tests).
+function M._reset()
+	last = nil
 end
 
 return M

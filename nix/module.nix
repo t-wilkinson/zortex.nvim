@@ -18,7 +18,7 @@
 # has no login of its own.
 #
 # This replaces the Flask notification server + zortex-sender timer. Either
-# `enable` or `web.enable` turns the service on (both are kept so existing
+# `enable` turns the service on (both are kept so existing
 # configurations keep working).
 
 with lib;
@@ -26,41 +26,40 @@ with lib;
 let
   cfg = config.services.zortex;
   web = cfg.web;
-  on = cfg.enable || web.enable;
+  on = cfg.enable;
 
-  args =
-    [
-      "serve"
-      "-dir"
-      (toString cfg.notesDir)
-      "-addr"
-      "${web.address}:${toString web.port}"
-      "-title"
-      web.title
-      "-poll"
-      web.pollInterval
-      "-special"
-      (concatStringsSep "," cfg.notesSpecial)
-      "-data"
-      (toString cfg.dataDir)
-      "-ntfy-url"
-      cfg.ntfy.url
-      "-ntfy-topic"
-      cfg.ntfy.topic
-    ]
-    ++ optionals (web.basePath != "") [
-      "-base"
-      web.basePath
-    ]
-    ++ optionals (web.resourceExtensions != null) [
-      "-resources"
-      (concatStringsSep "," web.resourceExtensions)
-    ]
-    ++ optionals (cfg.ntfy.authTokenFile != null) [
-      "-ntfy-token-file"
-      "%d/ntfy-token"
-    ]
-    ++ web.extraArgs;
+  args = [
+    "serve"
+    "-dir"
+    (toString cfg.notesDir)
+    "-addr"
+    "${web.address}:${toString web.port}"
+    "-title"
+    web.title
+    "-poll"
+    web.pollInterval
+    "-special"
+    (concatStringsSep "," cfg.notesSpecial)
+    "-data"
+    (toString cfg.dataDir)
+    "-ntfy-url"
+    cfg.ntfy.url
+    "-ntfy-topic"
+    cfg.ntfy.topic
+  ]
+  ++ optionals (web.basePath != "") [
+    "-base"
+    web.basePath
+  ]
+  ++ optionals (web.resourceExtensions != null) [
+    "-resources"
+    (concatStringsSep "," web.resourceExtensions)
+  ]
+  ++ optionals (cfg.ntfy.authTokenFile != null) [
+    "-ntfy-token-file"
+    "%d/ntfy-token"
+  ]
+  ++ web.extraArgs;
 in
 {
   options.services.zortex = {
@@ -142,7 +141,13 @@ in
 
     notesSpecial = mkOption {
       type = types.listOf types.str;
-      default = [ "calendar" "structure" "projects" "areas" "okr" ];
+      default = [
+        "calendar"
+        "structure"
+        "projects"
+        "areas"
+        "okr"
+      ];
       description = ''
         Top-level notes listed on the home page and shown by default in file
         listings (other top-level files are hidden until "show all").
@@ -155,36 +160,7 @@ in
       description = "Time zone for the calendar and notification times.";
     };
 
-    # Options of the old Flask server, kept so configurations still evaluate
-    port = mkOption {
-      type = types.nullOr types.port;
-      default = null;
-      visible = false;
-      description = "Removed: the Flask server is gone; use web.port.";
-    };
-    interval = mkOption {
-      type = types.nullOr types.str;
-      default = null;
-      visible = false;
-      description = "Removed: notifications are sent in-process (every 20s).";
-    };
-    notesUrl = mkOption {
-      type = types.nullOr types.str;
-      default = null;
-      visible = false;
-      description = "Removed: the calendar and the notes are one site now.";
-    };
-
     web = {
-      enable = mkEnableOption "Zortex (same as services.zortex.enable)";
-
-      package = mkOption {
-        type = types.nullOr types.package;
-        default = null;
-        visible = false;
-        description = "Deprecated alias of services.zortex.package.";
-      };
-
       address = mkOption {
         type = types.str;
         default = "127.0.0.1";
@@ -231,17 +207,16 @@ in
         description = "Soft memory limit for the Go runtime (GOMEMLIMIT). Null leaves it unset.";
       };
 
-      calendarUrl = mkOption {
-        type = types.nullOr types.str;
-        default = null;
-        visible = false;
-        description = "Removed: the calendar is the home page now.";
-      };
-
       resourceExtensions = mkOption {
         type = types.nullOr (types.listOf types.str);
         default = null;
-        example = [ "pdf" "epub" "djvu" "png" "jpg" ];
+        example = [
+          "pdf"
+          "epub"
+          "djvu"
+          "png"
+          "jpg"
+        ];
         description = ''
           File extensions tracked as resources (backlinks on file pages, the
           unlinked list at /resources). Null: PDFs, e-books, images, video,
@@ -276,10 +251,17 @@ in
     ];
 
     warnings =
-      optional (cfg.port != null) "services.zortex.port is gone with the Flask server: everything is served on web.port (${toString web.port}). Point the plugin's server.api_endpoint there."
-      ++ optional (cfg.interval != null) "services.zortex.interval is gone: notifications are sent in-process."
-      ++ optional (cfg.notesUrl != null || web.calendarUrl != null) "services.zortex.notesUrl / web.calendarUrl are gone: the calendar is the web app's home page."
-      ++ optional (cfg.ntfy.authToken != null) "services.zortex.ntfy.authToken is stored in the Nix store; prefer ntfy.authTokenFile.";
+      optional (cfg.port != null)
+        "services.zortex.port is gone with the Flask server: everything is served on web.port (${toString web.port}). Point the plugin's server.api_endpoint there."
+      ++ optional (
+        cfg.interval != null
+      ) "services.zortex.interval is gone: notifications are sent in-process."
+      ++ optional (
+        cfg.notesUrl != null || web.calendarUrl != null
+      ) "services.zortex.notesUrl / web.calendarUrl are gone: the calendar is the web app's home page."
+      ++ optional (
+        cfg.ntfy.authToken != null
+      ) "services.zortex.ntfy.authToken is stored in the Nix store; prefer ntfy.authTokenFile.";
 
     users.groups.zortex = { };
     users.users.zortex = {
@@ -295,23 +277,26 @@ in
       wants = [ "network-online.target" ];
       wantedBy = [ "multi-user.target" ];
 
-      environment =
-        {
-          TZ = cfg.timezone;
-        }
-        // optionalAttrs (web.memoryLimit != null) { GOMEMLIMIT = web.memoryLimit; }
-        // optionalAttrs (cfg.ntfy.authToken != null) { NTFY_AUTH_TOKEN = cfg.ntfy.authToken; }
-        // optionalAttrs (cfg.apiKey != null) { ZORTEX_API_KEY = cfg.apiKey; };
+      environment = {
+        TZ = cfg.timezone;
+      }
+      // optionalAttrs (web.memoryLimit != null) { GOMEMLIMIT = web.memoryLimit; }
+      // optionalAttrs (cfg.ntfy.authToken != null) { NTFY_AUTH_TOKEN = cfg.ntfy.authToken; }
+      // optionalAttrs (cfg.apiKey != null) { ZORTEX_API_KEY = cfg.apiKey; };
 
       serviceConfig = {
-        ExecStart = "${if web.package != null then web.package else cfg.package}/bin/zortex ${escapeShellArgs args}";
+        ExecStart = "${
+          if web.package != null then web.package else cfg.package
+        }/bin/zortex ${escapeShellArgs args}";
         User = "zortex";
         Group = "zortex";
         SupplementaryGroups = optional (cfg.notesGroup != null) cfg.notesGroup;
         Restart = "on-failure";
         RestartSec = "5s";
         EnvironmentFile = optional (cfg.apiKeyFile != null) cfg.apiKeyFile;
-        LoadCredential = optional (cfg.ntfy.authTokenFile != null) "ntfy-token:${toString cfg.ntfy.authTokenFile}";
+        LoadCredential = optional (
+          cfg.ntfy.authTokenFile != null
+        ) "ntfy-token:${toString cfg.ntfy.authTokenFile}";
 
         # Read-only notes, writable state, nothing else
         StateDirectory = mkIf (cfg.dataDir == "/var/lib/zortex") "zortex";
@@ -334,14 +319,21 @@ in
         ProtectHostname = true;
         ProtectProc = "invisible";
         ProcSubset = "pid";
-        RestrictAddressFamilies = [ "AF_INET" "AF_INET6" "AF_UNIX" ];
+        RestrictAddressFamilies = [
+          "AF_INET"
+          "AF_INET6"
+          "AF_UNIX"
+        ];
         RestrictNamespaces = true;
         RestrictRealtime = true;
         RestrictSUIDSGID = true;
         LockPersonality = true;
         MemoryDenyWriteExecute = true;
         SystemCallArchitectures = "native";
-        SystemCallFilter = [ "@system-service" "~@privileged" ];
+        SystemCallFilter = [
+          "@system-service"
+          "~@privileged"
+        ];
         UMask = "0077";
       };
     };

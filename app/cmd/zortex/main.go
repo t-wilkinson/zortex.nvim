@@ -1,12 +1,13 @@
 // Command zortex is the Go side of Zortex: the parser, link resolver and
-// structural search over a notes folder, without Neovim, and the read-only
-// web app (`zortex serve`).
+// structural search over a notes folder, without Neovim, and the web app
+// (`zortex serve`): the notes (read-only), the calendar and its ntfy
+// notifications, and the pomodoro clock shared with Neovim.
 //
 //	zortex parse [-inline=false] [-pretty] FILE...      AST as JSON (one object per file)
 //	zortex sections FILE...                             outline: level, line, type, text
 //	zortex resolve [-dir D] [-from REL] LINK...         rel:lnum:col for each target
 //	zortex search [-dir D] [-mode M] [-n N] PROMPT...   ranked sections, then lines
-//	zortex serve [-dir D] [-addr A] [-base P] ...       the web app (see -h)
+//	zortex serve [-dir D] [-addr A] [-base P] [-data D] ...   the web app: notes, calendar, pomodoro (see -h)
 //	zortex version
 //
 // -dir defaults to $ZORTEX_NOTES_DIR, then the current folder.
@@ -26,6 +27,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/t-wilkinson/zortex.nvim/app/alerts"
 	"github.com/t-wilkinson/zortex.nvim/app/links"
 	"github.com/t-wilkinson/zortex.nvim/app/notes"
 	"github.com/t-wilkinson/zortex.nvim/app/search"
@@ -39,7 +41,8 @@ func usage() {
   zortex sections FILE...
   zortex resolve [-dir DIR] [-from REL] LINK...
   zortex search [-dir DIR] [-mode section|article] [-n N] PROMPT...
-  zortex serve [-dir DIR] [-addr HOST:PORT] [-base /PREFIX] [-title T] [-poll D] [-special a,b] [-calendar URL] [-resources pdf,png,...]
+  zortex serve [-dir DIR] [-addr HOST:PORT] [-base /PREFIX] [-title T] [-poll D] [-special a,b] [-resources pdf,png,...]
+               [-data DIR] [-ntfy-url URL] [-ntfy-topic T] [-ntfy-token TOKEN] [-api-key KEY]
   zortex version`)
 	os.Exit(2)
 }
@@ -136,7 +139,18 @@ func serveCmd(args []string) {
 	poll := fs.Duration("poll", 10*time.Second, "how often to rescan the folder (negative: never)")
 	special := fs.String("special", envOr("ZORTEX_SPECIAL", strings.Join(web.DefaultSpecial, ",")), "top-level notes listed by default ($ZORTEX_SPECIAL)")
 	resources := fs.String("resources", os.Getenv("ZORTEX_RESOURCES"), "extensions tracked as resources for backlinks and the unlinked list, e.g. pdf,epub,png (default: documents, books, images, media) ($ZORTEX_RESOURCES)")
-	calendar := fs.String("calendar", os.Getenv("ZORTEX_CALENDAR_URL"), "URL of the notification server's calendar, shown as the Calendar tab ($ZORTEX_CALENDAR_URL)")
+	_ = fs.String("calendar", "", "deprecated: the calendar is part of the web app now")
+	dataDefault := os.Getenv("ZORTEX_DATA_DIR")
+	if dataDefault == "" {
+		dataDefault = os.Getenv("STATE_DIRECTORY") // systemd StateDirectory=
+	}
+	data := fs.String("data", dataDefault, "state folder for notifications and the pomodoro clock; empty: read-only, no /notify or pomodoro ($ZORTEX_DATA_DIR, $STATE_DIRECTORY)")
+	ntfyURL := fs.String("ntfy-url", os.Getenv("NTFY_SERVER_URL"), "ntfy server that delivers notifications ($NTFY_SERVER_URL)")
+	ntfyTopic := fs.String("ntfy-topic", os.Getenv("NTFY_TOPIC"), "ntfy topic ($NTFY_TOPIC)")
+	ntfyToken := fs.String("ntfy-token", os.Getenv("NTFY_AUTH_TOKEN"), "ntfy access token ($NTFY_AUTH_TOKEN)")
+	ntfyTokenFile := fs.String("ntfy-token-file", os.Getenv("NTFY_AUTH_TOKEN_FILE"), "file holding the ntfy access token ($NTFY_AUTH_TOKEN_FILE)")
+	apiKey := fs.String("api-key", os.Getenv("ZORTEX_API_KEY"), "if set, /notify and /pending require it in X-API-Key ($ZORTEX_API_KEY)")
+	sendEvery := fs.Duration("send-interval", 20*time.Second, "how often due notifications are sent")
 	_ = fs.Parse(args)
 	if v := os.Getenv("ZORTEX_POLL"); v != "" && !flagSet(fs, "poll") {
 		if d, err := time.ParseDuration(v); err == nil {
@@ -145,13 +159,28 @@ func serveCmd(args []string) {
 	}
 
 	logger := log.New(os.Stderr, "", log.LstdFlags)
+	token := *ntfyToken
+	if *ntfyTokenFile != "" {
+		raw, err := os.ReadFile(*ntfyTokenFile)
+		if err != nil {
+			logger.Fatal(err)
+		}
+		token = strings.TrimSpace(string(raw))
+	}
+	ntfy := &alerts.Ntfy{URL: *ntfyURL, Topic: *ntfyTopic, Token: token}
+	if *data != "" && !ntfy.Enabled() {
+		logger.Printf("ntfy is not configured: notifications are kept but not sent")
+	}
 	srv, err := web.New(web.Config{
-		Root:        *dir,
-		Title:       *title,
-		Base:        *base,
-		Poll:        *poll,
-		Special:     strings.Split(*special, ","),
-		CalendarURL: *calendar,
+		Root:         *dir,
+		Title:        *title,
+		Base:         *base,
+		Poll:         *poll,
+		Special:      strings.Split(*special, ","),
+		DataDir:      *data,
+		Ntfy:         ntfy,
+		APIKey:       *apiKey,
+		SendInterval: *sendEvery,
 		ResourceExts: func() []string {
 			if *resources == "" {
 				return nil

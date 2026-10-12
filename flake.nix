@@ -1,5 +1,5 @@
 {
-  description = "Zortex: Neovim plugin, notes web app and notification server";
+  description = "Zortex: Neovim plugin and its server (notes web app, calendar, notifications, pomodoro)";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -23,8 +23,8 @@
           pkgs = pkgsFor system;
         in
         {
-          default = pkgs.callPackage ./nix/package.nix { };
-          # Go CLI and notes web app (app/cmd/zortex: `zortex serve`)
+          # Go CLI and server (app/cmd/zortex: `zortex serve`)
+          default = pkgs.callPackage ./nix/zortex.nix { };
           zortex = pkgs.callPackage ./nix/zortex.nix { };
         }
       );
@@ -41,29 +41,16 @@
         {
           default = pkgs.mkShell {
             buildInputs = with pkgs; [
-              self.packages.${system}.default
-              python3
-              sqlite
-              curl
               go
-              (python3.withPackages (
-                ps: with ps; [
-                  flask
-                  werkzeug
-                ]
-              ))
+              curl
+              neovim
             ];
             shellHook = ''
-              export FLASK_PORT=5000
-              export DATABASE_PATH="$HOME/.local/state/zortex/notifications.db"
-              export NTFY_SERVER_URL="https://ntfy.home.lab"
-
-              # Automatically create the data directory for local dev
-              mkdir -p $(dirname $DATABASE_PATH)
-
+              export ZORTEX_DATA_DIR="$HOME/.local/state/zortex"
+              mkdir -p "$ZORTEX_DATA_DIR"
               echo "Zortex dev environment ready."
-              echo "Run 'python app/server.py' to start server."
-              echo "Run './app/send.sh' to process queue."
+              echo "  go -C app run ./cmd/zortex serve -dir ~/.zortex      # http://127.0.0.1:8090/"
+              echo "  go -C app test ./...   ·   nvim --headless -u NONE -l tests/run.lua"
             '';
           };
         }

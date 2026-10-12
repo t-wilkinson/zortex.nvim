@@ -19,25 +19,38 @@ local function xp_store()
 	return require("zortex.stores.xp")
 end
 
--- XP earned directly by this area
-function Area:xp()
-	return xp_store().get_area_xp(self.key) or 0
+local function ledger()
+	return require("zortex.services.xp.ledger")
 end
 
--- XP of this area and all sub-areas
-function Area:total_xp()
-	local total = 0
-	self:walk(function(a)
-		total = total + a:xp()
-	end)
+-- Share of a sub-area's XP that also counts for its parent (xp.area.bubble)
+local function bubble()
+	local xp = require("zortex.config").xp or {}
+	return (xp.area and xp.area.bubble) or 0.75
+end
+
+-- XP earned directly by this area (from the ledger, all time)
+function Area:xp(l)
+	return ((l or ledger().get({ cached = true })).area_xp[self.key] or 0)
+end
+
+-- This area's XP plus `bubble` (75%) of each sub-area's total, recursively:
+-- progress in a sub-skill counts towards the broader one.
+function Area:total_xp(l)
+	l = l or ledger().get({ cached = true })
+	local total = self:xp(l)
+	local b = bubble()
+	for _, child in ipairs(self.children) do
+		total = total + b * child:total_xp(l)
+	end
 	return total
 end
 
 -- { xp, total_xp, level, progress } where level/progress come from total XP.
--- level/progress are nil until the XP store is configured (stores/xp.setup).
-function Area:xp_data()
+function Area:xp_data(l)
 	local store = xp_store()
-	local data = { xp = self:xp(), total_xp = self:total_xp() }
+	l = l or ledger().get({ cached = true })
+	local data = { xp = self:xp(l), total_xp = self:total_xp(l) }
 	local ok, level = pcall(store.calculate_area_level, data.total_xp)
 	if ok and level then
 		data.level = level

@@ -51,6 +51,29 @@ function M.save_pomodoro(pomodoro_data)
 end
 
 -- ===========================================================================
+-- Calendar manifest: the last set of calendar notifications synced
+-- ===========================================================================
+
+function M.get_calendar_manifest()
+	return store:get().calendar_manifest
+end
+
+function M.save_calendar_manifest(manifest)
+	store:get().calendar_manifest = manifest
+	return store:save()
+end
+
+-- Settings last pushed to the server's pomodoro clock
+function M.get_pomodoro_pushed()
+	return store:get().pomodoro_pushed
+end
+
+function M.save_pomodoro_pushed(settings)
+	store:get().pomodoro_pushed = settings
+	return store:save()
+end
+
+-- ===========================================================================
 -- Legacy Support - Digest
 -- ===========================================================================
 

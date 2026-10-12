@@ -25,8 +25,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/t-wilkinson/zortex.nvim/app/alerts"
 	"github.com/t-wilkinson/zortex.nvim/app/links"
 	"github.com/t-wilkinson/zortex.nvim/app/notes"
+	"github.com/t-wilkinson/zortex.nvim/app/pomodoro"
 	"github.com/t-wilkinson/zortex.nvim/app/search"
 	"github.com/t-wilkinson/zortex.nvim/app/syntax"
 )
@@ -45,9 +47,19 @@ type Config struct {
 	Base    string        // URL path prefix when served below "/", e.g. "/notes"
 	Poll    time.Duration // rescan interval (default 10s; <0: never)
 	Special []string      // top-level notes shown in the file browser root and on the home page
-	// CalendarURL is the notification server's dashboard (the Calendar tab in
-	// the top bar, shared by both sites); empty hides the tab.
-	CalendarURL string
+	// DataDir holds the server's own state: scheduled notifications and the
+	// pomodoro clock. Empty: read-only mode (no /notify, no pomodoro).
+	DataDir string
+	// Ntfy delivers due notifications and pomodoro phase changes; nil or
+	// unconfigured: notifications are kept (and shown) but not sent.
+	Ntfy *alerts.Ntfy
+	// APIKey, when set, is required (X-API-Key header) by the endpoints
+	// Neovim uses: /notify and /pending.
+	APIKey string
+	// SendInterval: how often due notifications are sent (default 20s).
+	SendInterval time.Duration
+	// Calendar is the calendar note (default "calendar" + Ext).
+	Calendar string
 	// ResourceExts: extensions of the files tracked as resources (backlinks,
 	// unlinked list); nil: DefaultResourceExts.
 	ResourceExts []string
@@ -70,6 +82,10 @@ type Server struct {
 
 	snap      atomic.Pointer[snapshot]
 	rebuildMu sync.Mutex
+
+	alerts *alerts.Store   // nil without DataDir
+	sender *alerts.Sender  // nil without DataDir
+	pomo   *pomodoro.Clock // nil without DataDir
 }
 
 // Backlink is a link in one note (or Markdown file) to a line of another
@@ -110,6 +126,8 @@ type snapshot struct {
 	unlinked      map[string]int        // folder -> unlinked resources inside it
 	names         map[string][]string   // lower-cased file name -> resources
 	fingerprint   uint64                // of the resources and Markdown files
+
+	structure structureInfo // notes not linked from the Structure note
 }
 
 type tagInfo struct {
@@ -156,8 +174,17 @@ func New(cfg Config) (*Server, error) {
 			s.special[name] = true
 		}
 	}
+	if cfg.Calendar == "" {
+		cfg.Calendar = "calendar" + cfg.Ext
+		s.cfg.Calendar = cfg.Calendar
+	}
 	if err := s.parseTemplates(); err != nil {
 		return nil, err
+	}
+	if cfg.DataDir != "" {
+		if err := s.openState(); err != nil {
+			return nil, err
+		}
 	}
 	sub, _ := fs.Sub(staticFS, "static")
 	s.static = http.StripPrefix("/static/", http.FileServer(http.FS(sub)))
@@ -166,9 +193,20 @@ func New(cfg Config) (*Server, error) {
 	return s, nil
 }
 
-// Run rescans the folder every Config.Poll until ctx is done.
+// Run rescans the folder every Config.Poll and sends due notifications
+// until ctx is done.
 func (s *Server) Run(ctx context.Context) {
+	if s.sender != nil {
+		go s.sender.Run(ctx)
+	}
+	if s.pomo != nil {
+		go func() {
+			<-ctx.Done()
+			s.pomo.Close()
+		}()
+	}
 	if s.cfg.Poll < 0 {
+		<-ctx.Done()
 		return
 	}
 	t := time.NewTicker(s.cfg.Poll)
@@ -228,6 +266,7 @@ func (s *Server) rebuild(res []resource, linking []string, fingerprint uint64) {
 		s.collectMarkdownLinks(rel, snap, snap.names)
 	}
 	snap.unlinked = snap.unlinkedIn()
+	snap.structure = s.buildStructure(snap)
 	for _, t := range tags {
 		snap.tags = append(snap.tags, *t)
 	}
@@ -313,6 +352,18 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/resolve", s.apiResolve)
 	mux.HandleFunc("GET /api/backlinks", s.apiBacklinks)
 	mux.HandleFunc("GET /healthz", s.handleHealth)
+	mux.HandleFunc("GET /health", s.handleHealth)
+	mux.HandleFunc("GET /structure", s.handleStructure)
+	mux.HandleFunc("GET /api/structure", s.apiStructure)
+	// calendar and notifications (Neovim syncs to /notify)
+	mux.HandleFunc("GET /api/calendar", s.apiCalendar)
+	mux.HandleFunc("GET /api/summary", s.apiSummary)
+	mux.HandleFunc("POST /notify", s.handleNotify)
+	mux.HandleFunc("GET /pending", s.handlePending)
+	mux.HandleFunc("POST /test", s.handleTestNotification)
+	// pomodoro, shared by Neovim and the home page
+	mux.HandleFunc("GET /api/pomodoro", s.apiPomodoro)
+	mux.HandleFunc("POST /api/pomodoro/{action}", s.apiPomodoroAction)
 	mux.Handle("GET /static/", s.cacheStatic(s.static))
 	var h http.Handler = mux
 	if base := s.cfg.Base; base != "" {

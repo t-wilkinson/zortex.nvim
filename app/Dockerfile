@@ -1,47 +1,14 @@
-# app/Dockerfile
-FROM python:3.11-slim
+# app/Dockerfile: zortex serve (notes web app, calendar, notifications, pomodoro)
+FROM golang:1.24-alpine AS build
+WORKDIR /src
+COPY . .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /zortex ./cmd/zortex
 
-# Install cron and curl
-RUN apt-get update && apt-get install -y \
-  cron \
-  curl \
-  sqlite3 \
-  && rm -rf /var/lib/apt/lists/*;
-
-# Set working directory
-WORKDIR /app
-
-# Copy requirements and install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy application files
-COPY server.py notes.py ./
-# the theme shared with the notes web app (served at /static/)
-COPY web/static/style.css web/static/icon.svg ./web/static/
-COPY entrypoint.sh .
-COPY crontab /etc/cron.d/notification-cron
-
-# Make scripts executable
-RUN chmod +x send.sh
-RUN chmod +x entrypoint.sh .
-RUN chmod 0644 /etc/cron.d/notification-cron;
-
-# Create log file
-RUN touch /var/log/cron.log;
-
-# Environment variables (with defaults)
-ENV NTFY_SERVER_URL=http://ntfy.sh
-ENV NTFY_TOPIC=zortex-notify
-ENV NTFY_AUTH_TOKEN=""
-ENV FLASK_PORT=5000
-ENV TZ=UTC
-ENV DATABASE_PATH=/app/data/notifications.db
-
-# Expose Flask port
-EXPOSE 5000
-
-# Start cron and Flask
-# CMD cron && crontab /etc/cron.d/notification-cron && tail -f /var/log/cron.log & python server.py
-# CMD /bin/bash -c "printenv | grep -E '^(NTFY_SERVER_URL|NTFY_TOPIC|NTFY_AUTH_TOKEN|TZ)=' > /etc/environment && chmod 0644 /etc/environment && cron && python server.py"
-CMD ["/app/entrypoint.sh"]
+FROM alpine:3.20
+RUN apk add --no-cache ca-certificates tzdata && adduser -D -H -u 10001 zortex && mkdir -p /data && chown zortex /data
+COPY --from=build /zortex /usr/local/bin/zortex
+USER zortex
+ENV ZORTEX_NOTES_DIR=/notes ZORTEX_DATA_DIR=/data ZORTEX_ADDR=0.0.0.0:8090
+EXPOSE 8090
+HEALTHCHECK --interval=1m --timeout=5s CMD wget -qO- http://127.0.0.1:8090/healthz >/dev/null || exit 1
+ENTRYPOINT ["zortex", "serve"]

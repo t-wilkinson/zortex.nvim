@@ -20,7 +20,7 @@ import (
 // Templates
 // =============================================================================
 
-var pageNames = []string{"home", "note", "search", "results", "link", "files", "file", "tags", "tag", "broken", "resources", "error"}
+var pageNames = []string{"home", "note", "search", "results", "link", "files", "file", "tags", "tag", "broken", "resources", "structure", "error"}
 
 func (s *Server) parseTemplates() error {
 	funcs := template.FuncMap{
@@ -68,7 +68,6 @@ func (s *Server) parseTemplates() error {
 func (s *Server) render(w http.ResponseWriter, r *http.Request, page string, status int, data map[string]any) {
 	data["Site"] = s.cfg.Title
 	data["Base"] = s.cfg.Base
-	data["Calendar"] = s.cfg.CalendarURL
 	data["Nav"] = navOf[page]
 	if _, ok := data["Query"]; !ok {
 		data["Query"] = ""
@@ -90,7 +89,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, page string, sta
 }
 
 // navOf: which top-bar tab a page belongs to.
-var navOf = map[string]string{"files": "files", "file": "files", "resources": "files", "tags": "tags", "tag": "tags", "broken": "broken"}
+var navOf = map[string]string{"files": "files", "file": "files", "resources": "files", "tags": "tags", "tag": "tags", "broken": "broken", "structure": "structure"}
 
 // backGroup is the backlinks from one note or file.
 type backGroup struct {
@@ -190,18 +189,31 @@ func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 			rows = append(rows, row{Rel: rel, Title: d.Title(), ModTime: d.ModTime})
 		}
 	}
+	shown := snap.structure.Unlinked
+	if len(shown) > 12 {
+		shown = shown[:12]
+	}
+	calRel := ""
+	if d := s.calendarDoc(); d != nil {
+		calRel = d.Rel
+	}
 	s.render(w, r, "home", http.StatusOK, map[string]any{
-		"Title":     s.cfg.Title,
-		"Home":      true,
-		"Special":   special,
-		"Recent":    rows,
-		"Notes":     snap.notes,
-		"Links":     snap.links,
-		"Broken":    len(snap.broken),
-		"Tags":      len(snap.tags),
-		"Resources": len(snap.resources),
-		"Unlinked":  snap.unlinked[""],
-		"Built":     snap.built,
+		"Title":          s.cfg.Title,
+		"Home":           true,
+		"HasCalendar":    calRel != "" || s.alerts != nil,
+		"CalendarRel":    calRel,
+		"HasState":       s.alerts != nil,
+		"Structure":      snap.structure,
+		"StructureShown": shown,
+		"Special":        special,
+		"Recent":         rows,
+		"Notes":          snap.notes,
+		"Links":          snap.links,
+		"Broken":         len(snap.broken),
+		"Tags":           len(snap.tags),
+		"Resources":      len(snap.resources),
+		"Unlinked":       snap.unlinked[""],
+		"Built":          snap.built,
 	})
 }
 

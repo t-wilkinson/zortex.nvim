@@ -1,0 +1,7 @@
+# contrib/ntfy/client.yml - ~/.config/ntfy/client.yml for `ntfy subscribe --from-config`
+default-host: https://ntfy.sh
+# default-token: tk_...
+subscribe:
+  - topic: zortex-notify
+    # title, message, (sound file), tags: notify.sh picks a sound per pomodoro event
+    command: '~/.config/ntfy/notify.sh "$NTFY_TITLE" "$NTFY_MESSAGE" "" "$NTFY_TAGS"'

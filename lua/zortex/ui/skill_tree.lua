@@ -39,7 +39,7 @@ local function format_xp(xp)
 	elseif xp >= 1000 then
 		return string.format("%.1fK", xp / 1000)
 	else
-		return tostring(xp)
+		return tostring(math.floor(xp + 0.5))
 	end
 end
 
@@ -68,7 +68,7 @@ local function render_season_section(lines, highlights)
 	table.insert(lines, "")
 
 	if not status then
-		table.insert(lines, "No active season. Use :ZortexStartSeason to begin!")
+		table.insert(lines, "No active season. Use :ZortexSeasonStart to begin!")
 		return
 	end
 

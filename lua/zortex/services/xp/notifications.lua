@@ -37,14 +37,22 @@ function M.init()
 		vim.notify(message, vim.log.levels.INFO, { title = "Level Up!", timeout = 5000 })
 	end, { priority = 90, name = "xp_notifications.season_level_up" })
 
+	Events.on("area:leveled_up", function(data)
+		vim.notify(
+			string.format("🗺️ %s reached level %d", data.key:match("[^/]+$") or data.key, data.new_level),
+			vim.log.levels.INFO,
+			{ title = "Area Level Up!", timeout = 5000 }
+		)
+	end, { priority = 90, name = "xp_notifications.area_level_up" })
+
 	Events.on("xp:awarded", function(data)
-		Logger.info("xp:awarded", "xp_transaction", data)
-		if data.amount >= 20 then -- only significant awards
-			vim.notify(
-				string.format("✨ XP Earned: +%d XP", data.amount),
-				vim.log.levels.INFO,
-				{ title = "XP Gained", timeout = 3000 }
-			)
+		Logger.info("xp:awarded", "xp", data)
+		local cfg = (require("zortex.config").xp or {}).notify_min or 5
+		if data.amount >= cfg then
+			local season = data.season_amount and data.season_amount > 0 and data.season_amount ~= data.amount
+					and string.format(" (+%d season)", data.season_amount)
+				or ""
+			vim.notify(string.format("✨ +%d XP%s", data.amount, season), vim.log.levels.INFO, { title = "XP Gained", timeout = 3000 })
 		end
 	end, { priority = 80, name = "xp_notifications.xp_awarded" })
 end

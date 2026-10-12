@@ -93,7 +93,7 @@ function M.keys_for(...)
 	return keys
 end
 
--- Backwards-compatible name used by the XP pipeline
+-- Backwards-compatible name
 M.extract_area_paths = M.keys_for
 
 -- =============================================================================
@@ -108,8 +108,9 @@ end
 -- Areas ranked by total XP (sub-areas included), highest first
 function M.top(limit)
 	local ranked = {}
+	local l = require("zortex.services.xp.ledger").get()
 	for _, area in ipairs(M.all({ include_roots = false })) do
-		local data = area:xp_data()
+		local data = area:xp_data(l)
 		if data.total_xp > 0 then
 			ranked[#ranked + 1] = { area = area, name = area.name, key = area.key, xp = data.total_xp, level = data.level }
 		end

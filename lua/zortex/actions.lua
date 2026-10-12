@@ -77,7 +77,9 @@ local function season_start(args)
 		return require("zortex.services.xp.stats").prompt_start_season()
 	end
 	local end_date = fargs[2] or os.date("%Y-%m-%d", os.time() + 90 * 86400)
-	require("zortex.services.xp.stats").start_season(fargs[1], end_date)
+	-- an optional third argument backdates the start: completions dated from
+	-- then on count (XP is read off @done dates)
+	require("zortex.services.xp.stats").start_season(fargs[1], end_date, fargs[3])
 	notify("Started season: " .. fargs[1])
 end
 
@@ -88,11 +90,13 @@ local function season_status()
 	end
 	notify(
 		string.format(
-			"%s: level %d (%s tier), %.0f%% to next",
+			"%s: level %d (%s tier), %d XP, %.0f%% to next%s",
 			status.season.name,
 			status.level,
 			status.current_tier and status.current_tier.name or "no",
-			(status.progress_to_next or 0) * 100
+			status.xp,
+			(status.progress_to_next or 0) * 100,
+			status.days_left and string.format(", %d days left", status.days_left) or ""
 		)
 	)
 end
@@ -137,9 +141,18 @@ local function project_progress()
 	notify(string.format("Updated @progress on %d projects", updated))
 end
 
-local function notifications_sync()
-	local count = require("zortex.notifications").calendar.sync()
-	notify(string.format("Synced %d notifications", count or 0))
+-- :ZortexNotificationsSync [force]: unchanged calendars are not re-sent
+local function notifications_sync(args)
+	local force = args and args.args and vim.trim(args.args) == "force"
+	require("zortex.notifications").calendar.sync({
+		force = force,
+		on_done = function(msg)
+			if msg:match("unchanged") then
+				msg = msg .. "; nothing sent (:ZortexNotificationsSync force resends)"
+			end
+			notify(msg)
+		end,
+	})
 end
 
 local function link_index_rebuild()
@@ -381,12 +394,54 @@ M.list = {
 		desc = "Regenerate the digest note",
 		run = call("zortex.services.digest", "force_update"),
 	},
+	-- Pomodoro (the clock is shared with `zortex serve` when server.enabled) --
+	{
+		id = "pomodoro_toggle",
+		key = "oo",
+		group = "Pomodoro",
+		desc = "Start, pause or resume the pomodoro",
+		run = call("zortex.notifications.types.pomodoro", "toggle"),
+	},
+	{
+		id = "pomodoro_skip",
+		key = "os",
+		group = "Pomodoro",
+		desc = "End the current pomodoro phase now",
+		run = call("zortex.notifications.types.pomodoro", "skip"),
+	},
+	{
+		id = "pomodoro_restart",
+		key = "or",
+		group = "Pomodoro",
+		desc = "Begin a new pomodoro cycle",
+		run = call("zortex.notifications.types.pomodoro", "restart"),
+	},
+	{
+		id = "pomodoro_stop",
+		key = "ox",
+		group = "Pomodoro",
+		desc = "Stop the pomodoro",
+		run = call("zortex.notifications.types.pomodoro", "stop"),
+	},
+	{
+		id = "pomodoro_status",
+		key = "oi",
+		group = "Pomodoro",
+		desc = "Show the pomodoro status",
+		run = function()
+			notify(require("zortex.notifications.types.pomodoro").describe())
+		end,
+	},
 	{
 		id = "notifications_sync",
 		command = "NotificationsSync",
 		group = "Plan",
-		desc = "Sync calendar notifications to the server",
+		desc = "Sync calendar notifications (to the server if enabled); `force` resends unchanged",
 		run = notifications_sync,
+		nargs = "?",
+		complete = function()
+			return { "force" }
+		end,
 	},
 	{
 		id = "ical_import",
@@ -478,12 +533,20 @@ M.list = {
 		desc = "Top areas by XP",
 		run = call("zortex.services.xp.stats", "show_area_xp"),
 	},
+	{
+		id = "xp_explain",
+		command = "XPExplain",
+		key = "xe",
+		group = "XP",
+		desc = "How the project at the cursor earned its XP",
+		run = call("zortex.services.xp.stats", "explain_project"),
+	},
 	{ id = "season_status", command = "SeasonStatus", group = "XP", desc = "Current season", run = season_status },
 	{
 		id = "season_start",
 		command = "SeasonStart",
 		group = "XP",
-		desc = "Start a season: [name] [end YYYY-MM-DD] (prompts without args)",
+		desc = "Start a season: [name] [end YYYY-MM-DD] [start YYYY-MM-DD] (prompts without args)",
 		nargs = "*",
 		run = season_start,
 	},

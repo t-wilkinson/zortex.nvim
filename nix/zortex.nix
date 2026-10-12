@@ -17,7 +17,7 @@ buildGoModule {
   doCheck = false;
 
   meta = {
-    description = "Zortex notes: parser, link resolver, search and read-only web app";
+    description = "Zortex: parser, link resolver, search and the web app (notes, calendar, notifications, pomodoro)";
     mainProgram = "zortex";
     license = lib.licenses.mit;
     platforms = lib.platforms.linux;

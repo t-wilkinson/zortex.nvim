@@ -1,22 +1,43 @@
 # Zortex app
 
-The server side of Zortex, in two independent parts:
+The server side of Zortex: **`zortex serve`**, one Go binary with no
+dependencies (this folder's Go module).
 
-- **`zortex serve`** (Go, this folder's Go module): the notes web app.
-  Rendered notes with working links and backlinks, structural search, a
-  browser for every file in the folder (PDFs, images, media, text), tags
-  and broken links. Read-only, one static binary, no dependencies.
-- **The notification server** (Flask + SQLite): the notification API (the
-  plugin pushes calendar notifications; a systemd timer sends them to ntfy)
-  and the **Calendar** page.
+- **Notes** (read-only): rendered notes with working links and backlinks,
+  structural search, a browser for every file in the folder (PDFs, images,
+  media, text), tags, broken links, and the notes not yet linked from the
+  Structure note.
+- **Calendar** (home page): the days of `calendar.zortex` and the
+  notifications Neovim schedules from it (`POST /notify`). Due notifications
+  are sent through **ntfy** by the server itself (no cron, no database).
+- **Pomodoro**: a clock owned by the server, driven from the home page and
+  from Neovim (`:ZortexPomodoro…`, `<leader>zoo`). Phase changes go out
+  through ntfy, each with its own tag so the desktop can play a different
+  sound for starting work, starting a break and starting a new cycle
+  ([`../contrib/ntfy`](../contrib/ntfy)).
 
-The two look and navigate as one site: the Calendar page uses the web app's
-stylesheet (`web/static/style.css`, served by both) and the same top bar
-(notes search, Files · Tags · Broken · Calendar). Each needs the other's
-URL: `zortex serve -calendar URL` and the server's `NOTES_URL`; the NixOS
-module sets both when the web app runs under a `basePath` on the same host.
+Notes are only read; the server's own state (`notifications.json`,
+`pomodoro.json`) lives in `-data`. Without `-data` it serves the notes only.
 
-It replaces the old Node app, now in [`../legacy`](../legacy).
+It replaces the old Flask notification server (SQLite, `send.sh`, cron) and
+the Node app (now in [`../legacy`](../legacy)).
+
+## Quick start
+
+```sh
+go -C app run ./cmd/zortex serve -dir ~/notes -data ~/.local/state/zortex \
+  -ntfy-url https://ntfy.sh -ntfy-topic my-zortex-topic        # http://127.0.0.1:8090/
+docker compose -f app/docker-compose.yml up -d                  # NOTES_PATH, NTFY_* in app/.env
+```
+
+Neovim:
+
+```lua
+require("zortex").setup({
+  server = { enabled = true, api_endpoint = "http://127.0.0.1:8090", user_id = "me" },
+  -- with ntfy enabled here too, pomodoro alerts go only through ntfy
+})
+```
 
 ## Web app: `zortex serve`
 
@@ -27,7 +48,8 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 
 | page | what |
 |---|---|
-| `/` | search box, the main notes (`-special`), recently changed notes, counts |
+| `/` | search box, the **calendar** (days of `calendar.zortex`, a month grid, scheduled notifications), the **pomodoro** clock, the main notes (`-special`), recently changed notes, notes not yet in the structure, counts |
+| `/structure` | notes that neither the Structure note (`@@Structure`) nor any `@Structure` note links to (archived notes left out) |
 | `/n/<path>` | a rendered note: outline, every line anchored (`#L12`), links resolved with the plugin's rules (to the canonical target; `⁺` when there are more), broken links in red, file paths and markdown links to the file viewer, "Linked from" (backlinks) |
 | `/search?q=` | structural search, the plugin's ranking: sections whose path matches the words in order, then lines with every word; results update as you type, `↑`/`↓` + Enter, `/` focuses search anywhere |
 | `/link?to=&from=` | resolve a link: one target redirects, several are listed, failures say why |
@@ -36,15 +58,14 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 | `/tags`, `/tag/<name>` | header tags and their notes |
 | `/resources` | PDFs, books, images, media and documents, and which ones nothing links to (filter by unlinked/linked, type, folder); file pages show their own "Linked from", folder listings count links and unlinked files |
 | `/broken` | links that don't resolve (notes and files) |
-| `/api/search?q=`, `/api/resolve?to=&from=`, `/api/backlinks?rel=`, `/api/resources?show=unlinked&kind=&dir=` | JSON |
-| `/healthz` | counts and last index time |
+| `/api/search?q=`, `/api/resolve?to=&from=`, `/api/backlinks?rel=`, `/api/resources?show=unlinked&kind=&dir=`, `/api/structure` | JSON |
+| `/healthz` (`/health`) | counts and last index time |
 
 Flags (each also an environment variable): `-dir` (`ZORTEX_NOTES_DIR`),
 `-addr` (`ZORTEX_ADDR`, default `127.0.0.1:8090`), `-base` (`ZORTEX_BASE`:
 the URL prefix when a proxy serves it below `/`, e.g. `/notes`), `-title`
 (`ZORTEX_TITLE`), `-poll` (`ZORTEX_POLL`, default `10s`), `-special`
 (`ZORTEX_SPECIAL`, default `calendar,structure,projects,areas,okr`),
-`-calendar` (`ZORTEX_CALENDAR_URL`: the Calendar tab's link, e.g. `/`),
 `-resources` (`ZORTEX_RESOURCES`: extensions tracked as resources; NixOS:
 `web.resourceExtensions`).
 
@@ -69,60 +90,70 @@ about 2 s, rebuild about 2.5 s, search 30–60 ms, a note page 5 ms, about
 There is no login: bind to localhost and put a proxy with authentication in
 front.
 
+State flags (with `-data`): `-data` (`ZORTEX_DATA_DIR`, or systemd's
+`STATE_DIRECTORY`), `-ntfy-url` (`NTFY_SERVER_URL`), `-ntfy-topic`
+(`NTFY_TOPIC`), `-ntfy-token` (`NTFY_AUTH_TOKEN`) or `-ntfy-token-file`,
+`-api-key` (`ZORTEX_API_KEY`), `-send-interval` (default `20s`).
+
 ### NixOS
 
 ```nix
 {
   imports = [ zortex.nixosModules.default ];
   services.zortex = {
+    enable = true;                       # zortex-web.service on 127.0.0.1:8090
     notesDir = "/var/lib/syncthing/zortex";
-    notesGroup = "syncthing";        # read access to the synced folder
-    web = {
-      enable = true;                 # zortex-web.service on 127.0.0.1:8090
-      # basePath = "/notes";         # when proxied below "/"
-      # pollInterval = "30s";
-      # memoryLimit = "96MiB";       # GOMEMLIMIT (default 128MiB)
+    notesGroup = "syncthing";            # read access to the synced folder
+    ntfy = {
+      url = "https://ntfy.home.lab";
+      topic = "zortex";
+      authTokenFile = "/run/secrets/ntfy-token";
     };
-    enable = true;                   # the notification server (optional)
+    # apiKeyFile = "/run/secrets/zortex-api";   # ZORTEX_API_KEY=...
+    # web.basePath = "/notes";                   # when proxied below "/"
   };
 
-  services.nginx.virtualHosts."notes.home.lab" = {
+  services.nginx.virtualHosts."zortex.home.lab" = {
     locations."/".proxyPass = "http://127.0.0.1:8090";
-    basicAuthFile = "/run/secrets/notes-htpasswd";
+    basicAuthFile = "/run/secrets/zortex-htpasswd";
   };
 }
 ```
 
-The web app and the notification server are separate services on separate
-ports (8090 and 5000): a proxy entry for the dashboard doesn't reach the web
-app. To serve both on one host, give the web app a prefix and route it (the
-module then links the two top bars: `web.calendarUrl = "/"`, `notesUrl =
-"/notes"`; with separate domains, set those two options to the full URLs):
+The old `services.zortex.port`, `interval`, `notesUrl` and
+`web.calendarUrl` options still evaluate (with a warning) but do nothing:
+everything is one service on `web.port`. It runs as the `zortex` user with
+read-only access to `notesDir`, a writable `dataDir` (`/var/lib/zortex`) and
+the usual systemd hardening.
 
-```nix
-services.zortex.web.basePath = "/notes";
-services.nginx.virtualHosts."zortex.home.lab".locations = {
-  "/".proxyPass = "http://127.0.0.1:5000";        # dashboard (notification server)
-  "/notes/".proxyPass = "http://127.0.0.1:8090";  # web app; no path after the port,
-};                                                # so /notes/... is passed as is
-```
+## Notification and pomodoro API
 
-`zortex-web` runs as the `zortex` user with read-only access to `notesDir`
-and the usual systemd hardening (read-only system and home, no
-capabilities, no new privileges, a system call filter).
+| endpoint | |
+|---|---|
+| `POST /notify` | `{user_id, operation: "sync", notifications: [...]}` replaces the user's pending notifications (unchanged ones keep their identity; an identical manifest is a no-op: `{unchanged: true}`); `operation: "notify"` adds one; `"clear"` removes the pending ones |
+| `GET /pending?user_id=` | pending notifications |
+| `POST /test` | `{title?, message?}`: publish through ntfy now and report |
+| `GET /api/calendar?from=&to=` | `days` (entries of `calendar.zortex` with time, text, rendered HTML, task state, whether a notification is scheduled), `notifications`, `count`, `next_event`; plus the old server's `events` / `text_view` |
+| `GET /api/summary` | for homelab dashboards: pending count, upcoming notifications as text/HTML, the pomodoro |
+| `GET /api/pomodoro` | phase, running, remaining, ends_at, session, completed, today, settings, `next_alarm`, `ntfy` |
+| `POST /api/pomodoro/{start,pause,resume,toggle,skip,stop,restart}` | drive the clock |
+| `POST /api/pomodoro/settings` | `{work, short_break, long_break, long_break_after, auto_start_break, auto_start_work}` (minutes; partial updates are fine) |
 
-## Notes API (notification server)
+`/notify`, `/pending` and `/test` require `X-API-Key` when `-api-key` is set.
+Pomodoro POSTs must be JSON (or carry the key), so a cross-site form can't
+drive the clock. Notifications more than 2 h overdue (server down) are
+skipped rather than sent late; sent ones are kept a week.
 
-The dashboard's Notes tab is gone: the web app replaces it, and the
-Calendar page links to it. With `NOTES_DIR` set (NixOS:
-`services.zortex.notesDir`), the server still answers the read-only JSON
-endpoints for other tools:
+**Pomodoro events** (ntfy tags): `pomodoro-work-start`,
+`pomodoro-break-start`, `pomodoro-restart` (back to work after the long
+break, or Restart cycle), `pomodoro-work-end` / `pomodoro-break-end` (the next
+phase waits for you when auto-start is off), `pomodoro-stop`.
 
-- `GET /api/notes/tree?all=0&files=1`, `/api/notes/search?q=…&all=0&files=1&limit=50`,
-  `/api/notes/file?path=z/rust.zortex` (a note's lines, or a file's metadata)
-- `GET /api/notes/raw?path=z/papers/x.pdf` (`&download=1`): byte ranges, only
-  files inside the folder, HTML/SVG/XML with `Content-Security-Policy: sandbox`
-- Tests: `python3 -m unittest app/test_notes.py`.
+**Migrating from the Flask server**: point the plugin's `server.api_endpoint`
+at `zortex serve` (port 8090 by default, plus `-base` if set) and save the
+calendar once (or `:ZortexNotificationsSync force`); the old
+`notifications.db` isn't read. The Flask `/api/notes/*` endpoints are gone:
+the web app's pages and `/api/search`, `/api/resolve`, `/raw/…` cover them.
 
 ## Go packages
 
@@ -139,265 +170,15 @@ endpoints for other tools:
   against `../tests/fixtures/resolve.json`.
 - `search/`: the structural search (`Build`, `Query`), checked against
   `../tests/fixtures/search.json`. Search history boosts are not ported.
-- `web/`: the web app (handlers, note rendering, file browser); templates
-  and static files are embedded. `web_test.go` runs it over the fixtures.
+- `web/`: the web app (handlers, note rendering, file browser, calendar,
+  pomodoro and structure pages); templates and static files are embedded.
+  `web_test.go` and `state_test.go` run it over the fixtures.
+- `alerts/`: the notification store (a JSON file), the ntfy client and the
+  sender loop.
+- `pomodoro/`: the pomodoro state machine, persisted and announced through a
+  callback.
 - `cmd/zortex`: `zortex parse [-pretty] FILE...` (AST as JSON),
   `zortex sections FILE...` (outline), `zortex resolve [-from REL] LINK...`,
   `zortex search [-mode article] PROMPT...`, `zortex serve`, `zortex version`.
   `-dir` defaults to `$ZORTEX_NOTES_DIR`, then the current folder.
 - Nix: `nix build .#zortex`.
-
-## Notifications
-
-- Flask API server to receive notification manifests
-- SQLite database for persistent notification storage
-- Cron job that checks every minute for pending notifications
-- Automatic cleanup of old notifications
-- Deduplication to prevent duplicate notifications
-- Integration with ntfy for push notifications
-
-## Setup
-
-### 1. Directory Structure
-
-Create the following directory structure:
-
-```
-zortex-notifications/
-├── Dockerfile
-├── server.py
-├── send.sh
-├── init_db.py
-├── crontab
-├── requirements.txt
-├── .env
-└── docker-compose.yml
-```
-
-### 2. Configuration
-
-Copy `.env.example` to `.env` and configure:
-
-```bash
-# For public ntfy.sh
-NTFY_SERVER_URL=http://ntfy.sh
-NTFY_TOPIC=your-unique-topic-name
-
-# For self-hosted ntfy
-NTFY_SERVER_URL=http://your-ntfy-server.com
-NTFY_TOPIC=private-topic
-NTFY_AUTH_TOKEN=your-auth-token
-```
-
-### 3. Build and Run
-
-Using Docker Compose:
-
-```bash
-docker-compose up -d
-```
-
-Or standalone Docker:
-
-```bash
-# Build
-docker build -t zortex-notifications .
-
-# Run
-docker run -d \
-  --name zortex-notifications \
-  -p 5001:5000 \
-  -v zortex_data:/app/data \
-  -e NTFY_SERVER_URL=http://ntfy.sh \
-  -e NTFY_TOPIC=your-topic \
-  zortex-notifications
-```
-
-### 4. Update Lua Configuration
-
-In your Zortex configuration, update the homelab provider settings:
-
-```lua
-notifications = {
-  providers = {
-    homelab = {
-      enabled = true,
-      api_endpoint = "http://localhost:5001",  -- or your server URL
-      user_id = "your-user-id",
-      api_key = "optional-api-key"  -- if you add authentication
-    }
-  }
-}
-```
-
-## API Endpoints
-
-### Health Check
-
-```
-GET /health
-```
-
-### Test Complete Flow (NEW)
-
-```
-GET/POST /test
-```
-
-Tests the complete notification flow end-to-end. Adds a notification to the database, triggers send.sh, and verifies it was sent to ntfy.
-
-**GET Method (easy browser/curl testing):**
-
-```bash
-curl "http://localhost:5001/test?user_id=test&title=Test&message=Hello"
-```
-
-**POST Method (with delay):**
-
-```bash
-curl -X POST http://localhost:5001/test \
-  -H "Content-Type: application/json" \
-  -d '{
-    "user_id": "test",
-    "title": "Test Notification",
-    "message": "This is a test",
-    "delay": 5
-  }'
-```
-
-Response includes complete diagnostics:
-
-```json
-{
-  "success": true,
-  "test_results": {
-    "notification_id": 123,
-    "database_insert": "success",
-    "run_script_executed": true,
-    "notification_sent": true,
-    "overall_status": "SUCCESS"
-  }
-}
-```
-
-### Send/Sync Notifications
-
-```
-POST /notify
-Content-Type: application/json
-
-# Single notification
-{
-  "user_id": "user123",
-  "operation": "notify",
-  "notification": {
-    "title": "Meeting Reminder",
-    "message": "Team standup in 15 minutes",
-    "scheduled_time": 1699123456,
-    "priority": "high",
-    "tags": ["meeting", "work"]
-  }
-}
-
-# Bulk sync (replaces all pending)
-{
-  "user_id": "user123",
-  "operation": "sync",
-  "notifications": [
-    {
-      "title": "Event 1",
-      "message": "Description",
-      "scheduled_time": 1699123456,
-      "priority": "default",
-      "tags": ["calendar"]
-    }
-  ]
-}
-```
-
-### View Pending Notifications
-
-```
-GET /pending?user_id=user123
-```
-
-## How It Works
-
-1. **Receiving Notifications**: The Lua calendar system sends notification manifests to the Flask server
-2. **Storage**: Notifications are stored in SQLite with scheduled times
-3. **Scheduling**: A cron job runs every minute to check for pending notifications
-4. **Sending**: Due notifications are sent to your ntfy server/topic
-5. **Cleanup**: Old sent notifications are automatically removed after 7 days
-
-## Testing
-
-Test the notification system:
-
-```bash
-# Test single notification (immediate)
-curl -X POST http://localhost:5001/notify \
-  -H "Content-Type: application/json" \
-  -d '{
-    "user_id": "test",
-    "operation": "notify",
-    "notification": {
-      "title": "Test Notification",
-      "message": "This is a test",
-      "scheduled_time": '$(date +%s)',
-      "priority": "high"
-    }
-  }'
-
-# Check pending notifications
-curl http://localhost:5001/pending?user_id=test
-```
-
-## Monitoring
-
-View logs:
-
-```bash
-# Server logs
-docker logs zortex-notifications
-
-# Notification send logs
-docker exec zortex-notifications cat /var/log/zortex-notifications.log
-
-# Cron logs
-docker exec zortex-notifications cat /var/log/cron.log
-```
-
-## Security Notes
-
-- The server binds to 127.0.0.1:5001 by default (localhost only)
-- For remote access, use a reverse proxy with authentication
-- Consider adding API key authentication if exposing to network
-- Use HTTPS when deployed on public networks
-
-## Integration with Reverse Proxy
-
-### Traefik
-
-Labels are included in docker-compose.yml for automatic Traefik configuration.
-
-### Nginx Proxy Manager
-
-1. Add a new proxy host
-2. Domain: `zortex.yourdomain.com`
-3. Forward to: `zortex-notifications:5000`
-4. Enable SSL and force SSL
-
-### Caddy
-
-```
-zortex.yourdomain.com {
-    reverse_proxy zortex-notifications:5000
-}
-```
-
-## Troubleshooting
-
-1. **Notifications not sending**: Check ntfy configuration and server accessibility
-2. **Database errors**: Ensure `/app/data` volume is writable
-3. **Cron not running**: Check cron logs and ensure crontab has proper line endings
-4. **Connection refused**: Verify the container is running and ports are mapped correctly

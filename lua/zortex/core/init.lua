@@ -26,13 +26,11 @@ function M.setup(opts)
 	require("zortex.core.link_index").setup()
 
 	-- Initialize services
+	-- XP: derived from the notes (services/xp/ledger), announced on change
 	require("zortex.stores.xp").setup(opts.xp)
-	require("zortex.services.xp.core").init()
-	require("zortex.services.xp.notifications").init()
 	require("zortex.services.xp.calculator").setup(opts.xp)
-	-- require("zortex.services.xp.distributor").setup(opts.xp.distribution_rules)
-	-- require("zortex.services.xp.notifications").init()
-	-- require("zortex.services.xp.commands").setup()
+	require("zortex.services.xp.core").init(opts.xp)
+	require("zortex.services.xp.notifications").init()
 
 	stop_timer()
 end

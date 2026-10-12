@@ -5,26 +5,30 @@
   ...
 }:
 
-# services.zortex: two independent parts sharing a user and the notes folder.
+# services.zortex: `zortex serve`, one Go service that is the whole server side:
 #
-#   services.zortex.enable      the notification server (Flask: calendar
-#                               dashboard, notification API, ntfy sender)
-#   services.zortex.web.enable  the notes web app (`zortex serve`, Go): rendered
-#                               notes, links, backlinks, search, file browser
+#   - the notes web app: rendered notes, links, backlinks, search, files
+#   - the calendar (from calendar.zortex) and the notification API Neovim
+#     syncs to (POST /notify); due notifications go out through ntfy
+#   - the pomodoro clock shared by Neovim and the home page
 #
-# Both only read notesDir (a Syncthing folder, say). Keep them on localhost
-# and publish them through a reverse proxy with authentication: notes are
-# private and the apps have no login of their own.
+# It reads notesDir (a Syncthing folder, say) and keeps its own state
+# (notifications, pomodoro) in dataDir. Keep it on localhost and publish it
+# through a reverse proxy with authentication: notes are private and the app
+# has no login of its own.
+#
+# This replaces the Flask notification server + zortex-sender timer. Either
+# `enable` or `web.enable` turns the service on (both are kept so existing
+# configurations keep working).
 
 with lib;
 
 let
   cfg = config.services.zortex;
   web = cfg.web;
-  # Import the package from the flake context or defined locally
-  zortexPkg = pkgs.callPackage ./package.nix { };
+  on = cfg.enable || web.enable;
 
-  webArgs =
+  args =
     [
       "serve"
       "-dir"
@@ -37,6 +41,12 @@ let
       web.pollInterval
       "-special"
       (concatStringsSep "," cfg.notesSpecial)
+      "-data"
+      (toString cfg.dataDir)
+      "-ntfy-url"
+      cfg.ntfy.url
+      "-ntfy-topic"
+      cfg.ntfy.topic
     ]
     ++ optionals (web.basePath != "") [
       "-base"
@@ -46,26 +56,31 @@ let
       "-resources"
       (concatStringsSep "," web.resourceExtensions)
     ]
-    ++ optionals (web.calendarUrl != null) [
-      "-calendar"
-      web.calendarUrl
+    ++ optionals (cfg.ntfy.authTokenFile != null) [
+      "-ntfy-token-file"
+      "%d/ntfy-token"
     ]
     ++ web.extraArgs;
 in
 {
   options.services.zortex = {
-    enable = mkEnableOption "Zortex notification server (notification API, calendar dashboard, ntfy sender)";
+    enable = mkEnableOption "Zortex: notes web app, calendar, ntfy notifications and pomodoro (zortex serve)";
 
-    port = mkOption {
-      type = types.port;
-      default = 5000;
-      description = "Port for the Flask server to listen on.";
+    package = mkOption {
+      type = types.package;
+      default = pkgs.callPackage ./zortex.nix { };
+      defaultText = literalExpression "pkgs.callPackage ./zortex.nix { }";
+      description = "Package providing the `zortex` binary.";
     };
 
     dataDir = mkOption {
       type = types.path;
       default = "/var/lib/zortex";
-      description = "Directory to store the SQLite database.";
+      description = ''
+        State: scheduled notifications (notifications.json) and the pomodoro
+        clock (pomodoro.json). The old notifications.db is no longer used;
+        Neovim re-syncs the calendar on its next save.
+      '';
     };
 
     ntfy = {
@@ -78,79 +93,96 @@ in
       topic = mkOption {
         type = types.str;
         default = "zortex-notify";
-        description = "Topic name for notifications.";
+        description = "Topic for calendar notifications and pomodoro alerts.";
       };
 
       authToken = mkOption {
         type = types.nullOr types.str;
         default = null;
-        description = "Optional authentication token for ntfy.";
-        # Note: For better security in production, consider using systemd LoadCredential.
+        description = "ntfy access token. Ends up in the Nix store; prefer authTokenFile.";
       };
+
+      authTokenFile = mkOption {
+        type = types.nullOr types.path;
+        default = null;
+        example = "/run/secrets/ntfy-token";
+        description = "File with the ntfy access token (passed as a systemd credential).";
+      };
+    };
+
+    apiKey = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      description = ''
+        Shared secret for the endpoints Neovim uses (/notify, /pending), sent
+        as X-API-Key (the plugin's server.api_key). Ends up in the Nix store;
+        prefer apiKeyFile.
+      '';
+    };
+
+    apiKeyFile = mkOption {
+      type = types.nullOr types.path;
+      default = null;
+      description = "File holding apiKey (an EnvironmentFile line ZORTEX_API_KEY=...).";
     };
 
     notesDir = mkOption {
       type = types.nullOr types.path;
       default = null;
       example = "/var/lib/syncthing/zortex";
-      description = ''
-        Synced zortex notes folder (read-only). Used by the web app
-        (required for it) and by the notification server's Notes tab
-        (null disables that tab).
-      '';
+      description = "Synced zortex notes folder (read-only). Required.";
     };
 
     notesGroup = mkOption {
       type = types.nullOr types.str;
       default = null;
       example = "syncthing";
-      description = "Extra group that gives the services read access to notesDir.";
+      description = "Extra group that gives the service read access to notesDir.";
     };
 
     notesSpecial = mkOption {
       type = types.listOf types.str;
       default = [ "calendar" "structure" "projects" "areas" "okr" ];
       description = ''
-        Top-level notes shown by default in file listings (other top-level
-        files are hidden until "show all"); the web app also lists them on
-        its home page.
-      '';
-    };
-
-    notesUrl = mkOption {
-      type = types.nullOr types.str;
-      default = if web.enable && web.basePath != "" then web.basePath else null;
-      defaultText = literalExpression ''if web.enable && web.basePath != "" then web.basePath else null'';
-      example = "https://notes.home.lab";
-      description = ''
-        URL of the notes web app as the browser sees it. The notification
-        server's dashboard links to it from the shared top bar (search,
-        Files, Tags, Broken). Defaults to web.basePath when both run on one
-        host; set it when the web app has its own domain. Null leaves the
-        notes links out.
+        Top-level notes listed on the home page and shown by default in file
+        listings (other top-level files are hidden until "show all").
       '';
     };
 
     timezone = mkOption {
       type = types.str;
       default = "America/New_York";
-      description = "Timezone for the server to use for rendering dates/times.";
+      description = "Time zone for the calendar and notification times.";
     };
 
+    # Options of the old Flask server, kept so configurations still evaluate
+    port = mkOption {
+      type = types.nullOr types.port;
+      default = null;
+      visible = false;
+      description = "Removed: the Flask server is gone; use web.port.";
+    };
     interval = mkOption {
-      type = types.str;
-      default = "*:0/1";
-      description = "Systemd calendar interval for checking notifications (default: every minute).";
+      type = types.nullOr types.str;
+      default = null;
+      visible = false;
+      description = "Removed: notifications are sent in-process (every 20s).";
+    };
+    notesUrl = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      visible = false;
+      description = "Removed: the calendar and the notes are one site now.";
     };
 
     web = {
-      enable = mkEnableOption "the Zortex notes web app (zortex serve): rendered notes, links, backlinks, search and a file browser";
+      enable = mkEnableOption "Zortex (same as services.zortex.enable)";
 
       package = mkOption {
-        type = types.package;
-        default = pkgs.callPackage ./zortex.nix { };
-        defaultText = literalExpression "pkgs.callPackage ./zortex.nix { }";
-        description = "Package providing the `zortex` binary.";
+        type = types.nullOr types.package;
+        default = null;
+        visible = false;
+        description = "Deprecated alias of services.zortex.package.";
       };
 
       address = mkOption {
@@ -162,7 +194,7 @@ in
       port = mkOption {
         type = types.port;
         default = 8090;
-        description = "Port to listen on.";
+        description = "Port to listen on. The plugin's server.api_endpoint points here.";
       };
 
       basePath = mkOption {
@@ -171,7 +203,8 @@ in
         example = "/notes";
         description = ''
           URL path prefix when the proxy serves the app below "/" (the
-          proxy passes the prefix through; the app strips it).
+          proxy passes the prefix through; the app strips it). The
+          notification API is then at <basePath>/notify.
         '';
       };
 
@@ -187,8 +220,7 @@ in
         example = "1m";
         description = ''
           How often to rescan notesDir (a Go duration). A rescan only
-          re-reads changed files; the search index and backlinks are rebuilt
-          when anything changed.
+          re-reads changed files.
         '';
       };
 
@@ -196,24 +228,14 @@ in
         type = types.nullOr types.str;
         default = "128MiB";
         example = "64MiB";
-        description = ''
-          Soft memory limit for the Go runtime (GOMEMLIMIT): the garbage
-          collector works harder near it instead of growing the heap. A few
-          thousand notes fit in well under 128 MiB. Null leaves it unset.
-        '';
+        description = "Soft memory limit for the Go runtime (GOMEMLIMIT). Null leaves it unset.";
       };
 
       calendarUrl = mkOption {
         type = types.nullOr types.str;
-        default = if cfg.enable && web.basePath != "" then "/" else null;
-        defaultText = literalExpression ''if enable && web.basePath != "" then "/" else null'';
-        example = "https://zortex.home.lab/";
-        description = ''
-          URL of the notification server's calendar as the browser sees it,
-          shown as the Calendar tab of the shared top bar. Defaults to "/"
-          when both run on one host (web app under basePath); set it when
-          they have separate domains. Null hides the tab.
-        '';
+        default = null;
+        visible = false;
+        description = "Removed: the calendar is the home page now.";
       };
 
       resourceExtensions = mkOption {
@@ -241,154 +263,89 @@ in
     };
   };
 
-  config = mkMerge [
-    (mkIf (cfg.enable || web.enable) {
-      users.groups.zortex = { };
-      users.users.zortex = {
-        isSystemUser = true;
-        group = "zortex";
-        description = "Zortex Service User";
-        home = cfg.dataDir;
-        createHome = true;
-      };
-    })
+  config = mkIf on {
+    assertions = [
+      {
+        assertion = cfg.notesDir != null;
+        message = "services.zortex needs services.zortex.notesDir.";
+      }
+      {
+        assertion = web.basePath == "" || hasPrefix "/" web.basePath;
+        message = "services.zortex.web.basePath must start with \"/\" (or be empty).";
+      }
+    ];
 
-    (mkIf cfg.enable {
-      # The main Flask server service
-      systemd.services.zortex-server = {
-        description = "Zortex Notification API Server";
-        after = [ "network.target" ];
-        wantedBy = [ "multi-user.target" ];
+    warnings =
+      optional (cfg.port != null) "services.zortex.port is gone with the Flask server: everything is served on web.port (${toString web.port}). Point the plugin's server.api_endpoint there."
+      ++ optional (cfg.interval != null) "services.zortex.interval is gone: notifications are sent in-process."
+      ++ optional (cfg.notesUrl != null || web.calendarUrl != null) "services.zortex.notesUrl / web.calendarUrl are gone: the calendar is the web app's home page."
+      ++ optional (cfg.ntfy.authToken != null) "services.zortex.ntfy.authToken is stored in the Nix store; prefer ntfy.authTokenFile.";
 
-        environment =
-          {
-            FLASK_PORT = toString cfg.port;
-            DATABASE_PATH = lib.mkDefault "${cfg.dataDir}/notifications.db";
-            LOG_LEVEL = "INFO";
-            TZ = cfg.timezone;
-            # Ensure server can find the sender binary for the /test endpoint
-            PATH = lib.mkForce "${zortexPkg}/bin:${pkgs.coreutils}/bin";
-            NTFY_SERVER_URL = cfg.ntfy.url;
-            NTFY_TOPIC = cfg.ntfy.topic;
-            NTFY_AUTH_TOKEN = if cfg.ntfy.authToken != null then cfg.ntfy.authToken else "";
-            NOTES_SPECIAL = concatStringsSep "," cfg.notesSpecial;
-            ZORTEX_TITLE = web.title;
-          }
-          // optionalAttrs (cfg.notesUrl != null) {
-            NOTES_URL = cfg.notesUrl;
-          }
-          // optionalAttrs (cfg.notesDir != null) {
-            NOTES_DIR = toString cfg.notesDir;
-          };
+    users.groups.zortex = { };
+    users.users.zortex = {
+      isSystemUser = true;
+      group = "zortex";
+      description = "Zortex Service User";
+      home = cfg.dataDir;
+    };
 
-        serviceConfig = {
-          ExecStart = "${zortexPkg}/bin/zortex-server";
-          ReadOnlyPaths = optional (cfg.notesDir != null) (toString cfg.notesDir);
-          SupplementaryGroups = optional (cfg.notesGroup != null) cfg.notesGroup;
-          User = "zortex";
-          Group = "zortex";
-          Restart = "always";
-          RestartSec = "5s";
-          # StateDirectory creates /var/lib/zortex automatically with correct perms
-          StateDirectory = "zortex";
-          WorkingDirectory = cfg.dataDir;
-        };
-      };
+    systemd.services.zortex-web = {
+      description = "Zortex: notes, calendar, notifications and pomodoro";
+      after = [ "network-online.target" ];
+      wants = [ "network-online.target" ];
+      wantedBy = [ "multi-user.target" ];
 
-      # The worker service that sends notifications (runs via timer)
-      systemd.services.zortex-sender = {
-        description = "Zortex Notification Sender Worker";
-        after = [ "network.target" ];
-
-        environment = {
-          DATABASE_PATH = "${cfg.dataDir}/notifications.db";
-          NTFY_SERVER_URL = cfg.ntfy.url;
-          NTFY_TOPIC = cfg.ntfy.topic;
-          NTFY_AUTH_TOKEN = if cfg.ntfy.authToken != null then cfg.ntfy.authToken else "";
-        };
-
-        serviceConfig = {
-          Type = "oneshot";
-          ExecStart = "${zortexPkg}/bin/zortex-sender";
-          User = "zortex";
-          Group = "zortex";
-          # Connect stdout/stderr to journal
-          StandardOutput = "journal";
-          StandardError = "journal";
-        };
-      };
-
-      # Timer to trigger the sender service
-      systemd.timers.zortex-sender = {
-        description = "Timer for Zortex Notification Sender";
-        wantedBy = [ "timers.target" ];
-        timerConfig = {
-          OnCalendar = cfg.interval;
-          Unit = "zortex-sender.service";
-        };
-      };
-    })
-
-    (mkIf web.enable {
-      assertions = [
+      environment =
         {
-          assertion = cfg.notesDir != null;
-          message = "services.zortex.web needs services.zortex.notesDir.";
-        }
-        {
-          assertion = web.basePath == "" || hasPrefix "/" web.basePath;
-          message = "services.zortex.web.basePath must start with \"/\" (or be empty).";
-        }
-      ];
-
-      systemd.services.zortex-web = {
-        description = "Zortex notes web app";
-        after = [ "network.target" ];
-        wantedBy = [ "multi-user.target" ];
-
-        environment = {
           TZ = cfg.timezone;
-        } // optionalAttrs (web.memoryLimit != null) { GOMEMLIMIT = web.memoryLimit; };
+        }
+        // optionalAttrs (web.memoryLimit != null) { GOMEMLIMIT = web.memoryLimit; }
+        // optionalAttrs (cfg.ntfy.authToken != null) { NTFY_AUTH_TOKEN = cfg.ntfy.authToken; }
+        // optionalAttrs (cfg.apiKey != null) { ZORTEX_API_KEY = cfg.apiKey; };
 
-        serviceConfig = {
-          ExecStart = "${web.package}/bin/zortex ${escapeShellArgs webArgs}";
-          User = "zortex";
-          Group = "zortex";
-          SupplementaryGroups = optional (cfg.notesGroup != null) cfg.notesGroup;
-          Restart = "on-failure";
-          RestartSec = "5s";
+      serviceConfig = {
+        ExecStart = "${if web.package != null then web.package else cfg.package}/bin/zortex ${escapeShellArgs args}";
+        User = "zortex";
+        Group = "zortex";
+        SupplementaryGroups = optional (cfg.notesGroup != null) cfg.notesGroup;
+        Restart = "on-failure";
+        RestartSec = "5s";
+        EnvironmentFile = optional (cfg.apiKeyFile != null) cfg.apiKeyFile;
+        LoadCredential = optional (cfg.ntfy.authTokenFile != null) "ntfy-token:${toString cfg.ntfy.authTokenFile}";
 
-          # Read-only access to the notes, nothing else
-          ReadOnlyPaths = optional (cfg.notesDir != null) (toString cfg.notesDir);
-          ProtectSystem = "strict";
-          # notesDir may live in a home directory (a Syncthing user's)
-          ProtectHome = "read-only";
-          PrivateTmp = true;
-          PrivateDevices = true;
-          NoNewPrivileges = true;
-          CapabilityBoundingSet = "";
-          AmbientCapabilities = "";
-          ProtectKernelTunables = true;
-          ProtectKernelModules = true;
-          ProtectKernelLogs = true;
-          ProtectControlGroups = true;
-          ProtectClock = true;
-          ProtectHostname = true;
-          ProtectProc = "invisible";
-          ProcSubset = "pid";
-          RestrictAddressFamilies = [ "AF_INET" "AF_INET6" "AF_UNIX" ];
-          RestrictNamespaces = true;
-          RestrictRealtime = true;
-          RestrictSUIDSGID = true;
-          LockPersonality = true;
-          MemoryDenyWriteExecute = true;
-          SystemCallArchitectures = "native";
-          SystemCallFilter = [ "@system-service" "~@privileged" ];
-          UMask = "0077";
-        };
+        # Read-only notes, writable state, nothing else
+        StateDirectory = mkIf (cfg.dataDir == "/var/lib/zortex") "zortex";
+        StateDirectoryMode = "0750";
+        ReadWritePaths = optional (cfg.dataDir != "/var/lib/zortex") (toString cfg.dataDir);
+        ReadOnlyPaths = optional (cfg.notesDir != null) (toString cfg.notesDir);
+        ProtectSystem = "strict";
+        # notesDir may live in a home directory (a Syncthing user's)
+        ProtectHome = "read-only";
+        PrivateTmp = true;
+        PrivateDevices = true;
+        NoNewPrivileges = true;
+        CapabilityBoundingSet = "";
+        AmbientCapabilities = "";
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectKernelLogs = true;
+        ProtectControlGroups = true;
+        ProtectClock = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
+        ProcSubset = "pid";
+        RestrictAddressFamilies = [ "AF_INET" "AF_INET6" "AF_UNIX" ];
+        RestrictNamespaces = true;
+        RestrictRealtime = true;
+        RestrictSUIDSGID = true;
+        LockPersonality = true;
+        MemoryDenyWriteExecute = true;
+        SystemCallArchitectures = "native";
+        SystemCallFilter = [ "@system-service" "~@privileged" ];
+        UMask = "0077";
       };
+    };
 
-      networking.firewall.allowedTCPPorts = optional web.openFirewall web.port;
-    })
-  ];
+    networking.firewall.allowedTCPPorts = optional web.openFirewall web.port;
+  };
 }

@@ -28,11 +28,11 @@ T.test("toggle a task in a standalone @P note, keeping unsaved edits", function(
 	end) -- handlers run via vim.schedule
 	T.ok(completed and completed.doc_context, "task:completed emitted")
 
-	-- XP context finds the standalone project from the live buffer
-	local ctx = require("zortex.services.xp.core").build_xp_context(completed)
-	T.eq(ctx.type, "project")
-	T.eq(ctx.id, "Flipping/Subaru outback")
-	T.eq(ctx.project:stats().done, 2)
+	-- the XP ledger reads the standalone project from the live buffer
+	local entries = require("zortex.services.xp.ledger").for_project("Flipping/Subaru outback")
+	T.eq(#entries, 2)
+	T.eq(entries[#entries].title, "Pull engine")
+	T.eq(entries[#entries].date, os.date("%Y-%m-%d"))
 
 	vim.cmd("bwipeout!")
 end)

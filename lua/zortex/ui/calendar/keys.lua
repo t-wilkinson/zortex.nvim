@@ -177,8 +177,11 @@ function M.go_to_file()
 end
 
 function M.sync_notifications()
-	require("zortex.notifications").sync()
-	vim.notify("Notifications synced", vim.log.levels.INFO)
+	require("zortex.notifications").calendar.sync({
+		on_done = function(msg)
+			vim.notify(msg, vim.log.levels.INFO)
+		end,
+	})
 	view().refresh()
 end
 

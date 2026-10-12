@@ -123,8 +123,12 @@ Special notes:
   without projects, areas without projects, broken links. Every line links
   to its source.
 - **Calendar**: month/week views with project tasks and due dates, a digest
-  panel, iCal import/export, notifications.
-- **XP and seasons** from completed tasks, distributed to areas; a skill tree.
+  panel, iCal import/export, notifications (synced to `zortex serve` and sent
+  through ntfy; unchanged calendars aren't re-sent).
+- **Pomodoro** (`<leader>zoo`): one clock shared with the web app's home page,
+  with ntfy alerts and a different sound for work, breaks and a new cycle.
+- **XP and seasons** read off completed tasks, projects and objectives,
+  distributed to areas; a skill tree. See [doc/XP.md](doc/XP.md).
 - **Export** (`:ZortexExport`): the notes and the whole model as JSON.
 
 ## Commands and keys
@@ -194,7 +198,22 @@ require("zortex").setup({
 | `:ZortexCalendarDigest` | `<leader>zCc` | `calendar_digest` | Calendar view with the digest panel |
 | `:ZortexDigest` | `<leader>zCd` | `digest` | Open the digest note |
 | `:ZortexDigestUpdate` | `<leader>zCD` | `digest_update` | Regenerate the digest note |
-| `:ZortexNotificationsSync` |  | `notifications_sync` | Sync calendar notifications to the server |
+
+**Pomodoro**
+
+| Command | Keys | Action id | Does |
+|---|---|---|---|
+|  | `<leader>zoo` | `pomodoro_toggle` | Start, pause or resume the pomodoro |
+|  | `<leader>zos` | `pomodoro_skip` | End the current pomodoro phase now |
+|  | `<leader>zor` | `pomodoro_restart` | Begin a new pomodoro cycle |
+|  | `<leader>zox` | `pomodoro_stop` | Stop the pomodoro |
+|  | `<leader>zoi` | `pomodoro_status` | Show the pomodoro status |
+
+**Plan**
+
+| Command | Keys | Action id | Does |
+|---|---|---|---|
+| `:ZortexNotificationsSync …` |  | `notifications_sync` | Sync calendar notifications (to the server if enabled); `force` resends unchanged |
 | `:ZortexIcalImport` |  | `ical_import` | Import an iCal file or URL into the calendar |
 | `:ZortexIcalExport` |  | `ical_export` | Export the calendar to an iCal file |
 
@@ -206,6 +225,8 @@ require("zortex").setup({
 | `:ZortexOpenAreas` | `<leader>zfa` | `open_areas` | Open areas.zortex |
 | `:ZortexOpenOKR` | `<leader>zfo` | `open_okr` | Open okr.zortex |
 | `:ZortexOpenCalendar` | `<leader>zfc` | `open_calendar` | Open calendar.zortex |
+| `:ZortexOpenStructure` | `<leader>zfs` | `open_structure` | Open structure.zortex |
+| `:ZortexOpenInbox` | `<leader>zfi` | `open_inbox` | Open inbox.zortex |
 
 **XP**
 
@@ -214,8 +235,9 @@ require("zortex").setup({
 | `:ZortexSkillTree` | `<leader>zk` | `skill_tree` | Skill tree and season progress |
 | `:ZortexXPStats` | `<leader>zxs` | `xp_stats` | XP statistics |
 | `:ZortexXPAreas` | `<leader>zxa` | `xp_areas` | Top areas by XP |
+| `:ZortexXPExplain` | `<leader>zxe` | `xp_explain` | How the project at the cursor earned its XP |
 | `:ZortexSeasonStatus` |  | `season_status` | Current season |
-| `:ZortexSeasonStart …` |  | `season_start` | Start a season: [name] [end YYYY-MM-DD] (prompts without args) |
+| `:ZortexSeasonStart …` |  | `season_start` | Start a season: [name] [end YYYY-MM-DD] [start YYYY-MM-DD] (prompts without args) |
 | `:ZortexSeasonEnd` |  | `season_end` | End the current season |
 
 **System**
@@ -284,36 +306,23 @@ z.syntax.parse(lines, { inline = true })  -- the grammar itself
 - [doc/Changes.md](doc/Changes.md): what the `projects-api` branch changed,
   and migration notes
 - [doc/Wishlist.md](doc/Wishlist.md): planned features and ideas
-- [app/README.md](app/README.md): the notes web app (`zortex serve`: rendered
-  notes, links, backlinks, search, file browser) and the notification server,
-  with the NixOS module (`services.zortex`)
+- [doc/XP.md](doc/XP.md): how XP, areas and seasons work
+- [app/README.md](app/README.md): the server, `zortex serve` (rendered notes,
+  links, backlinks, search, file browser; the calendar and its ntfy
+  notifications; the pomodoro clock), with the NixOS module (`services.zortex`)
+- [contrib/ntfy](contrib/ntfy): desktop `ntfy subscribe` script with a sound
+  per pomodoro event
 - Tests: `nvim --headless -u NONE -l tests/run.lua`; Go (parser, resolver,
-  search, web app): `go -C app test ./...`; notification server:
-  `python3 -m unittest app/test_notes.py`
+  search, web app, notifications, pomodoro): `go -C app test ./...`
 
 ## XP Overview
 
-**📊 Dual XP System**:
+XP is read off the notes: completed project tasks (a project's pool paid out
+over its tasks: a big first step, steady middle, a finishing bonus),
+completed tasks anywhere else, and objectives marked `@done` (area XP).
+Areas level up over years (`1000 × level^2.5`, 75% of a sub-area's XP counts
+for its parent); seasons are date windows over the same awards
+(`100 × level^1.2`, Bronze → Master). Unchecking, archiving or editing a note
+on your phone simply changes the result. `:ZortexXPExplain` shows how a
+project earned its XP. Details: [doc/XP.md](doc/XP.md).
 
-1️⃣. **Area XP (Long-term Mastery)**
-
-- Earned from completing objectives
-- Uses exponential level curve (1000 \* level^2.5)
-- 75% bubbles up to parent areas
-- Time horizon multipliers:
-  - Daily: 0.1x
-  - Weekly: 0.25x
-  - Monthly: 0.5x
-  - Quarterly: 1.0x
-  - Yearly: 3.0x
-  - 5-Year: 10.0x
-
-2️⃣. **Project XP (Seasonal Momentum)**
-
-- Earned from completing tasks
-- 3-stage reward structure:
-  - Initiation (tasks 1-3): 100 XP with 2x multiplier
-  - Execution (middle tasks): 20 XP each
-  - Completion (final task): 5x multiplier + 200 XP bonus
-- 10% transfers to linked areas
-- Seasonal levels: 100 \* level^1.2

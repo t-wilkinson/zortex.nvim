@@ -249,3 +249,79 @@ table.res-files { table-layout: fixed; }
 .book .ico::before { content: "▥"; }
 .document .ico::before { content: "▤"; }
 .viewer .backlinks { margin-top: 2rem; }
+
+/* home: calendar */
+.small { font-size: 0.85rem; }
+.cal { margin-top: 1.5rem; }
+.cal-head { margin: 0 0 0.5rem; font-size: 0.9rem; }
+.cal-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
+.day-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.day-head h2 { margin: 0.5rem 0 0.6rem; }
+.event-list { min-height: 6rem; padding-bottom: 0.3rem; }
+.event-item { display: flex; gap: 0.8rem; align-items: baseline; padding: 0.3rem 0 0.3rem calc(var(--depth, 0) * 1.1rem); border-bottom: 1px solid color-mix(in srgb, var(--rule) 60%, transparent); }
+.event-item:last-of-type { border-bottom: 0; }
+.event-time { flex: none; min-width: 3.1rem; font-family: var(--mono); font-size: 0.84em; color: var(--accent); font-variant-numeric: tabular-nums; }
+.event-time:hover { text-decoration: none; }
+.event-time .end { color: var(--dim); }
+.event-title { min-width: 0; overflow-wrap: anywhere; }
+.event-item.current .event-title { font-weight: 600; }
+.event-item.past .event-time, .event-item.past .event-title { color: var(--dim); }
+.event-item.done .event-title { color: var(--dim); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--dim) 50%, transparent); }
+.event-title .box { margin-right: 0.4rem; vertical-align: -0.1em; }
+.event-title .bell { margin-left: 0.35rem; font-size: 0.75em; opacity: 0.75; }
+.empty-day { color: var(--dim); text-align: center; padding: 1.5rem 0 1rem; }
+.now-row { display: flex; align-items: center; gap: 0.6rem; margin: 0.1rem 0 0.1rem 1.2rem; height: 2.6rem; }
+.now-track { position: relative; width: 3px; height: 100%; border-radius: 2px; background: var(--rule); }
+.now-fill { position: absolute; inset: 0 0 auto 0; border-radius: 2px; background: var(--accent); }
+.now-label { font-family: var(--mono); font-size: 0.8rem; color: var(--accent); }
+.cal-controls { display: flex; justify-content: space-between; align-items: center; margin: 0.4rem 0 0.6rem; }
+.cal-controls h2 { margin: 0; }
+.cal-controls button, .day-cell, .link-btn { font: inherit; color: var(--ink); cursor: pointer; }
+.cal-controls button { background: var(--bg); border: 1px solid var(--rule); border-radius: 6px; padding: 0.15rem 0.65rem; }
+.cal-controls button:hover { border-color: var(--accent); color: var(--accent); }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; text-align: center; }
+.weekday { color: var(--dim); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; padding: 0.2rem 0 0.35rem; }
+.day-cell { position: relative; background: none; border: 1px solid transparent; border-radius: 6px; padding: 0.45rem 0 0.55rem; font-variant-numeric: tabular-nums; }
+.day-cell:hover { background: var(--accent-soft); }
+.day-cell:focus-visible, .pomo button:focus-visible, .link-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.day-cell.today { color: var(--accent); font-weight: 700; }
+.day-cell.active { border-color: var(--accent); background: var(--accent-soft); }
+.day-cell.has-events::after { content: ""; position: absolute; left: 50%; bottom: 0.2rem; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--accent); }
+.day-cell.blank { visibility: hidden; }
+.link-btn { background: none; border: 0; padding: 0.4rem 0 0; color: var(--accent); font-size: 0.88rem; }
+
+/* home: pomodoro */
+.pomo { margin-top: 1rem; }
+.pomo-head { display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; }
+.pomo-head h2 { margin: 0.5rem 0; }
+.pill { font-size: 0.78rem; padding: 0.1rem 0.55rem; border-radius: 999px; background: var(--code-bg); color: var(--dim); }
+.pill[data-phase="work"] { background: color-mix(in srgb, var(--broken) 16%, var(--panel)); color: var(--broken); }
+.pill[data-phase="short_break"], .pill[data-phase="long_break"] { background: color-mix(in srgb, var(--done) 18%, var(--panel)); color: var(--done); }
+.pomo-body { display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap; padding: 0.3rem 0 0.4rem; }
+.pomo-clock { position: relative; width: 9.5rem; height: 9.5rem; flex: none; }
+.pomo-clock svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.pomo-clock circle { fill: none; stroke-width: 7; }
+.pomo-clock .track { stroke: var(--rule); }
+.pomo-clock .fill { stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset 0.25s linear; }
+.pomo-clock .fill[data-phase="work"] { stroke: var(--broken); }
+.pomo-clock .fill[data-phase="short_break"], .pomo-clock .fill[data-phase="long_break"] { stroke: var(--done); }
+.pomo-time { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--mono); font-size: 1.75rem; font-variant-numeric: tabular-nums; }
+.pomo-info { flex: 1; min-width: 15rem; }
+.pomo-info dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.2rem 1rem; margin: 0 0 0.8rem; font-size: 0.93rem; }
+.pomo-info dt { color: var(--dim); }
+.pomo-info dd { margin: 0; overflow-wrap: anywhere; }
+.pomo-actions { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.pomo button { font: inherit; font-size: 0.9rem; color: var(--ink); background: var(--bg); border: 1px solid var(--rule); border-radius: 7px; padding: 0.3rem 0.8rem; cursor: pointer; }
+.pomo button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.pomo button:disabled { opacity: 0.45; cursor: default; }
+.pomo button.primary { background: var(--accent); border-color: var(--accent); color: var(--panel); min-width: 6.5rem; }
+.pomo button.primary:hover { color: var(--panel); filter: brightness(1.08); }
+.pomo-error { color: var(--broken); font-size: 0.88rem; margin: 0.5rem 0 0; }
+.pomo-settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0.6rem 1rem; padding: 0.8rem 0 0.4rem; border-top: 1px solid var(--rule); margin-top: 0.4rem; font-size: 0.92rem; }
+.pomo-settings input[type=number] { width: 4.2rem; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--rule); border-radius: 6px; padding: 0.15rem 0.4rem; }
+.pomo-settings .check { display: flex; gap: 0.4rem; align-items: center; }
+.pomo-settings .pomo-actions { grid-column: 1 / -1; }
+.panel .count { font-family: var(--sans); font-weight: 400; font-size: 0.85rem; }
+.panel .more { margin: 0.4rem 0 0; font-size: 0.88rem; }
+@media (max-width: 46rem) { .cal-cols { grid-template-columns: minmax(0, 1fr); } .pomo-body { justify-content: center; } }
+.pomo-settings[hidden], .pomo-error[hidden] { display: none; }

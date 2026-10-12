@@ -135,3 +135,40 @@ T.test("plan buffer puts items into the calendar day", function()
 	vim.fn.writefile(original, cal)
 	require("zortex.stores.calendar").load()
 end)
+
+T.test("new days go after the closest earlier day, not before a stray later one", function()
+	local calendar = require("zortex.stores.calendar")
+	local cal = require("zortex.utils.filesystem").get_calendar_file()
+	local original = vim.fn.readfile(cal)
+	-- a far-future appointment near the top; recent days at the bottom
+	vim.fn.writefile({
+		"@@Calendar",
+		"",
+		"2026-10-21:",
+		"09:00 Dentist",
+		"",
+		"2026-10-09:",
+		"- one",
+		"",
+		"2026-10-10:",
+		"- two",
+	}, cal)
+	require("zortex.core.document").invalidate(cal)
+	calendar.ensure_date("2026-10-12", { "09:00" })
+	local lines = vim.fn.readfile(cal)
+	T.eq(vim.list_slice(lines, 9), { "2026-10-10:", "- two", "", "2026-10-12:", "09:00" })
+
+	-- between two days that are in order
+	calendar.ensure_date("2026-10-11", {})
+	lines = vim.fn.readfile(cal)
+	T.eq(vim.list_slice(lines, 9), { "2026-10-10:", "- two", "", "2026-10-11:", "", "2026-10-12:", "09:00" })
+
+	-- earlier than everything: before the earliest day
+	calendar.add_entry("2026-10-01", "- zero")
+	lines = vim.fn.readfile(cal)
+	T.eq(vim.list_slice(lines, 6, 9), { "2026-10-01:", "- zero", "", "2026-10-09:" })
+
+	vim.fn.writefile(original, cal)
+	require("zortex.core.document").invalidate(cal)
+	calendar.load()
+end)

@@ -9,6 +9,7 @@ legacy/.env.remote
 legacy/lib
 
 *.s[a-w][a-z]
+!*.svg
 *.un~
 Session.vim
 .netrwhist

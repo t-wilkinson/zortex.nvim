@@ -48,7 +48,7 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 
 | page | what |
 |---|---|
-| `/` | search box, the **calendar** (days of `calendar.zortex`, a month grid, scheduled notifications), the **pomodoro** clock, the main notes (`-special`), recently changed notes, notes not yet in the structure, counts |
+| `/` | search box, the **calendar** (days of `calendar.zortex`, a month grid, scheduled notifications), the **pomodoro** clock, **season and XP** (level and tier, progress to the next level, XP per day for two weeks, top areas, recent awards), the main notes (`-special`), recently changed notes, notes not yet in the structure, counts |
 | `/structure` | notes that neither the Structure note (`@@Structure`) nor any `@Structure` note links to (archived notes left out) |
 | `/n/<path>` | a rendered note: outline, every line anchored (`#L12`), links resolved with the plugin's rules (to the canonical target; `⁺` when there are more), broken links in red, file paths and markdown links to the file viewer, "Linked from" (backlinks) |
 | `/search?q=` | structural search, the plugin's ranking: sections whose path matches the words in order, then lines with every word; results update as you type, `↑`/`↓` + Enter, `/` focuses search anywhere |
@@ -137,6 +137,8 @@ the usual systemd hardening.
 | `GET /api/summary` | for homelab dashboards: pending count, upcoming notifications as text/HTML, the pomodoro |
 | `GET /api/pomodoro` | phase, running, remaining, ends_at, session, completed, today, settings, `next_alarm`, `ntfy` |
 | `POST /api/pomodoro/{start,pause,resume,toggle,skip,stop,restart}` | drive the clock |
+| `GET /api/xp` | the XP summary Neovim published (season, daily XP, areas, recent awards), or `{"available": false}` |
+| `POST /api/xp` | Neovim publishes it after every XP change (`X-API-Key` when set); it also writes `.z/xp_summary.json` into the notes folder, and the newer of the two is shown |
 | `POST /api/pomodoro/settings` | `{work, short_break, long_break, long_break_after, auto_start_break, auto_start_work}` (minutes; partial updates are fine) |
 
 `/notify`, `/pending` and `/test` require `X-API-Key` when `-api-key` is set.

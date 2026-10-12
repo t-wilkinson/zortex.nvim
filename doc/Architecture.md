@@ -515,6 +515,9 @@ XP is derived, not recorded (see [XP.md](XP.md)):
   compares with the last totals and emits `xp:awarded/removed`,
   `season:leveled_up`, `area:leveled_up`. It also stamps `@done(today)` on
   tasks checked by hand when a note is saved.
+- `xp/publish` hands a summary to the web app after each refresh
+  (`.z/xp_summary.json`, and `POST /api/xp` with a server), only when it
+  changed.
 - `stores/xp` keeps only seasons (name, date window, history), the level
   curves and the levels last announced.
 - `xp/stats` (`require("zortex").xp`), the `XP*` and `Season*` actions, the

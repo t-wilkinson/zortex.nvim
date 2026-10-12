@@ -13,6 +13,7 @@ local Events = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
 
 local last = nil -- { total, season }
+local publish_enabled = true
 local pending = nil
 
 local function ledger()
@@ -71,6 +72,10 @@ function M.refresh()
 	end
 	for _, up in ipairs(ups.areas) do
 		Events.emit("area:leveled_up", { key = up.key, old_level = up.old, new_level = up.new })
+	end
+	-- the web app's home page (services/xp/publish)
+	if publish_enabled then
+		require("zortex.services.xp.publish").publish()
 	end
 	stop()
 end
@@ -147,6 +152,10 @@ function M.init(opts)
 	Events.on("season:started", function()
 		M.schedule_refresh(0)
 	end, { name = "xp.season_started" })
+	Events.on("season:ended", function()
+		M.schedule_refresh(0)
+	end, { name = "xp.season_ended" })
+	publish_enabled = opts.publish ~= false
 
 	local group = vim.api.nvim_create_augroup("ZortexXP", { clear = true })
 	local ext = require("zortex.config").extension or ".zortex"

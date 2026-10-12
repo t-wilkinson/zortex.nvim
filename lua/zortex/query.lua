@@ -329,7 +329,16 @@ function M.xp(opts)
 	local season = stats.season_status()
 	local areas = {}
 	for _, a in ipairs(require("zortex.services.areas").top()) do
-		areas[#areas + 1] = { key = a.key, name = a.name, xp = round(a.xp), level = a.level }
+		local p = store.get_level_progress(a.xp, a.level or 1, store.calculate_area_level_xp)
+		areas[#areas + 1] = {
+			key = a.key,
+			name = a.name,
+			xp = round(a.xp),
+			level = a.level,
+			progress = p.progress,
+			xp_to_next = round(p.xp_to_next),
+			parent = a.area and a.area.parent and a.area.parent.key or nil,
+		}
 	end
 	local awards = {}
 	for _, e in ipairs(stats.recent(opts.limit or 200, opts.days or 30)) do
@@ -358,7 +367,10 @@ function M.xp(opts)
 			level = season.level,
 			tier = season.current_tier and season.current_tier.name or nil,
 			next_tier = season.next_tier and season.next_tier.name or nil,
-			xp_to_next = season.progress.xp_to_next,
+			next_tier_level = season.next_tier and season.next_tier.required_level or nil,
+			xp_to_next = round(season.progress.xp_to_next),
+			level_start_xp = season.progress.current_threshold,
+			level_end_xp = season.progress.next_threshold,
 			progress = season.progress_to_next,
 			days_left = season.days_left,
 		} or nil,

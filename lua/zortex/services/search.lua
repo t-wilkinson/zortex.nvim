@@ -486,11 +486,18 @@ M._tokenize = tokenize
 M._path_match = path_match
 
 
+--- Every note to search, archived ones included, in a stable order (top-level
+--- first, then by path; core/notes), so line results come out the same on any
+--- filesystem.
+function M.files()
+	return require("zortex.core.notes").files({ include_archived = true })
+end
+
 --- Search every note: { results, ... } as query_index returns them.
 ---@param opts { mode?: "section"|"article", files?: string[] }?
 function M.search(prompt, opts)
 	opts = opts or {}
-	return M.query_index(M.build_index(opts.files or fs.find_all_notes()), prompt, opts)
+	return M.query_index(M.build_index(opts.files or M.files()), prompt, opts)
 end
 
 M.tokenize = tokenize

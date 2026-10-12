@@ -220,7 +220,7 @@ function M.structural_search(opts)
 	local t = telescope()
 	local pickers, finders, conf, actions, action_state = t.pickers, t.finders, t.conf, t.actions, t.action_state
 	local mode = opts.mode or cfg().default_mode or "section"
-	local files = fs.find_all_notes()
+	local files = search.files()
 
 	-- All disk reads + tree parsing happen ONCE, here. Each keystroke below
 	-- only filters this in-memory index.

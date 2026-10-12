@@ -95,3 +95,30 @@ func SplitLines(content string) []string {
 	}
 	return lines
 }
+
+// Lower lowercases ASCII letters only, like Lua's string.lower in the C locale.
+func Lower(s string) string {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= 'A' && s[i] <= 'Z' {
+			b := []byte(s)
+			for j := i; j < len(b); j++ {
+				if b[j] >= 'A' && b[j] <= 'Z' {
+					b[j] += 'a' - 'A'
+				}
+			}
+			return string(b)
+		}
+	}
+	return s
+}
+
+// ListHas reports whether list contains value, ignoring ASCII case.
+func ListHas(list []string, value string) bool {
+	v := Lower(value)
+	for _, x := range list {
+		if Lower(x) == v {
+			return true
+		}
+	}
+	return false
+}

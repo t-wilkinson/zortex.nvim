@@ -47,8 +47,16 @@ start of the Go version of the app:
 - `syntax/`: the Zortex grammar, a port of `lua/zortex/core/syntax.lua`.
   `go test ./...` checks it against every fixture in `../tests/fixtures/ast`,
   which the Lua parser generates; both must agree byte for byte in their JSON.
+- `notes/`: a notes folder: which files are notes, archived or not, parsed
+  documents (cached by mtime and size) and section trees.
+- `links/`: the link resolver (`Resolve`, `ResolveFirst`, `Parse`), checked
+  against `../tests/fixtures/resolve.json`.
+- `search/`: the structural search (`Build`, `Query`), checked against
+  `../tests/fixtures/search.json`. Search history boosts are not ported.
 - `cmd/zortex`: `zortex parse [-pretty] FILE...` (AST as JSON),
-  `zortex sections FILE...` (outline), `zortex version`.
+  `zortex sections FILE...` (outline), `zortex resolve [-from REL] LINK...`,
+  `zortex search [-mode article] PROMPT...`, `zortex version`. `-dir`
+  defaults to `$ZORTEX_NOTES_DIR`, then the current folder.
 - Nix: `nix build .#zortex`.
 
 ## Notifications

@@ -35,7 +35,9 @@ in place:
     **plain-data API** (`zortex.query`, `:ZortexExport`) for anything outside
     Neovim.
 12. **Actions as data:** commands, keymaps, `:ZortexHelp` and the README table come from one list (`actions.lua`); `require("zortex")` exposes every service.
-13. **A headless test suite:** 209 Lua tests plus the server's Python tests, no dependencies.
+13. **A headless test suite:** 211 Lua tests plus the server's Python tests, no dependencies.
+14. **A Go port** of the grammar, notes index, link resolver and search
+    (`app/`), held to the Lua behaviour by generated fixtures.
 
 ## Commits
 
@@ -54,6 +56,10 @@ in place:
 | Cleanups | One digest module (email sending works again), smaller event bus, dead code removed, `min_score` dropped. |
 | Planner, KR links, OKR weight, app rename | `:ZortexPlan` day planner with templates and ranked candidates; explicit `[…/-KR1]` and task links; link text limited to `[A-Za-z0-9 _-().]`; OKR bonus in project scoring; `app/` → `legacy/`, `deployment/` → `app/` with a Notes tab. |
 | Actions registry | `actions.lua` generates commands, keymaps and `api.actions`; `require("zortex")` exposes every service; `:checkhealth zortex`; README rewritten with a generated command table. |
+| Hover preview; planner keys | `ui.preview.hover` previews the link under the cursor; planner `i`/`o`/`O` place an item on a line, `p` appends it as a list item and stays in the side buffer. |
+| Go grammar | `app/syntax` ports `core/syntax` and passes every AST fixture; `zortex parse`/`sections`; `nix build .#zortex`. |
+| Dashboard file viewer | The Notes tab browses every file in the folder; PDFs, images, media and text open in the browser (ranges, sandboxed HTML/SVG). |
+| Go resolver and search | `app/notes`, `app/links`, `app/search`; `tests/gen_links.lua` writes `resolve.json` and `search.json`, checked by `test_links` and the Go tests; `zortex resolve`/`search`; search uses the notes index's file order. |
 
 ## New modules
 
@@ -76,6 +82,8 @@ in place:
 | `health.lua` | `:checkhealth zortex`. |
 | `services/search.lua` | Structural search index, matching and ranking (moved out of the picker). |
 | `tests/gen_ast.lua`, `tests/fixtures/ast/`, `tests/fixtures/syntax/` | Syntax conformance fixtures and their generator. |
+| `tests/gen_links.lua`, `tests/fixtures/resolve.json`, `search.json` | Resolver and search conformance fixtures and their generator. |
+| `app/syntax`, `app/notes`, `app/links`, `app/search`, `app/cmd/zortex` | Go port: grammar, notes index, resolver, search, CLI. |
 | `services/projects/init.lua` | Projects registry, `query`, `tasks`, `update_progress`. |
 | `services/projects/project.lua` | `Project` class (tasks, stats, rollup, points, relations). |
 | `services/projects/score.lua` | Scoring and sort comparators (moved out of the picker). |

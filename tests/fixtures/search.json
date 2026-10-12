@@ -1,0 +1,2189 @@
+[
+  {
+    "mode": "section",
+    "prompt": "",
+    "results": [
+      {
+        "breadcrumb": "Areas",
+        "lnum": 1,
+        "rel": "areas.zortex",
+        "score": 2000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Calendar",
+        "lnum": 1,
+        "rel": "calendar.zortex",
+        "score": 2000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Flipping",
+        "lnum": 1,
+        "rel": "flipping.zortex",
+        "score": 2000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Objectives",
+        "lnum": 1,
+        "rel": "okr.zortex",
+        "score": 2000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects",
+        "lnum": 1,
+        "rel": "projects.zortex",
+        "score": 2000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Garden",
+        "lnum": 1,
+        "rel": "z/garden.zortex",
+        "score": 2000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects",
+        "lnum": 1,
+        "rel": "z/archive.projects.zortex",
+        "score": 2000,
+        "type": "section"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": "p",
+    "results": [
+      {
+        "breadcrumb": "Projects",
+        "lnum": 1,
+        "rel": "projects.zortex",
+        "score": 2300,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming",
+        "lnum": 7,
+        "rel": "projects.zortex",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming › 1.4 - esp32",
+        "child": true,
+        "lnum": 11,
+        "rel": "projects.zortex",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming › 1.4 - zortex",
+        "child": true,
+        "lnum": 14,
+        "rel": "projects.zortex",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Personal",
+        "lnum": 29,
+        "rel": "projects.zortex",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Personal › Habits",
+        "child": true,
+        "lnum": 30,
+        "rel": "projects.zortex",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Flipping",
+        "lnum": 1,
+        "rel": "flipping.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Flipping › Buying used cars/parts",
+        "lnum": 6,
+        "rel": "flipping.zortex",
+        "score": 400,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Flipping › Subaru outback",
+        "child": true,
+        "lnum": 11,
+        "rel": "flipping.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Areas › 1 Personal Foundation",
+        "lnum": 5,
+        "rel": "areas.zortex",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Areas › 1 Personal Foundation › 1.1 Core values",
+        "child": true,
+        "lnum": 6,
+        "rel": "areas.zortex",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Areas › 1 Personal Foundation › 1.2 Vitality",
+        "child": true,
+        "lnum": 8,
+        "rel": "areas.zortex",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects",
+        "lnum": 1,
+        "rel": "z/archive.projects.zortex",
+        "score": 2300,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming",
+        "lnum": 5,
+        "rel": "z/archive.projects.zortex",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming › 1.4 - zortex",
+        "child": true,
+        "lnum": 6,
+        "rel": "z/archive.projects.zortex",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "lnum": 18,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 5,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 6,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 7,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 10,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 11,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 4,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 12,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 9,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 10,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 14,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 2,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 8,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 9,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 12,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 16,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 21,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 27,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 2,
+        "rel": "z/archive.projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 2,
+        "rel": "z/garden.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 4,
+        "rel": "z/garden.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": "z",
+    "results": [
+      {
+        "lnum": 5,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 11,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 12,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 14,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 12,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 16,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 17,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 18,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 24,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 27,
+        "rel": "projects.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": "zortex",
+    "results": [
+      {
+        "lnum": 5,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 11,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 14,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 24,
+        "rel": "projects.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": "1.4 zortex",
+    "results": [
+      {
+        "breadcrumb": "Projects › 1 Programming › 1.4 - zortex",
+        "lnum": 14,
+        "rel": "projects.zortex",
+        "score": 1200,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming › 1.4 - zortex › Notes",
+        "child": true,
+        "lnum": 23,
+        "rel": "projects.zortex",
+        "score": 1200,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming › 1.4 - zortex › 1.4.1 - zortex search",
+        "lnum": 26,
+        "rel": "projects.zortex",
+        "score": 1150,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming › 1.4 - zortex",
+        "lnum": 6,
+        "rel": "z/archive.projects.zortex",
+        "score": 1200,
+        "type": "section"
+      },
+      {
+        "lnum": 5,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 11,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 14,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "okr.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": "programming zortex",
+    "results": [
+      {
+        "breadcrumb": "Projects › 1 Programming › 1.4 - zortex",
+        "lnum": 14,
+        "rel": "projects.zortex",
+        "score": 1100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming › 1.4 - zortex › Notes",
+        "child": true,
+        "lnum": 23,
+        "rel": "projects.zortex",
+        "score": 1100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming › 1.4 - zortex › 1.4.1 - zortex search",
+        "lnum": 26,
+        "rel": "projects.zortex",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming › 1.4 - zortex",
+        "lnum": 6,
+        "rel": "z/archive.projects.zortex",
+        "score": 1100,
+        "type": "section"
+      },
+      {
+        "lnum": 15,
+        "rel": "okr.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": "zortex programming",
+    "results": [
+      {
+        "lnum": 15,
+        "rel": "okr.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": "zortex search",
+    "results": [
+      {
+        "breadcrumb": "Projects › 1 Programming › 1.4 - zortex › 1.4.1 - zortex search",
+        "lnum": 26,
+        "rel": "projects.zortex",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "lnum": 15,
+        "rel": "okr.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": "proj zortex search",
+    "results": [
+      {
+        "breadcrumb": "Projects › 1 Programming › 1.4 - zortex › 1.4.1 - zortex search",
+        "lnum": 26,
+        "rel": "projects.zortex",
+        "score": 1250,
+        "type": "section"
+      },
+      {
+        "lnum": 15,
+        "rel": "okr.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": "1 4",
+    "results": [
+      {
+        "breadcrumb": "Areas › 4 Learning & Education › 4.1 Education & Skills",
+        "lnum": 13,
+        "rel": "areas.zortex",
+        "score": 1200,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming › 1.4 - esp32",
+        "lnum": 11,
+        "rel": "projects.zortex",
+        "score": 1200,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming › 1.4 - zortex",
+        "lnum": 14,
+        "rel": "projects.zortex",
+        "score": 1200,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming › 1.4 - zortex › Notes",
+        "child": true,
+        "lnum": 23,
+        "rel": "projects.zortex",
+        "score": 1200,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming › 1.4 - zortex › 1.4.1 - zortex search",
+        "lnum": 26,
+        "rel": "projects.zortex",
+        "score": 1150,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming › 1.4 - zortex",
+        "lnum": 6,
+        "rel": "z/archive.projects.zortex",
+        "score": 1200,
+        "type": "section"
+      },
+      {
+        "lnum": 5,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 11,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 14,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "okr.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": "personal habits",
+    "results": [
+      {
+        "breadcrumb": "Projects › 1 Personal › Habits",
+        "lnum": 30,
+        "rel": "projects.zortex",
+        "score": 1300,
+        "type": "section"
+      },
+      {
+        "lnum": 10,
+        "rel": "okr.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": "#habits",
+    "results": [
+      {
+        "breadcrumb": "Projects › 1 Personal › Habits",
+        "lnum": 30,
+        "rel": "projects.zortex",
+        "score": 1200,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Objectives › Current › 3M-2026-Q1 Establish and maintain good habits/routine",
+        "lnum": 8,
+        "rel": "okr.zortex",
+        "score": 1000,
+        "type": "section"
+      },
+      {
+        "lnum": 10,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 11,
+        "rel": "okr.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": "#",
+    "results": [
+      {
+        "breadcrumb": "Areas › 1 Personal Foundation",
+        "lnum": 5,
+        "rel": "areas.zortex",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Areas › 1 Personal Foundation › 1.1 Core values",
+        "lnum": 6,
+        "rel": "areas.zortex",
+        "score": 1000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Areas › 1 Personal Foundation › 1.2 Vitality",
+        "lnum": 8,
+        "rel": "areas.zortex",
+        "score": 1000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Areas › 1 Personal Foundation › 1.2 Vitality › Fitness",
+        "child": true,
+        "lnum": 9,
+        "rel": "areas.zortex",
+        "score": 1000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Areas › 4 Learning & Education",
+        "lnum": 12,
+        "rel": "areas.zortex",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Areas › 4 Learning & Education › 4.1 Education & Skills",
+        "lnum": 13,
+        "rel": "areas.zortex",
+        "score": 1000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Areas › 4 Learning & Education › 4.2 Personal Interests",
+        "lnum": 16,
+        "rel": "areas.zortex",
+        "score": 1000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Flipping › Subaru outback",
+        "lnum": 11,
+        "rel": "flipping.zortex",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Objectives › Current",
+        "lnum": 6,
+        "rel": "okr.zortex",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Objectives › Current › 3M-2026-Q1 Establish and maintain good habits/routine",
+        "lnum": 8,
+        "rel": "okr.zortex",
+        "score": 1000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Objectives › Current › 3M-2026-Q1 Ship zortex projects",
+        "lnum": 13,
+        "rel": "okr.zortex",
+        "score": 1000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming",
+        "lnum": 7,
+        "rel": "projects.zortex",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming › 1.4 - esp32",
+        "lnum": 11,
+        "rel": "projects.zortex",
+        "score": 1000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming › 1.4 - zortex",
+        "lnum": 14,
+        "rel": "projects.zortex",
+        "score": 1000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming › 1.4 - zortex › Notes",
+        "child": true,
+        "lnum": 23,
+        "rel": "projects.zortex",
+        "score": 1000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming › 1.4 - zortex › 1.4.1 - zortex search",
+        "lnum": 26,
+        "rel": "projects.zortex",
+        "score": 950,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Personal",
+        "lnum": 29,
+        "rel": "projects.zortex",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Personal › Habits",
+        "lnum": 30,
+        "rel": "projects.zortex",
+        "score": 1000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming",
+        "lnum": 5,
+        "rel": "z/archive.projects.zortex",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming › 1.4 - zortex",
+        "lnum": 6,
+        "rel": "z/archive.projects.zortex",
+        "score": 1000,
+        "type": "section"
+      },
+      {
+        "lnum": 2,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 3,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 7,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 10,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 11,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 14,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 17,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 18,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 2,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 5,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 6,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 7,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 10,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 11,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 14,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 2,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 3,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 4,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 7,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 8,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 9,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 12,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 13,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 2,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 3,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 4,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 9,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 10,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 11,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 14,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 2,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 5,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 8,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 9,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 12,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 16,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 17,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 18,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 19,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 20,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 21,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 24,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 27,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 31,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 32,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 2,
+        "rel": "z/archive.projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 3,
+        "rel": "z/archive.projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 7,
+        "rel": "z/archive.projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 2,
+        "rel": "z/garden.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 4,
+        "rel": "z/garden.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": "@@proj",
+    "results": [
+      {
+        "breadcrumb": "Projects",
+        "lnum": 1,
+        "rel": "projects.zortex",
+        "score": 2200,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming",
+        "child": true,
+        "lnum": 7,
+        "rel": "projects.zortex",
+        "score": 2200,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Personal",
+        "child": true,
+        "lnum": 29,
+        "rel": "projects.zortex",
+        "score": 2200,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects",
+        "lnum": 1,
+        "rel": "z/archive.projects.zortex",
+        "score": 2200,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming",
+        "child": true,
+        "lnum": 5,
+        "rel": "z/archive.projects.zortex",
+        "score": 2200,
+        "type": "section"
+      },
+      {
+        "lnum": 18,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 14,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 8,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 9,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 27,
+        "rel": "projects.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": "@@",
+    "results": [
+      {
+        "breadcrumb": "Areas",
+        "lnum": 1,
+        "rel": "areas.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Areas › 1 Personal Foundation",
+        "child": true,
+        "lnum": 5,
+        "rel": "areas.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Areas › 4 Learning & Education",
+        "child": true,
+        "lnum": 12,
+        "rel": "areas.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Calendar",
+        "lnum": 1,
+        "rel": "calendar.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Calendar › 2026-10-09",
+        "child": true,
+        "lnum": 4,
+        "rel": "calendar.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Calendar › 2026-10-10",
+        "child": true,
+        "lnum": 9,
+        "rel": "calendar.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Calendar › 2026-10-06",
+        "child": true,
+        "lnum": 13,
+        "rel": "calendar.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Flipping",
+        "lnum": 1,
+        "rel": "flipping.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Flipping › Buying used cars/parts",
+        "child": true,
+        "lnum": 6,
+        "rel": "flipping.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Flipping › Subaru outback",
+        "child": true,
+        "lnum": 11,
+        "rel": "flipping.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Objectives",
+        "lnum": 1,
+        "rel": "okr.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Objectives › Current",
+        "child": true,
+        "lnum": 6,
+        "rel": "okr.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects",
+        "lnum": 1,
+        "rel": "projects.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming",
+        "child": true,
+        "lnum": 7,
+        "rel": "projects.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Personal",
+        "child": true,
+        "lnum": 29,
+        "rel": "projects.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Garden",
+        "lnum": 1,
+        "rel": "z/garden.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects",
+        "lnum": 1,
+        "rel": "z/archive.projects.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming",
+        "child": true,
+        "lnum": 5,
+        "rel": "z/archive.projects.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "lnum": 2,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 3,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 7,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 10,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 11,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 14,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 17,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 18,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 2,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 5,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 6,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 7,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 10,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 11,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 14,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 2,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 3,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 4,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 7,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 8,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 9,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 12,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 13,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 2,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 3,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 4,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 9,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 10,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 11,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 14,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 2,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 5,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 8,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 9,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 12,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 16,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 17,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 18,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 19,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 20,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 21,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 24,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 27,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 31,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 32,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 2,
+        "rel": "z/archive.projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 3,
+        "rel": "z/archive.projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 7,
+        "rel": "z/archive.projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 2,
+        "rel": "z/garden.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 4,
+        "rel": "z/garden.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": ":notes",
+    "results": [
+      {
+        "breadcrumb": "Projects › 1 Programming › 1.4 - zortex › Notes",
+        "lnum": 23,
+        "rel": "projects.zortex",
+        "score": 600,
+        "type": "section"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": ":",
+    "results": [
+      {
+        "breadcrumb": "Areas › 1 Personal Foundation › 1.2 Vitality › Fitness",
+        "lnum": 9,
+        "rel": "areas.zortex",
+        "score": 400,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Calendar › 2026-10-09",
+        "lnum": 4,
+        "rel": "calendar.zortex",
+        "score": 400,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Calendar › 2026-10-10",
+        "lnum": 9,
+        "rel": "calendar.zortex",
+        "score": 400,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Calendar › 2026-10-06",
+        "lnum": 13,
+        "rel": "calendar.zortex",
+        "score": 400,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Flipping › Buying used cars/parts",
+        "lnum": 6,
+        "rel": "flipping.zortex",
+        "score": 400,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects › 1 Programming › 1.4 - zortex › Notes",
+        "lnum": 23,
+        "rel": "projects.zortex",
+        "score": 400,
+        "type": "section"
+      },
+      {
+        "lnum": 2,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 3,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 7,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 10,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 11,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 14,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 17,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 18,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 2,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 5,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 6,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 7,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 10,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 11,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 14,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 2,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 3,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 4,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 7,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 8,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 9,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 12,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 13,
+        "rel": "flipping.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 2,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 3,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 4,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 9,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 10,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 11,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 14,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 2,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 5,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 8,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 9,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 12,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 16,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 17,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 18,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 19,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 20,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 21,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 24,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 27,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 31,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 32,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 2,
+        "rel": "z/archive.projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 3,
+        "rel": "z/archive.projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 7,
+        "rel": "z/archive.projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 2,
+        "rel": "z/garden.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 4,
+        "rel": "z/garden.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": "*bold",
+    "results": []
+  },
+  {
+    "mode": "section",
+    "prompt": "subaru",
+    "results": [
+      {
+        "breadcrumb": "Flipping › Subaru outback",
+        "lnum": 11,
+        "rel": "flipping.zortex",
+        "score": 1150,
+        "type": "section"
+      },
+      {
+        "lnum": 7,
+        "rel": "calendar.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": "car subaru",
+    "results": [
+      {
+        "breadcrumb": "Flipping › Subaru outback",
+        "lnum": 11,
+        "rel": "flipping.zortex",
+        "score": 1350,
+        "type": "section"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": "fitness",
+    "results": []
+  },
+  {
+    "mode": "section",
+    "prompt": "vitality fitness",
+    "results": []
+  },
+  {
+    "mode": "section",
+    "prompt": "kr",
+    "results": [
+      {
+        "breadcrumb": "Objectives",
+        "lnum": 1,
+        "rel": "okr.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Objectives › Current",
+        "child": true,
+        "lnum": 6,
+        "rel": "okr.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "lnum": 2,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 9,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 10,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 11,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 14,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 18,
+        "rel": "projects.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": "routine",
+    "results": [
+      {
+        "lnum": 10,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 31,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 32,
+        "rel": "projects.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": "1.4_-_zortex",
+    "results": [
+      {
+        "lnum": 5,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 11,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 14,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "okr.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": "1.4\\ -\\ zortex",
+    "results": [
+      {
+        "lnum": 5,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 11,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 14,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "okr.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": "a b c d",
+    "results": [
+      {
+        "breadcrumb": "Flipping › Buying used cars/parts",
+        "lnum": 6,
+        "rel": "flipping.zortex",
+        "score": 800,
+        "type": "section"
+      },
+      {
+        "lnum": 11,
+        "rel": "okr.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": "nothing-matches-this",
+    "results": []
+  },
+  {
+    "mode": "article",
+    "prompt": "P",
+    "results": [
+      {
+        "breadcrumb": "Projects",
+        "lnum": 1,
+        "rel": "projects.zortex",
+        "score": 2300,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Flipping",
+        "lnum": 1,
+        "rel": "flipping.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects",
+        "lnum": 1,
+        "rel": "z/archive.projects.zortex",
+        "score": 2300,
+        "type": "section"
+      }
+    ]
+  },
+  {
+    "mode": "article",
+    "prompt": "o",
+    "results": [
+      {
+        "breadcrumb": "Objectives",
+        "lnum": 1,
+        "rel": "okr.zortex",
+        "score": 2300,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects",
+        "lnum": 1,
+        "rel": "projects.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects",
+        "lnum": 1,
+        "rel": "z/archive.projects.zortex",
+        "score": 2100,
+        "type": "section"
+      }
+    ]
+  },
+  {
+    "mode": "article",
+    "prompt": "",
+    "results": [
+      {
+        "breadcrumb": "Areas",
+        "lnum": 1,
+        "rel": "areas.zortex",
+        "score": 2000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Calendar",
+        "lnum": 1,
+        "rel": "calendar.zortex",
+        "score": 2000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Flipping",
+        "lnum": 1,
+        "rel": "flipping.zortex",
+        "score": 2000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Objectives",
+        "lnum": 1,
+        "rel": "okr.zortex",
+        "score": 2000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects",
+        "lnum": 1,
+        "rel": "projects.zortex",
+        "score": 2000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Garden",
+        "lnum": 1,
+        "rel": "z/garden.zortex",
+        "score": 2000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Projects",
+        "lnum": 1,
+        "rel": "z/archive.projects.zortex",
+        "score": 2000,
+        "type": "section"
+      }
+    ]
+  }
+]

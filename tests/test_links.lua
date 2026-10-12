@@ -75,3 +75,22 @@ T.test("task checkboxes are not links", function()
 	T.eq(#parser.extract_all_links("- [x] Done [P/#1.4]"), 1)
 	T.eq(parser.extract_all_links("- KR1: [ ] text [P/#Habits]")[1].definition, "P/#Habits")
 end)
+
+T.test("conformance: resolve and search fixtures are up to date", function()
+	local Config = require("zortex.config")
+	local saved = Config.notes_dir
+	local gen = dofile(T.root .. "/tests/gen_links.lua")
+	local function read(path)
+		return vim.json.decode(table.concat(vim.fn.readfile(path), "\n"))
+	end
+	local hint = " (regenerate with: nvim --headless -u NONE -l tests/gen_links.lua)"
+	local ok, err = pcall(function()
+		gen.use_fixture_copy() -- pristine notes, whatever earlier tests wrote
+		T.eq(vim.json.decode(vim.json.encode(gen.resolve_cases())), read(gen.RESOLVE), "resolve.json" .. hint)
+		T.eq(vim.json.decode(vim.json.encode(gen.search_cases())), read(gen.SEARCH), "search.json" .. hint)
+	end)
+	Config.notes_dir = saved
+	require("zortex.core.notes").invalidate()
+	require("zortex.core.document").invalidate()
+	assert(ok, err)
+end)

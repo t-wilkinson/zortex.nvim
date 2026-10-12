@@ -1,0 +1,791 @@
+[
+  {
+    "link": "[Areas]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 1,
+        "rel": "areas.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Areas/#1 Personal Foundation]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 5,
+        "rel": "areas.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Areas/#1 Personal Foundation/#1.1 Core values]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 6,
+        "rel": "areas.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Areas/#1 Personal Foundation/#1.2 Vitality]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 8,
+        "rel": "areas.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Areas/#1 Personal Foundation/#1.2 Vitality/:Fitness]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 9,
+        "rel": "areas.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Areas/#4 Learning]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 12,
+        "rel": "areas.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Areas/#4 Learning/#4.1 Education]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 13,
+        "rel": "areas.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Areas/#4 Learning/#4.2 Personal Interests]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 16,
+        "rel": "areas.zortex"
+      }
+    ]
+  },
+  {
+    "error": "No matches found for: #No such project",
+    "link": "[P/#No such project]",
+    "results": []
+  },
+  {
+    "link": "[Calendar]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 1,
+        "rel": "calendar.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Calendar/:2026-10-09]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 4,
+        "rel": "calendar.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Calendar/:2026-10-10]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 9,
+        "rel": "calendar.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Calendar/:2026-10-06]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 13,
+        "rel": "calendar.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[P/#1.4 - zortex]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 14,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[P/#1 Programming]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 7,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[@P/#Subaru outback]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 11,
+        "rel": "flipping.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Flipping]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 1,
+        "rel": "flipping.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[P/#1.4 - Zortex]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 14,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Flipping/:Buying used cars]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 6,
+        "rel": "flipping.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Flipping/#Subaru outback]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 11,
+        "rel": "flipping.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Objectives]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 1,
+        "rel": "okr.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Objectives/#Current]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 6,
+        "rel": "okr.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Objectives/#Current/#3M-2026-Q1 Establish and maintain good habits]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 8,
+        "rel": "okr.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Objectives/#Current/#3M-2026-Q1 Ship zortex projects]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 13,
+        "rel": "okr.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[P/#1 Personal/#Habits]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 30,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Projects/#1 Programming/#1.4 - zortex/#1.4.1]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 26,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Projects]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 1,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Projects/#1 Programming]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 7,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Projects/#1 Programming/#1.4 - esp32]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 11,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Projects/#1 Programming/#1.4 - zortex]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 14,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Projects/#1 Programming/#1.4 - zortex/:Notes]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 23,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Projects/#1 Programming/#1.4 - zortex/#1.4.1 - zortex search]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 26,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Projects/#1 Personal]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 29,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Projects/#1 Personal/#Habits]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 30,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Garden]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 1,
+        "rel": "z/garden.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[P]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 1,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 1,
+        "rel": "flipping.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 1,
+        "rel": "z/garden.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[p/#1.4 - ZORTEX]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 14,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[P/#1.4]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 11,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 14,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 26,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[P/#1.4 - zortex/#1.4.1]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 26,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[@P]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 1,
+        "rel": "flipping.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 1,
+        "rel": "z/garden.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[@P/#Subaru]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 11,
+        "rel": "flipping.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[P/Flipping/#Subaru outback]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 11,
+        "rel": "flipping.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[P/#Subaru outback]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 11,
+        "rel": "flipping.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Car maintenance/#Subaru]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 11,
+        "rel": "flipping.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Me]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 1,
+        "rel": "areas.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 1,
+        "rel": "okr.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[@Me]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 1,
+        "rel": "areas.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 1,
+        "rel": "okr.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[@Cars]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 1,
+        "rel": "flipping.zortex"
+      }
+    ]
+  },
+  {
+    "error": "No matches found for: @Nope",
+    "link": "[@Nope]",
+    "results": []
+  },
+  {
+    "error": "No article found: Nope",
+    "link": "[Nope]",
+    "results": []
+  },
+  {
+    "link": "[P/#1 Programming/#1.4 - zortex/-Improve website]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 16,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[P/#1.4 - zortex/-improve]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 16,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[P/-Weekly]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 5,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[O/#Current/#3M-2026-Q1 Establish/-KR2]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 10,
+        "rel": "okr.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[O/#Current/#3M-2026-Q1 Ship zortex projects/-KR1]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 14,
+        "rel": "okr.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Calendar/:2026-10-06/-Call the mechanic]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 14,
+        "rel": "calendar.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[A/#1 Personal Foundation/#1.2 Vitality/:Fitness]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 9,
+        "rel": "areas.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[A/:Fitness]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 9,
+        "rel": "areas.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[P/%website]",
+    "results": [
+      {
+        "col": 15,
+        "lnum": 16,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "error": "No matches found for: %Website",
+    "link": "[P/%Website]",
+    "results": []
+  },
+  {
+    "link": "[P/routine + website]",
+    "results": [
+      {
+        "col": 15,
+        "lnum": 16,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 15,
+        "lnum": 31,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 15,
+        "lnum": 32,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "error": "No matches found for: zortex & website",
+    "link": "[P/zortex & website]",
+    "results": []
+  },
+  {
+    "link": "[%zortex]",
+    "results": [
+      {
+        "col": 17,
+        "lnum": 5,
+        "rel": "calendar.zortex"
+      },
+      {
+        "col": 17,
+        "lnum": 11,
+        "rel": "calendar.zortex"
+      },
+      {
+        "col": 20,
+        "lnum": 13,
+        "rel": "okr.zortex"
+      },
+      {
+        "col": 35,
+        "lnum": 14,
+        "rel": "okr.zortex"
+      },
+      {
+        "col": 57,
+        "lnum": 15,
+        "rel": "okr.zortex"
+      },
+      {
+        "col": 10,
+        "lnum": 14,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 24,
+        "lnum": 24,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 13,
+        "lnum": 26,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[P/+habits+routine]",
+    "results": [
+      {
+        "col": 4,
+        "lnum": 30,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 15,
+        "lnum": 31,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 15,
+        "lnum": 32,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[@Archive]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 1,
+        "rel": "z/archive.projects.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[@Archive/#1.4 - zortex]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 6,
+        "rel": "z/archive.projects.zortex"
+      }
+    ]
+  },
+  {
+    "error": "No matches found for: #old",
+    "link": "[Projects/@Archive/#old]",
+    "results": []
+  },
+  {
+    "from": "projects.zortex",
+    "link": "[/#1.4 - zortex]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 14,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "from": "projects.zortex",
+    "link": "[/:Notes]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 23,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "from": "flipping.zortex",
+    "link": "[/#Subaru]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 11,
+        "rel": "flipping.zortex"
+      }
+    ]
+  },
+  {
+    "error": "No matches found for: #nothing here",
+    "from": "projects.zortex",
+    "link": "[/#nothing here]",
+    "results": []
+  },
+  {
+    "error": "No matches found for: @size(lg)",
+    "link": "[P/@size(lg)]",
+    "results": []
+  },
+  {
+    "link": "P/#1.4",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 11,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 14,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 26,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "error": "Invalid link",
+    "link": "[]",
+    "results": []
+  }
+]

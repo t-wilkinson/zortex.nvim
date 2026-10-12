@@ -735,7 +735,8 @@ its own slice the same way `search.setup` does. Relevant constants live in
 nvim --headless -u NONE -l tests/run.lua            # everything
 nvim --headless -u NONE -l tests/run.lua projects   # files whose name contains "projects"
 nvim --headless -u NONE -l tests/gen_ast.lua        # regenerate the AST fixtures (after a grammar change)
-go -C app test ./...                                # Go parser against the same fixtures
+nvim --headless -u NONE -l tests/gen_links.lua      # regenerate the resolve/search fixtures (after a resolver or search change)
+go -C app test ./...                                # Go parser, resolver and search against the same fixtures
 python3 -m unittest app/test_notes.py               # server notes index and routes
 ```
 
@@ -747,6 +748,14 @@ both compare against those files, so a change to the grammar is made in Lua,
 the fixtures are regenerated, and the Go port is fixed until it agrees again.
 `syntax/edge.zortex` collects corner cases and `syntax/random.zortex` is 600
 lines of shuffled syntax fragments.
+
+The link resolver and structural search work the same way: `tests/gen_links.lua`
+runs them over the fixture notes and writes `tests/fixtures/resolve.json`
+(every section's canonical link, every link written in the notes and
+hand-picked cases: aliases, tags, archives, local links, failures, with their
+targets or error text) and `tests/fixtures/search.json` (31 prompts with the
+ranked results, scores and breadcrumbs). `test_links` checks the files are up
+to date; `app/links` and `app/search` must reproduce them.
 
 - `tests/run.lua` has no plugin dependencies. It copies
   `tests/fixtures/notes` to a temp directory (stores write state files into

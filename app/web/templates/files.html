@@ -3,14 +3,19 @@
   <nav class="crumbs">{{range $i, $c := .Crumbs}}{{if $i}}<span>/</span>{{end}}<a href="{{$c.URL}}">{{$c.Name}}</a>{{end}}</nav>
   {{if .Unlinked}}<p class="dim toggle"><a href="{{u "/resources"}}{{if .Rel}}?dir={{.Rel}}{{end}}">{{.Unlinked}} unlinked resource{{if ne .Unlinked 1}}s{{end}}</a> in this folder</p>{{end}}
   {{if and .Root .Hidden}}
-  <p class="dim toggle">{{if .All}}Showing every top-level file. <a href="{{fileURL ""}}">Only the main notes</a>{{else}}{{.Hidden}} other top-level files hidden. <a href="{{fileURL ""}}?all=1">Show all</a>{{end}}</p>
+  <p class="dim toggle">{{if .All}}Showing every top-level file. <a href="{{.MainOnly}}">Only the main notes</a>{{else}}{{.Hidden}} other top-level files hidden. <a href="{{.ShowAll}}">Show all</a>{{end}}</p>
   {{end}}
+  <p class="sort-small dim">Sort: <a class="sort{{if .SortName.Arrow}} on{{end}}" href="{{.SortName.URL}}">name{{if .SortName.Arrow}} {{.SortName.Arrow}}{{end}}</a> · <a class="sort{{if .SortTime.Arrow}} on{{end}}" href="{{.SortTime.URL}}">changed{{if .SortTime.Arrow}} {{.SortTime.Arrow}}{{end}}</a></p>
   <table class="listing">
-    <thead><tr><th>Name</th><th class="num">Links</th><th class="num">Size</th><th class="when">Changed</th></tr></thead>
+    <thead><tr>
+      <th aria-sort="{{.SortName.Aria}}"><a class="sort{{if .SortName.Arrow}} on{{end}}" href="{{.SortName.URL}}">Name{{if .SortName.Arrow}} <span aria-hidden="true">{{.SortName.Arrow}}</span>{{end}}</a></th>
+      <th class="num">Links</th><th class="num">Size</th>
+      <th class="when" aria-sort="{{.SortTime.Aria}}"><a class="sort{{if .SortTime.Arrow}} on{{end}}" href="{{.SortTime.URL}}">Changed{{if .SortTime.Arrow}} <span aria-hidden="true">{{.SortTime.Arrow}}</span>{{end}}</a></th>
+    </tr></thead>
     <tbody>
     {{range .Entries}}
     <tr class="{{if .Dir}}dir{{else}}{{.Kind}}{{end}}{{if .Hidden}} extra{{end}}">
-      <td><a href="{{if .Note}}{{noteURL .Rel 0}}{{else}}{{fileURL .Rel}}{{end}}"><span class="ico" aria-hidden="true"></span>{{if .Dir}}{{.Name}}/{{else if .Note}}{{.Title}}{{if ne .Title (base .Rel)}} <span class="dim">{{.Name}}</span>{{end}}{{else}}{{.Name}}{{end}}</a></td>
+      <td><a href="{{if .Note}}{{noteURL .Rel 0}}{{else if .Dir}}{{fileURL .Rel}}{{$.Keep}}{{else}}{{fileURL .Rel}}{{end}}"><span class="ico" aria-hidden="true"></span>{{if .Dir}}{{.Name}}/{{else if .Note}}{{.Title}}{{if ne .Title (base .Rel)}} <span class="dim">{{.Name}}</span>{{end}}{{else}}{{.Name}}{{end}}</a></td>
       <td class="num">{{if .Dir}}{{if .Unlinked}}<a class="unlinked" href="{{u "/resources"}}?dir={{.Rel}}">{{.Unlinked}} unlinked</a>{{end}}{{else if .Resource}}{{if .Links}}<a href="{{fileURL .Rel}}#backlinks">{{.Links}}</a>{{else}}<span class="unlinked">unlinked</span>{{end}}{{end}}</td>
       <td class="num">{{if not .Dir}}{{size .Size}}{{end}}</td>
       <td class="when">{{ago .ModTime}}</td>

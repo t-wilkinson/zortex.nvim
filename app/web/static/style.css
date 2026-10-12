@@ -175,10 +175,16 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 .toggle { font-size: 0.88rem; }
 table.listing { width: 100%; border-collapse: collapse; font-size: 0.94rem; margin-top: 0.6rem; }
 .listing th { text-align: left; font-weight: 500; color: var(--dim); font-size: 0.8rem; border-bottom: 1px solid var(--rule); padding: 0.3rem 0.5rem; }
+.sort-small { display: none; font-size: 0.88rem; margin: 0.4rem 0 0; }
+.sort-small a.sort.on { color: var(--ink); font-weight: 600; }
+.listing th a.sort { color: inherit; }
+.listing th a.sort:hover { color: var(--accent); text-decoration: none; }
+.listing th a.sort.on { color: var(--ink); }
 .listing td { padding: 0.32rem 0.5rem; border-bottom: 1px solid color-mix(in srgb, var(--rule) 60%, transparent); }
 .listing td:first-child { overflow-wrap: anywhere; }
 .listing .num { text-align: right; white-space: nowrap; color: var(--dim); font-variant-numeric: tabular-nums; }
-.listing td.when { float: none; white-space: nowrap; }
+.listing td.when, .listing th.when { float: none; white-space: nowrap; }
+.listing th.when { font-size: 0.8rem; padding-left: 0.5rem; }
 .listing tr.extra td:first-child a { opacity: 0.75; }
 .ico { display: inline-block; width: 1.3rem; color: var(--dim); }
 .dir .ico::before { content: "▸"; }
@@ -217,6 +223,7 @@ ol.targets li { margin: 0.6rem 0; }
   .big-search { flex-direction: column; align-items: stretch; }
   .note-head h1 { font-size: 1.6rem; }
   .listing th.when, .listing td.when { display: none; }
+  .sort-small { display: block; }
   .when { float: none; display: block; padding: 0; }
 }
 

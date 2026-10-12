@@ -4,6 +4,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -182,14 +183,93 @@ func (s *Server) listDir(rel string, all bool) ([]entry, int, error) {
 		}
 		out = append(out, e)
 	}
-	sort.SliceStable(out, func(i, j int) bool {
-		a, b := out[i], out[j]
+	listSort{By: "name", Order: "asc"}.apply(out)
+	return out, hidden, nil
+}
+
+// listSort orders a folder listing: ?sort=name|modified&order=asc|desc.
+// Folders always come first. The default is name, ascending; modified time
+// starts newest first.
+type listSort struct {
+	By    string // "name" | "modified"
+	Order string // "asc" | "desc"
+}
+
+func parseListSort(q url.Values) listSort {
+	ls := listSort{By: "name", Order: "asc"}
+	if q.Get("sort") == "modified" {
+		ls = listSort{By: "modified", Order: "desc"}
+	}
+	if o := q.Get("order"); o == "asc" || o == "desc" {
+		ls.Order = o
+	}
+	return ls
+}
+
+func (ls listSort) apply(entries []entry) {
+	sort.SliceStable(entries, func(i, j int) bool {
+		a, b := entries[i], entries[j]
 		if a.Dir != b.Dir {
 			return a.Dir
 		}
-		return strings.ToLower(a.Name) < strings.ToLower(b.Name)
+		an, bn := strings.ToLower(a.Name), strings.ToLower(b.Name)
+		less, equal := an < bn, an == bn
+		if ls.By == "modified" && !a.ModTime.Equal(b.ModTime) {
+			less, equal = a.ModTime.Before(b.ModTime), false
+		}
+		if equal {
+			return false
+		}
+		return less == (ls.Order == "asc")
 	})
-	return out, hidden, nil
+}
+
+// query is the URL query that keeps this order ("" for the default).
+func (ls listSort) query() string {
+	if ls == (listSort{By: "name", Order: "asc"}) {
+		return ""
+	}
+	return "sort=" + ls.By + "&order=" + ls.Order
+}
+
+// sortHeader is a clickable column header.
+type sortHeader struct {
+	URL   string
+	Arrow string // "↑", "↓" on the active column
+	Aria  string // aria-sort value
+}
+
+// header links a column: the active one flips its order, another one starts
+// at its natural order.
+func (ls listSort) header(by, base string, extra url.Values) sortHeader {
+	next := listSort{By: by, Order: "asc"}
+	if by == "modified" {
+		next.Order = "desc"
+	}
+	h := sortHeader{Aria: "none"}
+	if ls.By == by {
+		next.Order = map[string]string{"asc": "desc", "desc": "asc"}[ls.Order]
+		h.Arrow = map[string]string{"asc": "↑", "desc": "↓"}[ls.Order]
+		h.Aria = map[string]string{"asc": "ascending", "desc": "descending"}[ls.Order]
+	}
+	h.URL = withQuery(base, next, extra)
+	return h
+}
+
+// withQuery is base plus the sort (when not the default) and extra values.
+func withQuery(base string, ls listSort, extra url.Values) string {
+	q := url.Values{}
+	for k, v := range extra {
+		q[k] = v
+	}
+	if ls.query() != "" {
+		q.Set("sort", ls.By)
+		q.Set("order", ls.Order)
+	}
+	if len(q) == 0 {
+		return base
+	}
+	return base + "?" + q.Encode()
 }
 
 // crumb is a breadcrumb link.
@@ -235,6 +315,20 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 		s.notFound(w, r, "Can't read folder: "+rel)
 		return
 	}
+	ls := parseListSort(r.URL.Query())
+	ls.apply(entries)
+	var extra url.Values
+	if all {
+		extra = url.Values{"all": {"1"}}
+	}
+	keep := ""
+	if q := ls.query(); q != "" {
+		keep = "?" + q
+	}
+	crumbs := s.crumbs(rel)
+	for i := range crumbs {
+		crumbs[i].URL += keep
+	}
 	title := "notes"
 	if rel != "" {
 		title = path.Base(rel)
@@ -243,11 +337,16 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 		"Unlinked": s.current().unlinked[rel],
 		"Title":    title,
 		"Rel":      rel,
-		"Crumbs":   s.crumbs(rel),
+		"Crumbs":   crumbs,
 		"Entries":  entries,
 		"Hidden":   hidden,
 		"All":      all,
 		"Root":     rel == "",
+		"Keep":     keep, // appended to folder links: subfolders keep the order
+		"SortName": ls.header("name", s.fileURL(rel), extra),
+		"SortTime": ls.header("modified", s.fileURL(rel), extra),
+		"ShowAll":  withQuery(s.fileURL(""), ls, url.Values{"all": {"1"}}),
+		"MainOnly": withQuery(s.fileURL(""), ls, nil),
 	})
 }
 

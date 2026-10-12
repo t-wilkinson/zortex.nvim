@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -294,4 +295,48 @@ func TestResources(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "z/papers/new.pdf"), []byte("%PDF"), 0o644)
 	s.Refresh()
 	expect(t, ts, "/resources", 200, `new.pdf`)
+}
+
+func TestFileSorting(t *testing.T) {
+	_, dir, ts := newTestServer(t, "")
+	base := time.Now().Add(-time.Hour)
+	for i, name := range []string{"b.txt", "c.txt", "a.txt"} { // a is newest
+		p := filepath.Join(dir, "z/sort", name)
+		os.MkdirAll(filepath.Dir(p), 0o755)
+		os.WriteFile(p, []byte("x"), 0o644)
+		mt := base.Add(time.Duration(i) * time.Minute)
+		os.Chtimes(p, mt, mt)
+	}
+	os.MkdirAll(filepath.Join(dir, "z/sort/sub"), 0o755)
+	order := func(path string) string {
+		_, _, body := get(t, ts, path)
+		names := []string{"sub/", "a.txt", "b.txt", "c.txt"}
+		sort.Slice(names, func(i, j int) bool {
+			return strings.Index(body, ">"+names[i]+"<") < strings.Index(body, ">"+names[j]+"<")
+		})
+		return strings.Join(names, " ")
+	}
+	cases := map[string]string{
+		"/f/z/sort":                         "sub/ a.txt b.txt c.txt",
+		"/f/z/sort?sort=name&order=desc":    "sub/ c.txt b.txt a.txt",
+		"/f/z/sort?sort=modified":           "sub/ a.txt c.txt b.txt", // newest first
+		"/f/z/sort?sort=modified&order=asc": "sub/ b.txt c.txt a.txt",
+	}
+	for path, want := range cases {
+		if got := order(path); got != want {
+			t.Errorf("%s: %s, want %s", path, got, want)
+		}
+	}
+	// headers: the active column flips, the other starts at its natural order;
+	// folder links and breadcrumbs keep the order
+	expect(t, ts, "/f/z/sort", 200,
+		`href="/f/z/sort?order=desc&amp;sort=name">Name <span aria-hidden="true">↑</span>`,
+		`href="/f/z/sort?order=desc&amp;sort=modified">Changed</a>`)
+	expect(t, ts, "/f/z/sort?sort=modified", 200,
+		`aria-sort="descending"`,
+		`href="/f/z/sort?order=asc&amp;sort=modified">Changed <span aria-hidden="true">↓</span>`,
+		`href="/f/z/sort/sub?sort=modified&amp;order=desc"`,
+		`href="/f/z?sort=modified&amp;order=desc"`)
+	// the root keeps ?all=1 when sorting, and the all toggle keeps the sort
+	expect(t, ts, "/f/?all=1&sort=modified", 200, `href="/f/?all=1&amp;order=asc&amp;sort=modified"`, `href="/f/?order=desc&amp;sort=modified">Only the main notes`)
 }

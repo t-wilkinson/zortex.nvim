@@ -76,6 +76,8 @@ type calEntry struct {
 	Depth  int    `json:"depth,omitempty"` // nesting under another entry
 	Notify bool   `json:"notify,omitempty"`
 	URL    string `json:"url"`
+	Src    string `json:"src,omitempty"` // the line as written (-writable: for edits)
+	Rel    string `json:"rel,omitempty"`
 }
 
 func (s *Server) calendarDoc() *notes.Document {
@@ -124,6 +126,9 @@ func (s *Server) calendarDays(from, to string) map[string][]calEntry {
 			Done:  it.Mark == "x" || it.Mark == "X",
 			Depth: (it.MarkerCol - baseIndent + 1) / 2,
 			URL:   s.noteURL(doc.Rel, lnum),
+		}
+		if s.cfg.Writable {
+			e.Src, e.Rel = line, doc.Rel
 		}
 		if it.Time != nil {
 			e.Time, e.End = it.Time.At, it.Time.To
@@ -187,6 +192,7 @@ func (s *Server) apiCalendar(w http.ResponseWriter, r *http.Request) {
 		"next_time":     view.nextTime,
 		"text_view":     view.text,
 		"notes_enabled": s.alerts != nil,
+		"writable":      s.cfg.Writable,
 		"ntfy":          s.cfg.Ntfy.Enabled(),
 	})
 }

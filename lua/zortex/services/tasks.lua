@@ -151,8 +151,8 @@ end
 -- Task Creation and Conversion
 -- =============================================================================
 
--- Convert a line to a task
-function M.convert_line_to_task(line)
+-- Convert a line to a task (id: the @id to use; default a new one)
+function M.convert_line_to_task(line, id)
 	if not line or line:match("^%s*$") then
 		return nil, "Empty line"
 	end
@@ -165,12 +165,79 @@ function M.convert_line_to_task(line)
 	local list_text = content:match("^[-*+]%s*(.+)") or content
 
 	-- Build the task line
-	local task_id = generate_task_id()
+	local task_id = id or generate_task_id()
 	local task_line = indent .. "- [ ] " .. list_text
 	task_line = attributes.add_attribute(task_line, "id", task_id)
 	local task = Item.task(task_line)
 
 	return task, task_line
+end
+
+-- =============================================================================
+-- Pure line edits (shared with the web app)
+-- =============================================================================
+
+-- The line with its checkbox set and @done added (today) or removed.
+local function set_done(line, done, today)
+	local t = Item.task(line)
+	local new = t:with_mark(done and constants.TASK_MARKS.COMPLETED or constants.TASK_MARKS.TODO)
+	if done then
+		return attributes.update_attribute(new, "done", today)
+	end
+	return attributes.remove_attribute(new, "done")
+end
+
+--- Edit one line the way the task commands do, without touching a buffer:
+---   "open"    a task, not done (text becomes a task; done is reopened)
+---   "done"    a completed task with @done(today) (text becomes a task first)
+---   "toggle"  done <-> open; text becomes an open task
+---   "text"    a plain list item: checkbox and @done removed
+--- Tasks always end up with an @id. Returns the new line, or nil and an
+--- error. `zortex serve` implements the same edits (app/edit), checked
+--- against tests/fixtures/edits.json, which tests/gen_edits.lua writes from
+--- this function.
+---@param opts { today?: string, id?: string }?
+function M.edit_line(line, op, opts)
+	opts = opts or {}
+	local today = opts.today or os.date("%Y-%m-%d")
+	local task = Item.task(line)
+
+	if op == "text" then
+		if not task then
+			return line
+		end
+		local before, after = line:sub(1, task.mark_col), line:sub(task.mark_col + 4)
+		after = after:gsub("^ ", "", 1)
+		return attributes.remove_attribute(before .. after, "done")
+	end
+	if op ~= "open" and op ~= "done" and op ~= "toggle" then
+		return nil, "unknown edit: " .. tostring(op)
+	end
+
+	if not task then
+		local converted, new_line = M.convert_line_to_task(line, opts.id)
+		if not converted then
+			return nil, new_line
+		end
+		if op == "done" then
+			return set_done(new_line, true, today)
+		end
+		return new_line
+	end
+
+	if not (task.attributes and task.attributes.id) then
+		line = attributes.add_attribute(line, "id", opts.id or generate_task_id())
+	end
+	local want_done
+	if op == "toggle" then
+		want_done = not task.completed
+	else
+		want_done = op == "done"
+	end
+	if want_done == task.completed then
+		return line
+	end
+	return set_done(line, want_done, today)
 end
 
 -- =============================================================================

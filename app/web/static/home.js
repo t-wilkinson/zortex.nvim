@@ -22,6 +22,7 @@
   // ===========================================================================
 
   var cal = { days: {}, loaded: {}, notifications: [], next: null };
+  var calWritable = false;
   var shown = new Date(), selected = new Date();
   shown.setDate(1);
 
@@ -48,7 +49,13 @@
       var past = isToday && m !== null && i < current;
       var cls = "event-item" + (past ? " past" : "") + (e.done ? " done" : "") + (i === current ? " current" : "");
       var time = e.time ? esc(e.time) + (e.end ? '<span class="end">–' + esc(e.end) + "</span>" : "") : "";
-      var box = e.task ? '<span class="box ' + (e.done ? "done" : "open") + '" aria-label="' + (e.done ? "done" : "open task") + '"></span>' : "";
+      var box = "";
+      if (e.task && e.src && calWritable) {
+        box = '<button type="button" class="box ' + (e.done ? "done" : "open") + '" data-day="' + esc(key) + '" data-i="' + i +
+          '" aria-pressed="' + (e.done ? "true" : "false") + '" aria-label="' + (e.done ? "Done; mark open" : "Mark done") + '"></button>';
+      } else if (e.task) {
+        box = '<span class="box ' + (e.done ? "done" : "open") + '" aria-label="' + (e.done ? "done" : "open task") + '"></span>';
+      }
       var bell = e.notify ? '<span class="bell" title="notification scheduled" aria-label="notification">🔔</span>' : "";
       html += '<div class="' + cls + '" style="--depth:' + (e.depth || 0) + '">' +
         '<a class="event-time" href="' + esc(e.url) + '">' + time + "</a>" +
@@ -102,6 +109,7 @@
         Object.keys(cal.days).forEach(function (k) { if (k.slice(0, 7) === rg.key) delete cal.days[k]; });
         Object.keys(data.days || {}).forEach(function (k) { cal.days[k] = data.days[k]; });
         cal.loaded[rg.key] = true;
+        calWritable = !!data.writable;
         cal.notifications = data.notifications || [];
         cal.next = data.next_time ? { time: data.next_time, text: data.next_event } : null;
         var stats = $("cal-stats");
@@ -111,6 +119,27 @@
         }
       });
     })).then(function () { renderDay(); renderMonth(); renderPomodoro(); });
+  }
+
+  // -writable: check off calendar tasks here
+  var eventList = $("event-list");
+  if (eventList) {
+    eventList.addEventListener("click", function (ev) {
+      var b = ev.target.closest("button.box[data-i]");
+      if (!b) return;
+      var e = (cal.days[b.dataset.day] || [])[Number(b.dataset.i)];
+      if (!e || !e.src) return;
+      b.disabled = true;
+      fetch(base + "/api/edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rel: e.rel, lnum: e.lnum, expect: e.src, op: "toggle" }),
+      }).then(function (r) {
+        if (r.status === 409) window.alert("The calendar changed elsewhere; showing the latest. Try again.");
+        else if (!r.ok) return r.json().then(function (x) { window.alert(x.error || "Couldn't save"); });
+      }).catch(function () { window.alert("Server unreachable; nothing was changed"); })
+        .then(function () { cal.loaded = {}; return loadCalendar(true); }).then(loadXP);
+    });
   }
 
   var days = $("calendar-days");
@@ -411,9 +440,46 @@
     $("xp-updated").textContent = x.generated ? "Updated in Neovim " + ago(x.generated) : "";
   }
 
+  function renderPending(x) {
+    var el = $("web-pending");
+    if (!el) return;
+    var n = (x && x.pending_web) || 0;
+    el.hidden = n === 0;
+    if (!n) return;
+    var titles = list(x.pending_titles).map(esc).join(", ");
+    el.innerHTML = "<strong>" + n + " task" + (n === 1 ? "" : "s") + " completed here</strong> " +
+      "<span class='dim'>· not counted for XP yet; Neovim counts " + (n === 1 ? "it" : "them") + " next time it runs" +
+      (titles ? " (" + titles + (n > 5 ? ", …" : "") + ")" : "") + "</span>";
+  }
+
   function loadXP() {
     if (!$("xp")) return Promise.resolve();
-    return api("/api/xp").then(function (res) { if (res.ok) renderXP(res.body); }).catch(function () {});
+    return api("/api/xp").then(function (res) { if (res.ok) { renderXP(res.body); renderPending(res.body); } }).catch(function () {});
+  }
+
+  // -writable: add to inbox.zortex
+  var inbox = $("inbox-form");
+  if (inbox) {
+    inbox.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var text = inbox.elements.text.value.trim();
+      if (!text) return;
+      var kind = inbox.querySelector("input[name=kind]:checked").value;
+      var st = $("inbox-status");
+      st.textContent = "Adding…"; st.className = "small dim";
+      fetch(base + "/api/inbox", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: text, kind: kind }),
+      }).then(function (r) { return r.json().then(function (x) { return { ok: r.ok, x: x }; }); })
+        .then(function (res) {
+          if (res.ok) {
+            inbox.elements.text.value = "";
+            st.innerHTML = 'Added to <a href="' + esc(res.x.url) + '">inbox</a>';
+            st.className = "small";
+          } else { st.textContent = res.x.error || "Couldn't add"; st.className = "small bad"; }
+        }).catch(function () { st.textContent = "Server unreachable"; st.className = "small bad"; });
+    });
   }
 
   // ===========================================================================

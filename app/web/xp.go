@@ -73,12 +73,22 @@ func (s *Server) xpSummary() []byte {
 func (s *Server) apiXP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	raw := s.xpSummary()
-	if raw == nil {
-		writeJSON(w, http.StatusOK, map[string]any{"available": false})
-		return
+	out := map[string]json.RawMessage{}
+	if raw == nil || json.Unmarshal(raw, &out) != nil {
+		out = map[string]json.RawMessage{"available": json.RawMessage("false")}
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write(raw)
+	// tasks completed on the web since Neovim last counted XP
+	pending := s.pendingCompletions(generated(raw))
+	titles := []string{}
+	for i, p := range pending {
+		if i == 5 {
+			break
+		}
+		titles = append(titles, p.Title)
+	}
+	out["pending_web"], _ = json.Marshal(len(pending))
+	out["pending_titles"], _ = json.Marshal(titles)
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (s *Server) apiXPPost(w http.ResponseWriter, r *http.Request) {

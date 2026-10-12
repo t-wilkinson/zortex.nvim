@@ -32,9 +32,15 @@
         {{if .Archived}}<span class="archived">archived</span>{{end}}
         <span class="dim">changed {{ago .ModTime}}</span>
         <a class="dim" href="{{.Raw}}">raw</a>
+        {{if .Writable}}<button type="button" class="edit-toggle" id="edit-toggle" aria-pressed="false" title="Tap a line to change it">Edit</button>{{end}}
       </p>
     </header>
-    <div class="body">{{.Body}}</div>
+    <div class="body{{if .Writable}} writable{{end}}" id="note-body" data-rel="{{.Rel}}">{{.Body}}</div>
+    {{if .Writable}}
+    <p class="edit-status" id="edit-status" role="status" aria-live="polite" hidden></p>
+    <script type="application/json" id="note-src">{{.Src}}</script>
+    <script src="{{u "/static/edit.js"}}" defer></script>
+    {{end}}
     <section class="backlinks" id="backlinks">
       <h2>Linked from</h2>
       {{template "backlinks" (backlinks .Backlinks "No other note links here.")}}

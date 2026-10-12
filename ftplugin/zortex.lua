@@ -16,4 +16,8 @@ vim.bo.expandtab = true -- Use spaces instead of tabs
 vim.bo.textwidth = 0 -- No automatic line breaking
 vim.wo.linebreak = true -- Break at word boundaries
 vim.wo.list = false -- Don't show listchars in zortex files
+
+-- Notes also change on disk (Syncthing, the web app with -writable): reload
+-- them when they do, unless you have unsaved edits (then Neovim asks).
+vim.bo.autoread = true
 -- vim.wo.foldmethod = "manual"

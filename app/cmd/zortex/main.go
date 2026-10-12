@@ -42,7 +42,7 @@ func usage() {
   zortex resolve [-dir DIR] [-from REL] LINK...
   zortex search [-dir DIR] [-mode section|article] [-n N] PROMPT...
   zortex serve [-dir DIR] [-addr HOST:PORT] [-base /PREFIX] [-title T] [-poll D] [-special a,b] [-resources pdf,png,...]
-               [-data DIR] [-ntfy-url URL] [-ntfy-topic T] [-ntfy-token TOKEN] [-api-key KEY]
+               [-data DIR] [-ntfy-url URL] [-ntfy-topic T] [-ntfy-token TOKEN] [-api-key KEY] [-writable]
   zortex version`)
 	os.Exit(2)
 }
@@ -151,6 +151,7 @@ func serveCmd(args []string) {
 	ntfyTokenFile := fs.String("ntfy-token-file", os.Getenv("NTFY_AUTH_TOKEN_FILE"), "file holding the ntfy access token ($NTFY_AUTH_TOKEN_FILE)")
 	apiKey := fs.String("api-key", os.Getenv("ZORTEX_API_KEY"), "if set, /notify and /pending require it in X-API-Key ($ZORTEX_API_KEY)")
 	sendEvery := fs.Duration("send-interval", 20*time.Second, "how often due notifications are sent")
+	writable := fs.Bool("writable", os.Getenv("ZORTEX_WRITABLE") == "1" || os.Getenv("ZORTEX_WRITABLE") == "true", "let the web app edit notes: toggle tasks, edit, add and remove lines, add to inbox.zortex ($ZORTEX_WRITABLE=1)")
 	_ = fs.Parse(args)
 	if v := os.Getenv("ZORTEX_POLL"); v != "" && !flagSet(fs, "poll") {
 		if d, err := time.ParseDuration(v); err == nil {
@@ -181,6 +182,7 @@ func serveCmd(args []string) {
 		Ntfy:         ntfy,
 		APIKey:       *apiKey,
 		SendInterval: *sendEvery,
+		Writable:     *writable,
 		ResourceExts: func() []string {
 			if *resources == "" {
 				return nil

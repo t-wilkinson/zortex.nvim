@@ -17,9 +17,12 @@ Mixed **[L] and `c` and $m$** *see [x]*
 # Heading with @attr(1) and [link] @done
 #NotHeading
 ####### seven
-**Bold**
+**Bold heading:**
 **Bold with *star*:**
-**Spaced**:   
+**Spaced:**   
+**Old style**:
+**Not a heading**
+**:**
 **
 Label: text after colon
 Not a label: one. Two: three

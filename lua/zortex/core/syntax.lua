@@ -60,7 +60,7 @@ local HIERARCHY = constants.SECTION_HIERARCHY
 local T = constants.SECTION_TYPE
 
 local TAG_LINE = "^@%w+" -- "@P", "@Archive" (header tags)
-local BOLD_HEADING = "^%*%*([^*]+)%*%*:?%s*$" -- "**Title**" or "**Title**:"
+local BOLD_HEADING = "^%*%*([^*]+):%*%*%s*$" -- "**Title:**" (the colon is inside)
 
 -- =============================================================================
 -- Small helpers
@@ -270,7 +270,7 @@ local function section_text(line, kind)
 	if kind == T.HEADING then
 		return M.strip_attributes(line:match("^#+%s+(.+)") or line:gsub("^#+%s*", ""))
 	elseif kind == T.BOLD_HEADING then
-		return M.strip_attributes(line:match("^%*%*([^*]+)%*%*") or line)
+		return M.strip_attributes(line:match("^%*%*([^*]+):%*%*") or line)
 	elseif kind == T.LABEL then
 		return M.strip_attributes(line:match("^%s*(.-):$") or line)
 	end
@@ -308,7 +308,7 @@ function M.classify(line)
 	end
 
 	if line:match(BOLD_HEADING) then
-		local close = line:find("**", 3, true)
+		local colon = line:find(":**", 3, true) -- inline content stops before ":**"
 		return {
 			kind = T.BOLD_HEADING,
 			section = true,
@@ -316,7 +316,7 @@ function M.classify(line)
 			text = section_text(line, T.BOLD_HEADING),
 			indent = 0,
 			content_col = 2,
-			content_end = close and (close - 1) or #line,
+			content_end = colon - 1,
 		}
 	end
 

@@ -8,6 +8,19 @@
     </ol>
     {{end}}
     {{if .BackCount}}<p class="toc-back"><a href="#backlinks">{{.BackCount}} backlink{{if ne .BackCount 1}}s{{end}}</a></p>{{end}}
+    {{with .Structure}}
+    <section class="side-unlinked" aria-labelledby="unlinked-title">
+      <h2 id="unlinked-title">Not in Structure</h2>
+      {{if .Unlinked}}
+      <p class="dim">{{.Unlinked}} of {{.Total}} notes are not linked from Structure</p>
+      <ul class="plain">
+        {{range .Rows}}<li><a href="{{noteURL .Rel 0}}" title="{{.Rel}}">{{.Title}}</a>{{if .Dir}} <span class="dim">{{.Dir}}</span>{{end}}</li>{{end}}
+      </ul>
+      {{else}}
+      <p class="dim">All {{.Total}} notes are linked from Structure</p>
+      {{end}}
+    </section>
+    {{end}}
   </aside>
   <article class="note">
     <nav class="crumbs">{{range $i, $c := .Crumbs}}{{if $i}}<span>/</span>{{end}}<a href="{{$c.URL}}">{{$c.Name}}</a>{{end}}</nav>

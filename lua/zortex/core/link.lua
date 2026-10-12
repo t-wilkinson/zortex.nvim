@@ -271,8 +271,8 @@ local function search_pattern(component)
 	elseif component.type == "listitem" then
 		return "^%s*- " .. text .. "$"
 	elseif component.type == "highlight" then
-		-- Match *, **, or *** wrapping
-		return "%*%*?%*?" .. text .. "%*%*?%*?"
+		-- *text*, **text**, ***text***, or a bold heading **text:**
+		return "%*%*?%*?" .. text .. ":?%*%*?%*?"
 	elseif component.type == "query" then
 		-- Plain substring search
 		return text

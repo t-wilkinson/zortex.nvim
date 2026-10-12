@@ -7,7 +7,7 @@ Intro paragraph with **bold**, *italic*, `code`, $x^2$ and a [Link/#Heading].
 Key: value text with @home and an email me@example.com.
 
 # Heading one @p1 @a(4.1)
-**Bold heading**:
+**Bold heading:**
 Label:
   Indented label:
 - Bulleted label:

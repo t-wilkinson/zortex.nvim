@@ -231,8 +231,11 @@ func highlightCol(line, text string) int {
 				continue
 			}
 			rest := line[p+s:]
-			if strings.HasPrefix(rest, text) && strings.HasPrefix(rest[len(text):], "*") {
-				return p + 1
+			if strings.HasPrefix(rest, text) {
+				after := strings.TrimPrefix(rest[len(text):], ":") // bold heading "**text:**"
+				if strings.HasPrefix(after, "*") {
+					return p + 1
+				}
 			}
 		}
 	}

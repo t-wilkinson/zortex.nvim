@@ -12,7 +12,7 @@ Zortex documents are organized into a hierarchical structure with clearly define
 │   ├── ## Heading 2 (Priority: 30)
 │   │   ├── ### Heading 3 (Priority: 40)
 │   │   │   └── Text content (Priority: 999)
-│   │   └── **Bold Heading**: (Priority: 80)
+│   │   └── **Bold Heading:** (Priority: 80)
 │   │       └── Label: (Priority: 90)
 │   └── @tag (Priority: 100)
 └── Text content (Priority: 999)

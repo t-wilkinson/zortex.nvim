@@ -1,17 +1,6 @@
 {{define "content"}}
 <section class="narrow">
   <h1>Structure</h1>
-  {{if .Sources}}
-  <p class="dim">{{.Linked}} of {{.Total}} notes are linked from
-    {{range $i, $s := .Sources}}{{if $i}}, {{end}}<a href="{{noteURL $s 0}}">{{title $s}}</a>{{end}}.
-    {{if .Unlinked}}{{.Unlinked}} are not part of the structure yet:{{else}}Every note is part of the structure.{{end}}</p>
-  {{if .Rows}}
-  <ul class="plain unlinked-list">
-    {{range .Rows}}<li><a href="{{noteURL .Rel 0}}">{{.Title}}</a> <span class="dim">{{.Rel}}</span></li>{{end}}
-  </ul>
-  {{end}}
-  {{else}}
-  <p class="dim">No Structure note: create <code>structure.zortex</code> (<code>@@Structure</code>) or tag notes <code>@Structure</code>, then link every note from it.</p>
-  {{end}}
+  <p class="dim">No Structure note yet. Create <code>structure.zortex</code> with <code>@@Structure</code> (or tag notes <code>@Structure</code>) and link every note from it; this page then shows it, with the notes it doesn't reach yet.</p>
 </section>
 {{end}}

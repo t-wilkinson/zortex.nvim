@@ -69,6 +69,9 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, page string, sta
 	data["Site"] = s.cfg.Title
 	data["Base"] = s.cfg.Base
 	data["Nav"] = navOf[page]
+	if tab, ok := data["NavTab"].(string); ok && tab != "" {
+		data["Nav"] = tab
+	}
 	if _, ok := data["Query"]; !ok {
 		data["Query"] = ""
 	}
@@ -233,6 +236,20 @@ func (s *Server) handleNote(w http.ResponseWriter, r *http.Request) {
 		s.notFound(w, r, "No such note: "+rel)
 		return
 	}
+	s.renderNotePage(w, r, rel, "")
+}
+
+// renderNotePage renders note rel; nav is the top-bar tab to mark.
+func (s *Server) renderNotePage(w http.ResponseWriter, r *http.Request, rel, nav string) {
+	doc := s.ix.Doc(rel)
+	if doc == nil {
+		s.notFound(w, r, "No such note: "+rel)
+		return
+	}
+	side := s.structureSide(rel)
+	if side != nil && nav == "" {
+		nav = "structure"
+	}
 	groups := s.groupBacklinks(s.current().backlinks[rel])
 	h := doc.Header()
 	aliases := []string{}
@@ -253,6 +270,8 @@ func (s *Server) handleNote(w http.ResponseWriter, r *http.Request) {
 		"ModTime":   doc.ModTime,
 		"Raw":       s.rawURL(rel),
 		"Folder":    s.fileURL(path.Dir(rel)),
+		"Structure": side,
+		"NavTab":    nav,
 	})
 }
 

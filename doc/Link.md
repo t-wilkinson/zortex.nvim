@@ -36,7 +36,7 @@ There are special characters that may begin each link component to look for spec
 "": Nothing looks for an article name
 `@`: Looks for tags, lines starting with a single "@"
 `#`: Looks for headings
-`*`: Looks for any text within two astericks `^**text**:$` or `**text**`
+`*`: Looks for `*text*`, `**text**` or `***text***`, or a bold heading `**text:**`
 `:`: Looks for label sections
 `%`: Is a query, that looks for any piece of text within the currently resolve section(s)
 

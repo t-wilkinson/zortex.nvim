@@ -275,8 +275,21 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /healthz", s.handleHealth)
 	mux.Handle("GET /static/", s.cacheStatic(s.static))
 	var h http.Handler = mux
-	if s.cfg.Base != "" {
-		h = http.StripPrefix(s.cfg.Base, mux)
+	if base := s.cfg.Base; base != "" {
+		strip := http.StripPrefix(base, mux)
+		h = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// "/notes" -> "/notes/" (the mux alone would redirect to "/",
+			// outside the prefix)
+			if r.URL.Path == base {
+				target := base + "/"
+				if r.URL.RawQuery != "" {
+					target += "?" + r.URL.RawQuery
+				}
+				http.Redirect(w, r, target, http.StatusMovedPermanently)
+				return
+			}
+			strip.ServeHTTP(w, r)
+		})
 	}
 	return securityHeaders(h)
 }

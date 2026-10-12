@@ -73,6 +73,18 @@ front.
 }
 ```
 
+The web app and the notification server are separate services on separate
+ports (8090 and 5000): a proxy entry for the dashboard doesn't reach the web
+app. To serve both on one host, give the web app a prefix and route it:
+
+```nix
+services.zortex.web.basePath = "/notes";
+services.nginx.virtualHosts."zortex.home.lab".locations = {
+  "/".proxyPass = "http://127.0.0.1:5000";        # dashboard (notification server)
+  "/notes/".proxyPass = "http://127.0.0.1:8090";  # web app; no path after the port,
+};                                                # so /notes/... is passed as is
+```
+
 `zortex-web` runs as the `zortex` user with read-only access to `notesDir`
 and the usual systemd hardening (read-only system and home, no
 capabilities, no new privileges, a system call filter).

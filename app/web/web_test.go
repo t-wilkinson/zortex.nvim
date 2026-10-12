@@ -205,6 +205,10 @@ func TestBasePath(t *testing.T) {
 	if code, _, _ := get(t, ts, "/n/links.zortex"); code != 404 {
 		t.Error("served outside the base path")
 	}
+	if code, h, _ := get(t, ts, "/notes?x=1"); code != 301 || h.Get("Location") != "/notes/?x=1" {
+		t.Errorf("bare base path: %d -> %q", code, h.Get("Location"))
+	}
+	expect(t, ts, "/notes/", 200, `Recently changed`)
 }
 
 func TestRefresh(t *testing.T) {

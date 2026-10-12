@@ -87,53 +87,6 @@ M.SIZE_POINTS = {
 }
 M.DEFAULT_TASK_SIZE = "md"
 
--- Patterns for parsing
-M.PATTERNS = {
-	-- Sections
-	ARTICLE_TITLE = "^@@(.+)",
-	HEADING = "^(#+)%s+(.+)",
-	HEADING_LEVEL = "^(#+)",
-	BOLD_HEADING = "^%*%*([^*]+)%*%*:?%s*$",
-	LABEL = "^([^:]+):$",
-	TAG_LINE = "^@%w+",
-
-	-- Tasks
-	TASK = "^(%s*)%-%s*%[(.)]%s*(.+)$", -- indent, status, text
-	TASK_CHECKBOX = "^%s*%-%s*%[([%sxX])%]",
-	TASK_TEXT = "^%s*%-%s*%[.%]%s+(.+)",
-	TASK_STATUS_KEY = "%s*%[([%w_]+)%]%s*$",
-
-	-- Attributes
-	ATTRIBUTE = "@(%w+)%(([^)]+)%)",
-	ATTRIBUTE_BARE = "@(%w+)",
-
-	-- Links
-	LINK = "%[([^%]]+)%]",
-	FOOTNOTE = "%[%^([A-Za-z0-9_.-]+)%]",
-	FOOTNOTE_DEF = "^%[%^([A-Za-z0-9_.-]+)%]:%s*",
-	MARKDOWN_LINK = "%[([^%]]*)%]%(([^%)]+)%)",
-	URL = "https?://[^%s%]%)};]+",
-	FILEPATH = "([~%.]/[^%s]+)",
-
-	-- Dates and times
-	DATE_YMD = "(%d%d%d%d)%-(%d%d?)%-(%d%d?)", -- YYYY-MM-DD
-	DATE_MDY = "(%d%d?)%-(%d%d?)%-(%d%d%d%d)", -- MM-DD-YYYY
-	TIME_24H = "(%d%d?):(%d%d)", -- HH:MM
-	TIME_AMPM = "(%d%d?):(%d%d)%s*([ap]m)", -- HH:MMam, HH:MM pm
-	DATETIME_YMD = "(%d%d%d%d%-%d%d?%-%d%d?)%s+(%d%d?:%d%d)", -- YYYY-MM-DD HH:MM, YYYY-MM-DD HH:MM am
-	DATETIME_MDY = "(%d%d-%d%d-%d%d%d%d)%s+(.+)", -- MM-DD-YYYY HH:MM, MM-DD-YYYY HH:MM am
-
-	-- calendar.zortex
-	CALENDAR_DATE_HEADING = "^(%d%d%d%d)-(%d%d)%-(%d%d)%:$",
-	CALENDAR_ENTRY_PREFIX = "^%s+%-? (.+)$",
-	CALENDAR_TIME_PREFIX = "^%s*(%d%d?:%d%d)%s+(.+)$",
-	CALENDAR_TIME_RANGE = "^%s*(%d%d?:%d%d)%s*%-%s*(%d%d?:%d%d)%s+(.+)$",
-
-	-- okr.zortex (matched against heading text, attributes already stripped)
-	OBJECTIVE = "^(%w+)%-(%d%d%d%d)%-(%w+)%s+(.+)$", -- "3M-2026-Q1 Title"
-	OBJECTIVE_LEGACY = "^(%w+) (%d%d%d%d) (%d%d?) (.+)$", -- "3M 2026 01 Title"
-	KEY_RESULT = "^%s*%-%s*KR(%d*)[%-:]?%s*(.*)$", -- "- KR1: [ ] text", "- KR-text"
-}
 
 M.TASK_MARKS = {
 	TODO = " ",

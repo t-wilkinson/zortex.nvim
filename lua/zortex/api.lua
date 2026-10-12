@@ -14,7 +14,7 @@
 --   z.document   cached note snapshots: syntax, tree, items       (core/document)
 --   z.syntax     the Zortex grammar                               (core/syntax)
 --   z.item       list items: tasks, calendar entries, key results (core/item)
---   z.links      resolve / resolve_first / build_link / ...       (utils/link_resolver)
+--   z.links      resolve / resolve_first / build_link / ...       (core/link)
 --   z.link_index links_from / references / backlinks / unresolved (core/link_index)
 --   z.workspace  line edits: buffer if loaded, else the file      (core/workspace)
 --   z.state      versioned JSON files in notes_dir/.z             (core/state)
@@ -40,7 +40,7 @@ local SERVICES = {
 	document = "zortex.core.document",
 	syntax = "zortex.core.syntax",
 	item = "zortex.core.item",
-	links = "zortex.utils.link_resolver",
+	links = "zortex.core.link",
 	link_index = "zortex.core.link_index",
 	workspace = "zortex.core.workspace",
 	state = "zortex.core.state",

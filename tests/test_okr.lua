@@ -51,7 +51,7 @@ end)
 
 T.test("key results have explicit links that resolve to their line", function()
 	local okr = require("zortex.services.okr")
-	local resolver = require("zortex.utils.link_resolver")
+	local resolver = require("zortex.core.link")
 	for _, kr in ipairs(okr.key_results()) do
 		T.ok(kr.link and kr.link:match("/%-KR%d+%]$"), tostring(kr.link))
 		local r = resolver.resolve_first(kr.link)
@@ -64,7 +64,7 @@ T.test("key results have explicit links that resolve to their line", function()
 end)
 
 T.test("link text keeps [A-Za-z0-9 _-().] and still resolves", function()
-	local resolver = require("zortex.utils.link_resolver")
+	local resolver = require("zortex.core.link")
 	T.eq(resolver.component_text("Establish habits/routine"), "Establish habits")
 	T.eq(resolver.component_text("4 Learning & Education"), "4 Learning")
 	T.eq(resolver.component_text("Notes (draft v2.1)"), "Notes (draft v2.1)")

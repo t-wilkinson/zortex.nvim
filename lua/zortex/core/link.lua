@@ -1,4 +1,4 @@
--- utils/link_resolver.lua - Resolve zortex links to locations (single resolver)
+-- core/link.lua - Zortex links: grammar, resolution and building
 --
 -- A link is a "/"-separated list of components, resolved left to right. Each
 -- component narrows the set of candidate (file, line range) pairs:
@@ -16,13 +16,16 @@
 --
 -- Results come back in note order (top-level files first, then line order), so
 -- results[1] is the canonical target. Every consumer (following links,
--- completion, projects, OKR, calendar) uses this module, so a link means the
--- same thing everywhere. Archived notes are skipped unless a component is
--- @Archive or opts.include_archived is set.
+-- completion, projects, OKR, calendar, the link index) uses this module, so a
+-- link means the same thing everywhere. Archived notes are skipped unless a
+-- component is @Archive or opts.include_archived is set.
+--
+-- The Go port is app/links; tests/gen_links.lua keeps the two in agreement.
+-- Following a link in a buffer (quickfix, footnotes, @[tag] searches) is
+-- features/links.
 local M = {}
 
-local parser = require("zortex.utils.parser")
-local buffer = require("zortex.utils.buffer")
+local syntax = require("zortex.core.syntax")
 local constants = require("zortex.constants")
 
 local function Document()
@@ -33,21 +36,231 @@ local function notes()
 	return require("zortex.core.notes")
 end
 
--- @class SearchResult
--- @field file string Full path to file
--- @field lnum number Line number (1-indexed)
--- @field col number Column number (1-indexed)
--- @field text string Line text
--- @field component table Component that matched
--- @field lines string[] Lines of the file
--- @field doc Document Snapshot the result came from
+local function escape_pattern(text)
+	return text and (text:gsub("([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1")) or ""
+end
+M.escape_pattern = escape_pattern
 
 -- =============================================================================
--- Pattern Creation
+-- Grammar
 -- =============================================================================
 
-function M.create_search_pattern(component)
-	local text = parser.escape_pattern(component.text)
+--- One component ("#1.4 - zortex", "@P", "a + b", ...) as
+--- { type, text, original, attributes, tags? }.
+function M.parse_component(component)
+	if not component or component == "" then
+		return nil
+	end
+
+	local first_char = component:sub(1, 1)
+
+	-- Extract the base text without attributes
+	local base_text = component
+	local attributes = {}
+
+	-- Check if component has attributes (contains @key(...))
+	local attr_pattern = "@(%w+)%s*%(([^)]*)%)"
+	for key, value in component:gmatch(attr_pattern) do
+		attributes[key] = value
+	end
+
+	-- ---------------------------------------------------------------
+	-- Infix operators: "term1 + term2" (OR), "term1 & term2" (AND)
+	-- Detected before prefix checks. Spaces around the operator are
+	-- required so that "c++" or "r&d" aren't mis-parsed.
+	-- ---------------------------------------------------------------
+	-- Infix operators apply to untyped components only, so "#R & D" stays a
+	-- heading and "#4 Learning & Education" is not an AND query.
+	local typed = first_char == "#" or first_char == ":" or first_char == "-" or first_char == "*"
+	local query_type, tags = syntax.split_query(component)
+	if not typed and query_type ~= "single" and #tags >= 2 then
+		return {
+			type = query_type .. "_query",
+			tags = tags,
+			text = component,
+			original = component,
+			attributes = attributes,
+		}
+	end
+
+	-- ---------------------------------------------------------------
+	-- Prefix-based parsing (original syntax, also serves as fallback)
+	-- ---------------------------------------------------------------
+	if first_char == "@" then
+		return { type = "tag", text = component:sub(2), original = component, attributes = attributes }
+	elseif first_char == "#" then
+		local text = component:sub(2)
+		if text:sub(1, 1) == " " then
+			text = text:sub(2)
+		end
+		-- Remove attributes from the heading text
+		text = text:gsub(attr_pattern, ""):gsub("%s+", " "):gsub("%s*$", "")
+		return { type = "heading", text = text, original = component, attributes = attributes }
+	elseif first_char == ":" then
+		local text = component:sub(2)
+		-- Remove attributes from the label text
+		text = text:gsub(attr_pattern, ""):gsub("%s+", " "):gsub("%s*$", "")
+		return { type = "label", text = text, original = component, attributes = attributes }
+	elseif first_char == "-" then
+		return { type = "listitem", text = component:sub(2), original = component, attributes = attributes }
+	elseif first_char == "*" then
+		return { type = "highlight", text = component:sub(2), original = component, attributes = attributes }
+	elseif first_char == "%" then
+		return { type = "query", text = component:sub(2), original = component, attributes = attributes }
+	elseif first_char == "+" then
+		-- Legacy OR Query: +term1+term2
+		local tags = {}
+		local clean_text = component:gsub(attr_pattern, ""):gsub("%s+", " "):gsub("%s*$", "")
+		for tag in clean_text:gmatch("%+([^%+]+)") do
+			table.insert(tags, syntax.trim(tag))
+		end
+		return { type = "or_query", tags = tags, text = clean_text, original = component, attributes = attributes }
+	elseif first_char == "&" then
+		-- Legacy AND Query: &term1&term2
+		local tags = {}
+		local clean_text = component:gsub(attr_pattern, ""):gsub("%s+", " "):gsub("%s*$", "")
+		for tag in clean_text:gmatch("&([^&]+)") do
+			table.insert(tags, syntax.trim(tag))
+		end
+		return { type = "and_query", tags = tags, text = clean_text, original = component, attributes = attributes }
+	else
+		-- Article - remove attributes from the text
+		local text = component:gsub(attr_pattern, ""):gsub("%s+", " "):gsub("%s*$", "")
+		return { type = "article", text = text, original = component, attributes = attributes }
+	end
+end
+
+--- Split a link definition into raw component strings, ignoring "/" inside
+--- parentheses (attribute values). Strips outer brackets.
+---@return string[] components, "global"|"local" scope
+function M.split(definition)
+	definition = syntax.trim(definition or "")
+	if definition:sub(1, 1) == "[" and definition:sub(-1) == "]" then
+		definition = definition:sub(2, -2)
+	end
+	local scope = "global"
+	if definition:sub(1, 1) == "/" then
+		scope = "local"
+		definition = definition:sub(2)
+	end
+
+	local components, current, depth = {}, "", 0
+	for i = 1, #definition do
+		local char = definition:sub(i, i)
+		if char == "(" then
+			depth = depth + 1
+			current = current .. char
+		elseif char == ")" then
+			depth = depth - 1
+			current = current .. char
+		elseif char == "/" and depth == 0 then
+			if current ~= "" then
+				table.insert(components, syntax.trim(current))
+			end
+			current = ""
+		else
+			current = current .. char
+		end
+	end
+	if current ~= "" then
+		table.insert(components, syntax.trim(current))
+	end
+	return components, scope
+end
+
+--- A link definition ("[P/#1.4]", "/:Notes") as { scope = "global"|"local", components }.
+function M.parse(definition)
+	if not definition or definition == "" then
+		return nil
+	end
+
+	local components, scope = M.split(definition)
+	local result = { scope = scope, components = {} }
+	definition = table.concat(components, "/")
+
+	-- Parse each component
+	for _, component in ipairs(components) do
+		if component ~= "" then
+			local comp_info = M.parse_component(component)
+			if comp_info then
+				table.insert(result.components, comp_info)
+			end
+		end
+	end
+
+	-- If no components but we have a definition, it's an article link
+	if #result.components == 0 and definition ~= "" then
+		table.insert(result.components, {
+			type = "article",
+			text = definition,
+			original = definition,
+		})
+	end
+
+	return result
+end
+
+-- =============================================================================
+-- Links on a line
+-- =============================================================================
+
+-- Old-style link info for a syntax span (features/links, link_index, OKR)
+local function link_info(line, span)
+	local full = line:sub(span.s + 1, span.e)
+	local info = { full_match_text = full, col = span.s + 1 }
+	local t = span.type
+	if t == "footnote_ref" then
+		info.type, info.ref_id, info.display_text = "footnote", span.id, full
+	elseif t == "markdown" then
+		info.type, info.display_text, info.url = "markdown", span.text, span.url
+	elseif t == "live_link" or t == "link" then
+		info.type, info.display_text, info.definition = t, span.definition, span.definition
+	elseif t == "tag_search" then
+		info.type, info.display_text = "tag_search", span.content
+		info.terms, info.query_type = span.terms, span.query_type
+	elseif t == "url" then
+		info.type, info.url, info.display_text = "website", span.url, span.url
+	elseif t == "filepath" then
+		info.type, info.path, info.display_text = "filepath", span.path, span.path
+	elseif t == "attribute" and (span.key == "a" or span.key == "area") and span.value then
+		-- @a(4.1) / @area(...) link to the area
+		local area = require("zortex.utils.attributes").attribute_parsers.area(span.value)[1]
+		if not area then
+			return nil
+		end
+		info.type, info.display_text, info.definition = "link", area.definition, area.definition
+	else
+		return nil
+	end
+	return info
+end
+
+--- The link (any kind) under 0-based byte column `col`, or nil:
+--- { type, display_text, definition?, url?, ref_id?, terms?, query_type?, path?, full_match_text, col }
+function M.at(line, col)
+	local span = syntax.span_at(line, col)
+	return span and link_info(line, span) or nil
+end
+
+--- Every link on a line, in order (same shape as at()).
+function M.on_line(line)
+	local out = {}
+	syntax.walk_spans(syntax.inline(line), function(span)
+		local info = link_info(line, span)
+		if info then
+			out[#out + 1] = info
+		end
+	end)
+	return out
+end
+
+-- =============================================================================
+-- Line matching
+-- =============================================================================
+
+-- Lua pattern(s) a line-search component matches (nil for articles)
+local function search_pattern(component)
+	local text = escape_pattern(component.text)
 
 	if component.type == "tag" then
 		return "^@" .. text .. "$"
@@ -67,7 +280,7 @@ function M.create_search_pattern(component)
 		-- Return a table of patterns to search for simultaneously (ALL must match)
 		local patterns = {}
 		for _, tag in ipairs(component.tags) do
-			local escaped = parser.escape_pattern(tag)
+			local escaped = escape_pattern(tag)
 			table.insert(patterns, escaped)
 		end
 		return patterns
@@ -75,7 +288,7 @@ function M.create_search_pattern(component)
 		-- Return a table of patterns (ANY must match)
 		local patterns = {}
 		for _, tag in ipairs(component.tags) do
-			local escaped = parser.escape_pattern(tag)
+			local escaped = escape_pattern(tag)
 			table.insert(patterns, escaped)
 		end
 		return patterns
@@ -85,17 +298,13 @@ function M.create_search_pattern(component)
 	end
 end
 
--- =============================================================================
--- Line Matching
--- =============================================================================
-
 local QUERY_TYPES = { query = true, and_query = true, or_query = true }
 
 --- Find lines in [start_line, end_line] matching a component. Matching is
 --- case-insensitive, except for %/+/& queries that contain an uppercase letter.
 ---@return { lnum: integer, col: integer }[]
 function M.search_lines(lines, component, start_line, end_line)
-	local pattern = M.create_search_pattern(component)
+	local pattern = search_pattern(component)
 	if not pattern then
 		return {}
 	end
@@ -113,7 +322,6 @@ function M.search_lines(lines, component, start_line, end_line)
 	if component.type == "listitem" then
 		-- A list item whose key ("- KR1: …") or text ("- [ ] Call the bank")
 		-- starts with the component text (case-insensitive)
-		local syntax = require("zortex.core.syntax")
 		local want = vim.trim(component.text):lower()
 		for lnum = start_line or 1, math.min(end_line or #lines, #lines) do
 			local line = lines[lnum]
@@ -173,14 +381,18 @@ function M.section_end(doc, lnum, component)
 	return component.type == "article" and #doc.lines or lnum
 end
 
---- Lines-only variant: the end of the section starting at `start_lnum`.
-function M.get_section_end(lines, start_lnum, component)
-	return M.section_end(require("zortex.core.document").from_lines(lines), start_lnum, component)
-end
-
 -- =============================================================================
 -- Resolution
 -- =============================================================================
+
+---@class SearchResult
+---@field file string full path
+---@field lnum integer 1-based line
+---@field col integer 1-based column
+---@field text string line text ("Article: Name" for article targets)
+---@field component table the component that matched
+---@field lines string[] lines of the file
+---@field doc Document snapshot the result came from
 
 local function make_result(doc, lnum, col, component, text)
 	return {
@@ -204,12 +416,12 @@ local function mentions_archive(parsed)
 end
 
 --- Resolve a link to every matching location.
----@param link string|table  "[P/#1.4 - zortex]", "P/#1.4", or parse_link_definition() output
+---@param link string|table  "[P/#1.4 - zortex]", "P/#1.4", or parse() output
 ---@param opts { bufnr?: integer, doc?: table, include_archived?: boolean }?
 ---@return SearchResult[] results, string? err
 function M.resolve(link, opts)
 	opts = opts or {}
-	local parsed = type(link) == "table" and link or parser.parse_link_definition(link)
+	local parsed = type(link) == "table" and link or M.parse(link)
 	if not parsed or not parsed.components or #parsed.components == 0 then
 		return {}, "Invalid link"
 	end
@@ -254,14 +466,14 @@ function M.resolve(link, opts)
 		local select_file, rank
 		if not is_local and comp.type == "article" then
 			select_file = function(h)
-				return parser.list_has(h.names, comp.text) or parser.list_has(h.tags, comp.text)
+				return syntax.list_has(h.names, comp.text) or syntax.list_has(h.tags, comp.text)
 			end
 			rank = function(h)
-				return parser.list_has(h.names, comp.text) and 1 or 2
+				return syntax.list_has(h.names, comp.text) and 1 or 2
 			end
 		elseif not is_local and comp.type == "tag" then
 			local function has_tag(h)
-				return parser.list_has(h.tags, comp.text)
+				return syntax.list_has(h.tags, comp.text)
 			end
 			for _, c in ipairs(cands) do
 				local h = header(c)
@@ -356,15 +568,6 @@ function M.resolve_node(link, opts)
 	return result.doc:node_at(result.lnum), result
 end
 
---- UI wrapper: resolve and notify when nothing matched.
-function M.process_link(parsed)
-	local results, err = M.resolve(parsed)
-	if #results == 0 and err then
-		vim.notify(err, vim.log.levels.INFO)
-	end
-	return results
-end
-
 -- =============================================================================
 -- Link Building
 -- =============================================================================
@@ -414,8 +617,7 @@ end
 --- Component for the list item on line `lnum`: "-KR1" for keyed items
 --- ("- KR1: [ ] …"), otherwise "-" + the item's text ("-Call the bank").
 function M.item_component(line)
-	local Item = require("zortex.core.item")
-	local item = Item.from_line(line)
+	local item = require("zortex.core.item").from_line(line)
 	if not item then
 		return nil
 	end
@@ -435,117 +637,7 @@ function M.link_for_node(doc, node)
 end
 
 -- =============================================================================
--- Tag Search (@[...] links)
--- =============================================================================
-
---- Search the current buffer for lines containing @tag patterns.
---- Used by @[tag1 + tag2] style links.
----@param link_info table The parsed tag_search link info from extract_link_at
----@param source_lnum number Line number of the link itself (to self-filter)
----@return table[] SearchResult list
-function M.search_tag_query(link_info, source_lnum)
-	local lines = buffer.get_lines()
-	local current_file = vim.fn.expand("%:p")
-	local results = {}
-
-	-- Build @tag patterns for each term
-	-- Each term should match as an @tag on the line (e.g. term "rust" matches "@rust")
-	local tag_patterns = {}
-	for _, term in ipairs(link_info.terms) do
-		-- Match @term as a whole word: preceded by start-of-string or whitespace,
-		-- followed by end-of-string or whitespace/punctuation
-		table.insert(tag_patterns, (parser.escape_pattern(term:lower())))
-	end
-
-	local is_and = link_info.query_type == "and"
-	-- "single" behaves like AND with one term
-
-	for lnum = 1, #lines do
-		-- Skip the source line (self-filter)
-		if lnum ~= source_lnum then
-			local line = lines[lnum]
-			local line_lower = line:lower()
-
-			-- Extract all @tags from the line
-			local line_tags = {}
-			for tag in line_lower:gmatch("@([%w_%-]+)") do
-				line_tags[tag] = true
-			end
-
-			local is_match = false
-			local match_col = 1
-
-			if is_and or link_info.query_type == "single" then
-				-- AND / single: all terms must appear as @tags
-				is_match = true
-				for _, pat in ipairs(tag_patterns) do
-					if not line_tags[pat] then
-						is_match = false
-						break
-					end
-				end
-			else
-				-- OR: any term as @tag
-				for _, pat in ipairs(tag_patterns) do
-					if line_tags[pat] then
-						is_match = true
-						-- Find column position for the first matching tag
-						local col = line_lower:find("@" .. pat)
-						if col then
-							match_col = col
-						end
-						break
-					end
-				end
-			end
-
-			if is_match then
-				-- For AND, find column of first matching tag
-				if (is_and or link_info.query_type == "single") and match_col == 1 then
-					local col = line_lower:find("@" .. tag_patterns[1])
-					if col then
-						match_col = col
-					end
-				end
-
-				table.insert(results, {
-					file = current_file,
-					lnum = lnum,
-					col = match_col,
-					text = line,
-					lines = lines,
-					component = {
-						type = "tag_search",
-						text = link_info.display_text,
-						original = link_info.full_match_text,
-					},
-				})
-			end
-		end
-	end
-
-	return results
-end
-
--- =============================================================================
--- Footnote Search
--- =============================================================================
-
-function M.search_footnote(ref_id)
-	local pattern = constants.PATTERNS.FOOTNOTE_DEF:gsub("%(%.%-%)", "(" .. parser.escape_pattern(ref_id) .. ")")
-	local lines = buffer.get_lines()
-
-	for lnum, line in ipairs(lines) do
-		if line:find(pattern) then
-			return { lnum = lnum, col = 1 }
-		end
-	end
-
-	return nil
-end
-
--- =============================================================================
--- Breadcrumb Link Generation
+-- Links to search results
 -- =============================================================================
 
 --- Extract a short identifier from a line to use as a %text search component.
@@ -564,17 +656,17 @@ function M.extract_line_identifier(line)
 	-- 1. Try markdown link: [display text](url)
 	local md_text = line:match("%[([^%]]+)%]%(")
 	if md_text and md_text ~= "" then
-		return parser.trim(md_text)
+		return syntax.trim(md_text)
 	end
 
 	-- 2. Try zortex link: [content]  (but not footnotes [^...])
 	local zortex_text = line:match("%[([^%]^][^%]]*)%]")
 	if zortex_text and zortex_text ~= "" then
-		return parser.trim(zortex_text)
+		return syntax.trim(zortex_text)
 	end
 
 	-- 3. Fallback: strip leading list markers and attributes
-	local text = parser.strip_attributes((line:gsub("^%s*[%-*]%s*", "")))
+	local text = syntax.strip_attributes((line:gsub("^%s*[%-*]%s*", "")))
 
 	-- Truncate if very long (keep it usable as a search term)
 	if #text > 80 then
@@ -629,101 +721,6 @@ function M.build_result_link(result)
 		return "[?]"
 	end
 	return M.build_link(parts)
-end
-
--- =============================================================================
--- Quickfix Integration
--- =============================================================================
-
---- Custom quickfix text function that shows only the link text,
---- hiding filename, line number, and column.
-function M.quickfix_text_func(info)
-	local items = vim.fn.getqflist({ id = info.id, items = 1 }).items
-	local lines = {}
-	for i = info.start_idx, info.end_idx do
-		local item = items[i]
-		if item then
-			table.insert(lines, item.text or "")
-		else
-			table.insert(lines, "")
-		end
-	end
-	return lines
-end
-
---- Jump from the quickfix window to the entry under the cursor,
---- opening in the target window (or previous window as fallback).
-function M.quickfix_jump()
-	local qf_list = vim.fn.getqflist()
-	local cursor_lnum = vim.api.nvim_win_get_cursor(0)[1]
-	local entry = qf_list[cursor_lnum]
-
-	if not entry or entry.bufnr == 0 then
-		vim.notify("No valid quickfix entry under cursor", vim.log.levels.INFO)
-		return
-	end
-
-	-- Determine target window: use zortex target window if available,
-	-- otherwise fall back to the previous window
-	local target_win
-	local ok, buf_module = pcall(require, "zortex.utils.buffer")
-	if ok and buf_module.get_target_window then
-		target_win = buf_module.get_target_window()
-	end
-
-	-- Fallback: use the previous window (the one before quickfix was focused)
-	if not target_win or not vim.api.nvim_win_is_valid(target_win) then
-		local qf_win = vim.api.nvim_get_current_win()
-		vim.cmd("wincmd p")
-		target_win = vim.api.nvim_get_current_win()
-		-- If we're still in the quickfix window (no previous window), find any non-qf window
-		if target_win == qf_win then
-			for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-				if win ~= qf_win then
-					target_win = win
-					break
-				end
-			end
-		end
-	end
-
-	-- Load the buffer and jump
-	local bufnr = entry.bufnr
-	vim.api.nvim_win_set_buf(target_win, bufnr)
-	vim.api.nvim_win_set_cursor(target_win, { entry.lnum, math.max(0, entry.col - 1) })
-	vim.api.nvim_set_current_win(target_win)
-	vim.cmd("normal! zz")
-end
-
-function M.populate_quickfix(results)
-	local qf_list = {}
-
-	for _, result in ipairs(results) do
-		local link = M.build_result_link(result)
-
-		table.insert(qf_list, {
-			filename = result.file,
-			lnum = result.lnum,
-			col = result.col,
-			text = link,
-			valid = 1,
-		})
-	end
-
-	vim.fn.setqflist(qf_list, "r")
-	if #qf_list > 0 then
-		-- Set custom display: show only the link text, no file/lnum/col
-		vim.o.quickfixtextfunc = "v:lua.require'zortex.utils.link_resolver'.quickfix_text_func"
-
-		vim.cmd("copen")
-
-		-- Map <CR> in the quickfix buffer to jump via target window
-		vim.api.nvim_buf_set_keymap(0, "n", "<CR>", "", {
-			noremap = true,
-			silent = true,
-			callback = M.quickfix_jump,
-		})
-	end
 end
 
 return M

@@ -30,10 +30,10 @@ end
 
 -- What to show for a link: { lines, title, focus (1-based within lines), location }
 local function target_content(link_info)
-	local link_resolver = require("zortex.utils.link_resolver")
+	local link_mod = require("zortex.core.link")
 
 	if link_info.type == "link" or link_info.type == "live_link" then
-		local node, result, err = link_resolver.resolve_node(link_info.definition)
+		local node, result, err = link_mod.resolve_node(link_info.definition)
 		if not node then
 			return nil, err or ("No match for " .. link_info.full_match_text)
 		end
@@ -90,7 +90,7 @@ function M.preview_link(opts)
 	local link_info
 	if opts.hover then
 		local line = vim.api.nvim_get_current_line()
-		link_info = require("zortex.utils.parser").extract_link_at(line, vim.api.nvim_win_get_cursor(0)[2])
+		link_info = require("zortex.core.link").at(line, vim.api.nvim_win_get_cursor(0)[2])
 		if not (link_info and HOVER_TYPES[link_info.type]) then
 			return nil
 		end

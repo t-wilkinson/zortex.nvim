@@ -1,7 +1,12 @@
 -- utils/datetime.lua - Date and time utilities for Zortex
 local M = {}
 
-local constants = require("zortex.constants")
+-- Date and time formats parse_date / parse_time / parse_datetime accept
+local DATE_YMD = "(%d%d%d%d)%-(%d%d?)%-(%d%d?)" -- YYYY-MM-DD
+local DATE_MDY = "(%d%d?)%-(%d%d?)%-(%d%d%d%d)" -- MM-DD-YYYY
+local TIME_AMPM = "(%d%d?):(%d%d)%s*([ap]m)" -- HH:MMam, HH:MM pm
+local TIME_24H = "(%d%d?):(%d%d)" -- HH:MM
+local DATETIME_YMD = "(%d%d%d%d%-%d%d?%-%d%d?)%s+(%d%d?:%d%d%s*[ap]?m?)" -- YYYY-MM-DD HH:MM[am]
 
 function M.has_time(dt)
 	return dt and dt.hour ~= nil and dt.min ~= nil
@@ -63,6 +68,9 @@ function M.add_minutes(date, minutes)
 	return os.date("*t", new_time)
 end
 
+--- Adds a duration in minutes (as parsed from @dur/@est) to a datetime.
+M.add_duration = M.add_minutes
+
 --- Adds days to a date.
 -- @param date table A date table with {year, month, day}
 -- @param days number Number of days to add (can be negative)
@@ -99,13 +107,13 @@ function M.parse_date(date_str)
 	end
 
 	-- YYYY-MM-DD
-	local y, m, d = date_str:match(constants.PATTERNS.DATE_YMD)
+	local y, m, d = date_str:match(DATE_YMD)
 	if y then
 		return { year = tonumber(y), month = tonumber(m), day = tonumber(d) }
 	end
 
 	-- MM-DD-YYYY
-	local m2, d2, y2 = date_str:match(constants.PATTERNS.DATE_MDY)
+	local m2, d2, y2 = date_str:match(DATE_MDY)
 	if m2 then
 		return { year = tonumber(y2), month = tonumber(m2), day = tonumber(d2) }
 	end
@@ -124,14 +132,8 @@ function M.parse_time(time_str)
 
 	local hour, min, ampm = nil, nil, nil
 
-	-- HH:MM format (24-hour)
-	hour, min = time_str:match(constants.PATTERNS.TIME_24H)
-	if hour then
-		return { hour = tonumber(hour), min = tonumber(min) }
-	end
-
-	-- HH:MM am/pm formats
-	hour, min, ampm = time_str:match(constants.PATTERNS.TIME_AMPM)
+	-- HH:MM am/pm (checked first: the 24-hour pattern matches its prefix)
+	hour, min, ampm = time_str:lower():match(TIME_AMPM)
 	if hour then
 		local h = tonumber(hour)
 		if ampm == "pm" and h ~= 12 then
@@ -140,6 +142,12 @@ function M.parse_time(time_str)
 			h = 0
 		end
 		return { hour = h, min = tonumber(min) }
+	end
+
+	-- HH:MM (24-hour)
+	hour, min = time_str:match(TIME_24H)
+	if hour then
+		return { hour = tonumber(hour), min = tonumber(min) }
 	end
 
 	return nil
@@ -155,7 +163,7 @@ function M.parse_datetime(dt_str, default_date_str)
 	end
 
 	-- Try date + time
-	local date_part, time_part = dt_str:match(constants.PATTERNS.DATETIME_YMD)
+	local date_part, time_part = dt_str:lower():match(DATETIME_YMD)
 	if date_part and time_part then
 		local date = M.parse_date(date_part)
 		local time = M.parse_time(time_part)

@@ -3,7 +3,7 @@ local M = {}
 
 local Events = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
-local parser = require("zortex.utils.parser")
+local Item = require("zortex.core.item")
 local workspace = require("zortex.core.workspace")
 local attributes = require("zortex.utils.attributes")
 local constants = require("zortex.constants")
@@ -70,7 +70,7 @@ function M.find_task_by_id(task_id)
 		if doc then
 			for lnum, line in ipairs(doc.lines) do
 				if line:find(needle, 1, true) then
-					return parser.parse_task(line), doc, lnum
+					return Item.task(line), doc, lnum
 				end
 			end
 		end
@@ -168,7 +168,7 @@ function M.convert_line_to_task(line)
 	local task_id = generate_task_id()
 	local task_line = indent .. "- [ ] " .. list_text
 	task_line = attributes.add_attribute(task_line, "id", task_id)
-	local task = parser.parse_task(task_line)
+	local task = Item.task(task_line)
 
 	return task, task_line
 end
@@ -184,7 +184,7 @@ function M.change_task_completion(doc_context, should_complete)
 	end
 
 	-- Get task at current line
-	local task = parser.parse_task(doc_context.line)
+	local task = Item.task(doc_context.line)
 
 	-- If there's still no task object, it means the line is not a task. Convert it.
 	if not task then
@@ -204,7 +204,7 @@ function M.change_task_completion(doc_context, should_complete)
 		local id = generate_task_id()
 		local new_line = attributes.add_attribute(doc_context.line, "id", id)
 		workspace.set_line(doc_context.bufnr, doc_context.lnum, new_line)
-		task = parser.parse_task(new_line)
+		task = Item.task(new_line)
 
 		if not task then
 			return nil, "Failed to parse task: " .. new_line

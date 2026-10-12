@@ -57,11 +57,11 @@ and tags). Everything else is built on documents:
             └──────────────▲──────────┘
                            │  entity.registry(spec)
             ┌──────────────┴──────────────────────────────────────────┐
-  Core      │ core/entity   core/link_index   utils/link_resolver     │
+  Core      │ core/entity   core/link_index   core/link               │
             │ core/document ──► core/section (tree)   core/notes      │
             │ core/syntax (the grammar)   core/item (list items)      │
             │ core/workspace (edits)   core/state (.z files)          │
-            │ utils/parser (link grammar)   core/event_bus  logger    │
+            │ core/event_bus  logger                                  │
             └─────────────────────────────────────────────────────────┘
 ```
 
@@ -157,20 +157,22 @@ definitions.
   (`doc:items(s, e, { tasks = true })`).
 - **Key results** are items keyed `KRn` (`- KR2: [ ] …`); the legacy
   `- KR-text` form still parses.
-- **Calendar entries** are the items under a date label; `CalendarEntry`
-  adds timing and recurrence.
+- **Calendar entries** are the items under a date label
+  (`services/calendar_entry`): an entry *is* its Item, plus `type`
+  (task/event/note), `text` without the time prefix, `date_context`,
+  `timing` and recurrence (`is_active_on_date`). Its text formats are
+  `calendar_entry/format` (`pretty`, `simple`).
 
-### Link grammar — `utils/parser.lua`
+### Link grammar — `core/link.lua`
 
-`split_link` / `parse_link_definition` / `parse_link_component` turn a link
-definition into typed components (`split_link` ignores `/` inside
-parentheses and is shared with completion). A typed component (`#…`, `:…`,
-`-…`, `*…`) is never split as a `+` / `&` query, so `#4 Learning & Education`
-is a heading. The rest of the module is thin helpers over `core/syntax`:
-`parse_task` (an Item), `is_task_line`, `extract_link_at(line, col)` and
-`extract_all_links(line)` (the old result shapes, now from syntax spans;
-`@a(...)` resolves to its area link), `parse_header`, `strip_attributes`,
-`list_has`.
+`split` / `parse` / `parse_component` turn a link definition into typed
+components (`split` ignores `/` inside parentheses and is shared with
+completion). A typed component (`#…`, `:…`, `-…`, `*…`) is never split as a
+`+` / `&` query, so `#4 Learning & Education` is a heading. `at(line, col)`
+and `on_line(line)` find links on a line (from syntax spans; `@a(...)`
+resolves to its area link). Resolution and link building are in the same
+module (next sections); following a link in a buffer (quickfix list,
+footnotes, `@[tag]` searches) is `features/links`.
 
 ### Sections — `core/section.lua`
 
@@ -222,7 +224,7 @@ The old JSON tree cache in `stdpath("cache")` is gone.
 - `header(path)` reads **only** the header block, cached by mtime.
 - `is_archived(path)` is true for `archive.*` filenames or the `@Archive` tag.
 
-### Links — `utils/link_resolver.lua`
+### Links — `core/link.lua`
 
 A link is `/`-separated components resolved **left to right**. Each component
 narrows a list of candidates (file + line range):
@@ -543,11 +545,11 @@ accepted.
 | `ui/telescope/search.lua` | `services/search` (picker only) |
 | `features/highlights.lua`, `folding.lua`, `toc.lua` | `core/document` syntax and tree |
 | `ui/skill_tree.lua` | `areas`, `projects`, `xp/stats` |
-| `ui/calendar/view.lua` | `stores/calendar`, `agenda` (digest panel), `projects` |
+| `ui/calendar/view.lua` (+ `render`, `keys`) | `stores/calendar`, `agenda` (digest panel), `projects` |
 | `ui/calendar/init.lua` | `stores/calendar` |
 | `notifications/types/digest.lua` | `services/digest` |
-| `features/completion.lua` | `link_resolver`, `notes`, `document` |
-| `features/preview.lua` | `link_resolver`, `features/links` |
+| `features/completion.lua` | `core/link`, `notes`, `document` |
+| `features/preview.lua` | `core/link`, `features/links` |
 | `ui/review.lua` | `agenda.review` |
 | `services/search_history.lua` | `services/search` (adds boosts); the picker records opens |
 
@@ -710,9 +712,12 @@ from `areas.top`, and the area tree from Area objects. Levels come from
 `total_xp`. The highlight groups `ZortexSkillLevel1..4` and `ZortexProgressBar`
 default-link to standard groups.
 
-**Calendar view** (`ui/calendar/view.lua`): cell positions in
-`CalendarState.marks` are **display columns**. Anything that needs byte
-columns (extmarks) must convert them with `display_col_to_byte`, because wide
+**Calendar view** (`ui/calendar/`): `view.lua` owns the window and its
+state (`view.state`: selected date, view mode, day cells), `render.lua`
+turns that into lines and highlights (`month`, `digest`), and `keys.lua`
+moves the selection and runs actions (`attach` maps `Config.ui.calendar.keymaps`).
+Cell positions in `state.marks` are **display columns**. Anything that needs byte
+columns (extmarks) must convert them with `render.display_col_to_byte`, because wide
 icons take two columns but one character.
 
 ## Configuration
@@ -727,7 +732,6 @@ its own slice the same way `search.setup` does. Relevant constants live in
 | `PROJECT_TAG = "P"` | the projects tag and link namespace |
 | `ARCHIVE_TAG = "Archive"` | marks archived notes |
 | `SIZE_POINTS`, `DEFAULT_TASK_SIZE` | task and project sizing |
-| `PATTERNS.OBJECTIVE`, `PATTERNS.KEY_RESULT` | OKR formats |
 
 ## Testing
 
@@ -791,7 +795,7 @@ to date; `app/links` and `app/search` must reproduce them.
 
 ## Conventions
 
-- **Never compare links as text.** Resolve them (`link_resolver`,
+- **Never compare links as text.** Resolve them (`core/link`,
   `projects.resolve`, `areas.resolve`) and compare keys.
 - **Read notes through `core/document`.** That gives one parse, consistent
   structure, and live buffer contents.

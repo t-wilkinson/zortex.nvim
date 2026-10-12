@@ -55,7 +55,7 @@ end
 --- Explicit link to a list item: its project's (or section's) link plus
 --- "-<key or text>".
 function M.item_link(base_link, line)
-	local comp = require("zortex.utils.link_resolver").item_component(line)
+	local comp = require("zortex.core.link").item_component(line)
 	if not base_link or not comp then
 		return base_link
 	end
@@ -193,10 +193,10 @@ function M.candidates(opts)
 	})
 	if ok then
 		for _, item in ipairs(review.overdue) do
-			if item.entry and item.entry.task then
+			if item.entry and item.entry.type == "task" then
 				local doc = require("zortex.core.document").get(item.file)
 				local node = doc and doc:node_at(item.lnum)
-				local base = node and require("zortex.utils.link_resolver").link_for_node(doc, node)
+				local base = node and require("zortex.core.link").link_for_node(doc, node)
 				tasks[#tasks + 1] = {
 					kind = "task",
 					text = plain(item.text) .. " " .. (M.item_link(base, item.entry.raw_text) or ""),

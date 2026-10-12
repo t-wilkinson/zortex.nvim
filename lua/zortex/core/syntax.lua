@@ -59,6 +59,9 @@ M.VERSION = 1
 local HIERARCHY = constants.SECTION_HIERARCHY
 local T = constants.SECTION_TYPE
 
+local TAG_LINE = "^@%w+" -- "@P", "@Archive" (header tags)
+local BOLD_HEADING = "^%*%*([^*]+)%*%*:?%s*$" -- "**Title**" or "**Title**:"
+
 -- =============================================================================
 -- Small helpers
 -- =============================================================================
@@ -67,6 +70,20 @@ local function trim(s)
 	return (s:match("^%s*(.-)%s*$")) or ""
 end
 M.trim = trim
+
+--- Case-insensitive membership test (header names and tags).
+function M.list_has(list, value)
+	if not list or not value then
+		return false
+	end
+	value = value:lower()
+	for _, v in ipairs(list) do
+		if v:lower() == value then
+			return true
+		end
+	end
+	return false
+end
 
 --- Strip inline attributes (`@key(value)` and bare `@word`) from text:
 --- "1.4 - zortex @p1 @size(lg)" -> "1.4 - zortex". Only tokens that start a
@@ -124,7 +141,7 @@ function M.parse_header(lines, max_lines)
 			header.names[#header.names + 1] = trim(name)
 			header.name_lnum = header.name_lnum or lnum
 			header.last_lnum = lnum
-		elseif line:match(constants.PATTERNS.TAG_LINE) then
+		elseif line:match(TAG_LINE) then
 			header.tags[#header.tags + 1] = trim(line:sub(2))
 			header.tag_lines[#header.tag_lines + 1] = line
 			header.last_lnum = lnum
@@ -286,11 +303,11 @@ function M.classify(line)
 	if line:match("^@@") then
 		return { kind = T.ARTICLE, indent = 0, content_col = 2, text = trim(line:sub(3)) }
 	end
-	if line:match(constants.PATTERNS.TAG_LINE) then
+	if line:match(TAG_LINE) then
 		return { kind = T.TAG, indent = 0, content_col = 1 }
 	end
 
-	if line:match(constants.PATTERNS.BOLD_HEADING) then
+	if line:match(BOLD_HEADING) then
 		local close = line:find("**", 3, true)
 		return {
 			kind = T.BOLD_HEADING,

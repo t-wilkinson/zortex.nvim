@@ -140,7 +140,7 @@ Deferred for now; listed so the pieces fit together later.
   `link_index.unresolved()`.
 - **Backlinks panel** for the section under the cursor
   (`query.backlinks(path, lnum)`).
-- **Calendar view highlights:** `ui/calendar/view.lua` still adjusts icon
+- **Calendar view highlights:** `ui/calendar/render.lua` still adjusts icon
   widths by hand (`shift_hl` / `icon_width`); switch it to
   `display_col_to_byte`.
 - **Archive revert:** `features/archive.revert_archive` is a stub.
@@ -194,7 +194,7 @@ Editing is not a goal (at most, later, appending to an inbox).
     `core/notes`
   - the section tree, from `core/section` (sections are already in the
     syntax output)
-  - **link resolution**, from `utils/link_resolver`: article-or-tag, prefix
+  - **link resolution**, from `core/link`: article-or-tag, prefix
     heading match at any depth, first match canonical, archives skipped. This
     is the biggest piece; generate resolver fixtures the same way (link →
     expected file:line) from the plugin.

@@ -8,7 +8,7 @@ local Config = require("zortex.config")
 local Logger = require("zortex.core.logger")
 local datetime = require("zortex.utils.datetime")
 local fs = require("zortex.utils.filesystem")
-local parser = require("zortex.utils.parser")
+local link_mod = require("zortex.core.link")
 local constants = require("zortex.constants")
 local Events = require("zortex.core.event_bus")
 
@@ -118,7 +118,7 @@ function M.generate_digest()
 		table.insert(lines, "")
 		for _, item in ipairs(todays_tasks) do
 			local entry = item.entry
-			local line = string.format("- [ ] %s", entry.display_text)
+			local line = string.format("- [ ] %s", entry.text)
 			if entry.attributes.at then
 				line = line .. " @at(" .. entry.attributes.at .. ")"
 			end
@@ -243,7 +243,7 @@ local function format_email(entries_by_date)
 
 	for date_str, entries in pairs(entries_by_date) do
 		for _, entry in ipairs(entries) do
-			if entry.type == "task" and not entry.task.completed then
+			if entry.type == "task" and not entry.completed then
 				total_tasks = total_tasks + 1
 			elseif entry.type == "event" then
 				total_events = total_events + 1
@@ -345,7 +345,7 @@ local function format_email(entries_by_date)
 			local html_icon = "•"
 
 			if entry.type == "task" then
-				if entry.type == "task" and entry.task.completed then
+				if entry.type == "task" and entry.completed then
 					text_prefix = "  ✓ "
 					html_style = "color: #95a5a6; text-decoration: line-through;"
 					html_icon = "✓"
@@ -388,7 +388,7 @@ local function format_email(entries_by_date)
 			end
 
 			-- Text version
-			table.insert(text_parts, text_prefix .. text_time .. entry.display_text .. duration_str)
+			table.insert(text_parts, text_prefix .. text_time .. entry.text .. duration_str)
 
 			-- HTML version
 			local html_duration = duration_str ~= ""
@@ -402,7 +402,7 @@ local function format_email(entries_by_date)
 					html_style,
 					html_icon,
 					html_time,
-					vim.fn.escape(entry.display_text, '<>&"'),
+					vim.fn.escape(entry.text, '<>&"'),
 					html_duration
 				)
 			)
@@ -435,7 +435,7 @@ end
 local function parse_live_link(text)
 	local link_def = text:match("^!%[([^%]]+)%]")
 	if link_def then
-		return parser.parse_link_definition(link_def)
+		return link_mod.parse(link_def)
 	end
 	return nil
 end
@@ -457,8 +457,7 @@ local function update_live_link(link_id)
 	end
 
 	-- Resolve the link to get current content
-	local link_resolver = require("zortex.utils.link_resolver")
-	local result = link_resolver.resolve_first(link_info.definition)
+	local result = link_mod.resolve_first(link_info.definition)
 
 	if result then
 		local doc = result.doc

@@ -208,7 +208,7 @@ end
 function M.resolve(link, opts)
 	opts = opts or {}
 	local resolve_opts = opts.from and { doc = require("zortex.core.document").get(abs(opts.from)) } or nil
-	local results = require("zortex.utils.link_resolver").resolve(link, resolve_opts)
+	local results = require("zortex.core.link").resolve(link, resolve_opts)
 	local out = {}
 	for _, r in ipairs(results or {}) do
 		out[#out + 1] = {

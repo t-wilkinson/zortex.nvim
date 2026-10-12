@@ -9,7 +9,6 @@
 -- so live edits are visible before they are saved.
 local M = {}
 
-local parser = require("zortex.utils.parser")
 local syntax = require("zortex.core.syntax")
 local section = require("zortex.core.section")
 local fs = require("zortex.utils.filesystem")
@@ -125,11 +124,11 @@ function Document:name()
 end
 
 function Document:has_name(name)
-	return parser.list_has(self.names, name)
+	return syntax.list_has(self.names, name)
 end
 
 function Document:has_tag(tag)
-	return parser.list_has(self.tags, tag)
+	return syntax.list_has(self.tags, tag)
 end
 
 -- The article node (root's article child), or nil for files without @@ names

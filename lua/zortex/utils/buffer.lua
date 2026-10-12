@@ -1,7 +1,6 @@
 -- utils/buffer.lua - Buffer operations for Zortex
 local M = {}
 
-local parser = require("zortex.utils.parser")
 
 function M.get_filepath(bufnr)
 	return vim.api.nvim_buf_get_name(bufnr)
@@ -81,7 +80,7 @@ function M.is_special_buffer()
 			non_blank_count = non_blank_count + 1
 			local title = line:match("^@@(.+)")
 			if title then
-				title = parser.trim(title):lower()
+				title = vim.trim(title):lower()
 				for _, special in ipairs(special_articles) do
 					if special:lower() == title then
 						return true

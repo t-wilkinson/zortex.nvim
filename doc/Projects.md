@@ -37,7 +37,7 @@ Project links always start with `P`:
 
 ## Links
 
-Project links resolve exactly like following a link (`utils/link_resolver`):
+Project links resolve exactly like following a link (`core/link`):
 
 - `[P/#1.4 - zortex]`: `P` matches any `@@` alias. `#1.4 - zortex` is a
   case-insensitive prefix match on a heading at any depth.
@@ -137,7 +137,7 @@ Projects and areas are both built from these:
 - `core/section`: the structural tree, plus `walk`, `find`, `filter`, `fold`,
   and `derive(root, keep, make)`, which builds a domain tree from chosen
   section types (projects keep articles and headings).
-- `utils/link_resolver`: `resolve`, `resolve_first`, `resolve_node`, `link_for_node`.
+- `core/link`: `resolve`, `resolve_first`, `resolve_node`, `link_for_node`.
 
 ## Tests
 

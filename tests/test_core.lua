@@ -1,10 +1,10 @@
 local T = require("helpers")
-local parser = require("zortex.utils.parser")
+local syntax = require("zortex.core.syntax")
 local Document = require("zortex.core.document")
 local notes = require("zortex.core.notes")
 
 T.test("header: names and tags", function()
-	local h = parser.parse_header({ "@@Flipping", "@@Car maintenance", "@Cars", "@P", "", "body" })
+	local h = syntax.parse_header({ "@@Flipping", "@@Car maintenance", "@Cars", "@P", "", "body" })
 	T.eq(h.names, { "Flipping", "Car maintenance" })
 	T.eq(h.tags, { "Cars", "P" })
 	T.eq(h.name_lnum, 1)
@@ -12,8 +12,8 @@ T.test("header: names and tags", function()
 end)
 
 T.test("strip_attributes", function()
-	T.eq(parser.strip_attributes("1.4 - zortex @size(lg) @a(4.1) @p1"), "1.4 - zortex")
-	T.eq(parser.strip_attributes("mail me@example.com"), "mail me@example.com")
+	T.eq(syntax.strip_attributes("1.4 - zortex @size(lg) @a(4.1) @p1"), "1.4 - zortex")
+	T.eq(syntax.strip_attributes("mail me@example.com"), "mail me@example.com")
 end)
 
 T.test("article aliases collapse into one article node", function()

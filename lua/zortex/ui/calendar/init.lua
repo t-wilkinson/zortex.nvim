@@ -55,8 +55,8 @@ local function calendar_stats()
 		if entry.attributes["repeat"] or entry.attributes.every then
 			stats.recurring_entries = stats.recurring_entries + 1
 		end
-		if entry.type == "task" and entry.task then
-			if entry.task.completed then
+		if entry.type == "task" then
+			if entry.completed then
 				stats.completed_tasks = stats.completed_tasks + 1
 			else
 				stats.incomplete_tasks = stats.incomplete_tasks + 1
@@ -243,7 +243,7 @@ function M.check_notifications()
 	end
 
 	for _, notif in ipairs(pending) do
-		local msg = string.format("Reminder in %d minutes: %s", notif.minutes_until, notif.entry.display_text)
+		local msg = string.format("Reminder in %d minutes: %s", notif.minutes_until, notif.entry.text)
 
 		vim.notify(msg, vim.log.levels.INFO)
 

@@ -31,7 +31,7 @@ T.test("render: sections with counts and links", function()
 	T.ok(kr and kr:find("[O/", 1, true), kr)
 
 	-- every link rendered resolves (except the broken ones, listed last)
-	local resolver = require("zortex.utils.link_resolver")
+	local resolver = require("zortex.core.link")
 	local broken = find(lines, "## Broken links")
 	for n, l in ipairs(lines) do
 		for link in l:gmatch("%[([PAO]/[^%]]+)%]") do

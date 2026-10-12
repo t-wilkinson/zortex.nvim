@@ -6,7 +6,7 @@
 -- such as resolving many links from re-stat'ing every file per link.
 local M = {}
 
-local parser = require("zortex.utils.parser")
+local syntax = require("zortex.core.syntax")
 local constants = require("zortex.constants")
 local fs = require("zortex.utils.filesystem")
 
@@ -18,7 +18,7 @@ local SNAPSHOT_TTL_MS = 1000
 local function read_header(path)
 	local bufnr = vim.fn.bufnr(path)
 	if bufnr > 0 and vim.api.nvim_buf_is_loaded(bufnr) and vim.bo[bufnr].modified then
-		return parser.parse_header(vim.api.nvim_buf_get_lines(bufnr, 0, 50, false))
+		return syntax.parse_header(vim.api.nvim_buf_get_lines(bufnr, 0, 50, false))
 	end
 
 	local stat = vim.loop.fs_stat(path)
@@ -47,7 +47,7 @@ local function read_header(path)
 	end
 	f:close()
 
-	local header = parser.parse_header(lines)
+	local header = syntax.parse_header(lines)
 	header_cache[path] = { mtime = stat.mtime.sec, nsec = stat.mtime.nsec, header = header }
 	return header
 end
@@ -61,7 +61,7 @@ function M.is_archived(path, header)
 		return true
 	end
 	header = header or read_header(path)
-	return header ~= nil and parser.list_has(header.tags, constants.ARCHIVE_TAG)
+	return header ~= nil and syntax.list_has(header.tags, constants.ARCHIVE_TAG)
 end
 
 -- Deterministic order: top-level notes first, then deeper ones, alphabetical.
@@ -121,7 +121,7 @@ function M.find_by_name(name, within, opts)
 	local out = {}
 	for _, path in ipairs(within or idx.files) do
 		local header = idx.headers[path] or read_header(path)
-		if header and parser.list_has(header.names, name) then
+		if header and syntax.list_has(header.names, name) then
 			out[#out + 1] = path
 		end
 	end
@@ -134,7 +134,7 @@ function M.find_by_tag(tag, within, opts)
 	local out = {}
 	for _, path in ipairs(within or idx.files) do
 		local header = idx.headers[path] or read_header(path)
-		if header and parser.list_has(header.tags, tag) then
+		if header and syntax.list_has(header.tags, tag) then
 			out[#out + 1] = path
 		end
 	end

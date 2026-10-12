@@ -1,7 +1,7 @@
 local T = require("helpers")
 local fs = require("zortex.utils.filesystem")
 local link_index = require("zortex.core.link_index")
-local link_resolver = require("zortex.utils.link_resolver")
+local link_resolver = require("zortex.core.link")
 local P = require("zortex.services.projects")
 
 local function short(path)

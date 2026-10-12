@@ -252,8 +252,12 @@ function M.parse_attributes(text, schema, parser_context)
 	local attrs = {}
 	local contexts = {}
 
+	-- Attributes start a word (like syntax.strip_attributes): "[@P/...]" in a
+	-- link and "me@example.com" are text, not attributes.
+	text = " " .. text
+
 	-- Pattern for @key(value)
-	text = text:gsub("@(%w+)%(([^)]*)%)", function(key, value)
+	text = text:gsub("(%s)@(%w+)%(([^)]*)%)", function(space, key, value)
 		if type(schema[key]) == "string" then
 			key = schema[key]
 		end
@@ -270,31 +274,31 @@ function M.parse_attributes(text, schema, parser_context)
 				end
 			end
 		end
-		return ""
+		return space
 	end)
 
 	-- Pattern for bare @key
-	text = text:gsub("@(%w+)", function(key)
+	text = text:gsub("(%s)@(%w+)", function(space, key)
 		key = key:lower()
 
 		-- Check duration shortcuts
 		local dur_num, dur_unit = key:match("^(%d+%.?%d*)([hdmw])$")
 		if dur_num and dur_unit then
 			attrs.dur = attribute_parsers.duration(key)
-			return ""
+			return space
 		end
 
 		-- Check priority shortcuts
 		local pri = key:match("^p([123])$")
 		if pri then
 			attrs.p = pri
-			return ""
+			return space
 		end
 
 		local imp = key:match("^i([123])$")
 		if imp then
 			attrs.i = imp
-			return ""
+			return space
 		end
 
 		-- Boolean flags
@@ -305,7 +309,7 @@ function M.parse_attributes(text, schema, parser_context)
 			table.insert(contexts, key)
 		end
 
-		return ""
+		return space
 	end)
 
 	if #contexts > 0 then

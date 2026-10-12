@@ -35,7 +35,7 @@ in place:
     **plain-data API** (`zortex.query`, `:ZortexExport`) for anything outside
     Neovim.
 12. **Actions as data:** commands, keymaps, `:ZortexHelp` and the README table come from one list (`actions.lua`); `require("zortex")` exposes every service.
-13. **A headless test suite:** 211 Lua tests plus the server's Python tests, no dependencies.
+13. **A headless test suite:** 214 Lua tests plus the server's Python tests, no dependencies.
 14. **A Go port** of the grammar, notes index, link resolver and search
     (`app/`), held to the Lua behaviour by generated fixtures.
 
@@ -59,6 +59,7 @@ in place:
 | Hover preview; planner keys | `ui.preview.hover` previews the link under the cursor; planner `i`/`o`/`O` place an item on a line, `p` appends it as a list item and stays in the side buffer. |
 | Go grammar | `app/syntax` ports `core/syntax` and passes every AST fixture; `zortex parse`/`sections`; `nix build .#zortex`. |
 | Dashboard file viewer | The Notes tab browses every file in the folder; PDFs, images, media and text open in the browser (ranges, sandboxed HTML/SVG). |
+| Link module; calendar split; patterns | `utils/parser` + `utils/link_resolver` → `core/link` (buffer-side following stays in `features/links`); calendar entries are Items (`services/calendar_entry` + `format`); `ui/calendar/view` split into `view`, `render`, `keys`; `constants.PATTERNS` removed; fixes below. |
 | Go resolver and search | `app/notes`, `app/links`, `app/search`; `tests/gen_links.lua` writes `resolve.json` and `search.json`, checked by `test_links` and the Go tests; `zortex resolve`/`search`; search uses the notes index's file order. |
 
 ## New modules
@@ -82,6 +83,9 @@ in place:
 | `health.lua` | `:checkhealth zortex`. |
 | `services/search.lua` | Structural search index, matching and ranking (moved out of the picker). |
 | `tests/gen_ast.lua`, `tests/fixtures/ast/`, `tests/fixtures/syntax/` | Syntax conformance fixtures and their generator. |
+| `core/link.lua` | Link grammar, resolution and building (was `utils/parser` + `utils/link_resolver`). |
+| `services/calendar_entry/format.lua` | Calendar entry text formats (`pretty`, `simple`). |
+| `ui/calendar/render.lua`, `ui/calendar/keys.lua` | Calendar view content and keys (split out of `view.lua`). |
 | `tests/gen_links.lua`, `tests/fixtures/resolve.json`, `search.json` | Resolver and search conformance fixtures and their generator. |
 | `app/syntax`, `app/notes`, `app/links`, `app/search`, `app/cmd/zortex` | Go port: grammar, notes index, resolver, search, CLI. |
 | `services/projects/init.lua` | Projects registry, `query`, `tasks`, `update_progress`. |
@@ -109,6 +113,9 @@ in place:
 | `autoload/health/zortex.vim` (checked the old Node preview server) | `lua/zortex/health.lua` |
 | the 37 line patterns in `features/highlights.lua`, the regexes in `folding.lua` and `calendar_entry.from_text` | `core/syntax` |
 | `stores/calendar.set_all_entries` | removed (unused; it rewrote the whole calendar) |
+| `utils/parser.lua` | `core/link` (`split`, `parse`, `parse_component`, `at`, `on_line`), `core/syntax` (`trim`, `strip_attributes`, `parse_header`, `list_has`), `core/item` (`Item.task`) |
+| `utils/link_resolver.lua` | `core/link`; `populate_quickfix`, footnote and `@[tag]` search moved to `features/links` |
+| `constants.PATTERNS` | local patterns in `utils/datetime`, `core/syntax` and `okr/objective` (most were unused) |
 
 ## Behaviour changes you may notice
 
@@ -328,6 +335,19 @@ in place:
   command is `LinkOpen`), `P` → `ProjectsOpen`, `u` → `UpdateProgress`, `r` →
   `FoldsReload`.
 
+**Link module and calendar split**
+- Attributes are only `@` tokens that start a word (as `syntax.strip_attributes`
+  already assumed): `16:00 Wrench on [@P/#Subaru]` kept its text as
+  `[/#Subaru]` with a `@P` context, and `me@example.com` became `me.com`, in
+  tasks, calendar entries and project headings.
+- An entry's end time from `@dur`/`@est` called a missing
+  `datetime.add_duration`, so calendar notifications with a duration failed.
+- The calendar's "view entries" searched for an `MM-DD-YYYY:` heading and
+  never found the `YYYY-MM-DD:` one; it now jumps to the day.
+- Following a footnote jumped to the first footnote definition in the buffer,
+  not the one for that reference.
+- `2:30pm` parsed as 02:30 (the 24-hour pattern was tried first).
+
 ## Duplicates removed
 
 - every line classifier (tree, highlights, folding, calendar, tasks, link
@@ -336,12 +356,14 @@ in place:
 - two persistence mechanisms (base store + manager, ad-hoc JSON) → `core/state`
 - two digest formatters → `services/digest`
 - two logger implementations in one file → `core/logger`
-- 5 header parsers → `parser.parse_header`
+- 5 header parsers → `syntax.parse_header`
 - 2 level scales → `constants.SECTION_HIERARCHY`
-- 3 link builders → `link_resolver.build_link` / `link_for_node`
+- 3 link builders → `core/link` `build_link` / `link_for_node`
 - 3 "find the enclosing heading" walkers → `projects.at`
-- 2 line-search loops in `link_resolver` → `search_lines`
-- 2 AND/OR splitters → `parser.split_query`
+- 2 line-search loops in the resolver → `search_lines`
+- 2 AND/OR splitters → `syntax.split_query`
+- link grammar and resolver in two modules → `core/link`
+- three copies of the calendar entry icon and time highlight → `ui/calendar/render`
 - 2 media-extension checks in `features/links.lua` → `is_media`
 - duplicate task-id helpers (`services/ids.lua`)
 - project/area structure code → `core/entity`
@@ -399,6 +421,14 @@ in place:
   functions should use `require("zortex.core.document").get(path)` and its
   `syntax`, `info(lnum)`, `items()`, `node_at(lnum)` and the tree, or
   `core/syntax` directly for single lines.
+- **Links:** `require("zortex.utils.link_resolver")` and
+  `require("zortex.utils.parser")` are gone; use `require("zortex.core.link")`
+  (`z.links` in the API): `parse_link_definition` → `parse`, `split_link` →
+  `split`, `parse_link_component` → `parse_component`, `extract_link_at` →
+  `at`, `extract_all_links` → `on_line`; `parser.parse_task` →
+  `require("zortex.core.item").task`.
+- **Calendar entries:** an entry is its Item: `entry.display_text` → `entry.text`,
+  `entry.task.completed` / `.mark` → `entry.completed` / `entry.mark`.
 - **Search:** `require("zortex.ui.telescope.search")` still exposes
   `setup`, `query_index`, … (re-exported); new code should use
   `require("zortex.services.search")`.

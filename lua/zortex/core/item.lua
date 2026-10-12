@@ -69,7 +69,7 @@ end
 
 --- A task item (checkbox) from a line, or nil.
 function M.task(line, opts)
-	local item = M.from_line(line, opts)
+	local item = line and M.from_line(line, opts)
 	if item and item.mark then
 		return item
 	end

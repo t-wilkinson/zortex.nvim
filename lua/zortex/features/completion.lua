@@ -1,7 +1,7 @@
 -- features/completion.lua - Link completion built on the link resolver
 --
 -- While typing a link, the components already typed are resolved with
--- utils/link_resolver (the same rules as following the link), and the
+-- core/link (the same rules as following the link), and the
 -- completions are what can legitimately come next:
 --
 --   [|                 article names and aliases (or @tags after "[@")
@@ -14,7 +14,6 @@
 -- headings. Every suggestion resolves when inserted.
 local M = {}
 
-local parser = require("zortex.utils.parser")
 
 local function notes()
 	return require("zortex.core.notes")
@@ -24,8 +23,8 @@ local function Document()
 	return require("zortex.core.document")
 end
 
-local function link_resolver()
-	return require("zortex.utils.link_resolver")
+local function link_mod()
+	return require("zortex.core.link")
 end
 
 -- LSP CompletionItemKind values
@@ -72,7 +71,7 @@ function M.link_context(line, col)
 
 	local prefix = last_slash and body:sub(1, last_slash - 1) or ""
 	local typing = last_slash and body:sub(last_slash + 1) or body
-	local parts = prefix ~= "" and parser.split_link(prefix) or {}
+	local parts = prefix ~= "" and link_mod().split(prefix) or {}
 	local typing_col = open + (is_local and 1 or 0) + (last_slash or 0) -- 0-based
 
 	return { parts = parts, typing = typing, typing_col = typing_col, is_local = is_local }
@@ -120,8 +119,8 @@ local function section_items(doc, node)
 	for _, n in ipairs(node:get_descendants()) do
 		local prefix = PREFIX[n.type]
 		if prefix then
-			-- Same shortening as generated links (link_resolver.component_text)
-			local text = link_resolver().component_text(n.text)
+			-- Same shortening as generated links (core/link component_text)
+			local text = link_mod().component_text(n.text)
 			items[#items + 1] = {
 				label = prefix .. text,
 				kind = KIND[n.type],
@@ -138,8 +137,8 @@ end
 local function after_parts(ctx, opts)
 	local prefix_link = (ctx.is_local and "/" or "") .. table.concat(ctx.parts, "/")
 	local resolve_opts = ctx.is_local and { doc = opts.doc } or nil
-	local results = link_resolver().resolve(prefix_link, resolve_opts)
-	local last = parser.parse_link_component(ctx.parts[#ctx.parts]) or {}
+	local results = link_mod().resolve(prefix_link, resolve_opts)
+	local last = link_mod().parse_component(ctx.parts[#ctx.parts]) or {}
 
 	local items, seen_files = {}, {}
 	for _, r in ipairs(results) do

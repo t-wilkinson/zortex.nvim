@@ -1,8 +1,11 @@
--- features/links.lua - Link navigation for Zortex with normalized section handling
+-- features/links.lua - Following links in a buffer, and section navigation
+--
+-- What a link means is core/link; this module opens what it points to:
+-- notes (quickfix list for several targets), @[tag] searches in the buffer,
+-- footnotes, URLs, media and files.
 local M = {}
 
-local parser = require("zortex.utils.parser")
-local link_resolver = require("zortex.utils.link_resolver")
+local link_mod = require("zortex.core.link")
 local buffer = require("zortex.utils.buffer")
 local fs = require("zortex.utils.filesystem")
 local constants = require("zortex.constants")
@@ -63,6 +66,206 @@ local function jump_to_location(location, use_target_window)
 end
 
 -- =============================================================================
+-- Tag Search (@[...] links)
+-- =============================================================================
+
+--- Search the current buffer for lines containing @tag patterns.
+--- Used by @[tag1 + tag2] style links.
+---@param link_info table The parsed tag_search link info from core/link.at
+---@param source_lnum number Line number of the link itself (to self-filter)
+---@return table[] SearchResult list
+local function search_tag_query(link_info, source_lnum)
+	local lines = buffer.get_lines()
+	local current_file = vim.fn.expand("%:p")
+	local results = {}
+
+	-- Build @tag patterns for each term
+	-- Each term should match as an @tag on the line (e.g. term "rust" matches "@rust")
+	local tag_patterns = {}
+	for _, term in ipairs(link_info.terms) do
+		-- Match @term as a whole word: preceded by start-of-string or whitespace,
+		-- followed by end-of-string or whitespace/punctuation
+		table.insert(tag_patterns, (term:lower()))
+	end
+
+	local is_and = link_info.query_type == "and"
+	-- "single" behaves like AND with one term
+
+	for lnum = 1, #lines do
+		-- Skip the source line (self-filter)
+		if lnum ~= source_lnum then
+			local line = lines[lnum]
+			local line_lower = line:lower()
+
+			-- Extract all @tags from the line
+			local line_tags = {}
+			for tag in line_lower:gmatch("@([%w_%-]+)") do
+				line_tags[tag] = true
+			end
+
+			local is_match = false
+			local match_col = 1
+
+			if is_and or link_info.query_type == "single" then
+				-- AND / single: all terms must appear as @tags
+				is_match = true
+				for _, pat in ipairs(tag_patterns) do
+					if not line_tags[pat] then
+						is_match = false
+						break
+					end
+				end
+			else
+				-- OR: any term as @tag
+				for _, pat in ipairs(tag_patterns) do
+					if line_tags[pat] then
+						is_match = true
+						-- Find column position for the first matching tag
+						local col = line_lower:find("@" .. pat)
+						if col then
+							match_col = col
+						end
+						break
+					end
+				end
+			end
+
+			if is_match then
+				-- For AND, find column of first matching tag
+				if (is_and or link_info.query_type == "single") and match_col == 1 then
+					local col = line_lower:find("@" .. tag_patterns[1])
+					if col then
+						match_col = col
+					end
+				end
+
+				table.insert(results, {
+					file = current_file,
+					lnum = lnum,
+					col = match_col,
+					text = line,
+					lines = lines,
+					component = {
+						type = "tag_search",
+						text = link_info.display_text,
+						original = link_info.full_match_text,
+					},
+				})
+			end
+		end
+	end
+
+	return results
+end
+
+-- =============================================================================
+-- Footnote Search
+-- =============================================================================
+
+-- The footnote definition "[^id]: ..." in the current buffer
+local function search_footnote(ref_id)
+	local prefix = "[^" .. ref_id .. "]:"
+	for lnum, line in ipairs(buffer.get_lines()) do
+		if line:sub(1, #prefix) == prefix then
+			return { lnum = lnum, col = 1 }
+		end
+	end
+
+	return nil
+end
+
+-- =============================================================================
+-- Quickfix Integration
+-- =============================================================================
+
+--- Custom quickfix text function that shows only the link text,
+--- hiding filename, line number, and column.
+function M.quickfix_text_func(info)
+	local items = vim.fn.getqflist({ id = info.id, items = 1 }).items
+	local lines = {}
+	for i = info.start_idx, info.end_idx do
+		local item = items[i]
+		if item then
+			table.insert(lines, item.text or "")
+		else
+			table.insert(lines, "")
+		end
+	end
+	return lines
+end
+
+--- Jump from the quickfix window to the entry under the cursor,
+--- opening in the target window (or previous window as fallback).
+local function quickfix_jump()
+	local qf_list = vim.fn.getqflist()
+	local cursor_lnum = vim.api.nvim_win_get_cursor(0)[1]
+	local entry = qf_list[cursor_lnum]
+
+	if not entry or entry.bufnr == 0 then
+		vim.notify("No valid quickfix entry under cursor", vim.log.levels.INFO)
+		return
+	end
+
+	-- Determine target window: use zortex target window if available,
+	-- otherwise fall back to the previous window
+	local target_win = buffer.get_target_window()
+
+	-- Fallback: use the previous window (the one before quickfix was focused)
+	if not target_win or not vim.api.nvim_win_is_valid(target_win) then
+		local qf_win = vim.api.nvim_get_current_win()
+		vim.cmd("wincmd p")
+		target_win = vim.api.nvim_get_current_win()
+		-- If we're still in the quickfix window (no previous window), find any non-qf window
+		if target_win == qf_win then
+			for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+				if win ~= qf_win then
+					target_win = win
+					break
+				end
+			end
+		end
+	end
+
+	-- Load the buffer and jump
+	local bufnr = entry.bufnr
+	vim.api.nvim_win_set_buf(target_win, bufnr)
+	vim.api.nvim_win_set_cursor(target_win, { entry.lnum, math.max(0, entry.col - 1) })
+	vim.api.nvim_set_current_win(target_win)
+	vim.cmd("normal! zz")
+end
+
+function M.populate_quickfix(results)
+	local qf_list = {}
+
+	for _, result in ipairs(results) do
+		local link = link_mod.build_result_link(result)
+
+		table.insert(qf_list, {
+			filename = result.file,
+			lnum = result.lnum,
+			col = result.col,
+			text = link,
+			valid = 1,
+		})
+	end
+
+	vim.fn.setqflist(qf_list, "r")
+	if #qf_list > 0 then
+		-- Set custom display: show only the link text, no file/lnum/col
+		vim.o.quickfixtextfunc = "v:lua.require'zortex.features.links'.quickfix_text_func"
+
+		vim.cmd("copen")
+
+		-- Map <CR> in the quickfix buffer to jump via target window
+		vim.api.nvim_buf_set_keymap(0, "n", "<CR>", "", {
+			noremap = true,
+			silent = true,
+			callback = quickfix_jump,
+		})
+	end
+end
+
+-- =============================================================================
 -- Main Link Opening Function
 -- =============================================================================
 
@@ -70,10 +273,10 @@ end
 function M.link_at_cursor()
 	local line = buffer.get_current_line()
 	local _, cursor_col = buffer.get_cursor_pos()
-	local link_info = parser.extract_link_at(line, cursor_col)
+	local link_info = link_mod.at(line, cursor_col)
 	if not link_info then
 		for col = cursor_col + 1, #line - 1 do
-			link_info = parser.extract_link_at(line, col)
+			link_info = link_mod.at(line, col)
 			if link_info then
 				break
 			end
@@ -95,7 +298,7 @@ function M.open_link()
 	-- Handle different link types
 	if link_info.type == "link" or link_info.type == "live_link" then
 		-- Zortex-style link format
-		local parsed = parser.parse_link_definition(link_info.definition)
+		local parsed = link_mod.parse(link_info.definition)
 		if not parsed then
 			vim.notify("Invalid link format", vim.log.levels.WARN)
 			return
@@ -135,11 +338,10 @@ function M.open_link()
 			end
 		end
 
-		-- Process the link using core link resolver functionality
-		local results = link_resolver.process_link(parsed)
+		local results, err = link_mod.resolve(parsed)
 
 		if #results == 0 then
-			-- Already notified by process_link
+			vim.notify(err or "No matches", vim.log.levels.INFO)
 			return
 		elseif #results == 1 then
 			-- Single result - jump directly
@@ -147,13 +349,13 @@ function M.open_link()
 		else
 			-- Multiple results - jump to first and populate quickfix
 			jump_to_location(results[1], true)
-			link_resolver.populate_quickfix(results)
+			M.populate_quickfix(results)
 			vim.notify(string.format("Found %d matches. Quickfix list populated.", #results), vim.log.levels.INFO)
 		end
 	elseif link_info.type == "tag_search" then
 		-- Handle @[tag1 + tag2] style tag search links
 		local source_lnum = buffer.get_cursor_pos()
-		local results = link_resolver.search_tag_query(link_info, source_lnum)
+		local results = search_tag_query(link_info, source_lnum)
 
 		if #results == 0 then
 			vim.notify("No tag matches found for: " .. link_info.display_text, vim.log.levels.INFO)
@@ -162,14 +364,14 @@ function M.open_link()
 			jump_to_location(results[1], true)
 		else
 			jump_to_location(results[1], true)
-			link_resolver.populate_quickfix(results)
+			M.populate_quickfix(results)
 			vim.notify(string.format("Found %d tag matches. Quickfix list populated.", #results), vim.log.levels.INFO)
 		end
 	elseif link_info.type == "website" then
 		open_external(link_info.url)
 	elseif link_info.type == "footnote" then
 		-- Handle footnote reference
-		local footnote_loc = link_resolver.search_footnote(link_info.ref_id)
+		local footnote_loc = search_footnote(link_info.ref_id)
 		if footnote_loc then
 			buffer.set_cursor_pos(footnote_loc.lnum, footnote_loc.col - 1)
 			vim.cmd("normal! zz")

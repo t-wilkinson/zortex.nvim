@@ -50,7 +50,7 @@ T.test("candidates: signals add up; every line carries a resolving link", functi
 		T.ok(#c.projects > 0 and #c.key_results > 0 and #c.areas > 0, "all sections")
 		T.ok(c.key_results[1].text:find("/%-KR%d+%]"), c.key_results[1].text)
 
-		local resolver = require("zortex.utils.link_resolver")
+		local resolver = require("zortex.core.link")
 		for _, section in pairs(c) do
 			for _, item in ipairs(section) do
 				local link = item.text:match("%[([^%]]+)%]%s*$")

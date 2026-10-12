@@ -301,7 +301,7 @@ local function entry_to_vevent(entry, date_str)
 	end
 
 	-- SUMMARY
-	table.insert(lines, "SUMMARY:" .. escape_ical_text(entry.display_text))
+	table.insert(lines, "SUMMARY:" .. escape_ical_text(entry.text))
 
 	-- RRULE for repeating events
 	if entry.attributes["repeat"] then
@@ -331,7 +331,7 @@ local function entry_to_vevent(entry, date_str)
 
 	-- STATUS for tasks
 	if entry.type == "task" then
-		if entry.task.completed then
+		if entry.completed then
 			table.insert(lines, "STATUS:COMPLETED")
 		else
 			table.insert(lines, "STATUS:IN-PROCESS")
@@ -451,7 +451,7 @@ function M.export_file(filepath, options)
 
 		for _, entry in ipairs(entries) do
 			-- Skip completed tasks if requested
-			if not (options.skip_completed and entry.type == "task" and entry.task.completed) then
+			if not (options.skip_completed and entry.type == "task" and entry.completed) then
 				table.insert(lines, "")
 				table.insert(lines, entry_to_vevent(entry, date_str))
 				exported = exported + 1

@@ -20,7 +20,7 @@ local M = {}
 
 local Document = require("zortex.core.document")
 local section = require("zortex.core.section")
-local link_resolver = require("zortex.utils.link_resolver")
+local link_mod = require("zortex.core.link")
 
 -- =============================================================================
 -- Entity base class
@@ -43,7 +43,7 @@ end
 --   projects.zortex (@@P):  [P/#1 Programming/#1.4 - zortex]
 --   flipping.zortex (@P):   [P/Flipping/#Subaru outback]
 function M.link_components(doc, node, namespace)
-	local parts = link_resolver.node_components(doc, node)
+	local parts = link_mod.node_components(doc, node)
 	if namespace and #parts > 0 then
 		if doc:has_name(namespace) then
 			parts[1] = namespace
@@ -74,7 +74,7 @@ function M.new(cls, spec, doc, node, parent)
 	e.path = parent and vim.list_extend(vim.list_slice(parent.path), { e.name }) or { e.name }
 	e.key = table.concat(e.path, "/")
 	local parts = M.link_components(doc, node, spec.namespace)
-	e.link = #parts > 0 and link_resolver.build_link(parts) or nil
+	e.link = #parts > 0 and link_mod.build_link(parts) or nil
 
 	if spec.init then
 		spec.init(e)
@@ -322,7 +322,7 @@ function M.registry(spec)
 
 	-- Entity containing a link's canonical target (same rules as following it)
 	api.resolve = function(link, opts)
-		local result, err = link_resolver.resolve_first(link, opts)
+		local result, err = link_mod.resolve_first(link, opts)
 		if not result then
 			return nil, err
 		end

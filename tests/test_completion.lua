@@ -65,7 +65,7 @@ T.test("'[@P/' offers note names and their sections", function()
 end)
 
 T.test("every suggestion resolves", function()
-	local resolver = require("zortex.utils.link_resolver")
+	local resolver = require("zortex.core.link")
 	for _, prefix in ipairs({ "[P/", "[P/#1 Programming/", "[A/", "[@P/" }) do
 		for _, label in ipairs(labels(prefix)) do
 			local link = prefix .. label .. "]"

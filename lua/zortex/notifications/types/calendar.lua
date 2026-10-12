@@ -23,7 +23,7 @@ end
 -- Create a deduplication key for a calendar notification
 local function create_dedup_key(entry, date_str, event_type, advance_minutes)
 	-- Include all relevant parts to make it unique
-	local text_part = entry.display_text:sub(1, 20):gsub("%s+", "_"):gsub("[^%w_-]", "")
+	local text_part = entry.text:sub(1, 20):gsub("%s+", "_"):gsub("[^%w_-]", "")
 	return string.format(
 		"cal_%s_%s_%s_%d",
 		date_str,
@@ -52,7 +52,7 @@ local function format_notification(entry, event_type, minutes_until)
 
 	-- local verb = event_type == "end" and "ending" or "starting"
 	local verb = event_type == "end" and " ending" or ""
-	local title = string.format("Calendar: %s %s %s", entry.display_text, verb, time_str)
+	local title = string.format("Calendar: %s %s %s", entry.text, verb, time_str)
 	local message = entry:format()
 
 	if minutes_until <= 0 then
@@ -61,7 +61,7 @@ local function format_notification(entry, event_type, minutes_until)
 	end
 	-- return title, message
 	-- return message, "-"
-	return entry.display_text, "-"
+	return entry.text, "-"
 end
 
 -- Sync calendar notifications
@@ -95,9 +95,9 @@ function M.sync()
 					type = "calendar",
 					priority = entry.attributes.p and ("p" .. entry.attributes.p) or "default",
 					tags = { "calendar", event_type },
-					entry_id = entry.display_text,
+					entry_id = entry.text,
 					deduplication_key = dedup_key,
-					entry_text = entry.display_text,
+					entry_text = entry.text,
 				}
 
 				table.insert(notifications_to_sync, notification)
@@ -218,7 +218,7 @@ function M.get_pending_for_date(date_str)
 				for _, advance_minutes in ipairs(notify_values) do
 					table.insert(pending, {
 						time = os.date("%H:%M", os.time(start_time) - (advance_minutes * 60)),
-						title = entry.display_text,
+						title = entry.text,
 						advance_minutes = advance_minutes,
 						type = "start",
 					})
@@ -231,7 +231,7 @@ function M.get_pending_for_date(date_str)
 				for _, advance_minutes in ipairs(notify_values) do
 					table.insert(pending, {
 						time = os.date("%H:%M", os.time(end_time) - (advance_minutes * 60)),
-						title = entry.display_text,
+						title = entry.text,
 						advance_minutes = advance_minutes,
 						type = "end",
 					})

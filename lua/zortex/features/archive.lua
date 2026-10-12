@@ -1,9 +1,9 @@
 -- features/archive.lua - Move a section into z/archive.<note>.zortex
 local M = {}
 
-local parser = require("zortex.utils.parser")
+local syntax = require("zortex.core.syntax")
 local Document = require("zortex.core.document")
-local link_resolver = require("zortex.utils.link_resolver")
+local link_mod = require("zortex.core.link")
 local fs = require("zortex.utils.filesystem")
 local constants = require("zortex.constants")
 local Config = require("zortex.config")
@@ -46,7 +46,7 @@ local function ensure_archive_file(archive_path, original_lines)
 		end
 
 		-- Mark the file archived so link resolution and projects skip it
-		if not parser.list_has(parser.parse_header(header_lines).tags, constants.ARCHIVE_TAG) then
+		if not syntax.list_has(syntax.parse_header(header_lines).tags, constants.ARCHIVE_TAG) then
 			table.insert(header_lines, "@" .. constants.ARCHIVE_TAG)
 		end
 
@@ -146,7 +146,7 @@ function M.archive_current_section()
 	archive_lines = merge_into_archive(archive_lines, section_path(lines, node), content)
 	fs.write_lines(archive_path, archive_lines)
 
-	local link = link_resolver.build_link(link_resolver.node_components(doc, node))
+	local link = link_mod.build_link(link_mod.node_components(doc, node))
 	vim.api.nvim_buf_set_lines(bufnr, node.start_line - 1, node.end_line, false, {})
 
 	vim.notify(string.format("Archived section to %s\nLink: %s", archive_path, link), vim.log.levels.INFO)

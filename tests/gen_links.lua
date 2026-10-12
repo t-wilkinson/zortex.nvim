@@ -154,7 +154,7 @@ function M.resolve_cases()
 	local Config = require("zortex.config")
 	local notes = require("zortex.core.notes")
 	local Document = require("zortex.core.document")
-	local resolver = require("zortex.utils.link_resolver")
+	local resolver = require("zortex.core.link")
 	local syntax = require("zortex.core.syntax")
 	local dir = Config.notes_dir
 	local function rel(path)

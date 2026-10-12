@@ -1,5 +1,5 @@
 local T = require("helpers")
-local links = require("zortex.utils.link_resolver")
+local links = require("zortex.core.link")
 
 local function target(link)
 	local r, err = links.resolve_first(link)
@@ -70,10 +70,10 @@ T.test("article component: alias files first, then tagged files", function()
 end)
 
 T.test("task checkboxes are not links", function()
-	local parser = require("zortex.utils.parser")
-	T.eq(#parser.extract_all_links("- [ ] Task"), 0)
-	T.eq(#parser.extract_all_links("- [x] Done [P/#1.4]"), 1)
-	T.eq(parser.extract_all_links("- KR1: [ ] text [P/#Habits]")[1].definition, "P/#Habits")
+	local link = require("zortex.core.link")
+	T.eq(#link.on_line("- [ ] Task"), 0)
+	T.eq(#link.on_line("- [x] Done [P/#1.4]"), 1)
+	T.eq(link.on_line("- KR1: [ ] text [P/#Habits]")[1].definition, "P/#Habits")
 end)
 
 T.test("conformance: resolve and search fixtures are up to date", function()

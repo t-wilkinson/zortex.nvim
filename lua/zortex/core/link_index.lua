@@ -1,7 +1,7 @@
 -- core/link_index.lua - Every link in every note, resolved, with backlinks
 --
 -- For each (non-archived) note the index stores the links it contains and
--- where each one resolves (with utils/link_resolver, so the same rules as
+-- where each one resolves (with core/link, so the same rules as
 -- following the link). From that it answers:
 --
 --   references(file, start_line, end_line)  links pointing into a line range
@@ -20,7 +20,7 @@
 -- re-resolved. Refreshes are lazy (on query) and throttled.
 local M = {}
 
-local parser = require("zortex.utils.parser")
+local link_mod = require("zortex.core.link")
 
 local VERSION = 2 -- bump when link extraction changes (forces a rebuild)
 local REFRESH_TTL_MS = 1000
@@ -87,7 +87,7 @@ end
 -- First component of a link definition, for invalidation:
 -- { kind = "article"|"tag"|"global"|"local", text }
 local function first_component(def)
-	local parsed = parser.parse_link_definition(def)
+	local parsed = link_mod.parse(def)
 	if not parsed or not parsed.components[1] then
 		return { kind = "global" }
 	end
@@ -126,7 +126,7 @@ local function resolve(link, source_path)
 		opts.doc = Document().get(source_path)
 	end
 	local ok, result = pcall(function()
-		return (require("zortex.utils.link_resolver").resolve_first(link.definition, opts))
+		return (link_mod.resolve_first(link.definition, opts))
 	end)
 	if ok and result then
 		link.target = { file = result.file, lnum = result.lnum }

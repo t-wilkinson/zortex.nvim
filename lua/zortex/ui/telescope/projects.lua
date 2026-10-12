@@ -137,7 +137,7 @@ local function preview_lines(project)
 				add(string.format("  … %d more", #upcoming - 5))
 				break
 			end
-			add(string.format("  %s %s %s", item.date, item.time or "     ", item.entry.display_text))
+			add(string.format("  %s %s %s", item.date, item.time or "     ", item.entry.text))
 		end
 	end
 

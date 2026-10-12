@@ -142,10 +142,10 @@ func TestLinkPage(t *testing.T) {
 func TestFiles(t *testing.T) {
 	_, _, ts := newTestServer(t, "")
 	root := expect(t, ts, "/f/", 200, `z/`, `Calendar`, `Show all`)
-	if strings.Contains(root, "Links") || strings.Contains(root, `"/f/.z"`) {
+	if strings.Contains(root, `href="/n/links.zortex"`) || strings.Contains(root, `"/f/.z"`) {
 		t.Error("root lists non-special top-level notes or hidden folders")
 	}
-	expect(t, ts, "/f/?all=1", 200, `Links`)
+	expect(t, ts, "/f/?all=1", 200, `href="/n/links.zortex"`)
 	docs := expect(t, ts, "/f/z/docs", 200, `manual.pdf`, `notes.txt`)
 	if strings.Contains(docs, "sync-conflict") {
 		t.Error("sync artefact listed")
@@ -237,4 +237,61 @@ func TestRefresh(t *testing.T) {
 	if took := s.current().took; took > 5*time.Second {
 		t.Errorf("rebuild took %s", took)
 	}
+}
+
+func TestResources(t *testing.T) {
+	s, dir, ts := newTestServer(t, "")
+	files := map[string]string{
+		"z/books/type-theory.pdf": "%PDF tt",
+		"z/books/hott.pdf":        "%PDF hott",
+		"z/books/sicp.epub":       "epub",
+		"z/papers/attention.pdf":  "%PDF a",
+		"z/papers/unread.pdf":     "%PDF u",
+		"z/images/pic.png":        "png",
+		"z/videos/talk.mp4":       "mp4",
+		"z/readme.md":             "# Readme\nSee ![pic](images/pic.png).\n```\n[x](videos/talk.mp4)\n```\n",
+		"z/reading.zortex": "@@Reading\n\n# Books\n- [z/books/type-theory.pdf] chapter 3\n- [HoTT](z/books/hott.pdf)\n" +
+			"- [attention.pdf] (bare name)\n- [./missing.pdf]\n```\n[z/papers/unread.pdf]\n```\n",
+	}
+	for rel, content := range files {
+		p := filepath.Join(dir, rel)
+		os.MkdirAll(filepath.Dir(p), 0o755)
+		os.WriteFile(p, []byte(content), 0o644)
+	}
+	s.Refresh() // new resources and a changed note
+
+	// a file's backlinks
+	expect(t, ts, "/f/z/books/type-theory.pdf", 200, `id="backlinks"`, `/n/z/reading.zortex#L4`, `Reading › Books`, `1 link<`)
+	expect(t, ts, "/f/z/books/hott.pdf", 200, `/n/z/reading.zortex#L5`)
+	expect(t, ts, "/f/z/papers/attention.pdf", 200, `/n/z/reading.zortex#L6`)       // bare file name
+	expect(t, ts, "/f/z/images/pic.png", 200, `href="/f/z/readme.md"`, `line 2`)    // from a Markdown file
+	expect(t, ts, "/f/z/papers/unread.pdf", 200, `Nothing links to this file yet.`) // only in a code block
+
+	// unlinked list
+	body := expect(t, ts, "/resources", 200, `unread.pdf`, `sicp.epub`, `talk.mp4`)
+	for _, linked := range []string{"type-theory.pdf", "hott.pdf", "attention.pdf", "pic.png"} {
+		if strings.Contains(body, linked) {
+			t.Errorf("/resources lists linked %s", linked)
+		}
+	}
+	expect(t, ts, "/resources?show=linked&kind=pdf", 200, `type-theory.pdf`, `attention.pdf`)
+	if b := expect(t, ts, "/resources?dir=z/books", 200, `sicp.epub`); strings.Contains(b, "unread.pdf") {
+		t.Error("dir filter")
+	}
+	_, _, js := get(t, ts, "/api/resources?kind=pdf")
+	if !strings.Contains(js, `"rel":"z/papers/unread.pdf"`) || strings.Contains(js, "hott") {
+		t.Errorf("api/resources: %s", js)
+	}
+
+	// listings: per-file counts and unlinked per folder
+	expect(t, ts, "/f/z", 200, `href="/resources?dir=z%2fbooks">1 unlinked</a>`, `href="/resources?dir=z%2fpapers">1 unlinked</a>`)
+	expect(t, ts, "/f/z/books", 200, `<span class="unlinked">unlinked</span>`, `/f/z/books/type-theory.pdf#backlinks">1</a>`)
+	// rendering resolves the bare name too; a missing file is a broken link
+	expect(t, ts, "/n/z/reading.zortex", 200, `href="/f/z/papers/attention.pdf"`)
+	expect(t, ts, "/broken", 200, `./missing.pdf`, `File not found`)
+
+	// a new file shows up on the next rescan, without any note changing
+	os.WriteFile(filepath.Join(dir, "z/papers/new.pdf"), []byte("%PDF"), 0o644)
+	s.Refresh()
+	expect(t, ts, "/resources", 200, `new.pdf`)
 }

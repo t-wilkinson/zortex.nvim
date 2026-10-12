@@ -42,6 +42,10 @@ let
       "-base"
       web.basePath
     ]
+    ++ optionals (web.resourceExtensions != null) [
+      "-resources"
+      (concatStringsSep "," web.resourceExtensions)
+    ]
     ++ optionals (web.calendarUrl != null) [
       "-calendar"
       web.calendarUrl
@@ -209,6 +213,17 @@ in
           shown as the Calendar tab of the shared top bar. Defaults to "/"
           when both run on one host (web app under basePath); set it when
           they have separate domains. Null hides the tab.
+        '';
+      };
+
+      resourceExtensions = mkOption {
+        type = types.nullOr (types.listOf types.str);
+        default = null;
+        example = [ "pdf" "epub" "djvu" "png" "jpg" ];
+        description = ''
+          File extensions tracked as resources (backlinks on file pages, the
+          unlinked list at /resources). Null: PDFs, e-books, images, video,
+          audio and office documents.
         '';
       };
 

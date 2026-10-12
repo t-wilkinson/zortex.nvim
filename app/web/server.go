@@ -48,7 +48,10 @@ type Config struct {
 	// CalendarURL is the notification server's dashboard (the Calendar tab in
 	// the top bar, shared by both sites); empty hides the tab.
 	CalendarURL string
-	Logger      *log.Logger
+	// ResourceExts: extensions of the files tracked as resources (backlinks,
+	// unlinked list); nil: DefaultResourceExts.
+	ResourceExts []string
+	Logger       *log.Logger
 }
 
 // DefaultSpecial are the top-level notes listed by default (the plugin's
@@ -60,6 +63,7 @@ type Server struct {
 	cfg     Config
 	ix      *notes.Index
 	special map[string]bool
+	resExts map[string]bool
 	pages   map[string]*template.Template
 	static  http.Handler
 	log     *log.Logger
@@ -68,22 +72,25 @@ type Server struct {
 	rebuildMu sync.Mutex
 }
 
-// Backlink is a link in one note to (a line of) another.
+// Backlink is a link in one note (or Markdown file) to a line of another
+// note, or to a resource file.
 type Backlink struct {
-	From       string // source note
+	From       string // source note or file
+	FromNote   bool   // From is a note (else a Markdown file)
 	Lnum       int    // line of the link
 	Line       string // source line
 	Breadcrumb string // section of the source line
 	Def        string // link definition as written
-	ToLnum     int    // target line
+	ToLnum     int    // target line (notes)
 }
 
 // Broken is a link that doesn't resolve.
 type Broken struct {
-	From string
-	Lnum int
-	Def  string
-	Err  string
+	From     string
+	FromNote bool
+	Lnum     int
+	Def      string
+	Err      string
 }
 
 // snapshot is everything derived from the whole folder, rebuilt together.
@@ -97,6 +104,12 @@ type snapshot struct {
 	links     int
 	built     time.Time
 	took      time.Duration
+
+	resources     []resource
+	fileBacklinks map[string][]Backlink // resource -> links to it
+	unlinked      map[string]int        // folder -> unlinked resources inside it
+	names         map[string][]string   // lower-cased file name -> resources
+	fingerprint   uint64                // of the resources and Markdown files
 }
 
 type tagInfo struct {
@@ -129,7 +142,15 @@ func New(cfg Config) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Server{cfg: cfg, ix: ix, special: map[string]bool{}, log: cfg.Logger}
+	s := &Server{cfg: cfg, ix: ix, special: map[string]bool{}, resExts: map[string]bool{}, log: cfg.Logger}
+	if cfg.ResourceExts == nil {
+		cfg.ResourceExts = DefaultResourceExts
+	}
+	for _, e := range cfg.ResourceExts {
+		if e = strings.ToLower(strings.TrimPrefix(strings.TrimSpace(e), ".")); e != "" {
+			s.resExts[e] = true
+		}
+	}
 	for _, name := range cfg.Special {
 		if name = strings.ToLower(strings.TrimSpace(name)); name != "" {
 			s.special[name] = true
@@ -141,7 +162,7 @@ func New(cfg Config) (*Server, error) {
 	sub, _ := fs.Sub(staticFS, "static")
 	s.static = http.StripPrefix("/static/", http.FileServer(http.FS(sub)))
 	ix.Scan()
-	s.rebuild()
+	s.rebuild(s.scanResources())
 	return s, nil
 }
 
@@ -162,14 +183,17 @@ func (s *Server) Run(ctx context.Context) {
 	}
 }
 
-// Refresh rescans the folder now and rebuilds when something changed.
+// Refresh rescans the folder now and rebuilds when a note, resource or
+// Markdown file changed.
 func (s *Server) Refresh() {
-	if s.ix.Scan() {
-		s.rebuild()
+	notesChanged := s.ix.Scan()
+	res, linking, fp := s.scanResources()
+	if notesChanged || fp != s.current().fingerprint {
+		s.rebuild(res, linking, fp)
 	}
 }
 
-func (s *Server) rebuild() {
+func (s *Server) rebuild(res []resource, linking []string, fingerprint uint64) {
 	s.rebuildMu.Lock()
 	defer s.rebuildMu.Unlock()
 	start := time.Now()
@@ -178,6 +202,11 @@ func (s *Server) rebuild() {
 		search:    search.BuildAll(s.ix),
 		backlinks: map[string][]Backlink{},
 		notes:     len(all),
+
+		resources:     res,
+		fileBacklinks: map[string][]Backlink{},
+		names:         byBasename(res),
+		fingerprint:   fingerprint,
 	}
 	tags := map[string]*tagInfo{}
 	for _, rel := range all {
@@ -193,7 +222,12 @@ func (s *Server) rebuild() {
 			tags[key].Notes = append(tags[key].Notes, rel)
 		}
 		s.collectLinks(doc, snap)
+		s.collectFileLinks(doc, snap, snap.names)
 	}
+	for _, rel := range linking {
+		s.collectMarkdownLinks(rel, snap, snap.names)
+	}
+	snap.unlinked = snap.unlinkedIn()
 	for _, t := range tags {
 		snap.tags = append(snap.tags, *t)
 	}
@@ -210,8 +244,8 @@ func (s *Server) rebuild() {
 	runtime.GC()
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
-	s.log.Printf("indexed %d notes, %d links (%d broken) in %s; heap %d MB", snap.notes, snap.links, len(snap.broken),
-		snap.took.Round(time.Millisecond), ms.HeapInuse>>20)
+	s.log.Printf("indexed %d notes, %d links (%d broken), %d resources (%d unlinked) in %s; heap %d MB", snap.notes, snap.links,
+		len(snap.broken), len(snap.resources), snap.unlinked[""], snap.took.Round(time.Millisecond), ms.HeapInuse>>20)
 }
 
 // collectLinks resolves every link in doc (outside code) to its canonical
@@ -226,8 +260,8 @@ func (s *Server) collectLinks(doc *notes.Document, snap *snapshot) {
 			if sp.Type != "link" && sp.Type != "live_link" {
 				return
 			}
-			if fileLike(sp.Definition) {
-				return
+			if s.fileLike(sp.Definition) {
+				return // a file: collectFileLinks
 			}
 			snap.links++
 			r, err := links.ResolveFirst(s.ix, "["+sp.Definition+"]", links.Options{From: doc})
@@ -236,7 +270,7 @@ func (s *Server) collectLinks(doc *notes.Document, snap *snapshot) {
 				if err != nil {
 					msg = err.Error()
 				}
-				snap.broken = append(snap.broken, Broken{From: doc.Rel, Lnum: lnum, Def: sp.Definition, Err: msg})
+				snap.broken = append(snap.broken, Broken{From: doc.Rel, FromNote: true, Lnum: lnum, Def: sp.Definition, Err: msg})
 				return
 			}
 			if r.Doc.Rel == doc.Rel {
@@ -244,6 +278,7 @@ func (s *Server) collectLinks(doc *notes.Document, snap *snapshot) {
 			}
 			snap.backlinks[r.Doc.Rel] = append(snap.backlinks[r.Doc.Rel], Backlink{
 				From:       doc.Rel,
+				FromNote:   true,
 				Lnum:       lnum,
 				Line:       doc.Lines[lnum-1],
 				Breadcrumb: doc.NodeAt(lnum).Breadcrumb(" › "),
@@ -272,6 +307,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /tags", s.handleTags)
 	mux.HandleFunc("GET /tag/{name}", s.handleTag)
 	mux.HandleFunc("GET /broken", s.handleBroken)
+	mux.HandleFunc("GET /resources", s.handleResources)
+	mux.HandleFunc("GET /api/resources", s.apiResources)
 	mux.HandleFunc("GET /api/search", s.apiSearch)
 	mux.HandleFunc("GET /api/resolve", s.apiResolve)
 	mux.HandleFunc("GET /api/backlinks", s.apiBacklinks)

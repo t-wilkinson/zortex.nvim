@@ -4,7 +4,6 @@ import (
 	"html/template"
 	"net/url"
 	"os"
-	"path"
 	"strconv"
 	"strings"
 
@@ -29,21 +28,6 @@ func escapePath(rel string) string {
 		parts[i] = url.PathEscape(p)
 	}
 	return strings.Join(parts, "/")
-}
-
-// File extensions a link definition can point at instead of a note
-// (features/links: media are opened, not resolved).
-var fileExts = map[string]bool{
-	"pdf": true, "epub": true, "png": true, "jpg": true, "jpeg": true, "gif": true, "webp": true,
-	"svg": true, "avif": true, "mp4": true, "mkv": true, "mov": true, "webm": true, "mp3": true,
-	"m4a": true, "ogg": true, "flac": true, "wav": true, "txt": true, "md": true, "csv": true,
-	"html": true, "htm": true,
-}
-
-// fileLike reports whether a link definition names a file ("./scan.pdf").
-func fileLike(def string) bool {
-	ext := strings.ToLower(strings.TrimPrefix(path.Ext(def), "."))
-	return fileExts[ext]
 }
 
 type noteRenderer struct {
@@ -333,7 +317,7 @@ func externalAttrs(href string) string {
 // canonical target (the first result, as following the link in Neovim does).
 func (s *Server) linkHTML(from *notes.Document, def string) string {
 	text := esc(def)
-	if fileLike(def) {
+	if s.fileLike(def) {
 		if href, ok := s.pathHref(from, def); ok {
 			return `<a class="zl file" href="` + esc(href) + `">` + text + `</a>`
 		}
@@ -372,29 +356,21 @@ func (s *Server) linkURL(def, from string) string {
 }
 
 // pathHref resolves a path written in a note ("./scan.pdf", "z/img.png",
-// "../other.zortex") to a viewer URL. "./" and "../" are relative to the
-// note's folder, other relative paths to the notes folder. External URLs
-// pass through. ok is false when the file doesn't exist.
+// "../other.zortex", "tt.pdf") to a viewer URL, with localRef's rules.
+// External URLs pass through. ok is false when the file doesn't exist.
 func (s *Server) pathHref(from *notes.Document, p string) (string, bool) {
-	if strings.Contains(p, "://") || strings.HasPrefix(p, "mailto:") || strings.HasPrefix(p, "#") {
+	var names map[string][]string
+	if snap := s.current(); snap != nil {
+		names = snap.names
+	}
+	rel, frag, local, found := s.localRef(from.Rel, p, false, names)
+	if !local {
+		if p == "" || strings.HasPrefix(p, "~") {
+			return "", false
+		}
 		return p, true
 	}
-	if strings.HasPrefix(p, "~") || p == "" {
-		return "", false
-	}
-	frag := ""
-	if i := strings.IndexByte(p, '#'); i >= 0 {
-		p, frag = p[:i], p[i:]
-	}
-	var rel string
-	switch {
-	case strings.HasPrefix(p, "./") || strings.HasPrefix(p, "../"):
-		rel = path.Join(path.Dir(from.Rel), p)
-	default:
-		rel = path.Clean(strings.TrimPrefix(p, "/"))
-	}
-	rel, ok := cleanRel(rel)
-	if !ok || rel == "" {
+	if !found {
 		return "", false
 	}
 	st, err := os.Stat(s.ix.Path(rel))

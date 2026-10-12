@@ -34,8 +34,9 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 | `/f/<path>` | file browser (top level: the main notes unless "show all"; hidden folders and Syncthing artefacts never) and viewer: PDF, image, video, audio (with seeking), text, sandboxed HTML/SVG |
 | `/raw/<path>` | the file as is: byte ranges, `?download=1`; HTML/SVG/XML with `Content-Security-Policy: sandbox`; nothing outside the folder, no hidden files |
 | `/tags`, `/tag/<name>` | header tags and their notes |
-| `/broken` | links that don't resolve |
-| `/api/search?q=`, `/api/resolve?to=&from=`, `/api/backlinks?rel=` | JSON |
+| `/resources` | PDFs, books, images, media and documents, and which ones nothing links to (filter by unlinked/linked, type, folder); file pages show their own "Linked from", folder listings count links and unlinked files |
+| `/broken` | links that don't resolve (notes and files) |
+| `/api/search?q=`, `/api/resolve?to=&from=`, `/api/backlinks?rel=`, `/api/resources?show=unlinked&kind=&dir=` | JSON |
 | `/healthz` | counts and last index time |
 
 Flags (each also an environment variable): `-dir` (`ZORTEX_NOTES_DIR`),
@@ -43,7 +44,19 @@ Flags (each also an environment variable): `-dir` (`ZORTEX_NOTES_DIR`),
 the URL prefix when a proxy serves it below `/`, e.g. `/notes`), `-title`
 (`ZORTEX_TITLE`), `-poll` (`ZORTEX_POLL`, default `10s`), `-special`
 (`ZORTEX_SPECIAL`, default `calendar,structure,projects,areas,okr`),
-`-calendar` (`ZORTEX_CALENDAR_URL`: the Calendar tab's link, e.g. `/`).
+`-calendar` (`ZORTEX_CALENDAR_URL`: the Calendar tab's link, e.g. `/`),
+`-resources` (`ZORTEX_RESOURCES`: extensions tracked as resources; NixOS:
+`web.resourceExtensions`).
+
+**Resources and their backlinks.** A file counts as linked when a note or
+a Markdown file refers to it with a zortex link to its path
+(`[z/books/type-theory.pdf]`, `[./scan.png]`), a markdown link
+(`[TT](z/books/type-theory.pdf)`, `![](img.png)`) or a bare path
+(`./scan.pdf`). In notes `./` and `../` are relative to the note and other
+paths to the notes folder; Markdown files try their own folder first. A bare
+file name (`[type-theory.pdf]`) works when exactly one resource has that
+name. Links inside code blocks don't count; links to missing files are
+listed on `/broken`. New or removed files are picked up on the next rescan.
 
 **How it stays light.** The folder is read once at start and rescanned every
 `-poll`. A rescan re-parses only files whose modification time or size

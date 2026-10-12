@@ -1,0 +1,17 @@
+{{/* backlinks: groups from groupBacklinks, as {{template "backlinks" (backlinks .Groups "empty text")}} */}}
+{{define "backlinks"}}
+{{if .Groups}}
+{{range .Groups}}
+<div class="back-group">
+  <h3><a href="{{srcURL .From .FromNote 0}}">{{.Title}}</a> <span class="dim">{{.From}}</span></h3>
+  <ul>
+    {{range .Links}}
+    <li><a href="{{srcURL .From .FromNote .Lnum}}">{{if .Breadcrumb}}<span class="bc">{{.Breadcrumb}}</span>{{else if not .FromNote}}<span class="bc">line {{.Lnum}}</span>{{end}}<span class="src">{{.Line}}</span></a></li>
+    {{end}}
+  </ul>
+</div>
+{{end}}
+{{else}}
+<p class="dim">{{.Empty}}</p>
+{{end}}
+{{end}}

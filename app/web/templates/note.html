@@ -24,20 +24,7 @@
     <div class="body">{{.Body}}</div>
     <section class="backlinks" id="backlinks">
       <h2>Linked from</h2>
-      {{if .Backlinks}}
-      {{range .Backlinks}}
-      <div class="back-group">
-        <h3><a href="{{noteURL .From 0}}">{{.Title}}</a> <span class="dim">{{.From}}</span></h3>
-        <ul>
-          {{range .Links}}
-          <li><a href="{{noteURL .From .Lnum}}"><span class="bc">{{.Breadcrumb}}</span><span class="src">{{.Line}}</span></a></li>
-          {{end}}
-        </ul>
-      </div>
-      {{end}}
-      {{else}}
-      <p class="dim">No other note links here.</p>
-      {{end}}
+      {{template "backlinks" (backlinks .Backlinks "No other note links here.")}}
     </section>
   </article>
 </div>

@@ -78,15 +78,18 @@ func isSyncArtifact(name string) bool {
 
 // entry is a row of a folder listing.
 type entry struct {
-	Name    string
-	Rel     string
-	Dir     bool
-	Note    bool
-	Title   string // note title (article name) or file name
-	Size    int64
-	ModTime time.Time
-	Kind    string
-	Hidden  bool // top-level note not in Special (shown with ?all=1)
+	Name     string
+	Rel      string
+	Dir      bool
+	Note     bool
+	Title    string // note title (article name) or file name
+	Size     int64
+	ModTime  time.Time
+	Kind     string
+	Hidden   bool // top-level note not in Special (shown with ?all=1)
+	Resource bool // tracked resource (see resources.go)
+	Links    int  // resource: links to it
+	Unlinked int  // folder: unlinked resources inside it
 }
 
 // resolvePath maps a rel path to an absolute path inside the folder,
@@ -147,9 +150,22 @@ func (s *Server) listDir(rel string, all bool) ([]entry, int, error) {
 			}
 		}
 		e := entry{Name: name, Rel: erel, Dir: info.IsDir(), Size: info.Size(), ModTime: info.ModTime(), Title: name}
+		snap := s.current()
+		if e.Dir {
+			e.Unlinked = snap.unlinked[erel]
+		} else if s.isResource(erel) {
+			e.Resource, e.Links = true, len(snap.fileBacklinks[erel])
+		}
+		resKind := ""
+		if e.Resource {
+			resKind = resourceKind(extOf(name))
+		}
 		if !e.Dir {
 			e.Note = s.isNote(name)
 			e.Kind = viewKind(mimeOf(name))
+			if resKind == "book" || resKind == "document" {
+				e.Kind = resKind // icons; the viewer has no preview for these
+			}
 			if e.Note {
 				e.Kind = "note"
 				if d := s.ix.Doc(erel); d != nil {
@@ -224,13 +240,14 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 		title = path.Base(rel)
 	}
 	s.render(w, r, "files", http.StatusOK, map[string]any{
-		"Title":   title,
-		"Rel":     rel,
-		"Crumbs":  s.crumbs(rel),
-		"Entries": entries,
-		"Hidden":  hidden,
-		"All":     all,
-		"Root":    rel == "",
+		"Unlinked": s.current().unlinked[rel],
+		"Title":    title,
+		"Rel":      rel,
+		"Crumbs":   s.crumbs(rel),
+		"Entries":  entries,
+		"Hidden":   hidden,
+		"All":      all,
+		"Root":     rel == "",
 	})
 }
 
@@ -247,6 +264,12 @@ func (s *Server) fileView(w http.ResponseWriter, r *http.Request, rel string, st
 		"Size":    st.Size(),
 		"ModTime": st.ModTime(),
 		"Raw":     s.rawURL(rel),
+	}
+	if s.isResource(rel) {
+		links := s.current().fileBacklinks[rel]
+		data["Resource"] = true
+		data["Backlinks"] = s.groupBacklinks(links)
+		data["BackCount"] = len(links)
 	}
 	if data["Kind"] == "text" {
 		abs, _, _ := s.resolvePath(rel)

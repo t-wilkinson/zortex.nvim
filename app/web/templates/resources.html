@@ -1,0 +1,41 @@
+{{define "content"}}
+<section class="narrow wide resources">
+  <h1>Resources</h1>
+  <p class="dim">PDFs, books, images, media and documents in the notes folder, and whether any note or Markdown file links to them. {{.Total}} here, {{.Unlinked}} unlinked.</p>
+  <div class="chips" role="group" aria-label="Show">{{range .Shows}}<a class="chip{{if .On}} on{{end}}" href="{{.URL}}"{{if .On}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</div>
+  <div class="chips" role="group" aria-label="Type">{{range .Kinds}}<a class="chip{{if .On}} on{{end}}" href="{{.URL}}"{{if .On}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</div>
+  {{if .Filter.Dir}}<p class="dim">In <code>{{.Filter.Dir}}/</code> · <a href="{{.AllDirs}}">every folder</a></p>{{end}}
+
+  {{if .Folders}}
+  <table class="listing folders">
+    <thead><tr><th>Folder</th><th class="num">Files</th><th class="num">Unlinked</th></tr></thead>
+    <tbody>
+    {{range .Folders}}
+    <tr><td><a href="#dir-{{.Dir}}">{{if .Dir}}{{.Dir}}/{{else}}(top level){{end}}</a></td><td class="num">{{.Total}}</td><td class="num">{{if .Unlinked}}<span class="unlinked">{{.Unlinked}}</span>{{else}}0{{end}}</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+
+  {{$fu := .FolderURL}}
+  {{range .Folders}}{{if .Rows}}
+  <h2 class="res-dir" id="dir-{{.Dir}}"><a href="{{call $fu .Dir}}">{{if .Dir}}{{.Dir}}/{{else}}(top level){{end}}</a> <span class="dim">{{len .Rows}}</span></h2>
+  <table class="listing res-files">
+    <colgroup><col><col class="c-links"><col class="c-size"><col class="c-when"></colgroup>
+    <tbody>
+    {{range .Rows}}
+    <tr class="{{.Kind}}">
+      <td><a href="{{fileURL .Rel}}"><span class="ico" aria-hidden="true"></span>{{.Name}}</a></td>
+      <td class="num">{{if .Links}}<a href="{{fileURL .Rel}}#backlinks">{{.Links}} link{{if ne .Links 1}}s{{end}}</a>{{else}}<span class="unlinked">unlinked</span>{{end}}</td>
+      <td class="num">{{size .Size}}</td>
+      <td class="when">{{ago .ModTime}}</td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{end}}{{end}}
+  {{if .Truncated}}<p class="dim">Showing the first {{.Shown}}; narrow it down with a folder or type.</p>{{end}}
+  {{else}}
+  <p class="empty">No resources match.</p>
+  {{end}}
+</section>
+{{end}}

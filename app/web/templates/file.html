@@ -1,7 +1,7 @@
 {{define "content"}}
 <section class="viewer">
   <nav class="crumbs">{{range $i, $c := .Crumbs}}{{if $i}}<span>/</span>{{end}}<a href="{{$c.URL}}">{{$c.Name}}</a>{{end}}</nav>
-  <p class="meta dim">{{.Mime}} · {{size .Size}} · changed {{date .ModTime}} · <a href="{{.Raw}}">open</a> · <a href="{{.Raw}}?download=1">download</a></p>
+  <p class="meta dim">{{.Mime}} · {{size .Size}} · changed {{date .ModTime}} · <a href="{{.Raw}}">open</a> · <a href="{{.Raw}}?download=1">download</a>{{if .Resource}} · {{if .BackCount}}<a href="#backlinks">{{.BackCount}} link{{if ne .BackCount 1}}s{{end}}</a>{{else}}<span class="unlinked">unlinked</span>{{end}}{{end}}</p>
   {{if eq .Kind "image"}}<img class="view" src="{{.Raw}}" alt="{{.Title}}">
   {{else if eq .Kind "pdf"}}<iframe class="view doc" src="{{.Raw}}" title="{{.Title}}"></iframe>
   {{else if eq .Kind "html"}}<iframe class="view doc" src="{{.Raw}}" sandbox title="{{.Title}}"></iframe>
@@ -9,6 +9,12 @@
   {{else if eq .Kind "audio"}}<audio class="view" src="{{.Raw}}" controls preload="metadata"></audio>
   {{else if eq .Kind "text"}}<pre class="view text">{{.Text}}</pre>{{if .Truncated}}<p class="dim">Showing the first 1 MB. <a href="{{.Raw}}">Open the whole file</a></p>{{end}}
   {{else}}<p class="empty">No preview for this type. <a href="{{.Raw}}?download=1">Download it</a></p>
+  {{end}}
+  {{if .Resource}}
+  <section class="backlinks narrow" id="backlinks">
+    <h2>Linked from {{if .BackCount}}<span class="dim">({{.BackCount}})</span>{{end}}</h2>
+    {{template "backlinks" (backlinks .Backlinks "Nothing links to this file yet.")}}
+  </section>
   {{end}}
 </section>
 {{end}}

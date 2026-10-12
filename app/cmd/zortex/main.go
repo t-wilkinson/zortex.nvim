@@ -39,7 +39,7 @@ func usage() {
   zortex sections FILE...
   zortex resolve [-dir DIR] [-from REL] LINK...
   zortex search [-dir DIR] [-mode section|article] [-n N] PROMPT...
-  zortex serve [-dir DIR] [-addr HOST:PORT] [-base /PREFIX] [-title T] [-poll D] [-special a,b] [-calendar URL]
+  zortex serve [-dir DIR] [-addr HOST:PORT] [-base /PREFIX] [-title T] [-poll D] [-special a,b] [-calendar URL] [-resources pdf,png,...]
   zortex version`)
 	os.Exit(2)
 }
@@ -135,6 +135,7 @@ func serveCmd(args []string) {
 	title := fs.String("title", envOr("ZORTEX_TITLE", "Zortex"), "site title ($ZORTEX_TITLE)")
 	poll := fs.Duration("poll", 10*time.Second, "how often to rescan the folder (negative: never)")
 	special := fs.String("special", envOr("ZORTEX_SPECIAL", strings.Join(web.DefaultSpecial, ",")), "top-level notes listed by default ($ZORTEX_SPECIAL)")
+	resources := fs.String("resources", os.Getenv("ZORTEX_RESOURCES"), "extensions tracked as resources for backlinks and the unlinked list, e.g. pdf,epub,png (default: documents, books, images, media) ($ZORTEX_RESOURCES)")
 	calendar := fs.String("calendar", os.Getenv("ZORTEX_CALENDAR_URL"), "URL of the notification server's calendar, shown as the Calendar tab ($ZORTEX_CALENDAR_URL)")
 	_ = fs.Parse(args)
 	if v := os.Getenv("ZORTEX_POLL"); v != "" && !flagSet(fs, "poll") {
@@ -151,7 +152,13 @@ func serveCmd(args []string) {
 		Poll:        *poll,
 		Special:     strings.Split(*special, ","),
 		CalendarURL: *calendar,
-		Logger:      logger,
+		ResourceExts: func() []string {
+			if *resources == "" {
+				return nil
+			}
+			return strings.Split(*resources, ",")
+		}(),
+		Logger: logger,
 	})
 	if err != nil {
 		logger.Fatal(err)

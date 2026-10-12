@@ -20,7 +20,7 @@ import (
 // Templates
 // =============================================================================
 
-var pageNames = []string{"home", "note", "search", "results", "link", "files", "file", "tags", "tag", "broken", "error"}
+var pageNames = []string{"home", "note", "search", "results", "link", "files", "file", "tags", "tag", "broken", "resources", "error"}
 
 func (s *Server) parseTemplates() error {
 	funcs := template.FuncMap{
@@ -43,10 +43,14 @@ func (s *Server) parseTemplates() error {
 		},
 		"inc":      func(n int) int { return n + 1 },
 		"siteName": func() string { return s.cfg.Title },
+		"srcURL":   s.srcURL,
+		"backlinks": func(groups []backGroup, empty string) map[string]any {
+			return map[string]any{"Groups": groups, "Empty": empty}
+		},
 	}
 	s.pages = map[string]*template.Template{}
 	for _, name := range pageNames {
-		files := []string{"templates/layout.html", "templates/" + name + ".html"}
+		files := []string{"templates/layout.html", "templates/partials.html", "templates/" + name + ".html"}
 		if name == "search" {
 			files = append(files, "templates/results.html")
 		}
@@ -86,7 +90,39 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, page string, sta
 }
 
 // navOf: which top-bar tab a page belongs to.
-var navOf = map[string]string{"files": "files", "file": "files", "tags": "tags", "tag": "tags", "broken": "broken"}
+var navOf = map[string]string{"files": "files", "file": "files", "resources": "files", "tags": "tags", "tag": "tags", "broken": "broken"}
+
+// backGroup is the backlinks from one note or file.
+type backGroup struct {
+	From     string
+	FromNote bool
+	Title    string
+	Links    []Backlink
+}
+
+func (s *Server) groupBacklinks(list []Backlink) []backGroup {
+	var groups []backGroup
+	for _, b := range list {
+		if n := len(groups); n > 0 && groups[n-1].From == b.From {
+			groups[n-1].Links = append(groups[n-1].Links, b)
+			continue
+		}
+		title := path.Base(b.From)
+		if b.FromNote {
+			title = s.noteTitle(b.From)
+		}
+		groups = append(groups, backGroup{From: b.From, FromNote: b.FromNote, Title: title, Links: []Backlink{b}})
+	}
+	return groups
+}
+
+// srcURL links to where a link was written: the note line, or the file.
+func (s *Server) srcURL(from string, fromNote bool, lnum int) string {
+	if fromNote {
+		return s.noteURL(from, lnum)
+	}
+	return s.fileURL(from)
+}
 
 func (s *Server) notFound(w http.ResponseWriter, r *http.Request, msg string) {
 	s.render(w, r, "error", http.StatusNotFound, map[string]any{"Title": "Not found", "Message": msg})
@@ -155,15 +191,17 @@ func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	s.render(w, r, "home", http.StatusOK, map[string]any{
-		"Title":   s.cfg.Title,
-		"Home":    true,
-		"Special": special,
-		"Recent":  rows,
-		"Notes":   snap.notes,
-		"Links":   snap.links,
-		"Broken":  len(snap.broken),
-		"Tags":    len(snap.tags),
-		"Built":   snap.built,
+		"Title":     s.cfg.Title,
+		"Home":      true,
+		"Special":   special,
+		"Recent":    rows,
+		"Notes":     snap.notes,
+		"Links":     snap.links,
+		"Broken":    len(snap.broken),
+		"Tags":      len(snap.tags),
+		"Resources": len(snap.resources),
+		"Unlinked":  snap.unlinked[""],
+		"Built":     snap.built,
 	})
 }
 
@@ -183,19 +221,7 @@ func (s *Server) handleNote(w http.ResponseWriter, r *http.Request) {
 		s.notFound(w, r, "No such note: "+rel)
 		return
 	}
-	type backGroup struct {
-		From  string
-		Title string
-		Links []Backlink
-	}
-	var groups []backGroup
-	for _, b := range s.current().backlinks[rel] {
-		if n := len(groups); n > 0 && groups[n-1].From == b.From {
-			groups[n-1].Links = append(groups[n-1].Links, b)
-		} else {
-			groups = append(groups, backGroup{From: b.From, Title: s.noteTitle(b.From), Links: []Backlink{b}})
-		}
-	}
+	groups := s.groupBacklinks(s.current().backlinks[rel])
 	h := doc.Header()
 	aliases := []string{}
 	if len(h.Names) > 1 {

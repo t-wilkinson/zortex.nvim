@@ -7,6 +7,7 @@ local M = setmetatable({}, { __index = search })
 local fs = require("zortex.utils.filesystem")
 local highlights = require("zortex.features.highlights")
 local Config = require("zortex.config")
+local shared_actions = require("zortex.ui.telescope.actions")
 
 local function cfg()
 	return search.config or search.setup()
@@ -242,6 +243,7 @@ function M.structural_search(opts)
 							ordinal = entry.breadcrumb,
 							filename = entry.filepath,
 							lnum = entry.node.start_line,
+							text = entry.breadcrumb,
 						}
 					else
 						return {
@@ -250,6 +252,7 @@ function M.structural_search(opts)
 							ordinal = entry.line,
 							filename = entry.filepath,
 							lnum = entry.lnum,
+							text = vim.trim(entry.line),
 						}
 					end
 				end,
@@ -264,23 +267,49 @@ function M.structural_search(opts)
 			previewer = zortex_previewer(),
 			layout_strategy = "horizontal",
 			attach_mappings = function(prompt_bufnr, map)
-				-- Open a result (recording it in the search history)
+				local history = require("zortex.services.search_history")
+
+				local function open_entry(entry, cmd)
+					local res = entry.value
+					vim.cmd(cmd .. " " .. vim.fn.fnameescape(res.filepath))
+					local lnum = res.result_type == "section" and res.node.start_line or res.lnum
+					vim.fn.cursor(lnum, 1)
+					vim.cmd("normal! zz")
+				end
+
 				local function open_in(cmd)
-					return function()
-						local selection = action_state.get_selected_entry()
-						actions.close(prompt_bufnr)
-						if selection and selection.value then
-							local result = selection.value
-							require("zortex.services.search_history").record(result)
-							vim.cmd(cmd .. " " .. vim.fn.fnameescape(result.filepath))
-							local lnum = result.result_type == "section" and result.node.start_line or result.lnum
-							vim.fn.cursor(lnum, 1)
-							vim.cmd("normal! zz")
-						end
-					end
+					return shared_actions.smart_open(cmd, {
+						title = function()
+							return "Zortex Search (" .. mode .. ")"
+						end,
+						open_entry = open_entry,
+						on_entry = function(entry)
+							if entry.value then
+								history.record(entry.value)
+							end
+						end,
+					})
 				end
 
 				actions.select_default:replace(open_in("edit"))
+				map({ "i", "n" }, "<C-x>", open_in("split"))
+				map({ "i", "n" }, "<C-v>", open_in("vsplit"))
+
+				-- Send to quickfix directly
+				map({ "i", "n" }, "<C-q>", function()
+					local selections = shared_actions.get_selections(prompt_bufnr)
+					actions.close(prompt_bufnr)
+					if #selections > 0 then
+						shared_actions.send_to_quickfix(selections, {
+							title = "Zortex Search (" .. mode .. ")",
+							on_entry = function(entry)
+								if entry.value then
+									history.record(entry.value)
+								end
+							end,
+						})
+					end
+				end)
 
 				-- Create new note with current query
 				map({ "i", "n" }, "<C-o>", function()
@@ -296,10 +325,6 @@ function M.structural_search(opts)
 					picker.prompt_border:change_title("Zortex Structural Search (" .. mode .. ")")
 					picker:refresh(picker.finder, { reset_prompt = false })
 				end)
-
-				-- Open in splits
-				map({ "i", "n" }, "<C-x>", open_in("split"))
-				map({ "i", "n" }, "<C-v>", open_in("vsplit"))
 
 				-- Preview scrolling
 				map({ "i", "n" }, "<C-f>", actions.preview_scrolling_down)

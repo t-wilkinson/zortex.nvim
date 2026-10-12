@@ -34,7 +34,9 @@ end
 
 -- Interactive: ask for a name and a duration, then start the season
 function M.prompt_start_season()
-	vim.ui.input({ prompt = "Season name: ", default = "Q" .. os.date("%q") .. " " .. os.date("%Y") }, function(name)
+	local quarter = math.ceil(tonumber(os.date("%m")) / 3)
+	local default_name = string.format("Q%d %s", quarter, os.date("%Y"))
+	vim.ui.input({ prompt = "Season name: ", default = default_name }, function(name)
 		if not name or name == "" then
 			return
 		end
@@ -139,7 +141,10 @@ function M.show_area_xp(limit)
 	local top = require("zortex.services.areas").top(limit or 10)
 	local lines = { "🗺️ Top Areas by XP", string.rep("─", 40) }
 	for i, area in ipairs(top) do
-		table.insert(lines, string.format("%d. %s - Level %s (%d XP)", i, area.key, tostring(area.level or "?"), area.xp))
+		table.insert(
+			lines,
+			string.format("%d. %s - Level %s (%d XP)", i, area.key, tostring(area.level or "?"), area.xp)
+		)
 	end
 	if #top == 0 then
 		table.insert(lines, "No areas with XP yet")

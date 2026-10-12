@@ -9,6 +9,7 @@ local M = {}
 local P = require("zortex.services.projects")
 local score = require("zortex.services.projects.score")
 local datetime = require("zortex.utils.datetime")
+local project_actions = require("zortex.ui.telescope.actions")
 
 local SORTS = { "score", "okr", "priority", "due", "remaining", "size", "completion", "path", "name" }
 
@@ -218,6 +219,7 @@ function M.projects(opts)
 					ordinal = project:breadcrumb(" ") .. " " .. table.concat(project.tags, " "),
 					filename = project.file,
 					lnum = project.lnum,
+					text = project:breadcrumb(" › "),
 				}
 				entry.display = make_display
 				return entry
@@ -254,14 +256,17 @@ function M.projects(opts)
 					return s and s.project
 				end
 
-				local function open(cmd)
-					return function()
-						local project = selected()
-						actions.close(prompt_bufnr)
-						if project then
-							P.jump(project, cmd)
-						end
+				local function open_entry(entry, cmd)
+					if entry and entry.project then
+						P.jump(entry.project, cmd)
 					end
+				end
+
+				local function open(cmd)
+					return project_actions.smart_open(cmd, {
+						title = title,
+						open_entry = open_entry,
+					})
 				end
 
 				local function refresh()
@@ -273,6 +278,15 @@ function M.projects(opts)
 				actions.select_default:replace(open("edit"))
 				map({ "i", "n" }, "<C-x>", open("split"))
 				map({ "i", "n" }, "<C-v>", open("vsplit"))
+
+				-- Send selections (or current) to Quickfix
+				map({ "i", "n" }, "<C-q>", function()
+					local selections = project_actions.get_selections(prompt_bufnr)
+					actions.close(prompt_bufnr)
+					if #selections > 0 then
+						project_actions.send_to_quickfix(selections, { title = title() })
+					end
+				end)
 
 				map({ "i", "n" }, "<C-l>", function()
 					local project = selected()

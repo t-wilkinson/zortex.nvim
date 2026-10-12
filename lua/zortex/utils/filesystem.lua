@@ -163,6 +163,14 @@ function M.get_digest_file()
 	return M.get_file_path(constants.FILES.DIGEST)
 end
 
+function M.get_structure_file()
+	return M.get_file_path(constants.FILES.STRUCTURE)
+end
+
+function M.get_inbox_file()
+	return M.get_file_path(constants.FILES.INBOX)
+end
+
 -- =============================================================================
 -- Archive File Operations
 -- =============================================================================

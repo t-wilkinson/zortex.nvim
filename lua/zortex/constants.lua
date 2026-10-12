@@ -9,6 +9,8 @@ M.FILES = {
 	AREAS = "areas.zortex",
 	OKR = "okr.zortex",
 	DIGEST = "digest.zortex",
+	STRUCTURE = "structure.zortex",
+	INBOX = "inbox.zortex",
 	PROJECTS_ARCHIVE = "z/archive.projects.zortex",
 
 	-- User library
@@ -80,13 +82,16 @@ M.SIZE_POINTS = {
 	md = 3,
 	lg = 5,
 	xl = 8,
+	["2xl"] = 13,
+	["3xl"] = 21,
+	["4xl"] = 34,
+	["5xl"] = 55,
 	epic = 13,
 	legendary = 21,
 	mythic = 34,
 	ultimate = 55,
 }
 M.DEFAULT_TASK_SIZE = "md"
-
 
 M.TASK_MARKS = {
 	TODO = " ",

@@ -9,7 +9,7 @@ module agrees on. For the projects/areas API reference see
 ## Summary
 
 Every note is parsed **once**, by one grammar (`core/syntax`), into a cached
-*document*. A document holds the lines, the syntax of every line (what it is,
+_document_. A document holds the lines, the syntax of every line (what it is,
 where its inline spans are), a structural tree, and the header (article names
 and tags). Everything else is built on documents:
 
@@ -26,7 +26,7 @@ and tags). Everything else is built on documents:
 - **A link index** records every link in every note and where it resolves,
   persisted in `notes_dir/.z/link_index.json`. Backlinks, project schedules,
   KR → project links and broken-link reports all read it.
-- **Projects**, **areas** and **objectives** are *entities*: objects derived
+- **Projects**, **areas** and **objectives** are _entities_: objects derived
   from sections of the tree, each with a stable key (its tree path) and a
   canonical link.
 - **Relations** connect them: calendar entries, key results and area links are
@@ -67,28 +67,30 @@ and tags). Everything else is built on documents:
 
 ## Notes on disk
 
-| Thing | Syntax | Meaning |
-|---|---|---|
-| Article names | `@@Projects`, `@@P` | Header lines. The first is the primary name; the rest are aliases. |
-| Tags | `@P`, `@Cars`, `@Archive` | Header lines starting with a single `@`. |
-| Header | leading `@@`/`@` lines | Blank lines are skipped; the header ends at the first other line. |
-| Heading | `# …` to `###### …` | Levels 1 to 6. |
-| Bold heading | `**Text**` or `**Text**:` | Level 7. |
-| Label | `Text:` (no `. ` inside) | Level 8 + indent, so indented labels nest. |
-| List item | `- text`, `+ text`, `* text`, `1. text`, `A. text` | Bullet or ordered marker. |
-| Time item | `14:00 text`, `16:00 - 17:00 text` | Calendar events (and any timed line). |
-| Task | `- [ ] text`, `- [x] text` | A list item with a checkbox. |
-| Keyed item | `- KR1: [ ] text`, `- Label: text` | A `Key:` prefix, optionally followed by a checkbox. |
-| Attribute | `@key(value)`, `@p1`, `@2h` | Parsed with a schema (`utils/attributes`). |
-| Blocks | ```` ``` ```` fences, `$$` math, `\| a \| b \|` tables, `\| quote`, `> quote`, `[^1]: footnote` | Nothing inside a fence or math block is structure. |
-| Inline | `[link]`, `![live]`, `@[a & b]`, `[text](url)`, `[^1]`, URLs, `./paths`, `` `code` ``, `$math$`, `**bold**`, `*italic*`, `14:00` | Spans with byte columns. |
+| Thing         | Syntax                                                                                                                           | Meaning                                                            |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Article names | `@@Projects`, `@@P`                                                                                                              | Header lines. The first is the primary name; the rest are aliases. |
+| Tags          | `@P`, `@Cars`, `@Archive`                                                                                                        | Header lines starting with a single `@`.                           |
+| Header        | leading `@@`/`@` lines                                                                                                           | Blank lines are skipped; the header ends at the first other line.  |
+| Heading       | `# …` to `###### …`                                                                                                              | Levels 1 to 6.                                                     |
+| Bold heading  | `**Text:**`                                                                                                                      | Level 7.                                                           |
+| Label         | `Text:` (no `. ` inside)                                                                                                         | Level 8 + indent, so indented labels nest.                         |
+| List item     | `- text`, `+ text`, `* text`, `1. text`, `A. text`                                                                               | Bullet or ordered marker.                                          |
+| Time item     | `14:00 text`, `16:00 - 17:00 text`                                                                                               | Calendar events (and any timed line).                              |
+| Task          | `- [ ] text`, `- [x] text`                                                                                                       | A list item with a checkbox.                                       |
+| Keyed item    | `- KR1: [ ] text`, `- Label: text`                                                                                               | A `Key:` prefix, optionally followed by a checkbox.                |
+| Attribute     | `@key(value)`, `@p1`, `@2h`                                                                                                      | Parsed with a schema (`utils/attributes`).                         |
+| Blocks        | ` ``` ` fences, `$$` math, `\| a \| b \|` tables, `\| quote`, `> quote`, `[^1]: footnote`                                        | Nothing inside a fence or math block is structure.                 |
+| Inline        | `[link]`, `![live]`, `@[a & b]`, `[text](url)`, `[^1]`, URLs, `./paths`, `` `code` ``, `$math$`, `**bold**`, `*italic*`, `14:00` | Spans with byte columns.                                           |
 
 **Special notes:**
+
 - `projects.zortex` is the Projects article (`@@Projects` / `@@P`).
 - Any note tagged `@P` is a standalone project.
 - `areas.zortex` is the Areas article (`@@Areas` / `@@A`).
 - `okr.zortex` holds objectives and key results.
-- `calendar.zortex` is the schedule.
+- `calendar.zortex` is the schedule. (@@Calendar or /@@C).
+- `structure.zortex`
 - Notes named `z/archive.*.zortex`, or tagged `@Archive`, are archived and
   ignored by link resolution and project lists.
 
@@ -96,13 +98,13 @@ and tags). Everything else is built on documents:
 
 ### One structural level scale — `constants.SECTION_HIERARCHY`
 
-| Section | Level |
-|---|---|
-| article | 0 |
-| heading | 1–6 (`#` count) |
-| bold heading | 7 |
-| label | 8 + indent |
-| tag / text | not structural |
+| Section      | Level           |
+| ------------ | --------------- |
+| article      | 0               |
+| heading      | 1–6 (`#` count) |
+| bold heading | 7               |
+| label        | 8 + indent      |
+| tag / text   | not structural  |
 
 A section ends at the next section with a level **≤** its own. The tree builder,
 breadcrumbs, section navigation, folding and archive merging all use this one
@@ -120,7 +122,7 @@ tables, and is the only code that decides what a line or a span is.
   `math_fence`, `math`, `table`, `quote`, `footnote`), `indent`, and for
   sections `section`, `level`, `text` (attributes stripped), `heading`
   (`#` count). Items carry `item` = `{ marker, marker_type, marker_col,
-  time, key, key_col, mark, mark_col, content_col }`. `content_col` is where
+time, key, key_col, mark, mark_col, content_col }`. `content_col` is where
   inline content starts. `sections` are the structural lines in order (the
   header gives **one** article carrying all its `names`); `blocks` are code,
   math and table ranges.
@@ -158,7 +160,7 @@ definitions.
 - **Key results** are items keyed `KRn` (`- KR2: [ ] …`); the legacy
   `- KR-text` form still parses.
 - **Calendar entries** are the items under a date label
-  (`services/calendar_entry`): an entry *is* its Item, plus `type`
+  (`services/calendar_entry`): an entry _is_ its Item, plus `type`
   (task/event/note), `text` without the time prefix, `date_context`,
   `timing` and recurrence (`is_active_on_date`). Its text formats are
   `calendar_entry/format` (`pretty`, `simple`).
@@ -183,14 +185,14 @@ have `type`, `text` (clean), `level`, `start_line`, `end_line`, `children`,
 
 **Generic helpers**, used by search and by entities:
 
-| helper | does |
-|---|---|
-| `walk(fn)` | pre-order; return `false` to skip children |
-| `find(pred)` / `filter(pred)` | first / all matches |
-| `fold(fn)` | post-order aggregation `fn(node, child_results)` |
-| `ancestors()`, `path_texts()`, `get_breadcrumb(sep)`, `depth()` | paths |
-| `get_direct_end_line()`, `get_direct_lines(bufnr)` | content before the first child |
-| `derive(root, keep, make)` | builds a domain tree from chosen node types (see entities) |
+| helper                                                          | does                                                       |
+| --------------------------------------------------------------- | ---------------------------------------------------------- |
+| `walk(fn)`                                                      | pre-order; return `false` to skip children                 |
+| `find(pred)` / `filter(pred)`                                   | first / all matches                                        |
+| `fold(fn)`                                                      | post-order aggregation `fn(node, child_results)`           |
+| `ancestors()`, `path_texts()`, `get_breadcrumb(sep)`, `depth()` | paths                                                      |
+| `get_direct_end_line()`, `get_direct_lines(bufnr)`              | content before the first child                             |
+| `derive(root, keep, make)`                                      | builds a domain tree from chosen node types (see entities) |
 
 ### Documents — `core/document.lua`
 
@@ -229,14 +231,14 @@ The old JSON tree cache in `stdpath("cache")` is gone.
 A link is `/`-separated components resolved **left to right**. Each component
 narrows a list of candidates (file + line range):
 
-| Component | Example | Narrows to |
-|---|---|---|
-| Article | `P`, `Projects` | Files declaring the alias, **then** files tagged with it. |
-| Tag | `@P` | Files whose header has the tag. If no file declares it, a line search for `@P`. |
-| Heading | `#1.4 - zortex` | Heading lines whose text **starts with** the text, case-insensitive, at **any depth** in the current range. |
-| Label / bold | `:Fitness`, `*X` | Line searches. |
-| List item | `-KR1`, `-Call the bank` | A list item whose key (`- KR1: …`) or text (checkbox and attributes ignored) starts with the text. |
-| Query | `%text`, `a + b`, `a & b` | Line searches. Case-sensitive only if the query has an uppercase letter. |
+| Component    | Example                   | Narrows to                                                                                                  |
+| ------------ | ------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Article      | `P`, `Projects`           | Files declaring the alias, **then** files tagged with it.                                                   |
+| Tag          | `@P`                      | Files whose header has the tag. If no file declares it, a line search for `@P`.                             |
+| Heading      | `#1.4 - zortex`           | Heading lines whose text **starts with** the text, case-insensitive, at **any depth** in the current range. |
+| Label / bold | `:Fitness`, `*X`          | Line searches.                                                                                              |
+| List item    | `-KR1`, `-Call the bank`  | A list item whose key (`- KR1: …`) or text (checkbox and attributes ignored) starts with the text.          |
+| Query        | `%text`, `a + b`, `a & b` | Line searches. Case-sensitive only if the query has an uppercase letter.                                    |
 
 **Generated link text** keeps only `[A-Za-z0-9 _-().]`: `component_text`
 takes the longest such prefix (with balanced parentheses), so
@@ -246,6 +248,7 @@ otherwise; key results link as `[O/#Current/#3M-2026-Q1 …/-KR1]` and planner
 tasks as `[P/#…/-Improve website]`.
 
 **Rules for the result:**
+
 - For a non-final component, the **first match in each file** becomes the new
   range: the section starting at that line (`doc:node_starting_at`).
 - Results come back in note order (top-level files first, then line order), and
@@ -261,15 +264,15 @@ searches the Projects article first, then every `@P` note, so
 
 **API:**
 
-| function | returns |
-|---|---|
-| `resolve(link, opts)` | all results `{ file, lnum, col, text, component, lines, doc }`, plus an error string |
-| `resolve_first(link)` | the canonical result |
-| `resolve_node(link)` | the deepest section at the canonical result, plus the result |
-| `process_link(parsed)` | UI wrapper that notifies when nothing matched |
-| `build_link(parts)`, `node_components(doc, node)`, `link_for_node(doc, node)` | link building |
-| `build_result_link(result)` | link shown in the quickfix list |
-| `search_lines`, `section_end`, `get_section_end` | building blocks |
+| function                                                                      | returns                                                                              |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `resolve(link, opts)`                                                         | all results `{ file, lnum, col, text, component, lines, doc }`, plus an error string |
+| `resolve_first(link)`                                                         | the canonical result                                                                 |
+| `resolve_node(link)`                                                          | the deepest section at the canonical result, plus the result                         |
+| `process_link(parsed)`                                                        | UI wrapper that notifies when nothing matched                                        |
+| `build_link(parts)`, `node_components(doc, node)`, `link_for_node(doc, node)` | link building                                                                        |
+| `build_result_link(result)`                                                   | link shown in the quickfix list                                                      |
+| `search_lines`, `section_end`, `get_section_end`                              | building blocks                                                                      |
 
 ### Link index — `core/link_index.lua`
 
@@ -278,16 +281,17 @@ note, with where it resolves. Persisted to `notes_dir/.z/link_index.json`
 (through `core/state`; the version is bumped when extraction changes, which
 forces a rebuild).
 
-| function | returns |
-|---|---|
-| `links_from(file)` | links found in a note, each `{ file, lnum, col, text, definition, target = { file, lnum } }` |
-| `references(file, s, e)` | links whose target lies in lines `s..e` of `file` |
-| `backlinks(entity_or_{doc,node}, { descendants })` | links into an item's own content, or its whole subtree |
-| `unresolved()` | links that resolve nowhere (`:ZortexBrokenLinks` puts them in quickfix) |
-| `refresh(force)`, `rebuild()` | update now (normally lazy, at most once a second) / start over (`:ZortexLinkIndexRebuild`) |
+| function                                           | returns                                                                                      |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `links_from(file)`                                 | links found in a note, each `{ file, lnum, col, text, definition, target = { file, lnum } }` |
+| `references(file, s, e)`                           | links whose target lies in lines `s..e` of `file`                                            |
+| `backlinks(entity_or_{doc,node}, { descendants })` | links into an item's own content, or its whole subtree                                       |
+| `unresolved()`                                     | links that resolve nowhere (`:ZortexBrokenLinks` puts them in quickfix)                      |
+| `refresh(force)`, `rebuild()`                      | update now (normally lazy, at most once a second) / start over (`:ZortexLinkIndexRebuild`)   |
 
 **Incremental refresh.** A note is re-read when its mtime/size changes (or, for
 a modified buffer, its changedtick). A link is re-resolved only if:
+
 - its own note changed,
 - its current target's note changed,
 - it was unresolved,
@@ -301,10 +305,11 @@ are not links.
 
 ### Entities — `core/entity.lua`
 
-An *entity* is a domain object that lives at a section and forms its own tree.
+An _entity_ is a domain object that lives at a section and forms its own tree.
 Projects, areas and objectives are entities.
 
 `Entity` (the base class) provides:
+
 - fields: `name`, `kind` (the section type), `file`, `lnum`, `start_line`,
   `end_line`, `depth`, `parent`, `children`
 - identity: `path` (list of clean texts), `key` (`/`-joined path), `link`
@@ -332,7 +337,7 @@ entity.registry({
 `signature()` changes whenever any source changes. Caches of derived data
 (OKR link resolution, the calendar schedule index) key on it.
 
-**Adding a new kind** (for example PARA *Resources*) is a spec plus a class:
+**Adding a new kind** (for example PARA _Resources_) is a spec plus a class:
 choose the source notes, which section types count, and a namespace. See
 `services/areas/` for the smallest complete example.
 
@@ -345,13 +350,13 @@ Reads go through `core/document`; writes go through here:
   works, you save as usual)
 - otherwise the **file** is edited directly
 
-| function | does |
-|---|---|
-| `set_lines(target, s, e, lines)` | replace lines `s..e` (`e = s - 1` inserts); target is a path or bufnr |
-| `set_line`, `insert_lines`, `delete_lines` | shorthands |
-| `get_lines(target)`, `document(target)` | current content / snapshot |
-| `ensure_file(path, lines)` | create a note if missing |
-| `get_doc_context()` | `{ bufnr, filepath, doc, section, lnum, col, line }` for the cursor in any note buffer |
+| function                                   | does                                                                                   |
+| ------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `set_lines(target, s, e, lines)`           | replace lines `s..e` (`e = s - 1` inserts); target is a path or bufnr                  |
+| `set_line`, `insert_lines`, `delete_lines` | shorthands                                                                             |
+| `get_lines(target)`, `document(target)`    | current content / snapshot                                                             |
+| `ensure_file(path, lines)`                 | create a note if missing                                                               |
+| `get_doc_context()`                        | `{ bufnr, filepath, doc, section, lnum, col, line }` for the cursor in any note buffer |
 
 Every edit emits `workspace:lines_changed` `{ file, start_line, end_line, count }`.
 
@@ -360,10 +365,10 @@ Every edit emits `workspace:lines_changed` `{ file, start_line, end_line, count 
 Everything Zortex keeps in `notes_dir/.z` is one JSON file per name, opened
 with `State.open(name, { version, default, migrate })`:
 
-| method | does |
-|---|---|
-| `get()` | the data table, loaded on first use |
-| `save()` | atomic write (temp file, then rename) |
+| method                 | does                                                     |
+| ---------------------- | -------------------------------------------------------- |
+| `get()`                | the data table, loaded on first use                      |
+| `save()`               | atomic write (temp file, then rename)                    |
 | `reset()` / `reload()` | back to `default()` and save / forget the in-memory copy |
 
 Loading never fails: a missing file gives `default()`, a corrupt one is kept
@@ -390,14 +395,15 @@ in priority order; errors are reported, never raised into the emitter.
 
 ### Projects — `services/projects/`
 
-| file | role |
-|---|---|
-| `init.lua` | Registry (sources: `projects.zortex` plus `@P` notes; namespace `P`). Also `query`, `tasks` and `update_progress`. |
-| `project.lua` | `Project` class: tasks, notes, stats, rollup, points, `is_done`, and relation methods. |
-| `score.lua` | Task and project scoring, indicators, and the comparators used by `query({ sort = … })`. |
-| `relations.lua` | Schedule index (calendar), key results (OKR), areas. |
+| file            | role                                                                                                               |
+| --------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `init.lua`      | Registry (sources: `projects.zortex` plus `@P` notes; namespace `P`). Also `query`, `tasks` and `update_progress`. |
+| `project.lua`   | `Project` class: tasks, notes, stats, rollup, points, `is_done`, and relation methods.                             |
+| `score.lua`     | Task and project scoring, indicators, and the comparators used by `query({ sort = … })`.                           |
+| `relations.lua` | Schedule index (calendar), key results (OKR), areas.                                                               |
 
 **Rules:**
+
 - **Own content:** a project's own tasks run from its header line to its first
   sub-project. Container projects have their own tasks. Tasks are core/item
   Items with `project` set.
@@ -465,12 +471,12 @@ One query over calendar entries, project tasks with `@due`, and projects with
 `time`, `text`, `done`, `priority`, `entry` / `task` / `project`, `file`,
 `lnum`. Within a day, timed items come first in time order, then by priority.
 
-| function | returns |
-|---|---|
-| `day(date)` | items for one day |
-| `range(from, to, { kinds, include_empty, include_done })` | `{ { date, items } }` |
-| `upcoming(days)` | today and the following days |
-| `review({ days, today })` | weekly review findings (below) |
+| function                                                  | returns                        |
+| --------------------------------------------------------- | ------------------------------ |
+| `day(date)`                                               | items for one day              |
+| `range(from, to, { kinds, include_empty, include_done })` | `{ { date, items } }`          |
+| `upcoming(days)`                                          | today and the following days   |
+| `review({ days, today })`                                 | weekly review findings (below) |
 
 `review()` returns `overdue`, `due_soon`, `completed` (by `@done` date),
 `unscheduled` (open work, no calendar time ahead), `stale` (also none in the
@@ -507,6 +513,7 @@ handlers run asynchronously (`vim.schedule`).
    area XP is stored under **area keys**.
 
 **Reading and display:**
+
 - `xp/stats` gives season status, per-project XP, area stats, season
   start/end, and the stats and area-ranking displays.
 - `require("zortex").xp`, the `XP*` and `Season*` actions, and the skill tree all use
@@ -539,19 +546,19 @@ accepted.
 
 ## UI layer
 
-| module | uses |
-|---|---|
-| `ui/telescope/projects.lua` | `projects.query` |
-| `ui/telescope/search.lua` | `services/search` (picker only) |
-| `features/highlights.lua`, `folding.lua`, `toc.lua` | `core/document` syntax and tree |
-| `ui/skill_tree.lua` | `areas`, `projects`, `xp/stats` |
-| `ui/calendar/view.lua` (+ `render`, `keys`) | `stores/calendar`, `agenda` (digest panel), `projects` |
-| `ui/calendar/init.lua` | `stores/calendar` |
-| `notifications/types/digest.lua` | `services/digest` |
-| `features/completion.lua` | `core/link`, `notes`, `document` |
-| `features/preview.lua` | `core/link`, `features/links` |
-| `ui/review.lua` | `agenda.review` |
-| `services/search_history.lua` | `services/search` (adds boosts); the picker records opens |
+| module                                              | uses                                                      |
+| --------------------------------------------------- | --------------------------------------------------------- |
+| `ui/telescope/projects.lua`                         | `projects.query`                                          |
+| `ui/telescope/search.lua`                           | `services/search` (picker only)                           |
+| `features/highlights.lua`, `folding.lua`, `toc.lua` | `core/document` syntax and tree                           |
+| `ui/skill_tree.lua`                                 | `areas`, `projects`, `xp/stats`                           |
+| `ui/calendar/view.lua` (+ `render`, `keys`)         | `stores/calendar`, `agenda` (digest panel), `projects`    |
+| `ui/calendar/init.lua`                              | `stores/calendar`                                         |
+| `notifications/types/digest.lua`                    | `services/digest`                                         |
+| `features/completion.lua`                           | `core/link`, `notes`, `document`                          |
+| `features/preview.lua`                              | `core/link`, `features/links`                             |
+| `ui/review.lua`                                     | `agenda.review`                                           |
+| `services/search_history.lua`                       | `services/search` (adds boosts); the picker records opens |
 
 **Projects picker** (`ui/telescope/projects.lua`): rows show
 `ancestors › name  done/total  open-points  [P1,DUE]`.
@@ -587,22 +594,22 @@ section's path (article → headings → … → the section itself):
   program), not greedily
 - the direct sub-sections of a match are listed under it
 
-| word | matches |
-|---|---|
-| `plain` | any section (article aliases count, so `p` matches `@@P`) |
-| `@@name` | articles only |
-| `#name` | headings only |
-| `:name` | labels only |
-| `*name` | bold headings only |
-| `@@`, `#`, … alone | any section of that type |
-| `a_b`, `a\ b` | a word containing a space |
+| word               | matches                                                   |
+| ------------------ | --------------------------------------------------------- |
+| `plain`            | any section (article aliases count, so `p` matches `@@P`) |
+| `@@name`           | articles only                                             |
+| `#name`            | headings only                                             |
+| `:name`            | labels only                                               |
+| `*name`            | bold headings only                                        |
+| `@@`, `#`, … alone | any section of that type                                  |
+| `a_b`, `a\ b`      | a word containing a space                                 |
 
 **Ranking.** Each match is scored, and the picker keeps that order (its sorter
 returns each result's rank and only borrows the fuzzy sorter's highlighter):
 
 - score = 100 × word quality (per word: exact 3, prefix 2, substring 1)
-  + type bonus (article 2000, heading 1000 − 50 × level, bold heading 400,
-  label 300)
+  - type bonus (article 2000, heading 1000 − 50 × level, bold heading 400,
+    label 300)
 - **files are grouped**, best-scoring file first, live notes before archived
   ones (shown with `(archive)`)
 - inside a file, results stay in **document order**, so parents sit above
@@ -614,14 +621,14 @@ article), with its sections in order, then the next best file.
 **Settings** (`setup(opts)` deep-merges `opts` over `Config.defaults.ui.search`;
 calling `search.setup()` with no arguments resets to the defaults):
 
-| option | effect |
-|---|---|
-| `default_mode` | `"section"`: sections, then lines. `"article"`: article names only. `<C-t>` toggles in the picker. |
-| `max_results` | caps the results of each query |
-| `token_filters[n]` | section types that may be a result when the prompt has `n` words (the last entry applies beyond). Bold headings and labels above the first heading count as H1. Typed words bypass it. |
-| `access_decay_rate` | per-day decay of a note's "opened from search" score (see history below) |
-| `history` | `{ enabled, max_entries, score_decay, propagation_decay }`: per-section history |
-| `breadcrumb_display` | reserved; nothing reads it yet (results always show the full breadcrumb) |
+| option               | effect                                                                                                                                                                                 |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `default_mode`       | `"section"`: sections, then lines. `"article"`: article names only. `<C-t>` toggles in the picker.                                                                                     |
+| `max_results`        | caps the results of each query                                                                                                                                                         |
+| `token_filters[n]`   | section types that may be a result when the prompt has `n` words (the last entry applies beyond). Bold headings and labels above the first heading count as H1. Typed words bypass it. |
+| `access_decay_rate`  | per-day decay of a note's "opened from search" score (see history below)                                                                                                               |
+| `history`            | `{ enabled, max_entries, score_decay, propagation_decay }`: per-section history                                                                                                        |
+| `breadcrumb_display` | reserved; nothing reads it yet (results always show the full breadcrumb)                                                                                                               |
 
 **Search history** (`services/search_history.lua`, stored in
 `notes_dir/.z/search_history.json`). Opening a result (`<CR>`, `<C-x>`,
@@ -727,11 +734,11 @@ icons take two columns but one character.
 its own slice the same way `search.setup` does. Relevant constants live in
 `constants.lua`:
 
-| constant | meaning |
-|---|---|
-| `PROJECT_TAG = "P"` | the projects tag and link namespace |
-| `ARCHIVE_TAG = "Archive"` | marks archived notes |
-| `SIZE_POINTS`, `DEFAULT_TASK_SIZE` | task and project sizing |
+| constant                           | meaning                             |
+| ---------------------------------- | ----------------------------------- |
+| `PROJECT_TAG = "P"`                | the projects tag and link namespace |
+| `ARCHIVE_TAG = "Archive"`          | marks archived notes                |
+| `SIZE_POINTS`, `DEFAULT_TASK_SIZE` | task and project sizing             |
 
 ## Testing
 
@@ -768,30 +775,30 @@ to date; `app/links` and `app/search` must reproduce them.
   `@P` note, a nested `@P` note in `z/`, an archived copy, OKR, areas and the
   calendar.
 
-| test file | covers |
-|---|---|
-| `test_core` | header, levels, tree, notes index |
-| `test_syntax` | line kinds, items, inline spans, link lookups, Items for tasks/KRs/calendar, AST conformance fixtures, highlights, folds, the grammar loading with only the Lua standard library |
-| `test_links` | resolution rules, canonical results, archive handling, `[@P/…]`, round-trips |
-| `test_projects` | registry, stats/points, `P/` links, schedule, KRs, areas |
-| `test_areas` | area tree, `A/` links, projects/objectives, XP keys |
-| `test_search` | config overlay, token filters, typed tokens, modes |
-| `test_tasks` | toggling in a standalone note without losing unsaved edits; XP context |
-| `test_load` | every module under `lua/zortex` loads (Telescope stubbed) |
-| `test_okr` | objective entities, `O/` links, KR projects and progress |
-| `test_agenda` | day/range items, due tasks, review findings |
-| `test_completion` | link context, suggestions per position, every suggestion resolves |
-| `test_zq_planner` | put rules, templates, candidate ranking and links, putting into the calendar |
-| `test_zr_actions` | every action complete, targets exist, commands/keymaps/overrides, API, backlinks, README table up to date |
-| `test_zs_query` | every query function returns JSON-safe data; export |
-| `test_zt_state` | state files: defaults, versions, migration, corrupt files |
-| `test_zu_review` | review buffer layout, links, jumps |
-| `test_zv_search_history` | recording, decay, persistence, boosts |
-| `test_zw_archive` | archiving merges under existing ancestors |
-| `test_zw_edits` | editing layer; calendar line edits keep the file intact; buffer vs file |
-| `test_zx_link_index` | backlinks, unresolved links, incremental refresh, reload from disk |
-| `test_zy_preview` | preview content, focus line, `<CR>` opens the target |
-| `test_zz_setup` | full `require("zortex").setup()`, then opening and navigating the calendar |
+| test file                | covers                                                                                                                                                                           |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `test_core`              | header, levels, tree, notes index                                                                                                                                                |
+| `test_syntax`            | line kinds, items, inline spans, link lookups, Items for tasks/KRs/calendar, AST conformance fixtures, highlights, folds, the grammar loading with only the Lua standard library |
+| `test_links`             | resolution rules, canonical results, archive handling, `[@P/…]`, round-trips                                                                                                     |
+| `test_projects`          | registry, stats/points, `P/` links, schedule, KRs, areas                                                                                                                         |
+| `test_areas`             | area tree, `A/` links, projects/objectives, XP keys                                                                                                                              |
+| `test_search`            | config overlay, token filters, typed tokens, modes                                                                                                                               |
+| `test_tasks`             | toggling in a standalone note without losing unsaved edits; XP context                                                                                                           |
+| `test_load`              | every module under `lua/zortex` loads (Telescope stubbed)                                                                                                                        |
+| `test_okr`               | objective entities, `O/` links, KR projects and progress                                                                                                                         |
+| `test_agenda`            | day/range items, due tasks, review findings                                                                                                                                      |
+| `test_completion`        | link context, suggestions per position, every suggestion resolves                                                                                                                |
+| `test_zq_planner`        | put rules, templates, candidate ranking and links, putting into the calendar                                                                                                     |
+| `test_zr_actions`        | every action complete, targets exist, commands/keymaps/overrides, API, backlinks, README table up to date                                                                        |
+| `test_zs_query`          | every query function returns JSON-safe data; export                                                                                                                              |
+| `test_zt_state`          | state files: defaults, versions, migration, corrupt files                                                                                                                        |
+| `test_zu_review`         | review buffer layout, links, jumps                                                                                                                                               |
+| `test_zv_search_history` | recording, decay, persistence, boosts                                                                                                                                            |
+| `test_zw_archive`        | archiving merges under existing ancestors                                                                                                                                        |
+| `test_zw_edits`          | editing layer; calendar line edits keep the file intact; buffer vs file                                                                                                          |
+| `test_zx_link_index`     | backlinks, unresolved links, incremental refresh, reload from disk                                                                                                               |
+| `test_zy_preview`        | preview content, focus line, `<CR>` opens the target                                                                                                                             |
+| `test_zz_setup`          | full `require("zortex").setup()`, then opening and navigating the calendar                                                                                                       |
 
 ## Conventions
 

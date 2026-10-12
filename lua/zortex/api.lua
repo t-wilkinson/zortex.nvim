@@ -58,6 +58,7 @@ local SERVICES = {
 	planner = "zortex.services.planner",
 	xp = "zortex.services.xp.stats",
 	config = "zortex.config",
+	attributes = "zortex.utils.attributes",
 }
 M.SERVICES = SERVICES
 

@@ -245,6 +245,22 @@ local attribute_parsers = {
 
 M.attribute_parsers = attribute_parsers
 
+local size_values = {
+	xs = true,
+	sm = true,
+	md = true,
+	lg = true,
+	xl = true,
+	["2xl"] = true,
+	["3xl"] = true,
+	["4xl"] = true,
+	["5xl"] = true,
+	epic = true,
+	legendary = true,
+	mythic = true,
+	ultimate = true,
+}
+
 -- Parse @key(value) attributes from text
 -- @param parser_context table Context of the text being parsed to optionally pass to functions like parse_datetime() default_date_str.
 --  The attribute parsers know how to take the parser_context and pass relevant information to functions as necessary.
@@ -298,6 +314,19 @@ function M.parse_attributes(text, schema, parser_context)
 		local imp = key:match("^i([123])$")
 		if imp then
 			attrs.i = imp
+			return space
+		end
+
+		-- Check size shortcuts (e.g. @sm, @xl, @ultimate)
+		if schema and schema.size and schema.size.values then
+			for _, allowed in ipairs(schema.size.values) do
+				if key == allowed then
+					attrs.size = key
+					return space
+				end
+			end
+		elseif not schema and size_values[key] then
+			attrs.size = key
 			return space
 		end
 
@@ -395,7 +424,8 @@ M.schemas = {
 	-- Task attributes
 	task = {
 		id = { type = "string" },
-		size = { type = "enum", values = { "xs", "sm", "md", "lg", "xl" } },
+		size = { type = "enum", values = { "xs", "sm", "md", "lg", "xl", "2xl", "3xl", "4xl", "5xl" } },
+		sz = "size",
 		p = { type = "enum", values = { "1", "2", "3" } },
 		i = { type = "enum", values = { "1", "2", "3" } },
 		due = { type = "date" },
@@ -436,6 +466,7 @@ M.schemas = {
 				"ultimate",
 			},
 		},
+		sz = "size",
 		area = { type = "area" },
 		a = "area",
 	},

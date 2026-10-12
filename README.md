@@ -194,7 +194,22 @@ require("zortex").setup({
 | `:ZortexCalendarDigest` | `<leader>zCc` | `calendar_digest` | Calendar view with the digest panel |
 | `:ZortexDigest` | `<leader>zCd` | `digest` | Open the digest note |
 | `:ZortexDigestUpdate` | `<leader>zCD` | `digest_update` | Regenerate the digest note |
-| `:ZortexNotificationsSync` |  | `notifications_sync` | Sync calendar notifications to the server |
+
+**Pomodoro**
+
+| Command | Keys | Action id | Does |
+|---|---|---|---|
+|  | `<leader>zoo` | `pomodoro_toggle` | Start, pause or resume the pomodoro |
+|  | `<leader>zos` | `pomodoro_skip` | End the current pomodoro phase now |
+|  | `<leader>zor` | `pomodoro_restart` | Begin a new pomodoro cycle |
+|  | `<leader>zox` | `pomodoro_stop` | Stop the pomodoro |
+|  | `<leader>zoi` | `pomodoro_status` | Show the pomodoro status |
+
+**Plan**
+
+| Command | Keys | Action id | Does |
+|---|---|---|---|
+| `:ZortexNotificationsSync …` |  | `notifications_sync` | Sync calendar notifications (to the server if enabled); `force` resends unchanged |
 | `:ZortexIcalImport` |  | `ical_import` | Import an iCal file or URL into the calendar |
 | `:ZortexIcalExport` |  | `ical_export` | Export the calendar to an iCal file |
 
@@ -206,6 +221,8 @@ require("zortex").setup({
 | `:ZortexOpenAreas` | `<leader>zfa` | `open_areas` | Open areas.zortex |
 | `:ZortexOpenOKR` | `<leader>zfo` | `open_okr` | Open okr.zortex |
 | `:ZortexOpenCalendar` | `<leader>zfc` | `open_calendar` | Open calendar.zortex |
+| `:ZortexOpenStructure` | `<leader>zfs` | `open_structure` | Open structure.zortex |
+| `:ZortexOpenInbox` | `<leader>zfi` | `open_inbox` | Open inbox.zortex |
 
 **XP**
 

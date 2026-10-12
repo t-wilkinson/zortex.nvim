@@ -4,20 +4,33 @@ local M = {}
 local manager = require("zortex.notifications.manager")
 local datetime = require("zortex.utils.datetime")
 local calendar_store = require("zortex.stores.calendar")
+local store = require("zortex.stores.notifications")
 local Logger = require("zortex.core.logger")
 local Config = require("zortex.config")
 
 local cfg = {}
 
--- Parse notify attribute value
+-- Minutes before the entry to notify: @notify(10, 60) -> { 10, 60 };
+-- @notify(no) -> nil; none -> the configured default (0: at the time).
 local function parse_notify_value(notify_attr)
-	if type(notify_attr) == "string" and notify_attr == "no" then
+	if notify_attr == "no" or notify_attr == false then
 		return nil
-	elseif type(notify_attr) == "table" then
-		return notify_attr
-	else
-		return { cfg.default_advance_minutes }
 	end
+	local out = {}
+	if type(notify_attr) == "table" then
+		for _, v in ipairs(notify_attr) do
+			local n = tonumber(v)
+			if n then
+				out[#out + 1] = n
+			end
+		end
+	elseif tonumber(notify_attr) then
+		out[1] = tonumber(notify_attr)
+	end
+	if #out == 0 then
+		out[1] = tonumber(cfg.default_advance_minutes) or 0
+	end
+	return out
 end
 
 -- Create a deduplication key for a calendar notification
@@ -33,173 +46,213 @@ local function create_dedup_key(entry, date_str, event_type, advance_minutes)
 	)
 end
 
--- Format notification message based on event type
-local function format_notification(entry, event_type, minutes_until)
-	local time_str
+-- Title and message of a calendar notification: the entry's text, and when.
+local function format_notification(entry, event_type, minutes_until, at)
+	local when
 	if minutes_until <= 0 then
-		time_str = "now"
-	elseif minutes_until == 1 then
-		time_str = "in 1 minute"
+		when = "now"
 	elseif minutes_until < 60 then
-		time_str = string.format("in %d minutes", minutes_until)
-	elseif minutes_until == 60 then
-		time_str = "in 1 hour"
-	elseif minutes_until < 120 then
-		time_str = string.format("in 1 hour %d minutes", minutes_until - 60)
+		when = string.format("in %d min", minutes_until)
+	elseif minutes_until % 60 == 0 then
+		when = string.format("in %d h", minutes_until / 60)
 	else
-		time_str = string.format("in %d hours", math.floor(minutes_until / 60))
+		when = string.format("in %d h %d min", math.floor(minutes_until / 60), minutes_until % 60)
 	end
-
-	-- local verb = event_type == "end" and "ending" or "starting"
-	local verb = event_type == "end" and " ending" or ""
-	local title = string.format("Calendar: %s %s %s", entry.text, verb, time_str)
-	local message = entry:format()
-
-	if minutes_until <= 0 then
+	local clock = os.date("%H:%M", at)
+	local message
+	if event_type == "end" then
+		message = string.format("ends %s (%s)", clock, when)
 	else
-		message = string.format("%s%s %s", message, verb, time_str)
+		local end_time = entry:get_end_time()
+		local range = end_time and (clock .. "–" .. os.date("%H:%M", os.time(end_time))) or clock
+		message = minutes_until <= 0 and range or string.format("%s (%s)", range, when)
 	end
-	-- return title, message
-	-- return message, "-"
-	return entry.text, "-"
+	return entry.text, message
 end
 
--- Sync calendar notifications
-function M.sync()
-	-- Load calendar data
+-- ===========================================================================
+-- Manifest: what was last synced, so unchanged calendars aren't re-sent
+-- ===========================================================================
+
+local function signature(n)
+	local tags = vim.deepcopy(n.tags or {})
+	table.sort(tags)
+	return table.concat({
+		n.deduplication_key or "",
+		n.title or "",
+		n.message or "",
+		tostring(n.trigger_time),
+		n.priority or "",
+		table.concat(tags, ","),
+	}, "\31")
+end
+
+--- The notifications to schedule from the calendar (future ones only).
+function M.collect(now)
 	calendar_store.load()
-
+	now = now or os.time()
 	local today = datetime.get_current_date()
-	local scan_days = cfg.sync_days
-	local now = os.time()
-	local notifications_to_sync = {}
-	local scheduled_count = 0
+	local out = {}
 
-	local function create_notification(entry, notify_values, date_str, notification_time, event_type)
-		local notification_timestamp = os.time(notification_time)
-
+	local function add(entry, notify_values, date_str, at_table, event_type)
+		local at = os.time(at_table)
 		for _, advance_minutes in ipairs(notify_values) do
-			local trigger_time = notification_timestamp - (advance_minutes * 60)
-
-			-- Only schedule future notifications
+			local trigger_time = at - (advance_minutes * 60)
 			if trigger_time > now then
-				local dedup_key = create_dedup_key(entry, date_str, event_type, advance_minutes)
-				local minutes_until = math.floor((notification_timestamp - trigger_time) / 60)
-				local title, message = format_notification(entry, event_type, minutes_until)
-
-				local notification = {
+				local title, message = format_notification(entry, event_type, advance_minutes, at)
+				out[#out + 1] = {
 					title = title,
 					message = message,
 					trigger_time = trigger_time,
-					scheduled_time = trigger_time, -- For homelab server
+					scheduled_time = trigger_time,
 					type = "calendar",
 					priority = entry.attributes.p and ("p" .. entry.attributes.p) or "default",
 					tags = { "calendar", event_type },
 					entry_id = entry.text,
-					deduplication_key = dedup_key,
 					entry_text = entry.text,
+					deduplication_key = create_dedup_key(entry, date_str, event_type, advance_minutes),
 				}
-
-				table.insert(notifications_to_sync, notification)
-				scheduled_count = scheduled_count + 1
 			end
 		end
 	end
 
-	-- Scan future dates
-	for day_offset = 0, scan_days do
-		local check_date = datetime.add_days(today, day_offset)
-		local date_str = datetime.format_datetime(check_date, "YYYY-MM-DD")
-		local entries = calendar_store.get_entries_for_date(date_str)
-
-		for _, entry in ipairs(entries) do
-			local start_time = entry:get_start_time()
-			local end_time = entry:get_end_time()
+	for day_offset = 0, cfg.sync_days or 30 do
+		local date_str = datetime.format_datetime(datetime.add_days(today, day_offset), "YYYY-MM-DD")
+		for _, entry in ipairs(calendar_store.get_entries_for_date(date_str)) do
 			local notify_values = parse_notify_value(entry.attributes.notify)
-
 			if notify_values then
-				-- Process START time notifications
+				local start_time, end_time = entry:get_start_time(), entry:get_end_time()
 				if start_time then
-					create_notification(entry, notify_values, date_str, start_time, "start")
+					add(entry, notify_values, date_str, start_time, "start")
 				end
-
-				-- Process END time notifications (if different from start)
 				if end_time and (not start_time or os.time(end_time) ~= os.time(start_time)) then
-					create_notification(entry, notify_values, date_str, end_time, "end")
+					add(entry, notify_values, date_str, end_time, "end")
 				end
 			end
 		end
 	end
-
-	-- Sync with homelab server if enabled, otherwise use local manager
-	local server_config = Config.server
-	if server_config and server_config.enabled then
-		-- Use homelab provider's sync function
-		local homelab_provider = require("zortex.notifications.providers.homelab")
-		local success, err = homelab_provider.sync(notifications_to_sync, server_config)
-
-		if success then
-			if scheduled_count > 0 then
-				Logger.info("calendar", "Synced " .. scheduled_count .. " notifications to homelab server")
-			end
-
-			-- Send local confirmation
-			manager.send_notification(
-				"Calendar Sync Complete",
-				string.format("Synced %d calendar notifications locally", scheduled_count),
-				{ type = "calendar", channels = { "vim" } }
-			)
-		else
-			Logger.error("calendar", "Failed to sync to homelab: " .. (err or "unknown error"))
-
-			-- Fallback to local scheduling
-			Logger.info("calendar", "Falling back to local scheduling")
-			M.sync_local(notifications_to_sync)
+	table.sort(out, function(a, b)
+		if a.trigger_time ~= b.trigger_time then
+			return a.trigger_time < b.trigger_time
 		end
-	else
-		-- Use local manager scheduling
-		M.sync_local(notifications_to_sync)
-	end
-
-	return scheduled_count
+		return a.deduplication_key < b.deduplication_key
+	end)
+	return out
 end
 
--- Local sync using manager (fallback)
-function M.sync_local(notifications)
-	local scheduled_count = 0
+--- Has anything changed since the last successful sync to `target`?
+--- Compares the new set with the last one minus what has fired since.
+function M.changed(notifications, target, now)
+	now = now or os.time()
+	local last = store.get_calendar_manifest()
+	if not last or last.target ~= target then
+		return true
+	end
+	local before = {}
+	for _, item in ipairs(last.items or {}) do
+		if item.t > now then
+			before[item.s] = true
+		end
+	end
+	local count = 0
+	for _, n in ipairs(notifications) do
+		if not before[signature(n)] then
+			return true
+		end
+		count = count + 1
+	end
+	return count ~= vim.tbl_count(before)
+end
 
+local function remember(notifications, target)
+	local items = {}
+	for _, n in ipairs(notifications) do
+		items[#items + 1] = { t = n.trigger_time, s = signature(n) }
+	end
+	store.save_calendar_manifest({ target = target, items = items, synced_at = os.time() })
+end
+
+local function report(opts, msg)
+	if opts.on_done then
+		opts.on_done(msg)
+	elseif not opts.silent then
+		vim.notify(msg, vim.log.levels.INFO, { title = "Zortex calendar" })
+	end
+end
+
+--- Sync calendar notifications to the server (Config.server) or, without
+--- one, schedule them locally. Nothing is sent, and nobody is notified, when
+--- the notifications are the same as the last successful sync.
+---@param opts { force?: boolean, silent?: boolean, on_done?: fun(msg: string) }?
+---@return integer count, boolean changed
+function M.sync(opts)
+	opts = opts or {}
+	local notifications = M.collect()
+	local server = require("zortex.notifications.server")
+	local target = server.enabled() and "server" or "local"
+
+	if not opts.force and not M.changed(notifications, target) then
+		Logger.debug("calendar", "sync skipped: unchanged", { count = #notifications })
+		if opts.on_done then
+			opts.on_done(string.format("Calendar unchanged (%d notifications)", #notifications))
+		end
+		return #notifications, false
+	end
+
+	if target == "server" then
+		require("zortex.notifications.providers.homelab").sync(notifications, nil, function(ok, res, err)
+			if ok then
+				remember(notifications, "server")
+				local r = res or {}
+				report(opts, string.format("Calendar synced: %d notifications (%d added, %d updated, %d removed)", #notifications, r.added or 0, r.updated or 0, r.removed or 0))
+			else
+				Logger.error("calendar", "Failed to sync to server: " .. tostring(err))
+				M.sync_local(notifications)
+				remember(notifications, "local")
+				report(opts, "Server unreachable (" .. tostring(err) .. "); scheduled locally")
+			end
+		end)
+	else
+		M.sync_local(notifications)
+		remember(notifications, "local")
+		report(opts, string.format("Calendar: %d notifications scheduled", #notifications))
+	end
+	return #notifications, true
+end
+
+--- Schedule calendar notifications with the local manager, replacing the
+--- calendar notifications it already holds (moved or removed entries).
+function M.sync_local(notifications)
+	local wanted = {}
+	for _, n in ipairs(notifications) do
+		wanted[n.deduplication_key] = n
+	end
+	for _, existing in ipairs(manager.list_scheduled({ type = "calendar" })) do
+		local key = existing.options and existing.options.deduplication_key
+		local n = key and wanted[key]
+		if not n or n.trigger_time ~= existing.trigger_time or n.message ~= existing.message then
+			manager.cancel_notification(existing.id)
+		end
+	end
+
+	local scheduled_count = 0
 	for _, notification in ipairs(notifications) do
-		-- Convert to manager format
-		local manager_notification = {
+		local id = manager.schedule_notification({
 			title = notification.title,
 			message = notification.message,
 			trigger_time = notification.trigger_time,
 			type = "calendar",
 			options = {
 				priority = notification.priority,
-				sound = notification.sound,
 				deduplication_key = notification.deduplication_key,
-				event_type = notification.event_type,
 				entry_text = notification.entry_text,
 				tags = notification.tags,
 			},
-		}
-
-		local id = manager.schedule_notification(manager_notification)
+		})
 		if id then
 			scheduled_count = scheduled_count + 1
 		end
 	end
-
-	if scheduled_count > 0 then
-		-- Logger.info("calendar", "Scheduled " .. scheduled_count .. " notifications locally")
-		manager.send_notification(
-			"Calendar Sync Complete",
-			string.format("Scheduled %d calendar notifications", scheduled_count),
-			{ type = "calendar", channels = { "vim" } }
-		)
-	end
-
 	return scheduled_count
 end
 
@@ -252,9 +305,9 @@ end
 function M.setup(opts)
 	cfg = opts
 
-	-- Perform initial calendar sync
+	-- Initial sync (skipped when nothing changed since the last one)
 	vim.defer_fn(function()
-		M.sync()
+		M.sync({ silent = true })
 	end, 100)
 end
 

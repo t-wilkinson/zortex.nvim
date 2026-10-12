@@ -14,7 +14,7 @@ function M.setup(opts)
 	manager.setup(opts)
 
 	-- Setup individual modules
-	pomodoro.setup(opts.types.pomodoro)
+	pomodoro.setup(opts.types.pomodoro, opts.providers)
 	timer.setup(opts.types.timers)
 	calendar.setup(opts.types.calendar)
 	digest.setup(opts.types.digest)
@@ -54,14 +54,7 @@ end
 -- ===========================================================================
 
 -- Pomodoro functions
-M.pomodoro = {
-	start = pomodoro.start,
-	stop = pomodoro.stop,
-	pause = pomodoro.pause,
-	resume = pomodoro.resume,
-	status = pomodoro.status,
-	skip = pomodoro.skip_to_next,
-}
+M.pomodoro = pomodoro
 
 -- Timer functions
 M.timer = {
@@ -122,6 +115,7 @@ M.test = {
 
 function M.cleanup()
 	manager.stop()
+	pomodoro.cleanup()
 	timer.cleanup()
 	alarm.cleanup()
 end
@@ -140,7 +134,7 @@ function M.setup_autocmds()
 		callback = function()
 			-- Defer slightly to ensure file is fully written
 			vim.defer_fn(function()
-				M.calendar.sync()
+				M.calendar.sync({ silent = true })
 			end, 100)
 		end,
 		desc = "Sync calendar notifications on save",
@@ -229,10 +223,14 @@ function M.setup_commands()
 	})
 
 	-- Calendar sync
-	cmd("CalendarSync", function()
-		local count = M.calendar.sync()
-		vim.notify(string.format("Calendar sync complete: %d notifications scheduled", count), vim.log.levels.INFO)
-	end, { desc = "Sync calendar notifications" })
+	cmd("CalendarSync", function(opts)
+		M.calendar.sync({
+			force = opts.bang,
+			on_done = function(msg)
+				vim.notify(msg, vim.log.levels.INFO)
+			end,
+		})
+	end, { bang = true, desc = "Sync calendar notifications (! resends even when unchanged)" })
 
 	-- Test notifications
 	cmd("TestNotifications", function(opts)
@@ -273,23 +271,77 @@ function M.setup_commands()
 
 	cmd("PomodoroStart", function()
 		M.pomodoro.start()
-	end, { desc = "Start pomodoro timer" })
+	end, { desc = "Start (or resume) the pomodoro" })
+
+	cmd("PomodoroPause", function()
+		M.pomodoro.toggle()
+	end, { desc = "Pause / resume the pomodoro" })
+
+	cmd("PomodoroSkip", function()
+		M.pomodoro.skip()
+	end, { desc = "End the current pomodoro phase now" })
 
 	cmd("PomodoroStop", function()
 		M.pomodoro.stop()
-	end, { desc = "Stop pomodoro timer" })
+	end, { desc = "Stop the pomodoro" })
+
+	cmd("PomodoroRestart", function()
+		M.pomodoro.restart()
+	end, { desc = "Begin a new pomodoro cycle" })
 
 	cmd("PomodoroStatus", function()
-		local status = M.pomodoro.status()
-		if status.phase == "stopped" then
-			vim.notify("Pomodoro is not running", vim.log.levels.INFO)
+		local function show()
+			vim.notify(M.pomodoro.describe(), vim.log.levels.INFO, { title = "Pomodoro" })
+		end
+		if M.pomodoro.remote() then
+			M.pomodoro.refresh(show)
 		else
-			vim.notify(
-				string.format("Pomodoro: %s - %s remaining", status.phase:gsub("_", " "), status.remaining_formatted),
-				vim.log.levels.INFO
-			)
+			show()
 		end
 	end, { desc = "Show pomodoro status" })
+
+	-- :ZortexPomodoroSettings work=50 short=10 long=20 every=4 auto_break=yes auto_work=no
+	cmd("PomodoroSettings", function(opts)
+		local keys = {
+			work = "work",
+			short = "short_break",
+			short_break = "short_break",
+			long = "long_break",
+			long_break = "long_break",
+			every = "long_break_after",
+			long_break_after = "long_break_after",
+			auto_break = "auto_start_break",
+			auto_start_break = "auto_start_break",
+			auto_work = "auto_start_work",
+			auto_start_work = "auto_start_work",
+		}
+		local changes = {}
+		for _, arg in ipairs(opts.fargs) do
+			local k, v = arg:match("^([%w_]+)=(%S+)$")
+			local key = k and keys[k]
+			if not key then
+				vim.notify("Unknown setting: " .. arg, vim.log.levels.ERROR)
+				return
+			end
+			if key:match("^auto") then
+				changes[key] = v == "yes" or v == "true" or v == "1" or v == "on"
+			else
+				changes[key] = tonumber(v)
+			end
+		end
+		if vim.tbl_isempty(changes) then
+			local st = M.pomodoro.status()
+			vim.notify(vim.inspect(st.settings or {}), vim.log.levels.INFO, { title = "Pomodoro settings" })
+			return
+		end
+		M.pomodoro.update_settings(changes)
+	end, {
+		nargs = "*",
+		desc = "Show or change pomodoro settings (work=25 short=5 long=15 every=4 auto_break=yes auto_work=no)",
+		complete = function()
+			return { "work=", "short=", "long=", "every=", "auto_break=", "auto_work=" }
+		end,
+	})
 
 	-- ===========================================================================
 	-- Timers

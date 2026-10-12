@@ -191,7 +191,7 @@ func TestRangeRequest(t *testing.T) {
 
 func TestOtherPages(t *testing.T) {
 	_, _, ts := newTestServer(t, "")
-	expect(t, ts, "/", 200, `Recently changed`, `Calendar`)
+	expect(t, ts, "/", 200, `Recently changed`, `Structure`, `id="calendar-days"`)
 	expect(t, ts, "/tags", 200, `@P`, `@Cars`)
 	expect(t, ts, "/tag/p", 200, `flipping.zortex`)
 	expect(t, ts, "/tag/nope", 404)
@@ -201,14 +201,13 @@ func TestOtherPages(t *testing.T) {
 }
 
 func TestNav(t *testing.T) {
-	s, _, ts := newTestServer(t, "")
+	_, _, ts := newTestServer(t, "")
 	home := expect(t, ts, "/", 200)
 	nav := home[strings.Index(home, `<nav class="links">`):]
 	if nav = nav[:strings.Index(nav, "</nav>")]; strings.Contains(nav, "Calendar") {
-		t.Error("Calendar tab without a CalendarURL")
+		t.Error("the calendar is on the home page, not a tab")
 	}
-	s.cfg.CalendarURL = "/"
-	expect(t, ts, "/tags", 200, `<a href="/">Calendar</a>`, `href="/tags" aria-current="page"`)
+	expect(t, ts, "/tags", 200, `href="/structure"`, `href="/tags" aria-current="page"`)
 	expect(t, ts, "/f/z", 200, `href="/f/" aria-current="page"`)
 }
 

@@ -288,6 +288,8 @@ func (r *noteRenderer) span(line string, sp *syntax.Span) string {
 		return `<a class="tagsearch" href="` + esc(r.s.url("/search?q="+url.QueryEscape(strings.Join(terms, " ")))) + `">` + esc(raw) + `</a>`
 	case "attribute":
 		return `<span class="attr">` + esc(raw) + `</span>`
+	case "hidden":
+		return ""
 	case "code":
 		return `<code>` + esc(line[sp.InnerS:sp.InnerE]) + `</code>`
 	case "math":

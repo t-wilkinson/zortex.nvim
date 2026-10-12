@@ -30,10 +30,13 @@ local defaults = {
 		},
 	},
 
+	-- `zortex serve -data DIR` (app/): keeps the calendar's notifications and
+	-- the pomodoro clock, and sends both through ntfy. With a base path the
+	-- endpoint includes it, e.g. "https://zortex.home.lab/notes".
 	server = {
 		enabled = false,
-		api_endpoint = "http://127.0.0.1:5000",
-		-- api_key = "your-secure-api-key-here", -- Same as in Docker .env
+		api_endpoint = "http://127.0.0.1:8090",
+		api_key = nil, -- the server's -api-key / ZORTEX_API_KEY, if set
 		user_id = "default",
 	},
 
@@ -54,7 +57,7 @@ local defaults = {
 			calendar = { "vim", "ntfy" },
 			alarm = { "vim", "ntfy" },
 			timer = { "vim", "ntfy" },
-			pomodoro = { "vim", "ntfy" },
+			pomodoro = { "vim", "system" }, -- only "ntfy" when ntfy is enabled (types.pomodoro.ntfy_only)
 			digest = { "ses" },
 			task_due = { "ntfy", "ses" },
 			default = { "vim", "ntfy" },
@@ -103,6 +106,8 @@ local defaults = {
 				digest_email = "your-email@example.com",
 			},
 
+			-- With server.enabled the clock runs in the server (shared with its
+			-- home page); these settings are pushed to it when they change.
 			pomodoro = {
 				work_duration = 25, -- minutes
 				short_break = 5, -- minutes
@@ -110,7 +115,18 @@ local defaults = {
 				long_break_after = 4, -- number of work sessions
 				auto_start_break = true,
 				auto_start_work = false,
-				sound = "default",
+				use_server = true, -- false: always run the clock in Neovim
+				ntfy_only = true, -- ntfy enabled: alerts go only through ntfy
+				-- Played locally when alerts don't go through ntfy (paths, or false
+				-- for silence). Unset: freedesktop sounds when present. With ntfy,
+				-- contrib/ntfy/notify.sh picks the sound from the message tags.
+				sounds = {
+					-- work_start = "~/sounds/work.oga",
+					-- break_start = "~/sounds/break.oga",
+					-- restart = "~/sounds/restart.oga",
+					-- work_end = ..., break_end = ...,
+				},
+				sound_command = nil, -- default: paplay (afplay on macOS)
 			},
 
 			timers = {

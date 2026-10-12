@@ -131,7 +131,7 @@ local function notify_changed(event, payload)
 	local ok, notifications = pcall(require, "zortex.notifications")
 	if ok and notifications.calendar then
 		vim.defer_fn(function()
-			pcall(notifications.calendar.sync)
+			pcall(notifications.calendar.sync, { silent = true })
 		end, 100)
 	end
 end
@@ -160,6 +160,42 @@ end
 --- Make sure `date_str` has a heading in the calendar, creating it in date
 --- order with `lines` (a day template) under it. Returns the heading's line
 --- number and whether it was created.
+local function day_number(date_str)
+	local y, m, d = date_str:match("^(%d+)%-(%d+)%-(%d+)$")
+	return math.floor(os.time({ year = tonumber(y), month = tonumber(m), day = tonumber(d), hour = 12 }) / 86400)
+end
+
+--- Line a new "YYYY-MM-DD:" block goes before (#lines + 1: append). Dates
+--- compare as dates. With no later day in the file the new day goes at the
+--- bottom; otherwise next to its nearest neighbour in time: right after the
+--- closest earlier day, or right before the closest later day when that one
+--- is nearer. So a stray block elsewhere in the file (a far-future
+--- appointment near the top) doesn't pull today away from yesterday.
+function M.insertion_line(blocks, date_str, lines)
+	local target = day_number(date_str)
+	local before_i, before_n, after_i, after_n
+	for i, b in ipairs(blocks) do
+		local n = day_number(b.date)
+		if n < target and (not before_n or n >= before_n) then
+			before_i, before_n = i, n
+		elseif n > target and (not after_n or n < after_n) then
+			after_i, after_n = i, n
+		end
+	end
+	if not after_i then
+		return #lines + 1
+	end
+	local use_before = before_i and (target - before_n) <= (after_n - target)
+	if use_before then
+		local next_block = blocks[before_i + 1]
+		return next_block and next_block.heading_lnum or (#lines + 1)
+	end
+	if after_i then
+		return blocks[after_i].heading_lnum
+	end
+	return #lines + 1
+end
+
 function M.ensure_date(date_str, lines)
 	local date = datetime.parse_date(date_str)
 	if not date then
@@ -178,19 +214,15 @@ function M.ensure_date(date_str, lines)
 	local new_lines = { date_str .. ":" }
 	vim.list_extend(new_lines, lines or {})
 	new_lines[#new_lines + 1] = ""
-	local insert_at
-	for _, b in ipairs(blocks) do
-		if b.date > date_str then
-			insert_at = b.heading_lnum
-			break
-		end
-	end
-	if not insert_at then
+	local insert_at = M.insertion_line(blocks, date_str, current)
+	if insert_at > #current then
 		insert_at = #current + 1
 		if #current > 0 and current[#current]:match("%S") then
 			table.insert(new_lines, 1, "")
 		end
 		table.remove(new_lines) -- no trailing blank at the end of the file
+	elseif insert_at > 1 and current[insert_at - 1]:match("%S") then
+		table.insert(new_lines, 1, "") -- after a block whose last line isn't blank
 	end
 	local ok, err = workspace().insert_lines(path, insert_at, new_lines)
 	if not ok then
@@ -229,21 +261,17 @@ function M.add_entry(date_str, entry_text)
 		local sibling = block.last_lnum > block.heading_lnum and lines[block.last_lnum] or nil
 		ok, err = workspace().insert_lines(path, block.last_lnum + 1, { format_entry_line(entry_text, sibling) })
 	else
-		-- New date: before the first later date, or at the end of the file
+		-- New date: after the closest earlier date (see insertion_line)
 		local new_lines = { date_str .. ":", format_entry_line(entry_text), "" }
-		local insert_at
-		for _, b in ipairs(blocks) do
-			if b.date > date_str then
-				insert_at = b.heading_lnum
-				break
-			end
-		end
-		if not insert_at then
+		local insert_at = M.insertion_line(blocks, date_str, lines)
+		if insert_at > #lines then
 			insert_at = #lines + 1
 			if #lines > 0 and lines[#lines]:match("%S") then
 				table.insert(new_lines, 1, "")
 			end
 			table.remove(new_lines) -- no trailing blank at end of file
+		elseif insert_at > 1 and lines[insert_at - 1]:match("%S") then
+			table.insert(new_lines, 1, "")
 		end
 		ok, err = workspace().insert_lines(path, insert_at, new_lines)
 	end

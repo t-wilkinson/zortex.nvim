@@ -1,4 +1,0 @@
-# app/crontab
-# Run notification check every minute
-* * * * * root /app/send.sh >> /var/log/cron.log 2>&1
-# Empty line required at the end

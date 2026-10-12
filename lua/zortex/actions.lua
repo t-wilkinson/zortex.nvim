@@ -137,9 +137,18 @@ local function project_progress()
 	notify(string.format("Updated @progress on %d projects", updated))
 end
 
-local function notifications_sync()
-	local count = require("zortex.notifications").calendar.sync()
-	notify(string.format("Synced %d notifications", count or 0))
+-- :ZortexNotificationsSync [force]: unchanged calendars are not re-sent
+local function notifications_sync(args)
+	local force = args and args.args and vim.trim(args.args) == "force"
+	require("zortex.notifications").calendar.sync({
+		force = force,
+		on_done = function(msg)
+			if msg:match("unchanged") then
+				msg = msg .. "; nothing sent (:ZortexNotificationsSync force resends)"
+			end
+			notify(msg)
+		end,
+	})
 end
 
 local function link_index_rebuild()
@@ -381,12 +390,54 @@ M.list = {
 		desc = "Regenerate the digest note",
 		run = call("zortex.services.digest", "force_update"),
 	},
+	-- Pomodoro (the clock is shared with `zortex serve` when server.enabled) --
+	{
+		id = "pomodoro_toggle",
+		key = "oo",
+		group = "Pomodoro",
+		desc = "Start, pause or resume the pomodoro",
+		run = call("zortex.notifications.types.pomodoro", "toggle"),
+	},
+	{
+		id = "pomodoro_skip",
+		key = "os",
+		group = "Pomodoro",
+		desc = "End the current pomodoro phase now",
+		run = call("zortex.notifications.types.pomodoro", "skip"),
+	},
+	{
+		id = "pomodoro_restart",
+		key = "or",
+		group = "Pomodoro",
+		desc = "Begin a new pomodoro cycle",
+		run = call("zortex.notifications.types.pomodoro", "restart"),
+	},
+	{
+		id = "pomodoro_stop",
+		key = "ox",
+		group = "Pomodoro",
+		desc = "Stop the pomodoro",
+		run = call("zortex.notifications.types.pomodoro", "stop"),
+	},
+	{
+		id = "pomodoro_status",
+		key = "oi",
+		group = "Pomodoro",
+		desc = "Show the pomodoro status",
+		run = function()
+			notify(require("zortex.notifications.types.pomodoro").describe())
+		end,
+	},
 	{
 		id = "notifications_sync",
 		command = "NotificationsSync",
 		group = "Plan",
-		desc = "Sync calendar notifications to the server",
+		desc = "Sync calendar notifications (to the server if enabled); `force` resends unchanged",
 		run = notifications_sync,
+		nargs = "?",
+		complete = function()
+			return { "force" }
+		end,
 	},
 	{
 		id = "ical_import",

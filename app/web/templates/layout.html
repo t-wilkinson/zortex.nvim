@@ -18,7 +18,7 @@
     <a href="{{fileURL ""}}"{{if eq .Nav "files"}} aria-current="page"{{end}}>Files</a>
     <a href="{{u "/tags"}}"{{if eq .Nav "tags"}} aria-current="page"{{end}}>Tags</a>
     <a href="{{u "/broken"}}"{{if eq .Nav "broken"}} aria-current="page"{{end}}>Broken</a>
-    {{if .Calendar}}<a href="{{.Calendar}}">Calendar</a>{{end}}
+    <a href="{{u "/structure"}}"{{if eq .Nav "structure"}} aria-current="page"{{end}}>Structure</a>
   </nav>
 </header>
 <main>

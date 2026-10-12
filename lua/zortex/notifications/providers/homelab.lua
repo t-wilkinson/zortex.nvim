@@ -1,134 +1,59 @@
--- notifications/providers/homelab.lua - Homelab notification provider
+-- notifications/providers/homelab.lua - `zortex serve` notification API (POST /notify)
 local base = require("zortex.notifications.providers.base")
-local Config = require("zortex.config")
-local Logger = require("zortex.core.logger")
+local server = require("zortex.notifications.server")
 
--- priority=min(1),low,default,high,max/urgent(5)
-
-local function send(title, message, options, config)
-	if not config.api_endpoint or not config.user_id then
-		return false, "Homelab endpoint or user_id not configured"
-	end
-
-	local notification_data = {
-		user_id = config.user_id,
-		operation = "notify",
-		notification = {
-			title = title,
-			message = message,
-			priority = options.priority or "default",
-			tags = options.tags or {},
-			scheduled_time = options.scheduled_time or os.time(),
-			entry_id = options.entry_id,
-			deduplication_key = options.deduplication_key,
-		},
-	}
-
-	local json_data = vim.fn.json_encode(notification_data)
-	local headers = {
-		'"Content-Type: application/json"',
-		'"Accept: application/json"',
-	}
-
-	if config.api_key then
-		table.insert(headers, string.format('"X-API-Key: %s"', config.api_key))
-	end
-
-	-- Added timeouts: 3s to connect, 10s total max time
-	local cmd = string.format(
-		"curl -s --connect-timeout 3 --max-time 10 -X POST %s -d %s %s/notify",
-		table.concat(
-			vim.tbl_map(function(h)
-				return "-H " .. h
-			end, headers),
-			" "
-		),
-		vim.fn.shellescape(json_data),
-		config.api_endpoint
-	)
-
-	-- Use jobstart for non-blocking execution
-	vim.fn.jobstart(cmd, {
-		on_exit = function(_, exit_code)
-			if exit_code ~= 0 then
-				-- You can use your Logger here if it's in scope
-				-- Logger.error("notifications", "Homelab send failed", { code = exit_code })
-			end
-		end,
-	})
-
-	return true, nil -- Assume success and let it run in background
+local function user_id()
+	return require("zortex.config").server.user_id or "default"
 end
 
--- Sync multiple notifications (used by calendar sync)
-local function sync_notifications(notifications, config)
-	if not config.api_endpoint then
-		return false, "Homelab endpoint not configured"
-	end
-
-	local processed_notifications = {}
-	for _, notif in ipairs(notifications) do
-		table.insert(processed_notifications, {
-			title = notif.title,
-			message = notif.message,
-			scheduled_time = notif.trigger_time or os.time(),
-			priority = notif.options and notif.options.priority or "default",
-			tags = notif.options and notif.options.tags or {},
-			entry_id = notif.options and notif.options.entry_text,
-			deduplication_key = notif.options and notif.options.deduplication_key,
-		})
-	end
-
-	local manifest = {
-		user_id = config.user_id,
-		operation = "sync",
-		notifications = processed_notifications,
+-- Wire format of one notification. Accepts the calendar's flat shape and the
+-- manager's (fields under .options).
+local function wire(n)
+	local o = n.options or {}
+	return {
+		title = n.title,
+		message = n.message,
+		scheduled_time = n.scheduled_time or n.trigger_time or os.time(),
+		priority = n.priority or o.priority or "default",
+		tags = n.tags or o.tags or {},
+		entry_id = n.entry_id or n.entry_text or o.entry_text,
+		deduplication_key = n.deduplication_key or o.deduplication_key,
 	}
+end
 
-	local json_data = vim.fn.json_encode(manifest)
-	local headers = {
-		'"Content-Type: application/json"',
-		'"Accept: application/json"',
-	}
-
-	if config.api_key then
-		table.insert(headers, string.format('"X-API-Key: %s"', config.api_key))
-	end
-
-	local cmd = string.format(
-		"curl -s --connect-timeout 5 --max-time 30 -X POST %s -d %s %s/notify",
-		table.concat(
-			vim.tbl_map(function(h)
-				return "-H " .. h
-			end, headers),
-			" "
-		),
-		vim.fn.shellescape(json_data),
-		config.api_endpoint
-	)
-
-	vim.fn.jobstart(cmd, {
-		on_exit = function(_, exit_code)
-			if exit_code ~= 0 then
-				-- require("zortex.core.logger").error("notifications", "Homelab sync failed", { code = exit_code })
-			end
-		end,
+local function send(title, message, options)
+	options = options or {}
+	server.request("POST", "/notify", {
+		user_id = user_id(),
+		operation = "notify",
+		notification = wire({ title = title, message = message, options = options, scheduled_time = options.scheduled_time }),
 	})
+	return true, nil -- runs in the background
+end
 
+--- Replace the server's pending notifications with `notifications`.
+--- cb(ok, result, err): result is the server's reply ({ added, updated, removed, unchanged, ... }).
+local function sync_notifications(notifications, _, cb)
+	if not server.enabled() then
+		if cb then
+			cb(false, nil, "server is not enabled")
+		end
+		return false, "server is not enabled"
+	end
+	local list = {}
+	for _, n in ipairs(notifications) do
+		list[#list + 1] = wire(n)
+	end
+	server.request("POST", "/notify", { user_id = user_id(), operation = "sync", notifications = list }, cb, { timeout = 30 })
 	return true, nil
 end
 
 return base.create_provider("homelab", {
 	send = send,
 	sync = sync_notifications,
+	wire = wire,
 
 	test = function()
-		return send("Zortex Test", "Homelab notification test", {
-			priority = "high",
-			tags = { "test", "zortex" },
-		}, {
-			api_endpoint = Config.server.api_endpoint,
-			user_id = Config.server.user_id,
-		})
+		return send("Zortex Test", "Server notification test", { priority = "high", tags = { "test", "zortex" } })
 	end,
 })

@@ -250,19 +250,6 @@ in
       }
     ];
 
-    warnings =
-      optional (cfg.port != null)
-        "services.zortex.port is gone with the Flask server: everything is served on web.port (${toString web.port}). Point the plugin's server.api_endpoint there."
-      ++ optional (
-        cfg.interval != null
-      ) "services.zortex.interval is gone: notifications are sent in-process."
-      ++ optional (
-        cfg.notesUrl != null || web.calendarUrl != null
-      ) "services.zortex.notesUrl / web.calendarUrl are gone: the calendar is the web app's home page."
-      ++ optional (
-        cfg.ntfy.authToken != null
-      ) "services.zortex.ntfy.authToken is stored in the Nix store; prefer ntfy.authTokenFile.";
-
     users.groups.zortex = { };
     users.users.zortex = {
       isSystemUser = true;
@@ -285,9 +272,7 @@ in
       // optionalAttrs (cfg.apiKey != null) { ZORTEX_API_KEY = cfg.apiKey; };
 
       serviceConfig = {
-        ExecStart = "${
-          if web.package != null then web.package else cfg.package
-        }/bin/zortex ${escapeShellArgs args}";
+        ExecStart = "${cfg.package}/bin/zortex ${escapeShellArgs args}";
         User = "zortex";
         Group = "zortex";
         SupplementaryGroups = optional (cfg.notesGroup != null) cfg.notesGroup;

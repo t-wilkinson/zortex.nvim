@@ -432,14 +432,8 @@ func SectionText(line, kind string) string {
 		}
 		return StripAttributes(line[i:])
 	case KindBoldHeading:
-		if len(line) > 4 && line[0] == '*' && line[1] == '*' {
-			k := 2
-			for k < len(line) && line[k] != '*' {
-				k++
-			}
-			if k > 2 && at(line, k) == '*' && at(line, k+1) == '*' {
-				return StripAttributes(line[2:k])
-			}
+		if k := boldHeadingColon(line); k > 0 {
+			return StripAttributes(line[2:k])
 		}
 		return StripAttributes(line)
 	case KindLabel:
@@ -454,23 +448,25 @@ func SectionText(line, kind string) string {
 	return Trim(line)
 }
 
-func isBoldHeading(line string) bool {
-	// ^%*%*([^*]+)%*%*:?%s*$
-	if len(line) < 5 || line[0] != '*' || line[1] != '*' {
-		return false
+// boldHeadingColon: for a bold heading "**Title:**" (^%*%*([^*]+):%*%*%s*$)
+// the index of its colon, else 0.
+func boldHeadingColon(line string) int {
+	if len(line) < 6 || line[0] != '*' || line[1] != '*' {
+		return 0
 	}
 	k := 2
 	for k < len(line) && line[k] != '*' {
 		k++
 	}
-	if k == 2 || at(line, k) != '*' || at(line, k+1) != '*' {
-		return false
+	// at least one character of text, then ":**", then only spaces
+	if k < 4 || line[k-1] != ':' || at(line, k) != '*' || at(line, k+1) != '*' {
+		return 0
 	}
 	r := k + 2
-	if at(line, r) == ':' {
-		r++
+	if spaceRun(line, r) != len(line)-r {
+		return 0
 	}
-	return spaceRun(line, r) == len(line)-r
+	return k - 1
 }
 
 func countByte(s string, c byte) int {
@@ -550,14 +546,8 @@ func Classify(line string) *Line {
 		return &Line{Kind: KindTag, Indent: 0, ContentCol: intp(1)}
 	}
 
-	if isBoldHeading(line) {
-		end := len(line)
-		for k := 2; k+1 < len(line); k++ {
-			if line[k] == '*' && line[k+1] == '*' {
-				end = k
-				break
-			}
-		}
+	if colon := boldHeadingColon(line); colon > 0 {
+		end := colon // inline content stops before ":**"
 		return &Line{
 			Kind:       KindBoldHeading,
 			Section:    true,

@@ -131,13 +131,14 @@
     </div>
     {{if .Structure.Sources}}
     <div class="panel">
-      <h2>Not in Structure <span class="dim count">{{len .Structure.Unlinked}}</span></h2>
+      <h2>Not in Structure</h2>
+      <p class="dim small">{{if .Structure.Unlinked}}{{len .Structure.Unlinked}} of {{.Structure.Total}} notes are not linked from Structure{{else}}All {{.Structure.Total}} notes are linked from Structure{{end}}</p>
       {{if .Structure.Unlinked}}
       <ul class="plain">
         {{range .StructureShown}}<li><a href="{{noteURL . 0}}">{{title .}}</a> <span class="dim">{{dir .}}</span></li>{{end}}
       </ul>
       {{if gt (len .Structure.Unlinked) (len .StructureShown)}}<p class="more"><a href="{{u "/structure"}}">All {{len .Structure.Unlinked}} unlinked notes →</a></p>{{end}}
-      {{else}}<p class="dim">Every note is linked from the structure.</p>{{end}}
+      {{end}}
     </div>
     {{end}}
   </div>

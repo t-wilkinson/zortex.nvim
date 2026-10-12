@@ -1,32 +1,32 @@
 {
   "blocks": [
     {
-      "finish": 52,
+      "finish": 55,
       "kind": "table",
-      "start": 50
+      "start": 53
     },
     {
-      "finish": 62,
+      "finish": 65,
       "kind": "code",
       "lang": "",
-      "start": 58
-    },
-    {
-      "finish": 66,
-      "kind": "code",
-      "lang": "python",
-      "start": 63
+      "start": 61
     },
     {
       "finish": 69,
-      "kind": "math",
-      "start": 67
+      "kind": "code",
+      "lang": "python",
+      "start": 66
     },
     {
-      "finish": 76,
+      "finish": 72,
+      "kind": "math",
+      "start": 70
+    },
+    {
+      "finish": 79,
       "kind": "code",
       "lang": "js",
-      "start": 75
+      "start": 78
     }
   ],
   "header": {
@@ -506,13 +506,13 @@
     },
     {
       "content_col": 2,
-      "content_end": 6,
+      "content_end": 14,
       "indent": 0,
       "inline": [],
       "kind": "bold_heading",
       "level": 7,
       "section": true,
-      "text": "Bold"
+      "text": "Bold heading"
     },
     {
       "content_col": 0,
@@ -547,6 +547,54 @@
       "level": 7,
       "section": true,
       "text": "Spaced"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [
+        {
+          "children": [],
+          "e": 13,
+          "inner_e": 11,
+          "inner_s": 2,
+          "s": 0,
+          "type": "bold"
+        }
+      ],
+      "kind": "label",
+      "level": 8,
+      "section": true,
+      "text": "**Old style**"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [
+        {
+          "children": [],
+          "e": 17,
+          "inner_e": 15,
+          "inner_s": 2,
+          "s": 0,
+          "type": "bold"
+        }
+      ],
+      "kind": "text"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [
+        {
+          "children": [],
+          "e": 5,
+          "inner_e": 3,
+          "inner_s": 2,
+          "s": 0,
+          "type": "bold"
+        }
+      ],
+      "kind": "text"
     },
     {
       "content_col": 0,
@@ -1038,7 +1086,7 @@
     {
       "level": 7,
       "lnum": 20,
-      "text": "Bold",
+      "text": "Bold heading",
       "type": "bold_heading"
     },
     {
@@ -1048,14 +1096,20 @@
       "type": "bold_heading"
     },
     {
+      "level": 8,
+      "lnum": 23,
+      "text": "**Old style**",
+      "type": "label"
+    },
+    {
       "level": 9,
-      "lnum": 28,
+      "lnum": 31,
       "text": "Tabbed label",
       "type": "label"
     },
     {
       "level": 10,
-      "lnum": 29,
+      "lnum": 32,
       "text": "Bulleted label",
       "type": "label"
     }

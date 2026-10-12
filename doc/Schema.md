@@ -13,7 +13,7 @@ We have different types of searches/sections:
 [@Tag] -- Any file containing a line "@Tag"
 [#Heading] -- Will find the line starting with "# Heading"
 [:Label] -- A line starting with "Label:"; It can have text after the label
-[*Highlight] -- Any text matching `*Highlight*`, `**Highlight**`, or `***Highlight***`, or `^**Highlight**:$` and `^**Highlight:**$` (the last two are considered a bold heading)
+[*Highlight] -- Any text matching `*Highlight*`, `**Highlight**`, or `***Highlight***`, or a bold heading `**Highlight:**`
 [-List] -- Any text matching `^\s*- `
 [%Query] -- Any text matching the Query
 
@@ -22,7 +22,7 @@ For all scopes, we can nest searches for increasingly "specific" links by separa
 
 - Headings > Bold heading > Labels > List,Italic/Bold,Text
 - Headings create a "section" until the next heading its level or higher.
-- Bold headings of the format "^**<any text>**:\?$" create a "section" until the next heading or bold heading
+- Bold headings of the format "^**<any text>:**$" (the colon inside the asterisks) create a "section" until the next heading or bold heading
 - Labels create a "section" until the next heading, bold heading, or empty line
 - Lists, italic/bold, and text are the smallest units
 
@@ -80,7 +80,7 @@ Articles: first couple of lines of each file with the lines that start by "@@"
 
 Headings: lines that start with 1-6 # followed by a space and text
 
-Bold headings: lines that match the pattern "^\*\*._\*\*:$" or "^\*\*._:\*\*$"
+Bold headings: lines of the form `**Text:**` (the colon is inside the closing asterisks; nothing but spaces after them)
 
 Labels: lines that match "^my text:$" and the text cannot contain a sentence period (a period followed by a space ". ").
 

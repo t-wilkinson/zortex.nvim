@@ -17,6 +17,7 @@ const structureName = "Structure"
 // structureInfo is computed with each snapshot.
 type structureInfo struct {
 	Sources  []string // the Structure note and @Structure notes
+	Roots    []string // the Structure note(s) themselves
 	Linked   int      // notes the sources link to
 	Unlinked []string // notes nothing in the structure links to, by folder then name
 	Total    int      // notes considered
@@ -31,8 +32,9 @@ func (s *Server) buildStructure(snap *snapshot) structureInfo {
 		if cat.IsArchived(rel) || s.ix.Doc(rel) == nil {
 			return
 		}
-		if isRoot {
+		if isRoot && !root[rel] {
 			root[rel] = true
+			info.Roots = append(info.Roots, rel)
 		}
 		if !seen[rel] {
 			seen[rel] = true
@@ -84,27 +86,38 @@ func (s *Server) buildStructure(snap *snapshot) structureInfo {
 	return info
 }
 
-func (s *Server) handleStructure(w http.ResponseWriter, r *http.Request) {
+// structureSide is the sidebar data for a Structure note's page, or nil
+// when rel isn't one.
+func (s *Server) structureSide(rel string) map[string]any {
 	info := s.current().structure
-	type row struct {
-		Rel, Title, Dir string
+	isRoot := false
+	for _, r := range info.Roots {
+		isRoot = isRoot || r == rel
 	}
+	if !isRoot {
+		return nil
+	}
+	type row struct{ Rel, Title, Dir string }
 	var rows []row
-	for _, rel := range info.Unlinked {
-		d := path.Dir(rel)
+	for _, u := range info.Unlinked {
+		d := path.Dir(u)
 		if d == "." {
 			d = ""
 		}
-		rows = append(rows, row{rel, s.noteTitle(rel), d})
+		rows = append(rows, row{u, s.noteTitle(u), d})
 	}
-	s.render(w, r, "structure", http.StatusOK, map[string]any{
-		"Title":    "Structure",
-		"Sources":  info.Sources,
-		"Rows":     rows,
-		"Linked":   info.Linked,
-		"Total":    info.Total,
-		"Unlinked": len(info.Unlinked),
-	})
+	return map[string]any{"Rows": rows, "Unlinked": len(info.Unlinked), "Total": info.Total, "Sources": info.Sources}
+}
+
+// handleStructure: the Structure note, rendered like any note (its sidebar
+// lists the notes it doesn't reach), or how to create one.
+func (s *Server) handleStructure(w http.ResponseWriter, r *http.Request) {
+	info := s.current().structure
+	if len(info.Roots) > 0 {
+		s.renderNotePage(w, r, info.Roots[0], "structure")
+		return
+	}
+	s.render(w, r, "structure", http.StatusOK, map[string]any{"Title": "Structure"})
 }
 
 // apiStructure: GET /api/structure -> {sources, linked, total, unlinked: [{rel, title, url}]}

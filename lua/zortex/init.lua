@@ -12,10 +12,7 @@ function api.setup(opts)
 	require("zortex.features.highlights").setup()
 	require("zortex.features.folding").setup()
 	require("zortex.features.preview").setup(Config.ui.preview)
-	local has_cmp, cmp = pcall(require, "cmp")
-	if has_cmp then
-		cmp.register_source("zortex", require("zortex.features.completion").new())
-	end
+	require("zortex.features.completion").register_cmp()
 
 	-- Services with configuration
 	require("zortex.services.search").setup(Config.ui.search)

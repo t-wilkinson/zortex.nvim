@@ -140,11 +140,14 @@ local function after_parts(ctx, opts)
 	local results = link_mod().resolve(prefix_link, resolve_opts)
 	local last = link_mod().parse_component(ctx.parts[#ctx.parts]) or {}
 
-	local items, seen_files = {}, {}
+	-- Every matched section counts: "[P/#1/" matches "1 Programming" and
+	-- "1 Personal" in the same note, and both have children to offer.
+	local items, seen = {}, {}
 	for _, r in ipairs(results) do
-		if not seen_files[r.file] then
-			seen_files[r.file] = true
-			local node = r.doc:node_starting_at(r.lnum) or r.doc:node_at(r.lnum)
+		local node = r.doc:node_starting_at(r.lnum) or r.doc:node_at(r.lnum)
+		local key = r.file .. ":" .. tostring(node.start_line)
+		if not seen[key] then
+			seen[key] = true
 			if node.type == "article" then
 				local by_alias = last.type == "article" and r.doc:has_name(last.text)
 				if by_alias then
@@ -272,6 +275,21 @@ function M.new()
 	end
 
 	return source
+end
+
+--- Register the nvim-cmp source once. setup() may run more than once
+--- (re-sourced config, plugin-manager reloads); registering again would make
+--- cmp list every suggestion once per registration.
+function M.register_cmp()
+	local ok, cmp = pcall(require, "cmp")
+	if not ok or type(cmp.register_source) ~= "function" then
+		return nil
+	end
+	if M._cmp_id and type(cmp.unregister_source) == "function" then
+		pcall(cmp.unregister_source, M._cmp_id)
+	end
+	M._cmp_id = cmp.register_source("zortex", M.new())
+	return M._cmp_id
 end
 
 -- Backwards-compatible name

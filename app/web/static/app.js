@@ -4,6 +4,27 @@
   "use strict";
   var base = document.body.dataset.base || "";
 
+  // Anchored lines must clear the sticky top bar, whose height changes when
+  // it wraps (narrow windows, phones): publish it as --top-h, which sets the
+  // page's scroll-padding-top, and re-land on the target once it's known.
+  var bar = document.querySelector("header.top");
+  if (bar) {
+    var setTop = function () {
+      document.documentElement.style.setProperty("--top-h", bar.getBoundingClientRect().height + "px");
+    };
+    setTop();
+    if (window.ResizeObserver) new ResizeObserver(setTop).observe(bar);
+    var reland = function () {
+      var id = decodeURIComponent(location.hash.slice(1));
+      var el = id && document.getElementById(id);
+      if (el) el.scrollIntoView({ block: "start" });
+    };
+    if (location.hash) {
+      reland();
+      window.addEventListener("load", reland, { once: true }); // after images/fonts move things
+    }
+  }
+
   document.addEventListener("keydown", function (e) {
     var el = document.activeElement;
     var typing = el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA");

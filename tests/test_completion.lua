@@ -78,3 +78,37 @@ T.test("local links complete sections of the current note", function()
 	local l = labels("[/")
 	T.ok(has(l, "#1 Programming") and has(l, ":Notes"), vim.inspect(l))
 end)
+
+T.test("a path matching several sections offers the children of each", function()
+	vim.cmd("edit " .. vim.fn.fnameescape(T.fixture("calendar.zortex")))
+	local C = require("zortex.features.completion")
+	local items = C.get_completions("[P/#1/", 6, {})
+	local labels = {}
+	for _, i in ipairs(items) do
+		labels[i.label] = true
+	end
+	T.ok(labels["#1.4 - zortex"], "child of 1 Programming")
+	T.ok(labels["#Habits"], "child of 1 Personal, its sibling")
+end)
+
+T.test("setup twice registers the cmp source once", function()
+	local sources, next_id = {}, 0
+	package.loaded.cmp = {
+		register_source = function(name, src)
+			next_id = next_id + 1
+			sources[next_id] = name
+			return next_id
+		end,
+		unregister_source = function(id)
+			sources[id] = nil
+		end,
+	}
+	local C = require("zortex.features.completion")
+	C._cmp_id = nil
+	C.register_cmp()
+	C.register_cmp()
+	C.register_cmp()
+	T.eq(vim.tbl_count(sources), 1)
+	package.loaded.cmp = nil
+	C._cmp_id = nil
+end)

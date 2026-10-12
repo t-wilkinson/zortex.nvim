@@ -6,11 +6,11 @@ import json
 import logging
 from datetime import datetime, timezone, timedelta
 from itertools import groupby
-from flask import Flask, request, jsonify, render_template_string
+from flask import Flask, request, jsonify, render_template_string, send_file
 from contextlib import contextmanager
 from zoneinfo import ZoneInfo
 
-from notes import NotesIndex, classify, DEFAULT_SPECIAL
+from notes import NotesIndex, classify, guess_mime, DEFAULT_SPECIAL
 
 app = Flask(__name__)
 
@@ -279,6 +279,15 @@ def home():
             .k-code, .k-fence { color: #f2ae49; background: rgba(0,0,0,0.2); }
             .k-quote, .k-table { color: #908caa; }
             .viewer .zl { color: #3e8fb0; }
+            .viewer.file { white-space: normal; }
+            .file-head { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: baseline; margin-bottom: 0.75rem; }
+            .file-head .name { color: var(--accent); font-weight: bold; word-break: break-all; }
+            .file-head .meta, .note-link .badge { opacity: 0.5; font-size: 0.8em; }
+            .file-head a { color: var(--fg); opacity: 0.8; font-size: 0.85em; }
+            .file-frame { width: 100%; height: 80vh; border: 0; border-radius: 4px; background: #fff; }
+            .file-media { max-width: 100%; max-height: 80vh; display: block; border-radius: 4px; }
+            .file-text { white-space: pre-wrap; font-size: 0.85rem; background: rgba(0,0,0,0.2); padding: 0.75rem; border-radius: 4px; overflow-x: auto; }
+            .note-link .badge { margin-left: 0.3rem; text-transform: uppercase; }
             .viewer .attr { color: #908caa; font-style: italic; }
             h1 { color: var(--accent); margin-bottom: 0.5rem; text-align: center; }
             .stats {
@@ -417,8 +426,9 @@ def home():
             <div id="notes-tab" class="hidden">
                 <div class="card">
                     <div class="notes-search">
-                        <input type="search" id="notes-query" placeholder="Search notes (names, aliases, tags, paths, lines)" autocomplete="off">
-                        <label><input type="checkbox" id="notes-all"> all top-level notes</label>
+                        <input type="search" id="notes-query" placeholder="Search notes and files (names, aliases, tags, paths, lines)" autocomplete="off">
+                        <label><input type="checkbox" id="notes-files" checked> other files</label>
+                        <label><input type="checkbox" id="notes-all"> all top-level files</label>
                     </div>
                     <div class="notes-layout">
                         <div>
@@ -616,11 +626,26 @@ def home():
             }
 
             const allFlag = () => document.getElementById('notes-all').checked ? '1' : '0';
+            const filesFlag = () => document.getElementById('notes-files').checked ? '1' : '0';
+            const flags = () => `all=${allFlag()}&files=${filesFlag()}`;
+            const rawUrl = (rel, download) => '/api/notes/raw?path=' + encodeURIComponent(rel) + (download ? '&download=1' : '');
+            const ICONS = { zortex: '', pdf: '📄 ', image: '🖼 ', video: '🎞 ', audio: '🎵 ', text: '📝 ', other: '📦 ' };
+
+            function humanSize(n) {
+                if (n == null) return '';
+                const units = ['B', 'KB', 'MB', 'GB'];
+                let i = 0;
+                while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+                return `${n < 10 && i ? n.toFixed(1) : Math.round(n)} ${units[i]}`;
+            }
 
             function noteLink(n) {
-                const meta = n.names && n.names.length > 1 ? n.names.slice(1).join(', ') : '';
+                const isFile = n.kind === 'file';
+                const meta = !isFile && n.names && n.names.length > 1 ? n.names.slice(1).join(', ') : '';
+                const where = isFile ? n.rel.replace(/[^/]*$/, '') : n.rel;
+                const badge = isFile ? `<span class="badge">${esc(humanSize(n.size))}</span>` : '';
                 return `<a class="note-link ${n.archived ? 'archived' : ''}" onclick="openNote('${encodeURIComponent(n.rel)}')">` +
-                    `${esc(n.title)}<span class="meta">${esc(n.rel)}${meta ? ' · ' + esc(meta) : ''}</span></a>`;
+                    `${ICONS[n.view] || ''}${esc(n.title)}${badge}<span class="meta">${esc(where)}${meta ? ' · ' + esc(meta) : ''}</span></a>`;
             }
 
             function renderFolder(f, open) {
@@ -633,7 +658,7 @@ def home():
 
             async function loadTree() {
                 const el = document.getElementById('notes-tree');
-                const res = await fetch('/api/notes/tree?all=' + allFlag());
+                const res = await fetch('/api/notes/tree?' + flags());
                 if (!res.ok) { el.innerHTML = '<span style="opacity:0.6">Notes are not configured (set NOTES_DIR).</span>'; return; }
                 el.innerHTML = renderFolder(await res.json(), true);
             }
@@ -644,10 +669,10 @@ def home():
                 const tree = document.getElementById('notes-tree');
                 if (!q) { el.innerHTML = ''; tree.classList.remove('hidden'); return; }
                 tree.classList.add('hidden');
-                const res = await fetch(`/api/notes/search?q=${encodeURIComponent(q)}&all=${allFlag()}`);
+                const res = await fetch(`/api/notes/search?q=${encodeURIComponent(q)}&${flags()}`);
                 if (!res.ok) return;
                 const data = await res.json();
-                let html = `<h3>Notes (${data.notes.length})</h3>` + (data.notes.map(noteLink).join('') || '<span style="opacity:0.5">none</span>');
+                let html = `<h3>Results (${data.notes.length})</h3>` + (data.notes.map(noteLink).join('') || '<span style="opacity:0.5">none</span>');
                 if (data.lines.length) {
                     html += `<h3>Lines (${data.lines.length})</h3>` + data.lines.map(l =>
                         `<a class="note-link line-hit" onclick="openNote('${encodeURIComponent(l.rel)}', ${l.lnum})">${esc(l.text)}` +
@@ -662,18 +687,49 @@ def home():
                     .replace(/(^|\s)(@\w+(\([^)]*\))?)/g, '$1<span class="attr">$2</span>');
             }
 
+            const TEXT_LIMIT = 2 * 1024 * 1024; // show text files up to 2 MB inline
+
+            async function showFile(el, f) {
+                const url = rawUrl(f.rel);
+                const when = f.mtime ? new Date(f.mtime * 1000).toLocaleString() : '';
+                let html = `<div class="file-head"><span class="name">${ICONS[f.view] || ''}${esc(f.title)}</span>` +
+                    `<span class="meta">${esc(f.mime)} · ${esc(humanSize(f.size))}${when ? ' · ' + esc(when) : ''}</span>` +
+                    `<a href="${url}" target="_blank" rel="noopener">open ↗</a><a href="${rawUrl(f.rel, true)}">download</a></div>`;
+                if (f.view === 'pdf') {
+                    html += `<iframe class="file-frame" src="${url}" title="${esc(f.title)}"></iframe>`;
+                } else if (f.view === 'image') {
+                    html += `<a href="${url}" target="_blank" rel="noopener"><img class="file-media" src="${url}" alt="${esc(f.title)}"></a>`;
+                } else if (f.view === 'video') {
+                    html += `<video class="file-media" src="${url}" controls preload="metadata"></video>`;
+                } else if (f.view === 'audio') {
+                    html += `<audio src="${url}" controls preload="metadata" style="width:100%"></audio>`;
+                } else if (f.view === 'text' && f.size <= TEXT_LIMIT) {
+                    const res = await fetch(url);
+                    html += `<pre class="file-text">${esc(res.ok ? await res.text() : 'Could not read the file.')}</pre>`;
+                } else {
+                    html += `<div style="opacity:0.6">No preview for this type; use open or download.</div>`;
+                }
+                el.innerHTML = html;
+            }
+
             async function openNote(encRel, lnum) {
                 const rel = decodeURIComponent(encRel);
                 const res = await fetch('/api/notes/file?path=' + encodeURIComponent(rel));
                 const el = document.getElementById('notes-viewer');
-                if (!res.ok) { el.textContent = 'Not found: ' + rel; return; }
+                if (!res.ok) { el.classList.remove('file'); el.textContent = 'Not found: ' + rel; return; }
                 const note = await res.json();
+                history.replaceState(null, '', `#notes/${rel}${lnum ? ':' + lnum : ''}`);
+                if (note.kind === 'file') {
+                    el.classList.add('file');
+                    await showFile(el, note);
+                    return;
+                }
+                el.classList.remove('file');
                 el.innerHTML = note.lines.map((l, i) => {
                     const cls = `ln k-${l.kind}${l.level ? ' h' + l.level : ''}${lnum === i + 1 ? ' target' : ''}`;
                     const body = (l.kind === 'code' || l.kind === 'fence') ? esc(l.text) : inline(l.text);
                     return `<span class="${cls}" id="L${i + 1}">${body || ' '}</span>`;
                 }).join('');
-                history.replaceState(null, '', `#notes/${rel}${lnum ? ':' + lnum : ''}`);
                 const target = lnum && document.getElementById('L' + lnum);
                 if (target) target.scrollIntoView({ block: 'center' });
             }
@@ -683,6 +739,7 @@ def home():
                 searchTimer = setTimeout(runSearch, 150);
             });
             document.getElementById('notes-all').addEventListener('change', () => { loadTree(); runSearch(); });
+            document.getElementById('notes-files').addEventListener('change', () => { loadTree(); runSearch(); });
 
             if (location.hash.startsWith('#notes')) {
                 showTab('notes');
@@ -712,8 +769,8 @@ def _notes_or_error():
     return NOTES, None
 
 
-def _flag(name):
-    return request.args.get(name, "0").lower() in ("1", "true", "yes")
+def _flag(name, default="0"):
+    return request.args.get(name, default).lower() in ("1", "true", "yes")
 
 
 @app.route("/api/notes/tree", methods=["GET"])
@@ -721,7 +778,7 @@ def api_notes_tree():
     notes, err = _notes_or_error()
     if err:
         return err
-    return jsonify(notes.tree(include_all=_flag("all")))
+    return jsonify(notes.tree(include_all=_flag("all"), files=_flag("files", "1")))
 
 
 @app.route("/api/notes/search", methods=["GET"])
@@ -730,7 +787,9 @@ def api_notes_search():
     if err:
         return err
     limit = min(int(request.args.get("limit", 50)), 200)
-    return jsonify(notes.search(request.args.get("q", ""), include_all=_flag("all"), limit=limit))
+    return jsonify(
+        notes.search(request.args.get("q", ""), include_all=_flag("all"), limit=limit, files=_flag("files", "1"))
+    )
 
 
 @app.route("/api/notes/file", methods=["GET"])
@@ -739,11 +798,53 @@ def api_notes_file():
     if err:
         return err
     rel = request.args.get("path", "")
+    if not rel.endswith(notes.extension):
+        # Other files: their metadata; the content comes from /api/notes/raw
+        entry = notes.entry(rel)
+        if entry is None or notes.path_for(rel, any_file=True) is None:
+            return jsonify({"error": "not found"}), 404
+        return jsonify(entry.summary())
     lines = notes.read_lines(rel)
     if lines is None:
         return jsonify({"error": "not found"}), 404
     names = [l[2:].strip() for l in lines[:20] if l.startswith("@@")]
-    return jsonify({"rel": rel, "title": names[0] if names else rel, "lines": classify(lines)})
+    return jsonify({"rel": rel, "kind": "note", "view": "zortex", "title": names[0] if names else rel, "lines": classify(lines)})
+
+
+# Types a browser could run script in: served sandboxed so a file in the notes
+# folder can't act on the dashboard's origin. (PDFs are not sandboxed: Chrome
+# refuses to show PDFs in sandboxed documents.)
+_ACTIVE_TYPES = ("text/html", "image/svg+xml", "application/xhtml+xml", "application/xml", "text/xml")
+
+
+@app.route("/api/notes/raw", methods=["GET"])
+def api_notes_raw():
+    """Any file in the notes folder, as is: PDFs, images, video (with range
+    requests), text. ?download=1 saves it instead of showing it."""
+    notes, err = _notes_or_error()
+    if err:
+        return err
+    rel = request.args.get("path", "")
+    path = notes.path_for(rel, any_file=True)
+    if path is None:
+        return jsonify({"error": "not found"}), 404
+    mime = guess_mime(path)
+    if rel.endswith(notes.extension):
+        mime = "text/plain; charset=utf-8"
+    elif mime.startswith("text/") and "charset" not in mime:
+        mime += "; charset=utf-8"
+    response = send_file(
+        path,
+        mimetype=mime,
+        conditional=True,
+        as_attachment=_flag("download"),
+        download_name=os.path.basename(path),
+        max_age=60,
+    )
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    if mime.split(";")[0] in _ACTIVE_TYPES:
+        response.headers["Content-Security-Policy"] = "sandbox"
+    return response
 
 
 @app.route("/api/summary", methods=["GET"])

@@ -18,15 +18,25 @@ Set `NOTES_DIR` to the synced notes folder (Docker: mount it read-only at
 
 - **Search** matches every word against note names, aliases, tags and paths
   (exact, prefix, substring, like the plugin; archived notes last), then lists
-  lines containing every word.
+  lines containing every word. Other files match by name, folder and
+  extension (`pdf papers`).
+- **Other files** (PDFs, images, video, audio, text, …) are listed next to
+  the notes and open in the viewer: PDFs in the browser's PDF viewer, images,
+  `<video>`/`<audio>` (with seeking), text files up to 2 MB inline; anything
+  else gets open/download links. Untick "other files" to see notes only.
 - **Browse** the folder tree; open a note to read it with basic highlighting;
   links like `/#notes/z/rust.zortex:12` open a note at a line.
-- **Hidden by default:** top-level `*.zortex` files other than the special
-  ones (`NOTES_SPECIAL`, default `calendar,structure,projects,areas,okr`; tick
+- **Hidden by default:** top-level files other than the special notes (`NOTES_SPECIAL`, default `calendar,structure,projects,areas,okr`; tick
   "all top-level notes" to see them), hidden folders (`.z`, `.stversions`,
   …) and Syncthing temp/conflict files. Nothing is ever written to the folder.
-- JSON: `GET /api/notes/tree?all=0`, `/api/notes/search?q=…&all=0&limit=50`,
-  `/api/notes/file?path=z/rust.zortex`.
+- JSON: `GET /api/notes/tree?all=0&files=1`,
+  `/api/notes/search?q=…&all=0&files=1&limit=50`,
+  `/api/notes/file?path=z/rust.zortex` (a note's lines, or a file's metadata).
+- Raw files: `GET /api/notes/raw?path=z/papers/x.pdf` (`&download=1` to
+  save). Served with their MIME type and byte ranges; only files inside the
+  folder (no `..`, no symlinks out, no hidden files); HTML/SVG/XML are served
+  with `Content-Security-Policy: sandbox` so they can't run script on the
+  dashboard's origin.
 - Tests: `python3 -m unittest app/test_notes.py`.
 
 ## Go

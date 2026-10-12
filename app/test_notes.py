@@ -29,6 +29,11 @@ class NotesIndexTest(unittest.TestCase):
         write(r, "z/.syncthing.rust.zortex.tmp", "@@Temp\n")
         write(r, "z/rust.sync-conflict-20261011-ABC.zortex", "@@Conflict\n")
         write(r, ".z/state.zortex", "@@Hidden\n")
+        write(r, "z/papers/attention.pdf", "%PDF-1.4 fake")
+        write(r, "z/img/diagram.png", "png")
+        write(r, "z/readme.txt", "hello text")
+        write(r, "loose.pdf", "%PDF top-level")
+        write(r, "z/.hidden.pdf", "x")
         self.idx = NotesIndex(r, ttl=0)
 
     def tearDown(self):
@@ -49,9 +54,41 @@ class NotesIndexTest(unittest.TestCase):
     def test_tree(self):
         tree = self.idx.tree()
         self.assertEqual([n["rel"] for n in tree["notes"]], ["calendar.zortex", "projects.zortex"])
-        self.assertEqual(tree["dirs"][0]["name"], "z")
-        titles = [n["title"] for n in tree["dirs"][0]["notes"]]
-        self.assertEqual(titles[0], "Rust")
+        z = tree["dirs"][0]
+        self.assertEqual(z["name"], "z")
+        titles = [n["title"] for n in z["notes"]]
+        self.assertEqual(titles[0], "Rust")  # notes before files
+        self.assertEqual(titles[-1], "readme.txt")
+        self.assertEqual([d["name"] for d in z["dirs"]], ["img", "papers"])
+        pdf = z["dirs"][1]["notes"][0]
+        self.assertEqual((pdf["kind"], pdf["view"], pdf["mime"]), ("file", "pdf", "application/pdf"))
+        self.assertEqual(z["dirs"][0]["notes"][0]["view"], "image")
+
+    def test_files_visibility(self):
+        rels = self.rels()
+        self.assertIn("z/papers/attention.pdf", rels)
+        self.assertNotIn("loose.pdf", rels)  # top-level other files hidden by default
+        self.assertNotIn("z/.hidden.pdf", rels)
+        self.assertIn("loose.pdf", self.rels(include_all=True))
+        self.assertNotIn("z/papers/attention.pdf", self.rels(files=False))
+
+    def test_search_files(self):
+        res = self.idx.search("attention")
+        self.assertEqual(res["notes"][0]["rel"], "z/papers/attention.pdf")
+        res = self.idx.search("pdf papers")  # extension and folder
+        self.assertEqual([n["rel"] for n in res["notes"]], ["z/papers/attention.pdf"])
+        self.assertEqual(self.idx.search("attention", files=False)["notes"], [])
+
+    def test_any_file_paths_are_confined(self):
+        self.assertIsNotNone(self.idx.path_for("z/papers/attention.pdf", any_file=True))
+        self.assertIsNone(self.idx.path_for("z/papers/attention.pdf"))  # not a note
+        for bad in ["../x.pdf", "z/../../etc/passwd", "/etc/passwd", "z/.hidden.pdf", ".z/state.zortex", "z//readme.txt"]:
+            self.assertIsNone(self.idx.path_for(bad, any_file=True), bad)
+        outside = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+        outside.close()
+        os.symlink(outside.name, os.path.join(self.tmp.name, "z", "escape.pdf"))
+        self.assertIsNone(self.idx.path_for("z/escape.pdf", any_file=True))
+        os.unlink(outside.name)
 
     def test_search_names_aliases_tags_lines(self):
         res = self.idx.search("rustl")
@@ -90,8 +127,11 @@ class RoutesTest(unittest.TestCase):
             self.skipTest("flask not installed")
         tmp = tempfile.TemporaryDirectory()
         write(tmp.name, "z/rust.zortex", "@@Rust\n\n# Ownership\n")
+        write(tmp.name, "z/paper.pdf", "%PDF-1.4 " + "x" * 100)
+        write(tmp.name, "z/page.svg", "<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>")
         os.environ["NOTES_DIR"] = tmp.name
-        os.environ["DATABASE_PATH"] = os.path.join(tmp.name, "db", "n.db")
+        dbdir = tempfile.TemporaryDirectory()  # outside the notes folder
+        os.environ["DATABASE_PATH"] = os.path.join(dbdir.name, "n.db")
         import importlib
         import server
 
@@ -103,7 +143,25 @@ class RoutesTest(unittest.TestCase):
         self.assertEqual(client.get("/api/notes/file?path=z/rust.zortex").get_json()["lines"][2]["kind"], "heading")
         self.assertEqual(client.get("/api/notes/file?path=../x.zortex").status_code, 404)
         self.assertIn(b"notes-tab", client.get("/").data)
+
+        # other files: metadata, raw content with ranges, downloads, sandboxing
+        info = client.get("/api/notes/file?path=z/paper.pdf").get_json()
+        self.assertEqual((info["kind"], info["view"]), ("file", "pdf"))
+        r = client.get("/api/notes/raw?path=z/paper.pdf")
+        self.assertEqual(r.mimetype, "application/pdf")
+        self.assertTrue(r.data.startswith(b"%PDF"))
+        self.assertNotIn("Content-Security-Policy", r.headers)
+        r = client.get("/api/notes/raw?path=z/paper.pdf", headers={"Range": "bytes=0-3"})
+        self.assertEqual((r.status_code, r.data), (206, b"%PDF"))
+        r = client.get("/api/notes/raw?path=z/paper.pdf&download=1")
+        self.assertIn("attachment", r.headers["Content-Disposition"])
+        r = client.get("/api/notes/raw?path=z/page.svg")
+        self.assertEqual(r.headers["Content-Security-Policy"], "sandbox")
+        self.assertEqual(client.get("/api/notes/raw?path=../etc/passwd").status_code, 404)
+        r = client.get("/api/notes/raw?path=z/rust.zortex")
+        self.assertTrue(r.content_type.startswith("text/plain"))
         tmp.cleanup()
+        dbdir.cleanup()
 
 
 if __name__ == "__main__":

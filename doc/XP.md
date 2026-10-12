@@ -75,6 +75,11 @@ same XP.
 | `:ZortexSkillTree` (`<leader>zk`) | season progress and the area tree |
 | `:ZortexSeasonStart` / `SeasonStatus` / `SeasonEnd` | seasons |
 
+On the web: the home page of `zortex serve` shows the season (level, tier,
+progress), XP per day for two weeks, top areas and recent awards. Neovim
+publishes that summary after every change (`.z/xp_summary.json`, and
+`POST /api/xp` when `server.enabled`; `xp.publish = false` turns it off).
+
 From Lua: `require("zortex").query.xp()` (plain data: season, areas, daily
 XP, recent awards), `require("zortex.services.xp.ledger").get()` (every
 award), `require("zortex").xp` (views). Events: `xp:awarded`, `xp:removed`,

@@ -86,6 +86,7 @@ type Server struct {
 	alerts *alerts.Store   // nil without DataDir
 	sender *alerts.Sender  // nil without DataDir
 	pomo   *pomodoro.Clock // nil without DataDir
+	xp     xpCache         // XP summary published by Neovim
 }
 
 // Backlink is a link in one note (or Markdown file) to a line of another
@@ -364,6 +365,9 @@ func (s *Server) Handler() http.Handler {
 	// pomodoro, shared by Neovim and the home page
 	mux.HandleFunc("GET /api/pomodoro", s.apiPomodoro)
 	mux.HandleFunc("POST /api/pomodoro/{action}", s.apiPomodoroAction)
+	// XP summary published by Neovim (the ledger lives there)
+	mux.HandleFunc("GET /api/xp", s.apiXP)
+	mux.HandleFunc("POST /api/xp", s.apiXPPost)
 	mux.Handle("GET /static/", s.cacheStatic(s.static))
 	var h http.Handler = mux
 	if base := s.cfg.Base; base != "" {

@@ -243,6 +243,180 @@
   }
 
   // ===========================================================================
+  // XP (summary published by Neovim; the ledger lives there)
+  // ===========================================================================
+
+  var SVGNS = "http://www.w3.org/2000/svg";
+  var list = function (x) { return Array.isArray(x) ? x : []; };
+  var num = function (n) { return Math.round(n || 0).toLocaleString(); };
+  var noteHref = function (rel, lnum) {
+    return base + "/n/" + rel.split("/").map(encodeURIComponent).join("/") + (lnum ? "#L" + lnum : "");
+  };
+
+  function ago(iso) {
+    var t = Date.parse(iso);
+    if (!t) return "";
+    var m = Math.round((now() - t) / 60000);
+    if (m < 1) return "just now";
+    if (m < 60) return m + " min ago";
+    if (m < 48 * 60) return Math.round(m / 60) + " h ago";
+    return Math.round(m / 1440) + " days ago";
+  }
+
+  // 14 columns, one per day; today's value labelled on its cap. Hover (or
+  // focus) any column for its date and XP.
+  function renderChart(days) {
+    var wrap = $("xp-chart");
+    wrap.textContent = "";
+    var W = 308, H = 104, top = 18, bottom = 18, slot = W / Math.max(days.length, 1);
+    var bw = Math.min(16, slot - 4), max = 0;
+    days.forEach(function (d) { max = Math.max(max, d.xp); });
+    var scale = max > 0 ? (H - top - bottom) / max : 0;
+    var svg = document.createElementNS(SVGNS, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", "XP per day for the last " + days.length + " days; the table below has the values");
+    var base_y = H - bottom;
+    var axis = document.createElementNS(SVGNS, "line");
+    axis.setAttribute("x1", 0); axis.setAttribute("x2", W);
+    axis.setAttribute("y1", base_y + 0.5); axis.setAttribute("y2", base_y + 0.5);
+    axis.setAttribute("class", "axis");
+    svg.appendChild(axis);
+    days.forEach(function (d, i) {
+      var h = d.xp * scale, x = i * slot + (slot - bw) / 2, isToday = i === days.length - 1;
+      var g = document.createElementNS(SVGNS, "g");
+      g.setAttribute("class", "col" + (isToday ? " today" : ""));
+      g.setAttribute("tabindex", "0");
+      g.setAttribute("aria-label", d.date + ": " + num(d.xp) + " XP");
+      g.dataset.date = d.date; g.dataset.xp = d.xp;
+      var hit = document.createElementNS(SVGNS, "rect"); // the whole slot is the target
+      hit.setAttribute("x", i * slot); hit.setAttribute("y", 0);
+      hit.setAttribute("width", slot); hit.setAttribute("height", H);
+      hit.setAttribute("class", "hit");
+      g.appendChild(hit);
+      if (h > 0) {
+        h = Math.max(h, 2);
+        var r = Math.min(4, bw / 2, h), y = base_y - h;
+        // rounded data end, square at the baseline
+        var path = document.createElementNS(SVGNS, "path");
+        path.setAttribute("d", "M" + x + "," + base_y + "V" + (y + r) + "Q" + x + "," + y + " " + (x + r) + "," + y +
+          "H" + (x + bw - r) + "Q" + (x + bw) + "," + y + " " + (x + bw) + "," + (y + r) + "V" + base_y + "Z");
+        path.setAttribute("class", "bar");
+        g.appendChild(path);
+      }
+      if (isToday && d.xp > 0) {
+        var label = document.createElementNS(SVGNS, "text");
+        label.setAttribute("x", x + bw / 2); label.setAttribute("y", base_y - h - 5);
+        label.setAttribute("text-anchor", "middle");
+        label.setAttribute("class", "value");
+        label.textContent = num(d.xp);
+        g.appendChild(label);
+      }
+      if (i === 0 || isToday || i === Math.floor(days.length / 2)) {
+        var tick = document.createElementNS(SVGNS, "text");
+        tick.setAttribute("x", x + bw / 2); tick.setAttribute("y", H - 3);
+        tick.setAttribute("text-anchor", "middle");
+        tick.setAttribute("class", "tick");
+        tick.textContent = isToday ? "today" : d.date.slice(5).replace("-", "/");
+        g.appendChild(tick);
+      }
+      svg.appendChild(g);
+    });
+    wrap.appendChild(svg);
+    if (max === 0) {
+      var empty = document.createElement("p");
+      empty.className = "chart-empty dim small";
+      empty.textContent = "No XP in the last 14 days";
+      wrap.appendChild(empty);
+    }
+
+    var tip = $("xp-tip");
+    function show(g) {
+      var d = new Date(g.dataset.date + "T12:00:00");
+      tip.innerHTML = "<span class='tip-date'>" + esc(d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })) +
+        "</span> <strong>" + esc(num(Number(g.dataset.xp))) + " XP</strong>";
+      tip.hidden = false;
+      var box = wrap.getBoundingClientRect(), r = g.querySelector(".hit").getBoundingClientRect();
+      var left = r.left - box.left + r.width / 2;
+      tip.style.left = Math.max(60, Math.min(box.width - 60, left)) + "px";
+      svg.querySelectorAll(".col.hover").forEach(function (c) { c.classList.remove("hover"); });
+      g.classList.add("hover");
+    }
+    function hide() {
+      tip.hidden = true;
+      svg.querySelectorAll(".col.hover").forEach(function (c) { c.classList.remove("hover"); });
+    }
+    svg.querySelectorAll(".col").forEach(function (g) {
+      g.addEventListener("pointerenter", function () { show(g); });
+      g.addEventListener("focus", function () { show(g); });
+      g.addEventListener("blur", hide);
+    });
+    svg.addEventListener("pointerleave", hide);
+
+    var tbody = $("xp-table").querySelector("tbody");
+    tbody.innerHTML = days.map(function (d) { return "<tr><td>" + esc(d.date) + "</td><td>" + esc(num(d.xp)) + "</td></tr>"; }).join("");
+  }
+
+  function renderXP(x) {
+    var panel = $("xp");
+    if (!panel) return;
+    if (!x || x.available === false || !x.version) { panel.hidden = true; return; }
+    panel.hidden = false;
+    var s = x.season;
+    if (s) {
+      $("xp-title").textContent = s.name;
+      $("xp-meta").textContent = "season" + (s.days_left != null ? " · " + Math.max(0, s.days_left) + " days left" : "") +
+        (s.start_date ? " · since " + s.start_date : "");
+      $("xp-level").textContent = "Level " + s.level;
+      $("xp-tier").textContent = s.tier || "";
+      $("xp-tier").hidden = !s.tier;
+      var pct = Math.round((s.progress || 0) * 100);
+      $("xp-meter").hidden = false;
+      $("xp-meter").setAttribute("aria-valuenow", pct);
+      $("xp-meter-fill").style.width = pct + "%";
+      $("xp-next").textContent = num(s.xp_to_next) + " XP to level " + (s.level + 1) +
+        (s.next_tier ? " · " + s.next_tier + " at level " + s.next_tier_level : "");
+      $("xp-season").textContent = num(s.xp);
+    } else {
+      $("xp-title").textContent = "XP";
+      $("xp-meta").textContent = "no season running · :ZortexSeasonStart";
+      $("xp-level").textContent = "No season";
+      $("xp-tier").hidden = true;
+      $("xp-meter").hidden = true;
+      $("xp-next").textContent = "";
+      $("xp-season").textContent = "–";
+    }
+    $("xp-today").textContent = (x.today > 0 ? "+" : "") + num(x.today);
+    $("xp-week").textContent = (x.week > 0 ? "+" : "") + num(x.week);
+    renderChart(list(x.daily));
+
+    var areas = list(x.areas);
+    $("xp-areas").innerHTML = areas.length ? areas.map(function (a) {
+      var pct = Math.round((a.progress || 0) * 100);
+      return '<li><div class="area-row"><span class="area-name" title="' + esc(a.key) + '">' + esc(a.name) + "</span>" +
+        '<span class="area-level">Lvl ' + esc(a.level || 1) + " · " + esc(num(a.xp)) + " XP</span></div>" +
+        '<div class="meter thin" role="progressbar" aria-label="' + esc(a.name) + ' progress to the next level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '">' +
+        '<div class="meter-fill" style="width:' + pct + '%"></div></div></li>';
+    }).join("") : '<li class="dim">No area XP yet: link projects to areas with @a(...)</li>';
+
+    var awards = list(x.awards);
+    $("xp-awards").innerHTML = awards.length ? awards.map(function (e) {
+      var title = esc(e.title || "");
+      if (e.rel) title = '<a href="' + esc(noteHref(e.rel, e.lnum)) + '">' + title + "</a>";
+      var kind = e.source === "objective" ? " · objective" : e.source === "project_done" ? " · project done" : "";
+      return '<li><span class="award-xp">+' + esc(num(e.xp)) + "</span>" +
+        '<span class="award-title">' + title + '<span class="dim small"> ' + esc(e.date ? e.date.slice(5).replace("-", "/") : "") + esc(kind) + "</span></span></li>";
+    }).join("") : '<li class="dim">Nothing completed in the last 30 days</li>';
+
+    $("xp-updated").textContent = x.generated ? "Updated in Neovim " + ago(x.generated) : "";
+  }
+
+  function loadXP() {
+    if (!$("xp")) return Promise.resolve();
+    return api("/api/xp").then(function (res) { if (res.ok) renderXP(res.body); }).catch(function () {});
+  }
+
+  // ===========================================================================
   // Refresh
   // ===========================================================================
 
@@ -254,11 +428,12 @@
     if (s !== lastSecond) { lastSecond = s; renderPomodoro(); }
   }, 250);
   setInterval(function () { if (!document.hidden) loadPomodoro(); }, 5000);
-  setInterval(function () { if (!document.hidden) loadCalendar(true); }, 60000);
+  setInterval(function () { if (!document.hidden) { loadCalendar(true); loadXP(); } }, 60000);
   document.addEventListener("visibilitychange", function () {
-    if (!document.hidden) { loadPomodoro(); loadCalendar(true); }
+    if (!document.hidden) { loadPomodoro(); loadCalendar(true); loadXP(); }
   });
 
   loadPomodoro();
   loadCalendar(false);
+  loadXP();
 })();

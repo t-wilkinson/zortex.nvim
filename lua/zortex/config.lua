@@ -293,6 +293,7 @@ local defaults = {
 	xp = {
 		stamp_done_on_save = true, -- tasks checked by hand get @done(today) on save
 		notify_min = 5, -- announce awards of at least this much XP
+		publish = true, -- write .z/xp_summary.json (and POST it to server) for the web app's home page
 
 		sources = {
 			-- A completed task outside projects (calendar, any note)

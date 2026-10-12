@@ -191,3 +191,47 @@ func TestStructure(t *testing.T) {
 	expect(t, ts, "/structure", 200, `okr.zortex`, `aria-current="page"`)
 	expect(t, ts, "/", 200, `Not in Structure`)
 }
+
+func TestXPSummary(t *testing.T) {
+	s, dir, ts, _ := newStateServer(t, "k")
+	expect(t, ts, "/api/xp", 200, `"available":false`)
+	home := expect(t, ts, "/", 200, `id="xp"`, `static/home.js`)
+	if !strings.Contains(home, `id="xp" aria-labelledby="xp-title" hidden`) {
+		t.Error("the XP panel starts hidden")
+	}
+	body := `{"version":1,"generated":"2026-10-12T15:00:00Z","season":{"name":"Q4","level":2},"today":36,"daily":[]}`
+	if code, _ := post(t, ts, "/api/xp", body, nil); code != 401 {
+		t.Fatalf("no key: %d", code)
+	}
+	if code, _ := post(t, ts, "/api/xp", body, map[string]string{"X-API-Key": "k"}); code != 200 {
+		t.Fatalf("post: %d", code)
+	}
+	expect(t, ts, "/api/xp", 200, `"name":"Q4"`, `"available":true`)
+	// persisted in the data dir
+	if raw, err := os.ReadFile(filepath.Join(s.cfg.DataDir, "xp_summary.json")); err != nil || !strings.Contains(string(raw), "Q4") {
+		t.Fatalf("persisted: %v %s", err, raw)
+	}
+	// a newer copy synced into the notes folder wins; an older one doesn't
+	os.MkdirAll(filepath.Join(dir, ".z"), 0o755)
+	os.WriteFile(filepath.Join(dir, ".z", "xp_summary.json"), []byte(`{"version":1,"generated":"2026-10-12T14:00:00Z","season":{"name":"Old"}}`), 0o644)
+	expect(t, ts, "/api/xp", 200, `"name":"Q4"`)
+	later := time.Now().Add(time.Second)
+	os.WriteFile(filepath.Join(dir, ".z", "xp_summary.json"), []byte(`{"version":1,"generated":"2026-10-12T16:00:00Z","season":{"name":"Synced"}}`), 0o644)
+	os.Chtimes(filepath.Join(dir, ".z", "xp_summary.json"), later, later)
+	expect(t, ts, "/api/xp", 200, `"name":"Synced"`)
+	// not JSON
+	if code, _ := post(t, ts, "/api/xp", "nope", map[string]string{"X-API-Key": "k"}); code != 400 {
+		t.Fatalf("bad body: %d", code)
+	}
+}
+
+func TestXPSummaryWithoutDataDir(t *testing.T) {
+	_, dir, ts := newTestServer(t, "")
+	os.MkdirAll(filepath.Join(dir, ".z"), 0o755)
+	os.WriteFile(filepath.Join(dir, ".z", "xp_summary.json"), []byte(`{"version":1,"generated":"2026-10-12T16:00:00Z","today":5}`), 0o644)
+	expect(t, ts, "/api/xp", 200, `"today":5`)
+	// and it isn't reachable as a file
+	if code, _, _ := get(t, ts, "/raw/.z/xp_summary.json"); code != 404 {
+		t.Errorf("hidden state served: %d", code)
+	}
+}

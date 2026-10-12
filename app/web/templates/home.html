@@ -78,6 +78,42 @@
   </section>
   {{end}}
 
+  <section class="panel xp" id="xp" aria-labelledby="xp-title" hidden>
+    <div class="xp-head">
+      <h2 id="xp-title">Season</h2>
+      <span class="dim small" id="xp-meta"></span>
+    </div>
+    <div class="xp-body">
+      <div class="xp-level">
+        <div class="xp-hero"><span id="xp-level">Level 1</span> <span class="pill tier" id="xp-tier"></span></div>
+        <div class="meter" id="xp-meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="Progress to the next level"><div class="meter-fill" id="xp-meter-fill"></div></div>
+        <p class="small dim" id="xp-next"></p>
+        <div class="xp-tiles">
+          <div class="tile"><span class="tile-label">Today</span><span class="tile-value" id="xp-today">0</span></div>
+          <div class="tile"><span class="tile-label">Last 7 days</span><span class="tile-value" id="xp-week">0</span></div>
+          <div class="tile"><span class="tile-label">Season</span><span class="tile-value" id="xp-season">–</span></div>
+        </div>
+      </div>
+      <figure class="xp-chart">
+        <figcaption class="small dim">XP per day, last 14 days</figcaption>
+        <div class="chart-wrap" id="xp-chart"></div>
+        <div class="chart-tip" id="xp-tip" role="status" hidden></div>
+        <table class="sr-only" id="xp-table"><caption>XP per day</caption><thead><tr><th>Day</th><th>XP</th></tr></thead><tbody></tbody></table>
+      </figure>
+    </div>
+    <div class="xp-cols">
+      <div>
+        <h3>Areas</h3>
+        <ul class="plain xp-areas" id="xp-areas"></ul>
+      </div>
+      <div>
+        <h3>Recent</h3>
+        <ul class="plain xp-awards" id="xp-awards"></ul>
+      </div>
+    </div>
+    <p class="small dim xp-updated" id="xp-updated"></p>
+  </section>
+
   <div class="cols">
     {{if .Special}}
     <div class="panel">
@@ -107,5 +143,5 @@
   </div>
   <p class="stats dim">{{.Notes}} notes · {{.Links}} links · <a href="{{u "/broken"}}">{{.Broken}} broken</a> · <a href="{{u "/tags"}}">{{.Tags}} tags</a> · <a href="{{u "/resources"}}">{{.Resources}} resources ({{.Unlinked}} unlinked)</a>{{if .Structure.Sources}} · <a href="{{u "/structure"}}">{{.Structure.Linked}}/{{.Structure.Total}} in structure</a>{{end}} · indexed {{ago .Built}}</p>
 </section>
-{{if or .HasCalendar .HasState}}<script src="{{u "/static/home.js"}}" defer></script>{{end}}
+<script src="{{u "/static/home.js"}}" defer></script>
 {{end}}

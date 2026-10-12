@@ -188,7 +188,7 @@ func (s *Server) listDir(rel string, all bool) ([]entry, int, error) {
 }
 
 // listSort orders a folder listing: ?sort=name|modified&order=asc|desc.
-// Folders always come first. The default is name, ascending; modified time
+// Folders always come first; notes sort by their article name (@@Name). The default is name, ascending; modified time
 // starts newest first.
 type listSort struct {
 	By    string // "name" | "modified"
@@ -212,7 +212,11 @@ func (ls listSort) apply(entries []entry) {
 		if a.Dir != b.Dir {
 			return a.Dir
 		}
-		an, bn := strings.ToLower(a.Name), strings.ToLower(b.Name)
+		// notes by their article name (what the listing shows), files by name
+		an, bn := strings.ToLower(a.Title), strings.ToLower(b.Title)
+		if an == bn {
+			an, bn = strings.ToLower(a.Name), strings.ToLower(b.Name)
+		}
 		less, equal := an < bn, an == bn
 		if ls.By == "modified" && !a.ModTime.Equal(b.ModTime) {
 			less, equal = a.ModTime.Before(b.ModTime), false

@@ -298,7 +298,7 @@ func TestResources(t *testing.T) {
 }
 
 func TestFileSorting(t *testing.T) {
-	_, dir, ts := newTestServer(t, "")
+	s, dir, ts := newTestServer(t, "")
 	base := time.Now().Add(-time.Hour)
 	for i, name := range []string{"b.txt", "c.txt", "a.txt"} { // a is newest
 		p := filepath.Join(dir, "z/sort", name)
@@ -308,6 +308,16 @@ func TestFileSorting(t *testing.T) {
 		os.Chtimes(p, mt, mt)
 	}
 	os.MkdirAll(filepath.Join(dir, "z/sort/sub"), 0o755)
+	// notes sort by article name, not file name: "Zeta" (a.zortex) after "Alpha" (z.zortex)
+	for name, content := range map[string]string{"z/sort2/a.zortex": "@@Zeta\n", "z/sort2/z.zortex": "@@Alpha\n", "z/sort2/m.pdf": "%PDF"} {
+		p := filepath.Join(dir, name)
+		os.MkdirAll(filepath.Dir(p), 0o755)
+		os.WriteFile(p, []byte(content), 0o644)
+	}
+	s.Refresh()
+	if _, _, b := get(t, ts, "/f/z/sort2"); !(strings.Index(b, ">Alpha") < strings.Index(b, ">m.pdf<") && strings.Index(b, ">m.pdf<") < strings.Index(b, ">Zeta")) {
+		t.Error("notes should sort by article name: Alpha, m.pdf, Zeta")
+	}
 	order := func(path string) string {
 		_, _, body := get(t, ts, path)
 		names := []string{"sub/", "a.txt", "b.txt", "c.txt"}

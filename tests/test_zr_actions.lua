@@ -26,7 +26,11 @@ end)
 T.test("commands and keymaps come from the list, with overrides", function()
 	actions.create_commands("ZtTest")
 	T.eq(vim.fn.exists(":ZtTestReview"), 2)
-	T.eq(vim.api.nvim_get_commands({})["ZtTestBacklinks"].definition, "Links into the section under the cursor (quickfix)")
+	-- Lua commands keep their description in `desc` on Neovim 0.12+, in
+	-- `definition` before
+	local cmd = vim.api.nvim_get_commands({})["ZtTestBacklinks"]
+	local desc = (cmd.desc and cmd.desc ~= "") and cmd.desc or cmd.definition
+	T.eq(desc, "Links into the section under the cursor (quickfix)")
 	actions.create_keymaps("<leader>q", { task_toggle = "t", search = false, review = { "w", "R" } })
 	T.eq(vim.fn.maparg("<leader>qt", "n", false, true).desc, "Zortex: Toggle the task on this line (makes one if needed)")
 	T.eq(vim.fn.maparg("<leader>qz", "n"), "")

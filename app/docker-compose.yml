@@ -1,7 +1,8 @@
 # app/docker-compose.yml
 services:
   zortex:
-    build: ./
+    # the released image; or build it here: replace with `build: ./`
+    image: ghcr.io/t-wilkinson/zortex:${ZORTEX_VERSION:-latest}
     container_name: zortex
     restart: unless-stopped
     environment:
@@ -13,10 +14,12 @@ services:
       - ZORTEX_API_KEY=${ZORTEX_API_KEY:-}
       - ZORTEX_TITLE=${ZORTEX_TITLE:-Zortex}
       - TZ=${TZ:-America/New_York}
+      # edit notes from the browser (then drop :ro below)
+      - ZORTEX_WRITABLE=${ZORTEX_WRITABLE:-}
     volumes:
-      # Synced notes (read-only)
+      # Synced notes (read-only unless ZORTEX_WRITABLE=1)
       - ${NOTES_PATH:-./notes}:/notes:ro
-      # Notifications and the pomodoro clock
+      # The server's state: notifications, pomodoro, clocks, time tracking
       - zortex_data:/data
     ports:
       # Localhost only: put a reverse proxy with authentication in front

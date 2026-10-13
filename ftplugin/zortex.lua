@@ -2,7 +2,9 @@
 
 -- Buffer-local options
 vim.bo.iskeyword = vim.bo.iskeyword .. ",-" -- Add dash to word characters
-vim.wo.foldlevel = 1 -- Start with folds open to level 1
+-- Start folded to the note's headings (features.folding.level)
+local folding = (require("zortex.config").features or {}).folding or {}
+vim.wo.foldlevel = folding.level or 1
 vim.bo.tabstop = 4 -- Tab width
 vim.bo.softtabstop = 4 -- Soft tab width
 vim.bo.shiftwidth = 4 -- Indent width

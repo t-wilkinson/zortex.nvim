@@ -18,6 +18,6 @@ for _, line in ipairs(cases.lines) do
 end
 local path = root .. "/tests/fixtures/edits.json"
 local f = assert(io.open(path, "w"))
-f:write(vim.json.encode({ today = cases.today, id = cases.id, cases = out }))
+f:write(require("json").encode({ today = cases.today, id = cases.id, cases = out }) .. "\n")
 f:close()
 print("wrote " .. path .. " (" .. #out .. " cases)")

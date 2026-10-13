@@ -3,7 +3,7 @@
 Features, integrations and plans that are agreed in direction but not built
 yet. Each entry says what it is, why it matters, and what it builds on, so it
 can be picked up without re-deriving the design. For what exists today see
-[Architecture.md](Architecture.md); for what changed, [Changes.md](Changes.md).
+[Architecture.md](Architecture.md); for what changed, [CHANGELOG.md](../CHANGELOG.md).
 
 Contents:
 
@@ -161,7 +161,8 @@ The important features are:
 3. **Rendering Zortex files** faithfully: structure, tasks, attributes,
    links that work, tables, code, math, footnotes.
 
-Editing is not a goal (at most, later, appending to an inbox).
+Editing started as a non-goal; `-writable` now covers line-level edits
+(tasks, text, moving lines) and the inbox, and nothing more.
 
 ### Constraints that shape the design
 
@@ -282,8 +283,11 @@ two resolvers in sync becomes the main cost, **D** is the natural next step;
    `search.json` (31 prompts); the web app resolves links while rendering,
    shows backlinks, broken links and tags, and has a live search page.
    Still to do: search history (kept apart from `.z/search_history.json`).
-4. **Domain views:** projects, OKR, calendar, review and area overview, using
-   the `zortex.query` shapes.
+4. **Domain views — partly done:** the home page has the calendar (with
+   notifications), the pomodoro, timers, alarms and a stopwatch, time
+   tracking, season XP and the Structure check; notes can be edited
+   (`-writable`) and update live. Still to do: projects, OKR progress, the
+   weekly review and the area overview, using the `zortex.query` shapes.
 
 ### Open questions
 

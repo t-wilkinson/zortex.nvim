@@ -53,3 +53,12 @@ T.test("toggling edits the checkbox and @done only, keeping other attributes", f
 	undone.completed = false
 	T.eq(tasks.build_task_line(undone), line)
 end)
+
+T.test("toggling never turns structure into a task", function()
+	local tasks = require("zortex.services.tasks")
+	for _, line in ipairs({ "# 1 Example project @a(1.1)", "**Next steps:**", "@@Note" }) do
+		local result, err = tasks.change_task_completion({ doc = {}, line = line, bufnr = 0, lnum = 1 }, nil)
+		T.eq(result, nil, line)
+		T.ok(err and err:find("not a task"), tostring(err))
+	end
+end)

@@ -22,3 +22,6 @@ Session.vim
 
 # zortex serve binary built in app/
 /app/zortex
+
+# state Zortex writes into a notes folder (when trying doc/example in place)
+/doc/example/.z/

@@ -63,3 +63,16 @@ T.test("README command table is up to date", function()
 	T.ok(vim.tbl_contains(lines, gen.START), "README has the actions block")
 	T.eq(gen.render_readme(lines), lines, "regenerate with: nvim --headless -u NONE -l tests/gen_docs.lua")
 end)
+
+T.test(":help zortex is up to date and its tags are valid", function()
+	local gen = dofile(T.root .. "/tests/gen_docs.lua")
+	T.eq(gen.vimdoc_lines(), vim.fn.readfile(gen.vimdoc), "regenerate with: nvim --headless -u NONE -l tests/gen_docs.lua")
+	local dir = vim.fn.tempname() .. "/doc"
+	vim.fn.mkdir(dir, "p")
+	vim.fn.writefile(vim.fn.readfile(gen.vimdoc), dir .. "/zortex.txt")
+	vim.cmd("helptags " .. vim.fn.fnameescape(dir)) -- errors on duplicate tags
+	local tags = table.concat(vim.fn.readfile(dir .. "/tags"), "\n")
+	for _, tag in ipairs({ "zortex", "zortex-config", ":ZortexSearch", ":ZortexInit", "zortex-action-pomodoro_toggle" }) do
+		T.ok(tags:find(tag .. "\t", 1, true), tag)
+	end
+end)

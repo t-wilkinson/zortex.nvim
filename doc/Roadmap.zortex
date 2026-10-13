@@ -8,8 +8,8 @@ for a week, and (optionally) run the server, without reading the source or
 hitting a personal default. Ship as v0.1.0; everything under # 4 waits.
 
 **Definition of done:**
-- [ ] A fresh Neovim with only lazy.nvim + zortex starts with no errors @p1 @size(xs)
-- [ ] The README quickstart works copy-paste on Linux and macOS @p1 @size(sm)
+- [x] A fresh Neovim with only lazy.nvim + zortex starts with no errors @p1 @size(xs) @done(2026-10-13)
+- [x] The README quickstart works copy-paste on Linux and macOS (checked on Linux, Neovim 0.10.4 and 0.11) @p1 @size(sm) @done(2026-10-13)
 - [ ] CI is green on every push (Lua + Go) @p1 @size(sm)
 - [ ] A tagged release with `zortex` binaries and a container image @p1 @size(sm)
 
@@ -18,54 +18,54 @@ Things that break or embarrass a first-time user. Do these before telling anyone
 
 ## 1.1 Works out of the box
 - [x] Make Telescope actually optional: `ui/telescope/actions.lua` requires telescope at load, so `setup()` crashes without it (the README says optional); setup works now, the pickers still need it @p1 @size(xs) @done(2026-10-12)
-- [ ] The `vim` notification provider is a no-op (its `vim.notify` is commented out), so "vim" channels show nothing @p1 @size(xs)
-- [ ] Defaults that assume your setup: `MiniHipatternsTodo` groups in `ui.calendar.colors`, hard-coded hex colors in `features/highlights.lua`, Nerd Font icons; fall back to standard groups and plain icons @p1 @size(sm)
-- [ ] Pick a minimum Neovim (0.10: `vim.system`, `vim.uv`, `vim.islist`), check it in `:checkhealth zortex`, and replace deprecated calls (`nvim_buf_set_option`, `vim.tbl_islist`, `vim.loop`; ~40 call sites) @p1 @size(sm)
+- [x] The `vim` notification provider is a no-op (its `vim.notify` is commented out), so "vim" channels show nothing @p1 @size(xs) @done(2026-10-13)
+- [x] Defaults that assume your setup: `MiniHipatternsTodo` groups in `ui.calendar.colors`, hard-coded hex colors in `features/highlights.lua`, Nerd Font icons; fall back to standard groups and plain icons @p1 @size(sm) @done(2026-10-13)
+- [x] Pick a minimum Neovim (0.10: `vim.system`, `vim.uv`, `vim.islist`), check it in `:checkhealth zortex`, and replace deprecated calls (`nvim_buf_set_option`, `vim.tbl_islist`, `vim.loop`; ~40 call sites) @p1 @size(sm) @done(2026-10-13)
 - [x] First run: `setup()` creates calendar/projects/areas/okr/structure/inbox from short templates in a new folder; `:ZortexInit` adds missing ones @p2 @size(sm) @done(2026-10-12)
-- [ ] Bold headings are `**Text:**` only now: add `:ZortexMigrate` (or document the one-line sed) for `**Text**` / `**Text**:` in existing vaults, and run it on yours @p1 @size(xs)
+- [x] Bold headings are `**Text:**` only now: add `:ZortexMigrate` (or document the one-line sed) for `**Text**` / `**Text**:` in existing vaults, and run it on yours @p1 @size(xs) @done(2026-10-13)
 
 ## 1.2 Repository hygiene
-- [ ] Add LICENSE (MIT, as the Nix meta already claims) @p1 @size(xs)
+- [x] Add LICENSE (MIT, as the Nix meta already claims) @p1 @size(xs) @done(2026-10-13)
 - [x] Delete the Node era: `legacy/` (15 MB Next.js app), `autoload/` (VimL RPC to it; nothing else calls it), `test/` (old manual harness), `release.sh` (builds the legacy binaries), the commented `zortex#legacy#init` in `plugin/zortex.vim` @p1 @size(sm) @done(2026-10-12)
 - [x] Remove personal files: `.vim/coc-settings.json`; trim the Node section of `.gitignore` @p2 @size(xs) @done(2026-10-12)
-- [ ] `features/archive.lua`: `revert_archive` is a stub; implement or remove the command @p2 @size(sm)
+- [x] `features/archive.lua`: `revert_archive` is a stub; implement or remove the command @p2 @size(sm) @done(2026-10-13)
 
 ## 1.3 CI and releases
-- [ ] GitHub Actions: `tests/run.lua` on Neovim stable + nightly, `go test -race ./...`, `gofmt -l`, and fail when `tests/gen_docs.lua` / `gen_ast.lua` would change a file @p1 @size(sm)
-- [ ] Release job on tags: `zortex` for linux/macOS × amd64/arm64 (GoReleaser or a matrix), image to ghcr.io from `app/Dockerfile` @p1 @size(md)
-- [ ] Nix: version from the tag in `nix/zortex.nix`; run the Go tests in the build (include `tests/fixtures` in `src`); `nix flake check` in CI @p2 @size(sm)
-- [ ] Versioning policy: semver; `CHANGELOG.md` replaces `doc/Changes.md` (a log of one branch) @p2 @size(xs)
+- [x] GitHub Actions: `tests/run.lua` on Neovim stable + nightly, `go test -race ./...`, `gofmt -l`, and fail when `tests/gen_docs.lua` / `gen_ast.lua` would change a file @p1 @size(sm) @done(2026-10-13)
+- [x] Release job on tags: `zortex` for linux/macOS × amd64/arm64 (GoReleaser or a matrix), image to ghcr.io from `app/Dockerfile` @p1 @size(md) @done(2026-10-13)
+- [x] Nix: version from the tag in `nix/zortex.nix`; run the Go tests in the build (include `tests/fixtures` in `src`); `nix flake check` in CI (tests run in the build; CI builds it) @p2 @size(sm) @done(2026-10-13)
+- [x] Versioning policy: semver; `CHANGELOG.md` replaces `doc/Changes.md` (a log of one branch) @p2 @size(xs) @done(2026-10-13)
 
 # 2 Documentation
 ## 2.1 For someone new
-- [ ] README for strangers: what it is in three lines, a screenshot of Neovim + the home page, a 5-minute quickstart (install, notes_dir, first note, a link, a task, search); move the personal story to doc/Philosophy.md; fix typos ("is mean to be", "importantt") @p1 @size(md)
-- [ ] `:help zortex` (vimdoc), generated like the README command table from `actions.lua` and `config.lua` @p2 @size(md)
+- [x] README for strangers: what it is in three lines, a screenshot of Neovim + the home page, a 5-minute quickstart (install, notes_dir, first note, a link, a task, search); move the personal story to doc/Philosophy.md; fix typos ("is mean to be", "importantt") @p1 @size(md) @done(2026-10-13)
+- [x] `:help zortex` (vimdoc), generated like the README command table from `actions.lua` and `config.lua` @p2 @size(md) @done(2026-10-13)
 - [x] One syntax reference: doc/Schema.md, doc/Sections.md and doc/Link.md overlap and disagree in places; merge into doc/Syntax.md checked against `tests/fixtures/syntax` @p1 @size(md) @done(2026-10-12)
-- [ ] Example vault (`doc/example/`): structure, projects, areas, OKR, calendar using every feature; reuse it for screenshots and as test fixtures @p2 @size(md)
-- [ ] Server guide: Docker / NixOS, reverse proxy with auth, ntfy topic and `contrib/ntfy` subscriber, `server.*` plugin config, what lives in `-data` @p1 @size(sm)
-- [ ] Config reference: every key with its default, generated from `config.lua` @p3 @size(sm)
+- [x] Example vault (`doc/example/`): structure, projects, areas, OKR, calendar using every feature; reuse it for screenshots and as test fixtures @p2 @size(md) @done(2026-10-13)
+- [x] Server guide: Docker / NixOS, reverse proxy with auth, ntfy topic and `contrib/ntfy` subscriber, `server.*` plugin config, what lives in `-data` @p1 @size(sm) @done(2026-10-13)
+- [x] Config reference: every key with its default, generated from `config.lua` (the defaults, verbatim, in :help zortex-config) @p3 @size(sm) @done(2026-10-13)
 
 ## 2.2 Accuracy
-- [ ] doc/Wishlist.md # 6: calendar, pomodoro, XP and structure on the web are done; update the phases @p2 @size(xs)
-- [ ] doc/Features.md is notes-to-self (search examples, skill trees); fold into the docs or delete @p3 @size(xs)
+- [x] doc/Wishlist.md # 6: calendar, pomodoro, XP and structure on the web are done; update the phases @p2 @size(xs) @done(2026-10-13)
+- [x] doc/Features.md is notes-to-self (search examples, skill trees); fold into the docs or delete @p3 @size(xs) @done(2026-10-13)
 
 # 3 Loose ends
 ## 3.1 Notifications
 - [x] Decide what ships: system, ntfy and the server provider; AWS/SES and the digest email are gone (`GET /api/digest` gives the content to any mail service) @p2 @size(sm) @done(2026-10-12)
-- [ ] `providers/ntfy.lua` shells out with `io.popen` and hand-quoted headers: blocks the editor and breaks on quotes in titles; use `vim.system` with an argument list (or JSON publishing like the server) @p2 @size(sm)
+- [x] `providers/ntfy.lua` shells out with `io.popen` and hand-quoted headers: blocks the editor and breaks on quotes in titles; use `vim.system` with an argument list (or JSON publishing like the server) @p2 @size(sm) @done(2026-10-13)
 - [x] `alarm` and `timer` notification types have no tests; test or cut them: cut from Neovim, rebuilt in the web app with tests @p3 @size(sm) @done(2026-10-12)
 - [ ] Sounds: `paplay` / `afplay` only; document, and let `sound_command` take arguments @p3 @size(xs)
 
 ## 3.2 Calendar
-- [ ] `ui/calendar/render.lua` adjusts icon widths by hand (`shift_hl`, `icon_width`); use display width @p3 @size(sm)
+- [x] `ui/calendar/render.lua` adjusts icon widths by hand (`shift_hl`, `icon_width`); use display width @p3 @size(sm) @done(2026-10-13)
 - [ ] Two calendar views (Neovim and web) must agree on what an entry is; share one fixture @p3 @size(xs)
 
 ## 3.3 XP
 - [ ] Measure the ledger on a real vault (cold build waits for the link index); persist a cache if startup suffers @p2 @size(sm)
-- [ ] The web panel depends on Neovim publishing `.z/xp_summary.json`; say so in the server guide, note `.stignore` @p3 @size(xs)
+- [x] The web panel depends on Neovim publishing `.z/xp_summary.json`; say so in the server guide, note `.stignore` @p3 @size(xs) @done(2026-10-13)
 
 ## 3.4 Web app
-- [ ] No login by design; add an optional `-basic-auth-file` for people without a proxy, or make the warning impossible to miss @p2 @size(sm)
+- [x] No login by design; add an optional `-basic-auth-file` for people without a proxy, or make the warning impossible to miss (-auth-file / ZORTEX_AUTH, and a warning) @p2 @size(sm) @done(2026-10-13)
 - [ ] Domain views (Wishlist # 6 phase 4): projects, OKR progress, weekly review @p3 @size(lg)
 - [ ] Search history on the web, kept apart from `.z/search_history.json` (open question in the wishlist) @p3 @size(sm)
 
@@ -77,7 +77,7 @@ Things that break or embarrass a first-time user. Do these before telling anyone
 - [ ] Tree-sitter grammar with the AST fixtures as acceptance tests (Wishlist # 7) @size(xl)
 - [ ] blink.cmp source next to the nvim-cmp one @size(sm)
 - [ ] Web app as an installable PWA (phone + Syncthing) @size(md)
-- [ ] Pomodoro sessions into the calendar / XP (log what a session was spent on) @size(md)
+- [x] Pomodoro sessions into the calendar / XP (log what a session was spent on): time tracking writes @spent @size(md) @done(2026-10-12)
 - [ ] Import from Markdown / Obsidian vaults @size(lg)
 
 Decisions:

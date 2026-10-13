@@ -1,69 +1,79 @@
 # zortex.nvim
 
-### What is this?
+A plain-text second brain for Neovim. Notes are `.zortex` files (a markdown
+dialect) that link to each other by structure: `[Sourdough/#Method]`,
+`[P/#1.1 Kitchen shelves]`. Projects, areas, objectives and a calendar are
+notes too, so tasks, plans and knowledge live in one folder you can sync.
+An optional server shows it all in the browser, with a calendar, a pomodoro
+and notifications on your phone.
 
-This is mean to be a second brain. An all-in-one personal management system. The goal is to allow one to store notes, todo lists, schedules, thoughts, etc. in a single location. It includes:
+<p align="center">
+  <img src="doc/images/nvim-projects.png" width="49%" alt="A projects note in Neovim: headings, tasks with sizes and dates, links">
+  <img src="doc/images/web-home.png" width="49%" alt="The web app's home page: today's calendar, the pomodoro and season XP">
+</p>
 
-- A plain-text note format (a derivative of markdown) with articles, headings, labels, tasks, attributes and links between notes.
-- Projects, areas (PARA), objectives and key results (OKR) and a calendar, all written in that format and connected through links.
-- Fast structural search over every note. Currently I have 300 pages, at 38,000 lines, and can still immediately find what I need.
-- A weekly review, a daily digest, notifications and an XP system on top.
+- **Structural search** over every note: `2 4` finds `1 › 2 › 3 › 4`.
+  Hundreds of notes and tens of thousands of lines stay instant.
+- **Links** that name structure, not ids: follow, preview, complete while
+  typing, backlinks, broken links.
+- **Projects, areas and OKRs** (PARA plus objectives and key results) with
+  progress, due dates and a weekly review; a **day planner** that fills the
+  calendar from them.
+- **XP and seasons** read off the tasks you complete.
+- **`zortex serve`** (optional, one Go binary): your notes on the web, the
+  calendar, ntfy notifications, a pomodoro shared with Neovim, timers and
+  time tracking, light editing from your phone.
 
-### Purpose
+## Quickstart
 
-Originally I had set to replicate the zettelkasten technique more closely, where each line was a different thought with a unique id and various tags. You could then query thoughts with certain tags. Although conceptually very interesting, I didn't actually find it useful. It allowed a purely flat layout of all my thoughts. However it had a few flaws:
-
-- It was complicated.
-- I was never encouraged to actually think and integrate my thoughts into something more meaningful as I would rely on the tag system to organize my notes.
-- It discouraged thinking deeply about concepts.
-- By design, it lacks a single source of truth for concepts. I'm limited
-
-I found this new system better:
-
-- Have a couple _core_ files:
-  - **Structure:** is the most importantt. It is a single file that links to all my other notes. Using vim's folding, You can get an overview of the main domains of your wikipedia, or dive down. You can put the same article in multiple locations. This allows you to continue a graph-like knowledge base, while attaching a lot of information, depth, and thought into each thought.
-  - **Storage:** this is a collection of all my old files/thoughts that it will not search through. Good for stuff I will probably never need again, but keep there just in case.
-  - **Resources:**
-  - **Schedule:**
-  - **Projects:**
-  - **Inbox:** a file that somewhat matches the original zettelkasten. Each 'unique' id is the line number. You can add tags to each line.
-- Prefix lines with tags such as `- #one#two# This is my line text.` Provides a natural, intuitive way to organize thoughts that can still be easily searched. Provides a natural, intuitive way to organize thoughts that can still be easily searched.
-- To still express the graph knowledge that the zettelkasten provides, I've found a hybrid approach of within your articles, add subheadings that refer to or connect ideas to other articles. Which is exactly what wikipedia does.
-
-However this is not how I think. Overtime, I found my usecase of a note system closely mirrored a personal wikipedia. I would have 10s-100s of articles that I could quickly search.
-
-### Where did the name come from?
-
-- Zettelkasten (german for note "zettel" desk "kasten") was a note taking system popularized by Niklas Luhmann, a very prolific sociologist.
-- Cortex, latin for bark. Its found in the word "neocortex" and "cerebral cortex". The neocortex is a key component in cognition. The Zortex is meant to be a sort of second brain.
-
-## Install
-
-With [lazy.nvim](https://github.com/folke/lazy.nvim):
+Needs Neovim 0.10 or newer. With [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ```lua
 {
   "t-wilkinson/zortex.nvim",
-  dependencies = { "nvim-telescope/telescope.nvim" }, -- optional: search and project pickers
+  dependencies = {
+    "nvim-telescope/telescope.nvim", -- optional: search and project pickers
+    "hrsh7th/nvim-cmp",              -- optional: link completion
+  },
   config = function()
-    require("zortex").setup({
-      notes_dir = "~/zortex/",
-      keymaps = { prefix = "<leader>z" },
-    })
+    require("zortex").setup({ notes_dir = "~/zortex" })
   end,
 }
 ```
 
-Optional: [nvim-cmp](https://github.com/hrsh7th/nvim-cmp) for link completion
-(the `zortex` source is registered automatically). `:checkhealth zortex`
-checks the setup.
+Then, in five minutes:
 
-In a new (empty) notes folder, `setup()` creates the key notes from short
-templates that link to each other: `calendar`, `projects`, `areas`, `okr`,
-`structure` and `inbox`. In a folder that already has notes it never writes
-(a missing file may just not have synced yet); it tells you once what is
-missing, and `:ZortexInit` creates those. `init_files = false` turns this
-off.
+1. **Start Neovim.** `~/zortex` is created with the key notes: `structure`,
+   `projects`, `areas`, `okr`, `calendar` and `inbox`, from short templates
+   that link to each other. (In a folder that already has notes nothing is
+   written; `:ZortexInit` adds what's missing.)
+2. **Open the structure note**, the map of everything: `<leader>zfs`. Notes
+   open folded to their headings: `zR` opens every fold, `zo` the one under
+   the cursor (`features = { folding = { level = 99 } }` starts unfolded).
+   Put the cursor on `[Projects]` and follow it with `<leader>zgx`.
+3. **Add a task** under `# 1 Example project`: `- [ ] Read the docs @size(sm)`.
+   Toggle it with `<leader>zT`: it becomes `[x]` with `@done(today)` (and
+   an `@id`, which keeps links and the web app pointing at it).
+4. **Write a note**: `:e ~/zortex/z/bread.zortex`, first line `@@Bread`, then
+   `# Method` and a few lines. Back in the structure note, type `[Bre`:
+   completion offers `Bread`; `[Bread/#Method]` links to the heading.
+5. **Search** with `<leader>zz` (telescope): type `bread meth` (words match the section
+   path in order).
+6. **Plan the day** with `<leader>zm`: today's calendar next to your tasks;
+   `p` puts one on the day.
+
+Next: the note format is in [doc/Syntax.md](doc/Syntax.md),
+[doc/example](doc/example) is a small folder using most of it, and
+`:checkhealth zortex` checks the setup. The server is optional; see
+[doc/Server.md](doc/Server.md).
+
+**Configuration.** Every option and its default is in
+[`lua/zortex/config.lua`](lua/zortex/config.lua); `setup()` merges yours over
+them. Commonly changed: `keymaps.prefix` (default `<leader>z`),
+`ui.highlights` (colours follow your colorscheme; `preset = "rose-pine"` for
+the author's palette), `ui.calendar.icons` (plain Unicode; a Nerd Font set
+is in a comment there), `ui.planner.templates` (a new calendar day's lines)
+and `xp` (what tasks, projects and objectives are worth).
 
 ## Notes
 
@@ -211,7 +221,7 @@ require("zortex").setup({
 |  | `<leader>zox` | `pomodoro_stop` | Stop the pomodoro |
 |  | `<leader>zoi` | `pomodoro_status` | Show the pomodoro status |
 
-**Plan**
+**Calendar**
 
 | Command | Keys | Action id | Does |
 |---|---|---|---|
@@ -223,7 +233,7 @@ require("zortex").setup({
 
 | Command | Keys | Action id | Does |
 |---|---|---|---|
-| `:ZortexMigrate` |  | `migrate` | Rewrite old-style bold headings (**Text** / **Text**:) as **Text:** |
+| `:ZortexMigrate` |  | `migrate` | Rewrite old-style bold headings (`**Text**`, `**Text**:`) as `**Text:**` |
 | `:ZortexInit` |  | `init` | Create missing key notes (calendar, projects, areas, okr, structure, inbox) |
 | `:ZortexOpenProjects` | `<leader>zfp` `<leader>zP` | `open_projects` | Open projects.zortex |
 | `:ZortexOpenAreas` | `<leader>zfa` | `open_areas` | Open areas.zortex |
@@ -303,23 +313,28 @@ z.syntax.parse(lines, { inline = true })  -- the grammar itself
 
 ## Documentation
 
+- `:help zortex`: setup, commands and keys, every configuration default
 - [doc/Syntax.md](doc/Syntax.md): the note format (lines, inline markup,
   attributes, links, special notes)
+- [doc/example](doc/example): a small notes folder using most of the format
+- [doc/Server.md](doc/Server.md): running `zortex serve` (Docker, NixOS, a
+  proxy with a login, ntfy, connecting Neovim); [app/README.md](app/README.md)
+  has every flag, page and endpoint
+- [doc/Projects.md](doc/Projects.md): projects and areas reference
+- [doc/XP.md](doc/XP.md): how XP, areas and seasons work
 - [doc/Architecture.md](doc/Architecture.md): how the plugin is built (syntax,
   documents, links, entities, domain, state, query API, UI) and the rules
   modules share
-- [doc/Projects.md](doc/Projects.md): projects and areas reference
-- [doc/Changes.md](doc/Changes.md): what the `projects-api` branch changed,
-  and migration notes
+- [CHANGELOG.md](CHANGELOG.md): releases, and what to change when upgrading
+- [CONTRIBUTING.md](CONTRIBUTING.md): tests, generated files, releasing
 - [doc/Wishlist.md](doc/Wishlist.md): planned features and ideas
-- [doc/XP.md](doc/XP.md): how XP, areas and seasons work
-- [app/README.md](app/README.md): the server, `zortex serve` (rendered notes,
-  links, backlinks, search, file browser; the calendar and its ntfy
-  notifications; the pomodoro clock), with the NixOS module (`services.zortex`)
+- [doc/Philosophy.md](doc/Philosophy.md): why zortex is a personal wiki, not
+  a Zettelkasten
 - [contrib/ntfy](contrib/ntfy): desktop `ntfy subscribe` script with a sound
-  per pomodoro event
+  per event
 - Tests: `nvim --headless -u NONE -l tests/run.lua`; Go (parser, resolver,
-  search, web app, notifications, pomodoro): `go -C app test ./...`
+  search, web app, notifications, pomodoro, clocks, time tracking):
+  `go -C app test ./...`. CI runs both on every push.
 
 ## XP Overview
 

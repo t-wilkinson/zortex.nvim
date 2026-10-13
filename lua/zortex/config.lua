@@ -45,6 +45,9 @@ local defaults = {
 
 	features = {
 		folding = {
+			-- Notes open folded below this level: 1 shows the headings of a
+			-- note (zo / zR open folds); 99 opens everything
+			level = 1,
 			include_empty_lines = true,
 		},
 	},
@@ -359,7 +362,8 @@ function Config.setup(opts)
 		deep_merge_in_place(Config, opts)
 	end
 
-	-- Ensure trailing slash on notes_dir
+	-- "~/notes", "$HOME/notes": expand; ensure a trailing slash
+	Config.notes_dir = vim.fn.expand(Config.notes_dir)
 	if not Config.notes_dir:match("/$") then
 		Config.notes_dir = Config.notes_dir .. "/"
 	end

@@ -102,8 +102,8 @@ local function season_status()
 end
 
 local function season_end()
-	local result = require("zortex.services.xp.stats").end_season()
-	notify(result and ("Ended season: " .. result.name) or "No active season to end")
+	local result, why = require("zortex.services.xp.stats").end_season()
+	notify(result and ("Ended season: " .. result.name) or ("Nothing to end: " .. (why or "no season")))
 end
 
 local function export(args)

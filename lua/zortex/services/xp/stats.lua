@@ -54,9 +54,9 @@ function M.start_season(name, end_date, start_date)
 end
 
 function M.end_season()
-	local season = xp_store.current_season()
+	local season = xp_store.started_season()
 	if not season then
-		return nil
+		return nil, "no season was started by hand; seasons follow the calendar quarter"
 	end
 	return xp_store.end_season(ledger().season_xp(season))
 end

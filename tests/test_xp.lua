@@ -64,10 +64,54 @@ T.test("project awards: pool over live and archived tasks, areas via key result"
 	T.eq(#entries, 3)
 	T.ok(approx(total, 105 * 0.25), tostring(total))
 	-- a key result links the project, so its area gets the whole award
-	T.ok(approx(ledger.area_xp(AREA41), 105 * 0.25), tostring(ledger.area_xp(AREA41)))
+	local to_area = 0
+	for _, e in ipairs(entries) do
+		to_area = to_area + (e.areas[AREA41] or 0)
+	end
+	T.ok(approx(to_area, 105 * 0.25), tostring(to_area))
+	-- plus the reached key result ("KR1: [x] Projects API", objective @p1):
+	-- 30 × 1.5 to the objective's area
+	T.ok(approx(ledger.area_xp(AREA41), 105 * 0.25 + 45), tostring(ledger.area_xp(AREA41)))
 	-- the parent gets 75% of it
 	local parent = require("zortex.services.areas").get("Areas/4 Learning & Education")
-	T.ok(approx(parent:total_xp(), 0.75 * 105 * 0.25))
+	T.ok(approx(parent:total_xp(), 0.75 * (105 * 0.25 + 45)))
+end)
+
+T.test("key results: reached ones award their objective's areas", function()
+	ledger.invalidate()
+	local krs = {}
+	for _, e in ipairs(ledger.get().entries) do
+		if e.source == "key_result" then
+			krs[#krs + 1] = e
+		end
+	end
+	T.eq(#krs, 1, vim.inspect(vim.tbl_map(function(e)
+		return e.title
+	end, krs)))
+	local projects_api
+	for _, e in ipairs(krs) do
+		if e.title:find("Projects API", 1, true) then
+			projects_api = e
+		end
+	end
+	T.ok(projects_api, "KR1 Projects API")
+	T.eq(projects_api.xp, 45)
+	T.eq(projects_api.season_xp, 45)
+	T.ok(approx(projects_api.areas[AREA41], 45))
+end)
+
+T.test("objective areas come first for work on a key result", function()
+	local task = { attributes = { area = { { definition = "Areas/#4.2" } } } }
+	local p_areas = { objective = { "Areas/obj" }, own = { "Areas/own" } }
+	local list = ledger._award_areas(task, p_areas)
+	T.eq({ list[1], list[2] }, { "Areas/obj", "Areas/own" })
+	-- no key result: the task's own area, then the project's
+	list = ledger._award_areas(task, { objective = {}, own = { "Areas/own" } })
+	T.eq(list[#list], "Areas/own")
+	T.ok(#list == 2 and list[1] ~= "Areas/own", vim.inspect(list))
+	-- and the first gets the larger share
+	local shares = require("zortex.services.xp.calculator").area_shares(30, { "Areas/obj", "Areas/own" }, 1.0)
+	T.ok(shares["Areas/obj"] > shares["Areas/own"])
 end)
 
 T.test("standalone tasks (calendar) count, dated by @done", function()
@@ -235,5 +279,18 @@ T.test("publish: summary for the web app, written only when it changes", functio
 	T.eq(publish.publish(), false) -- unchanged: nothing written
 	store.reset_season()
 	T.ok(publish.publish(), "season ended: changed")
-	T.eq(vim.json.decode(table.concat(vim.fn.readfile(path), "\n")).season, nil)
+	-- with no season started by hand, the calendar quarter is the season
+	local q = require("zortex.services.okr.objective").quarter()
+	T.eq(vim.json.decode(table.concat(vim.fn.readfile(path), "\n")).season.name, q.name)
+end)
+
+T.test("seasons follow the calendar quarter unless one was started", function()
+	store.reset_season()
+	local s = store.current_season("2026-11-05")
+	T.eq({ s.name, s.start_date, s.end_date, s.auto }, { "2026 Q4", "2026-10-01", "2026-12-31", true })
+	store.start_season("Sprint", "2026-11-30", "2026-11-01")
+	T.eq(store.current_season("2026-11-05").name, "Sprint")
+	-- past its end date: back to the quarter
+	T.eq(store.current_season("2026-12-05").name, "2026 Q4")
+	store.reset_season()
 end)

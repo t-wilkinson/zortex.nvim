@@ -302,6 +302,14 @@ local defaults = {
 				},
 			},
 
+			-- A key result reached: all its linked projects done (or the KR
+			-- checked), dated by the last completion. To the objective's areas.
+			key_result = {
+				base_xp = 30, -- × the objective's priority and importance; @xp(n) on the KR line wins
+				season = 1.0,
+				area = 1.0,
+			},
+
 			-- An objective marked @done: area XP (the long game), by time span
 			objective = {
 				base_xp = 20,
@@ -321,6 +329,9 @@ local defaults = {
 		season = {
 			level_curve = { base = 100, exponent = 1.2 },
 			default_length = 90, -- days
+			-- No season started by hand (or it ended): the calendar quarter is
+			-- the season, the same window as 3M-YYYY-Qn objectives
+			follow_quarter = true,
 			tiers = {
 				{ name = "Bronze", required_level = 1 },
 				{ name = "Silver", required_level = 5 },

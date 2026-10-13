@@ -11,6 +11,9 @@
 --                   the task's @done; a project marked @done pays the rest
 --   other tasks     a completed task anywhere else (calendar, any note):
 --                   base × size × priority × importance
+--   key results     a key result reached (its linked projects done, or the
+--                   KR checked): base × the objective's modifiers, to the
+--                   objective's areas
 --   objectives      an objective marked @done: base × time span, to its areas
 --
 -- Archived projects (z/archive.*) keep counting under the same project key,
@@ -18,8 +21,9 @@
 -- phone or renaming a heading all simply change the result; nothing drifts.
 --
 -- Seasons are date windows over the same awards (stores/xp keeps their
--- names and dates). Areas get a configured share of each award, split over
--- the areas it is linked to (most specific first).
+-- names and dates). Areas (Mastery) get a configured share of each award,
+-- split over the areas it is linked to: for work on a key result, the
+-- objective's areas first.
 --
 --   local L = require("zortex.services.xp.ledger")
 --   L.get()          -- { entries, area_xp, total, built } (cached until a note changes)
@@ -223,16 +227,13 @@ local function key_result_index()
 	return index
 end
 
--- Areas a project's awards go to (its own or inherited @a, then the areas
--- of objectives whose key results link to it or an ancestor), and whether
--- a key result links to it.
+-- Areas a project's awards go to. The canonical path is project -> key
+-- result -> objective -> area, so the areas of objectives whose key results
+-- link the project (or an ancestor) come first; then the project's own (or
+-- inherited) @a. Returns the two lists and whether a key result links it.
 local function project_areas(project, kr_index)
-	local list, add = area_list()
-	if project.areas then
-		for _, area in ipairs(project:areas({ inherit = true })) do
-			add(area)
-		end
-	end
+	local objective_list, add_objective = area_list()
+	local own_list, add_own = area_list()
 	local via_kr = false
 	local current = project
 	while current do
@@ -240,24 +241,46 @@ local function project_areas(project, kr_index)
 			via_kr = true
 			if kr.objective then
 				for _, area in ipairs(kr.objective:areas()) do
-					add(area)
+					add_objective(area)
 				end
 			end
 		end
 		current = current.parent
 	end
-	return list, via_kr
+	if project.areas then
+		for _, area in ipairs(project:areas({ inherit = true })) do
+			add_own(area)
+		end
+	end
+	return { objective = objective_list, own = own_list }, via_kr
 end
 
--- A task's own @a(...) areas first, then its project's
-local function with_task_areas(task, project_list)
+-- Most specific first, harmonic weights (calculator.area_shares):
+--   linked from a key result: the objectives' areas, the project's, the task's
+--   otherwise:                the task's own @a, then the project's
+local function award_areas(task, p_areas)
 	local list, add = area_list()
-	task_areas(task, add)
-	for _, key in ipairs(project_list) do
-		add({ key = key })
+	local function add_keys(keys)
+		for _, key in ipairs(keys) do
+			add({ key = key })
+		end
+	end
+	if #p_areas.objective > 0 then
+		add_keys(p_areas.objective)
+		add_keys(p_areas.own)
+		if task then
+			task_areas(task, add)
+		end
+	else
+		if task then
+			task_areas(task, add)
+		end
+		add_keys(p_areas.own)
 	end
 	return list
 end
+
+M._award_areas = award_areas
 
 local function project_entries(out, group, kr_index)
 	local project, tasks = group.project, group.tasks
@@ -289,7 +312,7 @@ local function project_entries(out, group, kr_index)
 	for k, t in ipairs(done) do
 		local xp = steps[k]
 		paid = paid + xp
-		local areas = with_task_areas(t, p_areas)
+		local areas = award_areas(t, p_areas)
 		out[#out + 1] = entry("project_task", {
 			title = t.text,
 			project = project.key,
@@ -305,7 +328,7 @@ local function project_entries(out, group, kr_index)
 	local done_date = project.attributes and project.attributes.done
 	if done_date and pool - paid > 0.5 then
 		local xp = pool - paid
-		local areas = p_areas
+		local areas = award_areas(nil, p_areas)
 		out[#out + 1] = entry("project_done", {
 			title = project.name .. " (completed)",
 			project = project.key,
@@ -334,6 +357,35 @@ local function task_entries(out, path)
 			season_xp = xp * season_share,
 			areas = calculator.area_shares(xp, areas, share),
 		})
+	end
+end
+
+-- A key result reached: its projects all done (or the KR checked)
+local function key_result_entries(out)
+	local ok, krs = pcall(function()
+		return require("zortex.services.okr").key_results()
+	end)
+	if not ok then
+		return
+	end
+	local share, season_share = calculator.area_share("key_result", false), calculator.season_share("key_result")
+	for _, kr in ipairs(krs) do
+		if kr:is_done() then
+			local xp = calculator.calculate_key_result_xp(kr)
+			local areas, add = area_list()
+			for _, area in ipairs(kr.objective and kr.objective:areas() or {}) do
+				add(area)
+			end
+			out[#out + 1] = entry("key_result", {
+				title = kr.id .. ": " .. (kr.text or ""),
+				file = kr.file,
+				lnum = kr.lnum,
+				date = kr:done_date(),
+				xp = xp,
+				season_xp = xp * season_share,
+				areas = calculator.area_shares(xp, areas, share),
+			})
+		end
 	end
 end
 
@@ -405,6 +457,7 @@ function M.build()
 	for _, path in ipairs(task_paths) do
 		task_entries(entries, path)
 	end
+	key_result_entries(entries)
 	objective_entries(entries)
 
 	local area_xp, total = {}, 0

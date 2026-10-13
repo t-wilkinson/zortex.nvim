@@ -10,7 +10,7 @@ hitting a personal default. Ship as v0.1.0; everything under # 4 waits.
 **Definition of done:**
 - [x] A fresh Neovim with only lazy.nvim + zortex starts with no errors @p1 @size(xs) @done(2026-10-13)
 - [x] The README quickstart works copy-paste on Linux and macOS (checked on Linux, Neovim 0.10.4 and 0.11) @p1 @size(sm) @done(2026-10-13)
-- [ ] CI is green on every push (Lua + Go) @p1 @size(sm)
+- [x] CI is green on every push (Lua + Go) @p1 @size(sm) @done(2026-10-13)
 - [ ] A tagged release with `zortex` binaries and a container image @p1 @size(sm)
 
 # 1 Blockers

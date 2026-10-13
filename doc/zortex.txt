@@ -158,8 +158,12 @@ TASKS ~
 PLAN ~
 
 :ZortexReview                                                  *:ZortexReview*
-    Weekly review (optional window in days, default 7). Keys: <leader>zw. Id:
-    review.
+    Review: week (default), day (since the last daily review), or a number of
+    days. Keys: <leader>zw. Id: review.
+
+:ZortexReviewDay                                            *:ZortexReviewDay*
+    Daily review: completed, XP, time spent and the calendar since the last
+    one. Keys: <leader>zW. Id: review_day.
 
 :ZortexPlan                                                      *:ZortexPlan*
     Plan a day: calendar day (from its template) plus ranked tasks, projects,

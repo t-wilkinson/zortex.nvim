@@ -204,7 +204,8 @@ require("zortex").setup({
 
 | Command | Keys | Action id | Does |
 |---|---|---|---|
-| `:ZortexReview …` | `<leader>zw` | `review` | Weekly review (optional window in days, default 7) |
+| `:ZortexReview …` | `<leader>zw` | `review` | Review: week (default), day (since the last daily review), or a number of days |
+| `:ZortexReviewDay` | `<leader>zW` | `review_day` | Daily review: completed, XP, time spent and the calendar since the last one |
 | `:ZortexPlan …` | `<leader>zm` | `plan` | Plan a day: calendar day (from its template) plus ranked tasks, projects, KRs and areas to put on it |
 | `:ZortexCalendar` | `<leader>zc` | `calendar` | Calendar view |
 | `:ZortexCalendarDigest` | `<leader>zCc` | `calendar_digest` | Calendar view with the digest panel |

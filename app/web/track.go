@@ -273,6 +273,9 @@ func (s *Server) writeSpent(t tracker.Target, minutes int) (tracker.Target, erro
 }
 
 func (s *Server) logTrack(e tracker.Entry) {
+	if err := s.addTimeSpent(e); err != nil {
+		s.log.Printf("track: .z/%s: %v", timeSpentFile, err)
+	}
 	if s.cfg.DataDir == "" {
 		return
 	}

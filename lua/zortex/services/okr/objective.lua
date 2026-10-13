@@ -215,7 +215,10 @@ end
 --- objective has no window.
 function KeyResult:lag(today)
 	local o = self.objective
-	local s, e = o and o:window()
+	local s, e
+	if o then
+		s, e = o:window()
+	end
 	local elapsed = M.elapsed(s, e, today)
 	if not elapsed then
 		return 0

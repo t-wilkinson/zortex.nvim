@@ -39,10 +39,19 @@ T.test("candidates: signals add up; every line carries a resolving link", functi
 		local texts = vim.tbl_map(function(t)
 			return t.text
 		end, c.tasks)
-		-- "Improve website" is a TODO with @p1 in a project with @p1 and an OKR link
-		T.ok(texts[1]:find("Improve website", 1, true), vim.inspect(texts))
-		T.ok(texts[1]:find("[P/#1 Programming/#1.4 - zortex/-Improve website]", 1, true), texts[1])
-		T.ok(vim.tbl_contains(c.tasks[1].badges, "TODO") and vim.tbl_contains(c.tasks[1].badges, "P1"), vim.inspect(c.tasks[1].badges))
+		-- work on a key result that is behind schedule comes first: the
+		-- habits objective (3M-2026-Q1) is long past, its KR2 half done
+		T.ok(vim.tbl_contains(c.tasks[1].badges, "OKR"), vim.inspect(c.tasks[1]))
+		T.ok(texts[1]:find("Morning routine", 1, true), vim.inspect(texts))
+		-- "Improve website" is a TODO with @p1 (its KR1 is done: no OKR bonus)
+		local improve
+		for _, t in ipairs(c.tasks) do
+			if t.text:find("Improve website", 1, true) then
+				improve = t
+			end
+		end
+		T.ok(improve and improve.text:find("[P/#1 Programming/#1.4 - zortex/-Improve website]", 1, true), vim.inspect(improve))
+		T.ok(vim.tbl_contains(improve.badges, "TODO") and vim.tbl_contains(improve.badges, "P1"), vim.inspect(improve.badges))
 		local overdue = vim.tbl_filter(function(t)
 			return t.text:find("Morning routine", 1, true)
 		end, c.tasks)[1]

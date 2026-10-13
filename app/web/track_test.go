@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -88,6 +89,17 @@ func TestTrackTime(t *testing.T) {
 		t.Fatalf("40 s written: %q", l)
 	}
 	post(t, ts, "/api/clocks/stopwatch/reset", "{}", js)
+
+	// per day, into the notes folder for Neovim's daily review
+	var spent timeSpent
+	rawTS, err := os.ReadFile(filepath.Join(dir, ".z", timeSpentFile))
+	if err != nil || json.Unmarshal(rawTS, &spent) != nil {
+		t.Fatalf("time_spent.json: %v %s", err, rawTS)
+	}
+	day := spent.Days[clock.now().Format("2006-01-02")]
+	if len(day) != 1 || day[0].Text != "Improve website" || day[0].Minutes != 85 {
+		t.Fatalf("time spent today: %+v", day)
+	}
 
 	// a log of what was written
 	raw, _ := os.ReadFile(filepath.Join(s.cfg.DataDir, trackLog))

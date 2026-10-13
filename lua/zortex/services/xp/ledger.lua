@@ -177,8 +177,14 @@ end
 -- Building
 -- =============================================================================
 
+-- An award. `aligned` says how it serves the plan: "kr" (work on a key
+-- result, a key result or an objective), "area" (has an area, no key
+-- result) or nil (neither). The reviews report the share of each.
 local function entry(source, fields)
 	fields.source = source
+	if fields.aligned == nil and next(fields.areas or {}) ~= nil then
+		fields.aligned = "area"
+	end
 	return fields
 end
 
@@ -314,6 +320,7 @@ local function project_entries(out, group, kr_index)
 		paid = paid + xp
 		local areas = award_areas(t, p_areas)
 		out[#out + 1] = entry("project_task", {
+			aligned = via_kr and "kr" or nil,
 			title = t.text,
 			project = project.key,
 			file = t.file,
@@ -330,6 +337,7 @@ local function project_entries(out, group, kr_index)
 		local xp = pool - paid
 		local areas = award_areas(nil, p_areas)
 		out[#out + 1] = entry("project_done", {
+			aligned = via_kr and "kr" or nil,
 			title = project.name .. " (completed)",
 			project = project.key,
 			file = project.file,
@@ -377,6 +385,7 @@ local function key_result_entries(out)
 				add(area)
 			end
 			out[#out + 1] = entry("key_result", {
+				aligned = "kr",
 				title = kr.id .. ": " .. (kr.text or ""),
 				file = kr.file,
 				lnum = kr.lnum,
@@ -405,6 +414,7 @@ local function objective_entries(out)
 				add(area)
 			end
 			out[#out + 1] = entry("objective", {
+				aligned = "kr",
 				title = o.title or o.name,
 				file = o.file,
 				lnum = o.lnum,
@@ -508,6 +518,26 @@ end
 --- XP earned directly by an area (all time).
 function M.area_xp(key)
 	return M.get().area_xp[key] or 0
+end
+
+--- Awards dated in [from, to] ("YYYY-MM-DD"), and their totals:
+--- { entries, xp, season, mastery, by_alignment = { kr, area, none } }
+function M.window_totals(from, to, ledger)
+	ledger = ledger or M.get()
+	local out = { entries = {}, xp = 0, season = 0, mastery = 0, by_alignment = { kr = 0, area = 0, none = 0 } }
+	for _, e in ipairs(ledger.entries) do
+		if e.date and e.date >= from and e.date <= to then
+			out.entries[#out.entries + 1] = e
+			out.xp = out.xp + e.xp
+			out.season = out.season + (e.season_xp or 0)
+			for _, amount in pairs(e.areas or {}) do
+				out.mastery = out.mastery + amount
+			end
+			local k = e.aligned or "none"
+			out.by_alignment[k] = out.by_alignment[k] + e.xp
+		end
+	end
+	return out
 end
 
 --- Season XP: awards dated inside the season window.

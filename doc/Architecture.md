@@ -481,12 +481,13 @@ handlers run asynchronously (`vim.schedule`).
 
 ### XP — `services/xp/*` + `stores/xp.lua`
 
-XP is derived, not recorded (see [XP.md](XP.md)):
+XP is derived, not recorded (see [Planning.md](Planning.md)):
 
 - `xp/ledger` builds every award from the notes: project tasks (each
   project's pool paid out on the curve, live and archived tasks grouped by
   project key, dated by `@done`), other completed tasks (a cheap line scan of
-  every note, not a full parse), and objectives marked `@done`. It is cached
+  every note, not a full parse), key results reached, and objectives marked
+  `@done`. Each award carries `aligned` (`"kr"`, `"area"` or nil). It is cached
   by the notes' mtimes / changedticks and rebuilt only when one changes.
 - `xp/calculator` holds the formulas (task XP, project pool and curve,
   objective XP, area shares); it is pure.

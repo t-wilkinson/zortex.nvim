@@ -123,14 +123,18 @@ Special notes:
 - **Projects**: picker with progress, points, due dates, areas and key
   results; `@progress` written back on request.
 - **Day planner** (`<leader>zm`): opens today's calendar day (created from
-  your weekday/Saturday/Sunday template) next to a ranked list of TODOs,
-  high-priority and due tasks, OKR projects, key results and areas. `p` adds
-  an item (with a link to it) to the day and stays in the list; `i`/`o`/`O`
-  put it on the current/next/previous line and let you type its time.
-- **Weekly review** (`<leader>zw`): overdue and due tasks, completed work,
-  stale and unscheduled projects, projects without a next action, KRs
-  without projects, areas without projects, broken links. Every line links
-  to its source.
+  your weekday/Saturday/Sunday template) next to ranked candidates: tasks on
+  key results first (the further a key result is behind schedule, the
+  higher), then work with only an area, then the rest; due dates and
+  priority add on top. `p` adds an item (with a link to it) to the day and
+  stays in the list; `i`/`o`/`O` put it on the current/next/previous line
+  and let you type its time.
+- **Reviews**: daily (`<leader>zW`, since the last one) and weekly
+  (`<leader>zw`). Both open with your objectives and key results against the
+  time passed, the XP earned and how much of it was on key results, and the
+  time spent per task; then what you completed, what's overdue or due, and
+  (weekly) stale and unscheduled projects, key results without projects,
+  areas without an objective, broken links. Every line links to its source.
 - **Calendar**: month/week views with project tasks and due dates, a digest
   panel, iCal import/export, notifications (synced to `zortex serve` and sent
   through ntfy; unchanged calendars aren't re-sent).
@@ -139,8 +143,10 @@ Special notes:
   Timers, alarms and a stopwatch are on the home page too, and their time
   goes to the task you're working on (`@spent(1h25m)`; by default the
   current calendar entry).
-- **XP and seasons** read off completed tasks, projects and objectives,
-  distributed to areas; a skill tree. See [doc/XP.md](doc/XP.md).
+- **Planning and XP**: areas → objectives → key results → projects → tasks,
+  a day planner that puts key-result work first, daily and weekly reviews,
+  and XP that mirrors it (seasons for momentum, Mastery for areas). See
+  [doc/Planning.md](doc/Planning.md).
 - **Export** (`:ZortexExport`): the notes and the whole model as JSON.
 
 ## Commands and keys
@@ -322,7 +328,8 @@ z.syntax.parse(lines, { inline = true })  -- the grammar itself
   proxy with a login, ntfy, connecting Neovim); [app/README.md](app/README.md)
   has every flag, page and endpoint
 - [doc/Projects.md](doc/Projects.md): projects and areas reference
-- [doc/XP.md](doc/XP.md): how XP, areas and seasons work
+- [doc/Planning.md](doc/Planning.md): the plan (areas, OKRs, projects),
+  the daily and weekly loop, and how XP, Mastery and seasons work
 - [doc/Architecture.md](doc/Architecture.md): how the plugin is built (syntax,
   documents, links, entities, domain, state, query API, UI) and the rules
   modules share
@@ -336,15 +343,3 @@ z.syntax.parse(lines, { inline = true })  -- the grammar itself
 - Tests: `nvim --headless -u NONE -l tests/run.lua`; Go (parser, resolver,
   search, web app, notifications, pomodoro, clocks, time tracking):
   `go -C app test ./...`. CI runs both on every push.
-
-## XP Overview
-
-XP is read off the notes: completed project tasks (a project's pool paid out
-over its tasks: a big first step, steady middle, a finishing bonus),
-completed tasks anywhere else, and objectives marked `@done` (area XP).
-Areas level up over years (`1000 × level^2.5`, 75% of a sub-area's XP counts
-for its parent); seasons are date windows over the same awards
-(`100 × level^1.2`, Bronze → Master). Unchecking, archiving or editing a note
-on your phone simply changes the result. `:ZortexXPExplain` shows how a
-project earned its XP. Details: [doc/XP.md](doc/XP.md).
-

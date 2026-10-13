@@ -252,7 +252,7 @@ local defaults = {
 
 	-- XP is read off the notes (services/xp/ledger): completed tasks with their
 	-- @done dates, projects (a pool paid out over their tasks) and objectives
-	-- marked @done. Nothing is stored but seasons; see doc/XP.md.
+	-- marked @done. Nothing is stored but seasons; see doc/Planning.md.
 	xp = {
 		stamp_done_on_save = true, -- tasks checked by hand get @done(today) on save
 		notify_min = 5, -- announce awards of at least this much XP

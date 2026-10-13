@@ -31,7 +31,7 @@ The full documentation is in the repository:
     doc/Syntax.md      the note format (checked against the parser)
     doc/Server.md      running the server
     doc/Projects.md    projects and areas
-    doc/XP.md          XP, areas and seasons
+    doc/Planning.md    areas, OKRs, reviews, XP (Mastery, seasons)
 
 ==============================================================================
 2. SETUP                                                        *zortex-setup*
@@ -158,8 +158,12 @@ TASKS ~
 PLAN ~
 
 :ZortexReview                                                  *:ZortexReview*
-    Weekly review (optional window in days, default 7). Keys: <leader>zw. Id:
-    review.
+    Review: week (default), day (since the last daily review), or a number of
+    days. Keys: <leader>zw. Id: review.
+
+:ZortexReviewDay                                            *:ZortexReviewDay*
+    Daily review: completed, XP, time spent and the calendar since the last
+    one. Keys: <leader>zW. Id: review_day.
 
 :ZortexPlan                                                      *:ZortexPlan*
     Plan a day: calendar day (from its template) plus ranked tasks, projects,
@@ -509,7 +513,7 @@ setup() merges your options over these defaults: >lua
             position = "right", -- right, bottom, or floating
           },
           keymaps = {
-            close = { "q", "<Esc>" },
+            close = { "q", "<Esc>", "<C-c>" },
             next_day = { "l", "<Right>" },
             prev_day = { "h", "<Left>" },
             next_week = { "j", "<Down>" },
@@ -539,7 +543,7 @@ setup() merges your options over these defaults: >lua
 
       -- XP is read off the notes (services/xp/ledger): completed tasks with their
       -- @done dates, projects (a pool paid out over their tasks) and objectives
-      -- marked @done. Nothing is stored but seasons; see doc/XP.md.
+      -- marked @done. Nothing is stored but seasons; see doc/Planning.md.
       xp = {
         stamp_done_on_save = true, -- tasks checked by hand get @done(today) on save
         notify_min = 5, -- announce awards of at least this much XP
@@ -589,6 +593,14 @@ setup() merges your options over these defaults: >lua
             },
           },
 
+          -- A key result reached: all its linked projects done (or the KR
+          -- checked), dated by the last completion. To the objective's areas.
+          key_result = {
+            base_xp = 30, -- × the objective's priority and importance; @xp(n) on the KR line wins
+            season = 1.0,
+            area = 1.0,
+          },
+
           -- An objective marked @done: area XP (the long game), by time span
           objective = {
             base_xp = 20,
@@ -608,6 +620,9 @@ setup() merges your options over these defaults: >lua
         season = {
           level_curve = { base = 100, exponent = 1.2 },
           default_length = 90, -- days
+          -- No season started by hand (or it ended): the calendar quarter is
+          -- the season, the same window as 3M-YYYY-Qn objectives
+          follow_quarter = true,
           tiers = {
             { name = "Bronze", required_level = 1 },
             { name = "Silver", required_level = 5 },

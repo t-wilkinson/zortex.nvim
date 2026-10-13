@@ -17,7 +17,14 @@ The first release for people other than the author.
   links from a persistent link index.
 - Projects, areas, objectives and key results as entities with progress,
   a weekly review, a day planner, a calendar view with iCal import/export.
-- XP and seasons read off completed tasks; a skill tree.
+- XP and seasons read off completed tasks; a skill tree. Mastery (area XP)
+  follows the plan: work on a project a key result links goes to the
+  objective's areas first; a key result reached is an award of its own;
+  with no season started by hand, the season is the calendar quarter.
+- The day planner ranks key-result work first, the further behind schedule
+  the higher; a daily review (`:ZortexReview day`) next to the weekly one,
+  both opening with objectives, XP on key results and time spent.
+- [doc/Planning.md](doc/Planning.md) explains the plan, the loop and XP.
 - First run: a new notes folder gets calendar, projects, areas, okr,
   structure and inbox notes from short templates (`:ZortexInit` later).
 - `:checkhealth zortex`: Neovim version, the notes folder, key notes, broken

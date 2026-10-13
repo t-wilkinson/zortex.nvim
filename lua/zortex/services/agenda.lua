@@ -216,14 +216,39 @@ end
 ---   objectives_without_krs  open objectives without key results
 ---   areas_without_projects  areas with no active project (sub-areas count)
 ---   broken_links            links that resolve nowhere
----@param opts { days?: integer, today?: string }?
+--- and, for the plan behind the work:
+---   objectives              current objectives: { objective, progress,
+---                           expected (share of its window passed), krs =
+---                           { { kr, progress, lag } } }, most behind first
+---   xp                      awards in the window (services/xp/ledger
+---                           window_totals): season, mastery, by_alignment
+---   time                    time tracked on tasks in the window
+---                           (services/time_spent)
+---   areas_without_objective areas (two levels) no current objective names
+---   unaligned               active projects with neither a key result nor
+---                           an area
+---   calendar                calendar entries in the window: { entries,
+---                           tasks, done, open = { items } }
+---
+--- opts.scope "day" (the daily review) looks back to the day after the last
+--- daily review (at most 7 days; M.day_window) and ahead one day; "week"
+--- (the default) `days` back and ahead.
+---@param opts { days?: integer, today?: string, scope?: "day"|"week", from?: string }?
 function M.review(opts)
 	opts = opts or {}
+	local scope = opts.scope or "week"
 	local days = opts.days or 7
 	local today = today_str(opts)
-	local past = add_days(today, -days)
-	local future = add_days(today, days - 1)
+	local past, future
+	if scope == "day" then
+		past = opts.from or M.day_window(today)
+		future = add_days(today, 1)
+	else
+		past = opts.from or add_days(today, -days)
+		future = add_days(today, days - 1)
+	end
 	local r = {
+		scope = scope,
 		today = today,
 		from = past,
 		to = future,
@@ -313,7 +338,157 @@ function M.review(opts)
 	end
 
 	r.broken_links = require("zortex.core.link_index").unresolved()
+	M.plan_findings(r, today)
 	return r
+end
+
+-- =============================================================================
+-- The plan behind the work (both reviews)
+-- =============================================================================
+
+--- Objectives, XP, time, calendar and alignment findings for r.from..today.
+function M.plan_findings(r, today)
+	local okr = require("zortex.services.okr")
+	local O = require("zortex.services.okr.objective")
+
+	-- Current objectives: progress against the time passed
+	r.objectives = {}
+	for _, o in ipairs(okr.objectives({ current = true })) do
+		local s, e = o:window()
+		local krs = {}
+		for _, kr in ipairs(o.key_results) do
+			krs[#krs + 1] = { kr = kr, progress = kr:progress(), lag = kr:is_done() and 0 or kr:lag(today) }
+		end
+		table.sort(krs, function(a, b)
+			return a.lag > b.lag
+		end)
+		local worst = krs[1] and krs[1].lag or 0
+		r.objectives[#r.objectives + 1] = {
+			objective = o,
+			progress = o:progress(),
+			expected = O.elapsed(s, e, today),
+			krs = krs,
+			lag = worst,
+		}
+	end
+	table.sort(r.objectives, function(a, b)
+		return a.lag > b.lag
+	end)
+
+	-- XP and time in the window
+	local ok, between = pcall(require("zortex.services.xp.ledger").window_totals, r.from, today)
+	r.xp = ok and between or { entries = {}, xp = 0, season = 0, mastery = 0, by_alignment = { kr = 0, area = 0, none = 0 } }
+	r.time = require("zortex.services.time_spent").between(r.from, today)
+
+	-- Areas no current objective names (two levels deep)
+	local named = {}
+	for _, x in ipairs(r.objectives) do
+		for _, area in ipairs(x.objective:areas()) do
+			local a = area
+			while a do
+				named[a.key] = true
+				a = a.parent
+			end
+		end
+	end
+	r.areas_without_objective = {}
+	for _, area in ipairs(require("zortex.services.areas").all({ include_roots = false })) do
+		if area.depth <= 2 and not named[area.key] then
+			local below = false
+			for key in pairs(named) do
+				if key:sub(1, #area.key + 1) == area.key .. "/" then
+					below = true
+				end
+			end
+			if not below then
+				r.areas_without_objective[#r.areas_without_objective + 1] = area
+			end
+		end
+	end
+
+	-- Active projects with neither a key result nor an area
+	local linked = {}
+	for _, kr in ipairs(okr.key_results({ open = true })) do
+		for key in pairs(kr:linked_projects()) do
+			linked[key] = true
+		end
+	end
+	r.unaligned = {}
+	for _, p in ipairs(projects().all()) do
+		if not p:is_root() and not p:is_done() and p:rollup().open > 0 then
+			local on_kr = false
+			local x = p
+			while x and not on_kr do
+				on_kr = linked[x.key] == true
+				x = x.parent
+			end
+			if not on_kr and #p:areas({ inherit = true }) == 0 then
+				r.unaligned[#r.unaligned + 1] = p
+			end
+		end
+	end
+
+	-- The calendar in the window: how many entries, tasks done, tasks left
+	r.calendar = { entries = 0, tasks = 0, done = 0, open = {} }
+	for _, day in ipairs(M.range(r.from, today)) do
+		for _, item in ipairs(day.items) do
+			if item.entry then
+				r.calendar.entries = r.calendar.entries + 1
+				if item.entry.type == "task" then
+					r.calendar.tasks = r.calendar.tasks + 1
+					if item.done then
+						r.calendar.done = r.calendar.done + 1
+					else
+						r.calendar.open[#r.calendar.open + 1] = item
+					end
+				end
+			end
+		end
+	end
+	return r
+end
+
+-- =============================================================================
+-- Where the daily review starts
+-- =============================================================================
+
+local function review_state()
+	return require("zortex.core.state").open("review_state", {
+		version = 1,
+		default = function()
+			return {}
+		end,
+	})
+end
+
+--- The first day the daily review covers: the day after the last daily
+--- review (the same window again when it was today), at most 7 days back.
+function M.day_window(today)
+	local st = review_state():get()
+	local earliest = add_days(today, -6)
+	local from
+	if st.last_day == today and st.from then
+		from = st.from
+	elseif st.last_day and st.last_day < today then
+		from = add_days(st.last_day, 1)
+	else
+		from = today
+	end
+	if from < earliest then
+		from = earliest
+	end
+	if from > today then
+		from = today
+	end
+	return from
+end
+
+--- Remember that the daily review covered from..today.
+function M.mark_day_reviewed(today, from)
+	local st = review_state()
+	local d = st:get()
+	d.last_day, d.from = today, from
+	st:save()
 end
 
 return M

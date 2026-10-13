@@ -1,6 +1,6 @@
--- ui/review.lua - Weekly review buffer
+-- ui/review.lua - The daily and weekly review buffers
 --
--- :ZortexReview [days] renders services/agenda.review() into a read-only,
+-- :ZortexReview [day|week|N] renders services/agenda.review() into a read-only,
 -- Zortex-highlighted scratch buffer (zortex://review). Every finding links to
 -- its project, area or objective, so gx / K (preview) work as in any note.
 --
@@ -16,7 +16,7 @@ local M = {}
 
 local BUF_NAME = "zortex://review"
 
-local state = { bufnr = nil, days = 7, locations = {} }
+local state = { bufnr = nil, days = 7, scope = "week", locations = {} }
 
 local function rel(path)
 	local dir = require("zortex.config").notes_dir or ""
@@ -100,6 +100,11 @@ function M.render(r, opts)
 		return not stale[p]
 	end, r.unscheduled)
 
+	if r.scope == "day" then
+		M.render_day(r, add, section)
+		return lines, locations
+	end
+
 	add("@@Weekly Review")
 	add(string.format("Today %s · looking back to %s, ahead to %s", r.today, r.from, r.to))
 	add(
@@ -112,6 +117,8 @@ function M.render(r, opts)
 			#r.broken_links
 		)
 	)
+
+	M.render_plan(r, add, section)
 
 	add("")
 	add("# Tasks")
@@ -147,6 +154,12 @@ function M.render(r, opts)
 	section("Areas without active projects", r.areas_without_projects, function(a)
 		return entity_line(a)
 	end)
+	section("Areas without an objective this period", r.areas_without_objective or {}, function(a)
+		return entity_line(a)
+	end)
+	section("Projects with neither a key result nor an area", r.unaligned or {}, function(p)
+		return entity_line(p, project_summary(p))
+	end)
 
 	add("")
 	add("# Notes")
@@ -155,6 +168,91 @@ function M.render(r, opts)
 	end)
 
 	return lines, locations
+end
+
+local function pct(x)
+	return string.format("%d%%", math.floor((x or 0) * 100 + 0.5))
+end
+
+-- "+120 XP · +80 season · +60 Mastery · 70% on key results, 20% areas only"
+local function xp_line(xp)
+	if not xp or xp.xp <= 0 then
+		return "  no XP in this window"
+	end
+	local a = xp.by_alignment
+	return string.format(
+		"  +%d XP · +%d season · +%d Mastery · %s on key results, %s areas only, %s neither",
+		math.floor(xp.xp + 0.5),
+		math.floor(xp.season + 0.5),
+		math.floor(xp.mastery + 0.5),
+		pct(a.kr / xp.xp),
+		pct(a.area / xp.xp),
+		pct(a.none / xp.xp)
+	)
+end
+
+--- Objectives (most behind first), XP and time: the top of both reviews.
+function M.render_plan(r, add, section, opts)
+	opts = opts or {}
+	local fmt_time = require("zortex.services.time_spent").format
+	add("")
+	add("# Plan")
+	section("Objectives", r.objectives or {}, function(x)
+		local o = x.objective
+		local line = string.format("- %s %s", o.link or o.name, pct(x.progress))
+		if x.expected then
+			line = line .. string.format(" (expected %s by now)", pct(x.expected))
+		end
+		return line, { file = o.file, lnum = o.lnum }
+	end, "  no current objectives: plan some in okr.zortex")
+	-- the key results of each objective, under it (behind schedule first)
+	if #(r.objectives or {}) > 0 and not opts.brief then
+		add("")
+		add("## Key results")
+		for _, x in ipairs(r.objectives) do
+			for _, k in ipairs(x.krs) do
+				local kr = k.kr
+				local status = kr:is_done() and "done" or (k.lag >= 0.05 and (pct(k.lag) .. " behind") or "on track")
+				add(
+					string.format("- %s: %s %s · %s %s", kr.id, kr.text or "", pct(k.progress), status, kr.link or ""),
+					{ file = kr.file, lnum = kr.lnum }
+				)
+			end
+		end
+	end
+	add("")
+	add("## XP")
+	add(xp_line(r.xp))
+	if r.time and r.time.minutes > 0 then
+		section("Time spent: " .. fmt_time(r.time.minutes), r.time.tasks, function(t)
+			return string.format("- %s %s (%s)", fmt_time(t.minutes), t.text or "", t.rel or ""), t.file and { file = t.file, lnum = t.lnum }
+		end)
+	end
+end
+
+--- The daily review: what today (or since the last daily review) added up to.
+function M.render_day(r, add, section)
+	local since = r.from == r.today and "today" or ("since " .. r.from)
+	add("@@Daily Review")
+	add(string.format("%s · %s", r.today, since))
+	local cal = r.calendar or { entries = 0, tasks = 0, done = 0, open = {} }
+	add(
+		string.format(
+			"%d completed · %d of %d calendar tasks done · %d overdue · %d due by tomorrow",
+			#r.completed,
+			cal.done,
+			cal.tasks,
+			#r.overdue,
+			#r.due_soon
+		)
+	)
+	M.render_plan(r, add, section, { brief = false })
+	add("")
+	add("# Day")
+	section("Completed", r.completed, item_line)
+	section("Left on the calendar (put them on another day with :ZortexPlan)", cal.open, item_line)
+	section("Overdue", r.overdue, item_line)
+	section("Due today and tomorrow", r.due_soon, item_line)
 end
 
 -- =============================================================================
@@ -212,7 +310,13 @@ function M.refresh()
 	if not (buf and vim.api.nvim_buf_is_valid(buf)) then
 		return
 	end
-	local r = require("zortex.services.agenda").review({ days = state.days, today = state.today })
+	local agenda = require("zortex.services.agenda")
+	local r = agenda.review({ days = state.days, today = state.today, scope = state.scope, from = state.from })
+	if state.scope == "day" then
+		-- refreshing keeps the window; the next day's review starts after it
+		state.from = r.from
+		agenda.mark_day_reviewed(r.today, r.from)
+	end
 	local lines, locations = M.render(r)
 	state.locations = locations
 	vim.bo[buf].modifiable = true
@@ -222,13 +326,16 @@ function M.refresh()
 	pcall(require("zortex.features.highlights").highlight_buffer, buf)
 end
 
---- Open the weekly review (default: last and next 7 days).
----@param opts { days?: integer, today?: string }?
+--- Open a review: scope "day" (since the last daily review) or "week"
+--- (default: last and next `days`, 7).
+---@param opts { days?: integer, today?: string, scope?: "day"|"week" }?
 ---@return integer bufnr
 function M.open(opts)
 	opts = opts or {}
 	state.days = opts.days or 7
 	state.today = opts.today
+	state.scope = opts.scope or "week"
+	state.from = nil
 	local buf = get_buffer()
 	vim.api.nvim_set_current_buf(buf)
 	M.refresh()

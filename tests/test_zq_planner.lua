@@ -39,10 +39,19 @@ T.test("candidates: signals add up; every line carries a resolving link", functi
 		local texts = vim.tbl_map(function(t)
 			return t.text
 		end, c.tasks)
-		-- "Improve website" is a TODO with @p1 in a project with @p1 and an OKR link
-		T.ok(texts[1]:find("Improve website", 1, true), vim.inspect(texts))
-		T.ok(texts[1]:find("[P/#1 Programming/#1.4 - zortex/-Improve website]", 1, true), texts[1])
-		T.ok(vim.tbl_contains(c.tasks[1].badges, "TODO") and vim.tbl_contains(c.tasks[1].badges, "P1"), vim.inspect(c.tasks[1].badges))
+		-- work on a key result that is behind schedule comes first: the
+		-- habits objective (3M-2026-Q1) is long past, its KR2 half done
+		T.ok(vim.tbl_contains(c.tasks[1].badges, "OKR"), vim.inspect(c.tasks[1]))
+		T.ok(texts[1]:find("Morning routine", 1, true), vim.inspect(texts))
+		-- "Improve website" is a TODO with @p1 (its KR1 is done: no OKR bonus)
+		local improve
+		for _, t in ipairs(c.tasks) do
+			if t.text:find("Improve website", 1, true) then
+				improve = t
+			end
+		end
+		T.ok(improve and improve.text:find("[P/#1 Programming/#1.4 - zortex/-Improve website]", 1, true), vim.inspect(improve))
+		T.ok(vim.tbl_contains(improve.badges, "TODO") and vim.tbl_contains(improve.badges, "P1"), vim.inspect(improve.badges))
 		local overdue = vim.tbl_filter(function(t)
 			return t.text:find("Morning routine", 1, true)
 		end, c.tasks)[1]
@@ -171,4 +180,48 @@ T.test("new days go after the closest earlier day, not before a stray later one"
 	vim.fn.writefile(original, cal)
 	require("zortex.core.document").invalidate(cal)
 	calendar.load()
+end)
+
+T.test("alignment: key-result work first, behind schedule more; then areas", function()
+	with_config({ todo_link = "" }, function()
+		local P = require("zortex.services.projects")
+		local c = planner.candidates({ today = "2026-03-15" })
+		local function find(list, text)
+			for i, item in ipairs(list) do
+				if item.text:find(text, 1, true) then
+					return i, item
+				end
+			end
+		end
+		-- 1.4 - zortex is linked from "KR1 Projects API" (done) and KR2 via its
+		-- sub-project; Habits from an open KR of the habits objective
+		local _, habits = find(c.tasks, "Morning routine")
+		T.ok(habits and vim.tbl_contains(habits.badges, "OKR"), vim.inspect(habits))
+		-- the alignment score itself: KR > area > none, and behind adds more
+		local ctx = { krs = {}, kr_of = {}, today_str = "2026-03-15" }
+		local zortex = P.get("Projects/1 Programming/1.4 - zortex")
+		local fake_kr = {
+			id = "KR9",
+			lag = function(_, _)
+				return 0.3
+			end,
+		}
+		ctx.krs[zortex.key] = { fake_kr }
+		local behind = planner._alignment(zortex, nil, ctx)
+		fake_kr.lag = function()
+			return 0
+		end
+		ctx.kr_of = {}
+		local on_track = planner._alignment(zortex, nil, ctx)
+		local esp = P.get("Projects/1 Programming/1.4 - esp32")
+		local area_only = planner._alignment(zortex, nil, { krs = {}, kr_of = {} })
+		local none = planner._alignment(esp, nil, { krs = {}, kr_of = {} })
+		T.ok(behind > on_track and on_track > area_only and area_only > none, vim.inspect({ behind, on_track, area_only, none }))
+		-- key results: furthest behind first
+		for i = 2, #c.key_results do
+			T.ok(c.key_results[i - 1].score >= c.key_results[i].score)
+		end
+		-- areas without a current objective come first, and say so
+		T.ok(vim.tbl_contains(c.areas[1].badges, "no objective"), vim.inspect(c.areas[1]))
+	end)
 end)

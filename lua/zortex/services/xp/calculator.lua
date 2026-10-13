@@ -163,6 +163,17 @@ function M.calculate_objective_xp(objective)
 end
 M.span_key = span_key
 
+--- A key result reached (its projects done, or checked): base_xp ×
+--- the objective's priority × importance (@xp on the KR line wins).
+function M.calculate_key_result_xp(kr)
+	local line_attrs = kr.attributes or {}
+	if tonumber(line_attrs.xp) then
+		return tonumber(line_attrs.xp)
+	end
+	local o = kr.objective
+	return apply_modifiers(source("key_result").base_xp or 30, o and o.attributes or nil)
+end
+
 -- =============================================================================
 -- Project curve: how a pool is paid out over the tasks
 -- =============================================================================
@@ -330,7 +341,7 @@ function M.area_share(kind, via_key_result)
 	if via_key_result then
 		return src.key_result or 1.0
 	end
-	return src.area or (kind == "objective" and 1.0 or 0.2)
+	return src.area or ((kind == "objective" or kind == "key_result") and 1.0 or 0.2)
 end
 
 function M.season_share(kind)

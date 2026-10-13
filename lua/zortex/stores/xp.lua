@@ -134,7 +134,25 @@ end
 -- Seasons
 -- =============================================================================
 
-function M.current_season()
+--- The season now: the one started with :ZortexSeasonStart while its end
+--- date hasn't passed, else (xp.season.follow_quarter, the default) the
+--- calendar quarter, the window of a 3M-YYYY-Qn objective, marked auto.
+function M.current_season(today)
+	today = today or os.date("%Y-%m-%d")
+	local explicit = data().current_season
+	if explicit and (not explicit.end_date or explicit.end_date >= today) then
+		return explicit
+	end
+	if (cfg.season or {}).follow_quarter == false then
+		return explicit
+	end
+	local q = require("zortex.services.okr.objective").quarter(today)
+	q.auto = true
+	return q
+end
+
+--- The season started by hand, if any (ended or not)
+function M.started_season()
 	return data().current_season
 end
 

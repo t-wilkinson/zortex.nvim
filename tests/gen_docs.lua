@@ -110,7 +110,7 @@ local INTRO = {
 	"    doc/Syntax.md      the note format (checked against the parser)",
 	"    doc/Server.md      running the server",
 	"    doc/Projects.md    projects and areas",
-	"    doc/XP.md          XP, areas and seasons",
+	"    doc/Planning.md    areas, OKRs, reviews, XP (Mastery, seasons)",
 }
 
 local SETUP = {

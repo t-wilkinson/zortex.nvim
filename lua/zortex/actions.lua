@@ -102,8 +102,8 @@ local function season_status()
 end
 
 local function season_end()
-	local result = require("zortex.services.xp.stats").end_season()
-	notify(result and ("Ended season: " .. result.name) or "No active season to end")
+	local result, why = require("zortex.services.xp.stats").end_season()
+	notify(result and ("Ended season: " .. result.name) or ("Nothing to end: " .. (why or "no season")))
 end
 
 local function export(args)
@@ -344,10 +344,27 @@ M.list = {
 		command = "Review",
 		key = "w",
 		group = "Plan",
-		desc = "Weekly review (optional window in days, default 7)",
+		desc = "Review: week (default), day (since the last daily review), or a number of days",
 		nargs = "?",
+		complete = function()
+			return { "day", "week" }
+		end,
 		run = function(args)
-			require("zortex.ui.review").open({ days = tonumber(args and args.args) })
+			local a = vim.trim(args and args.args or "")
+			if a == "day" then
+				return require("zortex.ui.review").open({ scope = "day" })
+			end
+			require("zortex.ui.review").open({ days = tonumber(a) })
+		end,
+	},
+	{
+		id = "review_day",
+		command = "ReviewDay",
+		key = "W",
+		group = "Plan",
+		desc = "Daily review: completed, XP, time spent and the calendar since the last one",
+		run = function()
+			require("zortex.ui.review").open({ scope = "day" })
 		end,
 	},
 	{

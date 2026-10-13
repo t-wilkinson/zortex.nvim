@@ -58,3 +58,51 @@ T.test("buffer: read-only, <CR> jumps to the source", function()
 	T.eq(review.open({ today = TODAY }), buf)
 	vim.cmd("bwipeout! " .. buf)
 end)
+
+T.test("daily review: since the last one, at most a week; time, XP and objectives", function()
+	local agenda = require("zortex.services.agenda")
+	-- no daily review yet: today only
+	T.eq(agenda.day_window("2026-10-12"), "2026-10-12")
+	agenda.mark_day_reviewed("2026-10-09", "2026-10-09")
+	T.eq(agenda.day_window("2026-10-12"), "2026-10-10") -- skipped days roll in
+	agenda.mark_day_reviewed("2026-10-12", "2026-10-10")
+	T.eq(agenda.day_window("2026-10-12"), "2026-10-10") -- reopened the same day: same window
+	agenda.mark_day_reviewed("2026-09-01", "2026-09-01")
+	T.eq(agenda.day_window("2026-10-12"), "2026-10-06") -- at most 7 days
+
+	-- time tracked by the server, per day
+	local z = require("zortex.config").notes_dir .. ".z/"
+	vim.fn.mkdir(z, "p")
+	vim.fn.writefile({
+		vim.json.encode({
+			version = 1,
+			days = {
+				["2026-10-12"] = { { rel = "projects.zortex", lnum = 16, text = "Improve website", key = "k", minutes = 85 } },
+				["2026-10-01"] = { { rel = "projects.zortex", lnum = 16, text = "Improve website", key = "k", minutes = 30 } },
+			},
+		}),
+	}, z .. "time_spent.json")
+
+	local r = agenda.review({ today = "2026-10-12", scope = "day", from = "2026-10-11" })
+	T.eq(r.scope, "day")
+	T.eq(r.time.minutes, 85) -- 10-01 is outside the window
+	T.eq(r.to, "2026-10-13")
+	local lines = review.render(r)
+	T.eq(lines[1], "@@Daily Review")
+	T.ok(find(lines, "## Time spent: 1h 25m (1)"), vim.inspect(lines))
+	T.ok(find(lines, "## Objectives (2)"), "objectives first")
+	T.ok(find(lines, "100% behind"), "key results behind schedule")
+	T.ok(find(lines, "## Left on the calendar"), "calendar tasks left")
+	vim.fn.delete(z .. "time_spent.json")
+	agenda.mark_day_reviewed("2000-01-01", "2000-01-01")
+end)
+
+T.test("weekly review: XP by alignment, areas without objectives, unaligned projects", function()
+	local r = require("zortex.services.agenda").review({ today = TODAY, days = 7 })
+	T.ok(r.xp and r.xp.by_alignment, "xp totals")
+	local lines = review.render(r)
+	T.ok(find(lines, "on key results"), "aligned share")
+	T.ok(find(lines, "## Areas without an objective this period"), "areas without objective")
+	local _, unaligned = find(lines, "## Projects with neither a key result nor an area")
+	T.ok(unaligned, "unaligned projects")
+end)

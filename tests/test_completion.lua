@@ -150,3 +150,28 @@ T.test("@a( and @area( complete areas as a tree, inserting values that resolve",
 	T.ok(by_value["4.1"] and by_value["4.1"].label:match("^  4%.1 Education"), "short value, indented label")
 	T.ok(by_value["1.2/Fitness"], "labels go through their heading")
 end)
+
+-- nvim-cmp filters items against the text from the source's keyword start to
+-- the cursor (keyword pattern + "\m$"). It must start where the value being
+-- typed starts: before this, "- [ ] x @a(" was all "typed" text from the
+-- last "]" and every area was filtered away.
+T.test("cmp keyword pattern starts at the value being typed", function()
+	local completion = require("zortex.features.completion")
+	local pat = completion.new():get_keyword_pattern()
+	local re = vim.regex([[\%(]] .. pat .. [[\)\m$]])
+	local function typed(line)
+		local s = re:match_str(line)
+		return s and line:sub(s + 1) or nil
+	end
+	T.eq(typed("- [ ] Tune bike @a("), "")
+	T.eq(typed("@area("), "")
+	T.eq(typed("- [ ] x @a(4."), "4.")
+	T.eq(typed("- [ ] x @a(4.1, 1.2/Fit"), "Fit")
+	T.eq(typed("See [P/#1.4 - zor"), "#1.4 - zor")
+	T.eq(typed("See [Flipping"), "Flipping")
+	-- and the area context agrees on where the value starts
+	for _, line in ipairs({ "- [ ] x @a(4.", "@area(", "- [ ] x @a(4.1, 1" }) do
+		local ctx = completion.area_context(line, #line)
+		T.eq(ctx.typing_col, #line - #typed(line), line)
+	end
+end)

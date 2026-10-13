@@ -379,8 +379,13 @@ function M.new()
 	end
 
 	function source:get_keyword_pattern()
-		-- Link components may contain spaces, dots and dashes
-		return [[\%([^\[\]/]\)*]]
+		-- What cmp filters against: the text typed since the last "[", "/",
+		-- "(" or "," (a link component, or an @a(...) value), not starting
+		-- with a space. Link components may contain spaces, dots and dashes.
+		-- Without "(" and "," here, cmp took everything from the line's last
+		-- "]" (e.g. "Tune bike @a(") as the typed word and filtered every
+		-- area away.
+		return [=[\%([^\[\]/(,[:space:]][^\[\]/(,]*\)\=]=]
 	end
 
 	function source:complete(params, callback)

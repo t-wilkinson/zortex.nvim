@@ -20,7 +20,7 @@ local RAND_MAX = 4096
 -- Generate unique task ID
 local function generate_task_id()
 	local function generate_base_id()
-		local time_part = vim.loop.hrtime() % TIME_MOD
+		local time_part = vim.uv.hrtime() % TIME_MOD
 		local rand_part = math.random(0, RAND_MAX - 1)
 		local id_num = time_part * RAND_MAX + rand_part
 
@@ -41,7 +41,7 @@ local function generate_task_id()
 		attempts = attempts + 1
 		if attempts > 100 then
 			-- Fallback to timestamp-based ID
-			id = "T" .. tostring(vim.loop.hrtime())
+			id = "T" .. tostring(vim.uv.hrtime())
 			break
 		end
 	until not M.find_task_by_id(id)
@@ -244,6 +244,20 @@ end
 -- Task Completion Handler
 -- =============================================================================
 
+-- Lines that never become tasks
+local NOT_TASKS = {
+	article = true,
+	tag = true,
+	heading = true,
+	bold_heading = true,
+	fence = true,
+	code = true,
+	math_fence = true,
+	math = true,
+	table = true,
+	blank = true,
+}
+
 -- Change task completion at current doc_context, main entrypoint for (un)complete or creating tasks
 function M.change_task_completion(doc_context, should_complete)
 	if not doc_context or not doc_context.doc then
@@ -255,6 +269,12 @@ function M.change_task_completion(doc_context, should_complete)
 
 	-- If there's still no task object, it means the line is not a task. Convert it.
 	if not task then
+		-- Structure isn't a task: toggling with the cursor on a (folded)
+		-- heading must not turn "# Project" into "- [ ] # Project"
+		local kind = require("zortex.core.syntax").classify(doc_context.line).kind
+		if NOT_TASKS[kind] then
+			return nil, "not a task: this line is a " .. kind:gsub("_", " ")
+		end
 		-- After converting, the toggle action is complete for this call.
 		local new_line
 		task, new_line = M.convert_line_to_task(doc_context.line)
@@ -303,28 +323,29 @@ end
 -- Public Commands
 -- =============================================================================
 
-function M.toggle_current_task()
+local function at_cursor(should_complete)
 	local doc_context = workspace.get_doc_context()
 	if not doc_context then
+		vim.notify("Not a note buffer", vim.log.levels.WARN, { title = "Zortex" })
 		return nil, "Not in a note buffer"
 	end
-	return M.change_task_completion(doc_context, nil)
+	local result, err = M.change_task_completion(doc_context, should_complete)
+	if not result and err then
+		vim.notify("Zortex: " .. err, vim.log.levels.WARN, { title = "Zortex" })
+	end
+	return result, err
+end
+
+function M.toggle_current_task()
+	return at_cursor(nil)
 end
 
 function M.complete_current_task()
-	local doc_context = workspace.get_doc_context()
-	if not doc_context then
-		return nil, "Not in a note buffer"
-	end
-	return M.change_task_completion(doc_context, true)
+	return at_cursor(true)
 end
 
 function M.uncomplete_current_task()
-	local doc_context = workspace.get_doc_context()
-	if not doc_context then
-		return nil, "Not in a note buffer"
-	end
-	return M.change_task_completion(doc_context, false)
+	return at_cursor(false)
 end
 
 return M

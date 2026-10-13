@@ -61,6 +61,10 @@ let
     "-ntfy-token-file"
     "%d/ntfy-token"
   ]
+  ++ optionals (web.authFile != null) [
+    "-auth-file"
+    "%d/auth"
+  ]
   ++ web.extraArgs;
 in
 {
@@ -228,6 +232,17 @@ in
         '';
       };
 
+      authFile = mkOption {
+        type = types.nullOr types.path;
+        default = null;
+        example = "/run/secrets/zortex-auth";
+        description = ''
+          File of `user:password` lines: a login (HTTP basic auth) for every
+          page, for setups without a proxy that has one. Use it over HTTPS.
+          Passed as a systemd credential.
+        '';
+      };
+
       writable = mkOption {
         type = types.bool;
         default = false;
@@ -295,9 +310,9 @@ in
         Restart = "on-failure";
         RestartSec = "5s";
         EnvironmentFile = optional (cfg.apiKeyFile != null) cfg.apiKeyFile;
-        LoadCredential = optional (
-          cfg.ntfy.authTokenFile != null
-        ) "ntfy-token:${toString cfg.ntfy.authTokenFile}";
+        LoadCredential =
+          optional (cfg.ntfy.authTokenFile != null) "ntfy-token:${toString cfg.ntfy.authTokenFile}"
+          ++ optional (web.authFile != null) "auth:${toString web.authFile}";
 
         # Read-only notes, writable state, nothing else
         StateDirectory = mkIf (cfg.dataDir == "/var/lib/zortex") "zortex";

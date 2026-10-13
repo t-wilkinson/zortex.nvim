@@ -2,19 +2,14 @@
 local base = require("zortex.notifications.providers.base")
 
 local function get_os()
-	local handle = io.popen("uname -s")
-	if handle then
-		local result = handle:read("*a"):gsub("%s+", "")
-		handle:close()
-
-		if result == "Darwin" then
-			return "macos"
-		elseif result == "Linux" then
-			if os.getenv("PREFIX") and os.getenv("PREFIX"):match("termux") then
-				return "termux"
-			end
-			return "linux"
+	local sys = vim.uv.os_uname().sysname
+	if sys == "Darwin" then
+		return "macos"
+	elseif sys == "Linux" then
+		if (os.getenv("PREFIX") or ""):match("termux") then
+			return "termux"
 		end
+		return "linux"
 	end
 	return "unknown"
 end
@@ -37,9 +32,15 @@ local function send(title, message, options, config)
 	end
 
 	local cmd = string.format(cmd_template, title, message)
-	local success = os.execute(cmd)
-
-	return success == 0, success ~= 0 and "Command failed" or nil
+	-- in the background: a slow notifier never blocks the editor
+	local ok, err = pcall(vim.system, { "sh", "-c", cmd }, { text = true }, function(res)
+		if res.code ~= 0 then
+			vim.schedule(function()
+				require("zortex.core.logger").warn("notifications", "system notifier failed", { code = res.code, stderr = res.stderr })
+			end)
+		end
+	end)
+	return ok, not ok and tostring(err) or nil
 end
 
 return base.create_provider("system", {

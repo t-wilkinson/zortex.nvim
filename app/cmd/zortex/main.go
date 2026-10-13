@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -34,6 +35,22 @@ import (
 	"github.com/t-wilkinson/zortex.nvim/app/syntax"
 	"github.com/t-wilkinson/zortex.nvim/app/web"
 )
+
+// version is set at build time: -ldflags "-X main.version=v0.1.0"
+var version = "dev"
+
+// loopback: addr listens on localhost only.
+func loopback(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return false
+	}
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
 
 func usage() {
 	fmt.Fprintln(os.Stderr, `usage:
@@ -151,6 +168,7 @@ func serveCmd(args []string) {
 	ntfyTokenFile := fs.String("ntfy-token-file", os.Getenv("NTFY_AUTH_TOKEN_FILE"), "file holding the ntfy access token ($NTFY_AUTH_TOKEN_FILE)")
 	apiKey := fs.String("api-key", os.Getenv("ZORTEX_API_KEY"), "if set, /notify and /pending require it in X-API-Key ($ZORTEX_API_KEY)")
 	sendEvery := fs.Duration("send-interval", 20*time.Second, "how often due notifications are sent")
+	authFile := fs.String("auth-file", os.Getenv("ZORTEX_AUTH_FILE"), "file of user:password lines: a login (HTTP basic auth) for every page; use it over HTTPS ($ZORTEX_AUTH_FILE, or ZORTEX_AUTH=user:password)")
 	writable := fs.Bool("writable", os.Getenv("ZORTEX_WRITABLE") == "1" || os.Getenv("ZORTEX_WRITABLE") == "true", "let the web app edit notes: toggle tasks, edit, add and remove lines, add to inbox.zortex ($ZORTEX_WRITABLE=1)")
 	_ = fs.Parse(args)
 	if v := os.Getenv("ZORTEX_POLL"); v != "" && !flagSet(fs, "poll") {
@@ -172,6 +190,21 @@ func serveCmd(args []string) {
 	if *data != "" && !ntfy.Enabled() {
 		logger.Printf("ntfy is not configured: notifications are kept but not sent")
 	}
+	var accounts []web.Account
+	var err error
+	switch {
+	case *authFile != "":
+		if accounts, err = web.ReadAccounts(*authFile); err != nil {
+			logger.Fatal(err)
+		}
+	case os.Getenv("ZORTEX_AUTH") != "":
+		if accounts, err = web.ParseAccounts(os.Getenv("ZORTEX_AUTH")); err != nil || len(accounts) == 0 {
+			logger.Fatalf("ZORTEX_AUTH: want user:password (%v)", err)
+		}
+	}
+	if len(accounts) == 0 && !loopback(*addr) {
+		logger.Printf("WARNING: listening on %s with no login: anyone who can reach it can read every note. Use -auth-file (or ZORTEX_AUTH=user:password), or keep it on 127.0.0.1 behind a proxy with a login.", *addr)
+	}
 	srv, err := web.New(web.Config{
 		Root:         *dir,
 		Title:        *title,
@@ -189,7 +222,8 @@ func serveCmd(args []string) {
 			}
 			return strings.Split(*resources, ",")
 		}(),
-		Logger: logger,
+		Accounts: accounts,
+		Logger:   logger,
 	})
 	if err != nil {
 		logger.Fatal(err)
@@ -275,7 +309,7 @@ func main() {
 	case "serve":
 		serveCmd(os.Args[2:])
 	case "version":
-		fmt.Printf("zortex (ast version %d)\n", syntax.Version)
+		fmt.Printf("zortex %s (ast version %d)\n", version, syntax.Version)
 	default:
 		usage()
 	}

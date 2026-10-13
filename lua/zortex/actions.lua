@@ -435,7 +435,7 @@ M.list = {
 	{
 		id = "notifications_sync",
 		command = "NotificationsSync",
-		group = "Plan",
+		group = "Calendar",
 		desc = "Sync calendar notifications (to the server if enabled); `force` resends unchanged",
 		run = notifications_sync,
 		nargs = "?",
@@ -446,19 +446,26 @@ M.list = {
 	{
 		id = "ical_import",
 		command = "IcalImport",
-		group = "Plan",
+		group = "Calendar",
 		desc = "Import an iCal file or URL into the calendar",
 		run = call("zortex.features.ical", "import_interactive"),
 	},
 	{
 		id = "ical_export",
 		command = "IcalExport",
-		group = "Plan",
+		group = "Calendar",
 		desc = "Export the calendar to an iCal file",
 		run = call("zortex.features.ical", "export_interactive"),
 	},
 
 	-- Files --------------------------------------------------------------------
+	{
+		id = "migrate",
+		command = "Migrate",
+		group = "Files",
+		desc = "Rewrite old-style bold headings (`**Text**`, `**Text**:`) as `**Text:**`",
+		run = call("zortex.features.migrate", "run"),
+	},
 	{
 		id = "init",
 		command = "Init",
@@ -629,6 +636,13 @@ for _, a in ipairs(M.list) do
 		local target = a.run
 		a.target = target
 		a.run = function()
+			-- the pickers are telescope's; say so instead of a module error
+			if target.module:find("^zortex%.ui%.telescope") and not pcall(require, "telescope") then
+				return notify(
+					":Zortex" .. (a.command or a.id) .. " needs telescope.nvim (nvim-telescope/telescope.nvim)",
+					vim.log.levels.WARN
+				)
+			end
 			return require(target.module)[target.fn](unpack(target.args))
 		end
 	end

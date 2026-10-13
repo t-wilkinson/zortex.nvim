@@ -3,8 +3,7 @@
 How the Lua side of zortex.nvim is put together: what each layer is for, how
 data moves from a `.zortex` file to a project in a picker, and the rules every
 module agrees on. For the projects/areas API reference see
-[Projects.md](Projects.md). For what changed on the `projects-api` branch, see
-[Changes.md](Changes.md).
+[Projects.md](Projects.md); for the note format, [Syntax.md](Syntax.md).
 
 ## Summary
 

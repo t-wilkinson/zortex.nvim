@@ -122,7 +122,7 @@ local function signature(files)
 		if bufnr then
 			parts[#parts + 1] = path .. "#" .. vim.api.nvim_buf_get_changedtick(bufnr)
 		else
-			local st = vim.loop.fs_stat(path)
+			local st = vim.uv.fs_stat(path)
 			parts[#parts + 1] = path .. ":" .. (st and (st.mtime.sec .. "." .. st.mtime.nsec .. "." .. st.size) or "-")
 		end
 	end
@@ -143,7 +143,7 @@ local function checked_tasks(path)
 		end
 		lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
 	else
-		local st = vim.loop.fs_stat(path)
+		local st = vim.uv.fs_stat(path)
 		if not st then
 			return {}
 		end
@@ -392,7 +392,7 @@ function M.build()
 	end
 	-- the projects file may be missing from the notes list (no header yet)
 	local pf = normalize(require("zortex.utils.filesystem").get_projects_file())
-	if vim.loop.fs_stat(pf) and not vim.tbl_contains(project_paths, pf) then
+	if vim.uv.fs_stat(pf) and not vim.tbl_contains(project_paths, pf) then
 		table.insert(project_paths, 1, pf)
 	end
 
@@ -429,7 +429,7 @@ end
 --- opts.cached: skip the check if one ran in the last 750 ms (for loops
 --- that ask once per area); opts.force: rebuild regardless.
 function M.get(opts)
-	local now = (vim.uv or vim.loop).hrtime() / 1e6
+	local now = vim.uv.hrtime() / 1e6
 	if opts and opts.cached and cache.ledger and now - cache.checked < CHECK_TTL_MS then
 		return cache.ledger
 	end

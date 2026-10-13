@@ -1,71 +1,38 @@
 -- notifications/providers/ntfy.lua - ntfy.sh notification provider
 local base = require("zortex.notifications.providers.base")
 
+local PRIORITY = { min = 1, low = 2, default = 3, high = 4, max = 5, urgent = 5 }
+
+-- Publishes as JSON (like the server does) with curl in the background: no
+-- shell, so quotes in titles are fine and the editor never waits.
 local function send(title, message, options, config)
 	if not config.topic then
 		return false, "No ntfy topic configured"
 	end
-
 	local priority = options.priority or config.priority or "default"
-	local tags = options.tags or config.tags or {}
-	local click_url = options.click_url or nil
-
-	-- Build curl command
-	local cmd_parts = {
-		"curl",
-		"-s", -- silent
-		"-X",
-		"POST",
-		"-H",
-		string.format('"Title: %s"', title:gsub('"', '\\"')),
-		"-H",
-		string.format('"Priority: %s"', priority),
+	local body = {
+		topic = config.topic,
+		title = title,
+		message = message,
+		priority = tonumber(priority) or PRIORITY[priority] or 3,
+		tags = options.tags or config.tags or nil,
+		click = options.click_url,
 	}
-
-	-- Add tags
-	if tags and #tags > 0 then
-		table.insert(cmd_parts, "-H")
-		table.insert(cmd_parts, string.format('"Tags: %s"', table.concat(tags, ",")))
-	end
-
-	-- Add click URL if provided
-	if click_url then
-		table.insert(cmd_parts, "-H")
-		table.insert(cmd_parts, string.format('"Click: %s"', click_url))
-	end
-
-	-- Add authentication
+	local cmd = { "curl", "-sS", "--fail", "-X", "POST", "-H", "Content-Type: application/json" }
 	if config.auth_token then
-		-- Bearer token authentication
-		table.insert(cmd_parts, "-H")
-		table.insert(cmd_parts, string.format('"Authorization: Bearer %s"', config.auth_token))
+		vim.list_extend(cmd, { "-H", "Authorization: Bearer " .. config.auth_token })
 	elseif config.username and config.password then
-		-- Basic auth
-		table.insert(cmd_parts, "-u")
-		table.insert(cmd_parts, string.format('"%s:%s"', config.username, config.password))
+		vim.list_extend(cmd, { "-u", config.username .. ":" .. config.password })
 	end
-
-	-- Add message data
-	table.insert(cmd_parts, "-d")
-	table.insert(cmd_parts, string.format('"%s"', message:gsub('"', '\\"')))
-
-	-- Add server URL and topic (without quotes around the URL)
-	local server_url = config.server_url or "http://ntfy.sh"
-	table.insert(cmd_parts, string.format("%s/%s", server_url, config.topic))
-
-	local cmd = table.concat(cmd_parts, " ")
-	local handle = io.popen(cmd .. " 2>&1")
-	if handle then
-		local result = handle:read("*a")
-		local success = handle:close()
-
-		if not success then
-			return false, "ntfy error: " .. result
+	vim.list_extend(cmd, { "--data-binary", "@-", (config.server_url or "https://ntfy.sh"):gsub("/+$", "") })
+	local ok, err = pcall(vim.system, cmd, { text = true, stdin = vim.json.encode(body) }, function(res)
+		if res.code ~= 0 then
+			vim.schedule(function()
+				require("zortex.core.logger").warn("notifications", "ntfy publish failed", { code = res.code, stderr = res.stderr })
+			end)
 		end
-		return true, nil
-	end
-
-	return false, "Failed to execute curl"
+	end)
+	return ok, not ok and tostring(err) or nil
 end
 
 return base.create_provider("ntfy", {

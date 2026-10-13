@@ -14,7 +14,7 @@ M.weights = { okr = 80, okr_each = 20, okr_max = 140 }
 -- { [project_key] = number of open KRs linking it }, rebuilt at most once a second
 local okr_cache = { time = nil, counts = nil }
 function M.okr_counts()
-	local now = vim.loop.now()
+	local now = vim.uv.now()
 	if okr_cache.counts and now - okr_cache.time < 1000 then
 		return okr_cache.counts
 	end

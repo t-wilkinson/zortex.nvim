@@ -81,7 +81,7 @@ end
 -- =============================================================================
 
 local function note_summary(path, header)
-	local stat = vim.loop.fs_stat(path)
+	local stat = vim.uv.fs_stat(path)
 	return {
 		path = path,
 		rel = rel(path),

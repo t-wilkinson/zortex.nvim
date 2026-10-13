@@ -149,6 +149,14 @@ With `-writable` (and `-data`), the clock box on the home page has a
   it was). Each write is logged to `-data/track_log.jsonl`. Neovim reads
   `@spent` as a duration (minutes), like `@dur`.
 
+**Login.** There is none by default: keep the server on `127.0.0.1` and
+publish it through a proxy that has one (doc/Server.md). Without such a
+proxy, `-auth-file FILE` (`ZORTEX_AUTH_FILE`; or `ZORTEX_AUTH=user:password`;
+NixOS `web.authFile`) asks for a login (HTTP basic auth) on every page and
+endpoint except `/healthz`; requests with a valid `X-API-Key` (Neovim) pass.
+The file has `user:password` lines. Use it over HTTPS. Listening on anything
+but localhost without a login logs a warning.
+
 State flags (with `-data`): `-data` (`ZORTEX_DATA_DIR`, or systemd's
 `STATE_DIRECTORY`), `-ntfy-url` (`NTFY_SERVER_URL`), `-ntfy-topic`
 (`NTFY_TOPIC`), `-ntfy-token` (`NTFY_AUTH_TOKEN`) or `-ntfy-token-file`,

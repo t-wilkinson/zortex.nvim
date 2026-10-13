@@ -77,7 +77,7 @@ local function stamp(path)
 	if bufnr > 0 and vim.api.nvim_buf_is_loaded(bufnr) and vim.bo[bufnr].modified then
 		return "buf:" .. vim.api.nvim_buf_get_changedtick(bufnr)
 	end
-	local st = vim.loop.fs_stat(path)
+	local st = vim.uv.fs_stat(path)
 	if not st then
 		return nil
 	end
@@ -156,7 +156,7 @@ function M.refresh(force)
 	if not state.loaded then
 		load_from_disk()
 	end
-	local now = vim.loop.now()
+	local now = vim.uv.now()
 	if not force and state.last_refresh and now - state.last_refresh < REFRESH_TTL_MS then
 		return
 	end

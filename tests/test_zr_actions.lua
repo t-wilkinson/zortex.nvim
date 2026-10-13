@@ -26,7 +26,11 @@ end)
 T.test("commands and keymaps come from the list, with overrides", function()
 	actions.create_commands("ZtTest")
 	T.eq(vim.fn.exists(":ZtTestReview"), 2)
-	T.eq(vim.api.nvim_get_commands({})["ZtTestBacklinks"].definition, "Links into the section under the cursor (quickfix)")
+	-- Lua commands keep their description in `desc` on Neovim 0.12+, in
+	-- `definition` before
+	local cmd = vim.api.nvim_get_commands({})["ZtTestBacklinks"]
+	local desc = (cmd.desc and cmd.desc ~= "") and cmd.desc or cmd.definition
+	T.eq(desc, "Links into the section under the cursor (quickfix)")
 	actions.create_keymaps("<leader>q", { task_toggle = "t", search = false, review = { "w", "R" } })
 	T.eq(vim.fn.maparg("<leader>qt", "n", false, true).desc, "Zortex: Toggle the task on this line (makes one if needed)")
 	T.eq(vim.fn.maparg("<leader>qz", "n"), "")
@@ -62,4 +66,17 @@ T.test("README command table is up to date", function()
 	local lines = vim.fn.readfile(gen.readme)
 	T.ok(vim.tbl_contains(lines, gen.START), "README has the actions block")
 	T.eq(gen.render_readme(lines), lines, "regenerate with: nvim --headless -u NONE -l tests/gen_docs.lua")
+end)
+
+T.test(":help zortex is up to date and its tags are valid", function()
+	local gen = dofile(T.root .. "/tests/gen_docs.lua")
+	T.eq(gen.vimdoc_lines(), vim.fn.readfile(gen.vimdoc), "regenerate with: nvim --headless -u NONE -l tests/gen_docs.lua")
+	local dir = vim.fn.tempname() .. "/doc"
+	vim.fn.mkdir(dir, "p")
+	vim.fn.writefile(vim.fn.readfile(gen.vimdoc), dir .. "/zortex.txt")
+	vim.cmd("helptags " .. vim.fn.fnameescape(dir)) -- errors on duplicate tags
+	local tags = table.concat(vim.fn.readfile(dir .. "/tags"), "\n")
+	for _, tag in ipairs({ "zortex", "zortex-config", ":ZortexSearch", ":ZortexInit", "zortex-action-pomodoro_toggle" }) do
+		T.ok(tags:find(tag .. "\t", 1, true), tag)
+	end
 end)

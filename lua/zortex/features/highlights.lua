@@ -16,7 +16,81 @@ local NS = vim.api.nvim_create_namespace("zortex_highlights")
 -- Highlight groups
 -- =============================================================================
 
-local GROUPS = {
+-- By default every group links to (or is derived from) a standard group, so
+-- the colorscheme decides the look and a colorscheme's own Zortex* groups
+-- win. ui.highlights = { preset = "rose-pine" } gives the original palette;
+-- ui.highlights.groups overrides single groups ({ fg = "#..." } or { link = ... }).
+
+-- name -> standard group, or { from = group, <attrs to add> }
+local LINKS = {
+	ZortexHeading1 = { from = "Title", bold = true },
+	ZortexHeading2 = { from = "Title", bold = true },
+	ZortexHeading3 = { from = "Title", bold = true },
+	ZortexBullet1 = "Special",
+	ZortexBullet2 = "Identifier",
+	ZortexBullet3 = "Constant",
+	ZortexBullet4 = "Comment",
+	ZortexCodeBlock = "String",
+	ZortexArticle = { from = "Title", bold = true },
+	ZortexTag = "Label",
+	ZortexBoldHeading = { from = "Function", bold = true },
+	ZortexLabel = { from = "Identifier", bold = true },
+	ZortexLabelText = "Normal",
+	ZortexLabelList = "Identifier",
+	ZortexLabelListText = "Normal",
+	ZortexNumberList = { from = "Special", bold = true },
+	ZortexTextList = { from = "Special", bold = true },
+	ZortexTaskCheckbox = "Special",
+	ZortexTaskText = "Normal",
+	ZortexTaskDone = { from = "Comment", strikethrough = true },
+	ZortexMarkdownLink = "Underlined",
+	ZortexLink = "Underlined",
+	ZortexFootnote = { from = "Comment", italic = true },
+	ZortexURL = "Underlined",
+	ZortexBold = { bold = true },
+	ZortexItalic = { italic = true },
+	ZortexCodeInline = "String",
+	ZortexMathInline = { from = "Special", italic = true },
+	ZortexMathBlock = { from = "Special", italic = true },
+	ZortexAttribute = { from = "Comment", italic = true },
+	ZortexObjective = { from = "Title", bold = true },
+	ZortexKeyResult = { from = "Identifier", bold = true },
+	ZortexKeyResultCheckbox = "Special",
+	ZortexKeyResultText = "Normal",
+	ZortexKeyResultDone = { from = "Comment", strikethrough = true },
+	ZortexTime = "Number",
+	ZortexPercent = "Number",
+	ZortexOperator = "Operator",
+	ZortexPunctuation = "Delimiter",
+	ZortexBlockQuote = "Comment",
+	ZortexQuote = { from = "String", italic = true },
+	ZortexTableSeparator = { from = "Delimiter", bold = true },
+	ZortexTableBorder = "NonText",
+}
+
+local function default_groups()
+	local out = {}
+	for name, spec in pairs(LINKS) do
+		if type(spec) == "string" then
+			out[name] = { link = spec }
+		elseif spec.from then
+			local ok, base = pcall(vim.api.nvim_get_hl, 0, { name = spec.from, link = false })
+			local hl = ok and vim.deepcopy(base) or {}
+			for k, v in pairs(spec) do
+				if k ~= "from" then
+					hl[k] = v
+				end
+			end
+			out[name] = hl
+		else
+			out[name] = vim.deepcopy(spec)
+		end
+	end
+	return out
+end
+
+-- The original palette (Rose Pine Moon): ui.highlights = { preset = "rose-pine" }
+local ROSE_PINE = {
 	ZortexHeading1 = { bold = true, italic = true, fg = "#eb6f92", bg = "#2a273f" },
 	ZortexHeading2 = { bold = true, italic = true, fg = "#ea9a97", bg = "#232136" },
 	ZortexHeading3 = { bold = true, italic = true, fg = "#f6c177", bg = "#1e1c1f" },
@@ -62,8 +136,22 @@ local GROUPS = {
 	ZortexTableBorder = { fg = "#524f67" },
 }
 
+local PRESETS = { ["rose-pine"] = ROSE_PINE }
+
 function M.setup_highlights()
-	for name, opts in pairs(GROUPS) do
+	local cfg = (require("zortex.config").ui or {}).highlights or {}
+	local preset = cfg.preset and PRESETS[cfg.preset]
+	local groups = preset and vim.deepcopy(preset) or default_groups()
+	for name, opts in pairs(cfg.groups or {}) do
+		groups[name] = opts
+	end
+	for name, opts in pairs(groups) do
+		opts = vim.deepcopy(opts)
+		-- defaults yield to a colorscheme's own Zortex* groups; a preset and
+		-- your overrides don't
+		if not preset and not (cfg.groups or {})[name] then
+			opts.default = true
+		end
 		vim.api.nvim_set_hl(0, name, opts)
 	end
 end
@@ -370,6 +458,14 @@ end
 
 function M.setup_autocmd()
 	local group = vim.api.nvim_create_augroup("ZortexHighlights", { clear = true })
+
+	-- :colorscheme clears every group; define ours again
+	vim.api.nvim_create_autocmd("ColorScheme", {
+		group = group,
+		callback = function()
+			M.setup_highlights()
+		end,
+	})
 
 	vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
 		group = group,

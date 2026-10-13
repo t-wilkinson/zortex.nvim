@@ -1,7 +1,6 @@
 # Projects
 
 > How this fits into the rest of the plugin: [Architecture.md](Architecture.md).
-> What changed on this branch: [Changes.md](Changes.md).
 
 Projects are first-class objects. Each one collects tasks, notes and context
 in one place, and the calendar, OKRs and areas link to it.

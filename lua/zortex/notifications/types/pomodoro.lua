@@ -253,7 +253,7 @@ end
 
 local function ensure_timer()
 	if L.running and not timer then
-		timer = (vim.uv or vim.loop).new_timer()
+		timer = vim.uv.new_timer()
 		timer:start(1000, 1000, vim.schedule_wrap(local_tick))
 	elseif not L.running then
 		stop_timer()
@@ -399,7 +399,7 @@ local function ensure_poll()
 	if R.poll then
 		return
 	end
-	R.poll = (vim.uv or vim.loop).new_timer()
+	R.poll = vim.uv.new_timer()
 	R.poll:start(
 		1000,
 		1000,

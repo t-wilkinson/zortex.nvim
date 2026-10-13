@@ -74,7 +74,7 @@ end
 local function write_file(body)
 	local path = require("zortex.core.state").path("xp_summary")
 	vim.fn.mkdir(vim.fn.fnamemodify(path, ":h"), "p")
-	local tmp = path .. ".tmp." .. (vim.uv or vim.loop).getpid()
+	local tmp = path .. ".tmp." .. vim.uv.getpid()
 	local f = io.open(tmp, "w")
 	if not f then
 		return false

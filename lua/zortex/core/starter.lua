@@ -109,12 +109,12 @@ end
 function M.is_new_folder()
 	local dir = require("zortex.config").notes_dir
 	local ext = require("zortex.config").extension or ".zortex"
-	local handle = (vim.uv or vim.loop).fs_scandir(dir)
+	local handle = vim.uv.fs_scandir(dir)
 	if not handle then
 		return true
 	end
 	while true do
-		local name, kind = (vim.uv or vim.loop).fs_scandir_next(handle)
+		local name, kind = vim.uv.fs_scandir_next(handle)
 		if not name then
 			return true
 		end

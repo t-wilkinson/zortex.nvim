@@ -177,9 +177,18 @@ function M.preview_link(opts)
 	vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI", "BufLeave", "InsertEnter" }, {
 		buffer = origin,
 		once = true,
-		callback = function()
-			if vim.api.nvim_get_current_win() ~= state.win then
-				M.close()
+		callback = function(ev)
+			local function check()
+				if vim.api.nvim_get_current_win() ~= state.win then
+					M.close()
+				end
+			end
+			-- BufLeave fires before the switch: entering the preview itself
+			-- leaves the origin buffer, so look once the switch is done
+			if ev.event == "BufLeave" then
+				vim.schedule(check)
+			else
+				check()
 			end
 		end,
 	})

@@ -47,7 +47,7 @@ local buffer_cache = {} -- bufnr -> { changedtick, doc }
 
 function M.from_file(path)
 	path = normalize(path)
-	local stat = vim.loop.fs_stat(path)
+	local stat = vim.uv.fs_stat(path)
 	if not stat then
 		return nil
 	end

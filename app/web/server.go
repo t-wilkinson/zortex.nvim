@@ -70,7 +70,11 @@ type Config struct {
 	// ResourceExts: extensions of the files tracked as resources (backlinks,
 	// unlinked list); nil: DefaultResourceExts.
 	ResourceExts []string
-	Logger       *log.Logger
+	// Accounts, when set, is a login (HTTP basic auth) for every page and
+	// endpoint except /healthz; see auth.go. Empty: no login (keep the
+	// server on localhost behind a proxy that has one).
+	Accounts []Account
+	Logger   *log.Logger
 }
 
 // DefaultSpecial are the top-level notes listed by default (the plugin's
@@ -443,7 +447,7 @@ func (s *Server) Handler() http.Handler {
 			strip.ServeHTTP(w, r)
 		})
 	}
-	return securityHeaders(h)
+	return securityHeaders(s.requireLogin(h))
 }
 
 func securityHeaders(h http.Handler) http.Handler {

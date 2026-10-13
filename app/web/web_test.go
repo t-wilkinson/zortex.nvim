@@ -373,3 +373,19 @@ func TestAreaAttributeTag(t *testing.T) {
 		}
 	}
 }
+
+// doc/example is what new users try first and what the README screenshots
+// show: every link in it must resolve.
+func TestExampleNotes(t *testing.T) {
+	s, err := New(Config{Root: "../../doc/example", Poll: -1, Logger: log.New(io.Discard, "", 0)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snap := s.current()
+	if snap.notes < 8 || snap.links < 15 {
+		t.Fatalf("notes %d links %d", snap.notes, snap.links)
+	}
+	for _, b := range snap.broken {
+		t.Errorf("broken link in doc/example: %+v", b)
+	}
+}

@@ -21,7 +21,6 @@ local function load_providers()
 	providers.system = require("zortex.notifications.providers.system")
 	providers.ntfy = require("zortex.notifications.providers.ntfy")
 	providers.vim = require("zortex.notifications.providers.vim")
-	providers.ses = require("zortex.notifications.providers.ses")
 end
 
 -- Calculate next occurrence for repeating notifications
@@ -110,7 +109,10 @@ local function load_scheduled_notifications()
 
 		-- Reschedule all loaded notifications
 		for id, notification in pairs(scheduled_notifications) do
-			if notification.trigger_time > os.time() then
+			if notification.type == "alarm" or notification.type == "timer" then
+				-- Neovim no longer has timers and alarms (the web app does)
+				scheduled_notifications[id] = nil
+			elseif notification.trigger_time > os.time() then
 				-- Future notification, reschedule it
 				M.schedule_notification(notification)
 			elseif notification.options and notification.options.repeat_mode then

@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/t-wilkinson/zortex.nvim/app/alerts"
+	"github.com/t-wilkinson/zortex.nvim/app/clocks"
 	"github.com/t-wilkinson/zortex.nvim/app/links"
 	"github.com/t-wilkinson/zortex.nvim/app/notes"
 	"github.com/t-wilkinson/zortex.nvim/app/pomodoro"
@@ -91,6 +92,7 @@ type Server struct {
 	alerts *alerts.Store   // nil without DataDir
 	sender *alerts.Sender  // nil without DataDir
 	pomo   *pomodoro.Clock // nil without DataDir
+	clocks *clocks.Clocks  // timers, alarms, stopwatch; nil without DataDir
 	xp     xpCache         // XP summary published by Neovim
 
 	editMu      sync.Mutex    // one edit at a time
@@ -221,6 +223,7 @@ func (s *Server) Run(ctx context.Context) {
 		go func() {
 			<-ctx.Done()
 			s.pomo.Close()
+			s.clocks.Close()
 		}()
 	}
 	if s.cfg.Poll < 0 {
@@ -378,12 +381,20 @@ func (s *Server) Handler() http.Handler {
 	// calendar and notifications (Neovim syncs to /notify)
 	mux.HandleFunc("GET /api/calendar", s.apiCalendar)
 	mux.HandleFunc("GET /api/summary", s.apiSummary)
+	mux.HandleFunc("GET /api/digest", s.apiDigest)
 	mux.HandleFunc("POST /notify", s.handleNotify)
 	mux.HandleFunc("GET /pending", s.handlePending)
 	mux.HandleFunc("POST /test", s.handleTestNotification)
 	// pomodoro, shared by Neovim and the home page
 	mux.HandleFunc("GET /api/pomodoro", s.apiPomodoro)
 	mux.HandleFunc("POST /api/pomodoro/{action}", s.apiPomodoroAction)
+	// timers, alarms and the stopwatch (home page)
+	mux.HandleFunc("GET /api/clocks", s.apiClocks)
+	mux.HandleFunc("POST /api/clocks/timers", s.apiTimerAdd)
+	mux.HandleFunc("POST /api/clocks/timers/{id}/{action}", s.apiTimerAction)
+	mux.HandleFunc("POST /api/clocks/alarms", s.apiAlarmAdd)
+	mux.HandleFunc("POST /api/clocks/alarms/{id}/{action}", s.apiAlarmAction)
+	mux.HandleFunc("POST /api/clocks/stopwatch/{action}", s.apiStopwatch)
 	// XP summary published by Neovim (the ledger lives there)
 	mux.HandleFunc("GET /api/xp", s.apiXP)
 	mux.HandleFunc("POST /api/xp", s.apiXPPost)

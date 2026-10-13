@@ -49,6 +49,7 @@ func newStateServer(t *testing.T, apiKey string) (*Server, string, *httptest.Ser
 		t.Fatal(err)
 	}
 	t.Cleanup(s.pomo.Close)
+	t.Cleanup(s.clocks.Close)
 	return s, dir, ts, pub
 }
 

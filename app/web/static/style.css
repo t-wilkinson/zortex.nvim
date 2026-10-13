@@ -435,3 +435,49 @@ button.box.done { background: var(--done); }
 .drop-line { position: absolute; left: 0; right: 0; height: 0; border-top: 2px solid var(--accent); margin-top: -1px; pointer-events: none; }
 .drop-line::before { content: ""; position: absolute; left: -4px; top: -5px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
 .line-bar button:disabled { opacity: 0.4; cursor: default; }
+
+/* home: timer, alarm and stopwatch share the pomodoro's box (tabs on the left) */
+.clocks { display: grid; grid-template-columns: 8.5rem minmax(0, 1fr); gap: 0 1.3rem; align-items: start; }
+.clock-tabs { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.4rem 0.9rem 0.4rem 0; border-right: 1px solid var(--rule); align-self: stretch; }
+.clock-tabs [role=tab] { display: flex; flex-direction: column; align-items: flex-start; gap: 0.05rem; width: 100%; text-align: left; font: inherit; font-family: var(--sans); font-size: 0.92rem; color: var(--dim); background: none; border: 0; border-left: 3px solid transparent; border-radius: 0 6px 6px 0; padding: 0.45rem 0.6rem; cursor: pointer; }
+.clock-tabs [role=tab]:hover { color: var(--ink); background: var(--accent-soft); }
+.clock-tabs [role=tab][aria-selected=true] { color: var(--ink); font-weight: 600; border-left-color: var(--accent); background: var(--accent-soft); }
+.clock-tabs [role=tab]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tab-meta { font-family: var(--mono); font-size: 0.78rem; font-weight: 400; color: var(--accent); font-variant-numeric: tabular-nums; min-height: 1em; }
+.tab-meta:empty { display: none; }
+.clock-panel[hidden] { display: none; }
+.clock-form { margin: 0.2rem 0 0.8rem; }
+.presets { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.55rem; }
+.presets button { min-width: 2.8rem; }
+.clock-fields { display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; }
+.clock-fields input, .clock-fields select { font: inherit; font-size: 0.92rem; color: var(--ink); background: var(--bg); border: 1px solid var(--rule); border-radius: 7px; padding: 0.3rem 0.55rem; min-height: 2.1rem; }
+.clock-fields input[name=duration] { width: 11rem; }
+.clock-fields input[name=label] { flex: 1 1 10rem; min-width: 0; }
+.clock-fields input:focus-visible, .clock-fields select:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); }
+.clock-list { list-style: none; margin: 0; padding: 0; }
+.clock-list li { display: grid; grid-template-columns: minmax(5.5rem, max-content) minmax(0, 1fr) auto; align-items: center; gap: 0.2rem 0.9rem; padding: 0.55rem 0; border-top: 1px solid var(--rule); }
+.clock-list .big { font-family: var(--mono); font-size: 1.45rem; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.clock-list .what { min-width: 0; overflow-wrap: anywhere; }
+.clock-list .what .small { display: block; }
+.clock-list .acts { display: flex; flex-wrap: wrap; gap: 0.35rem; justify-content: flex-end; }
+.clock-list .acts button { padding: 0.2rem 0.6rem; font-size: 0.85rem; }
+.clock-list .bar { grid-column: 1 / -1; height: 3px; background: var(--rule); border-radius: 2px; overflow: hidden; }
+.clock-list .bar span { display: block; height: 100%; background: var(--accent); transition: width 0.25s linear; }
+.clock-list li.done .big { color: var(--done); }
+.clock-list li.off .big, .clock-list li.off .what { color: var(--dim); }
+.clock-list li.paused .big { color: var(--dim); }
+.clock-list .empty { display: block; color: var(--dim); font-size: 0.9rem; border-top: 0; }
+.switch[aria-pressed=true] { background: var(--accent) !important; border-color: var(--accent) !important; color: var(--panel) !important; }
+.sw-time { font-family: var(--mono); font-size: 2.6rem; font-variant-numeric: tabular-nums; margin: 0.3rem 0 0.7rem; }
+.sw-laps { margin: 0.8rem 0 0; padding: 0; list-style: none; font-family: var(--mono); font-size: 0.9rem; font-variant-numeric: tabular-nums; max-height: 14rem; overflow: auto; }
+.sw-laps li { display: grid; grid-template-columns: 4.5rem 1fr 1fr; padding: 0.2rem 0; border-top: 1px solid var(--rule); }
+.sw-laps li .dim { text-align: right; }
+@media (max-width: 46rem) {
+  .clocks { grid-template-columns: minmax(0, 1fr); }
+  .clock-tabs { flex-direction: row; overflow-x: auto; padding: 0 0 0.35rem; border-right: 0; border-bottom: 1px solid var(--rule); margin-bottom: 0.4rem; }
+  .clock-tabs [role=tab] { width: auto; flex: 1 0 auto; border-left: 0; border-bottom: 3px solid transparent; border-radius: 6px 6px 0 0; align-items: center; padding: 0.4rem 0.6rem; }
+  .clock-tabs [role=tab][aria-selected=true] { border-bottom-color: var(--accent); }
+  .clock-list li { grid-template-columns: max-content minmax(0, 1fr); }
+  .clock-fields input[name=duration] { flex: 1 1 100%; width: auto; }
+  .clock-list .acts { grid-column: 1 / -1; justify-content: flex-start; }
+}

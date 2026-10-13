@@ -1,0 +1,176 @@
+# Zortex syntax
+
+This is the complete reference for the `.zortex` note format. The grammar
+is implemented once, in `lua/zortex/core/syntax.lua`; the web app's Go
+parser (`app/syntax`) is tested against the same fixtures. Every example in
+the two tables marked "checked" below is a line of
+[`tests/fixtures/syntax`](../tests/fixtures/syntax), and `tests/test_syntax_doc.lua`
+checks that the parser gives it the kind or span listed. If the parser and
+this page ever disagree, the test fails.
+
+## A note
+
+```zortex
+@@Projects
+@@P
+@Me
+@size(lg)
+
+# 1 Programming @p1
+## 1.4 - zortex @a(4.1)
+**Next steps:**
+Ideas:
+- [ ] Write the server guide @size(sm) @due(2026-10-20)
+- [x] Improve website @done(2026-10-12)
+```
+
+A note is a `.zortex` file anywhere under `notes_dir` (`z/` is the usual
+place for the library; folders starting with `.` are skipped).
+
+**Header.** The note starts with its header: `@@Name` lines (the first is
+the article name, the rest are aliases) and `@Tag` lines. Blank lines are
+skipped; the header ends at the first other line. A header line like
+`@size(lg)` or `@a(4.1)` is an attribute of the whole note: a standalone
+project's size, or its area.
+
+**Sections.** Headings, bold headings and labels open sections. Each has a
+level, and a section ends at the next section of the same or a higher level
+(a lower number):
+
+| Section | Level |
+|---|---|
+| article (the header) | 0 |
+| `#` … `######` heading | 1–6 |
+| `**Bold heading:**` | 7 |
+| `Label:` | 8 + indentation, so indented labels nest |
+
+Everything else (list items, text, blocks) belongs to the section above it.
+Nothing inside a code or math block is structure.
+
+## Lines (checked)
+
+<!-- check: lines -->
+| Example | Kind | Notes |
+|---|---|---|
+| `@@Syntax sample` | `article` | In the header: the article name, then aliases |
+| `@Example` | `tag` | In the header: a tag (`@P` makes the note a project) |
+| `@size(lg)` | `tag` | In the header: an attribute of the note |
+| `# Heading one @p1 @a(4.1)` | `heading` | `#` to `######` and a space |
+| `#NotHeading` | `text` | the space is required |
+| `**Bold heading:**` | `bold_heading` | the colon is inside the closing `**`; only spaces may follow |
+| `**Not a heading**` | `text` | no colon: just bold text |
+| `**Old style**:` | `label` | the colon outside: a label whose text is bold |
+| `Label:` | `label` | text ending in `:` |
+| `  Indented label:` | `label` | indentation nests labels |
+| `- Bulleted label:` | `label` | a bullet item ending in `:` is a label too |
+| `Label: text after colon` | `text` | nothing may follow the colon |
+| `Not a label: one. Two: three` | `text` | no sentence (`. `) in a label |
+| `Trailing spaces label:   ` | `text` | no trailing spaces after a label's colon |
+| `- plain bullet with [^1]` | `item` | bullets: `-`, `+`, `*` and a space |
+| `+ plus bullet` | `item` | |
+| `* star bullet` | `item` | |
+| `*not a bullet*` | `text` | italic text, not a bullet |
+| `1. numbered` | `item` | ordered: a number or one letter, `.` and a space |
+| `B. lettered` | `item` | |
+| `1.not ordered` | `text` | the space is required |
+| `- [ ] Open task @size(sm) @due(2026-10-12)` | `item` | a task: `[ ]` open, `[x]` done; text must follow |
+| `- [x] Done task @done(2026-10-08)` | `item` | `@done(date)` dates the completion (XP counts it then) |
+| `  - [ ] Nested task` | `item` | indented items nest |
+| `- KR1: [ ] Key result [P/#1 Programming]` | `item` | a keyed item: `Key:` then an optional checkbox (key results) |
+| `14:00 Timed entry [Flipping]` | `item` | a time item (calendar events) |
+| `16:00 - 17:00 Ranged entry` | `item` | a time range |
+| `- 09:00 Bulleted time` | `item` | a bullet whose text starts with a time (not a time item) |
+| `09:00-10:30x not a range` | `text` | |
+| `\| col a \| col b \|` | `table` | rows start and end with `\|` |
+| `\| a quote line` | `quote` | `\|` without a closing `\|` |
+| `> another quote` | `quote` | |
+| `>not quote` | `text` | the space is required |
+| `` ```lua `` | `fence` | ` ``` ` or `~~~` fences; the closing fence uses the same character |
+| `# not a heading` | `code` | inside a fence |
+| `$$` | `math_fence` | display math block |
+| `[^1]: The footnote with https://example.com and ./images/pic.png` | `footnote` | a footnote definition |
+| `Key: value text with @home and an email me@example.com.` | `text` | a paragraph line |
+
+## Inline (checked)
+
+<!-- check: inline -->
+| Example | Span | Notes |
+|---|---|---|
+| `[Link/#Heading]` | `link` | see Links below |
+| `![Live link]` | `live_link` | a link shown in place (the digest note) |
+| `@[cars & parts]` | `tag_search` | notes whose header has the tags (`&` all, `+` any) |
+| `[text](https://example.com)` | `markdown` | a markdown link |
+| `[^1]` | `footnote_ref` | a footnote reference |
+| `https://example.com` | `url` | |
+| `./images/pic.png` | `filepath` | `./`, `../`, `~/` or `/` paths, relative to the note |
+| `@size(sm)` | `attribute` | `@key(value)` |
+| `@p1` | `attribute` | a bare `@word`; must start a word (`me@example.com` is text) |
+| `` `code` `` | `code` | |
+| `$x^2$` | `math` | inline math |
+| `**bold**` | `bold` | |
+| `*italic*` | `italic` | |
+| `10:30` | `time` | |
+
+`[ ]`, `[x]` and other one-character brackets are not links, and nothing is
+a span inside code.
+
+## Attributes
+
+Attributes are `@key(value)` or bare `@word`. These are understood (tasks,
+projects, calendar entries):
+
+| Attribute | Meaning |
+|---|---|
+| `@id(4Fz9q)` | a task's id (added when a task is created) |
+| `@done(2026-10-12)` | when a task was completed |
+| `@due(2026-10-20)` | due date |
+| `@p1` `@p2` `@p3`, `@i1` … `@i3` | priority, importance |
+| `@size(xs)` … `@size(5xl)`, or `@sm`, `@lg`, … | task size (projects also `epic`, `legendary`, `mythic`, `ultimate`); sizes weigh XP |
+| `@a(4.1)`, `@area(1.2/Fitness)` | area link: `4.1` is `[A/#4.1]`, `1.2/Fitness` is `[A/#1.2/:Fitness]`; comma-separated for several |
+| `@progress(3/5)` | a project's progress (written back on request) |
+| `@xp(500)` | a project's XP pool |
+| `@2h`, `@dur(90m)`, `@est(3h)` | duration and estimate |
+| `@notify(15)`, `@n(0, 30)` | calendar: notify minutes before (several allowed) |
+| `@repeat(weekly)` | calendar: repetition |
+
+## Links
+
+A link is `[` components separated by `/` `]`, resolved left to right; each
+component narrows the places the previous ones found. Matching is
+case-insensitive and by prefix: `[P/#1.4]` finds `## 1.4 - zortex`.
+
+| Component | Example | Finds |
+|---|---|---|
+| article | `[Projects]`, `[P]` | notes named (or aliased) so, then notes tagged with it: `[P/…]` reaches `projects.zortex` and every `@P` note |
+| `@` tag | `[@Cars]` | notes whose header has the tag |
+| `#` heading | `[P/#1.4 - zortex]` | a heading at any depth in the range |
+| `:` label | `[A/#1.2/:Fitness]` | a label |
+| `*` bold | `[Note/*Next steps]` | a bold heading or bold text |
+| `-` item | `[O/#Current/-KR1]` | a list item by its key or text |
+| `%` query | `[Note/%sparkplug]` | any line containing the text (`a + b` either, `a & b` both) |
+
+- `[/#Local heading]` (leading `/`) resolves in the current note.
+- The first match is the link's target; when there are more, the quickfix
+  list (Neovim) or the link page (web app) shows them all.
+- Archived notes (tagged `@Archive`, or `z/archive.*.zortex`) are skipped
+  unless a component is `@Archive`.
+- Generated links keep only `A-Z a-z 0-9 _ - ( ) .` of a heading
+  (`#4 Learning & Education` is written `#4 Learning`); the prefix match
+  still finds it.
+
+`doc/Architecture.md` (Links) has the exact resolution rules.
+
+## Special notes
+
+| Note | Name | What it holds |
+|---|---|---|
+| `projects.zortex` | `@@Projects` / `@@P` | headings are projects and sub-projects; checkbox items are their tasks. Any note tagged `@P` is a project too |
+| `areas.zortex` | `@@Areas` / `@@A` | headings and labels are areas (`# 1 Personal`, `## 1.2 Health`, `Fitness:`) |
+| `okr.zortex` | `@@Objectives` / `@@OKR` | headings like `## 3M-2026-Q1 Title` are objectives; `- KRn: [ ] …` items are key results; project links on a KR drive its progress |
+| `calendar.zortex` | `@@Calendar` | `YYYY-MM-DD:` labels with entries under them: `- [ ] task`, `14:00 event`, `16:00 - 17:00 event`, `- note` |
+| `structure.zortex` | `@@Structure` | links to your notes; notes nothing here links to are listed as unlinked |
+| `inbox.zortex` | `@@Inbox` | tasks and notes added from the web app |
+
+`setup()` creates these from short templates in a new notes folder;
+`:ZortexInit` adds missing ones later. See [Projects.md](Projects.md) for
+projects and areas in depth.

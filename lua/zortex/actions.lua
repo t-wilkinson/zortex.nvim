@@ -460,6 +460,13 @@ M.list = {
 
 	-- Files --------------------------------------------------------------------
 	{
+		id = "init",
+		command = "Init",
+		group = "Files",
+		desc = "Create missing key notes (calendar, projects, areas, okr, structure, inbox)",
+		run = call("zortex.core.starter", "init_command"),
+	},
+	{
 		id = "open_projects",
 		command = "OpenProjects",
 		key = { "fp", "P" },

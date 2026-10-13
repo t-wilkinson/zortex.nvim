@@ -6,6 +6,9 @@ local defaults = {
 	notes_dir = vim.fn.expand("~/.zortex/"),
 	extension = ".zortex",
 	special_articles = { "structure" }, -- Changes link opening behavior
+	-- A new notes folder gets calendar, projects, areas, okr, structure and
+	-- inbox notes from short templates (:ZortexInit adds missing ones later)
+	init_files = true,
 	debug = false,
 
 	-- Commands and keymaps are generated from zortex.actions (:ZortexHelp lists them)
@@ -55,11 +58,7 @@ local defaults = {
 		-- Channel routing
 		channels = {
 			calendar = { "vim", "ntfy" },
-			alarm = { "vim", "ntfy" },
-			timer = { "vim", "ntfy" },
 			pomodoro = { "vim", "system" }, -- only "ntfy" when ntfy is enabled (types.pomodoro.ntfy_only)
-			digest = { "ses" },
-			task_due = { "ntfy", "ses" },
 			default = { "vim", "ntfy" },
 		},
 
@@ -78,14 +77,6 @@ local defaults = {
 					termux = "termux-notification --title '%s' --content '%s'",
 				},
 			},
-			ses = {
-				enabled = false,
-				region = "us-east-1", -- Your AWS region
-				from_email = "noreply@yourdomain.com",
-				default_to_email = "your-email@example.com",
-				domain = "yourdomain.com",
-				use_api = false, -- Use AWS CLI for now
-			},
 			ntfy = {
 				enabled = false,
 				server_url = "http://ntfy.sh",
@@ -97,15 +88,6 @@ local defaults = {
 		},
 
 		types = {
-			digest = {
-				enabled = true,
-				auto_send = true,
-				days_ahead = 7,
-				send_hour = 7,
-				check_interval_minutes = 60,
-				digest_email = "your-email@example.com",
-			},
-
 			-- With server.enabled the clock runs in the server (shared with its
 			-- home page); these settings are pushed to it when they change.
 			pomodoro = {
@@ -127,19 +109,6 @@ local defaults = {
 					-- work_end = ..., break_end = ...,
 				},
 				sound_command = nil, -- default: paplay (afplay on macOS)
-			},
-
-			timers = {
-				default_sound = "default",
-				allow_multiple = true,
-				warnings = { 300, 60 },
-			},
-
-			alarm = {
-				default_sound = "default",
-				default_snooze_duration = 10, -- minutes
-				auto_remove_triggered = true,
-				presets = {},
 			},
 
 			calendar = {

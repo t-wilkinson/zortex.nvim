@@ -67,32 +67,10 @@ and tags). Everything else is built on documents:
 
 ## Notes on disk
 
-| Thing         | Syntax                                                                                                                           | Meaning                                                            |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| Article names | `@@Projects`, `@@P`                                                                                                              | Header lines. The first is the primary name; the rest are aliases. |
-| Tags          | `@P`, `@Cars`, `@Archive`                                                                                                        | Header lines starting with a single `@`.                           |
-| Header        | leading `@@`/`@` lines                                                                                                           | Blank lines are skipped; the header ends at the first other line.  |
-| Heading       | `# …` to `###### …`                                                                                                              | Levels 1 to 6.                                                     |
-| Bold heading  | `**Text:**`                                                                                                                      | Level 7.                                                           |
-| Label         | `Text:` (no `. ` inside)                                                                                                         | Level 8 + indent, so indented labels nest.                         |
-| List item     | `- text`, `+ text`, `* text`, `1. text`, `A. text`                                                                               | Bullet or ordered marker.                                          |
-| Time item     | `14:00 text`, `16:00 - 17:00 text`                                                                                               | Calendar events (and any timed line).                              |
-| Task          | `- [ ] text`, `- [x] text`                                                                                                       | A list item with a checkbox.                                       |
-| Keyed item    | `- KR1: [ ] text`, `- Label: text`                                                                                               | A `Key:` prefix, optionally followed by a checkbox.                |
-| Attribute     | `@key(value)`, `@p1`, `@2h`                                                                                                      | Parsed with a schema (`utils/attributes`).                         |
-| Blocks        | ` ``` ` fences, `$$` math, `\| a \| b \|` tables, `\| quote`, `> quote`, `[^1]: footnote`                                        | Nothing inside a fence or math block is structure.                 |
-| Inline        | `[link]`, `![live]`, `@[a & b]`, `[text](url)`, `[^1]`, URLs, `./paths`, `` `code` ``, `$math$`, `**bold**`, `*italic*`, `14:00` | Spans with byte columns.                                           |
-
-**Special notes:**
-
-- `projects.zortex` is the Projects article (`@@Projects` / `@@P`).
-- Any note tagged `@P` is a standalone project.
-- `areas.zortex` is the Areas article (`@@Areas` / `@@A`).
-- `okr.zortex` holds objectives and key results.
-- `calendar.zortex` is the schedule. (@@Calendar or /@@C).
-- `structure.zortex`
-- Notes named `z/archive.*.zortex`, or tagged `@Archive`, are archived and
-  ignored by link resolution and project lists.
+The note format (header, sections, items, attributes, inline spans, links,
+special notes) is described in [Syntax.md](Syntax.md), whose examples a test
+checks against the parser. Notes named `z/archive.*.zortex`, or tagged
+`@Archive`, are archived and ignored by link resolution and project lists.
 
 ## Core layer
 
@@ -488,9 +466,10 @@ use the agenda.
 ### Digest — `services/digest.lua`
 
 The daily digest's content, built from the agenda: the digest note
-(`digest.zortex`, with live links) and the email (`email(days)` → subject,
-text, html). `notifications/types/digest` only decides when to send the email
-and sends it through the notification manager.
+(`digest.zortex`, with live links) and a message (`email(days)` → subject,
+text, html) for scripts. Zortex doesn't send email itself: `zortex serve`
+has `GET /api/digest?days=7` (subject, text, html and the entries as JSON),
+which a cron job can hand to any mail provider.
 
 ### Tasks — `services/tasks.lua`
 
@@ -555,7 +534,6 @@ XP is derived, not recorded (see [XP.md](XP.md)):
 | `ui/skill_tree.lua`                                 | `areas`, `projects`, `xp/stats`                           |
 | `ui/calendar/view.lua` (+ `render`, `keys`)         | `stores/calendar`, `agenda` (digest panel), `projects`    |
 | `ui/calendar/init.lua`                              | `stores/calendar`                                         |
-| `notifications/types/digest.lua`                    | `services/digest`                                         |
 | `features/completion.lua`                           | `core/link`, `notes`, `document`                          |
 | `features/preview.lua`                              | `core/link`, `features/links`                             |
 | `ui/review.lua`                                     | `agenda.review`                                           |

@@ -18,8 +18,18 @@ function M.config()
 	return cfg
 end
 
+-- Config.xp until setup() hands it over (the projects API can run first)
+local function sources()
+	if cfg.sources then
+		return cfg.sources
+	end
+	local Config = require("zortex.config")
+	local xp = Config.xp or (Config.defaults or {}).xp
+	return type(xp) == "table" and xp.sources or {}
+end
+
 local function source(name)
-	return (cfg.sources or {})[name] or {}
+	return sources()[name] or {}
 end
 
 -- =============================================================================
@@ -39,9 +49,8 @@ function M.get_importance_multiplier(importance)
 	return multiplier((cfg.modifiers or {}).importance_multipliers, importance)
 end
 
--- Size multiplier from xp.sources.<kind>.sizes; sizes not listed there use
--- the size scale (constants.SIZE_POINTS) relative to md, so 2xl..5xl tasks
--- are worth more than md ones instead of falling back to 1.
+-- Size multiplier from xp.sources.<kind>.sizes (a number or { multiplier }).
+-- No size: 1. A size the config doesn't list: 1 as well.
 local function size_multiplier(kind, size)
 	if not size then
 		return 1
@@ -52,13 +61,27 @@ local function size_multiplier(kind, size)
 	elseif type(entry) == "number" then
 		return entry
 	end
-	local points = constants.SIZE_POINTS[size]
-	if points then
-		return points / constants.SIZE_POINTS[constants.DEFAULT_TASK_SIZE]
-	end
 	return 1
 end
 M.size_multiplier = size_multiplier
+
+--- Effort points, in md-task units (xp.sources.task.sizes): what a task's
+--- size weighs in project and key-result progress. Unsized tasks are md.
+function M.task_points(size)
+	return size_multiplier("task", size or constants.DEFAULT_TASK_SIZE)
+end
+
+--- An explicit project @size in the same units: the project's XP for that
+--- size over a md task's (70 × 1.5 / 10 = 10.5 points for @size(lg)), or
+--- nil when the config doesn't list the size.
+function M.project_points(size)
+	local entry = size and (source("project").sizes or {})[size]
+	if entry == nil then
+		return nil
+	end
+	local task_base = source("task").base_xp or 10
+	return (source("project").base_xp or 70) * size_multiplier("project", size) / task_base
+end
 
 local function apply_modifiers(xp, attrs)
 	if attrs then

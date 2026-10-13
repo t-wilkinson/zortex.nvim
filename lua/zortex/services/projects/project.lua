@@ -18,7 +18,6 @@
 local M = {}
 
 local attributes = require("zortex.utils.attributes")
-local constants = require("zortex.constants")
 local Entity = require("zortex.core.entity").Entity
 
 local Project = Entity:extend()
@@ -89,9 +88,9 @@ end
 -- Stats
 -- =============================================================================
 
+-- Effort points: the task's size multiplier (xp.sources.task.sizes), md = 1
 local function task_points(task)
-	local size = task.attributes and task.attributes.size or constants.DEFAULT_TASK_SIZE
-	return constants.SIZE_POINTS[size] or constants.SIZE_POINTS[constants.DEFAULT_TASK_SIZE]
+	return require("zortex.services.xp.calculator").task_points(task.attributes and task.attributes.size)
 end
 M.task_points = task_points
 
@@ -153,9 +152,9 @@ end
 -- Size of the project in points: an explicit @size(...) wins, otherwise the
 -- sum of all task points in the subtree.
 function Project:points()
-	local size = self.attributes.size
-	if size and constants.SIZE_POINTS[size] then
-		return constants.SIZE_POINTS[size]
+	local explicit = require("zortex.services.xp.calculator").project_points(self.attributes.size)
+	if explicit then
+		return explicit
 	end
 	return self:rollup().points
 end

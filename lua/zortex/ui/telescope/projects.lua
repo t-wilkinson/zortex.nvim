@@ -34,7 +34,7 @@ local function display_parts(project)
 		ancestors = #project.path > 1 and (table.concat(project.path, " › ", 1, #project.path - 1) .. " › ") or "",
 		name = project.name,
 		progress = progress,
-		points = r.points_open > 0 and (r.points_open .. "pt") or "",
+		points = r.points_open > 0 and (string.format("%g", math.floor(r.points_open * 10 + 0.5) / 10) .. "pt") or "",
 		indicators = #indicators > 0 and ("[" .. table.concat(indicators, ",") .. "]") or "",
 	}
 end
@@ -87,9 +87,9 @@ local function preview_lines(project)
 	add(table.concat(meta, " · "))
 
 	local own, r = project:stats(), project:rollup()
-	add(string.format("Own:   %d/%d done  %d/%d pts", own.done, own.total, own.points_done, own.points))
+	add(string.format("Own:   %d/%d done  %.3g/%.3g pts", own.done, own.total, own.points_done, own.points))
 	if #project.children > 0 then
-		add(string.format("Total: %d/%d done  %d/%d pts", r.done, r.total, r.points_done, r.points))
+		add(string.format("Total: %d/%d done  %.3g/%.3g pts", r.done, r.total, r.points_done, r.points))
 	end
 	if r.total > 0 then
 		add(string.format("[%s] %.0f%%", progress_bar(r.completion, 30), r.completion * 100))

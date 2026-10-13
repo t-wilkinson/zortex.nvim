@@ -270,19 +270,26 @@ local defaults = {
 				base_xp = 10, -- md task: ~1 hour, 2 pomodoros
 				season = 1.0, -- share counted for the season
 				area = 0.1, -- share to its @a(...) areas
-				-- Size multipliers; sizes not listed scale with constants.SIZE_POINTS
+				-- Size multipliers. They are also the effort points that weigh
+				-- project and key-result progress (an unsized task is md = 1).
+				-- Sizes not listed count 1.
 				sizes = {
 					xs = { multiplier = 0.2 }, -- ~0.5 pomodoros, 5-15 minutes
 					sm = { multiplier = 0.5 },
 					md = { multiplier = 1 }, -- 2 pomodoros, 1 hour
 					lg = { multiplier = 1.5 },
 					xl = { multiplier = 3 }, -- 6 pomodoros, 3 hours
+					["2xl"] = { multiplier = 4 },
+					["3xl"] = { multiplier = 7 },
+					["4xl"] = { multiplier = 11 },
+					["5xl"] = { multiplier = 18 },
 				},
 			},
 
 			-- A project's pool (@xp(n), else base_xp × @size, else the sum of its
 			-- tasks' XP), paid out over its tasks on the initiation / execution /
-			-- completion curve
+			-- completion curve. An explicit @size also sets the project's effort
+			-- points: base_xp × multiplier / task.base_xp (lg = 10.5 md tasks).
 			project = {
 				base_xp = 70, -- 7 hours, 14 pomodoros
 				season = 1.0,

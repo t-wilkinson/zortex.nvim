@@ -79,9 +79,13 @@ p:key_results({ inherit = true })
 p:areas({ inherit = true })
 ```
 
-Sizes come from `@size(xs|sm|md|lg|xl)` (projects may also use `epic`,
-`legendary`, `mythic`, `ultimate`). Points are xs=1, sm=2, md=3, lg=5, xl=8,
-epic=13, … (`constants.SIZE_POINTS`). Unsized tasks count as `md`.
+Sizes come from `@size(xs|sm|md|lg|xl)` (tasks also `2xl`…`5xl`; projects
+`epic`, `legendary`, `mythic`, `ultimate`). Points (which weigh project and
+key-result progress) are the task size multipliers from your config,
+`xp.sources.task.sizes` (xs 0.2, sm 0.5, md 1, lg 1.5, xl 3 by default), so
+a md task is one point and unsized tasks count as md. A project with an
+explicit `@size` is worth `project.base_xp × multiplier / task.base_xp`
+points instead of the sum of its tasks.
 
 ## Areas
 

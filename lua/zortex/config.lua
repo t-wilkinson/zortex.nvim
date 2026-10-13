@@ -228,7 +228,7 @@ local defaults = {
 				position = "right", -- right, bottom, or floating
 			},
 			keymaps = {
-				close = { "q", "<Esc>" },
+				close = { "q", "<Esc>", "<C-c>" },
 				next_day = { "l", "<Right>" },
 				prev_day = { "h", "<Left>" },
 				next_week = { "j", "<Down>" },

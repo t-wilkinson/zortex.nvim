@@ -34,6 +34,7 @@ import (
 	"github.com/t-wilkinson/zortex.nvim/app/pomodoro"
 	"github.com/t-wilkinson/zortex.nvim/app/search"
 	"github.com/t-wilkinson/zortex.nvim/app/syntax"
+	"github.com/t-wilkinson/zortex.nvim/app/tracker"
 )
 
 //go:embed templates/*.html
@@ -89,11 +90,12 @@ type Server struct {
 	snap      atomic.Pointer[snapshot]
 	rebuildMu sync.Mutex
 
-	alerts *alerts.Store   // nil without DataDir
-	sender *alerts.Sender  // nil without DataDir
-	pomo   *pomodoro.Clock // nil without DataDir
-	clocks *clocks.Clocks  // timers, alarms, stopwatch; nil without DataDir
-	xp     xpCache         // XP summary published by Neovim
+	alerts *alerts.Store    // nil without DataDir
+	sender *alerts.Sender   // nil without DataDir
+	pomo   *pomodoro.Clock  // nil without DataDir
+	clocks *clocks.Clocks   // timers, alarms, stopwatch; nil without DataDir
+	track  *tracker.Tracker // time on tasks; nil without DataDir (used with Writable)
+	xp     xpCache          // XP summary published by Neovim
 
 	editMu      sync.Mutex    // one edit at a time
 	completions completionLog // tasks completed on the web, until Neovim counts them
@@ -226,6 +228,19 @@ func (s *Server) Run(ctx context.Context) {
 			s.clocks.Close()
 		}()
 	}
+	// the calendar's current entry changes with the time of day
+	go func() {
+		t := time.NewTicker(20 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				s.trackSync()
+			}
+		}
+	}()
 	if s.cfg.Poll < 0 {
 		<-ctx.Done()
 		return
@@ -252,6 +267,7 @@ func (s *Server) Refresh() {
 	}
 	s.notesChanged(rels)
 	s.checkXPFile()
+	s.trackSync()
 }
 
 func (s *Server) rebuild(res []resource, linking []string, fingerprint uint64) {
@@ -395,6 +411,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/clocks/alarms", s.apiAlarmAdd)
 	mux.HandleFunc("POST /api/clocks/alarms/{id}/{action}", s.apiAlarmAction)
 	mux.HandleFunc("POST /api/clocks/stopwatch/{action}", s.apiStopwatch)
+	// time on tasks (-writable)
+	mux.HandleFunc("GET /api/track", s.apiTrack)
+	mux.HandleFunc("GET /api/track/tasks", s.apiTrackTasks)
+	mux.HandleFunc("POST /api/track/pin", s.apiTrackPin)
+	mux.HandleFunc("POST /api/track/{mode}", s.apiTrackMode)
 	// XP summary published by Neovim (the ledger lives there)
 	mux.HandleFunc("GET /api/xp", s.apiXP)
 	mux.HandleFunc("POST /api/xp", s.apiXPPost)

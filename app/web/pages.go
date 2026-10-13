@@ -275,6 +275,7 @@ func (s *Server) renderNotePage(w http.ResponseWriter, r *http.Request, rel, nav
 		"Folder":    s.fileURL(path.Dir(rel)),
 		"Structure": side,
 		"Writable":  s.cfg.Writable,
+		"Tracking":  s.tracking(),
 		"Src":       s.editorData(doc.Lines),
 		"NavTab":    nav,
 	})

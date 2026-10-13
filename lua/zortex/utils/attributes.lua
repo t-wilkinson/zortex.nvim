@@ -432,6 +432,7 @@ M.schemas = {
 		at = { type = "string" },
 		dur = { type = "duration" },
 		est = { type = "duration" },
+		spent = { type = "duration" }, -- time tracked on it (the web app's clocks), minutes
 		done = { type = "date" },
 		progress = { type = "progress" },
 		["repeat"] = { type = "string" },
@@ -492,6 +493,7 @@ M.schemas = {
 		at = { type = "datetime" },
 		dur = { type = "duration" },
 		est = { type = "duration" },
+		spent = { type = "duration" },
 		from = { type = "datetime" },
 		to = { type = "datetime" },
 		["repeat"] = { type = "string" },

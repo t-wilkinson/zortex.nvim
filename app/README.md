@@ -19,11 +19,15 @@ dependencies (this folder's Go module).
   Timers and alarms (once or every day, at a time of day on the server's
   clock) ring through ntfy whether or not a page is open; every device sees
   the same ones.
+- **Time tracking** (`-writable`): while a clock runs, its time goes to the
+  task you're working on (the current calendar entry by default) and is
+  added to the task's `@spent(...)`. See [Time tracking](#time-tracking).
 - **Digest**: `GET /api/digest` gives the coming days of the calendar as a
   subject, text and HTML, for whatever mail or chat service you use.
 
 Notes are read-only unless `-writable` is set. The server's own state
-(`notifications.json`, `pomodoro.json`, `clocks.json`, the XP summary)
+(`notifications.json`, `pomodoro.json`, `clocks.json`, `track.json` and
+`track_log.jsonl`, the XP summary)
 lives in `-data`. Without `-data` it serves the notes only. The server never
 creates notes of its own except `inbox.zortex` (web edits); Neovim's
 `setup()` creates the key notes in a new folder.
@@ -120,6 +124,31 @@ Syncthing show up after Syncthing has synced the file (its folder watcher
 waits 10 s by default: lower `fsWatcherDelayS` for faster updates) and
 the server's next rescan (`-poll`, 3 s).
 
+### Time tracking
+
+With `-writable` (and `-data`), the clock box on the home page has a
+**Working on** line: the task the clocks' time goes to.
+
+- **Which task.** By default the current calendar entry: the timed entry of
+  today that has started (and not ended, for `09:00 - 10:30` ranges). When
+  its first link points at a task (`[P/#1.4 - zortex/-Improve website]`),
+  that task; otherwise the calendar line itself. It changes when the next
+  entry starts. **Change** picks another (search open tasks), as does
+  **⏱ Track** in a note's Edit toolbar; then the calendar no longer
+  matters until you choose **Follow the calendar** (or **Don't track**).
+- **What counts.** Time while any clock runs: a pomodoro *work* phase, the
+  stopwatch, a timer. Overlapping clocks count once; breaks and pauses
+  don't count.
+- **When it's written.** When the clocks stop (pause, the end of a work
+  phase, a timer done) the time is added to the task's `@spent(1h25m)`,
+  rounded to minutes. Under a minute nothing is written: it waits for more
+  on the same task, and is dropped when the task changes. Changing the task
+  while a clock runs closes the old task's account and starts the new one
+  from zero.
+- The task is found again by its `@id`, else by its text (nearest to where
+  it was). Each write is logged to `-data/track_log.jsonl`. Neovim reads
+  `@spent` as a duration (minutes), like `@dur`.
+
 State flags (with `-data`): `-data` (`ZORTEX_DATA_DIR`, or systemd's
 `STATE_DIRECTORY`), `-ntfy-url` (`NTFY_SERVER_URL`), `-ntfy-topic`
 (`NTFY_TOPIC`), `-ntfy-token` (`NTFY_AUTH_TOKEN`) or `-ntfy-token-file`,
@@ -171,12 +200,14 @@ the usual systemd hardening.
 | `POST /api/xp` | Neovim publishes it after every XP change (`X-API-Key` when set); it also writes `.z/xp_summary.json` into the notes folder, and the newer of the two is shown |
 | `POST /api/edit` | `-writable` only: `{rel, lnum, expect, op, text?, kind?}` with `op` `open` / `done` / `toggle` / `text` (task state, exactly as Neovim's toggle: `@done(today)`, an `@id`), `set` (new text after the line's marker; `@id`/`@done` kept), `delete`, `insert` (after `lnum`; `kind` `task` / `note` / `text`), `move` (the line and the lines indented under it go before line `to`, `len+1` for the end, re-indented to fit; `expectTo` is that line's text). `expect` is the line as the page saw it: if the note changed since, nothing is written and the reply is 409 with the current note |
 | `GET /api/note?rel=` | a rendered note: `{body, mod, src?}` (`src` with `-writable`) |
-| `GET /api/events` | server-sent events for open pages: `notes` (`{rels}` added, changed or removed; seen on the next rescan, `-poll`), `xp` (a new summary), `pomodoro` (the clock changed), `clocks` (timers, alarms, stopwatch). Pages redraw right away; behind nginx the stream needs `proxy_buffering off` (the server also sends `X-Accel-Buffering: no`) |
+| `GET /api/events` | server-sent events for open pages: `notes` (`{rels}` added, changed or removed; seen on the next rescan, `-poll`), `xp` (a new summary), `pomodoro` (the clock changed), `clocks` (timers, alarms, stopwatch), `track` (time tracking). Pages redraw right away; behind nginx the stream needs `proxy_buffering off` (the server also sends `X-Accel-Buffering: no`) |
 | `POST /api/inbox` | `-writable` only: `{text, kind: "task" \| "note"}` appended to `inbox.zortex` (created when missing) |
 | `GET /api/clocks` | timers, alarms and the stopwatch: `{timers, alarms, stopwatch, now, ntfy}` |
 | `POST /api/clocks/timers` | `{label, seconds}` starts a timer; `POST /api/clocks/timers/{id}/{pause,resume,restart,remove}` |
 | `POST /api/clocks/alarms` | `{label, time: "HH:MM", repeat: "once" \| "daily"}`; `POST /api/clocks/alarms/{id}/{enable,disable,remove}` |
 | `POST /api/clocks/stopwatch/{start,pause,toggle,lap,reset}` | the stopwatch |
+| `GET /api/track` | time tracking: `{enabled, mode: calendar \| pinned \| off, task, counting, counted_ms, calendar?, error}` |
+| `POST /api/track/pin` | `{rel, lnum, expect?}` work on this line; `POST /api/track/{follow,off,flush}`; `GET /api/track/tasks?q=` open tasks for the picker |
 | `GET /api/digest?days=7&site=` | the coming days of the calendar: `{subject, text, html, days, count}`; links in `html` are absolute (`site`, else the request's host). E.g. `curl -s localhost:8090/api/digest \| jq -r .text \| mail -s Agenda me@example.com` from cron |
 | `POST /api/pomodoro/settings` | `{work, short_break, long_break, long_break_after, auto_start_break, auto_start_work}` (minutes; partial updates are fine) |
 
@@ -218,6 +249,8 @@ the web app's pages and `/api/search`, `/api/resolve`, `/raw/…` cover them.
   `web_test.go` and `state_test.go` run it over the fixtures.
 - `alerts/`: the notification store (a JSON file), the ntfy client and the
   sender loop.
+- `tracker/`: time tracking (which task, what counts, when it's written),
+  with the note writing left to a callback
 - `clocks/`: timers, alarms and the stopwatch, persisted and announced through
   a callback, like the pomodoro
 - `pomodoro/`: the pomodoro state machine, persisted and announced through a

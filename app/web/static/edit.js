@@ -317,6 +317,9 @@
       if (isTask(t)) bar.appendChild(button("¶ Plain", "Remove the checkbox", function () { edit(n, "text"); }));
     }
     if (!blank) bar.appendChild(button("✎ Edit", "Change the text", function () { editText(n); }));
+    if (!blank && !structural && body.dataset.track) {
+      bar.appendChild(button("⏱ Track", "Count the clocks' time on this line (home page)", function () { track(n); }));
+    }
     bar.appendChild(button("＋ Add below", "A new line after this one", function () { addBelow(n); }));
     if (movable(n)) {
       var up = upTarget(n), down = downTarget(n);
@@ -333,6 +336,21 @@
     el.insertAdjacentElement("afterend", bar);
     var first = bar.querySelector("button");
     if (first) first.focus();
+  }
+
+  // time tracking: the home page's clocks count on this line from now on
+  function track(n) {
+    var i = info(n);
+    fetch(base + "/api/track/pin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rel: rel, lnum: n, expect: i.t }),
+    }).then(function (r) {
+      return r.json().then(function (res) {
+        if (r.ok && !res.error) { closeBar(); say("Tracking time on this line"); }
+        else say(res.error || "Couldn't track this line", true);
+      });
+    }).catch(function () { say("Server unreachable", true); });
   }
 
   function inputRow(value, placeholder, kinds, onSave) {

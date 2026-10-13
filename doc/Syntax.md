@@ -130,6 +130,7 @@ projects, calendar entries):
 | `@progress(3/5)` | a project's progress (written back on request) |
 | `@xp(500)` | a project's XP pool |
 | `@2h`, `@dur(90m)`, `@est(3h)` | duration and estimate |
+| `@spent(1h25m)` | time worked on it, added by the web app's clocks ([time tracking](../app/README.md#time-tracking)) |
 | `@notify(15)`, `@n(0, 30)` | calendar: notify minutes before (several allowed) |
 | `@repeat(weekly)` | calendar: repetition |
 

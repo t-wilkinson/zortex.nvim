@@ -10,7 +10,7 @@
 -- Events in use:
 --   task:completed, task:uncompleted, task:created   services/tasks  -> xp, digest
 --   xp:awarded, xp:removed                           services/xp     -> xp notifications
---   season:started, season:ended, season:leveled_up  stores/xp       -> xp notifications
+--   season:started, season:ended, season:tier_reached  stores/xp  -> xp notifications
 --   calendar:entry_added, _removed, _updated         stores/calendar -> digest
 --   workspace:lines_changed                          core/workspace  -> digest live links
 local M = {}

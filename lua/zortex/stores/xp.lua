@@ -1,10 +1,12 @@
--- stores/xp.lua - Seasons and levels
+-- stores/xp.lua - Seasons, area levels and what was announced
 --
 -- XP itself is not stored: services/xp/ledger derives every award from the
--- notes. This store keeps what can't be derived: the current season (a name
--- and a date window), past seasons, and the levels last announced (so a
--- level-up is announced once).
+-- notes, services/xp/season the season's progress. This store keeps what
+-- can't be derived: a season started by hand (a name and a date window),
+-- past seasons, and the area levels and season tier last announced (so each
+-- is announced once).
 --
+-- Version 3: seasons have tiers from OKR progress instead of levels.
 -- Version 2. Version 1 kept a transaction log and running totals that drifted
 -- (season resets wiped the log but not the area totals, unchecking a
 -- standalone task didn't remove its XP, ...); they are dropped on migration,
@@ -15,12 +17,12 @@ local Events = require("zortex.core.event_bus")
 local State = require("zortex.core.state")
 
 local store = State.open("xp_state", {
-	version = 2,
+	version = 3,
 	default = function()
 		return {
 			current_season = nil, -- { name, start_date, end_date, start_time }
-			season_history = {}, -- { name, start_date, end_date, final_level, final_xp }
-			seen = { season_level = 1, area_levels = {} },
+			season_history = {}, -- { name, start_date, end_date, final_progress, final_tier }
+			seen = { season = nil, season_tier = 0, area_levels = {} },
 		}
 	end,
 	migrate = function(data)
@@ -30,6 +32,9 @@ local store = State.open("xp_state", {
 				name = s.name,
 				start_date = s.start_date,
 				end_date = s.end_date,
+				final_progress = s.final_progress,
+				final_tier = s.final_tier,
+				-- seasons before version 3 were XP and levels
 				final_level = s.final_level,
 				final_xp = s.final_xp,
 			}
@@ -37,7 +42,7 @@ local store = State.open("xp_state", {
 		return {
 			current_season = data.current_season,
 			season_history = history,
-			seen = { season_level = data.season_level or 1, area_levels = {} },
+			seen = { season = nil, season_tier = 0, area_levels = (data.seen or {}).area_levels or {} },
 		}
 	end,
 })
@@ -50,7 +55,7 @@ end
 
 local function data()
 	local d = store:get()
-	d.seen = d.seen or { season_level = 1, area_levels = {} }
+	d.seen = d.seen or { season_tier = 0, area_levels = {} }
 	d.seen.area_levels = d.seen.area_levels or {}
 	d.season_history = d.season_history or {}
 	return d
@@ -60,12 +65,8 @@ end
 -- Level curves: XP to reach level L = base * L^exponent
 -- =============================================================================
 
-local function season_curve()
-	return (cfg.season and cfg.season.level_curve) or { base = 100, exponent = 1.2 }
-end
-
 local function area_curve()
-	return (cfg.area and cfg.area.level_curve) or { base = 1000, exponent = 2.5 }
+	return (cfg.area and cfg.area.level_curve) or { base = 316, exponent = 2.5 }
 end
 
 local function threshold(curve, level)
@@ -87,14 +88,6 @@ local function level_for(xp, curve)
 	return level
 end
 
-function M.calculate_season_level_xp(level)
-	return threshold(season_curve(), level)
-end
-
-function M.calculate_season_level(xp)
-	return level_for(xp, season_curve())
-end
-
 function M.calculate_area_level_xp(level)
 	return threshold(area_curve(), level)
 end
@@ -114,20 +107,6 @@ function M.get_level_progress(xp, level, level_calc_fn)
 		current_threshold = current,
 		next_threshold = next_t,
 	}
-end
-
-function M.get_season_tier(level)
-	local tiers = (cfg.season and cfg.season.tiers) or {}
-	local current, nxt
-	for i, tier in ipairs(tiers) do
-		if level >= tier.required_level then
-			current, nxt = tier, tiers[i + 1]
-		else
-			nxt = nxt or tier
-			break
-		end
-	end
-	return { current = current, next = nxt, is_max_tier = current ~= nil and nxt == nil }
 end
 
 -- =============================================================================
@@ -168,31 +147,31 @@ function M.start_season(name, end_date, start_date)
 		end_date = end_date,
 		start_time = os.time(),
 	}
-	d.seen.season_level = 1
+	d.seen.season, d.seen.season_tier = nil, 0
 	store:save()
 	Events.emit("season:started", { name = name, end_date = end_date })
 end
 
---- End the current season, archiving its final XP and level (computed by
---- the caller from the ledger). Returns the archived record.
-function M.end_season(final_xp)
+--- End the current season, archiving its final progress and tier
+--- (computed by the caller, services/xp/season). Returns the record.
+function M.end_season(final)
 	local d = data()
 	local season = d.current_season
 	if not season then
 		return nil
 	end
-	final_xp = final_xp or 0
+	final = final or {}
 	local record = {
 		name = season.name,
 		start_date = season.start_date,
 		end_date = os.date("%Y-%m-%d"),
 		planned_end_date = season.end_date,
-		final_xp = math.floor(final_xp + 0.5),
-		final_level = M.calculate_season_level(final_xp),
+		final_progress = final.progress or 0,
+		final_tier = final.tier,
 	}
 	table.insert(d.season_history, record)
 	d.current_season = nil
-	d.seen.season_level = 1
+	d.seen.season, d.seen.season_tier = nil, 0
 	store:save()
 	Events.emit("season:ended", { season = record })
 	return record
@@ -201,7 +180,7 @@ end
 function M.reset_season()
 	local d = data()
 	d.current_season = nil
-	d.seen.season_level = 1
+	d.seen.season, d.seen.season_tier = nil, 0
 	store:save()
 end
 
@@ -209,16 +188,22 @@ end
 -- Announced levels
 -- =============================================================================
 
---- Record the levels just computed; returns what went up since last time:
+--- Record the season tier (by index, for the season named season_key) and
+--- area levels just computed; returns what went up since last time:
 --- { season = { old, new }?, areas = { { key, old, new }, ... } }
-function M.update_seen(season_level, area_levels)
+function M.update_seen(season_key, season_tier, area_levels)
 	local seen = data().seen
 	local ups = { areas = {} }
-	if season_level and season_level > (seen.season_level or 1) then
-		ups.season = { old = seen.season_level or 1, new = season_level }
-	end
-	if season_level then
-		seen.season_level = season_level
+	if season_key then
+		if seen.season ~= season_key then
+			-- a new season: start from its current tier without announcing it
+			seen.season, seen.season_tier = season_key, season_tier or 0
+		elseif (season_tier or 0) > (seen.season_tier or 0) then
+			ups.season = { old = seen.season_tier or 0, new = season_tier }
+			seen.season_tier = season_tier
+		else
+			seen.season_tier = season_tier or 0
+		end
 	end
 	for key, level in pairs(area_levels or {}) do
 		local old = seen.area_levels[key]

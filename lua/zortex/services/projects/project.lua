@@ -88,7 +88,7 @@ end
 -- Stats
 -- =============================================================================
 
--- Effort points: the task's size multiplier (xp.sources.task.sizes), md = 1
+-- Effort points: the task's estimated hours (xp.sizes.task); unsized = md
 local function task_points(task)
 	return require("zortex.services.xp.calculator").task_points(task.attributes and task.attributes.size)
 end

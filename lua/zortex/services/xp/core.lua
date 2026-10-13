@@ -4,15 +4,15 @@
 -- module watches for that (task toggles, saving a note) and, comparing with
 -- the last totals, emits:
 --
---   xp:awarded / xp:removed   { amount, season_amount, entries }
---   season:leveled_up         { old_level, new_level, tier_info }
+--   xp:awarded / xp:removed   { amount (Mastery XP), total }
+--   season:tier_reached       { tier, progress, season }
 --   area:leveled_up           { key, old_level, new_level }
 local M = {}
 
 local Events = require("zortex.core.event_bus")
 local Logger = require("zortex.core.logger")
 
-local last = nil -- { total, season }
+local last = nil -- { mastery }
 local publish_enabled = true
 local pending = nil
 
@@ -43,31 +43,32 @@ function M.refresh()
 		stop()
 		return
 	end
-	local season = store.current_season()
-	local season_xp = L.season_xp(season, l)
-	local now = { total = l.total, season = season_xp }
+	local now = { mastery = l.mastery or 0 }
 
-	if last and math.abs(now.total - last.total) >= 0.5 then
-		local diff = now.total - last.total
+	if last and math.abs(now.mastery - last.mastery) >= 0.5 then
+		local diff = now.mastery - last.mastery
 		local function round(x)
 			return x < 0 and -math.floor(-x + 0.5) or math.floor(x + 0.5)
 		end
 		Events.emit(diff > 0 and "xp:awarded" or "xp:removed", {
 			amount = round(diff),
-			season_amount = round(now.season - last.season),
-			total = now.total,
+			total = now.mastery,
 		})
 	end
 	last = now
 
-	local season_level = season and store.calculate_season_level(season_xp) or nil
+	local ok_season, status = pcall(function()
+		return require("zortex.services.xp.season").status()
+	end)
+	status = ok_season and status or nil
+	local season_key = status and (status.season.name or "") .. "|" .. (status.season.start_date or "") or nil
 	local ok_levels, levels = pcall(area_levels, l)
-	local ups = store.update_seen(season_level, ok_levels and levels or {})
-	if ups.season then
-		Events.emit("season:leveled_up", {
-			old_level = ups.season.old,
-			new_level = ups.season.new,
-			tier_info = store.get_season_tier(ups.season.new),
+	local ups = store.update_seen(season_key, status and status.tier_index or nil, ok_levels and levels or {})
+	if ups.season and status then
+		Events.emit("season:tier_reached", {
+			tier = status.tier,
+			progress = status.progress,
+			season = status.season,
 		})
 	end
 	for _, up in ipairs(ups.areas) do

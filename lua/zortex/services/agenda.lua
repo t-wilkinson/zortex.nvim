@@ -221,7 +221,8 @@ end
 ---                           expected (share of its window passed), krs =
 ---                           { { kr, progress, lag } } }, most behind first
 ---   xp                      awards in the window (services/xp/ledger
----                           window_totals): season, mastery, by_alignment
+---                           window_totals): xp (effort), mastery, by_alignment
+---   season                  the season now (services/xp/season.status)
 ---   time                    time tracked on tasks in the window
 ---                           (services/time_spent)
 ---   areas_without_objective areas (two levels) no current objective names
@@ -377,7 +378,11 @@ function M.plan_findings(r, today)
 
 	-- XP and time in the window
 	local ok, between = pcall(require("zortex.services.xp.ledger").window_totals, r.from, today)
-	r.xp = ok and between or { entries = {}, xp = 0, season = 0, mastery = 0, by_alignment = { kr = 0, area = 0, none = 0 } }
+	r.xp = ok and between or { entries = {}, xp = 0, mastery = 0, by_alignment = { kr = 0, area = 0, none = 0 } }
+	local ok_s, season = pcall(function()
+		return require("zortex.services.xp.season").status()
+	end)
+	r.season = ok_s and season or nil
 	r.time = require("zortex.services.time_spent").between(r.from, today)
 
 	-- Areas no current objective names (two levels deep)

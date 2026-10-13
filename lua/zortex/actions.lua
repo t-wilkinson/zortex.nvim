@@ -90,12 +90,12 @@ local function season_status()
 	end
 	notify(
 		string.format(
-			"%s: level %d (%s tier), %d XP, %.0f%% to next%s",
+			"%s: %.0f%% of its %d objectives%s%s%s",
 			status.season.name,
-			status.level,
-			status.current_tier and status.current_tier.name or "no",
-			status.xp,
-			(status.progress_to_next or 0) * 100,
+			status.progress * 100,
+			#status.objectives,
+			status.tier and (", " .. status.tier.name) or "",
+			status.next_tier and string.format(", %s at %.0f%%", status.next_tier.name, status.next_tier.at * 100) or "",
 			status.days_left and string.format(", %d days left", status.days_left) or ""
 		)
 	)
@@ -564,6 +564,14 @@ M.list = {
 		group = "XP",
 		desc = "How the project at the cursor earned its XP",
 		run = call("zortex.services.xp.stats", "explain_project"),
+	},
+	{
+		id = "xp_guide",
+		command = "XPGuide",
+		key = "xg",
+		group = "XP",
+		desc = "How XP is calibrated: hours per @size, Mastery, tiers",
+		run = call("zortex.ui.xp_guide", "show"),
 	},
 	{ id = "season_status", command = "SeasonStatus", group = "XP", desc = "Current season", run = season_status },
 	{

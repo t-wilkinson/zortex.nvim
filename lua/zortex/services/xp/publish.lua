@@ -16,7 +16,8 @@ local function round(x)
 	return math.floor(x + 0.5)
 end
 
---- The summary: season, daily XP (14 days), top areas, recent awards.
+--- The summary: the season (progress on its objectives), Mastery XP per day
+--- (14 days), top areas, recent awards.
 function M.summary()
 	local q = require("zortex.query").xp({ days = 30, limit = 8 })
 	local today, week = 0, 0
@@ -46,7 +47,8 @@ function M.summary()
 	for _, e in ipairs(q.awards) do
 		awards[#awards + 1] = {
 			date = e.date,
-			xp = round(e.xp),
+			xp = round(e.mastery or 0),
+			effort = round(e.xp),
 			title = e.title,
 			source = e.source,
 			project = e.project,
@@ -57,10 +59,15 @@ function M.summary()
 	local history = {}
 	for i = #q.history, math.max(1, #q.history - 3), -1 do
 		local h = q.history[i]
-		history[#history + 1] = { name = h.name, final_level = h.final_level, final_xp = h.final_xp, end_date = h.end_date }
+		history[#history + 1] = {
+			name = h.name,
+			final_progress = h.final_progress,
+			final_tier = h.final_tier,
+			end_date = h.end_date,
+		}
 	end
 	return {
-		version = 1,
+		version = 2, -- 2: the season is progress on its objectives (no levels)
 		season = q.season,
 		today = today,
 		week = week,

@@ -341,6 +341,11 @@ table.res-files { table-layout: fixed; }
 .meter[hidden] { display: none; }
 .meter.thin { height: 5px; margin: 0.25rem 0 0; }
 .meter-fill { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--chart); transition: width 0.4s ease; }
+.meter-marks { position: absolute; inset: 0; pointer-events: none; }
+.meter-marks span { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--panel); }
+ul.plain.xp-objectives { margin-top: 1rem; }
+ul.plain.xp-objectives li { white-space: normal; padding: 0.2rem 0; }
+.xp-objectives .area-row a { color: inherit; }
 .xp-next, #xp-next { margin: 0; }
 .xp-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.6rem; margin-top: 0.9rem; }
 .tile { display: flex; flex-direction: column; gap: 0.1rem; padding: 0.45rem 0.6rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--bg); min-width: 0; }

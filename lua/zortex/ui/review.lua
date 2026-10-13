@@ -176,20 +176,34 @@ local function pct(x)
 	return string.format("%d%%", math.floor((x or 0) * 100 + 0.5))
 end
 
--- "+120 XP · +80 season · +60 Mastery · 70% on key results, 20% areas only"
+-- "+60 Mastery XP · 12h of estimated work: 70% on key results, 20% areas only, 10% neither"
 local function xp_line(xp)
 	if not xp or xp.xp <= 0 then
 		return "  no XP in this window"
 	end
 	local a = xp.by_alignment
+	local hours = xp.xp / require("zortex.services.xp.calculator").xp_per_hour()
 	return string.format(
-		"  +%d XP · +%d season · +%d Mastery · %s on key results, %s areas only, %s neither",
-		math.floor(xp.xp + 0.5),
-		math.floor(xp.season + 0.5),
+		"  +%d Mastery XP · %sh of estimated work: %s on key results, %s areas only, %s neither",
 		math.floor(xp.mastery + 0.5),
+		(string.format("%.1f", hours):gsub("%.0$", "")),
 		pct(a.kr / xp.xp),
 		pct(a.area / xp.xp),
 		pct(a.none / xp.xp)
+	)
+end
+
+-- "  Season Q4 2026: 42% of its objectives · Silver · Gold at 70%"
+local function season_line(s)
+	if not s then
+		return nil
+	end
+	return string.format(
+		"  Season %s: %s of its objectives%s%s",
+		s.season.name or "",
+		pct(s.progress),
+		s.tier and (" · " .. s.tier.name) or "",
+		s.next_tier and string.format(" · %s at %s", s.next_tier.name, pct(s.next_tier.at)) or ""
 	)
 end
 
@@ -201,6 +215,10 @@ function M.render_plan(r, add, section, opts)
 	add("# Plan")
 	add("")
 	add("## XP")
+	local sl = season_line(r.season)
+	if sl then
+		add(sl)
+	end
 	add(xp_line(r.xp))
 	section("Objectives", r.objectives or {}, function(x)
 		local o = x.objective

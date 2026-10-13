@@ -53,13 +53,18 @@ T.test("stats, rollup and points", function()
 	local zortex = P.get("Projects/1 Programming/1.4 - zortex")
 	local s = zortex:stats()
 	T.eq({ s.total, s.done, s.open }, { 5, 2, 3 })
-	-- md(3) + xl(8) + unsized->md(3) + xs(1) + unsized->md(3)
-	T.eq(s.points, 18)
-	T.eq(s.points_open, 14)
+	-- effort points are the task size multipliers (xp.sources.task.sizes):
+	-- md(1) + xl(3) + unsized->md(1) + xs(0.2) + unsized->md(1)
+	local function near(a, b)
+		return math.abs(a - b) < 1e-9
+	end
+	T.ok(near(s.points, 6.2), tostring(s.points))
+	T.ok(near(s.points_open, 5), tostring(s.points_open))
 	local r = zortex:rollup()
-	T.eq({ r.total, r.open, r.points }, { 6, 4, 20 })
-	T.eq(zortex:points(), 5) -- explicit @size(lg) wins
-	T.eq(P.get("Projects/1 Programming/1.4 - esp32"):points(), 2)
+	T.eq({ r.total, r.open }, { 6, 4 })
+	T.ok(near(r.points, 6.7), tostring(r.points)) -- + the sub-project's sm task
+	T.ok(near(zortex:points(), 10.5), "explicit @size(lg) wins: 70 x 1.5 / 10")
+	T.ok(near(P.get("Projects/1 Programming/1.4 - esp32"):points(), 0.5))
 	T.eq(P.roots()[1]:rollup().total, 1 + 2 + 1 + 6 + 2)
 end)
 

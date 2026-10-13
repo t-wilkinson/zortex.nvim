@@ -481,3 +481,26 @@ button.box.done { background: var(--done); }
   .clock-fields input[name=duration] { flex: 1 1 100%; width: auto; }
   .clock-list .acts { grid-column: 1 / -1; justify-content: flex-start; }
 }
+
+/* home: the task the clocks' time goes to */
+.track { margin-top: 0.9rem; padding-top: 0.7rem; border-top: 1px solid var(--rule); }
+.track[hidden] { display: none; }
+.track-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.7rem; }
+.track-label { color: var(--dim); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--sans); }
+.track-task { flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; }
+.track-link { color: var(--ink); }
+.track-time { font-family: var(--mono); font-size: 0.9rem; font-variant-numeric: tabular-nums; color: var(--dim); }
+.track-time.on { color: var(--accent); }
+.track-row button { padding: 0.2rem 0.7rem; font-size: 0.85rem; }
+.track-note { margin: 0.25rem 0 0; }
+.track-note:empty { display: none; }
+.track-picker { margin-top: 0.6rem; }
+.track-picker[hidden] { display: none; }
+.track-picker input { width: 100%; box-sizing: border-box; font: inherit; font-size: 0.92rem; color: var(--ink); background: var(--bg); border: 1px solid var(--rule); border-radius: 7px; padding: 0.35rem 0.6rem; }
+.track-picker input:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); }
+.track-results { list-style: none; margin: 0.4rem 0 0; padding: 0; max-height: 18rem; overflow: auto; border: 1px solid var(--rule); border-radius: 8px; }
+.track-results li + li { border-top: 1px solid var(--rule); }
+.pomo .track-results button { display: flex; flex-direction: column; align-items: flex-start; gap: 0.05rem; width: 100%; text-align: left; border: 0; border-radius: 0; background: none; padding: 0.4rem 0.6rem; }
+.pomo .track-results button:hover, .pomo .track-results button:focus-visible { background: var(--accent-soft); color: var(--ink); outline: none; }
+.track-results button[aria-current=true] .what::after { content: " · tracking"; color: var(--accent); font-size: 0.85em; }
+.track-results .empty { padding: 0.45rem 0.6rem; }

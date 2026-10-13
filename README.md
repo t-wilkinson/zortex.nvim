@@ -126,7 +126,9 @@ Special notes:
   through ntfy; unchanged calendars aren't re-sent).
 - **Pomodoro** (`<leader>zoo`): one clock shared with the web app's home page,
   with ntfy alerts and a different sound for work, breaks and a new cycle.
-  Timers, alarms and a stopwatch are on the home page too.
+  Timers, alarms and a stopwatch are on the home page too, and their time
+  goes to the task you're working on (`@spent(1h25m)`; by default the
+  current calendar entry).
 - **XP and seasons** read off completed tasks, projects and objectives,
   distributed to areas; a skill tree. See [doc/XP.md](doc/XP.md).
 - **Export** (`:ZortexExport`): the notes and the whole model as JSON.

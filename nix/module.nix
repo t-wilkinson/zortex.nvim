@@ -80,7 +80,8 @@ in
       description = ''
         State: scheduled notifications (notifications.json), the pomodoro
         clock (pomodoro.json), timers, alarms and the stopwatch
-        (clocks.json) and the XP summary. The old notifications.db is no
+        (clocks.json), time tracking (track.json, track_log.jsonl) and the
+        XP summary. The old notifications.db is no
         longer used; Neovim re-syncs the calendar on its next save.
       '';
     };

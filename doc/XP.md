@@ -91,8 +91,9 @@ award), `require("zortex").xp` (views). Events: `xp:awarded`, `xp:removed`,
 (`base_xp`, `sizes`, `season`, `area`, `key_result`), `area.level_curve`,
 `area.bubble`, `season.level_curve`, `season.tiers`,
 `modifiers.priority_multipliers|importance_multipliers`,
-`stamp_done_on_save`, `notify_min`. Task sizes not listed in `sizes` (`2xl`
-… `5xl`) scale with the same size points as project progress.
+`stamp_done_on_save`, `notify_min`. The task `sizes` are also the effort
+points that weigh project and key-result progress; a size the config doesn't
+list counts 1.
 
 ## Keeping it honest
 

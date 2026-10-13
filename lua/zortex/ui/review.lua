@@ -33,7 +33,7 @@ local function project_summary(p)
 		parts[#parts + 1] = string.format("%d/%d done", r.done, r.total)
 	end
 	if r.points_open > 0 then
-		parts[#parts + 1] = string.format("%d pts open", r.points_open)
+		parts[#parts + 1] = string.format("%.3g pts open", r.points_open)
 	end
 	return #parts > 0 and ("(" .. table.concat(parts, ", ") .. ")") or ""
 end

@@ -18,6 +18,7 @@ import (
 	"github.com/t-wilkinson/zortex.nvim/app/notes"
 	"github.com/t-wilkinson/zortex.nvim/app/pomodoro"
 	"github.com/t-wilkinson/zortex.nvim/app/syntax"
+	"github.com/t-wilkinson/zortex.nvim/app/tracker"
 )
 
 // The calendar: the days of calendar.zortex (read from the notes folder, so
@@ -38,6 +39,7 @@ func (s *Server) openState() error {
 	}
 	clock.Notify = func(e pomodoro.Event) {
 		s.events.publish("pomodoro", map[string]any{"event": e.Kind})
+		s.trackSync()
 		s.announcePomodoro(e)
 	}
 	s.pomo = clock
@@ -47,6 +49,12 @@ func (s *Server) openState() error {
 	}
 	cl.Notify = s.announceClock
 	s.clocks = cl
+	tr, err := tracker.Open(filepath.Join(s.cfg.DataDir, "track.json"), s.writeSpent)
+	if err != nil {
+		return fmt.Errorf("time tracking: %w", err)
+	}
+	tr.OnWrite = s.logTrack
+	s.track = tr
 	return nil
 }
 

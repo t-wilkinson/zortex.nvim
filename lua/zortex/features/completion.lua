@@ -294,6 +294,7 @@ local function area_items()
 				documentation = area:breadcrumb(" › "),
 				sortText = string.format("%06d", i),
 				area_value = value,
+				data = { zortex_order = i }, -- see order_comparator
 			}
 		end
 	end
@@ -427,7 +428,57 @@ function M.register_cmp()
 		pcall(cmp.unregister_source, M._cmp_id)
 	end
 	M._cmp_id = cmp.register_source("zortex", M.new())
+	M.setup_cmp_sorting(cmp)
 	return M._cmp_id
+end
+
+-- nvim-cmp sorts every menu with its global comparators: recently used
+-- items, and words near the cursor ("locality": a projects note is full of
+-- "4.1"s), come first. Area suggestions are a tree and read best in the
+-- Areas note's order, so in zortex buffers our order wins between two area
+-- items; everything else falls through to your comparators, read when
+-- sorting so a later cmp.setup() still counts.
+function M.order_comparator(a, b)
+	local da, db = a.completion_item.data, b.completion_item.data
+	local oa = type(da) == "table" and da.zortex_order or nil
+	local ob = type(db) == "table" and db.zortex_order or nil
+	if oa and ob and oa ~= ob then
+		return oa < ob
+	end
+	return nil
+end
+
+function M.setup_cmp_sorting(cmp)
+	local ok, cfg = pcall(require, "cmp.config")
+	if not ok or type(cfg.filetypes) ~= "table" or not (cmp.setup and cmp.setup.filetype) then
+		return
+	end
+	-- keep whatever else the user set for zortex buffers; leave a sorting of
+	-- their own alone
+	local current = vim.deepcopy(cfg.filetypes.zortex or {})
+	current.revision = nil
+	if current.sorting and not current.sorting._zortex then
+		return
+	end
+	local function chained(a, b)
+		local r = M.order_comparator(a, b)
+		if r ~= nil then
+			return r
+		end
+		for _, f in ipairs((cfg.global.sorting or {}).comparators or {}) do
+			r = f(a, b)
+			if r ~= nil then
+				return r
+			end
+		end
+		return nil
+	end
+	current.sorting = {
+		_zortex = true,
+		priority_weight = (cfg.global.sorting or {}).priority_weight or 2,
+		comparators = { chained },
+	}
+	pcall(cmp.setup.filetype, "zortex", current)
 end
 
 -- Backwards-compatible name

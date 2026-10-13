@@ -145,6 +145,20 @@
       <ol class="sw-laps" id="sw-laps" reversed></ol>
       <p class="pomo-error" id="sw-error" role="alert" hidden></p>
     </div>
+    <div class="track" id="track" hidden>
+      <div class="track-row">
+        <span class="track-label">Working on</span>
+        <span class="track-task" id="track-task">–</span>
+        <span class="track-time" id="track-time" aria-live="off"></span>
+        <button type="button" id="track-change" aria-expanded="false" aria-controls="track-picker">Change</button>
+      </div>
+      <p class="small dim track-note" id="track-note"></p>
+      <div class="track-picker" id="track-picker" hidden>
+        <label class="sr-only" for="track-q">Search open tasks</label>
+        <input id="track-q" type="search" placeholder="Search open tasks" autocomplete="off">
+        <ul class="track-results" id="track-results"></ul>
+      </div>
+    </div>
     </div>
   </section>
   {{end}}
@@ -218,4 +232,5 @@
 </section>
 <script src="{{asset "/static/home.js"}}" defer></script>
 <script src="{{asset "/static/clocks.js"}}" defer></script>
+<script src="{{asset "/static/track.js"}}" defer></script>
 {{end}}

@@ -385,9 +385,10 @@ in priority order; errors are reported, never raised into the emitter.
 - **Own content:** a project's own tasks run from its header line to its first
   sub-project. Container projects have their own tasks. Tasks are core/item
   Items with `project` set.
-- **Points:** `@size(xs…xl)` maps to 1, 2, 3, 5, 8, and project-only sizes go
-  up to `ultimate` = 55 (`constants.SIZE_POINTS`). Unsized tasks count as `md`.
-  An explicit project `@size` overrides the sum of its tasks.
+- **Points:** effort in md-task units, from the configured size multipliers
+  (`xp.sources.task.sizes`: xs 0.2, sm 0.5, md 1, lg 1.5, xl 3, …). Unsized
+  tasks count as `md`. An explicit project `@size` overrides the sum of its
+  tasks: `project.base_xp × multiplier / task.base_xp` (lg = 10.5).
 - **Links:** `[P/#1 Programming/#1.4 - zortex]` for the Projects article, and
   `[P/Flipping/#Subaru outback]` for a standalone note.
 
@@ -717,7 +718,7 @@ its own slice the same way `search.setup` does. Relevant constants live in
 | ---------------------------------- | ----------------------------------- |
 | `PROJECT_TAG = "P"`                | the projects tag and link namespace |
 | `ARCHIVE_TAG = "Archive"`          | marks archived notes                |
-| `SIZE_POINTS`, `DEFAULT_TASK_SIZE` | task and project sizing             |
+| `DEFAULT_TASK_SIZE = "md"`         | what an unsized task counts as      |
 
 ## Testing
 

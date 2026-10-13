@@ -40,7 +40,7 @@
         {{if .Writable}}<button type="button" class="edit-toggle head-edit" aria-pressed="false" title="Tap a line to change it, drag ⠿ to move it">Edit</button>{{end}}
       </p>
     </header>
-    <div class="body{{if .Writable}} writable{{end}}" id="note-body" data-rel="{{.Rel}}" data-mod="{{.Mod}}">{{.Body}}</div>
+    <div class="body{{if .Writable}} writable{{end}}" id="note-body" data-rel="{{.Rel}}" data-mod="{{.Mod}}"{{if .Tracking}} data-track="1"{{end}}>{{.Body}}</div>
     {{if .Writable}}
     <p class="edit-status" id="edit-status" role="status" aria-live="polite" hidden></p>
     <script type="application/json" id="note-src">{{.Src}}</script>

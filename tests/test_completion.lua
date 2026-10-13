@@ -175,3 +175,17 @@ T.test("cmp keyword pattern starts at the value being typed", function()
 		T.eq(ctx.typing_col, #line - #typed(line), line)
 	end
 end)
+
+T.test("area items keep the Areas note's order in cmp", function()
+	local completion = require("zortex.features.completion")
+	local items = completion._area_items()
+	local function entry(item)
+		return { completion_item = item }
+	end
+	for i = 2, #items do
+		T.eq(completion.order_comparator(entry(items[i - 1]), entry(items[i])), true, items[i].label)
+		T.eq(completion.order_comparator(entry(items[i]), entry(items[i - 1])), false)
+	end
+	-- anything that isn't an area item is left to cmp's own comparators
+	T.eq(completion.order_comparator(entry({ label = "x" }), entry(items[1])), nil)
+end)

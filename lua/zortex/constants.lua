@@ -73,24 +73,9 @@ M.SECTION_HIERARCHY = {
 M.PROJECT_TAG = "P"
 M.ARCHIVE_TAG = "Archive"
 
--- Size -> points. Tasks use xs..xl; projects may also use the larger sizes.
--- Unsized tasks count as DEFAULT_TASK_SIZE. An explicit project @size(...)
--- overrides the sum of its tasks.
-M.SIZE_POINTS = {
-	xs = 1,
-	sm = 2,
-	md = 3,
-	lg = 5,
-	xl = 8,
-	["2xl"] = 13,
-	["3xl"] = 21,
-	["4xl"] = 34,
-	["5xl"] = 55,
-	epic = 13,
-	legendary = 21,
-	mythic = 34,
-	ultimate = 55,
-}
+-- Unsized tasks count as this size. What sizes are worth (XP, and the effort
+-- points that weigh project and key-result progress) is configured in
+-- xp.sources.<task|project>.sizes.
 M.DEFAULT_TASK_SIZE = "md"
 
 M.TASK_MARKS = {

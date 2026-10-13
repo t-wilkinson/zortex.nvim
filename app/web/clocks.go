@@ -31,6 +31,7 @@ type clocksView struct {
 
 func (s *Server) announceClock(e clocks.Event) {
 	s.events.publish("clocks", map[string]any{"event": e.Kind, "id": e.ID})
+	s.trackSync()
 	if !s.cfg.Ntfy.Enabled() {
 		return
 	}
@@ -69,6 +70,7 @@ func (s *Server) clocksReply(w http.ResponseWriter, st clocks.State, err error) 
 		return
 	}
 	s.events.publish("clocks", map[string]any{})
+	s.trackSync()
 	writeJSON(w, http.StatusOK, clocksView{State: st, Ntfy: s.cfg.Ntfy.Enabled()})
 }
 

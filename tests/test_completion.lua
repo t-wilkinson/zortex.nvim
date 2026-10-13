@@ -112,3 +112,41 @@ T.test("setup twice registers the cmp source once", function()
 	package.loaded.cmp = nil
 	C._cmp_id = nil
 end)
+
+T.test("[P/ also offers headings of @P notes the Projects note doesn't shadow", function()
+	vim.cmd("edit " .. vim.fn.fnameescape(T.fixture("calendar.zortex")))
+	local items = C.get_completions("[P/#Sub", 7, {})
+	local found
+	for _, i in ipairs(items) do
+		if i.label == "#Subaru outback" then
+			found = i
+		end
+	end
+	T.ok(found, "standalone project's heading offered")
+	local r = require("zortex.core.link").resolve_first("[P/#Subaru outback]")
+	T.ok(r and r.file:match("flipping%.zortex$"), "and it resolves there")
+	-- a heading the Projects note also has stays the Projects note's
+	for _, i in ipairs(items) do
+		local res = require("zortex.core.link").resolve_first("[P/" .. i.label .. "]")
+		T.ok(res, "resolves: " .. i.label)
+	end
+end)
+
+T.test("@a( and @area( complete areas as a tree, inserting values that resolve", function()
+	local ctx = C.area_context("## Cars @a(", 11)
+	T.eq(ctx and ctx.typing, "")
+	T.eq(C.area_context("- [ ] x @area(4.1, Fi", 21).typing, "Fi")
+	T.eq(C.area_context("mail me@a(", 10), nil)
+	T.eq(C.area_context("@a(4.1) done", 12), nil)
+	local items = C.get_completions("## Cars @a(", 11, {})
+	T.ok(#items >= 6, "areas offered")
+	local by_value = {}
+	for _, i in ipairs(items) do
+		by_value[i.area_value] = i
+		local def = require("zortex.utils.attributes").attribute_parsers.area(i.area_value)[1].definition
+		local area = require("zortex.services.areas").resolve(def)
+		T.ok(area, "resolves: " .. i.area_value)
+	end
+	T.ok(by_value["4.1"] and by_value["4.1"].label:match("^  4%.1 Education"), "short value, indented label")
+	T.ok(by_value["1.2/Fitness"], "labels go through their heading")
+end)

@@ -25,7 +25,7 @@
       // the browser retries on its own; give up on a proxy that won't stream
       if (failures > 20) { es.close(); es = null; }
     };
-    ["notes", "xp", "pomodoro"].forEach(function (kind) {
+    ["notes", "xp", "pomodoro", "clocks"].forEach(function (kind) {
       es.addEventListener(kind, function (ev) {
         var data = {};
         try { data = JSON.parse(ev.data || "{}"); } catch (e) { /* ignore */ }

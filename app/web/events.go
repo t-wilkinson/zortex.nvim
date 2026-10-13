@@ -17,6 +17,7 @@ import (
 //	event: notes      {"rels": ["projects.zortex", ...]}  notes added, changed or removed
 //	event: xp         {}                                  a new XP summary from Neovim
 //	event: pomodoro   {}                                  the clock changed
+//	event: clocks     {}                                  timers, alarms or the stopwatch changed
 //
 // Notes edited in Neovim reach the server through Syncthing; the server
 // notices on its next rescan (-poll).

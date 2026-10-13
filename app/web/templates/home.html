@@ -48,46 +48,104 @@
   {{end}}
 
   {{if .HasState}}
-  <section class="panel pomo" id="pomo" aria-labelledby="pomo-title">
-    <div class="pomo-head">
-      <h2 id="pomo-title">Pomodoro</h2>
-      <span class="pill" id="pomo-phase" data-phase="idle">Idle</span>
-      <span class="dim small" id="pomo-channel"></span>
+  <section class="panel pomo clocks" id="pomo" aria-label="Pomodoro, timer, alarm and stopwatch">
+    <div class="clock-tabs" role="tablist" aria-orientation="vertical" aria-label="Clocks">
+      <button type="button" role="tab" id="tab-pomo" aria-controls="clock-pomo" aria-selected="true" data-clock-tab="pomo"><span class="tab-name">Pomodoro</span><span class="tab-meta" id="tab-pomo-meta"></span></button>
+      <button type="button" role="tab" id="tab-timer" aria-controls="clock-timer" aria-selected="false" tabindex="-1" data-clock-tab="timer"><span class="tab-name">Timer</span><span class="tab-meta" id="tab-timer-meta"></span></button>
+      <button type="button" role="tab" id="tab-alarm" aria-controls="clock-alarm" aria-selected="false" tabindex="-1" data-clock-tab="alarm"><span class="tab-name">Alarm</span><span class="tab-meta" id="tab-alarm-meta"></span></button>
+      <button type="button" role="tab" id="tab-stopwatch" aria-controls="clock-stopwatch" aria-selected="false" tabindex="-1" data-clock-tab="stopwatch"><span class="tab-name">Stopwatch</span><span class="tab-meta" id="tab-stopwatch-meta"></span></button>
     </div>
-    <div class="pomo-body">
-      <div class="pomo-clock">
-        <svg viewBox="0 0 120 120" aria-hidden="true">
-          <circle class="track" cx="60" cy="60" r="52"></circle>
-          <circle class="fill" id="pomo-ring" cx="60" cy="60" r="52" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"></circle>
-        </svg>
-        <div class="pomo-time" id="pomo-time" role="timer" aria-live="off">25:00</div>
+    <div class="clock-panels">
+    <div class="clock-panel" role="tabpanel" id="clock-pomo" aria-labelledby="tab-pomo">
+      <div class="pomo-head">
+        <h2 id="pomo-title">Pomodoro</h2>
+        <span class="pill" id="pomo-phase" data-phase="idle">Idle</span>
+        <span class="dim small" id="pomo-channel"></span>
       </div>
-      <div class="pomo-info">
-        <dl>
-          <dt>Session</dt><dd id="pomo-session">–</dd>
-          <dt>Next alarm</dt><dd id="pomo-next">–</dd>
-          <dt>Now</dt><dd id="pomo-cal" class="pomo-now">–</dd>
-          <dt>Today</dt><dd id="pomo-today">0 sessions</dd>
-        </dl>
-        <div class="pomo-actions">
-          <button type="button" class="primary" data-pomo="toggle" id="pomo-main">Start</button>
-          <button type="button" data-pomo="skip" id="pomo-skip">Skip</button>
-          <button type="button" data-pomo="stop" id="pomo-stop">Stop</button>
-          <button type="button" data-pomo="restart" title="Begin a new cycle with a fresh work session">Restart cycle</button>
-          <button type="button" id="pomo-settings-btn" aria-expanded="false" aria-controls="pomo-settings">Settings</button>
+      <div class="pomo-body">
+        <div class="pomo-clock">
+          <svg viewBox="0 0 120 120" aria-hidden="true">
+            <circle class="track" cx="60" cy="60" r="52"></circle>
+            <circle class="fill" id="pomo-ring" cx="60" cy="60" r="52" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"></circle>
+          </svg>
+          <div class="pomo-time" id="pomo-time" role="timer" aria-live="off">25:00</div>
         </div>
-        <p class="pomo-error" id="pomo-error" role="alert" hidden></p>
+        <div class="pomo-info">
+          <dl>
+            <dt>Session</dt><dd id="pomo-session">–</dd>
+            <dt>Phase ends</dt><dd id="pomo-next">–</dd>
+            <dt>Now</dt><dd id="pomo-cal" class="pomo-now">–</dd>
+            <dt>Today</dt><dd id="pomo-today">0 sessions</dd>
+          </dl>
+          <div class="pomo-actions">
+            <button type="button" class="primary" data-pomo="toggle" id="pomo-main">Start</button>
+            <button type="button" data-pomo="skip" id="pomo-skip">Skip</button>
+            <button type="button" data-pomo="stop" id="pomo-stop">Stop</button>
+            <button type="button" data-pomo="restart" title="Begin a new cycle with a fresh work session">Restart cycle</button>
+            <button type="button" id="pomo-settings-btn" aria-expanded="false" aria-controls="pomo-settings">Settings</button>
+          </div>
+          <p class="pomo-error" id="pomo-error" role="alert" hidden></p>
+        </div>
       </div>
+      <form id="pomo-settings" class="pomo-settings" hidden>
+        <label>Work <input type="number" name="work" min="1" max="600" required> min</label>
+        <label>Short break <input type="number" name="short_break" min="1" max="600" required> min</label>
+        <label>Long break <input type="number" name="long_break" min="1" max="600" required> min</label>
+        <label>Long break after <input type="number" name="long_break_after" min="1" max="20" required> sessions</label>
+        <label class="check"><input type="checkbox" name="auto_start_break"> Start breaks automatically</label>
+        <label class="check"><input type="checkbox" name="auto_start_work"> Start work automatically</label>
+        <div class="pomo-actions"><button type="submit" class="primary">Save</button><button type="button" id="pomo-settings-cancel">Cancel</button></div>
+      </form>
     </div>
-    <form id="pomo-settings" class="pomo-settings" hidden>
-      <label>Work <input type="number" name="work" min="1" max="600" required> min</label>
-      <label>Short break <input type="number" name="short_break" min="1" max="600" required> min</label>
-      <label>Long break <input type="number" name="long_break" min="1" max="600" required> min</label>
-      <label>Long break after <input type="number" name="long_break_after" min="1" max="20" required> sessions</label>
-      <label class="check"><input type="checkbox" name="auto_start_break"> Start breaks automatically</label>
-      <label class="check"><input type="checkbox" name="auto_start_work"> Start work automatically</label>
-      <div class="pomo-actions"><button type="submit" class="primary">Save</button><button type="button" id="pomo-settings-cancel">Cancel</button></div>
-    </form>
+
+    <div class="clock-panel" role="tabpanel" id="clock-timer" aria-labelledby="tab-timer" hidden>
+      <div class="pomo-head"><h2>Timer</h2><span class="dim small clocks-channel"></span></div>
+      <form class="clock-form" id="timer-form" autocomplete="off">
+        <div class="presets" role="group" aria-label="Start a timer">
+          <button type="button" data-preset="60">1 min</button><button type="button" data-preset="300">5</button><button type="button" data-preset="600">10</button><button type="button" data-preset="900">15</button><button type="button" data-preset="1800">30</button><button type="button" data-preset="3600">60</button>
+        </div>
+        <div class="clock-fields">
+          <label class="sr-only" for="timer-duration">Duration</label>
+          <input id="timer-duration" name="duration" placeholder="10, 1:30, 1h15m, 90s" inputmode="text" required>
+          <label class="sr-only" for="timer-label">Label</label>
+          <input id="timer-label" name="label" placeholder="Label (optional)" maxlength="80">
+          <button type="submit" class="primary">Start</button>
+        </div>
+      </form>
+      <ul class="clock-list" id="timer-list" aria-live="polite"></ul>
+      <p class="pomo-error" id="timer-error" role="alert" hidden></p>
+    </div>
+
+    <div class="clock-panel" role="tabpanel" id="clock-alarm" aria-labelledby="tab-alarm" hidden>
+      <div class="pomo-head"><h2>Alarm</h2><span class="dim small clocks-channel"></span></div>
+      <form class="clock-form" id="alarm-form" autocomplete="off">
+        <div class="clock-fields">
+          <label class="sr-only" for="alarm-time">Time</label>
+          <input id="alarm-time" name="time" type="time" required>
+          <label class="sr-only" for="alarm-label">Label</label>
+          <input id="alarm-label" name="label" placeholder="Label (optional)" maxlength="80">
+          <label class="sr-only" for="alarm-repeat">Repeat</label>
+          <select id="alarm-repeat" name="repeat"><option value="once">Once</option><option value="daily">Every day</option></select>
+          <button type="submit" class="primary">Add alarm</button>
+        </div>
+        <p class="small dim" id="alarm-tz" hidden></p>
+      </form>
+      <ul class="clock-list" id="alarm-list"></ul>
+      <p class="pomo-error" id="alarm-error" role="alert" hidden></p>
+    </div>
+
+    <div class="clock-panel" role="tabpanel" id="clock-stopwatch" aria-labelledby="tab-stopwatch" hidden>
+      <div class="pomo-head"><h2>Stopwatch</h2></div>
+      <div class="sw-time" id="sw-time" role="timer" aria-live="off">0:00.0</div>
+      <div class="pomo-actions">
+        <button type="button" class="primary" id="sw-main" data-sw="toggle">Start</button>
+        <button type="button" id="sw-lap" data-sw="lap">Lap</button>
+        <button type="button" id="sw-reset" data-sw="reset">Reset</button>
+      </div>
+      <ol class="sw-laps" id="sw-laps" reversed></ol>
+      <p class="pomo-error" id="sw-error" role="alert" hidden></p>
+    </div>
+    </div>
   </section>
   {{end}}
 
@@ -159,4 +217,5 @@
   <p class="stats dim">{{.Notes}} notes · {{.Links}} links · <a href="{{u "/broken"}}">{{.Broken}} broken</a> · <a href="{{u "/tags"}}">{{.Tags}} tags</a> · <a href="{{u "/resources"}}">{{.Resources}} resources ({{.Unlinked}} unlinked)</a>{{if .Structure.Sources}} · <a href="{{u "/structure"}}">{{.Structure.Linked}}/{{.Structure.Total}} in structure</a>{{end}} · indexed {{ago .Built}}</p>
 </section>
 <script src="{{asset "/static/home.js"}}" defer></script>
+<script src="{{asset "/static/clocks.js"}}" defer></script>
 {{end}}

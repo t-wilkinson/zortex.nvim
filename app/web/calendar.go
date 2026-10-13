@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/t-wilkinson/zortex.nvim/app/alerts"
+	"github.com/t-wilkinson/zortex.nvim/app/clocks"
 	"github.com/t-wilkinson/zortex.nvim/app/notes"
 	"github.com/t-wilkinson/zortex.nvim/app/pomodoro"
 	"github.com/t-wilkinson/zortex.nvim/app/syntax"
@@ -40,6 +41,12 @@ func (s *Server) openState() error {
 		s.announcePomodoro(e)
 	}
 	s.pomo = clock
+	cl, err := clocks.Open(filepath.Join(s.cfg.DataDir, "clocks.json"))
+	if err != nil {
+		return fmt.Errorf("clocks: %w", err)
+	}
+	cl.Notify = s.announceClock
+	s.clocks = cl
 	return nil
 }
 

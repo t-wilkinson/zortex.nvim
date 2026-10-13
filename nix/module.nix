@@ -10,7 +10,8 @@
 #   - the notes web app: rendered notes, links, backlinks, search, files
 #   - the calendar (from calendar.zortex) and the notification API Neovim
 #     syncs to (POST /notify); due notifications go out through ntfy
-#   - the pomodoro clock shared by Neovim and the home page
+#   - the pomodoro clock shared by Neovim and the home page, and the home
+#     page's timers, alarms (sent through ntfy) and stopwatch
 #
 # It reads notesDir (a Syncthing folder, say) and keeps its own state
 # (notifications, pomodoro) in dataDir. Keep it on localhost and publish it
@@ -77,9 +78,10 @@ in
       type = types.path;
       default = "/var/lib/zortex";
       description = ''
-        State: scheduled notifications (notifications.json) and the pomodoro
-        clock (pomodoro.json). The old notifications.db is no longer used;
-        Neovim re-syncs the calendar on its next save.
+        State: scheduled notifications (notifications.json), the pomodoro
+        clock (pomodoro.json), timers, alarms and the stopwatch
+        (clocks.json) and the XP summary. The old notifications.db is no
+        longer used; Neovim re-syncs the calendar on its next save.
       '';
     };
 

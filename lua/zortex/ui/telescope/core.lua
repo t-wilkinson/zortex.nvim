@@ -2,9 +2,6 @@
 
 local M = {}
 
-local projects = require("zortex.ui.telescope.projects")
-local search = require("zortex.ui.telescope.search")
-
 -- =============================================================================
 -- Setup telescope
 -- =============================================================================

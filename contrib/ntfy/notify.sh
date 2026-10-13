@@ -10,10 +10,12 @@
 #   pomodoro-break-start  a short or long break began
 #   pomodoro-restart      a new cycle began (after the long break, or by hand)
 #   pomodoro-work-end / pomodoro-break-end   a phase ended, the next waits for you
+# Timers and alarms from the web app carry "timer" or "alarm".
 # Everything else plays message.oga (with a 5% chance of a Wilhelm scream).
 #
 # Sounds are looked up next to this script, then in the freedesktop theme.
-# Override any of them with ZORTEX_SOUND_WORK, _BREAK, _RESTART, _READY, _DEFAULT.
+# Override any of them with ZORTEX_SOUND_WORK, _BREAK, _RESTART, _READY,
+# _TIMER, _ALARM, _DEFAULT.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 TITLE="${1:-${NTFY_TITLE:-}}"
@@ -42,6 +44,10 @@ elif has_tag pomodoro-restart; then
   SOUND=$(pick "$ZORTEX_SOUND_RESTART" "$SCRIPT_DIR/restart.oga" "$FREEDESKTOP/service-login.oga")
 elif has_tag pomodoro-work-end || has_tag pomodoro-break-end; then
   SOUND=$(pick "$ZORTEX_SOUND_READY" "$SCRIPT_DIR/ready.oga" "$SCRIPT_DIR/message.oga" "$FREEDESKTOP/message.oga")
+elif has_tag timer; then
+  SOUND=$(pick "$ZORTEX_SOUND_TIMER" "$SCRIPT_DIR/timer.oga" "$FREEDESKTOP/complete.oga")
+elif has_tag alarm; then
+  SOUND=$(pick "$ZORTEX_SOUND_ALARM" "$SCRIPT_DIR/alarm.oga" "$FREEDESKTOP/alarm-clock-elapsed.oga" "$FREEDESKTOP/bell.oga")
 elif has_tag pomodoro-stop; then
   SOUND="" # stopping by hand needs no sound
 elif [ -n "$SOUND_FILE" ] && [ -r "$SOUND_FILE" ]; then

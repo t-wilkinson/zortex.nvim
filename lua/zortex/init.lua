@@ -5,6 +5,9 @@ function api.setup(opts)
 	local Config = require("zortex.config")
 	Config.setup(opts)
 
+	-- A new notes folder gets the key notes (calendar, projects, ...)
+	require("zortex.core.starter").setup(Config.init_files)
+
 	-- Core: logger, events, workspace, link index, XP pipeline
 	require("zortex.core").setup(Config)
 

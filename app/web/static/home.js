@@ -209,6 +209,8 @@
     $("pomo-skip").disabled = phase === "idle" || (waiting && phase === "work");
     $("pomo-stop").disabled = phase === "idle";
     $("pomo-channel").textContent = pomo.ntfy ? "alerts via ntfy" : "ntfy off: no alerts";
+    var meta = $("tab-pomo-meta");
+    if (meta) meta.textContent = pomo.running ? fmt(rem) : paused ? "paused" : "";
     document.title = (pomo.running ? fmt(rem) + " " + pomo.phase_name + " · " : "") + document.title.replace(/^\d+:\d\d(:\d\d)? [^·]+ · /, "");
   }
 

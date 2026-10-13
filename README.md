@@ -58,6 +58,13 @@ Optional: [nvim-cmp](https://github.com/hrsh7th/nvim-cmp) for link completion
 (the `zortex` source is registered automatically). `:checkhealth zortex`
 checks the setup.
 
+In a new (empty) notes folder, `setup()` creates the key notes from short
+templates that link to each other: `calendar`, `projects`, `areas`, `okr`,
+`structure` and `inbox`. In a folder that already has notes it never writes
+(a missing file may just not have synced yet); it tells you once what is
+missing, and `:ZortexInit` creates those. `init_files = false` turns this
+off.
+
 ## Notes
 
 Every note is a `.zortex` file under `notes_dir` (subfolders included; `z/`
@@ -70,20 +77,12 @@ is the usual place for the library). A note starts with a header:
 @size(lg)           header attribute
 ```
 
-The body uses this structure (lower levels nest under higher ones):
-
-| Write | Is |
-|---|---|
-| `# Heading` … `###### Heading` | heading, levels 1–6 |
-| `**Bold heading**:` | below headings |
-| `Label:` (indent to nest) | below bold headings |
-| `- item`, `1. item`, `A. item`, `14:00 item`, `16:00 - 17:00 item` | list items |
-| `- [ ] task`, `- [x] task` | tasks |
-| `- KR1: [ ] text` | a key result (in `okr.zortex`), linked as `[O/…/-KR1]` |
-| `@p1` `@i2` `@size(md)` `@due(2026-10-12)` `@done(…)` `@a(4.1)` `@2h` | attributes |
-| `[Article/#Heading/:Label/-Item]`, `[P/#1.4 - zortex]`, `[/#Local heading]` | links (prefix match, first match wins; generated link text uses `A-Z a-z 0-9 _ - ( ) .`) |
-| `![Article]`, `@[cars & parts]`, `[text](url)`, `[^1]` | live link, tag search, markdown link, footnote |
-| fenced code, `$$` math blocks, tables, `\| quotes`, `` `code` ``, `$math$` | as in markdown |
+The body has headings (`#` … `######`), bold headings (`**Next steps:**`),
+labels (`Ideas:`), list items and tasks (`- [ ] task @size(sm)`,
+`14:00 event`), attributes (`@p1`, `@due(2026-10-20)`, `@a(4.1)`), links
+(`[P/#1.4 - zortex]`, `[A/#1.2/:Fitness]`, `[/#Local heading]`) and the
+usual markdown blocks and inline markup. **[doc/Syntax.md](doc/Syntax.md)** is
+the complete reference; a test checks its examples against the parser.
 
 Special notes:
 
@@ -127,6 +126,7 @@ Special notes:
   through ntfy; unchanged calendars aren't re-sent).
 - **Pomodoro** (`<leader>zoo`): one clock shared with the web app's home page,
   with ntfy alerts and a different sound for work, breaks and a new cycle.
+  Timers, alarms and a stopwatch are on the home page too.
 - **XP and seasons** read off completed tasks, projects and objectives,
   distributed to areas; a skill tree. See [doc/XP.md](doc/XP.md).
 - **Export** (`:ZortexExport`): the notes and the whole model as JSON.
@@ -221,6 +221,7 @@ require("zortex").setup({
 
 | Command | Keys | Action id | Does |
 |---|---|---|---|
+| `:ZortexInit` |  | `init` | Create missing key notes (calendar, projects, areas, okr, structure, inbox) |
 | `:ZortexOpenProjects` | `<leader>zfp` `<leader>zP` | `open_projects` | Open projects.zortex |
 | `:ZortexOpenAreas` | `<leader>zfa` | `open_areas` | Open areas.zortex |
 | `:ZortexOpenOKR` | `<leader>zfo` | `open_okr` | Open okr.zortex |
@@ -299,6 +300,8 @@ z.syntax.parse(lines, { inline = true })  -- the grammar itself
 
 ## Documentation
 
+- [doc/Syntax.md](doc/Syntax.md): the note format (lines, inline markup,
+  attributes, links, special notes)
 - [doc/Architecture.md](doc/Architecture.md): how the plugin is built (syntax,
   documents, links, entities, domain, state, query API, UI) and the rules
   modules share

@@ -11,7 +11,11 @@
 --   put(line, col, text)    -> the line with `text` put at the cursor
 --
 -- Ranking: signals add up, so a TODO with a high priority that is also due
--- beats any one of those alone (weights in M.weights).
+-- beats any one of those alone (weights in M.weights). Alignment counts
+-- most: work on a key result ranks above work that only has an area, which
+-- ranks above work with neither, and a key result that is behind schedule
+-- (its objective's time passing faster than its progress) pushes its
+-- projects' tasks up further.
 local M = {}
 
 local function Config()
@@ -34,6 +38,9 @@ M.weights = {
 	due_3d = 2,
 	due_7d = 1,
 	okr = 2, -- project linked from an open key result
+	kr_behind = 4, -- more, up to this, the further behind its key result is
+	kr_behind_full = 0.25, -- ... reached at 25% behind schedule
+	area = 1, -- project (or task) with an area but no key result
 	project_priority = { ["1"] = 1 }, -- the project's own @p
 }
 
@@ -100,6 +107,47 @@ end
 -- Candidates
 -- =============================================================================
 
+-- Open key results linking a project or an ancestor: the one furthest
+-- behind, and how far ({ kr, lag }), or nil.
+local function kr_for(project, ctx)
+	local best
+	local p = project
+	while p do
+		for _, kr in ipairs(ctx.krs[p.key] or {}) do
+			local lag = kr:lag(ctx.today_str)
+			if not best or lag > best.lag then
+				best = { kr = kr, lag = lag }
+			end
+		end
+		p = p.parent
+	end
+	return best
+end
+
+-- Score for alignment: key result (more when behind), else area, else 0
+local function alignment(project, task, ctx)
+	local w = M.weights
+	local link = ctx.kr_of[project]
+	if link == nil then
+		link = kr_for(project, ctx) or false
+		ctx.kr_of[project] = link
+	end
+	if link then
+		local behind = math.min(1, link.lag / w.kr_behind_full)
+		local badge = link.kr.id
+		if link.lag >= 0.05 then
+			badge = string.format("%s %d%% behind", link.kr.id, math.floor(link.lag * 100 + 0.5))
+		end
+		return w.okr + w.kr_behind * behind, { "OKR", badge }
+	end
+	local has_area = (task and task.attributes and task.attributes.area) or #project:areas({ inherit = true }) > 0
+	if has_area then
+		return w.area, { "area" }
+	end
+	return 0, {}
+end
+M._alignment = alignment
+
 local function score_task(task, project, ctx)
 	local w, attrs = M.weights, task.attributes or {}
 	local score, badges = 0, {}
@@ -131,10 +179,9 @@ local function score_task(task, project, ctx)
 			badges[#badges + 1] = "due " .. datetime.format_datetime(attrs.due, "MM-DD")
 		end
 	end
-	if ctx.okr[project] then
-		score = score + w.okr
-		badges[#badges + 1] = "OKR"
-	end
+	local a, a_badges = alignment(project, task, ctx)
+	score = score + a
+	vim.list_extend(badges, a_badges)
 	local pp = w.project_priority[project.attributes.p]
 	if pp and score > 0 then
 		score = score + pp
@@ -158,10 +205,16 @@ function M.candidates(opts)
 	opts = opts or {}
 	local projects = require("zortex.services.projects")
 	local score = require("zortex.services.projects.score")
-	local ctx = { today = today(opts), todo = todo_project(), okr = {} }
-	for _, p in ipairs(projects.all()) do
-		if score.okr_count(p) > 0 then
-			ctx.okr[p] = true
+	local ctx = { today = today(opts), todo = todo_project(), krs = {}, kr_of = {} }
+	ctx.today_str = datetime.format_datetime(ctx.today, "YYYY-MM-DD")
+	-- open key results by the project keys they link
+	local okr_ok, open_krs = pcall(require("zortex.services.okr").key_results, { open = true })
+	for _, kr in ipairs(okr_ok and open_krs or {}) do
+		if not (kr.objective and kr.objective.completed) then
+			for key in pairs(kr:linked_projects()) do
+				ctx.krs[key] = ctx.krs[key] or {}
+				table.insert(ctx.krs[key], kr)
+			end
 		end
 	end
 
@@ -220,8 +273,14 @@ function M.candidates(opts)
 		local attrs = p.attributes
 		local high = (tonumber(attrs.p) or 9) <= 2 or (tonumber(attrs.i) or 9) <= 2
 		local r = p:rollup()
-		if not p:is_root() and not p:is_done() and r.open > 0 and (ctx.okr[p] or high) then
+		local a, a_badges = alignment(p, nil, ctx)
+		if not p:is_root() and not p:is_done() and r.open > 0 and (ctx.kr_of[p] or high) then
 			local badges = score.indicators(p)
+			for _, b in ipairs(a_badges) do
+				if b ~= "OKR" and b ~= "area" then
+					badges[#badges + 1] = b
+				end
+			end
 			badges[#badges + 1] = string.format("%d/%d", r.done, r.total)
 			for _, t in ipairs(p:tasks()) do
 				if not t.completed then
@@ -233,7 +292,7 @@ function M.candidates(opts)
 				kind = "project",
 				text = p.link,
 				badges = badges,
-				score = score.project_score(p),
+				score = score.project_score(p) + a,
 				file = p.file,
 				lnum = p.lnum,
 			}
@@ -246,12 +305,17 @@ function M.candidates(opts)
 	for _, o in ipairs(require("zortex.services.okr").objectives({ current = true })) do
 		for _, kr in ipairs(o.key_results) do
 			if not kr:is_done() then
-				local progress = kr:progress()
+				local progress, lag = kr:progress(), kr:lag(ctx.today_str)
+				local badges = { kr.id, string.format("%d%%", progress * 100), o.title }
+				if lag >= 0.05 then
+					table.insert(badges, 3, string.format("%d%% behind", math.floor(lag * 100 + 0.5)))
+				end
 				krs[#krs + 1] = {
 					kind = "key_result",
 					text = plain(kr.text) .. " " .. (kr.link or o.link),
-					badges = { kr.id, string.format("%d%%", progress * 100), o.title },
-					score = 1 - progress,
+					badges = badges,
+					-- furthest behind first, then least done
+					score = lag * 10 + (1 - progress),
 					file = kr.file,
 					lnum = kr.lnum,
 				}
@@ -260,8 +324,19 @@ function M.candidates(opts)
 	end
 	sort_by_score(krs)
 
-	-- Areas: two levels deep, fewest active projects first
+	-- Areas: two levels deep; areas without a current objective first (they
+	-- have no key results pulling work toward them), then fewest projects
 	local areas = {}
+	local with_objective = {}
+	for _, o in ipairs(require("zortex.services.okr").objectives({ current = true })) do
+		for _, area in ipairs(o:areas()) do
+			local x = area
+			while x do
+				with_objective[x.key] = true
+				x = x.parent
+			end
+		end
+	end
 	for _, a in ipairs(require("zortex.services.areas").all({ include_roots = false })) do
 		if a.depth <= 2 then
 			local active = 0
@@ -270,11 +345,15 @@ function M.candidates(opts)
 					active = active + 1
 				end
 			end
+			local badges = { active == 0 and "no active projects" or (active .. " active") }
+			if not with_objective[a.key] then
+				table.insert(badges, 1, "no objective")
+			end
 			areas[#areas + 1] = {
 				kind = "area",
 				text = a.link,
-				badges = { active == 0 and "no active projects" or (active .. " active") },
-				score = -active,
+				badges = badges,
+				score = (with_objective[a.key] and -10 or 0) - active,
 				file = a.file,
 				lnum = a.lnum,
 			}

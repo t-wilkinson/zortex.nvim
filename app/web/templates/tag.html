@@ -1,7 +1,7 @@
 {{define "content"}}
 <section class="narrow">
   <h1>@{{.Tag.Name}}</h1>
-  <p class="dim">{{len .Tag.Notes}} note{{if ne (len .Tag.Notes) 1}}s{{end}} tagged in their header. <a href="{{linkURL (printf "@%s" .Tag.Name) ""}}">Resolve [@{{.Tag.Name}}]</a></p>
+  <p class="dim">{{len .Tag.Notes}} note{{if ne (len .Tag.Notes) 1}}s{{end}} tagged in their header.{{range .Targets}} <a href="{{linkURL .Def ""}}">{{.Label}}</a>{{with .Title}} <span class="dim">{{.}}</span>{{end}}{{end}}</p>
   <ul class="plain">
     {{range .Tag.Notes}}<li><a href="{{noteURL . 0}}">{{title .}}</a> <span class="dim">{{.}}</span></li>{{end}}
   </ul>

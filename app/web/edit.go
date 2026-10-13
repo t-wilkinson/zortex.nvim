@@ -26,6 +26,10 @@ import (
 //	     set                            replace the line's text after its marker
 //	     delete                         remove the line
 //	     insert                         add a line after lnum (kind task | note | text)
+//	     move                           move the line and its indented sub-lines
+//	                                    before line `to` (len+1: the end), lined
+//	                                    up with the lines around it; `expectTo`
+//	                                    is the text of line `to`
 //	POST /api/inbox  {text, kind}       append a task or a note to inbox.zortex
 //
 // Every edit names the line it expects (`expect`); when the file changed
@@ -46,6 +50,9 @@ type editRequest struct {
 	Op     string `json:"op"`
 	Text   string `json:"text"`
 	Kind   string `json:"kind"`
+	// move
+	To       int    `json:"to"`
+	ExpectTo string `json:"expectTo"`
 }
 
 // noteFile is a note's lines plus how to write them back unchanged.
@@ -228,6 +235,17 @@ func (s *Server) applyEdit(f *noteFile, req editRequest) (int, error) {
 	if req.Lnum < 1 || req.Lnum > len(f.lines) || f.lines[req.Lnum-1] != req.Expect {
 		return 0, errChanged
 	}
+	if req.Op == "move" {
+		if req.To < 1 || req.To > len(f.lines)+1 || (req.To <= len(f.lines) && f.lines[req.To-1] != req.ExpectTo) {
+			return 0, errChanged
+		}
+		lines, lnum, err := moveBlock(f.lines, req.Lnum, req.To)
+		if err != nil {
+			return 0, err
+		}
+		f.lines = lines
+		return lnum, nil
+	}
 	if err := editableLine(f, req.Lnum); err != nil {
 		return 0, err
 	}
@@ -273,6 +291,125 @@ func (s *Server) applyEdit(f *noteFile, req editRequest) (int, error) {
 	return req.Lnum, nil
 }
 
+// indentWidth: leading whitespace, a tab counting as four columns.
+func indentWidth(line string) (int, string) {
+	w, n := 0, 0
+	for n < len(line) && (line[n] == ' ' || line[n] == '\t') {
+		if line[n] == '\t' {
+			w += 4
+		} else {
+			w++
+		}
+		n++
+	}
+	return w, line[:n]
+}
+
+func blank(line string) bool { return strings.TrimSpace(line) == "" }
+
+// blockEnd: the last line (1-based) of the block that starts at lnum: the
+// line plus the lines below it indented deeper (blank lines between them
+// included, trailing blank lines not).
+func blockEnd(lines []string, lnum int) int {
+	w, _ := indentWidth(lines[lnum-1])
+	end := lnum
+	for i := lnum; i < len(lines); i++ { // i: 0-based index of line i+1
+		l := lines[i]
+		if blank(l) {
+			continue
+		}
+		if lw, _ := indentWidth(l); lw <= w {
+			break
+		}
+		end = i + 1
+	}
+	return end
+}
+
+// moveBlock moves line `from` and its sub-lines (blockEnd) to stand before
+// line `to` (len+1: the end). The block is re-indented to line up with
+// where it lands: like the line it now precedes when that's a list item or
+// text, otherwise like the nearest line above it (top level after a
+// heading). It returns the new lines and where the moved line is now.
+func moveBlock(lines []string, from, to int) ([]string, int, error) {
+	if from < 1 || from > len(lines) || to < 1 || to > len(lines)+1 {
+		return nil, 0, errors.New("no such line")
+	}
+	ast := syntax.Parse(lines, false)
+	movable := func(lnum int) bool {
+		if lnum <= ast.Header.LastLnum {
+			return false
+		}
+		for _, b := range ast.Blocks {
+			if lnum > b.Start && lnum <= b.Finish {
+				return false
+			}
+		}
+		return true
+	}
+	switch ast.Lines[from-1].Kind {
+	case syntax.KindItem, syntax.KindText, syntax.KindLabel, syntax.KindQuote:
+	default:
+		return nil, 0, errors.New("only list items and text lines can be moved")
+	}
+	if !movable(from) {
+		return nil, 0, errors.New("that line can't be moved here")
+	}
+	if to <= ast.Header.LastLnum || !movable(to) && to <= len(lines) {
+		return nil, 0, errors.New("lines can't be moved into the header, code or tables")
+	}
+	end := blockEnd(lines, from)
+	for _, b := range ast.Blocks {
+		if end >= b.Start && end < b.Finish {
+			return nil, 0, errors.New("that line can't be moved: a code block below it isn't indented with it")
+		}
+	}
+	if to > from && to <= end {
+		return nil, 0, errors.New("a line can't be moved inside itself")
+	}
+	block := append([]string(nil), lines[from-1:end]...)
+	rest := append(append([]string(nil), lines[:from-1]...), lines[end:]...)
+	at := to - 1 // index in rest
+	if to > end {
+		at -= len(block)
+	}
+
+	// re-indent like the neighbours
+	indent := ""
+	ref := -1
+	if at < len(rest) && !blank(rest[at]) {
+		switch syntax.Classify(rest[at]).Kind {
+		case syntax.KindItem, syntax.KindText, syntax.KindLabel, syntax.KindQuote:
+			ref = at
+		}
+	}
+	if ref < 0 {
+		for i := at - 1; i >= 0; i-- {
+			if !blank(rest[i]) {
+				ref = i
+				break
+			}
+		}
+	}
+	if ref >= 0 && ref >= ast.Header.LastLnum {
+		indent = indentFor(rest[ref])
+	}
+	_, old := indentWidth(block[0])
+	if indent != old {
+		for i, l := range block {
+			if strings.HasPrefix(l, old) && !blank(l) {
+				block[i] = indent + l[len(old):]
+			}
+		}
+	}
+
+	out := make([]string, 0, len(lines))
+	out = append(out, rest[:at]...)
+	out = append(out, block...)
+	out = append(out, rest[at:]...)
+	return out, at + 1, nil
+}
+
 func (s *Server) writableOK(w http.ResponseWriter, r *http.Request) bool {
 	if !s.cfg.Writable {
 		writeJSON(w, http.StatusForbidden, map[string]any{"error": "read-only: start zortex serve with -writable to edit notes"})
@@ -288,8 +425,9 @@ func (s *Server) writableOK(w http.ResponseWriter, r *http.Request) bool {
 // afterWrite makes the change visible right away and rebuilds links and
 // search in the background.
 func (s *Server) afterWrite() {
-	s.ix.Scan()
+	_, rels := s.ix.ScanChanges()
 	go s.rebuild(s.scanResources())
+	s.notesChanged(rels)
 }
 
 // noteState: what the page needs to redraw a note after an edit.
@@ -298,7 +436,23 @@ func (s *Server) noteState(rel string) map[string]any {
 	if doc == nil {
 		return map[string]any{}
 	}
-	return map[string]any{"body": s.renderNote(doc), "src": s.lineSources(doc.Lines)}
+	out := map[string]any{"body": s.renderNote(doc), "mod": doc.ModTime.UnixNano()}
+	if s.cfg.Writable {
+		out["src"] = s.lineSources(doc.Lines)
+	}
+	return out
+}
+
+// apiNote: GET /api/note?rel= -> {body, mod, src?}: an open page redraws a
+// note that changed (see /api/events).
+func (s *Server) apiNote(w http.ResponseWriter, r *http.Request) {
+	rel := r.URL.Query().Get("rel")
+	if s.ix.Doc(rel) == nil {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "no such note"})
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, s.noteState(rel))
 }
 
 // lineSource is what the editor needs per line: the text as written and

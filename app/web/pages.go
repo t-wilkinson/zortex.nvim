@@ -25,6 +25,7 @@ var pageNames = []string{"home", "note", "search", "results", "link", "files", "
 func (s *Server) parseTemplates() error {
 	funcs := template.FuncMap{
 		"u":       s.url,
+		"asset":   s.assetURL,
 		"noteURL": s.noteURL,
 		"fileURL": s.fileURL,
 		"rawURL":  s.rawURL,
@@ -269,6 +270,7 @@ func (s *Server) renderNotePage(w http.ResponseWriter, r *http.Request, rel, nav
 		"Backlinks": groups,
 		"BackCount": len(s.current().backlinks[rel]),
 		"ModTime":   doc.ModTime,
+		"Mod":       doc.ModTime.UnixNano(),
 		"Raw":       s.rawURL(rel),
 		"Folder":    s.fileURL(path.Dir(rel)),
 		"Structure": side,
@@ -400,7 +402,7 @@ func (s *Server) handleTag(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 	for _, t := range s.current().tags {
 		if strings.EqualFold(t.Name, name) {
-			s.render(w, r, "tag", http.StatusOK, map[string]any{"Title": "@" + t.Name, "Tag": t})
+			s.render(w, r, "tag", http.StatusOK, map[string]any{"Title": "@" + t.Name, "Tag": t, "Targets": s.tagTargets(t.Name)})
 			return
 		}
 	}

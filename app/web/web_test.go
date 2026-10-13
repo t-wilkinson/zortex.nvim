@@ -213,7 +213,7 @@ func TestNav(t *testing.T) {
 
 func TestBasePath(t *testing.T) {
 	_, _, ts := newTestServer(t, "/notes/")
-	expect(t, ts, "/notes/n/links.zortex", 200, `href="/notes/n/projects.zortex#L14"`, `href="/notes/static/style.css"`)
+	expect(t, ts, "/notes/n/links.zortex", 200, `href="/notes/n/projects.zortex#L14"`, `href="/notes/static/style.css?v=`)
 	if code, _, _ := get(t, ts, "/n/links.zortex"); code != 404 {
 		t.Error("served outside the base path")
 	}
@@ -348,4 +348,28 @@ func TestFileSorting(t *testing.T) {
 		`href="/f/z?sort=modified&amp;order=desc"`)
 	// the root keeps ?all=1 when sorting, and the all toggle keeps the sort
 	expect(t, ts, "/f/?all=1&sort=modified", 200, `href="/f/?all=1&amp;order=asc&amp;sort=modified"`, `href="/f/?order=desc&amp;sort=modified">Only the main notes`)
+}
+
+func TestAreaAttributeTag(t *testing.T) {
+	s, dir, ts := newTestServer(t, "")
+	os.WriteFile(filepath.Join(dir, "z/bike.zortex"), []byte("@@Bike\n@P\n@area(4.1, 1.2/Fitness)\n\n- [ ] tune\n"), 0o644)
+	s.Refresh()
+	body := expect(t, ts, "/tag/area(4.1,%201.2%2FFitness)", 200, "[A/#4.1]", "[A/#1.2/:Fitness]", "4.1 Education")
+	if strings.Contains(body, "Resolve [@area") {
+		t.Error("area attribute offered as a tag link")
+	}
+	expect(t, ts, "/tag/P", 200, "Resolve [@P]")
+
+	cases := map[string][]string{
+		"3.2":         {"Areas/#3.2"},
+		"1.2/Fitness": {"Areas/#1.2/:Fitness"},
+		"#1/:x":       {"Areas/#1/:x"},
+		"a/b/c":       {"Areas/a/b/c"},
+		"1, 2 ,":      {"Areas/#1", "Areas/#2"},
+	}
+	for in, want := range cases {
+		if got := areaDefinitions(in); strings.Join(got, "|") != strings.Join(want, "|") {
+			t.Errorf("areaDefinitions(%q) = %v, want %v", in, got, want)
+		}
+	}
 }

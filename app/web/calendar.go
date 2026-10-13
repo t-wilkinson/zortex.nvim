@@ -35,7 +35,10 @@ func (s *Server) openState() error {
 	if err != nil {
 		return fmt.Errorf("pomodoro: %w", err)
 	}
-	clock.Notify = s.announcePomodoro
+	clock.Notify = func(e pomodoro.Event) {
+		s.events.publish("pomodoro", map[string]any{"event": e.Kind})
+		s.announcePomodoro(e)
+	}
 	s.pomo = clock
 	return nil
 }

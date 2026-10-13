@@ -234,26 +234,44 @@ func (ix *Index) load(rel string, prev *cached) *cached {
 // the index is in scanned mode (see Index). It reports whether any note was
 // added, changed or removed.
 func (ix *Index) Scan() bool {
+	changed, _ := ix.ScanChanges()
+	return changed
+}
+
+// ScanChanges is Scan, also naming the notes that were added, changed or
+// removed (none on the first scan, which reports changed).
+func (ix *Index) ScanChanges() (bool, []string) {
 	list := ix.walk()
 	ix.mu.Lock()
 	prev, wasScanned := ix.docs, ix.scanned
 	ix.mu.Unlock()
 
 	docs := make(map[string]*cached, len(list))
-	changed := !wasScanned || len(prev) != len(list)
+	changed := !wasScanned
+	var rels []string
 	kept := list[:0:0]
 	for _, rel := range list {
 		old := prev[rel]
 		c := ix.load(rel, old)
 		if c == nil {
-			changed = true
 			continue
 		}
 		if c != old {
 			changed = true
+			if wasScanned {
+				rels = append(rels, rel)
+			}
 		}
 		docs[rel] = c
 		kept = append(kept, rel)
+	}
+	if wasScanned {
+		for rel := range prev {
+			if docs[rel] == nil {
+				changed = true
+				rels = append(rels, rel)
+			}
+		}
 	}
 	ix.mu.Lock()
 	ix.docs, ix.list, ix.scanned = docs, kept, true
@@ -261,7 +279,7 @@ func (ix *Index) Scan() bool {
 		ix.catalog = nil
 	}
 	ix.mu.Unlock()
-	return changed
+	return changed, rels
 }
 
 // =============================================================================

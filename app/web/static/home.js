@@ -203,13 +203,45 @@
     $("pomo-next").textContent = pomo.running ? hhmm(new Date(Date.parse(pomo.ends_at))) + " · " +
       (phase === "work" ? (done + 1 >= n ? "long break" : "short break") : "back to work") :
       paused ? "paused (" + fmt(rem) + " left)" : waiting ? "press Start" : "–";
-    $("pomo-cal").textContent = cal.next ? cal.next.text : "–";
+    renderNow();
     $("pomo-today").textContent = pomo.today + " session" + (pomo.today === 1 ? "" : "s") + (pomo.today ? " " + "🍅".repeat(Math.min(pomo.today, 12)) : "");
     $("pomo-main").textContent = pomo.running ? "Pause" : paused ? "Resume" : waiting ? "Start " + (phase === "work" ? "work" : "break") : "Start";
     $("pomo-skip").disabled = phase === "idle" || (waiting && phase === "work");
     $("pomo-stop").disabled = phase === "idle";
     $("pomo-channel").textContent = pomo.ntfy ? "alerts via ntfy" : "ntfy off: no alerts";
     document.title = (pomo.running ? fmt(rem) + " " + pomo.phase_name + " · " : "") + document.title.replace(/^\d+:\d\d(:\d\d)? [^·]+ · /, "");
+  }
+
+  // the calendar entry "now" falls in (today's last timed entry that has
+  // started and, when it has an end time, hasn't ended), with its links
+  function currentEntry() {
+    var t = new Date(now()), nowMin = t.getHours() * 60 + t.getMinutes();
+    var entries = cal.days[dayKey(t)] || [], cur = null, next = null;
+    entries.forEach(function (e) {
+      var m = minutes(e.time);
+      if (m === null) return;
+      if (m <= nowMin) cur = e;
+      else if (!next) next = e;
+    });
+    if (cur && cur.end) {
+      var end = minutes(cur.end);
+      if (end !== null && end > minutes(cur.time) && nowMin >= end) cur = null;
+    }
+    return { cur: cur, next: next };
+  }
+  var nowShown = "";
+  function renderNow() {
+    var el = $("pomo-cal");
+    if (!el) return;
+    var c = currentEntry(), html;
+    if (c.cur) {
+      html = '<a class="now-time" href="' + esc(c.cur.url) + '">' + esc(c.cur.time) + (c.cur.end ? "–" + esc(c.cur.end) : "") + "</a> " + c.cur.html;
+    } else if (c.next) {
+      html = '<span class="dim">free until</span> <a class="now-time" href="' + esc(c.next.url) + '">' + esc(c.next.time) + "</a> " + c.next.html;
+    } else {
+      html = '<span class="dim">nothing scheduled</span>';
+    }
+    if (html !== nowShown) { el.innerHTML = html; nowShown = html; }
   }
 
   function setPomodoro(st) {
@@ -498,6 +530,15 @@
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden) { loadPomodoro(); loadCalendar(true); loadXP(); }
   });
+  // live updates (live.js): redraw as soon as the server says something changed
+  var notesTimer = null;
+  document.addEventListener("zortex:notes", function () {
+    clearTimeout(notesTimer);
+    notesTimer = setTimeout(function () { loadCalendar(true); loadXP(); }, 250);
+  });
+  document.addEventListener("zortex:xp", loadXP);
+  document.addEventListener("zortex:pomodoro", loadPomodoro);
+  document.addEventListener("zortex:resync", function () { loadPomodoro(); loadCalendar(true); loadXP(); });
 
   loadPomodoro();
   loadCalendar(false);

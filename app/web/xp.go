@@ -121,6 +121,7 @@ func (s *Server) apiXPPost(w http.ResponseWriter, r *http.Request) {
 	s.xp.mu.Lock()
 	s.xp.posted = body
 	s.xp.mu.Unlock()
+	defer s.events.publish("xp", map[string]any{})
 	if s.cfg.DataDir != "" {
 		path := filepath.Join(s.cfg.DataDir, xpFile)
 		tmp := path + ".tmp"

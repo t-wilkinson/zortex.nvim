@@ -214,5 +214,86 @@ func TestCalendarSourcesWhenWritable(t *testing.T) {
 	_ = raw
 	home := expect(t, ts, "/", 200, `id="inbox-form"`)
 	_ = home
-	expect(t, ts, "/n/calendar.zortex", 200, `id="edit-toggle"`, `id="note-src"`, `static/edit.js`)
+	expect(t, ts, "/n/calendar.zortex", 200, `class="edit-toggle head-edit"`, `class="side-edit"`, `id="note-src"`, `static/edit.js`)
+}
+
+func TestMoveBlock(t *testing.T) {
+	note := []string{
+		"@@Car",       // 1
+		"",            // 2
+		"# Parts",     // 3
+		"- [ ] Pads",  // 4
+		"    - front", // 5
+		"",            // 6
+		"    - rear",  // 7
+		"- [ ] Oil",   // 8
+		"Fitness:",    // 9
+		"  - Running", // 10
+		"# Later",     // 11
+		"```",         // 12
+		"code",        // 13
+		"```",         // 14
+	}
+	cases := []struct {
+		name     string
+		from, to int
+		want     []string
+		lnum     int
+		err      string
+	}{
+		{name: "down with sub-items", from: 4, to: 9, lnum: 5,
+			want: []string{"@@Car", "", "# Parts", "- [ ] Oil", "- [ ] Pads", "    - front", "", "    - rear", "Fitness:", "  - Running", "# Later", "```", "code", "```"}},
+		{name: "up, before the first item", from: 8, to: 4, lnum: 4,
+			want: []string{"@@Car", "", "# Parts", "- [ ] Oil", "- [ ] Pads", "    - front", "", "    - rear", "Fitness:", "  - Running", "# Later", "```", "code", "```"}},
+		{name: "into a list nests it", from: 8, to: 10, lnum: 9,
+			want: []string{"@@Car", "", "# Parts", "- [ ] Pads", "    - front", "", "    - rear", "Fitness:", "  - [ ] Oil", "  - Running", "# Later", "```", "code", "```"}},
+		{name: "child out to the top, after a heading", from: 10, to: 12, lnum: 11,
+			want: []string{"@@Car", "", "# Parts", "- [ ] Pads", "    - front", "", "    - rear", "- [ ] Oil", "Fitness:", "# Later", "- Running", "```", "code", "```"}},
+		{name: "to the end", from: 4, to: 15, lnum: 11,
+			want: []string{"@@Car", "", "# Parts", "- [ ] Oil", "Fitness:", "  - Running", "# Later", "```", "code", "```", "- [ ] Pads", "    - front", "", "    - rear"}},
+		{name: "inside itself", from: 4, to: 6, err: "inside itself"},
+		{name: "a heading", from: 3, to: 9, err: "only list items"},
+		{name: "into code", from: 8, to: 13, err: "header, code"},
+		{name: "into the header", from: 8, to: 1, err: "header, code"},
+	}
+	for _, c := range cases {
+		got, lnum, err := moveBlock(note, c.from, c.to)
+		if c.err != "" {
+			if err == nil || !strings.Contains(err.Error(), c.err) {
+				t.Errorf("%s: err %v, want %q", c.name, err, c.err)
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf("%s: %v", c.name, err)
+			continue
+		}
+		if strings.Join(got, "\n") != strings.Join(c.want, "\n") || lnum != c.lnum {
+			t.Errorf("%s: lnum %d (want %d)\n got %q\nwant %q", c.name, lnum, c.lnum, got, c.want)
+		}
+	}
+	if note[3] != "- [ ] Pads" {
+		t.Error("moveBlock changed its input")
+	}
+}
+
+func TestEditMove(t *testing.T) {
+	_, dir, ts := writableServer(t)
+	path := filepath.Join(dir, "flipping.zortex")
+	lines := readLines(t, path)
+	from := lineOf(t, lines, "- row52")
+	to := lineOf(t, lines, "- lkqonline")
+	// a stale target is refused
+	code, _ := postJSON(t, ts.URL, "/api/edit", map[string]any{"rel": "flipping.zortex", "lnum": from, "expect": lines[from-1], "op": "move", "to": to + 1, "expectTo": "not this"})
+	if code != http.StatusConflict {
+		t.Fatalf("stale target: %d", code)
+	}
+	code, out := postJSON(t, ts.URL, "/api/edit", map[string]any{"rel": "flipping.zortex", "lnum": from, "expect": lines[from-1], "op": "move", "to": to + 1, "expectTo": lines[to]})
+	if code != 200 || out["lnum"].(float64) != float64(to) {
+		t.Fatalf("move: %d %v", code, out)
+	}
+	after := readLines(t, path)
+	if after[from-1] != "- lkqonline" || after[to-1] != "- row52" || len(after) != len(lines) {
+		t.Fatalf("moved: %q", after[from-2:to+1])
+	}
 }

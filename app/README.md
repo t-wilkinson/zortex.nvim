@@ -55,7 +55,7 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 | `/link?to=&from=` | resolve a link: one target redirects, several are listed, failures say why |
 | `/f/<path>` | file browser (sort by name (notes by article name) or modified time, either direction: `?sort=modified&order=desc`, kept in folder links; top level: the main notes unless "show all"; hidden folders and Syncthing artefacts never) and viewer: PDF, image, video, audio (with seeking), text, sandboxed HTML/SVG |
 | `/raw/<path>` | the file as is: byte ranges, `?download=1`; HTML/SVG/XML with `Content-Security-Policy: sandbox`; nothing outside the folder, no hidden files |
-| `/tags`, `/tag/<name>` | header tags and their notes |
+| `/tags`, `/tag/<name>` | header tags and their notes; an area attribute in a header (`@area(4.1)`, `@a(1.2/Fitness)`) links to its area (`[A/#4.1]`) |
 | `/resources` | PDFs, books, images, media and documents, and which ones nothing links to (filter by unlinked/linked, type, folder); file pages show their own "Linked from", folder listings count links and unlinked files |
 | `/broken` | links that don't resolve (notes and files) |
 | `/api/search?q=`, `/api/resolve?to=&from=`, `/api/backlinks?rel=`, `/api/resources?show=unlinked&kind=&dir=`, `/api/structure` | JSON |
@@ -64,7 +64,7 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 Flags (each also an environment variable): `-dir` (`ZORTEX_NOTES_DIR`),
 `-addr` (`ZORTEX_ADDR`, default `127.0.0.1:8090`), `-base` (`ZORTEX_BASE`:
 the URL prefix when a proxy serves it below `/`, e.g. `/notes`), `-title`
-(`ZORTEX_TITLE`), `-poll` (`ZORTEX_POLL`, default `10s`), `-special`
+(`ZORTEX_TITLE`), `-poll` (`ZORTEX_POLL`, default `3s`), `-special`
 (`ZORTEX_SPECIAL`, default `calendar,structure,projects,areas,okr`),
 `-resources` (`ZORTEX_RESOURCES`: extensions tracked as resources; NixOS:
 `web.resourceExtensions`).
@@ -91,10 +91,11 @@ There is no login: bind to localhost and put a proxy with authentication in
 front.
 
 **Editing (`-writable`, `ZORTEX_WRITABLE=1`; NixOS `web.writable`).** Note
-pages get clickable checkboxes and an Edit mode (tap a line: To-do · Done ·
-Plain · Edit text · Add below · Delete); the home page checks off calendar
-tasks and adds tasks and notes to `inbox.zortex`. Edits are single lines,
-refused when the note changed since the page loaded, and written
+pages get clickable checkboxes and an Edit mode (the button sits above the
+outline on wide screens; tap a line: To-do · Done · Plain · Edit text · Add
+below · Move up/down · Delete; drag a line's ⠿ handle to move it, with the
+lines indented under it); the home page checks off calendar tasks and adds
+tasks and notes to `inbox.zortex`. Edits are line-level, refused when the note changed since the page loaded, and written
 atomically (through a `.syncthing.*.tmp` file Syncthing ignores). Task
 edits match Neovim's exactly: `app/edit` is tested against
 `tests/fixtures/edits.json`, which `tests/gen_edits.lua` writes from the
@@ -102,6 +103,13 @@ plugin's `tasks.edit_line`. XP isn't computed on the server: Neovim counts
 completed tasks from their `@done` dates when it next runs (it reloads
 changed notes on focus), and until then the home page shows how many web
 completions are waiting.
+
+**Live updates.** Open pages listen on `/api/events`: a note page redraws
+its note when the file changes (an edit in another tab, a note synced from
+Neovim), the home page its calendar, XP and pomodoro. Changes made through
+Syncthing show up after Syncthing has synced the file (its folder watcher
+waits 10 s by default: lower `fsWatcherDelayS` for faster updates) and
+the server's next rescan (`-poll`, 3 s).
 
 State flags (with `-data`): `-data` (`ZORTEX_DATA_DIR`, or systemd's
 `STATE_DIRECTORY`), `-ntfy-url` (`NTFY_SERVER_URL`), `-ntfy-topic`
@@ -152,7 +160,9 @@ the usual systemd hardening.
 | `POST /api/pomodoro/{start,pause,resume,toggle,skip,stop,restart}` | drive the clock |
 | `GET /api/xp` | the XP summary Neovim published (season, daily XP, areas, recent awards), or `{"available": false}` |
 | `POST /api/xp` | Neovim publishes it after every XP change (`X-API-Key` when set); it also writes `.z/xp_summary.json` into the notes folder, and the newer of the two is shown |
-| `POST /api/edit` | `-writable` only: `{rel, lnum, expect, op, text?, kind?}` with `op` `open` / `done` / `toggle` / `text` (task state, exactly as Neovim's toggle: `@done(today)`, an `@id`), `set` (new text after the line's marker; `@id`/`@done` kept), `delete`, `insert` (after `lnum`; `kind` `task` / `note` / `text`). `expect` is the line as the page saw it: if the note changed since, nothing is written and the reply is 409 with the current note |
+| `POST /api/edit` | `-writable` only: `{rel, lnum, expect, op, text?, kind?}` with `op` `open` / `done` / `toggle` / `text` (task state, exactly as Neovim's toggle: `@done(today)`, an `@id`), `set` (new text after the line's marker; `@id`/`@done` kept), `delete`, `insert` (after `lnum`; `kind` `task` / `note` / `text`), `move` (the line and the lines indented under it go before line `to`, `len+1` for the end, re-indented to fit; `expectTo` is that line's text). `expect` is the line as the page saw it: if the note changed since, nothing is written and the reply is 409 with the current note |
+| `GET /api/note?rel=` | a rendered note: `{body, mod, src?}` (`src` with `-writable`) |
+| `GET /api/events` | server-sent events for open pages: `notes` (`{rels}` added, changed or removed; seen on the next rescan, `-poll`), `xp` (a new summary), `pomodoro` (the clock changed). Pages redraw right away; behind nginx the stream needs `proxy_buffering off` (the server also sends `X-Accel-Buffering: no`) |
 | `POST /api/inbox` | `-writable` only: `{text, kind: "task" \| "note"}` appended to `inbox.zortex` (created when missing) |
 | `POST /api/pomodoro/settings` | `{work, short_break, long_break, long_break_after, auto_start_break, auto_start_work}` (minutes; partial updates are fine) |
 

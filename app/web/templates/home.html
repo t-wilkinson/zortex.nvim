@@ -66,7 +66,7 @@
         <dl>
           <dt>Session</dt><dd id="pomo-session">–</dd>
           <dt>Next alarm</dt><dd id="pomo-next">–</dd>
-          <dt>Calendar</dt><dd id="pomo-cal">–</dd>
+          <dt>Now</dt><dd id="pomo-cal" class="pomo-now">–</dd>
           <dt>Today</dt><dd id="pomo-today">0 sessions</dd>
         </dl>
         <div class="pomo-actions">
@@ -158,5 +158,5 @@
   </div>
   <p class="stats dim">{{.Notes}} notes · {{.Links}} links · <a href="{{u "/broken"}}">{{.Broken}} broken</a> · <a href="{{u "/tags"}}">{{.Tags}} tags</a> · <a href="{{u "/resources"}}">{{.Resources}} resources ({{.Unlinked}} unlinked)</a>{{if .Structure.Sources}} · <a href="{{u "/structure"}}">{{.Structure.Linked}}/{{.Structure.Total}} in structure</a>{{end}} · indexed {{ago .Built}}</p>
 </section>
-<script src="{{u "/static/home.js"}}" defer></script>
+<script src="{{asset "/static/home.js"}}" defer></script>
 {{end}}

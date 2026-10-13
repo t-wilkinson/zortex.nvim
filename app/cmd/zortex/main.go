@@ -136,7 +136,7 @@ func serveCmd(args []string) {
 	addr := fs.String("addr", envOr("ZORTEX_ADDR", "127.0.0.1:8090"), "listen address ($ZORTEX_ADDR)")
 	base := fs.String("base", os.Getenv("ZORTEX_BASE"), "URL prefix when proxied below /, e.g. /notes ($ZORTEX_BASE)")
 	title := fs.String("title", envOr("ZORTEX_TITLE", "Zortex"), "site title ($ZORTEX_TITLE)")
-	poll := fs.Duration("poll", 10*time.Second, "how often to rescan the folder (negative: never)")
+	poll := fs.Duration("poll", 3*time.Second, "how often to rescan the folder (negative: never)")
 	special := fs.String("special", envOr("ZORTEX_SPECIAL", strings.Join(web.DefaultSpecial, ",")), "top-level notes listed by default ($ZORTEX_SPECIAL)")
 	resources := fs.String("resources", os.Getenv("ZORTEX_RESOURCES"), "extensions tracked as resources for backlinks and the unlinked list, e.g. pdf,epub,png (default: documents, books, images, media) ($ZORTEX_RESOURCES)")
 	_ = fs.String("calendar", "", "deprecated: the calendar is part of the web app now")

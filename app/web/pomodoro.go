@@ -105,5 +105,6 @@ func (s *Server) apiPomodoroAction(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, status, map[string]any{"error": err.Error(), "state": s.pomodoroView(st)})
 		return
 	}
+	s.events.publish("pomodoro", map[string]any{})
 	writeJSON(w, http.StatusOK, s.pomodoroView(st))
 }

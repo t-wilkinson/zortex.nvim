@@ -13,6 +13,7 @@ package web
 import (
 	"context"
 	"embed"
+	"hash/fnv"
 	"html/template"
 	"io/fs"
 	"log"
@@ -20,6 +21,7 @@ import (
 	"path"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -45,7 +47,7 @@ type Config struct {
 	Ext     string        // note extension (default ".zortex")
 	Title   string        // site title (default "Zortex")
 	Base    string        // URL path prefix when served below "/", e.g. "/notes"
-	Poll    time.Duration // rescan interval (default 10s; <0: never)
+	Poll    time.Duration // rescan interval (default 3s; <0: never)
 	Special []string      // top-level notes shown in the file browser root and on the home page
 	// DataDir holds the server's own state: scheduled notifications and the
 	// pomodoro clock. Empty: read-only mode (no /notify, no pomodoro).
@@ -93,6 +95,11 @@ type Server struct {
 
 	editMu      sync.Mutex    // one edit at a time
 	completions completionLog // tasks completed on the web, until Neovim counts them
+
+	events        eventHub // live updates for open pages (/api/events)
+	xpFileMu      sync.Mutex
+	xpFileSeen    time.Time // mtime of .z/xp_summary.json at the last rescan
+	xpFileChecked bool
 }
 
 // Backlink is a link in one note (or Markdown file) to a line of another
@@ -151,7 +158,7 @@ func New(cfg Config) (*Server, error) {
 		cfg.Title = "Zortex"
 	}
 	if cfg.Poll == 0 {
-		cfg.Poll = 10 * time.Second
+		cfg.Poll = 3 * time.Second
 	}
 	if cfg.Special == nil {
 		cfg.Special = DefaultSpecial
@@ -203,6 +210,10 @@ func New(cfg Config) (*Server, error) {
 // Run rescans the folder every Config.Poll and sends due notifications
 // until ctx is done.
 func (s *Server) Run(ctx context.Context) {
+	go func() {
+		<-ctx.Done()
+		s.events.close()
+	}()
 	if s.sender != nil {
 		go s.sender.Run(ctx)
 	}
@@ -231,11 +242,13 @@ func (s *Server) Run(ctx context.Context) {
 // Refresh rescans the folder now and rebuilds when a note, resource or
 // Markdown file changed.
 func (s *Server) Refresh() {
-	notesChanged := s.ix.Scan()
+	notesChanged, rels := s.ix.ScanChanges()
 	res, linking, fp := s.scanResources()
 	if notesChanged || fp != s.current().fingerprint {
 		s.rebuild(res, linking, fp)
 	}
+	s.notesChanged(rels)
+	s.checkXPFile()
 }
 
 func (s *Server) rebuild(res []resource, linking []string, fingerprint uint64) {
@@ -377,6 +390,9 @@ func (s *Server) Handler() http.Handler {
 	// editing notes (-writable)
 	mux.HandleFunc("POST /api/edit", s.apiEdit)
 	mux.HandleFunc("POST /api/inbox", s.apiInbox)
+	mux.HandleFunc("GET /api/note", s.apiNote)
+	// live updates
+	mux.HandleFunc("GET /api/events", s.apiEvents)
 	mux.Handle("GET /static/", s.cacheStatic(s.static))
 	var h http.Handler = mux
 	if base := s.cfg.Base; base != "" {
@@ -406,6 +422,25 @@ func securityHeaders(h http.Handler) http.Handler {
 		h.ServeHTTP(w, r)
 	})
 }
+
+// staticVersion changes with the embedded static files, so a new build's
+// pages never run an hour-old cached script or stylesheet.
+var staticVersion = func() string {
+	h := fnv.New64a()
+	_ = fs.WalkDir(staticFS, "static", func(p string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() {
+			if raw, err := staticFS.ReadFile(p); err == nil {
+				h.Write([]byte(p))
+				h.Write(raw)
+			}
+		}
+		return nil
+	})
+	return strconv.FormatUint(h.Sum64(), 36)
+}()
+
+// assetURL: a static file's URL, versioned.
+func (s *Server) assetURL(p string) string { return s.url(p) + "?v=" + staticVersion }
 
 func (s *Server) cacheStatic(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

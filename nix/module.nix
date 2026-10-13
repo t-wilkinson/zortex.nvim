@@ -193,7 +193,7 @@ in
 
       pollInterval = mkOption {
         type = types.str;
-        default = "10s";
+        default = "3s";
         example = "1m";
         description = ''
           How often to rescan notesDir (a Go duration). A rescan only

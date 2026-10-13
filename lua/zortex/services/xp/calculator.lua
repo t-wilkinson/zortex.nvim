@@ -1,9 +1,11 @@
 -- services/xp/calculator.lua - XP formulas (pure: no state, no files)
 --
--- How much a task, a project and an objective are worth, how a project's
--- pool is paid out over its tasks (the initiation / execution / completion
--- curve), and how an award is shared between areas. services/xp/ledger
--- applies these to the notes.
+-- XP is estimated effort: @size -> hours (xp.sizes) x xp.xp_per_hour x
+-- priority x importance. This module says how much a task, a project and an
+-- objective are worth, how a project's pool is paid out over its tasks (the
+-- initiation / execution / completion curve), and how an award's Mastery
+-- share is split between areas. services/xp/ledger applies it to the notes;
+-- :ZortexXPGuide shows the numbers.
 local M = {}
 
 local constants = require("zortex.constants")
@@ -19,17 +21,17 @@ function M.config()
 end
 
 -- Config.xp until setup() hands it over (the projects API can run first)
-local function sources()
-	if cfg.sources then
-		return cfg.sources
+local function conf()
+	if next(cfg) ~= nil then
+		return cfg
 	end
 	local Config = require("zortex.config")
-	local xp = Config.xp or (Config.defaults or {}).xp
-	return type(xp) == "table" and xp.sources or {}
+	return Config.xp or (Config.defaults or {}).xp or {}
 end
+M.conf = conf
 
-local function source(name)
-	return sources()[name] or {}
+local function sizes(kind)
+	return (conf().sizes or {})[kind] or {}
 end
 
 -- =============================================================================
@@ -42,72 +44,92 @@ local function multiplier(map, key)
 end
 
 function M.get_priority_multiplier(priority)
-	return multiplier((cfg.modifiers or {}).priority_multipliers, priority)
+	return multiplier((conf().modifiers or {}).priority_multipliers, priority)
 end
 
 function M.get_importance_multiplier(importance)
-	return multiplier((cfg.modifiers or {}).importance_multipliers, importance)
+	return multiplier((conf().modifiers or {}).importance_multipliers, importance)
 end
 
--- Size multiplier from xp.sources.<kind>.sizes (a number or { multiplier }).
--- No size: 1. A size the config doesn't list: 1 as well.
-local function size_multiplier(kind, size)
-	if not size then
-		return 1
+--- Priority x importance of an attribute table.
+function M.modifier(attrs)
+	local m = 1
+	if attrs then
+		if attrs.p then
+			m = m * M.get_priority_multiplier(attrs.p)
+		end
+		if attrs.i then
+			m = m * M.get_importance_multiplier(attrs.i)
+		end
 	end
-	local entry = (source(kind).sizes or {})[size]
-	if type(entry) == "table" then
-		return entry.multiplier or 1
-	elseif type(entry) == "number" then
-		return entry
-	end
-	return 1
-end
-M.size_multiplier = size_multiplier
-
---- Effort points, in md-task units (xp.sources.task.sizes): what a task's
---- size weighs in project and key-result progress. Unsized tasks are md.
-function M.task_points(size)
-	return size_multiplier("task", size or constants.DEFAULT_TASK_SIZE)
-end
-
---- An explicit project @size in the same units: the project's XP for that
---- size over a md task's (70 × 1.5 / 10 = 10.5 points for @size(lg)), or
---- nil when the config doesn't list the size.
-function M.project_points(size)
-	local entry = size and (source("project").sizes or {})[size]
-	if entry == nil then
-		return nil
-	end
-	local task_base = source("task").base_xp or 10
-	return (source("project").base_xp or 70) * size_multiplier("project", size) / task_base
+	return m
 end
 
 local function apply_modifiers(xp, attrs)
-	if attrs then
-		if attrs.p then
-			xp = xp * M.get_priority_multiplier(attrs.p)
-		end
-		if attrs.i then
-			xp = xp * M.get_importance_multiplier(attrs.i)
-		end
+	return xp * M.modifier(attrs)
+end
+
+function M.xp_per_hour()
+	return conf().xp_per_hour or 10
+end
+
+-- =============================================================================
+-- Effort: @size -> estimated hours
+-- =============================================================================
+
+--- Hours a @size stands for (kind: "task", "project", "objective"); nil when
+--- the config doesn't list the size.
+function M.hours(kind, size)
+	if not size then
+		return nil
 	end
-	return xp
+	local h = sizes(kind)[size]
+	if type(h) == "table" then -- { hours = n }
+		h = h.hours
+	end
+	return tonumber(h)
+end
+
+--- Effort points of a task, in hours: its @size (unsized and unknown sizes
+--- count as md). They weigh project and key-result progress.
+function M.task_points(size)
+	return M.hours("task", size) or M.hours("task", constants.DEFAULT_TASK_SIZE) or 1
+end
+
+--- An explicit project @size in hours, or nil (the project is then the sum
+--- of its tasks).
+function M.project_points(size)
+	return M.hours("project", size)
+end
+
+--- How an award's Mastery share is scaled: "key_result", "project_area",
+--- "task_area" (anything else: 0).
+function M.alignment(kind)
+	local a = conf().alignment or {}
+	local defaults = { key_result = 1.0, project_area = 0.2, task_area = 0.1 }
+	local v = a[kind]
+	if v == nil then
+		v = defaults[kind]
+	end
+	return v or 0
+end
+
+function M.completion_bonus()
+	return conf().completion_bonus or 0.2
 end
 
 -- =============================================================================
 -- Tasks, projects, objectives
 -- =============================================================================
 
---- XP of a task: base_xp × size × priority × importance.
+--- XP of a task: its hours x XP per hour x priority x importance.
 function M.calculate_task_xp(task)
 	local attrs = task.attributes or {}
-	local xp = (source("task").base_xp or 10) * size_multiplier("task", attrs.size)
-	return apply_modifiers(xp, attrs)
+	return apply_modifiers(M.task_points(attrs.size) * M.xp_per_hour(), attrs)
 end
 
---- A project's whole pool: @xp(n) if given; else base_xp × @size(...) ×
---- priority × importance; else the sum of its tasks' XP.
+--- A project's whole pool: @xp(n) if given; else its @size in hours x XP
+--- per hour x priority x importance; else the sum of its tasks' XP.
 ---@param project table { attributes = {...} }
 ---@param tasks table[] the project's tasks
 function M.calculate_project_total_xp(project, tasks)
@@ -115,8 +137,9 @@ function M.calculate_project_total_xp(project, tasks)
 	if tonumber(attrs.xp) then
 		return tonumber(attrs.xp)
 	end
-	if attrs.size and (source("project").sizes or {})[attrs.size] then
-		return math.floor(apply_modifiers((source("project").base_xp or 70) * size_multiplier("project", attrs.size), attrs))
+	local h = M.project_points(attrs.size)
+	if h then
+		return apply_modifiers(h * M.xp_per_hour(), attrs)
 	end
 	local total = 0
 	for _, task in ipairs(tasks or (project.tasks and project:tasks()) or {}) do
@@ -125,53 +148,65 @@ function M.calculate_project_total_xp(project, tasks)
 	return total
 end
 
--- Objective time span ("3M", "1Y", "Q") -> a key of sources.objective.sizes
-local function span_key(span)
-	local sizes = source("objective").sizes or {}
-	if not span then
-		return nil
+--- Estimated hours of an objective and where they come from: its @size; else
+--- the projects its key results link (their @size, or their tasks); else md.
+---@return number hours, string how ("size", "projects", "default")
+function M.objective_hours(objective)
+	local attrs = objective.attributes or {}
+	local h = M.hours("objective", attrs.size)
+	if h then
+		return h, "size"
 	end
-	if sizes[span] then
-		return span
+	local total, seen = 0, {}
+	for _, kr in ipairs(objective.key_results or {}) do
+		local ok, projects = pcall(function()
+			return kr:project_list()
+		end)
+		for _, p in ipairs(ok and projects or {}) do
+			if not seen[p.key] then
+				seen[p.key] = true
+				local ok_p, ph = pcall(function()
+					return p:points()
+				end)
+				ph = ok_p and tonumber(ph) or 0
+				total = total + ph
+			end
+		end
 	end
-	local n, unit = tostring(span):upper():match("^(%d*)([MQY])$")
-	if not unit then
-		return nil
+	if total > 0 then
+		return total, "projects"
 	end
-	local months = (tonumber(n) or 1) * ({ M = 1, Q = 3, Y = 12 })[unit]
-	if months <= 1 then
-		return "M"
-	elseif months <= 3 then
-		return "Q"
-	elseif months <= 12 then
-		return "Y"
-	elseif months <= 60 then
-		return "5Y"
-	end
-	return "10Y"
+	return M.hours("objective", "md") or 30, "default"
 end
 
---- XP of a completed objective: base_xp × time span (3M ~ Q, 1Y, 5Y, ...) ×
---- priority × importance; @xp(n) overrides.
-function M.calculate_objective_xp(objective)
+--- An objective's value: @xp(n), else its hours x XP per hour x priority x
+--- importance. It weighs the objective in the season and sets the bonuses.
+function M.objective_value(objective)
 	local attrs = objective.attributes or {}
 	if tonumber(attrs.xp) then
 		return tonumber(attrs.xp)
 	end
-	local key = span_key(objective.span)
-	return apply_modifiers((source("objective").base_xp or 20) * size_multiplier("objective", key), attrs)
+	return apply_modifiers(M.objective_hours(objective) * M.xp_per_hour(), attrs)
 end
-M.span_key = span_key
 
---- A key result reached (its projects done, or checked): base_xp ×
---- the objective's priority × importance (@xp on the KR line wins).
+--- Completing an objective (@done): the completion bonus of its value.
+function M.calculate_objective_xp(objective)
+	return M.objective_value(objective) * M.completion_bonus()
+end
+
+--- A key result reached: the completion bonus of its objective's value,
+--- split over the objective's key results (@xp on the KR line wins).
 function M.calculate_key_result_xp(kr)
 	local line_attrs = kr.attributes or {}
 	if tonumber(line_attrs.xp) then
 		return tonumber(line_attrs.xp)
 	end
 	local o = kr.objective
-	return apply_modifiers(source("key_result").base_xp or 30, o and o.attributes or nil)
+	if not o then
+		return 0
+	end
+	local n = math.max(1, #(o.key_results or {}))
+	return M.objective_value(o) * M.completion_bonus() / n
 end
 
 -- =============================================================================
@@ -333,23 +368,6 @@ function M.area_shares(xp, area_keys, share)
 		out[key] = (out[key] or 0) + parts[i]
 	end
 	return out
-end
-
--- Configured fractions (with the defaults the old pipeline hard-coded)
-function M.area_share(kind, via_key_result)
-	local src = source(kind)
-	if via_key_result then
-		return src.key_result or 1.0
-	end
-	return src.area or ((kind == "objective" or kind == "key_result") and 1.0 or 0.2)
-end
-
-function M.season_share(kind)
-	local src = source(kind)
-	if src.season ~= nil then
-		return src.season
-	end
-	return kind == "objective" and 0 or 1.0
 end
 
 return M

@@ -64,64 +64,43 @@ local function render_season_section(lines, highlights)
 	local status = xp_stats.season_status()
 
 	table.insert(lines, "")
-	table.insert(lines, "━━━ SEASON PROGRESS ━━━")
+	table.insert(lines, "━━━ SEASON ━━━")
 	table.insert(lines, "")
 
 	if not status then
-		table.insert(lines, "No active season. Use :ZortexSeasonStart to begin!")
+		table.insert(lines, "No season (xp.season.follow_quarter is off). :ZortexSeasonStart begins one.")
 		return
 	end
 
-	-- Season info
-	table.insert(lines, string.format("Season: %s", status.season.name))
-	table.insert(lines, string.format("Period: %s to %s", status.season.start_date, status.season.end_date))
+	table.insert(lines, string.format("%s · %s to %s", status.season.name, status.season.start_date, status.season.end_date or "?"))
 	table.insert(lines, "")
+	table.insert(lines, string.format("%s · %.0f%% of the season's objectives", status.tier and status.tier.name or "No tier yet", status.progress * 100))
 
-	-- Current tier and level
-	local tier_text = status.current_tier and status.current_tier.name or "None"
-	table.insert(lines, string.format("Level %d │ %s Tier", status.level, tier_text))
-
-	-- XP and progress
-	table.insert(lines, string.format("XP: %s", format_xp(status.xp)))
-
-	-- Progress bar to next level
-	local bar = create_progress_bar(status.progress_to_next, 30)
-	table.insert(lines, bar .. string.format(" %.0f%%", status.progress_to_next * 100))
-
-	-- Highlight progress bar
+	local bar = create_progress_bar(math.min(1, status.progress), 30)
+	table.insert(lines, bar .. string.format(" %.0f%%", status.progress * 100))
 	table.insert(highlights, {
 		line = #lines - 1,
 		col_start = 0,
-		col_end = 30,
+		col_end = #bar,
 		group = constants.HIGHLIGHTS.PROGRESS_BAR,
 	})
 
-	-- Next tier info
 	if status.next_tier then
-		table.insert(lines, "")
-		table.insert(
-			lines,
-			string.format("Next: %s Tier (Level %d)", status.next_tier.name, status.next_tier.required_level)
-		)
+		table.insert(lines, string.format("Next: %s at %.0f%%", status.next_tier.name, status.next_tier.at * 100))
 	else
-		table.insert(lines, "")
-		table.insert(lines, "MAX TIER REACHED! 🏆")
-	end
-
-	-- Project stats
-	local active_projects = 0
-	local completed_projects = 0
-
-	for _, project in ipairs(projects.all({ include_roots = false })) do
-		if project:is_done() then
-			completed_projects = completed_projects + 1
-		elseif project:stats().done > 0 then
-			active_projects = active_projects + 1
-		end
+		table.insert(lines, "Every objective done 🏆")
 	end
 
 	table.insert(lines, "")
-	table.insert(lines, string.format("Projects: %d active, %d completed", active_projects, completed_projects))
+	if #status.objectives == 0 then
+		table.insert(lines, "No objectives in this season: add one to okr.zortex (## 3M-YYYY-Qn Title @size(md) @a(...)).")
+	end
+	for _, x in ipairs(status.objectives) do
+		table.insert(
+			lines,
+			string.format("%3.0f%%  %s  (%.0f%% of the season)", x.progress * 100, x.objective.title or x.objective.name, x.share * 100)
+		)
+	end
 end
 
 -- =============================================================================

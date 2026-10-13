@@ -17,10 +17,14 @@ The first release for people other than the author.
   links from a persistent link index.
 - Projects, areas, objectives and key results as entities with progress,
   a weekly review, a day planner, a calendar view with iCal import/export.
-- XP and seasons read off completed tasks; a skill tree. Mastery (area XP)
-  follows the plan: work on a project a key result links goes to the
-  objective's areas first; a key result reached is an award of its own;
-  with no season started by hand, the season is the calendar quarter.
+- XP read off completed tasks, calibrated in hours: `@size` is estimated
+  time (`xp.sizes`), 10 XP an hour. Mastery (area XP) follows the plan: work
+  on a project a key result links counts in full, to the objective's areas
+  first; key results reached and objectives done add a completion bonus.
+  `:ZortexXPGuide` shows the calibration from your config.
+- Seasons are progress on their objectives (weighted by objective XP), with
+  tiers at 25/50/70/85/100%; with no season started by hand, the season is
+  the calendar quarter. A skill tree shows both.
 - The day planner ranks key-result work first, the further behind schedule
   the higher; a daily review (`:ZortexReview day`) next to the weekly one,
   both opening with objectives, XP on key results and time spent.
@@ -38,7 +42,7 @@ The first release for people other than the author.
 - Rendered notes, search, file browser, tags, broken links, the notes not
   linked from Structure; live updates while you edit elsewhere.
 - Home page: today's calendar, the pomodoro (shared with Neovim), timers,
-  alarms and a stopwatch, time tracking on tasks (`@spent`), season XP.
+  alarms and a stopwatch, time tracking on tasks (`@spent`), the season's objectives and Mastery XP.
 - Calendar notifications, pomodoro changes, timers and alarms through ntfy.
 - `-writable`: check off tasks, edit, add, move and delete lines, add to the
   inbox, from any browser.
@@ -58,8 +62,16 @@ The first release for people other than the author.
   `ui = { highlights = { preset = "rose-pine" } }`.
 - **Calendar icons** are plain Unicode; the Nerd Font set is in a comment in
   `config.lua` (`ui.calendar.icons`). `ui.calendar.icon_width` is gone.
-- **Size points** (project and key-result progress) come from
-  `xp.sources.task.sizes` (md = 1); `constants.SIZE_POINTS` is gone.
+- **XP configuration**: `xp.sources` is replaced by `xp.xp_per_hour`,
+  `xp.sizes.task|project|objective` (hours per `@size`), `xp.alignment` and
+  `xp.completion_bonus`; `constants.SIZE_POINTS` is gone. Effort points
+  (project and key-result progress) are the task hours (md = 1).
+- **Seasons** have no levels: `xp.season.tiers` are `{ name, at }` with `at`
+  a share of the season's objectives (was `required_level`), and
+  `xp.season.level_curve` is gone. Past seasons keep their final XP and level
+  in the history. The area curve is recalibrated to hours
+  (`xp.area.level_curve = { base = 316, exponent = 2.5 }`: level 10 is about
+  10,000 hours).
 - **Removed:** the AWS/SES providers and the digest email
   (`:ZortexDigestSend`, `:ZortexDigestPreview`), Neovim's timers and alarms
   (`:ZortexTimerStart`, `:ZortexAlarm`, ... — they are on the web home page

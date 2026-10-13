@@ -50,32 +50,60 @@ is gone is 30% behind.
 
 ## XP
 
-Two tracks, one source of truth:
+XP is **estimated work**: `@size` says how long something takes, in hours
+(`xp.sizes`), and an hour is worth 10 XP (`xp.xp_per_hour`). Priority
+(`@p1` ×1.5, `@p2` ×1.2) and importance (`@i1`, `@i2`) multiply it. One scale
+for everything:
 
-1. **Mastery** (areas): long-term growth. Each area is a skill that levels
-   up over years on a steep curve (`1000 × level^2.5`). An area's total is its
-   own XP plus `area.bubble` (75%) of each sub-area's.
-2. **Seasons**: short-term momentum. A season is a date window; the XP
-   earned inside it levels you through tiers on a gentle curve
-   (`100 × level^1.2`). With no season started by hand, the season is the
-   calendar quarter, the same window as `3M-YYYY-Qn` objectives.
+| `@size` | task | project | objective |
+|---|---|---|---|
+| xs | 15m | 2h | 5h |
+| sm | 30m | 6h | 10h |
+| md | 1h | 12h | 30h |
+| lg | 2h | 20h | 60h |
+| xl | 3h | 40h | 120h |
+| larger | 2xl 5h … 5xl 20h | epic 160h, legendary 480h, mythic 1,000h, ultimate 2,500h | |
 
-Every award counts for both at once: a **season share** (all work, at full
-value) and a **Mastery share** that depends on how the work serves the plan.
-So seasons measure effort, Mastery measures effort pointed somewhere. Keeping
-the two parallel (rather than converting a season into Mastery when it ends)
-means Mastery moves the day the work is done, and the same notes always give
-the same totals.
+An unsized task counts as md; a project without `@size` is the sum of its
+tasks; an objective without `@size` is the projects its key results link (else
+md). `@xp(n)` sets a project, key result or objective outright. Tracked time
+(`@spent`, from the web clocks) is shown in the reviews but not paid: XP
+rewards finishing what you planned, not hours logged. **`:ZortexXPGuide`
+(`<leader>zxg`) shows these tables from your own config**, and what the task,
+project or objective at the cursor is worth.
+
+Two measures come out of it:
+
+1. **Mastery** (areas): long-term growth. Every award has a Mastery share
+   that depends on how the work serves the plan (`xp.alignment`), split over
+   the areas it is linked to. Each area levels up over years: level `L` at
+   `316 × L^2.5` XP, so level 2 is about 180 hours of aligned work and level
+   10 about 10,000. An area's total is its own XP plus `area.bubble` (75%) of
+   each sub-area's.
+2. **Seasons**: progress on this period's objectives. A season is a date
+   window (by default the calendar quarter, the window of `3M-YYYY-Qn`
+   objectives); its progress is the progress of the objectives in it,
+   weighted by their XP, so a large, important objective moves it more than a
+   small one. Tiers are thresholds on that progress (Bronze 25%, Silver 50%,
+   Gold 70%, Platinum 85%, Complete 100%: every objective done).
+
+So the season measures how far you got with what you planned, and Mastery
+how much work you pointed at your areas, with the most for work on key
+results. Both are read off the same notes and move the day the work is done.
 
 ### Where XP comes from
 
-| source | when | worth | Mastery share |
+| source | when | worth | Mastery |
 |---|---|---|---|
-| **Project task** | a task in a project is checked; dated by its `@done(...)` | the project's pool, paid out over its tasks on the curve below | 100% when a key result links the project (`project.key_result`), else 20% (`project.area`) |
+| **Project task** | a task in a project is checked; dated by its `@done(...)` | the project's pool, paid out over its tasks on the curve below | ×1.0 when a key result links the project (`alignment.key_result`), else ×0.2 when it has an `@a` (`alignment.project_area`) |
 | **Project done** | the project heading is marked `@done(...)` | whatever of the pool the curve hasn't paid yet | as above |
-| **Key result** | its linked projects are all done, or it is checked; dated by its `@done` or the last completion | `key_result.base_xp` (30) × the objective's priority × importance | 100%, to the objective's areas |
-| **Objective** | marked `@done(...)` | `objective.base_xp × time span` (`3M`≈Q, `1Y`, `5Y`…) × priority × importance | 100% to its areas; not counted for seasons |
-| **Task** | a checked task anywhere else (calendar, any note) | `task.base_xp × size × priority × importance` | 10% (`task.area`) to its own `@a(...)` |
+| **Key result** | its linked projects are all done, or it is checked; dated by its `@done` or the last completion | 20% (`completion_bonus`) of its objective's XP, split over the objective's key results | ×1.0, to the objective's areas |
+| **Objective** | marked `@done(...)` | 20% of its XP | ×1.0, to its areas |
+| **Task** | a checked task anywhere else (calendar, any note) | its hours × 10 × priority × importance | ×0.1 (`alignment.task_area`) to its own `@a(...)` |
+
+An md objective (30 hours, 300 XP) finished through its key results earns
+300 for the work, 60 for its key results and 60 when you mark it done: 420
+Mastery XP. The same 30 hours on projects with only an `@a` earn 60.
 
 **Which areas.** An award's Mastery share is split over its areas on
 harmonic weights (1, ½, ⅓, …), first listed first:
@@ -84,8 +112,8 @@ harmonic weights (1, ½, ⅓, …), first listed first:
   project's own (or inherited) `@a`, then the task's;
 - other work: the task's own `@a`, then the project's.
 
-A project's **pool** is `@xp(n)` when given, else `project.base_xp ×
-@size(...)` (× priority × importance), else the sum of its tasks' XP. Tasks
+A project's **pool** is `@xp(n)` when given, else its `@size` in hours × 10
+(× priority × importance), else the sum of its tasks' XP. Tasks
 moved to `z/archive.*` still count under the same project, so archiving never
 takes XP away.
 
@@ -104,14 +132,15 @@ a project re-spreads the same pool over more tasks.
 **Dates.** Toggling a task adds `@done(today)`. A task checked by hand gets
 `@done(today)` when the note is saved, if it was newly checked in that edit
 (`xp.stamp_done_on_save`). Completions without a date count for Mastery but
-not for seasons or the reviews.
+not for the reviews.
 
 ### Read off the notes
 
 Nothing is recorded when you check a task: `services/xp/ledger` rebuilds
 every award from the notes whenever one changes. Unchecking, archiving, or
 editing a note on your phone simply changes the result. Only seasons (their
-names and dates) and the levels last announced are stored. An earlier version
+names and dates, and the final progress and tier of past ones) and the
+levels and tier last announced are stored. An earlier version
 kept a transaction log and running totals; they drifted (double counting,
 XP kept after unchecking, lost completions from other devices), and deriving
 removes that whole class of problems.
@@ -122,40 +151,48 @@ removes that whole class of problems.
 |---|---|
 | `:ZortexPlan` (`<leader>zm`) | plan a day |
 | `:ZortexReview day` / `:ZortexReview` | daily / weekly review |
+| `:ZortexXPGuide` (`<leader>zxg`) | how XP is calibrated: hours per `@size`, Mastery, tiers; and what the line at the cursor is worth |
 | `:ZortexXPStats` (`<leader>zxs`) | season, projects in progress, recent awards, areas |
 | `:ZortexXPExplain` (`<leader>zxe`) | how the project at the cursor earned its XP, award by award |
 | `:ZortexXPAreas` (`<leader>zxa`) | top areas |
-| `:ZortexSkillTree` (`<leader>zk`) | season progress and the area tree |
+| `:ZortexSkillTree` (`<leader>zk`) | the season's objectives and tier, and the area tree |
 | `:ZortexSeasonStart` / `SeasonStatus` / `SeasonEnd` | a season of your own instead of the quarter |
 
-On the web, the home page of `zortex serve` shows the season (level, tier,
-progress), XP per day for two weeks, top areas and recent awards. Neovim
+On the web, the home page of `zortex serve` shows the season (progress,
+tier, its objectives), Mastery XP per day for two weeks, top areas and recent
+awards. Neovim
 publishes that summary after every change (`.z/xp_summary.json`, and
 `POST /api/xp` when `server.enabled`; `xp.publish = false` turns it off). The
 server writes time tracked per day to `.z/time_spent.json`, which the daily
 review reads.
 
 From Lua: `require("zortex").query.xp()` (plain data: season, areas, daily
-XP, recent awards), `require("zortex.services.xp.ledger").get()` (every
+XP, recent awards), `require("zortex.services.xp.season").status()` (the
+season's objectives, progress and tier), `require("zortex.services.xp.ledger").get()` (every
 award, each with `aligned` = `"kr"`, `"area"` or nil),
 `require("zortex.services.agenda").review({ scope = "day" })` (the review's
-data). Events: `xp:awarded`, `xp:removed`, `season:leveled_up`,
+data). Events: `xp:awarded`, `xp:removed` (Mastery), `season:tier_reached`,
 `area:leveled_up`.
 
 ## Configuration
 
-`Config.xp` (see `lua/zortex/config.lua`): `sources.task|project|key_result|objective`
-(`base_xp`, `sizes`, `season`, `area`, `key_result`), `area.level_curve`,
-`area.bubble`, `season.level_curve`, `season.tiers`, `season.follow_quarter`,
+`Config.xp` (see `lua/zortex/config.lua`): `xp_per_hour`,
+`sizes.task|project|objective` (hours per `@size`), `alignment.key_result|project_area|task_area`,
+`completion_bonus`, `area.level_curve`, `area.bubble`, `season.tiers`
+(`{ name, at }`, `at` a share of the season's objectives), `season.follow_quarter`,
 `modifiers.priority_multipliers|importance_multipliers`,
-`stamp_done_on_save`, `notify_min`. The task `sizes` are also the effort
-points that weigh project and key-result progress; a size the config doesn't
-list counts 1. The planner's weights are `require("zortex.services.planner").weights`.
+`stamp_done_on_save`, `notify_min`. The task sizes are also the effort points
+that weigh project and key-result progress; a size the config doesn't list
+counts as md. The planner's weights are `require("zortex.services.planner").weights`.
 
 ## Keeping it honest
 
 The risk of any points system is optimizing for points (Goodhart's law). The
 XP here only follows work you planned, and pays most for work on what you
-said matters this quarter. Use it as a mirror in the reviews, not as a
+said matters this quarter. Inflating a size does raise its XP, but then
+Mastery stops meaning hours of real work, which is the only thing that makes
+it worth reading; the guide's table is there to keep estimates honest and
+comparable. When an estimate turns out wrong, change the size (or set
+`@xp(n)`) and every total follows. Use it as a mirror in the reviews, not as a
 target: the useful number is the share of your week that went to key
 results, not the total.

@@ -251,6 +251,10 @@ XP ~
     How the project at the cursor earned its XP. Keys: <leader>zxe. Id:
     xp_explain.
 
+:ZortexXPGuide                                                *:ZortexXPGuide*
+    How XP is calibrated: hours per @size, Mastery, tiers. Keys: <leader>zxg.
+    Id: xp_guide.
+
 :ZortexSeasonStatus                                      *:ZortexSeasonStatus*
     Current season. Id: season_status.
 
@@ -545,87 +549,77 @@ setup() merges your options over these defaults: >lua
         notify_min = 5, -- announce awards of at least this much XP
         publish = true, -- write .z/xp_summary.json (and POST it to server) for the web app's home page
 
-        sources = {
-          -- A completed task outside projects (calendar, any note)
+        -- One unit for everything: XP is estimated effort. :ZortexXPGuide shows
+        -- the whole table with your settings.
+        xp_per_hour = 10,
+
+        -- @size -> estimated hours. Tasks without a size count as md. A project
+        -- without a size is the sum of its tasks; an objective without one is
+        -- the sum of the projects its key results link (else md). These hours
+        -- are also the effort points that weigh project and key-result progress.
+        sizes = {
           task = {
-            base_xp = 10, -- md task: ~1 hour, 2 pomodoros
-            season = 1.0, -- share counted for the season
-            area = 0.1, -- share to its @a(...) areas
-            -- Size multipliers. They are also the effort points that weigh
-            -- project and key-result progress (an unsized task is md = 1).
-            -- Sizes not listed count 1.
-            sizes = {
-              xs = { multiplier = 0.2 }, -- ~0.5 pomodoros, 5-15 minutes
-              sm = { multiplier = 0.5 },
-              md = { multiplier = 1 }, -- 2 pomodoros, 1 hour
-              lg = { multiplier = 1.5 },
-              xl = { multiplier = 3 }, -- 6 pomodoros, 3 hours
-              ["2xl"] = { multiplier = 4 },
-              ["3xl"] = { multiplier = 7 },
-              ["4xl"] = { multiplier = 11 },
-              ["5xl"] = { multiplier = 18 },
-            },
+            xs = 0.25, -- 15 minutes
+            sm = 0.5,
+            md = 1, -- an hour, 2 pomodoros
+            lg = 2,
+            xl = 3,
+            ["2xl"] = 5,
+            ["3xl"] = 8,
+            ["4xl"] = 13,
+            ["5xl"] = 20,
           },
-
-          -- A project's pool (@xp(n), else base_xp × @size, else the sum of its
-          -- tasks' XP), paid out over its tasks on the initiation / execution /
-          -- completion curve. An explicit @size also sets the project's effort
-          -- points: base_xp × multiplier / task.base_xp (lg = 10.5 md tasks).
           project = {
-            base_xp = 70, -- 7 hours, 14 pomodoros
-            season = 1.0,
-            area = 0.2, -- share to its areas
-            key_result = 1.0, -- share to its areas when a key result links to it
-            sizes = {
-              xs = { multiplier = 0.5 }, -- a couple hours
-              sm = { multiplier = 0.8 }, -- one day
-              md = { multiplier = 1.0 }, -- multi-day effort
-              lg = { multiplier = 1.5 }, -- half a week
-              xl = { multiplier = 2.0 }, -- a solid week of work
-              epic = { multiplier = 3.0 }, -- a month
-              legendary = { multiplier = 5.0 }, -- a quarter
-              mythic = { multiplier = 8.0 }, -- multiple quarters
-              ultimate = { multiplier = 12.0 }, -- multiple years
-            },
+            xs = 2, -- a couple of hours
+            sm = 6, -- a day
+            md = 12, -- a few days
+            lg = 20, -- half a week
+            xl = 40, -- a solid week
+            epic = 160, -- a month
+            legendary = 480, -- a quarter
+            mythic = 1000, -- several quarters
+            ultimate = 2500, -- years
           },
-
-          -- A key result reached: all its linked projects done (or the KR
-          -- checked), dated by the last completion. To the objective's areas.
-          key_result = {
-            base_xp = 30, -- × the objective's priority and importance; @xp(n) on the KR line wins
-            season = 1.0,
-            area = 1.0,
-          },
-
-          -- An objective marked @done: area XP (the long game), by time span
           objective = {
-            base_xp = 20,
-            season = 0, -- objectives don't count for seasons
-            area = 1.0,
-            sizes = { M = 0.5, Q = 1.5, Y = 2.0, ["5Y"] = 3.0, ["10Y"] = 4.0 },
+            xs = 5,
+            sm = 10,
+            md = 30,
+            lg = 60,
+            xl = 120,
           },
         },
 
-        -- Areas: long-term mastery. XP = base * level^exponent
+        -- Mastery (area XP) = XP x how the work serves the plan
+        alignment = {
+          key_result = 1.0, -- a project a key result links (to the objective's areas first)
+          project_area = 0.2, -- a project with its own @a(...), no key result
+          task_area = 0.1, -- a task outside projects with @a(...)
+        },
+
+        -- Reaching a key result pays this share of its objective's XP (split
+        -- over its key results); completing the objective (@done) pays it again
+        completion_bonus = 0.2,
+
+        -- Areas: long-term mastery. Level L at base * L^exponent XP; with 10 XP
+        -- an hour, level 10 is about 10,000 hours
         area = {
-          level_curve = { base = 1000, exponent = 2.5 },
+          level_curve = { base = 316, exponent = 2.5 },
           bubble = 0.75, -- share of a sub-area's XP that also counts for its parent
         },
 
-        -- Seasons: date windows over the same XP (battle pass)
+        -- Seasons: progress on the objectives that fall in the season, weighted
+        -- by their XP (size x priority x importance)
         season = {
-          level_curve = { base = 100, exponent = 1.2 },
           default_length = 90, -- days
           -- No season started by hand (or it ended): the calendar quarter is
           -- the season, the same window as 3M-YYYY-Qn objectives
           follow_quarter = true,
           tiers = {
-            { name = "Bronze", required_level = 1 },
-            { name = "Silver", required_level = 5 },
-            { name = "Gold", required_level = 10 },
-            { name = "Platinum", required_level = 15 },
-            { name = "Diamond", required_level = 20 },
-            { name = "Master", required_level = 30 },
+            { name = "Bronze", at = 0.25 },
+            { name = "Silver", at = 0.50 },
+            { name = "Gold", at = 0.70 },
+            { name = "Platinum", at = 0.85 },
+            { name = "Complete", at = 1.0 },
           },
         },
 

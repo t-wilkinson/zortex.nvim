@@ -209,7 +209,7 @@ func TestXPSummary(t *testing.T) {
 	if !strings.Contains(home, `id="xp" aria-labelledby="xp-title" hidden`) {
 		t.Error("the XP panel starts hidden")
 	}
-	body := `{"version":1,"generated":"2026-10-12T15:00:00Z","season":{"name":"Q4","level":2},"today":36,"daily":[]}`
+	body := `{"version":2,"generated":"2026-10-12T15:00:00Z","season":{"name":"Q4","progress":0.4,"tier":"Bronze"},"today":36,"daily":[]}`
 	if code, _ := post(t, ts, "/api/xp", body, nil); code != 401 {
 		t.Fatalf("no key: %d", code)
 	}

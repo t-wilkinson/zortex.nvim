@@ -21,21 +21,20 @@ function M.end_season()
 	local lines = {
 		string.format("Season '%s' completed!", season_record.name),
 		string.rep("─", 40),
-		string.format("Final Level: %d", season_record.final_level),
-		string.format("Total XP: %d", season_record.final_xp),
-		string.format("Transactions: %d", vim.tbl_count(season_record.xp_transactions or {})),
+		string.format("Objectives: %d%%", math.floor((season_record.final_progress or 0) * 100 + 0.5)),
+		string.format("Tier: %s", season_record.final_tier or "none"),
 	}
 	vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO, { title = "Season Complete!", timeout = 10000 })
 end
 
 function M.init()
-	Events.on("season:leveled_up", function(data)
-		local message = string.format("🏆 Season Level Up!\nLevel %d", data.new_level)
-		if data.tier_info and data.tier_info.current then
-			message = message .. string.format("\nTier: %s", data.tier_info.current.name)
-		end
-		vim.notify(message, vim.log.levels.INFO, { title = "Level Up!", timeout = 5000 })
-	end, { priority = 90, name = "xp_notifications.season_level_up" })
+	Events.on("season:tier_reached", function(data)
+		vim.notify(
+			string.format("🏆 %s: %s (%d%% of the season's objectives)", data.season and data.season.name or "Season", data.tier and data.tier.name or "", math.floor((data.progress or 0) * 100 + 0.5)),
+			vim.log.levels.INFO,
+			{ title = "Season tier", timeout = 5000 }
+		)
+	end, { priority = 90, name = "xp_notifications.season_tier" })
 
 	Events.on("area:leveled_up", function(data)
 		vim.notify(
@@ -49,10 +48,7 @@ function M.init()
 		Logger.info("xp:awarded", "xp", data)
 		local cfg = (require("zortex.config").xp or {}).notify_min or 5
 		if data.amount >= cfg then
-			local season = data.season_amount and data.season_amount > 0 and data.season_amount ~= data.amount
-					and string.format(" (+%d season)", data.season_amount)
-				or ""
-			vim.notify(string.format("✨ +%d XP%s", data.amount, season), vim.log.levels.INFO, { title = "XP Gained", timeout = 3000 })
+			vim.notify(string.format("✨ +%d Mastery XP", data.amount), vim.log.levels.INFO, { title = "XP Gained", timeout = 3000 })
 		end
 	end, { priority = 80, name = "xp_notifications.xp_awarded" })
 end

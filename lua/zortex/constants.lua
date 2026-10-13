@@ -73,10 +73,10 @@ M.SECTION_HIERARCHY = {
 M.PROJECT_TAG = "P"
 M.ARCHIVE_TAG = "Archive"
 
--- Unsized tasks count as this size. What sizes are worth (XP, and the effort
--- points that weigh project and key-result progress) is configured in
--- xp.sources.<task|project>.sizes.
-M.DEFAULT_TASK_SIZE = "sm"
+-- Unsized tasks count as this size. How many hours a size stands for (its
+-- XP, and the effort points that weigh project and key-result progress) is
+-- configured in xp.sizes.task.
+M.DEFAULT_TASK_SIZE = "md"
 
 M.TASK_MARKS = {
 	TODO = " ",

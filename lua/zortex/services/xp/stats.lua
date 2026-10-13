@@ -15,35 +15,11 @@ end
 -- Season
 -- =============================================================================
 
---- { season, xp, level, current_tier, next_tier, is_max_tier, progress, progress_to_next, days_left }
+--- The season's progress on its objectives (services/xp/season.status):
+--- { season, progress, tier, tier_index, next_tier, objectives, value, days_left },
 --- or nil without a season.
 function M.season_status()
-	local season = xp_store.current_season()
-	if not season then
-		return nil
-	end
-	local xp = ledger().season_xp(season)
-	local level = xp_store.calculate_season_level(xp)
-	local tier = xp_store.get_season_tier(level)
-	local progress = xp_store.get_level_progress(xp, level, xp_store.calculate_season_level_xp)
-	local days_left
-	if season.end_date then
-		local y, m, d = season.end_date:match("(%d+)-(%d+)-(%d+)")
-		if y then
-			days_left = math.ceil((os.time({ year = y, month = m, day = d, hour = 23 }) - os.time()) / 86400)
-		end
-	end
-	return {
-		season = season,
-		xp = math.floor(xp + 0.5),
-		level = level,
-		current_tier = tier.current,
-		next_tier = tier.next,
-		is_max_tier = tier.is_max_tier,
-		progress = progress,
-		progress_to_next = progress.progress,
-		days_left = days_left,
-	}
+	return require("zortex.services.xp.season").status()
 end
 
 function M.start_season(name, end_date, start_date)
@@ -58,7 +34,8 @@ function M.end_season()
 	if not season then
 		return nil, "no season was started by hand; seasons follow the calendar quarter"
 	end
-	return xp_store.end_season(ledger().season_xp(season))
+	local status = require("zortex.services.xp.season").status(season)
+	return xp_store.end_season({ progress = status and status.progress or 0, tier = status and status.tier and status.tier.name })
 end
 
 -- Interactive: ask for a name and a duration, then start the season
@@ -133,12 +110,13 @@ function M.recent(limit, days)
 	return list
 end
 
---- XP per day for the last `days` days: { { date, xp }, ... } oldest first.
+--- Mastery XP per day for the last `days` days: { { date, xp }, ... }
+--- oldest first.
 function M.daily(days)
 	days = days or 14
 	local by_day = {}
 	for _, e in ipairs(ledger().between(os.date("%Y-%m-%d", os.time() - (days - 1) * 86400), nil)) do
-		by_day[e.date] = (by_day[e.date] or 0) + e.xp
+		by_day[e.date] = (by_day[e.date] or 0) + (e.mastery or 0)
 	end
 	local out = {}
 	for i = days - 1, 0, -1 do
@@ -172,9 +150,17 @@ function M.show_stats()
 	if stats.season then
 		local s = stats.season
 		table.insert(lines, "🏆 Season: " .. s.season.name .. (s.days_left and string.format(" (%d days left)", s.days_left) or ""))
-		table.insert(lines, string.format("   Level %d · %d XP · %d to next", s.level, s.xp, s.progress.xp_to_next))
-		if s.current_tier then
-			table.insert(lines, "   Tier: " .. s.current_tier.name)
+		table.insert(
+			lines,
+			string.format(
+				"   %d%% of its objectives%s%s",
+				round(s.progress * 100),
+				s.tier and (" · " .. s.tier.name) or "",
+				s.next_tier and string.format(" · %s at %d%%", s.next_tier.name, round(s.next_tier.at * 100)) or ""
+			)
+		)
+		for _, x in ipairs(s.objectives) do
+			table.insert(lines, string.format("   %3d%%  %s", round(x.progress * 100), x.objective.title or x.objective.name))
 		end
 		table.insert(lines, "")
 	else
@@ -200,15 +186,17 @@ function M.show_stats()
 	end
 
 	if #stats.recent > 0 then
-		table.insert(lines, "✨ Recent:")
+		table.insert(lines, "✨ Recent (Mastery XP; · = not on a key result or area):")
 		for _, e in ipairs(stats.recent) do
-			table.insert(lines, string.format("   %s  +%-4d %s", e.date or "     ?    ", round(e.xp), e.title))
+			local m = round(e.mastery or 0)
+			local amount = m > 0 and ("+" .. m) or "·"
+			table.insert(lines, string.format("   %s  %-5s %s", e.date or "     ?    ", amount, e.title))
 		end
 		table.insert(lines, "")
 	end
 
 	local a = stats.areas
-	table.insert(lines, string.format("🏔️  Areas: %d total, %d with XP · %d XP · max level %d", a.total_areas, a.areas_with_xp, a.total_xp, a.max_level))
+	table.insert(lines, string.format("🏔️  Areas: %d total, %d with Mastery XP · %d XP · max level %d", a.total_areas, a.areas_with_xp, a.total_xp, a.max_level))
 
 	vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO, { title = "XP Stats" })
 end

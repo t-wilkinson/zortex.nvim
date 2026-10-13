@@ -80,11 +80,11 @@ p:areas({ inherit = true })
 
 Sizes come from `@size(xs|sm|md|lg|xl)` (tasks also `2xl`…`5xl`; projects
 `epic`, `legendary`, `mythic`, `ultimate`). Points (which weigh project and
-key-result progress) are the task size multipliers from your config,
-`xp.sources.task.sizes` (xs 0.2, sm 0.5, md 1, lg 1.5, xl 3 by default), so
-a md task is one point and unsized tasks count as md. A project with an
-explicit `@size` is worth `project.base_xp × multiplier / task.base_xp`
-points instead of the sum of its tasks.
+key-result progress) are estimated hours from your config, `xp.sizes.task`
+(xs 0.25, sm 0.5, md 1, lg 2, xl 3 by default), so a md task is one hour and
+unsized tasks count as md. A project with an explicit `@size` is worth its
+hours from `xp.sizes.project` (lg 20 by default) instead of the sum of its
+tasks. `:ZortexXPGuide` shows the whole table.
 
 ## Areas
 

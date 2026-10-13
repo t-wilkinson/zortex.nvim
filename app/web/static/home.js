@@ -397,7 +397,7 @@
     function show(g) {
       var d = new Date(g.dataset.date + "T12:00:00");
       tip.innerHTML = "<span class='tip-date'>" + esc(d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })) +
-        "</span> <strong>" + esc(num(Number(g.dataset.xp))) + " XP</strong>";
+        "</span> <strong>" + esc(num(Number(g.dataset.xp))) + " Mastery XP</strong>";
       tip.hidden = false;
       var box = wrap.getBoundingClientRect(), r = g.querySelector(".hit").getBoundingClientRect();
       var left = r.left - box.left + r.width / 2;
@@ -426,28 +426,45 @@
     if (!x || x.available === false || !x.version) { panel.hidden = true; return; }
     panel.hidden = false;
     var s = x.season;
-    if (s) {
+    var objs = $("xp-objectives");
+    if (s && x.version >= 2) {
+      // the season is progress on its objectives; tiers are thresholds on it
       $("xp-title").textContent = s.name;
-      $("xp-meta").textContent = "season" + (s.days_left != null ? " · " + Math.max(0, s.days_left) + " days left" : "") +
+      $("xp-meta").textContent = (s.auto ? "quarter" : "season") +
+        (s.days_left != null ? " · " + Math.max(0, s.days_left) + " days left" : "") +
         (s.start_date ? " · since " + s.start_date : "");
-      $("xp-level").textContent = "Level " + s.level;
+      var pct = Math.round((s.progress || 0) * 100);
+      var objectives = list(s.objectives);
+      $("xp-level").textContent = objectives.length ? pct + "% of objectives" : "No objectives";
       $("xp-tier").textContent = s.tier || "";
       $("xp-tier").hidden = !s.tier;
-      var pct = Math.round((s.progress || 0) * 100);
       $("xp-meter").hidden = false;
       $("xp-meter").setAttribute("aria-valuenow", pct);
       $("xp-meter-fill").style.width = pct + "%";
-      $("xp-next").textContent = num(s.xp_to_next) + " XP to level " + (s.level + 1) +
-        (s.next_tier ? " · " + s.next_tier + " at level " + s.next_tier_level : "");
-      $("xp-season").textContent = num(s.xp);
+      $("xp-marks").innerHTML = list(s.tiers).filter(function (t) { return t.at > 0 && t.at < 1; }).map(function (t) {
+        return '<span style="left:' + (t.at * 100) + '%" title="' + esc(t.name) + " at " + Math.round(t.at * 100) + '%"></span>';
+      }).join("");
+      $("xp-next").textContent = !objectives.length ? "No objective in this season's window: add a 3M-YYYY-Qn objective to OKRs" :
+        s.next_tier ? s.next_tier + " at " + Math.round(s.next_at * 100) + "%" : "Every objective done";
+      $("xp-season").textContent = pct + "%";
+      objs.innerHTML = objectives.map(function (o) {
+        var p = Math.round((o.progress || 0) * 100);
+        var title = esc(o.title || "");
+        if (o.rel) title = '<a href="' + esc(noteHref(o.rel, o.lnum)) + '">' + title + "</a>";
+        return '<li><div class="area-row"><span class="area-name">' + title + "</span>" +
+          '<span class="area-level">' + p + "% · " + Math.round((o.share || 0) * 100) + "% of season</span></div>" +
+          '<div class="meter thin" role="progressbar" aria-label="' + esc(o.title || "") + ' progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + p + '">' +
+          '<div class="meter-fill" style="width:' + p + '%"></div></div></li>';
+      }).join("");
     } else {
       $("xp-title").textContent = "XP";
-      $("xp-meta").textContent = "no season running · :ZortexSeasonStart";
+      $("xp-meta").textContent = s ? "update Neovim's zortex to see the season" : "no season running · :ZortexSeasonStart";
       $("xp-level").textContent = "No season";
       $("xp-tier").hidden = true;
       $("xp-meter").hidden = true;
       $("xp-next").textContent = "";
       $("xp-season").textContent = "–";
+      objs.innerHTML = "";
     }
     $("xp-today").textContent = (x.today > 0 ? "+" : "") + num(x.today);
     $("xp-week").textContent = (x.week > 0 ? "+" : "") + num(x.week);
@@ -457,17 +474,18 @@
     $("xp-areas").innerHTML = areas.length ? areas.map(function (a) {
       var pct = Math.round((a.progress || 0) * 100);
       return '<li><div class="area-row"><span class="area-name" title="' + esc(a.key) + '">' + esc(a.name) + "</span>" +
-        '<span class="area-level">Lvl ' + esc(a.level || 1) + " · " + esc(num(a.xp)) + " XP</span></div>" +
+        '<span class="area-level">Lvl ' + esc(a.level || 1) + " · " + esc(num(a.xp)) + " Mastery XP</span></div>" +
         '<div class="meter thin" role="progressbar" aria-label="' + esc(a.name) + ' progress to the next level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '">' +
         '<div class="meter-fill" style="width:' + pct + '%"></div></div></li>';
-    }).join("") : '<li class="dim">No area XP yet: link projects to areas with @a(...)</li>';
+    }).join("") : '<li class="dim">No Mastery XP yet: give objectives areas with @a(...) and link projects to key results</li>';
 
     var awards = list(x.awards);
     $("xp-awards").innerHTML = awards.length ? awards.map(function (e) {
       var title = esc(e.title || "");
       if (e.rel) title = '<a href="' + esc(noteHref(e.rel, e.lnum)) + '">' + title + "</a>";
       var kind = e.source === "objective" ? " · objective" : e.source === "project_done" ? " · project done" : "";
-      return '<li><span class="award-xp">+' + esc(num(e.xp)) + "</span>" +
+      var award = e.xp > 0 ? "+" + num(e.xp) : "·";
+      return '<li><span class="award-xp" title="' + esc(num(e.effort != null ? e.effort : e.xp)) + ' XP of estimated work">' + esc(award) + "</span>" +
         '<span class="award-title">' + title + '<span class="dim small"> ' + esc(e.date ? e.date.slice(5).replace("-", "/") : "") + esc(kind) + "</span></span></li>";
     }).join("") : '<li class="dim">Nothing completed in the last 30 days</li>';
 

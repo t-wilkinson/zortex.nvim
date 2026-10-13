@@ -317,7 +317,8 @@ function M.areas()
 	return out
 end
 
---- XP: the current season, every area with XP, and awards of the last
+--- XP: the current season (progress on its objectives), every area with
+--- Mastery XP, and awards of the last
 --- `opts.days` days (default 30), newest first. All derived from the notes.
 function M.xp(opts)
 	opts = opts or {}
@@ -349,7 +350,8 @@ function M.xp(opts)
 		awards[#awards + 1] = {
 			date = e.date,
 			xp = math.floor(e.xp * 10 + 0.5) / 10,
-			season_xp = math.floor(e.season_xp * 10 + 0.5) / 10,
+			mastery = math.floor((e.mastery or 0) * 10 + 0.5) / 10,
+			aligned = e.aligned,
 			source = e.source,
 			title = e.title,
 			project = e.project,
@@ -363,16 +365,24 @@ function M.xp(opts)
 			name = season.season.name,
 			start_date = season.season.start_date,
 			end_date = season.season.end_date,
-			xp = season.xp,
-			level = season.level,
-			tier = season.current_tier and season.current_tier.name or nil,
+			auto = season.season.auto or nil,
+			progress = season.progress,
+			tier = season.tier and season.tier.name or nil,
 			next_tier = season.next_tier and season.next_tier.name or nil,
-			next_tier_level = season.next_tier and season.next_tier.required_level or nil,
-			xp_to_next = round(season.progress.xp_to_next),
-			level_start_xp = season.progress.current_threshold,
-			level_end_xp = season.progress.next_threshold,
-			progress = season.progress_to_next,
+			next_at = season.next_tier and season.next_tier.at or nil,
+			tiers = require("zortex.services.xp.season").tiers(),
 			days_left = season.days_left,
+			objectives = vim.tbl_map(function(x)
+				local o = x.objective
+				return {
+					title = o.title or o.name,
+					progress = x.progress,
+					share = x.share,
+					xp = round(x.value),
+					rel = o.file and rel(o.file),
+					lnum = o.lnum,
+				}
+			end, season.objectives),
 		} or nil,
 		history = vim.deepcopy(store.season_history()),
 		daily = stats.daily(14),

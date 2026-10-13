@@ -120,7 +120,7 @@ function M.month(date, state, cfg, win_width)
 			break
 		end
 
-		local shift_hl = 0 -- Variable for tracking how much the text has shifted by icon unusual icon widths
+		local shift_hl = 0 -- bytes the icons so far take beyond their display width
 		local week_line_parts = { left_pad_str, MARGIN_STR }
 
 		for weekday = 1, 7 do
@@ -203,15 +203,14 @@ function M.month(date, state, cfg, win_width)
 					table.insert(highlights, {
 						line = line_num,
 						col = icon_col_start + shift_hl,
-						end_col = icon_col_start + fn.strwidth(day_icon) + shift_hl,
+						end_col = icon_col_start + #day_icon + shift_hl,
 						hl = is_selected and cfg.colors.selected_icon or cfg.colors.has_entry,
 					})
 				end
 
-				-- Shift highlighting by new icon
-				if day_icon ~= cfg.icons.none then
-					shift_hl = shift_hl + cfg.icon_width
-				end
+				-- Highlights are in bytes, cells in display columns: an icon that
+				-- takes more bytes than columns shifts everything after it
+				shift_hl = shift_hl + (#day_icon - fn.strwidth(day_icon))
 
 				-- Date highlights
 				if hl_group then

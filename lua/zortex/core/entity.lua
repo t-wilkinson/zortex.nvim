@@ -193,7 +193,7 @@ function M.registry(spec)
 		local out, seen = {}, {}
 		for _, path in ipairs(spec.sources()) do
 			path = normalize(path)
-			if not seen[path] and vim.loop.fs_stat(path) then
+			if not seen[path] and vim.uv.fs_stat(path) then
 				seen[path] = true
 				out[#out + 1] = path
 			end

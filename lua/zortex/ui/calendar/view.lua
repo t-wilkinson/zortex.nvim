@@ -30,10 +30,10 @@ local cfg = {}
 
 local function create_buffer()
 	local bufnr = api.nvim_create_buf(false, true)
-	api.nvim_buf_set_option(bufnr, "modifiable", false)
-	api.nvim_buf_set_option(bufnr, "buftype", "nofile")
-	api.nvim_buf_set_option(bufnr, "bufhidden", "wipe")
-	api.nvim_buf_set_option(bufnr, "swapfile", false)
+	vim.bo[bufnr].modifiable = false
+	vim.bo[bufnr].buftype = "nofile"
+	vim.bo[bufnr].bufhidden = "wipe"
+	vim.bo[bufnr].swapfile = false
 	api.nvim_buf_set_name(bufnr, "Zortex Calendar")
 	return bufnr
 end
@@ -62,16 +62,12 @@ local function create_window(bufnr)
 	})
 
 	-- Set window options
-	api.nvim_win_set_option(win_id, "number", false)
-	api.nvim_win_set_option(win_id, "relativenumber", false)
-	api.nvim_win_set_option(win_id, "signcolumn", "no")
-	api.nvim_win_set_option(win_id, "wrap", false)
-	api.nvim_win_set_option(win_id, "cursorline", false)
-	api.nvim_win_set_option(win_id, "winhl", "Normal:Normal,FloatBorder:" .. cfg.colors.border)
-
-	-- Hide cursor
-	api.nvim_win_set_option(win_id, "guicursor", "a:block-Cursor/lCursor-blinkon0")
-
+	vim.wo[win_id].number = false
+	vim.wo[win_id].relativenumber = false
+	vim.wo[win_id].signcolumn = "no"
+	vim.wo[win_id].wrap = false
+	vim.wo[win_id].cursorline = false
+	vim.wo[win_id].winhl = "Normal:Normal,FloatBorder:" .. cfg.colors.border
 	return win_id
 end
 
@@ -185,10 +181,9 @@ function M.refresh()
 		lines, highlights, CalendarState.marks = render.month(date, CalendarState, cfg, win_width)
 	end
 
-	api.nvim_buf_set_option(CalendarState.bufnr, "modifiable", true)
+	vim.bo[CalendarState.bufnr].modifiable = true
 	api.nvim_buf_set_lines(CalendarState.bufnr, 0, -1, false, lines)
-	api.nvim_buf_set_option(CalendarState.bufnr, "modifiable", false)
-
+	vim.bo[CalendarState.bufnr].modifiable = false
 	-- Clear all highlights and extmarks
 	api.nvim_buf_clear_namespace(CalendarState.bufnr, CalendarState.ns_id, 0, -1)
 

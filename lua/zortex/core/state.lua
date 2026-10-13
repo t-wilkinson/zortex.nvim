@@ -55,14 +55,14 @@ local function write(path, data)
 	if not ok then
 		return false, json
 	end
-	local tmp = path .. ".tmp." .. vim.loop.getpid()
+	local tmp = path .. ".tmp." .. vim.uv.getpid()
 	local f = io.open(tmp, "w")
 	if not f then
 		return false, "cannot write " .. tmp
 	end
 	f:write(json)
 	f:close()
-	local renamed, err = vim.loop.fs_rename(tmp, path)
+	local renamed, err = vim.uv.fs_rename(tmp, path)
 	if not renamed then
 		os.remove(tmp)
 		return false, err

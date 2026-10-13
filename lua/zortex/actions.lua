@@ -460,6 +460,13 @@ M.list = {
 
 	-- Files --------------------------------------------------------------------
 	{
+		id = "migrate",
+		command = "Migrate",
+		group = "Files",
+		desc = "Rewrite old-style bold headings (**Text** / **Text**:) as **Text:**",
+		run = call("zortex.features.migrate", "run"),
+	},
+	{
 		id = "init",
 		command = "Init",
 		group = "Files",

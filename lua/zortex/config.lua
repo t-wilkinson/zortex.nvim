@@ -119,6 +119,13 @@ local defaults = {
 	},
 
 	ui = {
+		-- Highlight groups: linked to your colorscheme by default.
+		-- preset = "rose-pine" for the original palette; groups = { ZortexLink = { fg = "#3e8fb0" } }
+		highlights = {
+			preset = nil,
+			groups = {},
+		},
+
 		-- Link preview float (<prefix>K / :ZortexLinkPreview)
 		preview = {
 			on_hover = false, -- preview the link under the cursor on CursorHold ('updatetime' is the delay)
@@ -190,36 +197,20 @@ local defaults = {
 				key_hint = "NonText",
 				digest_header = "Title",
 				notification = "DiagnosticWarn",
-				-- "IncSearch" "CursorLine" "CursorLineNr"
-				selected = "MiniHipatternsTodo",
-				today_selected = "MiniHipatternsTodo",
-				selected_text = "MiniHipatternsTodo",
-				-- selected_icon = "@variable.builtin",
-				selected_icon = "MiniHipatternsTodo",
+				selected = "PmenuSel",
+				today_selected = "PmenuSel",
+				selected_text = "PmenuSel",
+				selected_icon = "PmenuSel",
 			},
-			-- icons = {
-			-- 	event = "🎉",
-			-- 	task = "📝",
-			-- 	task_done = "✔",
-			-- 	notification = "🔔",
-			-- 	has_items = "•", -- Default dot for days with any entry
-			-- },
-			-- icons = {
-			-- 	event = "◆",
-			-- 	task = "□",
-			-- 	task_done = "☑",
-			-- 	notification = "◉",
-			-- 	has_items = "•",
-			-- 	none = " ",
-			-- },
 			pretty_attributes = true, -- Enable/disable pretty display of attributes
-			icon_width = 3, -- Unfortunately necessary atm for calculating how much an icon will shift text in the terminal (fn.strwidth doesn't calculate it correctly).
+			-- Plain Unicode by default; with a Nerd Font, e.g.
+			--   event = "󰃰", task = "󰄬", task_done = "󰄱", notification = "󰂞", has_items = "󰸞"
 			icons = {
-				event = "󰃰", -- nf-md-calendar_star
-				task = "󰄬", -- nf-md-checkbox_blank_circle_outline
-				task_done = "󰄱", -- nf-md-check_circle
-				notification = "🔔", -- nf-md-bell_ring
-				has_items = "󰸞", -- nf-md-dots_circle
+				event = "◆",
+				task = "□",
+				task_done = "☑",
+				notification = "!",
+				has_items = "•",
 				none = " ",
 			},
 			digest = {

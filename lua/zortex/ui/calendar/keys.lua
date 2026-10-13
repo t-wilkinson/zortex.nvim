@@ -223,8 +223,7 @@ function M.show_help()
 	local height = #help_lines + 2
 	local buf = api.nvim_create_buf(false, true)
 	api.nvim_buf_set_lines(buf, 0, -1, false, help_lines)
-	api.nvim_buf_set_option(buf, "modifiable", false)
-
+	vim.bo[buf].modifiable = false
 	local win = api.nvim_open_win(buf, true, {
 		relative = "editor",
 		width = width,

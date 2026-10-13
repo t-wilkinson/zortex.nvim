@@ -571,7 +571,7 @@ function M.needs_update()
 	if not state.last_generated then
 		local path = fs.get_digest_file()
 		if fs.file_exists(path) then
-			local stat = vim.loop.fs_stat(path)
+			local stat = vim.uv.fs_stat(path)
 			if stat then
 				-- Check if file is from today
 				local file_date = os.date("*t", stat.mtime.sec)
@@ -640,7 +640,7 @@ function M.setup_auto_update()
 	end
 
 	-- Check every hour if digest needs update
-	state.update_timer = vim.loop.new_timer()
+	state.update_timer = vim.uv.new_timer()
 	state.update_timer:start(
 		60000, -- Initial delay: 1 minute
 		3600000, -- Repeat: every hour

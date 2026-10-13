@@ -54,9 +54,9 @@ end
 
 --- Start timing an operation; call the returned function when done.
 function M.start_timer(operation)
-	local start = vim.loop.hrtime()
+	local start = vim.uv.hrtime()
 	return function(data)
-		local ms = (vim.loop.hrtime() - start) / 1e6
+		local ms = (vim.uv.hrtime() - start) / 1e6
 		local t = timings[operation] or { count = 0, total = 0, max = 0 }
 		t.count, t.total, t.max = t.count + 1, t.total + ms, math.max(t.max, ms)
 		timings[operation] = t

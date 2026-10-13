@@ -162,8 +162,8 @@ function M.search(query)
 	-- Show in buffer
 	local buf = vim.api.nvim_create_buf(false, true)
 	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-	vim.api.nvim_buf_set_option(buf, "modifiable", false)
-	vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
+	vim.bo[buf].modifiable = false
+	vim.bo[buf].buftype = "nofile"
 	vim.api.nvim_buf_set_name(buf, "Calendar Search Results")
 
 	vim.cmd("split")
@@ -217,8 +217,8 @@ function M.show_stats()
 	-- Show in buffer
 	local buf = vim.api.nvim_create_buf(false, true)
 	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-	vim.api.nvim_buf_set_option(buf, "modifiable", false)
-	vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
+	vim.bo[buf].modifiable = false
+	vim.bo[buf].buftype = "nofile"
 	vim.api.nvim_buf_set_name(buf, "Calendar Statistics")
 
 	vim.cmd("split")

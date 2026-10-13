@@ -223,6 +223,7 @@ require("zortex").setup({
 
 | Command | Keys | Action id | Does |
 |---|---|---|---|
+| `:ZortexMigrate` |  | `migrate` | Rewrite old-style bold headings (**Text** / **Text**:) as **Text:** |
 | `:ZortexInit` |  | `init` | Create missing key notes (calendar, projects, areas, okr, structure, inbox) |
 | `:ZortexOpenProjects` | `<leader>zfp` `<leader>zP` | `open_projects` | Open projects.zortex |
 | `:ZortexOpenAreas` | `<leader>zfa` | `open_areas` | Open areas.zortex |

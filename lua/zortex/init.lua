@@ -2,6 +2,10 @@
 local api = require("zortex.api")
 
 function api.setup(opts)
+	if vim.fn.has("nvim-0.10") == 0 then
+		vim.notify("zortex.nvim needs Neovim 0.10 or newer", vim.log.levels.ERROR)
+		return
+	end
 	local Config = require("zortex.config")
 	Config.setup(opts)
 

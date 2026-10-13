@@ -29,9 +29,9 @@ function M.on(event, handler, opts)
 	opts = opts or {}
 	local name = opts.name or (event .. "#" .. (#(handlers[event] or {}) + 1))
 	local function run(data)
-		local start = vim.loop.hrtime()
+		local start = vim.uv.hrtime()
 		local ok, err = xpcall(handler, debug.traceback, data)
-		track(event, (vim.loop.hrtime() - start) / 1e6)
+		track(event, (vim.uv.hrtime() - start) / 1e6)
 		if not ok then
 			vim.notify(string.format("[Zortex] %s handler '%s' failed: %s", event, name, err), vim.log.levels.ERROR)
 		end

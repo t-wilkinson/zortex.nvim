@@ -20,7 +20,7 @@ local RAND_MAX = 4096
 -- Generate unique task ID
 local function generate_task_id()
 	local function generate_base_id()
-		local time_part = vim.loop.hrtime() % TIME_MOD
+		local time_part = vim.uv.hrtime() % TIME_MOD
 		local rand_part = math.random(0, RAND_MAX - 1)
 		local id_num = time_part * RAND_MAX + rand_part
 
@@ -41,7 +41,7 @@ local function generate_task_id()
 		attempts = attempts + 1
 		if attempts > 100 then
 			-- Fallback to timestamp-based ID
-			id = "T" .. tostring(vim.loop.hrtime())
+			id = "T" .. tostring(vim.uv.hrtime())
 			break
 		end
 	until not M.find_task_by_id(id)

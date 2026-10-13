@@ -152,18 +152,4 @@ function M.archive_current_section()
 	vim.notify(string.format("Archived section to %s\nLink: %s", archive_path, link), vim.log.levels.INFO)
 end
 
--- Revert an archived section back to original file
-function M.revert_archive(archive_file, section_line)
-	-- This would be called from the archive file
-	-- Implementation would:
-	-- 1. Find the section at current position in archive
-	-- 2. Extract it and all subsections
-	-- 3. Determine original file from archive filename
-	-- 4. Append to original file
-	-- 5. Remove from archive
-
-	-- TODO: Implement revert functionality
-	vim.notify("Revert functionality not yet implemented", vim.log.levels.WARN)
-end
-
 return M

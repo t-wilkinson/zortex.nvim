@@ -197,7 +197,7 @@ function M.schedule_notification(notification)
 	-- Create timer
 	local delay = math.max(0, (notification.trigger_time - os.time()) * 1000)
 	if delay > 0 then
-		local timer = vim.loop.new_timer()
+		local timer = vim.uv.new_timer()
 		timer:start(
 			delay,
 			0,
@@ -421,7 +421,7 @@ function M.setup(cfg)
 	load_scheduled_notifications()
 
 	-- Start cleanup timer for old sent notifications
-	local cleanup_timer = vim.loop.new_timer()
+	local cleanup_timer = vim.uv.new_timer()
 	cleanup_timer:start(0, 3600000, vim.schedule_wrap(clean_old_sent_notifications)) -- Every hour
 end
 

@@ -21,7 +21,7 @@ local function read_header(path)
 		return syntax.parse_header(vim.api.nvim_buf_get_lines(bufnr, 0, 50, false))
 	end
 
-	local stat = vim.loop.fs_stat(path)
+	local stat = vim.uv.fs_stat(path)
 	if not stat then
 		return nil
 	end
@@ -86,7 +86,7 @@ end
 function M.index(opts)
 	opts = opts or {}
 	local include_archived = opts.include_archived or false
-	local now = vim.loop.now()
+	local now = vim.uv.now()
 	if
 		not opts.fresh
 		and snapshot

@@ -86,7 +86,7 @@ function M.schedule_refresh(delay)
 		pending:stop()
 		pending:close()
 	end
-	pending = (vim.uv or vim.loop).new_timer()
+	pending = vim.uv.new_timer()
 	pending:start(
 		delay or 300,
 		0,

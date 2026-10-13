@@ -74,13 +74,13 @@ end
 
 function M.find_files(dir, pattern)
 	local files = {}
-	local scandir = vim.loop.fs_scandir(dir)
+	local scandir = vim.uv.fs_scandir(dir)
 	if not scandir then
 		return files
 	end
 
 	while true do
-		local name, type = vim.loop.fs_scandir_next(scandir)
+		local name, type = vim.uv.fs_scandir_next(scandir)
 		if not name then
 			break
 		end
@@ -107,13 +107,13 @@ function M.find_all_notes(filter_fn)
 	local files = {}
 
 	local function scan_dir(path)
-		local scandir = vim.loop.fs_scandir(path)
+		local scandir = vim.uv.fs_scandir(path)
 		if not scandir then
 			return
 		end
 
 		while true do
-			local name, type = vim.loop.fs_scandir_next(scandir)
+			local name, type = vim.uv.fs_scandir_next(scandir)
 			if not name then
 				break
 			end

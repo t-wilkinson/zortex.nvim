@@ -221,10 +221,9 @@ function M.show()
 
 	-- Create buffer
 	local buf = vim.api.nvim_create_buf(false, true)
-	vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
-	vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
-	vim.api.nvim_buf_set_option(buf, "filetype", "zortex-skill-tree")
-
+	vim.bo[buf].buftype = "nofile"
+	vim.bo[buf].bufhidden = "wipe"
+	vim.bo[buf].filetype = "zortex-skill-tree"
 	-- Render content
 	local lines = {}
 	local highlights = {}
@@ -296,7 +295,7 @@ function M.show()
 	end, opts)
 
 	-- Make buffer read-only
-	vim.api.nvim_buf_set_option(buf, "modifiable", false)
+	vim.bo[buf].modifiable = false
 end
 
 return M

@@ -81,6 +81,8 @@ end
 -- Candidates
 -- =============================================================================
 
+local reachable_sections -- defined below
+
 local function article_items(paths)
 	local idx = notes().index()
 	local items = {}
@@ -133,6 +135,36 @@ local function section_items(doc, node)
 	return items
 end
 
+-- Sections of `r.doc` (reached through a tag) that "[Name/<label>" would
+-- land on: no candidate before it in `results` has a match for the label.
+-- They sort after the main article's sections and show their note.
+reachable_sections = function(r, results)
+	local earlier = {}
+	for _, other in ipairs(results) do
+		if other == r then
+			break
+		end
+		earlier[#earlier + 1] = other.doc
+	end
+	local node = r.doc:node_starting_at(r.lnum) or r.doc:node_at(r.lnum)
+	local out = {}
+	for _, item in ipairs(section_items(r.doc, node)) do
+		local comp = link_mod().parse_component(item.label)
+		local shadowed = false
+		for _, doc in ipairs(earlier) do
+			if comp and #link_mod().search_lines(doc.lines, comp) > 0 then
+				shadowed = true
+				break
+			end
+		end
+		if not shadowed then
+			item.sortText = "~" .. item.sortText
+			out[#out + 1] = item
+		end
+	end
+	return out
+end
+
 -- Completions after resolving the typed components
 local function after_parts(ctx, opts)
 	local prefix_link = (ctx.is_local and "/" or "") .. table.concat(ctx.parts, "/")
@@ -165,6 +197,11 @@ local function after_parts(ctx, opts)
 					end
 					if last.type == "tag" then
 						vim.list_extend(items, section_items(r.doc, node))
+					else
+						-- [P/#Subaru]: a heading of a standalone @P note is
+						-- reached directly when no earlier candidate (the
+						-- Projects note, earlier @P notes) has a match.
+						vim.list_extend(items, reachable_sections(r, results))
 					end
 				end
 			elseif not node:is_root() then
@@ -175,11 +212,105 @@ local function after_parts(ctx, opts)
 	return items
 end
 
+-- =============================================================================
+-- Area attributes: @a(...) / @area(...)
+-- =============================================================================
+
+--- The area value being typed inside @a( / @area( before `col`:
+--- { typing, typing_col (0-based) } or nil.
+function M.area_context(line, col)
+	local before = line:sub(1, col)
+	local a, area = before:match(".*()@a%("), before:match(".*()@area%(")
+	local open = math.max(a or 0, area or 0)
+	if open == 0 then
+		return nil
+	end
+	if open > 1 and not before:sub(open - 1, open - 1):match("%s") then
+		return nil -- an email address, not an attribute
+	end
+	local rest = before:sub(open)
+	local inside = rest:match("^@a%((.*)$") or rest:match("^@area%((.*)$")
+	if not inside or inside:find(")", 1, true) then
+		return nil
+	end
+	local typing = inside:match("([^,]*)$"):gsub("^%s+", "")
+	return { typing = typing, typing_col = col - #typing, area = true }
+end
+
+local area_cache = { signature = nil, items = nil }
+
+-- The shortest @a(...) value that resolves to `area`, or nil.
+local function area_value(area)
+	local attributes = require("zortex.utils.attributes")
+	local areas = require("zortex.services.areas")
+	local function resolves(v)
+		local parsed = attributes.attribute_parsers.area(v)
+		local def = parsed and parsed[1] and parsed[1].definition
+		local hit = def and areas.resolve(def)
+		return hit and hit.key == area.key
+	end
+	local candidates = {}
+	local number = area.name:match("^(%d[%d%.]*)%s") or area.name:match("^(%d[%d%.]*)$")
+	if number then
+		candidates[#candidates + 1] = number
+	end
+	candidates[#candidates + 1] = link_mod().component_text(area.name)
+	local parent = area.parent
+	if area.kind == "label" and parent and not parent:is_root() then
+		local pnum = parent.name:match("^(%d[%d%.]*)%s")
+		candidates[#candidates + 1] = (pnum or link_mod().component_text(parent.name)) .. "/" .. link_mod().component_text(area.name)
+	end
+	local parts = link_mod().node_components(area.doc, area.node)
+	table.remove(parts, 1) -- the article
+	if #parts >= 3 then
+		candidates[#candidates + 1] = table.concat(parts, "/")
+	end
+	for _, v in ipairs(candidates) do
+		if v ~= "" and resolves(v) then
+			return v
+		end
+	end
+	return nil
+end
+
+-- Every area as an item: label indented by depth (the tree), inserting the
+-- shortest value that resolves to it. Cached until the areas note changes.
+local function area_items()
+	local areas = require("zortex.services.areas")
+	local sig = areas.signature()
+	if area_cache.signature == sig and area_cache.items then
+		return vim.deepcopy(area_cache.items)
+	end
+	local items = {}
+	for i, area in ipairs(areas.all({ include_roots = false })) do
+		local value = area_value(area)
+		if value then
+			items[#items + 1] = {
+				label = string.rep("  ", math.max(0, area.depth - 1)) .. area.name,
+				insertText = value,
+				filterText = value .. " " .. area.name,
+				kind = 19, -- Folder
+				detail = value,
+				documentation = area:breadcrumb(" › "),
+				sortText = string.format("%06d", i),
+				area_value = value,
+			}
+		end
+	end
+	area_cache.signature, area_cache.items = sig, items
+	return vim.deepcopy(items)
+end
+M._area_items = area_items
+
 --- Completion items for the link at `col` (bytes before the cursor).
 ---@param opts { bufnr?: integer, doc?: table }?
 ---@return table[] items { label, kind, detail, sortText }, table? ctx
 function M.get_completions(line, col, opts)
 	opts = opts or {}
+	local actx = M.area_context(line, col)
+	if actx then
+		return area_items(), actx
+	end
 	local ctx = M.link_context(line, col)
 	if not ctx then
 		return {}, nil
@@ -244,7 +375,7 @@ function M.new()
 	end
 
 	function source:get_trigger_characters()
-		return { "[", "/", "#", "@", ":", "*" }
+		return { "[", "/", "#", "@", ":", "*", "(", "," }
 	end
 
 	function source:get_keyword_pattern()
@@ -261,15 +392,17 @@ function M.new()
 			return
 		end
 		for _, item in ipairs(items) do
-			item.filterText = item.label
+			item.filterText = item.filterText or item.label
 			item.textEdit = {
-				newText = item.label,
+				newText = item.area_value or item.label,
 				range = {
 					start = { line = row, character = ctx.typing_col },
 					["end"] = { line = row, character = #line },
 				},
 			}
 			item.section_type = nil
+			item.area_value = nil
+			item.insertText = nil
 		end
 		callback({ items = items, isIncomplete = false })
 	end

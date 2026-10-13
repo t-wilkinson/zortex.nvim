@@ -16,7 +16,10 @@ function M.check()
 	if dir and vim.fn.isdirectory(dir) == 1 then
 		health.ok("notes_dir: " .. dir)
 	else
-		health.error("notes_dir does not exist: " .. tostring(dir), { "Set notes_dir in require('zortex').setup({...})" })
+		health.error(
+			"notes_dir does not exist: " .. tostring(dir),
+			{ "Set notes_dir in require('zortex').setup({...})" }
+		)
 		return
 	end
 
@@ -51,16 +54,6 @@ function M.check()
 		health.ok("Key notes present (calendar, projects, areas, okr, structure, inbox)")
 	else
 		health.warn("Missing: " .. table.concat(missing, ", "), { ":ZortexInit creates them from short templates" })
-	end
-
-	local legacy_ok, legacy = pcall(function()
-		return require("zortex.features.migrate").scan()
-	end)
-	if legacy_ok and #legacy > 0 then
-		health.warn(
-			string.format("%d old-style bold headings (**Text** / **Text**:)", #legacy),
-			{ "They are plain bold text now; :ZortexMigrate rewrites them as **Text:**" }
-		)
 	end
 
 	health.info("State directory: " .. require("zortex.core.state").path(""):gsub("/%.json$", ""))

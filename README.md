@@ -166,112 +166,113 @@ require("zortex").setup({
 ```
 
 <!-- actions:start -->
+
 **Find**
 
-| Command | Keys | Action id | Does |
-|---|---|---|---|
-| `:ZortexSearch` | `<leader>zz` | `search` | Search sections and lines (structural search) |
-| `:ZortexSearchArticles` | `<leader>zZ` | `search_articles` | Search article names |
-| `:ZortexProjects` | `<leader>zp` | `projects` | Browse projects |
-| `:ZortexTOC` | `<leader>zl` | `toc` | Table of contents of this note |
-| `:ZortexTOCPopup` | `<leader>zL` | `toc_popup` | Table of contents in a popup |
+| Command                 | Keys         | Action id         | Does                                          |
+| ----------------------- | ------------ | ----------------- | --------------------------------------------- |
+| `:ZortexSearch`         | `<leader>zz` | `search`          | Search sections and lines (structural search) |
+| `:ZortexSearchArticles` | `<leader>zZ` | `search_articles` | Search article names                          |
+| `:ZortexProjects`       | `<leader>zp` | `projects`        | Browse projects                               |
+| `:ZortexTOC`            | `<leader>zl` | `toc`             | Table of contents of this note                |
+| `:ZortexTOCPopup`       | `<leader>zL` | `toc_popup`       | Table of contents in a popup                  |
 
 **Links**
 
-| Command | Keys | Action id | Does |
-|---|---|---|---|
-| `:ZortexLinkOpen` | `<leader>zgx` | `link_open` | Follow the link under the cursor |
-| `:ZortexLinkPreview` | `<leader>zK` | `link_preview` | Preview the link target in a float |
-| `:ZortexBacklinks` | `<leader>zb` | `backlinks` | Links into the section under the cursor (quickfix) |
-| `:ZortexBrokenLinks` | `<leader>zB` | `broken_links` | Links that resolve nowhere (quickfix) |
-| `:ZortexLinkIndexRebuild` |  | `link_index_rebuild` | Rebuild the link index from scratch |
+| Command                   | Keys          | Action id            | Does                                               |
+| ------------------------- | ------------- | -------------------- | -------------------------------------------------- |
+| `:ZortexLinkOpen`         | `<leader>zgx` | `link_open`          | Follow the link under the cursor                   |
+| `:ZortexLinkPreview`      | `<leader>zK`  | `link_preview`       | Preview the link target in a float                 |
+| `:ZortexBacklinks`        | `<leader>zb`  | `backlinks`          | Links into the section under the cursor (quickfix) |
+| `:ZortexBrokenLinks`      | `<leader>zB`  | `broken_links`       | Links that resolve nowhere (quickfix)              |
+| `:ZortexLinkIndexRebuild` |               | `link_index_rebuild` | Rebuild the link index from scratch                |
 
 **Structure**
 
-| Command | Keys | Action id | Does |
-|---|---|---|---|
-| `:ZortexSectionNext` | `<leader>z]` | `section_next` | Next section at the same or higher level |
-| `:ZortexSectionPrev` | `<leader>z[` | `section_prev` | Previous section at the same or higher level |
-| `:ZortexSectionParent` | `<leader>z^` | `section_parent` | Parent section |
-| `:ZortexFoldsUpdate` | `<leader>zr` | `folds_update` | Recompute folds |
+| Command                 | Keys         | Action id         | Does                                                           |
+| ----------------------- | ------------ | ----------------- | -------------------------------------------------------------- |
+| `:ZortexSectionNext`    | `<leader>z]` | `section_next`    | Next section at the same or higher level                       |
+| `:ZortexSectionPrev`    | `<leader>z[` | `section_prev`    | Previous section at the same or higher level                   |
+| `:ZortexSectionParent`  | `<leader>z^` | `section_parent`  | Parent section                                                 |
+| `:ZortexFoldsUpdate`    | `<leader>zr` | `folds_update`    | Recompute folds                                                |
 | `:ZortexArchiveSection` | `<leader>za` | `archive_section` | Move the section under the cursor to the note's z/archive file |
 
 **Tasks**
 
-| Command | Keys | Action id | Does |
-|---|---|---|---|
-| `:ZortexTaskToggle` | `<leader>zT` | `task_toggle` | Toggle the task on this line (makes one if needed) |
-| `:ZortexTaskComplete` | `<leader>ztc` | `task_complete` | Complete the task on this line |
-| `:ZortexTaskUncomplete` | `<leader>ztu` | `task_uncomplete` | Reopen the task on this line |
-| `:ZortexTaskConvert` | `<leader>ztt` | `task_convert` | Turn this line into a task |
-| `:ZortexProjectProgress` | `<leader>zu` | `project_progress` | Write @progress(done/total) on project headings in this buffer |
+| Command                  | Keys          | Action id          | Does                                                           |
+| ------------------------ | ------------- | ------------------ | -------------------------------------------------------------- |
+| `:ZortexTaskToggle`      | `<leader>zT`  | `task_toggle`      | Toggle the task on this line (makes one if needed)             |
+| `:ZortexTaskComplete`    | `<leader>ztc` | `task_complete`    | Complete the task on this line                                 |
+| `:ZortexTaskUncomplete`  | `<leader>ztu` | `task_uncomplete`  | Reopen the task on this line                                   |
+| `:ZortexTaskConvert`     | `<leader>ztt` | `task_convert`     | Turn this line into a task                                     |
+| `:ZortexProjectProgress` | `<leader>zu`  | `project_progress` | Write @progress(done/total) on project headings in this buffer |
 
 **Plan**
 
-| Command | Keys | Action id | Does |
-|---|---|---|---|
-| `:ZortexReview …` | `<leader>zw` | `review` | Review: week (default), day (since the last daily review), or a number of days |
-| `:ZortexReviewDay` | `<leader>zW` | `review_day` | Daily review: completed, XP, time spent and the calendar since the last one |
-| `:ZortexPlan …` | `<leader>zm` | `plan` | Plan a day: calendar day (from its template) plus ranked tasks, projects, KRs and areas to put on it |
-| `:ZortexCalendar` | `<leader>zc` | `calendar` | Calendar view |
-| `:ZortexCalendarDigest` | `<leader>zCc` | `calendar_digest` | Calendar view with the digest panel |
-| `:ZortexDigest` | `<leader>zCd` | `digest` | Open the digest note |
-| `:ZortexDigestUpdate` | `<leader>zCD` | `digest_update` | Regenerate the digest note |
+| Command                 | Keys          | Action id         | Does                                                                                                 |
+| ----------------------- | ------------- | ----------------- | ---------------------------------------------------------------------------------------------------- |
+| `:ZortexReview …`       | `<leader>zw`  | `review`          | Review: week (default), day (since the last daily review), or a number of days                       |
+| `:ZortexReviewDay`      | `<leader>zW`  | `review_day`      | Daily review: completed, XP, time spent and the calendar since the last one                          |
+| `:ZortexPlan …`         | `<leader>zm`  | `plan`            | Plan a day: calendar day (from its template) plus ranked tasks, projects, KRs and areas to put on it |
+| `:ZortexCalendar`       | `<leader>zc`  | `calendar`        | Calendar view                                                                                        |
+| `:ZortexCalendarDigest` | `<leader>zCc` | `calendar_digest` | Calendar view with the digest panel                                                                  |
+| `:ZortexDigest`         | `<leader>zCd` | `digest`          | Open the digest note                                                                                 |
+| `:ZortexDigestUpdate`   | `<leader>zCD` | `digest_update`   | Regenerate the digest note                                                                           |
 
 **Pomodoro**
 
-| Command | Keys | Action id | Does |
-|---|---|---|---|
-|  | `<leader>zoo` | `pomodoro_toggle` | Start, pause or resume the pomodoro |
-|  | `<leader>zos` | `pomodoro_skip` | End the current pomodoro phase now |
-|  | `<leader>zor` | `pomodoro_restart` | Begin a new pomodoro cycle |
-|  | `<leader>zox` | `pomodoro_stop` | Stop the pomodoro |
-|  | `<leader>zoi` | `pomodoro_status` | Show the pomodoro status |
+| Command | Keys          | Action id          | Does                                |
+| ------- | ------------- | ------------------ | ----------------------------------- |
+|         | `<leader>zoo` | `pomodoro_toggle`  | Start, pause or resume the pomodoro |
+|         | `<leader>zos` | `pomodoro_skip`    | End the current pomodoro phase now  |
+|         | `<leader>zor` | `pomodoro_restart` | Begin a new pomodoro cycle          |
+|         | `<leader>zox` | `pomodoro_stop`    | Stop the pomodoro                   |
+|         | `<leader>zoi` | `pomodoro_status`  | Show the pomodoro status            |
 
 **Calendar**
 
-| Command | Keys | Action id | Does |
-|---|---|---|---|
-| `:ZortexNotificationsSync …` |  | `notifications_sync` | Sync calendar notifications (to the server if enabled); `force` resends unchanged |
-| `:ZortexIcalImport` |  | `ical_import` | Import an iCal file or URL into the calendar |
-| `:ZortexIcalExport` |  | `ical_export` | Export the calendar to an iCal file |
+| Command                      | Keys | Action id            | Does                                                                              |
+| ---------------------------- | ---- | -------------------- | --------------------------------------------------------------------------------- |
+| `:ZortexNotificationsSync …` |      | `notifications_sync` | Sync calendar notifications (to the server if enabled); `force` resends unchanged |
+| `:ZortexIcalImport`          |      | `ical_import`        | Import an iCal file or URL into the calendar                                      |
+| `:ZortexIcalExport`          |      | `ical_export`        | Export the calendar to an iCal file                                               |
 
 **Files**
 
-| Command | Keys | Action id | Does |
-|---|---|---|---|
-| `:ZortexMigrate` |  | `migrate` | Rewrite old-style bold headings (`**Text**`, `**Text**:`) as `**Text:**` |
-| `:ZortexInit` |  | `init` | Create missing key notes (calendar, projects, areas, okr, structure, inbox) |
-| `:ZortexOpenProjects` | `<leader>zfp` `<leader>zP` | `open_projects` | Open projects.zortex |
-| `:ZortexOpenAreas` | `<leader>zfa` | `open_areas` | Open areas.zortex |
-| `:ZortexOpenOKR` | `<leader>zfo` | `open_okr` | Open okr.zortex |
-| `:ZortexOpenCalendar` | `<leader>zfc` | `open_calendar` | Open calendar.zortex |
-| `:ZortexOpenStructure` | `<leader>zfs` | `open_structure` | Open structure.zortex |
-| `:ZortexOpenInbox` | `<leader>zfi` | `open_inbox` | Open inbox.zortex |
+| Command                | Keys                       | Action id        | Does                                                                        |
+| ---------------------- | -------------------------- | ---------------- | --------------------------------------------------------------------------- |
+| `:ZortexInit`          |                            | `init`           | Create missing key notes (calendar, projects, areas, okr, structure, inbox) |
+| `:ZortexOpenProjects`  | `<leader>zfp` `<leader>zP` | `open_projects`  | Open projects.zortex                                                        |
+| `:ZortexOpenAreas`     | `<leader>zfa`              | `open_areas`     | Open areas.zortex                                                           |
+| `:ZortexOpenOKR`       | `<leader>zfo`              | `open_okr`       | Open okr.zortex                                                             |
+| `:ZortexOpenCalendar`  | `<leader>zfc`              | `open_calendar`  | Open calendar.zortex                                                        |
+| `:ZortexOpenStructure` | `<leader>zfs`              | `open_structure` | Open structure.zortex                                                       |
+| `:ZortexOpenInbox`     | `<leader>zfi`              | `open_inbox`     | Open inbox.zortex                                                           |
 
 **XP**
 
-| Command | Keys | Action id | Does |
-|---|---|---|---|
-| `:ZortexSkillTree` | `<leader>zk` | `skill_tree` | Skill tree and season progress |
-| `:ZortexXPStats` | `<leader>zxs` | `xp_stats` | XP statistics |
-| `:ZortexXPAreas` | `<leader>zxa` | `xp_areas` | Top areas by XP |
-| `:ZortexXPExplain` | `<leader>zxe` | `xp_explain` | How the project at the cursor earned its XP |
-| `:ZortexSeasonStatus` |  | `season_status` | Current season |
-| `:ZortexSeasonStart …` |  | `season_start` | Start a season: [name] [end YYYY-MM-DD] [start YYYY-MM-DD] (prompts without args) |
-| `:ZortexSeasonEnd` |  | `season_end` | End the current season |
+| Command                | Keys          | Action id       | Does                                                                              |
+| ---------------------- | ------------- | --------------- | --------------------------------------------------------------------------------- |
+| `:ZortexSkillTree`     | `<leader>zk`  | `skill_tree`    | Skill tree and season progress                                                    |
+| `:ZortexXPStats`       | `<leader>zxs` | `xp_stats`      | XP statistics                                                                     |
+| `:ZortexXPAreas`       | `<leader>zxa` | `xp_areas`      | Top areas by XP                                                                   |
+| `:ZortexXPExplain`     | `<leader>zxe` | `xp_explain`    | How the project at the cursor earned its XP                                       |
+| `:ZortexSeasonStatus`  |               | `season_status` | Current season                                                                    |
+| `:ZortexSeasonStart …` |               | `season_start`  | Start a season: [name] [end YYYY-MM-DD] [start YYYY-MM-DD] (prompts without args) |
+| `:ZortexSeasonEnd`     |               | `season_end`    | End the current season                                                            |
 
 **System**
 
-| Command | Keys | Action id | Does |
-|---|---|---|---|
-| `:ZortexExport …` |  | `export` | Export notes and the model as JSON (default notes_dir/.z/export) |
-| `:ZortexStatus` |  | `status` | Counts, state directory and event timings |
-| `:ZortexLogs …` |  | `logs` | Recent log entries (optional count) |
-| `:ZortexLogLevel …` |  | `log_level` | Set the log level |
-| `:ZortexPerformance` |  | `performance` | Timer statistics |
-| `:ZortexClearLogs` |  | `clear_logs` | Clear logs and timers |
-| `:ZortexHelp` | `<leader>z?` | `help` | List commands and keys |
+| Command              | Keys         | Action id     | Does                                                             |
+| -------------------- | ------------ | ------------- | ---------------------------------------------------------------- |
+| `:ZortexExport …`    |              | `export`      | Export notes and the model as JSON (default notes_dir/.z/export) |
+| `:ZortexStatus`      |              | `status`      | Counts, state directory and event timings                        |
+| `:ZortexLogs …`      |              | `logs`        | Recent log entries (optional count)                              |
+| `:ZortexLogLevel …`  |              | `log_level`   | Set the log level                                                |
+| `:ZortexPerformance` |              | `performance` | Timer statistics                                                 |
+| `:ZortexClearLogs`   |              | `clear_logs`  | Clear logs and timers                                            |
+| `:ZortexHelp`        | `<leader>z?` | `help`        | List commands and keys                                           |
+
 <!-- actions:end -->
 
 Inside the calendar view: `h/j/k/l` days and weeks, `H/J/K/L` years and
@@ -305,18 +306,18 @@ z.document.get(path).syntax               -- the parsed note
 z.syntax.parse(lines, { inline = true })  -- the grammar itself
 ```
 
-| name | module | what |
-|---|---|---|
-| `query` | `zortex.query` | plain-data views: `tree`, `note`, `search`, `resolve`, `backlinks`, `broken_links`, `projects`, `areas`, `objectives`, `agenda`, `review`, `export` |
-| `projects`, `areas`, `okr` | `services/*` | entities: `all`, `get`, `at`, `resolve`, plus `query`/`tasks` (projects), `objectives`/`key_results` (OKR) |
-| `agenda` | `services/agenda` | `day`, `range`, `upcoming`, `review` |
-| `calendar` | `stores/calendar` | entries by date, `add_entry`, `update_entry`, `delete_entry` |
-| `tasks` | `services/tasks` | toggle/complete on the cursor line, `find_task_by_id` |
-| `search`, `search_history` | `services/*` | structural search and its ranking history |
-| `digest`, `review`, `xp` | | digest note and email, review buffer, XP and seasons |
-| `notes`, `document`, `syntax`, `item` | `core/*` | note index, parsed snapshots, grammar, list items |
-| `links`, `link_index` | | link resolution and the index of every link |
-| `workspace`, `state`, `events`, `config` | | line edits, `.z` state files, domain events, configuration |
+| name                                     | module            | what                                                                                                                                                |
+| ---------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `query`                                  | `zortex.query`    | plain-data views: `tree`, `note`, `search`, `resolve`, `backlinks`, `broken_links`, `projects`, `areas`, `objectives`, `agenda`, `review`, `export` |
+| `projects`, `areas`, `okr`               | `services/*`      | entities: `all`, `get`, `at`, `resolve`, plus `query`/`tasks` (projects), `objectives`/`key_results` (OKR)                                          |
+| `agenda`                                 | `services/agenda` | `day`, `range`, `upcoming`, `review`                                                                                                                |
+| `calendar`                               | `stores/calendar` | entries by date, `add_entry`, `update_entry`, `delete_entry`                                                                                        |
+| `tasks`                                  | `services/tasks`  | toggle/complete on the cursor line, `find_task_by_id`                                                                                               |
+| `search`, `search_history`               | `services/*`      | structural search and its ranking history                                                                                                           |
+| `digest`, `review`, `xp`                 |                   | digest note and email, review buffer, XP and seasons                                                                                                |
+| `notes`, `document`, `syntax`, `item`    | `core/*`          | note index, parsed snapshots, grammar, list items                                                                                                   |
+| `links`, `link_index`                    |                   | link resolution and the index of every link                                                                                                         |
+| `workspace`, `state`, `events`, `config` |                   | line edits, `.z` state files, domain events, configuration                                                                                          |
 
 ## Documentation
 

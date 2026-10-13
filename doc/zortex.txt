@@ -214,10 +214,6 @@ CALENDAR ~
 
 FILES ~
 
-:ZortexMigrate                                                *:ZortexMigrate*
-    Rewrite old-style bold headings (**Text**, **Text**:) as **Text:**. Id:
-    migrate.
-
 :ZortexInit                                                      *:ZortexInit*
     Create missing key notes (calendar, projects, areas, okr, structure,
     inbox). Id: init.

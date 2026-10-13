@@ -55,10 +55,11 @@ local function item_line(item)
 		line = line .. " " .. where
 	end
 	local task = item.task
-	return line, {
-		file = item.file or (task and task.file) or (item.project and item.project.file),
-		lnum = item.lnum or (task and task.lnum) or (item.project and item.project.lnum),
-	}
+	return line,
+		{
+			file = item.file or (task and task.file) or (item.project and item.project.file),
+			lnum = item.lnum or (task and task.lnum) or (item.project and item.project.lnum),
+		}
 end
 
 local function entity_line(e, suffix)
@@ -164,7 +165,8 @@ function M.render(r, opts)
 	add("")
 	add("# Notes")
 	section("Broken links", r.broken_links, function(ref)
-		return string.format("- %s:%d %s", rel(ref.file), ref.lnum, ref.text or ""), { file = ref.file, lnum = ref.lnum }
+		return string.format("- %s:%d %s", rel(ref.file), ref.lnum, ref.text or ""),
+			{ file = ref.file, lnum = ref.lnum }
 	end)
 
 	return lines, locations
@@ -197,6 +199,9 @@ function M.render_plan(r, add, section, opts)
 	local fmt_time = require("zortex.services.time_spent").format
 	add("")
 	add("# Plan")
+	add("")
+	add("## XP")
+	add(xp_line(r.xp))
 	section("Objectives", r.objectives or {}, function(x)
 		local o = x.objective
 		local line = string.format("- %s %s", o.link or o.name, pct(x.progress))
@@ -220,12 +225,10 @@ function M.render_plan(r, add, section, opts)
 			end
 		end
 	end
-	add("")
-	add("## XP")
-	add(xp_line(r.xp))
 	if r.time and r.time.minutes > 0 then
 		section("Time spent: " .. fmt_time(r.time.minutes), r.time.tasks, function(t)
-			return string.format("- %s %s (%s)", fmt_time(t.minutes), t.text or "", t.rel or ""), t.file and { file = t.file, lnum = t.lnum }
+			return string.format("- %s %s (%s)", fmt_time(t.minutes), t.text or "", t.rel or ""),
+				t.file and { file = t.file, lnum = t.lnum }
 		end)
 	end
 end

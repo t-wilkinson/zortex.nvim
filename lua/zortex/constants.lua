@@ -76,7 +76,7 @@ M.ARCHIVE_TAG = "Archive"
 -- Unsized tasks count as this size. What sizes are worth (XP, and the effort
 -- points that weigh project and key-result progress) is configured in
 -- xp.sources.<task|project>.sizes.
-M.DEFAULT_TASK_SIZE = "md"
+M.DEFAULT_TASK_SIZE = "sm"
 
 M.TASK_MARKS = {
 	TODO = " ",

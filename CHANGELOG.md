@@ -70,6 +70,10 @@ The first release for people other than the author.
   an overview, live redraw and one page per slide when printed.
 - Math (`$…$`, `$$…$$`, `$$` blocks) typeset with KaTeX; `![./pic.png]`
   shows the image, `![./clip.mp4]` the video.
+- Markdown files (`.md`, `.markdown`) render in the file viewer like a note,
+  math included; HTML and Markdown files have a "source" link to their text.
+- `/resources` lists every resource by default (`?show=unlinked` for the
+  unlinked ones; `/api/resources` still defaults to unlinked).
 - Tag tables: `!@[scope/tags]` shows a tag search as a sortable, filterable
   table (item, link and its kind, tags, one column per `@key(value)`,
   where, nested notes); `@[…]` link pages show the same table.

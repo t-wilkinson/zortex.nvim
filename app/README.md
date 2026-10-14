@@ -68,10 +68,10 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 | `/n/<path>?view=slides` | the note as a slide deck ([Slides](#slides)) |
 | `/search?q=` | structural search, the plugin's ranking: sections whose path matches the words in order, then lines with every word; results update as you type, `↑`/`↓` + Enter, `/` focuses search anywhere |
 | `/link?to=&from=` | resolve a link: one target redirects, several are listed (a tag search as a [table](#tag-tables)), failures say why |
-| `/f/<path>` | file browser (sort by name (notes by article name) or modified time, either direction: `?sort=modified&order=desc`, kept in folder links; top level: the main notes unless "show all"; hidden folders and Syncthing artefacts never) and viewer: PDF, image, video, audio (with seeking), text, sandboxed HTML/SVG (HTML runs script with `-html-scripts`) |
+| `/f/<path>` | file browser (sort by name (notes by article name) or modified time, either direction: `?sort=modified&order=desc`, kept in folder links; top level: the main notes unless "show all"; hidden folders and Syncthing artefacts never) and viewer: PDF, image, video, audio (with seeking), text, sandboxed HTML/SVG (HTML runs script with `-html-scripts`), [Markdown](#markdown-files) rendered like a note; HTML and Markdown have a "source" link (`?source=1`) to their text |
 | `/raw/<path>` | the file as is: byte ranges, `?download=1`; HTML/SVG/XML with `Content-Security-Policy: sandbox` (`sandbox allow-scripts` for HTML with `-html-scripts`); nothing outside the folder, no hidden files |
 | `/tags`, `/tag/<name>` | header tags and their notes (the top bar's Graph lists the tags too); an area attribute in a header (`@area(4.1)`, `@a(1.2/Fitness)`) links to its area (`[A/#4.1]`) |
-| `/resources` | PDFs, books, images, media and documents, and which ones nothing links to (filter by unlinked/linked, type, folder); file pages show their own "Linked from", folder listings count links and unlinked files |
+| `/resources` | PDFs, books, images, media and documents, and which ones nothing links to (all by default; filter by unlinked/linked, type, folder); file pages show their own "Linked from", folder listings count links and unlinked files |
 | `/broken` | links that don't resolve (notes and files) |
 | `/api/search?q=`, `/api/resolve?to=&from=`, `/api/backlinks?rel=`, `/api/resources?show=unlinked&kind=&dir=`, `/api/structure` | JSON |
 | `/healthz` (`/health`) | counts and last index time |
@@ -93,6 +93,17 @@ paths to the notes folder; Markdown files try their own folder first. A bare
 file name (`[type-theory.pdf]`) works when exactly one resource has that
 name. Links inside code blocks don't count; links to missing files are
 listed on `/broken`. New or removed files are picked up on the next rescan.
+
+<a id="markdown-files"></a>**Markdown files.** A `.md` or `.markdown` file
+in the viewer is rendered with the note renderer: headings, lists and tasks,
+quotes, tables, footnotes, code blocks, emphasis, `$inline$` and `$$` block
+math (KaTeX, as in notes), images (`![alt](img.png)`), inline and reference
+links (`[text][id]` with `[id]: url`), `---` rules, setext headings and YAML
+front matter (folded). Consecutive lines flow as one paragraph and every line
+keeps its `#L12` anchor; headings also get GitHub-style ids
+(`other.md#some-heading`). Relative paths resolve from the file's folder
+first. Other `[brackets]` are text, not zortex links, and raw HTML is shown
+as text: the page is on the app's origin, so nothing in the file runs.
 
 **How it stays light.** The folder is read once at start and rescanned every
 `-poll`. A rescan re-parses only files whose modification time or size

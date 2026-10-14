@@ -39,6 +39,9 @@ type noteRenderer struct {
 
 	slides bool        // a slide deck: attributes are hidden
 	steps  map[int]int // slides: lnum -> the reveal step it appears in
+
+	md     *mdDoc // a Markdown file (markdown.go)
+	inPara bool   // Markdown: inside a <p> of text lines
 }
 
 // renderNote is the HTML body of a note (without its header block, which
@@ -68,6 +71,12 @@ func (r *noteRenderer) renderRange(first, last int) {
 			r.w(`<span class="anchor" id="L`, itoa(lnum), `"></span>`)
 			continue
 		}
+		if r.md != nil {
+			if j := r.mdBlock(i); j >= 0 {
+				i = j
+				continue
+			}
+		}
 		switch d.Kind {
 		case syntax.KindFence:
 			i = r.block(i, "code", syntax.KindFence)
@@ -78,6 +87,9 @@ func (r *noteRenderer) renderRange(first, last int) {
 		default:
 			r.line(lnum, d)
 		}
+	}
+	if r.md != nil {
+		r.mdEndPara()
 	}
 }
 
@@ -139,7 +151,11 @@ func (r *noteRenderer) table(i int) int {
 		}
 		r.w(`>`)
 		for _, c := range tableCells(lines[k]) {
-			r.w("<", cell, ">", r.inline(c, syntax.Inline(c, 0, len(c)), 0, len(c)), "</", cell, ">")
+			spans := syntax.Inline(c, 0, len(c))
+			if r.md != nil {
+				spans = r.mdSpans(c, 0, len(c))
+			}
+			r.w("<", cell, ">", r.inline(c, spans, 0, len(c)), "</", cell, ">")
 		}
 		r.w(`</tr>`)
 	}
@@ -169,6 +185,14 @@ func (r *noteRenderer) line(lnum int, d *syntax.Line) {
 	if d.ContentEnd != nil {
 		to = *d.ContentEnd
 	}
+	if r.md != nil {
+		// Markdown: a "- Label:" item is an item, "Key:" is text
+		if d.Item != nil && d.Kind != syntax.KindItem {
+			d = &syntax.Line{Kind: syntax.KindItem, Indent: d.Indent, Item: d.Item}
+			from, to = d.Item.ContentCol, len(line)
+		}
+		spans = r.mdSpans(line, from, to)
+	}
 	content := func() string { return r.inline(line, spans, from, to) }
 	if sp := embedOnly(line, spans); sp != nil {
 		r.w(`<div class="ln embed-table" id="L`, id, `">`, r.s.tagTableHTML(r.doc, sp.Content), `</div>`)
@@ -190,7 +214,13 @@ func (r *noteRenderer) line(lnum int, d *syntax.Line) {
 		if d.Heading > 6 {
 			h = "6"
 		}
-		r.w(`<h`, h, ` class="ln" id="L`, id, `">`, content(), `<a class="pin" href="#L`, id, `" aria-label="Link to this section">#</a></h`, h, `>`)
+		pin := "L" + id
+		r.w(`<h`, h, ` class="ln" id="L`, id, `">`)
+		if r.md != nil {
+			pin = r.md.slug(headingText(line, spans, from, to))
+			r.w(`<span class="anchor" id="`, esc(pin), `"></span>`)
+		}
+		r.w(content(), `<a class="pin" href="#`, esc(pin), `" aria-label="Link to this section">#</a></h`, h, `>`)
 	case syntax.KindBoldHeading:
 		r.w(`<div class="ln bold-heading" id="L`, id, `">`, content(), `</div>`)
 	case syntax.KindLabel:
@@ -218,7 +248,7 @@ func (r *noteRenderer) line(lnum int, d *syntax.Line) {
 		r.w(`<div class="ln tagline" id="L`, id, `">`, esc(line), `</div>`)
 	default:
 		r.w(`<div class="ln text" id="L`, id, `"`, indent, `>`)
-		if d.Key != "" && d.KeyCol != nil && (len(spans) == 0 || spans[0].S >= *d.KeyCol+d.KeyLen) {
+		if r.md == nil && d.Key != "" && d.KeyCol != nil && (len(spans) == 0 || spans[0].S >= *d.KeyCol+d.KeyLen) {
 			k0, k1 := *d.KeyCol, *d.KeyCol+d.KeyLen
 			r.w(r.inline(line, nil, from, k0), `<span class="key">`, esc(line[k0:k1]), `</span>`, r.inline(line, spans, k1, to))
 		} else {
@@ -249,7 +279,7 @@ func (r *noteRenderer) marker(line string, it *syntax.Item) {
 	default:
 		r.w(`<span class="marker bullet" aria-hidden="true"></span>`)
 	}
-	if it.Key != "" {
+	if it.Key != "" && r.md == nil {
 		r.w(`<span class="key">`, esc(it.Key), `:</span>`)
 	}
 	if it.Mark != "" {
@@ -302,7 +332,13 @@ func (r *noteRenderer) span(line string, sp *syntax.Span) string {
 		if !ok {
 			cls += " broken"
 		}
-		return `<a class="` + cls + `" href="` + esc(href) + `"` + externalAttrs(href) + `>` + esc(sp.Text) + `</a>`
+		title := ""
+		if sp.Value != "" && r.md != nil {
+			title = ` title="` + esc(sp.Value) + `"`
+		}
+		return `<a class="` + cls + `" href="` + esc(href) + `"` + title + externalAttrs(href) + `>` + r.mdText(sp.Text) + `</a>`
+	case "md_image":
+		return r.mdImage(sp)
 	case "url":
 		return `<a class="url" href="` + esc(sp.URL) + `"` + externalAttrs(sp.URL) + `>` + esc(sp.URL) + `</a>`
 	case "filepath":
@@ -472,7 +508,8 @@ func (s *Server) resolveFile(from *notes.Document, p string) (rel, frag string, 
 	if snap := s.current(); snap != nil {
 		names = snap.names
 	}
-	rel, frag, local, found := s.localRef(from.Rel, p, false, names)
+	// Markdown files resolve plain relative paths from their own folder first
+	rel, frag, local, found := s.localRef(from.Rel, p, isMarkdown(from.Rel), names)
 	if !local {
 		if p == "" || strings.HasPrefix(p, "~") {
 			return "", "", false, false, false

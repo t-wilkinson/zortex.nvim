@@ -307,11 +307,13 @@ func TestResources(t *testing.T) {
 	expect(t, ts, "/f/z/images/pic.png", 200, `href="/f/z/readme.md"`, `line 2`)    // from a Markdown file
 	expect(t, ts, "/f/z/papers/unread.pdf", 200, `Nothing links to this file yet.`) // only in a code block
 
-	// unlinked list
-	body := expect(t, ts, "/resources", 200, `unread.pdf`, `sicp.epub`, `talk.mp4`)
+	// every resource by default, then the unlinked list
+	expect(t, ts, "/resources", 200, `unread.pdf`, `sicp.epub`, `talk.mp4`, `type-theory.pdf`, `hott.pdf`, `pic.png`,
+		`<a class="chip on" href="/resources" aria-current="true">all</a>`, `href="/resources?show=unlinked"`)
+	body := expect(t, ts, "/resources?show=unlinked", 200, `unread.pdf`, `sicp.epub`, `talk.mp4`)
 	for _, linked := range []string{"type-theory.pdf", "hott.pdf", "attention.pdf", "pic.png"} {
 		if strings.Contains(body, linked) {
-			t.Errorf("/resources lists linked %s", linked)
+			t.Errorf("/resources?show=unlinked lists linked %s", linked)
 		}
 	}
 	expect(t, ts, "/resources?show=linked&kind=pdf", 200, `type-theory.pdf`, `attention.pdf`)
@@ -324,7 +326,7 @@ func TestResources(t *testing.T) {
 	}
 
 	// listings: per-file counts and unlinked per folder
-	expect(t, ts, "/f/z", 200, `href="/resources?dir=z%2fbooks">1 unlinked</a>`, `href="/resources?dir=z%2fpapers">1 unlinked</a>`)
+	expect(t, ts, "/f/z", 200, `href="/resources?show=unlinked&amp;dir=z%2fbooks">1 unlinked</a>`, `href="/resources?show=unlinked&amp;dir=z%2fpapers">1 unlinked</a>`)
 	expect(t, ts, "/f/z/books", 200, `<span class="unlinked">unlinked</span>`, `/f/z/books/type-theory.pdf#backlinks">1</a>`)
 	// rendering resolves the bare name too; a missing file is a broken link
 	expect(t, ts, "/n/z/reading.zortex", 200, `href="/f/z/papers/attention.pdf"`)

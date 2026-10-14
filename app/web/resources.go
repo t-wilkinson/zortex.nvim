@@ -21,7 +21,8 @@ import (
 // Resources are the non-note files people link to from notes: PDFs, books,
 // images, media and office documents (Config.ResourceExts). The server
 // tracks which notes (and Markdown files) link to each one, so a file page
-// shows its backlinks and /resources lists the files nothing links to.
+// shows its backlinks and /resources lists them, and the files nothing links
+// to.
 //
 // A file is referenced by a zortex link to a path ([z/books/tt.pdf],
 // [./img.png]), a markdown link ([TT](z/books/tt.pdf)) or a bare path
@@ -317,16 +318,17 @@ type resourceFolder struct {
 	Rows     []resourceRow
 }
 
-// resourceFilter: GET /resources?show=unlinked|linked|all&kind=pdf&dir=z/books
+// resourceFilter: GET /resources?show=all|unlinked|linked&kind=pdf&dir=z/books
+// (the page shows every resource by default, /api/resources the unlinked).
 type resourceFilter struct {
 	Show, Kind, Dir string
 }
 
-func parseResourceFilter(r *http.Request) resourceFilter {
+func parseResourceFilter(r *http.Request, defaultShow string) resourceFilter {
 	q := r.URL.Query()
 	f := resourceFilter{Show: q.Get("show"), Kind: q.Get("kind")}
-	if f.Show != "linked" && f.Show != "all" {
-		f.Show = "unlinked"
+	if f.Show != "unlinked" && f.Show != "linked" && f.Show != "all" {
+		f.Show = defaultShow
 	}
 	if dir, ok := cleanRel(q.Get("dir")); ok {
 		f.Dir = dir
@@ -354,7 +356,7 @@ func (s *Server) resourcesURL(f resourceFilter, key, value string) string {
 		f.Dir = value
 	}
 	q := url.Values{}
-	if f.Show != "unlinked" {
+	if f.Show != "all" {
 		q.Set("show", f.Show)
 	}
 	if f.Kind != "" {
@@ -374,7 +376,7 @@ const maxResourceRows = 2000
 
 func (s *Server) handleResources(w http.ResponseWriter, r *http.Request) {
 	snap := s.current()
-	f := parseResourceFilter(r)
+	f := parseResourceFilter(r, "all")
 	byDir := map[string]*resourceFolder{}
 	var dirs []string
 	total, unlinked, shown := 0, 0, 0
@@ -414,7 +416,7 @@ func (s *Server) handleResources(w http.ResponseWriter, r *http.Request) {
 		On         bool
 	}
 	var shows, kinds []chip
-	for _, v := range []string{"unlinked", "linked", "all"} {
+	for _, v := range []string{"all", "unlinked", "linked"} {
 		shows = append(shows, chip{v, s.resourcesURL(f, "show", v), f.Show == v})
 	}
 	kinds = append(kinds, chip{"any type", s.resourcesURL(f, "kind", ""), f.Kind == ""})
@@ -440,7 +442,7 @@ func (s *Server) handleResources(w http.ResponseWriter, r *http.Request) {
 // apiResources: GET /api/resources?show=&kind=&dir= -> [{rel, kind, size, links, url}]
 func (s *Server) apiResources(w http.ResponseWriter, r *http.Request) {
 	snap := s.current()
-	f := parseResourceFilter(r)
+	f := parseResourceFilter(r, "unlinked")
 	type out struct {
 		Rel   string `json:"rel"`
 		Kind  string `json:"kind"`

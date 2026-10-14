@@ -238,7 +238,7 @@ FILES ~
 
 XP ~
 
-:ZortexMasteryTree                                            *:ZortexMasteryTree*
+:ZortexMasteryTree                                        *:ZortexMasteryTree*
     Mastery tree and season progress. Keys: <leader>zk. Id: mastery_tree.
 
 :ZortexXPStats                                                *:ZortexXPStats*

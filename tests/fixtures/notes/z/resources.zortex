@@ -1,16 +1,22 @@
 @@Resources
 @@R
+@Library
+
+@[rust + rl]
+- AI @[rl & ai-model]
 
 # Rust
 - [The Rust Book](https://doc.rust-lang.org/book) @rust
+  - Read chapters 1-8 first
+  - Ownership notes are in the garden
 - [Rust by Example](https://doc.rust-lang.org/rust-by-example) @rust
 - Async book: https://rust-lang.github.io/async-book @rust @async
 - Garden notes [Garden/-Plant] and [Flipping/#Subaru]
-## Embedded
-- [The Embedded Rust Book](https://docs.rust-embedded.org/book) @rust @embedded
+## Embedded @embedded
+- [The Embedded Rust Book](https://docs.rust-embedded.org/book) @rust
 - Pinout ./pinout.png
 
 # AI
 - [Spinning Up](https://spinningup.openai.com) @rl
-- [Sutton & Barto](https://incompleteideas.net/book) and [lecture notes](https://example.com/rl-notes) @rl
+- [Sutton & Barto](https://incompleteideas.net/book) and [lecture notes](https://example.com/rl-notes) @rl @ai-model
 - Reading list: [R/#Rust/>The Rust Book]

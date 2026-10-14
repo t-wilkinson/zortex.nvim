@@ -73,3 +73,35 @@ T.test("hover previews only the link under the cursor, without focus", function(
 	preview.setup({ on_hover = false })
 	T.eq(#vim.api.nvim_get_autocmds({ group = "ZortexLinkPreviewHover" }), 0)
 end)
+
+T.test("a > link previews the matched link's line and the notes under it", function()
+	open_with("[R/#Rust/>The Rust Book]")
+	local win = preview.preview_link()
+	local buf = vim.api.nvim_win_get_buf(win)
+	T.eq(vim.api.nvim_buf_get_lines(buf, 0, -1, false), {
+		"- [The Rust Book](https://doc.rust-lang.org/book) @rust",
+		"  - Read chapters 1-8 first",
+		"  - Ownership notes are in the garden",
+	})
+	local title = vim.inspect(vim.api.nvim_win_get_config(win).title)
+	T.ok(title:find("Resources › Rust › The Rust Book", 1, true), title)
+	local cr
+	for _, m in ipairs(vim.api.nvim_buf_get_keymap(buf, "n")) do
+		if m.lhs == "<CR>" then
+			cr = m.callback
+		end
+	end
+	vim.api.nvim_set_current_win(win)
+	cr() -- goes to the resource line, not the book
+	T.ok(vim.api.nvim_buf_get_name(0):find("resources.zortex", 1, true), vim.api.nvim_buf_get_name(0))
+	T.eq(vim.api.nvim_win_get_cursor(0)[1], 9)
+end)
+
+T.test("a > link matching several links previews each line", function()
+	open_with("[R/#Rust/>Garden notes] [R/#AI/>]")
+	local win = preview.preview_link()
+	local lines = vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(win), 0, -1, false)
+	T.eq(lines, { "- Garden notes [Garden/-Plant] and [Flipping/#Subaru]" }) -- two links, one line
+	preview.close()
+	vim.cmd("enew!")
+end)

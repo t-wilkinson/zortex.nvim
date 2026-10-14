@@ -293,22 +293,7 @@
         "type": "line"
       },
       {
-        "lnum": 5,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 6,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 7,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 8,
+        "lnum": 9,
         "rel": "z/resources.zortex",
         "type": "line"
       },
@@ -323,12 +308,37 @@
         "type": "line"
       },
       {
+        "lnum": 12,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 13,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
         "lnum": 14,
         "rel": "z/resources.zortex",
         "type": "line"
       },
       {
-        "lnum": 15,
+        "lnum": 16,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 17,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 20,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 21,
         "rel": "z/resources.zortex",
         "type": "line"
       }
@@ -824,21 +834,21 @@
       },
       {
         "breadcrumb": "Resources › Rust",
-        "lnum": 4,
+        "lnum": 8,
         "rel": "z/resources.zortex",
         "score": 1050,
         "type": "section"
       },
       {
         "breadcrumb": "Resources › Rust › Embedded",
-        "lnum": 9,
+        "lnum": 15,
         "rel": "z/resources.zortex",
         "score": 1000,
         "type": "section"
       },
       {
         "breadcrumb": "Resources › AI",
-        "lnum": 13,
+        "lnum": 19,
         "rel": "z/resources.zortex",
         "score": 1050,
         "type": "section"
@@ -1133,6 +1143,11 @@
         "type": "line"
       },
       {
+        "lnum": 3,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
         "lnum": 5,
         "rel": "z/resources.zortex",
         "type": "line"
@@ -1143,12 +1158,7 @@
         "type": "line"
       },
       {
-        "lnum": 7,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 8,
+        "lnum": 9,
         "rel": "z/resources.zortex",
         "type": "line"
       },
@@ -1163,17 +1173,42 @@
         "type": "line"
       },
       {
+        "lnum": 12,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 13,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
         "lnum": 14,
         "rel": "z/resources.zortex",
         "type": "line"
       },
       {
-        "lnum": 15,
+        "lnum": 16,
         "rel": "z/resources.zortex",
         "type": "line"
       },
       {
-        "lnum": 16,
+        "lnum": 17,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 20,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 21,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 22,
         "rel": "z/resources.zortex",
         "type": "line"
       }
@@ -1389,7 +1424,7 @@
       {
         "breadcrumb": "Resources › Rust",
         "child": true,
-        "lnum": 4,
+        "lnum": 8,
         "rel": "z/resources.zortex",
         "score": 2100,
         "type": "section"
@@ -1397,7 +1432,7 @@
       {
         "breadcrumb": "Resources › AI",
         "child": true,
-        "lnum": 13,
+        "lnum": 19,
         "rel": "z/resources.zortex",
         "score": 2100,
         "type": "section"
@@ -1693,6 +1728,11 @@
         "type": "line"
       },
       {
+        "lnum": 3,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
         "lnum": 5,
         "rel": "z/resources.zortex",
         "type": "line"
@@ -1703,12 +1743,7 @@
         "type": "line"
       },
       {
-        "lnum": 7,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 8,
+        "lnum": 9,
         "rel": "z/resources.zortex",
         "type": "line"
       },
@@ -1723,17 +1758,42 @@
         "type": "line"
       },
       {
+        "lnum": 12,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 13,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
         "lnum": 14,
         "rel": "z/resources.zortex",
         "type": "line"
       },
       {
-        "lnum": 15,
+        "lnum": 16,
         "rel": "z/resources.zortex",
         "type": "line"
       },
       {
-        "lnum": 16,
+        "lnum": 17,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 20,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 21,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 22,
         "rel": "z/resources.zortex",
         "type": "line"
       }
@@ -1751,12 +1811,17 @@
         "type": "section"
       },
       {
-        "lnum": 8,
+        "lnum": 11,
         "rel": "z/resources.zortex",
         "type": "line"
       },
       {
-        "lnum": 15,
+        "lnum": 14,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 21,
         "rel": "z/resources.zortex",
         "type": "line"
       }
@@ -2084,6 +2149,11 @@
         "type": "line"
       },
       {
+        "lnum": 3,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
         "lnum": 5,
         "rel": "z/resources.zortex",
         "type": "line"
@@ -2094,12 +2164,7 @@
         "type": "line"
       },
       {
-        "lnum": 7,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 8,
+        "lnum": 9,
         "rel": "z/resources.zortex",
         "type": "line"
       },
@@ -2114,17 +2179,42 @@
         "type": "line"
       },
       {
+        "lnum": 12,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 13,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
         "lnum": 14,
         "rel": "z/resources.zortex",
         "type": "line"
       },
       {
-        "lnum": 15,
+        "lnum": 16,
         "rel": "z/resources.zortex",
         "type": "line"
       },
       {
-        "lnum": 16,
+        "lnum": 17,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 20,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 21,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 22,
         "rel": "z/resources.zortex",
         "type": "line"
       }
@@ -2152,7 +2242,7 @@
         "type": "line"
       },
       {
-        "lnum": 8,
+        "lnum": 14,
         "rel": "z/resources.zortex",
         "type": "line"
       }
@@ -2327,17 +2417,17 @@
         "type": "line"
       },
       {
-        "lnum": 5,
+        "lnum": 9,
         "rel": "z/resources.zortex",
         "type": "line"
       },
       {
-        "lnum": 6,
+        "lnum": 12,
         "rel": "z/resources.zortex",
         "type": "line"
       },
       {
-        "lnum": 15,
+        "lnum": 21,
         "rel": "z/resources.zortex",
         "type": "line"
       }

@@ -357,6 +357,15 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, "search", http.StatusOK, data)
 }
 
+// linkDef is the link a ?to= parameter names: "P/#1.4" and "[P/#1.4]" are
+// "[P/#1.4]"; tag searches stay "@[R/rust]".
+func linkDef(to string) string {
+	if strings.HasPrefix(to, "@[") {
+		return to
+	}
+	return "[" + strings.TrimSuffix(strings.TrimPrefix(to, "["), "]") + "]"
+}
+
 func (s *Server) handleLink(w http.ResponseWriter, r *http.Request) {
 	def := r.URL.Query().Get("to")
 	fromRel := r.URL.Query().Get("from")
@@ -364,7 +373,8 @@ func (s *Server) handleLink(w http.ResponseWriter, r *http.Request) {
 	if fromRel != "" {
 		opts.From = s.ix.Doc(fromRel)
 	}
-	results, err := links.Resolve(s.ix, "["+strings.TrimSuffix(strings.TrimPrefix(def, "["), "]")+"]", opts)
+	link := linkDef(def)
+	results, err := links.Resolve(s.ix, link, opts)
 	follow := len(results) > 0 && results[0].Link != nil
 	if err == nil && len(results) == 1 {
 		href := s.noteURL(results[0].Doc.Rel, results[0].Lnum)
@@ -400,8 +410,10 @@ func (s *Server) handleLink(w http.ResponseWriter, r *http.Request) {
 		status, msg = http.StatusNotFound, err.Error()
 	}
 	s.render(w, r, "link", status, map[string]any{
-		"Title":   "[" + def + "]",
+		"Title":   link,
 		"Def":     def,
+		"Link":    link,
+		"Tags":    strings.HasPrefix(link, "@["),
 		"From":    fromRel,
 		"Targets": targets,
 		"Follow":  follow,
@@ -471,8 +483,7 @@ func (s *Server) apiResolve(w http.ResponseWriter, r *http.Request) {
 	if from := r.URL.Query().Get("from"); from != "" {
 		opts.From = s.ix.Doc(from)
 	}
-	def := strings.TrimSuffix(strings.TrimPrefix(r.URL.Query().Get("to"), "["), "]")
-	results, err := links.Resolve(s.ix, "["+def+"]", opts)
+	results, err := links.Resolve(s.ix, linkDef(r.URL.Query().Get("to")), opts)
 	type res struct {
 		Rel  string `json:"rel"`
 		Lnum int    `json:"lnum"`

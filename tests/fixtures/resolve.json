@@ -359,7 +359,7 @@
     "results": [
       {
         "col": 1,
-        "lnum": 4,
+        "lnum": 8,
         "rel": "z/resources.zortex"
       }
     ]
@@ -369,7 +369,7 @@
     "results": [
       {
         "col": 1,
-        "lnum": 9,
+        "lnum": 15,
         "rel": "z/resources.zortex"
       }
     ]
@@ -379,7 +379,54 @@
     "results": [
       {
         "col": 1,
+        "lnum": 19,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "from": "z/resources.zortex",
+    "link": "@[rust + rl]",
+    "results": [
+      {
+        "col": 51,
+        "lnum": 9,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 64,
+        "lnum": 12,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 54,
         "lnum": 13,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 65,
+        "lnum": 16,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 48,
+        "lnum": 20,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 104,
+        "lnum": 21,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "from": "z/resources.zortex",
+    "link": "@[rl & ai-model]",
+    "results": [
+      {
+        "col": 104,
+        "lnum": 21,
         "rel": "z/resources.zortex"
       }
     ]
@@ -409,7 +456,7 @@
     "results": [
       {
         "col": 3,
-        "lnum": 5,
+        "lnum": 9,
         "rel": "z/resources.zortex"
       }
     ]
@@ -838,7 +885,7 @@
     "results": [
       {
         "col": 3,
-        "lnum": 5,
+        "lnum": 9,
         "rel": "z/resources.zortex"
       }
     ]
@@ -848,7 +895,7 @@
     "results": [
       {
         "col": 3,
-        "lnum": 6,
+        "lnum": 12,
         "rel": "z/resources.zortex"
       }
     ]
@@ -858,37 +905,37 @@
     "results": [
       {
         "col": 3,
-        "lnum": 5,
+        "lnum": 9,
         "rel": "z/resources.zortex"
       },
       {
         "col": 3,
-        "lnum": 6,
+        "lnum": 12,
         "rel": "z/resources.zortex"
       },
       {
         "col": 15,
-        "lnum": 7,
+        "lnum": 13,
         "rel": "z/resources.zortex"
       },
       {
         "col": 16,
-        "lnum": 8,
+        "lnum": 14,
         "rel": "z/resources.zortex"
       },
       {
         "col": 36,
-        "lnum": 8,
+        "lnum": 14,
         "rel": "z/resources.zortex"
       },
       {
         "col": 3,
-        "lnum": 10,
+        "lnum": 16,
         "rel": "z/resources.zortex"
       },
       {
         "col": 10,
-        "lnum": 11,
+        "lnum": 17,
         "rel": "z/resources.zortex"
       }
     ]
@@ -898,7 +945,7 @@
     "results": [
       {
         "col": 15,
-        "lnum": 7,
+        "lnum": 13,
         "rel": "z/resources.zortex"
       }
     ]
@@ -908,7 +955,7 @@
     "results": [
       {
         "col": 15,
-        "lnum": 7,
+        "lnum": 13,
         "rel": "z/resources.zortex"
       }
     ]
@@ -918,12 +965,12 @@
     "results": [
       {
         "col": 16,
-        "lnum": 8,
+        "lnum": 14,
         "rel": "z/resources.zortex"
       },
       {
         "col": 36,
-        "lnum": 8,
+        "lnum": 14,
         "rel": "z/resources.zortex"
       }
     ]
@@ -933,7 +980,7 @@
     "results": [
       {
         "col": 36,
-        "lnum": 8,
+        "lnum": 14,
         "rel": "z/resources.zortex"
       }
     ]
@@ -943,7 +990,7 @@
     "results": [
       {
         "col": 10,
-        "lnum": 11,
+        "lnum": 17,
         "rel": "z/resources.zortex"
       }
     ]
@@ -953,7 +1000,7 @@
     "results": [
       {
         "col": 10,
-        "lnum": 11,
+        "lnum": 17,
         "rel": "z/resources.zortex"
       }
     ]
@@ -963,7 +1010,7 @@
     "results": [
       {
         "col": 3,
-        "lnum": 15,
+        "lnum": 21,
         "rel": "z/resources.zortex"
       }
     ]
@@ -973,7 +1020,7 @@
     "results": [
       {
         "col": 58,
-        "lnum": 15,
+        "lnum": 21,
         "rel": "z/resources.zortex"
       }
     ]
@@ -983,7 +1030,7 @@
     "results": [
       {
         "col": 17,
-        "lnum": 16,
+        "lnum": 22,
         "rel": "z/resources.zortex"
       }
     ]
@@ -1003,7 +1050,7 @@
     "results": [
       {
         "col": 3,
-        "lnum": 14,
+        "lnum": 20,
         "rel": "z/resources.zortex"
       }
     ]
@@ -1014,7 +1061,234 @@
     "results": [
       {
         "col": 3,
-        "lnum": 5,
+        "lnum": 9,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[R/#Rust/-The Rust Book]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 9,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[R/-rust by]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 12,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "@[R/rust]",
+    "results": [
+      {
+        "col": 51,
+        "lnum": 9,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 64,
+        "lnum": 12,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 54,
+        "lnum": 13,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 65,
+        "lnum": 16,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "@[R/#Rust/async]",
+    "results": [
+      {
+        "col": 60,
+        "lnum": 13,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "@[R/embedded & rust]",
+    "results": [
+      {
+        "col": 65,
+        "lnum": 16,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "@[R/#Rust/embedded]",
+    "results": [
+      {
+        "col": 13,
+        "lnum": 15,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 16,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 17,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "@[@Library/rl]",
+    "results": [
+      {
+        "col": 48,
+        "lnum": 20,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 104,
+        "lnum": 21,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "@[@Library/rl&ai-model]",
+    "results": [
+      {
+        "col": 104,
+        "lnum": 21,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "@[R/@rl & @ai-model]",
+    "results": [
+      {
+        "col": 104,
+        "lnum": 21,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "@[*/rl]",
+    "results": [
+      {
+        "col": 48,
+        "lnum": 20,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 104,
+        "lnum": 21,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "@[*/rust+rl]",
+    "results": [
+      {
+        "col": 51,
+        "lnum": 9,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 64,
+        "lnum": 12,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 54,
+        "lnum": 13,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 65,
+        "lnum": 16,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 48,
+        "lnum": 20,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 104,
+        "lnum": 21,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "@[R/#Rust/-The Rust Book/rust]",
+    "results": [
+      {
+        "col": 51,
+        "lnum": 9,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "error": "No matches found for: @[R/nothing]",
+    "link": "@[R/nothing]",
+    "results": []
+  },
+  {
+    "error": "No article found: Nope",
+    "link": "@[Nope/rl]",
+    "results": []
+  },
+  {
+    "error": "No tags in @[R/#Rust/ & ]",
+    "link": "@[R/#Rust/ & ]",
+    "results": []
+  },
+  {
+    "from": "z/resources.zortex",
+    "link": "@[rl]",
+    "results": [
+      {
+        "col": 48,
+        "lnum": 20,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 104,
+        "lnum": 21,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "from": "z/resources.zortex",
+    "link": "@[/#AI/rl]",
+    "results": [
+      {
+        "col": 48,
+        "lnum": 20,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 104,
+        "lnum": 21,
         "rel": "z/resources.zortex"
       }
     ]

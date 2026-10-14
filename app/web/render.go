@@ -281,11 +281,8 @@ func (r *noteRenderer) span(line string, sp *syntax.Span) string {
 	case "footnote_ref":
 		return `<sup class="fnref"><a href="#fn-` + esc(sp.ID) + `">` + esc(sp.ID) + `</a></sup>`
 	case "tag_search":
-		terms := make([]string, len(sp.Terms))
-		for i, t := range sp.Terms {
-			terms[i] = "@" + strings.ReplaceAll(t, " ", `\ `)
-		}
-		return `<a class="tagsearch" href="` + esc(r.s.url("/search?q="+url.QueryEscape(strings.Join(terms, " ")))) + `">` + esc(raw) + `</a>`
+		// the tagged lines it finds (links.TagSearch), listed on the link page
+		return `<a class="tagsearch" href="` + esc(r.s.linkURL("@["+sp.Content+"]", r.doc.Rel)) + `">` + esc(raw) + `</a>`
 	case "attribute":
 		return `<span class="attr">` + esc(raw) + `</span>`
 	case "hidden":

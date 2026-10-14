@@ -1,7 +1,7 @@
 -- features/links.lua - Following links in a buffer, and section navigation
 --
 -- What a link means is core/link; this module opens what it points to:
--- notes (quickfix list for several targets), @[tag] searches in the buffer,
+-- notes (quickfix list for several targets), @[scope/tag] searches,
 -- footnotes, URLs, media and files. A link ending in a > component opens
 -- the links it matched (a picker when there are several).
 local M = {}
@@ -64,99 +64,6 @@ local function jump_to_location(location, use_target_window)
 	vim.api.nvim_win_call(target_win, function()
 		vim.cmd("normal! zz")
 	end)
-end
-
--- =============================================================================
--- Tag Search (@[...] links)
--- =============================================================================
-
---- Search the current buffer for lines containing @tag patterns.
---- Used by @[tag1 + tag2] style links.
----@param link_info table The parsed tag_search link info from core/link.at
----@param source_lnum number Line number of the link itself (to self-filter)
----@return table[] SearchResult list
-local function search_tag_query(link_info, source_lnum)
-	local lines = buffer.get_lines()
-	local current_file = vim.fn.expand("%:p")
-	local results = {}
-
-	-- Build @tag patterns for each term
-	-- Each term should match as an @tag on the line (e.g. term "rust" matches "@rust")
-	local tag_patterns = {}
-	for _, term in ipairs(link_info.terms) do
-		-- Match @term as a whole word: preceded by start-of-string or whitespace,
-		-- followed by end-of-string or whitespace/punctuation
-		table.insert(tag_patterns, (term:lower()))
-	end
-
-	local is_and = link_info.query_type == "and"
-	-- "single" behaves like AND with one term
-
-	for lnum = 1, #lines do
-		-- Skip the source line (self-filter)
-		if lnum ~= source_lnum then
-			local line = lines[lnum]
-			local line_lower = line:lower()
-
-			-- Extract all @tags from the line
-			local line_tags = {}
-			for tag in line_lower:gmatch("@([%w_%-]+)") do
-				line_tags[tag] = true
-			end
-
-			local is_match = false
-			local match_col = 1
-
-			if is_and or link_info.query_type == "single" then
-				-- AND / single: all terms must appear as @tags
-				is_match = true
-				for _, pat in ipairs(tag_patterns) do
-					if not line_tags[pat] then
-						is_match = false
-						break
-					end
-				end
-			else
-				-- OR: any term as @tag
-				for _, pat in ipairs(tag_patterns) do
-					if line_tags[pat] then
-						is_match = true
-						-- Find column position for the first matching tag
-						local col = line_lower:find("@" .. pat)
-						if col then
-							match_col = col
-						end
-						break
-					end
-				end
-			end
-
-			if is_match then
-				-- For AND, find column of first matching tag
-				if (is_and or link_info.query_type == "single") and match_col == 1 then
-					local col = line_lower:find("@" .. tag_patterns[1])
-					if col then
-						match_col = col
-					end
-				end
-
-				table.insert(results, {
-					file = current_file,
-					lnum = lnum,
-					col = match_col,
-					text = line,
-					lines = lines,
-					component = {
-						type = "tag_search",
-						text = link_info.display_text,
-						original = link_info.full_match_text,
-					},
-				})
-			end
-		end
-	end
-
-	return results
 end
 
 -- =============================================================================
@@ -396,12 +303,16 @@ function M.open_info(link_info, ctx)
 			vim.notify(string.format("Found %d matches. Quickfix list populated.", #results), vim.log.levels.INFO)
 		end
 	elseif link_info.type == "tag_search" then
-		-- Handle @[tag1 + tag2] style tag search links
+		-- @[scope/tag1 + tag2]: tagged lines (core/link tag_search), minus
+		-- the line the search is written on
 		local source_lnum = buffer.get_cursor_pos()
-		local results = search_tag_query(link_info, source_lnum)
+		local results, err = link_mod.tag_search(link_info.display_text, ctx.doc and { doc = ctx.doc } or nil)
+		results = vim.tbl_filter(function(r)
+			return not (r.file == current_file and r.lnum == source_lnum and in_buffer)
+		end, results)
 
 		if #results == 0 then
-			vim.notify("No tag matches found for: " .. link_info.display_text, vim.log.levels.INFO)
+			vim.notify(err or ("No tag matches found for: " .. link_info.display_text), vim.log.levels.INFO)
 			return
 		elseif #results == 1 then
 			jump_to_location(results[1], true)

@@ -1,14 +1,18 @@
 {
   "blocks": [],
   "header": {
-    "last_lnum": 2,
+    "last_lnum": 3,
     "name_lnum": 1,
     "names": [
       "Resources",
       "R"
     ],
-    "tag_lines": [],
-    "tags": []
+    "tag_lines": [
+      "@Library"
+    ],
+    "tags": [
+      "Library"
+    ]
   },
   "lines": [
     {
@@ -30,6 +34,60 @@
       "inline": [],
       "kind": "article",
       "text": "R"
+    },
+    {
+      "content_col": 1,
+      "indent": 0,
+      "inline": [],
+      "kind": "tag"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [
+        {
+          "content": "rust + rl",
+          "e": 12,
+          "query_type": "or",
+          "s": 0,
+          "terms": [
+            "rust",
+            "rl"
+          ],
+          "type": "tag_search"
+        }
+      ],
+      "kind": "text"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [
+        {
+          "content": "rl & ai-model",
+          "e": 21,
+          "query_type": "and",
+          "s": 5,
+          "terms": [
+            "rl",
+            "ai-model"
+          ],
+          "type": "tag_search"
+        }
+      ],
+      "item": {
+        "content_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
     },
     {
       "content_col": 0,
@@ -69,6 +127,30 @@
         "content_col": 2,
         "marker": "-",
         "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 4,
+      "indent": 2,
+      "inline": [],
+      "item": {
+        "content_col": 4,
+        "marker": "-",
+        "marker_col": 2,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 4,
+      "indent": 2,
+      "inline": [],
+      "item": {
+        "content_col": 4,
+        "marker": "-",
+        "marker_col": 2,
         "marker_type": "bullet"
       },
       "kind": "item"
@@ -161,7 +243,14 @@
       "content_col": 3,
       "heading": 2,
       "indent": 0,
-      "inline": [],
+      "inline": [
+        {
+          "e": 21,
+          "key": "embedded",
+          "s": 12,
+          "type": "attribute"
+        }
+      ],
       "kind": "heading",
       "level": 2,
       "section": true,
@@ -182,12 +271,6 @@
           "e": 69,
           "key": "rust",
           "s": 64,
-          "type": "attribute"
-        },
-        {
-          "e": 79,
-          "key": "embedded",
-          "s": 70,
           "type": "attribute"
         }
       ],
@@ -283,6 +366,12 @@
           "key": "rl",
           "s": 103,
           "type": "attribute"
+        },
+        {
+          "e": 116,
+          "key": "ai-model",
+          "s": 107,
+          "type": "attribute"
         }
       ],
       "item": {
@@ -328,19 +417,19 @@
     },
     {
       "level": 1,
-      "lnum": 4,
+      "lnum": 8,
       "text": "Rust",
       "type": "heading"
     },
     {
       "level": 2,
-      "lnum": 9,
+      "lnum": 15,
       "text": "Embedded",
       "type": "heading"
     },
     {
       "level": 1,
-      "lnum": 13,
+      "lnum": 19,
       "text": "AI",
       "type": "heading"
     }

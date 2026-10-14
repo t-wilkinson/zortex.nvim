@@ -38,13 +38,19 @@ The first release for people other than the author.
   telescope instead of failing.
 - Links to links: a `>` component (`[R/#Rust/>The Rust Book]`) opens the link
   it matches instead of the line it is on, with a picker when several match
-  and completion after `>`.
+  and completion after `>`; its preview shows the link's line and the notes
+  nested under it.
+- Tag searches take a scope: `@[R/#Rust/async]`, `@[@Library/rl & ai-model]`,
+  `@[*/rust]`; a tag on a heading tags its section. `-` finds a list item by
+  its markdown link's text (`[R/#Rust/-The Rust Book]`).
 
 ### Server (`zortex serve`)
 
 - Rendered notes, search, file browser, tags, broken links, the notes not
   linked from Structure; live updates while you edit elsewhere.
 - `>` links go straight to the link they match, or to a page listing them.
+- `@[...]` tag searches list the tagged lines they find (they used to run a
+  text search).
 - Home page: today's calendar, the pomodoro (shared with Neovim), timers,
   alarms and a stopwatch, time tracking on tasks (`@spent`), the season's objectives and Mastery XP.
 - Calendar notifications, pomodoro changes, timers and alarms through ntfy.

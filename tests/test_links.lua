@@ -101,8 +101,8 @@ T.test("following a > link opens the link it matched, or picks one", function()
 	local ok, err = pcall(function()
 		follow.open_info({ type = "link", definition = "R/#Rust/>Garden notes" })
 		T.eq(shown, {
-			"Garden notes  Garden/-Plant  (Resources › Rust)",
-			"Garden notes  Flipping/#Subaru  (Resources › Rust)",
+			"Garden notes — [Garden/-Plant] (Resources › Rust)",
+			"Garden notes — [Flipping/#Subaru] (Resources › Rust)",
 		})
 		T.eq(vim.fn.expand("%:t") .. ":" .. vim.fn.line("."), "flipping.zortex:11")
 		shown = nil
@@ -113,6 +113,24 @@ T.test("following a > link opens the link it matched, or picks one", function()
 	end)
 	vim.ui.select = select
 	assert(ok, err)
+end)
+
+T.test("the > picker shows each link's title, short target and section", function()
+	local doc = require("zortex.core.document").from_lines({
+		"@@Books",
+		"# Electronics",
+		"- The Art of Electronics. Horowitz: ./z/books/the-art-of-electronics.horowitz.pdf @ee",
+		"- [Practical Electronics](https://www.example.com/pe) @ee",
+		"- https://example.org/notes - lecture notes",
+	}, "/tmp/books.zortex")
+	local entries = vim.tbl_map(require("zortex.features.links")._follow_entry, links.resolve("[/>]", { doc = doc }))
+	T.eq(vim.tbl_map(function(e)
+		return { e.title, e.target, e.where }
+	end, entries), {
+		{ "The Art of Electronics. Horowitz", "the-art-of-electronics.horowitz.pdf", "Books › Electronics" },
+		{ "Practical Electronics", "example.com/pe", "Books › Electronics" },
+		{ "lecture notes", "example.org/notes", "Books › Electronics" },
+	})
 end)
 
 T.test("@[scope/tags] finds tagged lines, with tags inherited from headings", function()

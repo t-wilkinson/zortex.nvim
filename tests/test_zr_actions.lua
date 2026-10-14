@@ -32,11 +32,64 @@ T.test("commands and keymaps come from the list, with overrides", function()
 	local desc = (cmd.desc and cmd.desc ~= "") and cmd.desc or cmd.definition
 	T.eq(desc, "Links into the section under the cursor (quickfix)")
 	actions.create_keymaps("<leader>q", { task_toggle = "t", search = false, review = { "w", "R" } })
-	T.eq(vim.fn.maparg("<leader>qt", "n", false, true).desc, "Zortex: Toggle the task on this line (makes one if needed)")
+	T.eq(vim.fn.maparg("<leader>qt", "n", false, true).desc, "Toggle the task on this line (makes one if needed)")
 	T.eq(vim.fn.maparg("<leader>qz", "n"), "")
 	T.ok(vim.fn.maparg("<leader>qR", "n", false, true).callback, "list override")
 	local help = table.concat(actions.help_lines(), "\n")
 	T.ok(help:find("# Links", 1, true) and help:find(":ZortexBacklinks", 1, true), help)
+end)
+
+T.test("key prefixes are named for which-key", function()
+	local groups = {}
+	for _, g in ipairs(actions.key_groups("<leader>z", {}, { C = "Calendar & digest" })) do
+		groups[g[1]] = g[2]
+	end
+	T.eq(groups["<leader>z"], "Zortex")
+	T.eq(groups["<leader>zC"], "Calendar & digest") -- named in config
+	T.eq(groups["<leader>zx"], "XP") -- named after its actions' group
+	T.eq(groups["<leader>zt"], "Tasks")
+	T.eq(groups["<leader>zz"], nil) -- a single key, not a prefix
+
+	-- overrides: a remapped action makes its prefix, false skips a name
+	local custom = {}
+	for _, g in ipairs(actions.key_groups("<leader>q", { review = "ra", xp_stats = false }, { x = false })) do
+		custom[g[1]] = g[2]
+	end
+	T.eq(custom["<leader>qr"], "Plan")
+	T.eq(custom["<leader>qx"], nil)
+end)
+
+T.test("which-key gets the groups when installed (v3 add, v2 register)", function()
+	local saved = package.loaded["which-key"]
+	if not saved and not pcall(require, "which-key") then
+		T.eq(actions.register_which_key("<leader>z", {}, {}), false) -- not installed: nothing to do
+	end
+
+	local added
+	package.loaded["which-key"] = {
+		add = function(spec)
+			added = spec
+		end,
+	}
+	T.ok(actions.register_which_key("<leader>z", {}, { C = "Calendar & digest" }))
+	local by_lhs = {}
+	for _, s in ipairs(added) do
+		by_lhs[s[1]] = s
+	end
+	T.eq(by_lhs["<leader>z"].group, "Zortex")
+	T.eq(by_lhs["<leader>zC"].group, "Calendar & digest")
+	T.eq(by_lhs["<leader>zC"].mode, "n")
+
+	local registered
+	package.loaded["which-key"] = {
+		register = function(spec, opts)
+			registered = { spec = spec, opts = opts }
+		end,
+	}
+	T.ok(actions.register_which_key("<leader>z", {}, {}))
+	T.eq(registered.spec["<leader>zo"].name, "+Pomodoro")
+	T.eq(registered.opts.mode, "n")
+	package.loaded["which-key"] = saved
 end)
 
 T.test("api exposes services lazily and actions by id", function()

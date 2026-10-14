@@ -134,6 +134,45 @@ T.test("article mode matches article names; max_results caps", function()
 	T.eq(#capped, 2)
 end)
 
+T.test("text mode matches the prompt literally on every line, headings too", function()
+	local r = search.query_index(index(), "1.4 - zortex", { mode = "text" })
+	T.ok(#r >= 3, "heading and link lines contain it")
+	for _, x in ipairs(r) do
+		T.eq(x.result_type, "line")
+		T.ok(x.line:lower():find("1.4 - zortex", 1, true), x.line)
+		T.eq(x.line:lower():find("1.4 - zortex", 1, true), x.col)
+	end
+	-- the heading line is a result (section mode skips structural lines)
+	local heading = vim.tbl_filter(function(x)
+		return x.line:match("^## 1%.4 %- zortex") and not x.archived
+	end, r)
+	T.eq(#heading, 1)
+	T.eq(heading[1].article_name, "Projects")
+	-- live notes before archived ones
+	local seen_archived = false
+	for _, x in ipairs(r) do
+		if x.archived then
+			seen_archived = true
+		else
+			T.ok(not seen_archived, "live result after an archived one: " .. x.filepath)
+		end
+	end
+	T.ok(seen_archived, "the archived copy is still found")
+end)
+
+T.test("text mode has no word syntax and uses smart case", function()
+	-- words are not split: "zortex 1.4" is not on any line
+	T.eq(#search.query_index(index(), "zortex 1.4", { mode = "text" }), 0)
+	-- "#" and "@@" are plain characters
+	local tags = search.query_index(index(), "@@car", { mode = "text" })
+	T.eq(#tags, 1)
+	T.eq(tags[1].line, "@@Car maintenance")
+	-- a capital makes it case-sensitive
+	T.eq(#search.query_index(index(), "@@CAR", { mode = "text" }), 0)
+	T.eq(#search.query_index(index(), "@@Car", { mode = "text" }), 1)
+	T.eq(#search.query_index(index(), "", { mode = "text" }), 0)
+end)
+
 -- ---------------------------------------------------------------------------
 -- Ranking
 -- ---------------------------------------------------------------------------

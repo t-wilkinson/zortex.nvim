@@ -19,8 +19,14 @@
 --            then document order inside a file, so parents precede children.
 --   The direct sub-sections of a match are listed under it.
 --
+-- Plain text mode ("text") skips all of the above: the prompt is one literal
+-- string (no word syntax, spaces included) matched against every line,
+-- headings too. Smart case: case-insensitive unless the prompt has a capital.
+-- Results are lines, live notes before archived, then in document order.
+--
 -- Configuration (Config.ui.search, see config.lua):
 --   default_mode        "section" (sections + matching lines) | "article"
+--                       | "text" (plain text over every line)
 --   max_results         cap on results per query
 --   token_filters       [n] = section types that may be a result when the
 --                       prompt has n words ("all" = every type); bold
@@ -216,10 +222,20 @@ function M.build_index(files)
 					end
 				end
 
+				-- Article ranges, for naming the article of a text match.
+				local articles = {}
+				for _, child in ipairs(tree.children) do
+					if child.type == "article" then
+						articles[#articles + 1] = child
+					end
+				end
+
 				index[#index + 1] = {
 					filepath = filepath,
 					archived = require("zortex.core.notes").is_archived(filepath),
+					raw_lines = lines,
 					lower_lines = lower_lines,
+					articles = articles,
 					sections = sections,
 					lines = line_items,
 				}
@@ -426,19 +442,70 @@ local function match_lines(index, tokens)
 	return results
 end
 
+-- Plain text: every line containing `prompt` literally (smart case), live
+-- notes first, then document order. `col` is the 1-based start of the match.
+local function match_text(index, prompt)
+	local results = {}
+	if not prompt or prompt == "" then
+		return results
+	end
+	local ignore_case = prompt:lower() == prompt
+	local files = {}
+	for _, file in ipairs(index) do
+		if not file.archived then
+			files[#files + 1] = file
+		end
+	end
+	for _, file in ipairs(index) do
+		if file.archived then
+			files[#files + 1] = file
+		end
+	end
+	for _, file in ipairs(files) do
+		local haystack = ignore_case and file.lower_lines or file.raw_lines or {}
+		local a = 1
+		for lnum, text in ipairs(haystack) do
+			local col = text:find(prompt, 1, true)
+			if col then
+				local articles = file.articles or {}
+				while articles[a] and articles[a].end_line < lnum do
+					a = a + 1
+				end
+				local article = articles[a]
+				if article and article.start_line > lnum then
+					article = nil
+				end
+				results[#results + 1] = {
+					result_type = "line",
+					filepath = file.filepath,
+					lnum = lnum,
+					col = col,
+					line = file.raw_lines[lnum],
+					article_name = article and article.text or nil,
+					archived = file.archived,
+				}
+			end
+		end
+	end
+	return results
+end
+
 -- Full query over a pre-built index.
 --   "section" mode: section matches (with their direct sub-sections), then
 --                   lines containing every word
 --   "article" mode: articles only
+--   "text" mode:    lines containing the prompt as typed (match_text)
 -- Results are capped at max_results and numbered (`rank`) for the picker.
----@param opts { mode?: "section"|"article" }?
+---@param opts { mode?: "section"|"article"|"text" }?
 function M.query_index(index, prompt, opts)
 	local c = cfg()
 	local mode = (opts and opts.mode) or c.default_mode or "section"
 	local tokens = tokenize(prompt)
 
 	local results
-	if mode == "article" then
+	if mode == "text" then
+		results = match_text(index, prompt)
+	elseif mode == "article" then
 		results = match_sections(index, tokens, function(entry)
 			return entry.node.type == "article"
 		end, false)
@@ -494,12 +561,15 @@ function M.files()
 end
 
 --- Search every note: { results, ... } as query_index returns them.
----@param opts { mode?: "section"|"article", files?: string[] }?
+---@param opts { mode?: "section"|"article"|"text", files?: string[] }?
 function M.search(prompt, opts)
 	opts = opts or {}
 	return M.query_index(M.build_index(opts.files or M.files()), prompt, opts)
 end
 
 M.tokenize = tokenize
+
+--- The modes query_index understands, in the picker's <C-t> order.
+M.MODES = { "section", "article", "text" }
 
 return M

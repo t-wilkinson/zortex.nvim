@@ -15,6 +15,10 @@ The first release for people other than the author.
   [doc/Syntax.md](doc/Syntax.md) and checked against the parser by a test.
 - Structural search, links with completion and preview, backlinks and broken
   links from a persistent link index.
+- Plain text search (`:ZortexSearchText`, `<leader>z/`): the prompt as typed,
+  smart case, over every line; `<C-t>` cycles section, article and text mode.
+- Key prefixes are named in which-key when it is installed (`<leader>z`
+  "Zortex", `<leader>zC` "Calendar & digest", ...; `keymaps.groups`).
 - Projects, areas, objectives and key results as entities with progress,
   a weekly review, a day planner, a calendar view with iCal import/export.
 - XP read off completed tasks, calibrated in hours: `@size` is estimated

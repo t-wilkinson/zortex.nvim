@@ -215,7 +215,20 @@ Pressing Enter on any result closes the picker, opens the file with `:edit`, and
 
 ---
 
+## Modes
+
+The picker has three modes; `<C-t>` cycles them, and `ui.search.default_mode` picks the one `:ZortexSearch` opens in.
+
+| Mode      | Opens with                              | Finds                                                                                     |
+| --------- | --------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `section` | `:ZortexSearch`, `<leader>zz`           | Sections by path, then lines containing every word (everything above)                     |
+| `article` | `:ZortexSearchArticles`, `<leader>zZ`   | Article names only                                                                        |
+| `text`    | `:ZortexSearchText`, `<leader>z/`       | Every line containing the prompt as typed, headings and `@@` lines included               |
+
+Plain text mode has no word syntax: the whole prompt, spaces and all, is one literal string, and `#`, `@@`, `:`, `*` and `_` are ordinary characters. It is smart case: case-insensitive unless the prompt has a capital letter. Results are lines (`article › line`), live notes before archived ones, then in document order; opening one puts the cursor on the match.
+
+---
+
 ## Planned Future Extensions (not yet implemented)
 
-- Mode toggle within the picker: section-only search vs. text-only search vs. combined (current default).
 - Additional structural token types as the document model grows.

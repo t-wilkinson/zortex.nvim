@@ -89,6 +89,10 @@ FIND ~
 :ZortexSearchArticles                                  *:ZortexSearchArticles*
     Search article names. Keys: <leader>zZ. Id: search_articles.
 
+:ZortexSearchText                                          *:ZortexSearchText*
+    Search plain text in every line (smart case). Keys: <leader>z/. Id:
+    search_text.
+
 :ZortexProjects                                              *:ZortexProjects*
     Browse projects. Keys: <leader>zp. Id: projects.
 
@@ -238,7 +242,7 @@ FILES ~
 
 XP ~
 
-:ZortexMasteryTree                                            *:ZortexMasteryTree*
+:ZortexMasteryTree                                        *:ZortexMasteryTree*
     Mastery tree and season progress. Keys: <leader>zk. Id: mastery_tree.
 
 :ZortexXPStats                                                *:ZortexXPStats*
@@ -312,6 +316,11 @@ setup() merges your options over these defaults: >lua
         -- Per-action overrides by action id: a key, a list of keys, or false.
         -- e.g. { task_toggle = "t", search_articles = false, review = { "w", "R" } }
         mappings = {},
+        -- which-key names for key prefixes (when which-key is installed):
+        -- <prefix> is "Zortex", and a prefix like "x" of "xs" is named after
+        -- its actions' group ("XP") unless set here. false skips one, or set
+        -- groups = false to name none.
+        groups = { C = "Calendar & digest" },
       },
 
       core = {
@@ -439,7 +448,7 @@ setup() merges your options over these defaults: >lua
         },
 
         search = {
-          default_mode = "section", -- or "article"
+          default_mode = "section", -- or "article", "text" (plain text); <C-t> cycles them
           max_results = 500,
           access_decay_rate = 0.1, -- per day
           breadcrumb_display = {

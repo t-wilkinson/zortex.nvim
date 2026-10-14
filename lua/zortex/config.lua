@@ -21,6 +21,11 @@ local defaults = {
 		-- Per-action overrides by action id: a key, a list of keys, or false.
 		-- e.g. { task_toggle = "t", search_articles = false, review = { "w", "R" } }
 		mappings = {},
+		-- which-key names for key prefixes (when which-key is installed):
+		-- <prefix> is "Zortex", and a prefix like "x" of "xs" is named after
+		-- its actions' group ("XP") unless set here. false skips one, or set
+		-- groups = false to name none.
+		groups = { C = "Calendar & digest" },
 	},
 
 	core = {
@@ -148,7 +153,7 @@ local defaults = {
 		},
 
 		search = {
-			default_mode = "section", -- or "article"
+			default_mode = "section", -- or "article", "text" (plain text); <C-t> cycles them
 			max_results = 500,
 			access_decay_rate = 0.1, -- per day
 			breadcrumb_display = {

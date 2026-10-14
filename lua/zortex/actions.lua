@@ -187,6 +187,14 @@ M.list = {
 		run = call("zortex.ui.telescope.search", "structural_search", { mode = "article" }),
 	},
 	{
+		id = "search_text",
+		command = "SearchText",
+		key = "/",
+		group = "Find",
+		desc = "Search plain text in every line (smart case)",
+		run = call("zortex.ui.telescope.search", "structural_search", { mode = "text" }),
+	},
+	{
 		id = "projects",
 		command = "Projects",
 		key = "p",
@@ -712,6 +720,72 @@ function M.create_keymaps(prefix, mappings)
 			end, { silent = true, desc = a.desc })
 		end
 	end
+end
+
+-- First key of a key sequence: "C" of "Cc", "<C-x>" of "<C-x>y".
+local function first_key(key)
+	return key:match("^<[^>]+>") or key:sub(1, 1)
+end
+
+--- Names for the key prefixes, for which-key: the keymap prefix itself
+--- ("Zortex") and every first key that starts a longer mapping ("C" of
+--- "Cc"). A prefix is named by `names[key]` if set (false skips it), else
+--- by the group of the actions under it. Returns { { lhs, name }, ... }.
+function M.key_groups(prefix, mappings, names)
+	names = names or {}
+	local under, order = {}, {}
+	for _, a in ipairs(M.list) do
+		for _, key in ipairs(keys_of(a, mappings)) do
+			local k = first_key(key)
+			if #k < #key then
+				if not under[k] then
+					under[k] = {}
+					order[#order + 1] = k
+				end
+				if not vim.tbl_contains(under[k], a.group) then
+					table.insert(under[k], a.group)
+				end
+			end
+		end
+	end
+	local out = { { prefix, "Zortex" } }
+	for _, k in ipairs(order) do
+		local name = names[k]
+		if name == nil then
+			name = table.concat(under[k], " & ")
+		end
+		if name then
+			out[#out + 1] = { prefix .. k, name }
+		end
+	end
+	return out
+end
+
+--- Name the key prefixes in which-key (v3 `add`, or v2 `register`), so
+--- <prefix> shows "Zortex" and <prefix>C shows "Calendar & digest". Does
+--- nothing when which-key isn't installed. Returns true when registered.
+function M.register_which_key(prefix, mappings, names)
+	local ok, wk = pcall(require, "which-key")
+	if not ok or type(wk) ~= "table" then
+		return false
+	end
+	local groups = M.key_groups(prefix, mappings, names)
+	if type(wk.add) == "function" then
+		local spec = {}
+		for _, g in ipairs(groups) do
+			spec[#spec + 1] = { g[1], group = g[2], mode = "n" }
+		end
+		wk.add(spec)
+	elseif type(wk.register) == "function" then
+		local spec = {}
+		for _, g in ipairs(groups) do
+			spec[g[1]] = { name = "+" .. g[2] }
+		end
+		wk.register(spec, { mode = "n" })
+	else
+		return false
+	end
+	return true
 end
 
 --- Lines describing every action (commands and keys), grouped.

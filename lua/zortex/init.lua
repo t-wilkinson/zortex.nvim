@@ -31,6 +31,9 @@ function api.setup(opts)
 	actions.create_commands(Config.commands.prefix)
 	if Config.keymaps.enabled ~= false then
 		actions.create_keymaps(Config.keymaps.prefix, Config.keymaps.mappings)
+		if Config.keymaps.groups ~= false then
+			actions.register_which_key(Config.keymaps.prefix, Config.keymaps.mappings, Config.keymaps.groups)
+		end
 	end
 
 	require("zortex.ui.telescope.core").setup()

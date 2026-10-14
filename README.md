@@ -115,7 +115,13 @@ Special notes:
 
 - **Structural search** (`<leader>zz`): words match a section's path in order
   (`2 4` finds `1 › 2 › 3 › 4`), results are breadcrumbs ranked by hierarchy,
-  and what you open often ranks higher.
+  and what you open often ranks higher. `<leader>z/` searches plain text in
+  every line instead; `<C-t>` in the picker cycles section, article and text
+  search.
+- **which-key**: when [which-key.nvim](https://github.com/folke/which-key.nvim)
+  is installed, `<leader>z` shows as "Zortex" and its sub-prefixes by name
+  (`<leader>zC` "Calendar & digest", `<leader>zx` "XP", ...); rename them
+  with `keymaps.groups`.
 - **Links**: follow (`<leader>zgx`), preview in a float (`<leader>zK`, or on
   hover with `ui = { preview = { on_hover = true } }`), complete while typing,
   backlinks and broken links in the quickfix list. A persistent link index
@@ -174,6 +180,7 @@ require("zortex").setup({
 |---|---|---|---|
 | `:ZortexSearch` | `<leader>zz` | `search` | Search sections and lines (structural search) |
 | `:ZortexSearchArticles` | `<leader>zZ` | `search_articles` | Search article names |
+| `:ZortexSearchText` | `<leader>z/` | `search_text` | Search plain text in every line (smart case) |
 | `:ZortexProjects` | `<leader>zp` | `projects` | Browse projects |
 | `:ZortexTOC` | `<leader>zl` | `toc` | Table of contents of this note |
 | `:ZortexTOCPopup` | `<leader>zL` | `toc_popup` | Table of contents in a popup |

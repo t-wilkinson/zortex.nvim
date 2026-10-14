@@ -174,7 +174,8 @@ end
 -- =============================================================================
 
 --- Structural search (services/search): sections, then matching lines.
----@param opts { mode?: "section"|"article", limit?: integer }?
+--- mode = "text" is plain text: lines containing the prompt as typed.
+---@param opts { mode?: "section"|"article"|"text", limit?: integer }?
 function M.search(prompt, opts)
 	opts = opts or {}
 	local out = {}
@@ -193,7 +194,7 @@ function M.search(prompt, opts)
 				child = r.child or nil,
 			}
 		else
-			entry = { type = "line", path = r.filepath, rel = rel(r.filepath), lnum = r.lnum, text = r.line }
+			entry = { type = "line", path = r.filepath, rel = rel(r.filepath), lnum = r.lnum, col = r.col, text = r.line }
 		end
 		entry.score = r.score
 		out[#out + 1] = entry

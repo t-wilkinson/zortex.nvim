@@ -216,6 +216,24 @@ end
 -- Main picker
 -- ---------------------------------------------------------------------------
 
+local function picker_title(mode)
+	if mode == "text" then
+		return "Zortex Text Search"
+	end
+	return "Zortex Structural Search (" .. mode .. ")"
+end
+
+-- <C-t> cycles section -> article -> text -> section
+local function next_mode(mode)
+	local modes = search.MODES
+	for i, m in ipairs(modes) do
+		if m == mode then
+			return modes[i % #modes + 1]
+		end
+	end
+	return modes[1]
+end
+
 function M.structural_search(opts)
 	opts = opts or {}
 	local t = telescope()
@@ -229,7 +247,7 @@ function M.structural_search(opts)
 
 	pickers
 		.new(opts, {
-			prompt_title = "Zortex Structural Search (" .. mode .. ")",
+			prompt_title = picker_title(mode),
 			debounce = 80, -- ms: coalesce rapid keystrokes (telescope picker option)
 			finder = finders.new_dynamic({
 				fn = function(prompt)
@@ -252,6 +270,7 @@ function M.structural_search(opts)
 							ordinal = entry.line,
 							filename = entry.filepath,
 							lnum = entry.lnum,
+							col = entry.col,
 							text = vim.trim(entry.line),
 						}
 					end
@@ -273,7 +292,7 @@ function M.structural_search(opts)
 					local res = entry.value
 					vim.cmd(cmd .. " " .. vim.fn.fnameescape(res.filepath))
 					local lnum = res.result_type == "section" and res.node.start_line or res.lnum
-					vim.fn.cursor(lnum, 1)
+					vim.fn.cursor(lnum, res.col or 1)
 					vim.cmd("normal! zz")
 				end
 
@@ -318,11 +337,11 @@ function M.structural_search(opts)
 					create_new_note(prompt_bufnr, prompt)
 				end)
 
-				-- Toggle section / article mode
+				-- Cycle section / article / text mode
 				map({ "i", "n" }, "<C-t>", function()
-					mode = mode == "article" and "section" or "article"
+					mode = next_mode(mode)
 					local picker = action_state.get_current_picker(prompt_bufnr)
-					picker.prompt_border:change_title("Zortex Structural Search (" .. mode .. ")")
+					picker.prompt_border:change_title(picker_title(mode))
 					picker:refresh(picker.finder, { reset_prompt = false })
 				end)
 

@@ -8,5 +8,8 @@
 - [ ] Try "tracer bullets" on the shelf project [P/#1.1]
 
 # Next up
-- How to Take Smart Notes
-- A Philosophy of Software Design
+!@[*/book]
+
+- [How to Take Smart Notes](https://www.soenkeahrens.de/en/takesmartnotes) @book @status(queued)
+- [A Philosophy of Software Design](https://web.stanford.edu/~ouster/cgi-bin/book.php) @book @status(reading) @rating(5)
+  - Deep modules: a simple interface over a lot of functionality

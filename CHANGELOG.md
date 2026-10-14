@@ -68,6 +68,13 @@ The first release for people other than the author.
   an overview, live redraw and one page per slide when printed.
 - Math (`$…$`, `$$…$$`, `$$` blocks) typeset with KaTeX; `![./pic.png]`
   shows the image.
+- Tag tables: `!@[scope/tags]` shows a tag search as a sortable, filterable
+  table (item, link and its kind, tags, one column per `@key(value)`,
+  where, nested notes); `@[…]` link pages show the same table.
+- A note's `# Structure` section lists its sub-notes: they count as in the
+  structure, and the hub owns its part of the tree.
+- Connections on every note page (structure parents and children, links
+  each way) and `/graph`, the whole structure as a tree.
 - An optional login (`-auth-file`, `ZORTEX_AUTH`) for setups without a proxy
   that has one; a warning when listening beyond localhost without a login.
 - Released as binaries for Linux and macOS and as

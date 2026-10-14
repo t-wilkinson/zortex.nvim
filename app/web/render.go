@@ -170,6 +170,10 @@ func (r *noteRenderer) line(lnum int, d *syntax.Line) {
 		to = *d.ContentEnd
 	}
 	content := func() string { return r.inline(line, spans, from, to) }
+	if sp := embedOnly(line, spans); sp != nil {
+		r.w(`<div class="ln embed-table" id="L`, id, `">`, r.s.tagTableHTML(r.doc, sp.Content), `</div>`)
+		return
+	}
 	indent := ""
 	if d.Indent > 0 {
 		indent = ` style="--ind:` + itoa(d.Indent) + `"`
@@ -222,6 +226,17 @@ func (r *noteRenderer) line(lnum int, d *syntax.Line) {
 		}
 		r.w(`</div>`)
 	}
+}
+
+// embedOnly is the !@[...] span of a line that holds nothing else.
+func embedOnly(line string, spans []syntax.Span) *syntax.Span {
+	if len(spans) != 1 || spans[0].Type != "tag_search" || !spans[0].Embed {
+		return nil
+	}
+	if strings.TrimSpace(line[:spans[0].S]) != "" || strings.TrimSpace(line[spans[0].E:]) != "" {
+		return nil
+	}
+	return &spans[0]
 }
 
 // marker renders a list item's marker, key and checkbox.

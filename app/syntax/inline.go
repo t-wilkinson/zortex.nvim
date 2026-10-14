@@ -6,7 +6,7 @@ import "strings"
 // Which other fields are set depends on Type:
 //
 //	link, live_link   Definition             [Projects/#Heading], ![Article]
-//	tag_search        Content, Terms, QueryType   @[cars & parts]
+//	tag_search        Content, Terms, QueryType   @[cars & parts], !@[...] (Embed)
 //	markdown          Text, URL              [text](https://...)
 //	footnote_ref      ID                     [^1]
 //	url               URL                    https://...
@@ -22,6 +22,7 @@ type Span struct {
 	InnerS     int
 	InnerE     int
 	Display    bool
+	Embed      bool // tag_search written !@[...]: shown in place
 	Definition string
 	Content    string
 	Terms      []string
@@ -104,6 +105,14 @@ func scanMath(line string, i int) *Span {
 }
 
 func scanLiveLink(line string, i int) *Span {
+	if at(line, i+1) == '@' && at(line, i+2) == '[' {
+		// !@[tags]: the tag search shown in place (a table on the web)
+		sp := scanAt(line, i+1)
+		if sp != nil {
+			sp.S, sp.Embed = i, true
+		}
+		return sp
+	}
 	if at(line, i+1) != '[' {
 		return nil
 	}

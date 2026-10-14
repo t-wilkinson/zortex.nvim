@@ -20,7 +20,7 @@ import (
 // Templates
 // =============================================================================
 
-var pageNames = []string{"home", "note", "search", "results", "link", "files", "file", "tags", "tag", "broken", "resources", "structure", "error"}
+var pageNames = []string{"home", "note", "search", "results", "link", "files", "file", "tags", "tag", "broken", "resources", "structure", "graph", "error"}
 
 func (s *Server) parseTemplates() error {
 	funcs := template.FuncMap{
@@ -102,7 +102,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, page string, sta
 }
 
 // navOf: which top-bar tab a page belongs to.
-var navOf = map[string]string{"files": "files", "file": "files", "resources": "files", "tags": "tags", "tag": "tags", "broken": "broken", "structure": "structure"}
+var navOf = map[string]string{"files": "files", "file": "files", "resources": "files", "tags": "tags", "tag": "tags", "broken": "broken", "structure": "structure", "graph": "graph"}
 
 // backGroup is the backlinks from one note or file.
 type backGroup struct {
@@ -290,6 +290,7 @@ func (s *Server) renderNotePage(w http.ResponseWriter, r *http.Request, rel, nav
 		"Writable":  s.cfg.Writable,
 		"Tracking":  s.tracking(),
 		"Src":       s.editorData(doc.Lines),
+		"Graph":     s.localGraph(rel),
 		"NavTab":    nav,
 	})
 }
@@ -422,7 +423,12 @@ func (s *Server) handleLink(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		status, msg = http.StatusNotFound, err.Error()
 	}
+	table := template.HTML("")
+	if strings.HasPrefix(link, "@[") && err == nil {
+		table = template.HTML(s.tagTableHTML(opts.From, strings.TrimSuffix(strings.TrimPrefix(link, "@["), "]")))
+	}
 	s.render(w, r, "link", status, map[string]any{
+		"Table":   table,
 		"Title":   link,
 		"Def":     def,
 		"Link":    link,

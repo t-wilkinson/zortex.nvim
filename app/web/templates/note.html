@@ -47,6 +47,13 @@
     <script type="application/json" id="note-src">{{.Src}}</script>
     <script src="{{asset "/static/edit.js"}}" defer></script>
     {{end}}
+    {{if .Graph}}
+    <section class="connections" aria-labelledby="connections-title">
+      <h2 id="connections-title">Connections</h2>
+      {{.Graph}}
+      <p class="dim graph-key"><span class="k-structure">structure</span> · <span class="k-link">links to</span> (left) · <span class="k-back">linked from</span> (right) · <a href="{{u "/graph"}}">whole structure</a></p>
+    </section>
+    {{end}}
     <section class="backlinks" id="backlinks">
       <h2>Linked from</h2>
       {{template "backlinks" (backlinks .Backlinks "No other note links here.")}}

@@ -516,3 +516,62 @@ button.box.done { background: var(--done); }
 .pomo .track-results button:hover, .pomo .track-results button:focus-visible { background: var(--accent-soft); color: var(--ink); outline: none; }
 .track-results button[aria-current=true] .what::after { content: " · tracking"; color: var(--accent); font-size: 0.85em; }
 .track-results .empty { padding: 0.45rem 0.6rem; }
+
+/* tag tables: !@[...] in a note, @[...] link pages (tables.js) */
+.tag-table { margin: 0.5rem 0 0.8rem; }
+.tt-tools { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; margin-bottom: 0.4rem; }
+.tt-filter { font: inherit; font-size: 0.9rem; color: var(--ink); background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 0.2rem 0.5rem; width: 12rem; max-width: 100%; }
+.tt-chip { font: inherit; font-size: 0.8rem; color: var(--dim); background: none; border: 1px solid var(--rule); border-radius: 999px; padding: 0.05rem 0.55rem; cursor: pointer; }
+.tt-chip:hover { border-color: var(--accent); color: var(--accent); }
+.tt-chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }
+.tt-count { font-size: 0.85rem; }
+.tag-table table.tt { width: 100%; }
+.tt th { padding: 0; white-space: nowrap; }
+.tt-sort { font: inherit; font-weight: 600; color: inherit; background: none; border: 0; padding: 0.3rem 0.5rem; width: 100%; text-align: left; cursor: pointer; }
+.tt th[aria-sort="ascending"] .tt-sort::after { content: " ▲"; font-size: 0.7em; color: var(--dim); }
+.tt th[aria-sort="descending"] .tt-sort::after { content: " ▼"; font-size: 0.7em; color: var(--dim); }
+.tt td { vertical-align: top; }
+.tt-item { min-width: 12rem; }
+.tt-link, .tt-kind, .tt-where { font-size: 0.88em; }
+.tt-link a { overflow-wrap: anywhere; }
+.tt-kind { color: var(--dim); }
+.tt-tags .tag { font-size: 0.8em; white-space: nowrap; margin-bottom: 0.15rem; }
+.tt details summary { cursor: pointer; color: var(--accent); }
+.tt details ul { margin: 0.3rem 0 0; font-size: 0.9em; }
+.tt-empty { margin: 0.3rem 0; }
+.ln.embed-table { padding-left: 0; }
+
+/* the local graph on a note page (graph.go) */
+.connections { margin-top: 2rem; border-top: 1px solid var(--rule); padding-top: 0.6rem; }
+svg.graph { width: 100%; height: auto; display: block; font: 12.5px var(--sans); }
+svg.graph .gn rect { fill: var(--panel); stroke: var(--rule); stroke-width: 1.2; }
+svg.graph .gn text { fill: var(--ink); text-anchor: middle; }
+svg.graph .gn text.gsub { fill: var(--dim); font-size: 10.5px; }
+svg.graph .gn.self rect { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.8; }
+svg.graph .gn.self text { font-weight: 600; }
+svg.graph .gn.parent rect, svg.graph .gn.child rect { stroke: var(--accent); }
+svg.graph .gn.more rect { fill: none; stroke-dasharray: 3 3; }
+svg.graph .gn.more text { fill: var(--dim); }
+svg.graph a:hover .gn rect, svg.graph a:focus .gn rect { stroke: var(--accent); stroke-width: 2; }
+svg.graph .ge { fill: none; stroke: var(--dim); stroke-width: 1.2; }
+svg.graph .ge.structure { stroke: var(--accent); stroke-width: 1.8; }
+svg.graph .ge.faint { stroke: var(--rule); stroke-width: 1; }
+svg.graph .ga { fill: var(--dim); }
+.graph-key { font-size: 0.82rem; margin-top: 0.3rem; }
+.graph-key .k-structure { color: var(--accent); font-weight: 600; }
+
+/* /graph: the whole structure */
+.graph-page { display: grid; grid-template-columns: minmax(0, 1fr) 16rem; gap: 2rem; max-width: 72rem; margin: 0 auto; }
+@media (max-width: 52rem) { .graph-page { grid-template-columns: 1fr; } }
+ul.gt { list-style: none; margin: 0; padding-left: 1.1rem; border-left: 1px solid var(--rule); }
+#graph-tree > ul.gt { padding-left: 0; border-left: 0; }
+ul.gt li { margin: 0.12rem 0; }
+ul.gt summary { cursor: pointer; }
+ul.gt .gt-sec > details > summary { font-weight: 600; color: var(--dim); font-size: 0.92rem; }
+.gt-count { font-size: 0.78rem; }
+.graph-page .gt-note { border-radius: 4px; padding: 0 0.15rem; }
+.graph-page.focus .gt-note { opacity: 0.45; }
+.graph-page.focus .gt-note.self, .graph-page.focus .gt-note.hit { opacity: 1; }
+.graph-page .gt-note.self { background: var(--accent-soft); font-weight: 600; }
+.graph-page .gt-note.hit { background: var(--mark); }
+.graph-side h2 { margin-top: 0.4rem; }

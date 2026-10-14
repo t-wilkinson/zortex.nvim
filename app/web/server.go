@@ -149,7 +149,14 @@ type snapshot struct {
 	names         map[string][]string   // lower-cased file name -> resources
 	fingerprint   uint64                // of the resources and Markdown files
 
-	structure structureInfo // notes not linked from the Structure note
+	structure structureInfo        // notes not linked from the Structure note
+	forward   map[string][]outLink // note -> its links to other notes, by line
+}
+
+// outLink is a link from a note to another note.
+type outLink struct {
+	Lnum int
+	To   string
 }
 
 type tagInfo struct {
@@ -309,6 +316,22 @@ func (s *Server) rebuild(res []resource, linking []string, fingerprint uint64) {
 		s.collectMarkdownLinks(rel, snap, snap.names)
 	}
 	snap.unlinked = snap.unlinkedIn()
+	snap.forward = map[string][]outLink{}
+	for to, list := range snap.backlinks {
+		for _, b := range list {
+			if b.FromNote {
+				snap.forward[b.From] = append(snap.forward[b.From], outLink{b.Lnum, to})
+			}
+		}
+	}
+	for _, list := range snap.forward {
+		sort.Slice(list, func(i, j int) bool {
+			if list[i].Lnum != list[j].Lnum {
+				return list[i].Lnum < list[j].Lnum
+			}
+			return list[i].To < list[j].To
+		})
+	}
 	snap.structure = s.buildStructure(snap)
 	for _, t := range tags {
 		snap.tags = append(snap.tags, *t)
@@ -402,6 +425,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /healthz", s.handleHealth)
 	mux.HandleFunc("GET /health", s.handleHealth)
 	mux.HandleFunc("GET /structure", s.handleStructure)
+	mux.HandleFunc("GET /graph", s.handleGraph)
 	mux.HandleFunc("GET /api/structure", s.apiStructure)
 	// calendar and notifications (Neovim syncs to /notify)
 	mux.HandleFunc("GET /api/calendar", s.apiCalendar)

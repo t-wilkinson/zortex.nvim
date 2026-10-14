@@ -62,11 +62,12 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 | page | what |
 |---|---|
 | `/` | search box, the **calendar** (days of `calendar.zortex`, a month grid, scheduled notifications), the **pomodoro** clock with **timer**, **alarm** and **stopwatch** tabs, **season and XP** (level and tier, progress to the next level, XP per day for two weeks, top areas, recent awards), the main notes (`-special`), recently changed notes, notes not yet in the structure, counts |
-| `/structure` | notes that neither the Structure note (`@@Structure`) nor any `@Structure` note links to (archived notes left out) |
-| `/n/<path>` | a rendered note: outline, every line anchored (`#L12`), links resolved with the plugin's rules (to the canonical target; `⁺` when there are more), broken links in red, file paths and markdown links to the file viewer, "Linked from" (backlinks) |
+| `/structure` | notes that neither the Structure note (`@@Structure`), any `@Structure` note, nor any note's `# Structure` section links to (archived notes left out) |
+| `/graph` | the whole structure as a tree: the Structure note's sections and links, each note with a `# Structure` section opened in place; hover a note to mark the notes it links with; the notes not in it |
+| `/n/<path>` | a rendered note: outline, every line anchored (`#L12`), links resolved with the plugin's rules (to the canonical target; `⁺` when there are more), broken links in red, file paths and markdown links to the file viewer, [tag tables](#tag-tables), its [connections](#connections-and-the-graph), "Linked from" (backlinks) |
 | `/n/<path>?view=slides` | the note as a slide deck ([Slides](#slides)) |
 | `/search?q=` | structural search, the plugin's ranking: sections whose path matches the words in order, then lines with every word; results update as you type, `↑`/`↓` + Enter, `/` focuses search anywhere |
-| `/link?to=&from=` | resolve a link: one target redirects, several are listed, failures say why |
+| `/link?to=&from=` | resolve a link: one target redirects, several are listed (a tag search as a [table](#tag-tables)), failures say why |
 | `/f/<path>` | file browser (sort by name (notes by article name) or modified time, either direction: `?sort=modified&order=desc`, kept in folder links; top level: the main notes unless "show all"; hidden folders and Syncthing artefacts never) and viewer: PDF, image, video, audio (with seeking), text, sandboxed HTML/SVG |
 | `/raw/<path>` | the file as is: byte ranges, `?download=1`; HTML/SVG/XML with `Content-Security-Policy: sandbox`; nothing outside the folder, no hidden files |
 | `/tags`, `/tag/<name>` | header tags and their notes; an area attribute in a header (`@area(4.1)`, `@a(1.2/Fitness)`) links to its area (`[A/#4.1]`) |
@@ -124,6 +125,25 @@ Neovim), the home page its calendar, XP and pomodoro. Changes made through
 Syncthing show up after Syncthing has synced the file (its folder watcher
 waits 10 s by default: lower `fsWatcherDelayS` for faster updates) and
 the server's next rescan (`-poll`, 3 s).
+
+### Tag tables
+
+`!@[scope/tags]` on a line of its own renders the lines the tag search finds
+as a table (and an `@[…]` link page shows the same table). Columns come from
+the lines: the item (attributes left out), its first link and what kind of
+thing it is (web, pdf, book, image, video, audio, document, note), its tags
+besides the searched ones (its own and its sections'), one column per
+`@key(value)` any row has (not `@id`), the note and section it is in, and
+the lines nested under it. Click a header to sort; type to filter, or click
+a kind or tag to keep only those rows. Empty columns are left out.
+
+### Connections and the graph
+
+A note page ends with its **connections**: the notes whose structure lists
+it (above, with the section they list it under), the notes its own
+`# Structure` section lists (below), the other notes it links to (left) and
+that link to it (right); `↔` when a link goes both ways. `/graph` is the
+whole structure as a tree, every hub opened in place once.
 
 ### Slides
 

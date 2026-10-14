@@ -47,3 +47,4 @@ $$
 
 [^1]: The footnote with https://example.com and ./images/pic.png
 See @[cars & parts], ![Live link] and [text](https://example.com) at 10:30, 50% done.
+!@[R/rust & async]

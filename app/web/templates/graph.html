@@ -1,0 +1,43 @@
+{{define "content"}}
+<div class="graph-page">
+  <section class="graph-tree">
+    <h1>Graph</h1>
+    {{if .HasTree}}
+    <p class="dim">The structure: the Structure note's sections and links, with each note that has a <code># Structure</code> section opened under it. Hover a note to see the notes it links with.</p>
+    <div id="graph-tree">{{.Tree}}</div>
+    {{else}}
+    <p class="dim">No structure yet. Create <code>structure.zortex</code> with <code>@@Structure</code> and link your notes from it, or give a note a <code># Structure</code> section listing its sub-notes.</p>
+    {{end}}
+  </section>
+  <aside class="graph-side">
+    <h2>Not in the structure</h2>
+    {{if .Unlinked}}
+    <p class="dim">{{len .Unlinked}} of {{.Total}} notes</p>
+    <ul class="plain">{{range .Unlinked}}<li><a class="gt-note" href="{{noteURL .Rel 0}}" data-rel="{{.Rel}}">{{.Title}}</a></li>{{end}}</ul>
+    {{else}}
+    <p class="dim">Every note is in it.</p>
+    {{end}}
+  </aside>
+</div>
+<script>
+(function () {
+  // hovering a note marks the notes it links with (in either direction)
+  var page = document.querySelector(".graph-page");
+  if (!page) return;
+  function mark(a) {
+    page.classList.toggle("focus", !!a);
+    Array.prototype.forEach.call(page.querySelectorAll(".gt-note.hit, .gt-note.self"), function (el) { el.classList.remove("hit", "self"); });
+    if (!a) return;
+    var rels = (a.dataset.links || "").split("\n");
+    Array.prototype.forEach.call(page.querySelectorAll(".gt-note"), function (el) {
+      if (el.dataset.rel === a.dataset.rel) el.classList.add("self");
+      else if (rels.indexOf(el.dataset.rel) >= 0) el.classList.add("hit");
+    });
+  }
+  page.addEventListener("mouseover", function (e) { var a = e.target.closest(".gt-note"); if (a) mark(a); });
+  page.addEventListener("mouseout", function (e) { if (e.target.closest(".gt-note")) mark(null); });
+  page.addEventListener("focusin", function (e) { var a = e.target.closest(".gt-note"); if (a) mark(a); });
+  page.addEventListener("focusout", function () { mark(null); });
+})();
+</script>
+{{end}}

@@ -1,5 +1,5 @@
 {{define "content"}}
-<section class="narrow">
+<section class="narrow{{if .Tags}} wide{{end}}">
   <h1 class="linkdef">{{.Link}}</h1>
   {{if .From}}<p class="dim">from <a href="{{noteURL .From 0}}">{{.From}}</a></p>{{end}}
   {{if .Error}}
@@ -15,11 +15,7 @@
   </ol>
   {{else if .Tags}}
   <p>{{len .Targets}} tagged lines.</p>
-  <ol class="targets">
-    {{range .Targets}}
-    <li><a href="{{noteURL .Rel .Lnum}}"><strong>{{.Title}}</strong>{{if .Breadcrumb}} <span class="bc">{{.Breadcrumb}}</span>{{end}}</a><div class="src">{{.Line}}</div><div class="dim">{{.Rel}}:{{.Lnum}}</div></li>
-    {{end}}
-  </ol>
+  {{.Table}}
   {{else}}
   <p>{{len .Targets}} matches; the first is where the link goes.</p>
   <ol class="targets">

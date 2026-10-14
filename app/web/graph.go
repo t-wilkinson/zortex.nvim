@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/t-wilkinson/zortex.nvim/app/syntax"
 )
 
 // The link graph, with the structure as its backbone.
@@ -357,10 +359,11 @@ func (s *Server) structureOf(rel string) []*treeNode {
 				items = items[:0]
 			}
 			targets := byLine[lnum]
-			if len(targets) == 0 {
+			line := doc.Lines[lnum-1]
+			it := syntax.ItemOf(line)
+			if len(targets) == 0 && (it == nil || doc.NodeStartingAt(lnum) != nil) {
 				continue
 			}
-			line := doc.Lines[lnum-1]
 			indent := len(line) - len(strings.TrimLeft(line, " \t"))
 			for len(items) > 0 && items[len(items)-1].indent >= indent {
 				items = items[:len(items)-1]
@@ -369,8 +372,20 @@ func (s *Server) structureOf(rel string) []*treeNode {
 			if len(items) > 0 {
 				parent = items[len(items)-1]
 			}
+			if len(targets) == 0 {
+				// a bullet without a link groups the bullets indented under it
+				if text := strings.TrimSpace(line[it.ContentCol:]); text != "" {
+					g := &treeNode{Text: text, Lnum: lnum, indent: indent}
+					parent.Children = append(parent.Children, g)
+					items = append(items, g)
+				}
+				continue
+			}
 			var first *treeNode
 			for _, t := range targets {
+				if t == parent.Rel {
+					continue // [Me/#Contacts] under [Me]: the note itself
+				}
 				// listed again under the same parent: the same entry
 				var c *treeNode
 				for _, sib := range parent.Children {
@@ -388,7 +403,9 @@ func (s *Server) structureOf(rel string) []*treeNode {
 					first = c
 				}
 			}
-			items = append(items, first)
+			if first != nil {
+				items = append(items, first)
+			}
 		}
 	}
 	return prune(top.Children)

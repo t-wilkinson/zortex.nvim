@@ -14,10 +14,10 @@ local projects = require("zortex.services.projects")
 -- Default highlight links (users can override the groups)
 local function define_highlights()
 	local links = {
-		[constants.HIGHLIGHTS.SKILL_LEVEL_1_3] = "Comment",
-		[constants.HIGHLIGHTS.SKILL_LEVEL_4_6] = "String",
-		[constants.HIGHLIGHTS.SKILL_LEVEL_7_9] = "Function",
-		[constants.HIGHLIGHTS.SKILL_LEVEL_10_PLUS] = "Special",
+		[constants.HIGHLIGHTS.MASTERY_LEVEL_1_3] = "Comment",
+		[constants.HIGHLIGHTS.MASTERY_LEVEL_4_6] = "String",
+		[constants.HIGHLIGHTS.MASTERY_LEVEL_7_9] = "Function",
+		[constants.HIGHLIGHTS.MASTERY_LEVEL_10_PLUS] = "Special",
 		[constants.HIGHLIGHTS.PROGRESS_BAR] = "DiagnosticOk",
 	}
 	for group, link in pairs(links) do
@@ -46,13 +46,13 @@ end
 -- Get highlight group for area level
 local function get_level_highlight(level)
 	if level <= 3 then
-		return constants.HIGHLIGHTS.SKILL_LEVEL_1_3
+		return constants.HIGHLIGHTS.MASTERY_LEVEL_1_3
 	elseif level <= 6 then
-		return constants.HIGHLIGHTS.SKILL_LEVEL_4_6
+		return constants.HIGHLIGHTS.MASTERY_LEVEL_4_6
 	elseif level <= 9 then
-		return constants.HIGHLIGHTS.SKILL_LEVEL_7_9
+		return constants.HIGHLIGHTS.MASTERY_LEVEL_7_9
 	else
-		return constants.HIGHLIGHTS.SKILL_LEVEL_10_PLUS
+		return constants.HIGHLIGHTS.MASTERY_LEVEL_10_PLUS
 	end
 end
 
@@ -202,7 +202,7 @@ function M.show()
 	local buf = vim.api.nvim_create_buf(false, true)
 	vim.bo[buf].buftype = "nofile"
 	vim.bo[buf].bufhidden = "wipe"
-	vim.bo[buf].filetype = "zortex-skill-tree"
+	vim.bo[buf].filetype = "zortex-mastery-tree"
 	-- Render content
 	local lines = {}
 	local highlights = {}

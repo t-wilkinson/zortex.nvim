@@ -67,6 +67,7 @@ end)
 
 T.test("nothing is re-resolved when no note changed (loaded from disk)", function()
 	link_index.refresh(true)
+	link_index.save() -- as on exit
 	link_index._reset() -- drop memory; next refresh loads link_index.json
 	local calls = 0
 	local orig = link_resolver.resolve_first

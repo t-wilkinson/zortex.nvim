@@ -58,11 +58,29 @@ function M.from_attributes(attrs)
 	return out
 end
 
+-- Resolutions of @a(...) definitions. The same few areas are named by
+-- hundreds of projects and tasks, so each is resolved once per notes
+-- snapshot (core/notes keeps one for a second, as link resolution does).
+local memo = { idx = nil, areas = {} }
+
+local function resolve_cached(definition)
+	local idx = require("zortex.core.notes").index()
+	if memo.idx ~= idx then
+		memo = { idx = idx, areas = {} }
+	end
+	local area = memo.areas[definition]
+	if area == nil then
+		area = M.resolve(definition) or false
+		memo.areas[definition] = area
+	end
+	return area or nil
+end
+
 -- Every @a(...) link with its resolution: { link, definition, area? }
 function M.resolve_links(attrs)
 	local out = {}
 	for _, a in ipairs(attrs and attrs.area or {}) do
-		out[#out + 1] = { link = a.link, definition = a.definition, area = (M.resolve(a.definition)) }
+		out[#out + 1] = { link = a.link, definition = a.definition, area = resolve_cached(a.definition) }
 	end
 	return out
 end

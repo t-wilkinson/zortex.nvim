@@ -197,8 +197,9 @@ The old JSON tree cache in `stdpath("cache")` is gone.
 
 - `files()` lists every note recursively, top-level first then alphabetically,
   without archived notes.
-- `index()` is a short-lived (1 s) snapshot `{ files, headers }`, so bulk
-  work (resolving many links) doesn't re-stat every file per link.
+- `index()` is a short-lived (1 s) snapshot `{ files, headers }` (one with
+  archived notes, one without), so bulk work (resolving many links) doesn't
+  re-stat every file per link.
 - `find_by_name(name)` and `find_by_tag(tag)` are case-insensitive.
 - `header(path)` reads **only** the header block, cached by mtime.
 - `is_archived(path)` is true for `archive.*` filenames or the `@Archive` tag.
@@ -274,7 +275,8 @@ searches the Projects article first, then every `@P` note, so
 Every link span (`[...]`, `![...]`; from `doc:inline`) in every non-archived
 note, with where it resolves. Persisted to `notes_dir/.z/link_index.json`
 (through `core/state`; the version is bumped when extraction changes, which
-forces a rebuild).
+forces a rebuild). The file is written 10 s after a refresh changed the
+index and on exit, not on every refresh: encoding a large index is slow.
 
 | function                                           | returns                                                                                      |
 | -------------------------------------------------- | -------------------------------------------------------------------------------------------- |
@@ -510,6 +512,7 @@ XP is derived, not recorded (see [Planning.md](Planning.md)):
 - `xp/calculator` holds the formulas (task XP, project pool and curve,
   objective XP, area shares); it is pure.
 - `xp/core` rebuilds after `task:completed/uncompleted` and saves of notes,
+  once no key has been pressed for a second (a rebuild blocks input),
   compares with the last totals and emits `xp:awarded/removed`,
   `season:leveled_up`, `area:leveled_up`. It also stamps `@done(today)` on
   tasks checked by hand when a note is saved.

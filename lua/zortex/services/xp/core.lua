@@ -81,8 +81,25 @@ function M.refresh()
 	stop()
 end
 
---- Refresh soon (coalesces bursts of edits).
+-- Rebuilding the ledger of a large notes folder takes a moment, during
+-- which Neovim can't take keys: wait until you stop typing.
+local IDLE_MS = 1000
+local last_key = 0
+local key_ns = nil
+
+local function watch_keys()
+	if key_ns then
+		return
+	end
+	key_ns = vim.api.nvim_create_namespace("zortex_xp_idle")
+	vim.on_key(function()
+		last_key = vim.uv.now()
+	end, key_ns)
+end
+
+--- Refresh soon (coalesces bursts of edits), once keys have been idle.
 function M.schedule_refresh(delay)
+	watch_keys()
 	if pending then
 		pending:stop()
 		pending:close()
@@ -95,6 +112,11 @@ function M.schedule_refresh(delay)
 			if pending then
 				pending:close()
 				pending = nil
+			end
+			local busy = IDLE_MS - (vim.uv.now() - last_key)
+			if busy > 0 then
+				M.schedule_refresh(busy)
+				return
 			end
 			M.refresh()
 		end)

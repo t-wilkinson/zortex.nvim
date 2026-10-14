@@ -185,3 +185,17 @@ T.test("conformance: resolve and search fixtures are up to date", function()
 	require("zortex.core.document").invalidate()
 	assert(ok, err)
 end)
+
+T.test("heading and tag searches stay inside the range", function()
+	local lines = { "# Beta", "beta", "# Alpha", "## beta two", "@Beta", "# BETA" }
+	local function lnums(component, s, e)
+		return vim.tbl_map(function(m)
+			return m.lnum
+		end, links.search_lines(lines, component, s, e))
+	end
+	T.eq(lnums({ type = "heading", text = "beta" }), { 1, 4, 6 })
+	T.eq(lnums({ type = "heading", text = "beta" }, 2, 5), { 4 })
+	T.eq(lnums({ type = "heading", text = "beta" }, 1, 1), { 1 })
+	T.eq(lnums({ type = "tag", text = "beta" }, 3), { 5 })
+	T.eq(lnums({ type = "query", text = "beta" }, 2, 4), { 2, 4 })
+end)

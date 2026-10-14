@@ -11,7 +11,7 @@ local constants = require("zortex.constants")
 local fs = require("zortex.utils.filesystem")
 
 local header_cache = {} -- path -> { mtime, nsec, header }
-local snapshot = nil -- { time, include_archived, files, headers }
+local snapshots = {} -- include_archived -> { time, files, headers }
 local SNAPSHOT_TTL_MS = 1000
 
 -- Read just the header block of a file (stops at the first body line).
@@ -87,12 +87,8 @@ function M.index(opts)
 	opts = opts or {}
 	local include_archived = opts.include_archived or false
 	local now = vim.uv.now()
-	if
-		not opts.fresh
-		and snapshot
-		and snapshot.include_archived == include_archived
-		and now - snapshot.time < SNAPSHOT_TTL_MS
-	then
+	local snapshot = snapshots[include_archived]
+	if not opts.fresh and snapshot and now - snapshot.time < SNAPSHOT_TTL_MS then
 		return snapshot
 	end
 
@@ -107,6 +103,7 @@ function M.index(opts)
 	sort_paths(files)
 
 	snapshot = { time = now, include_archived = include_archived, files = files, headers = headers }
+	snapshots[include_archived] = snapshot
 	return snapshot
 end
 
@@ -142,7 +139,7 @@ function M.find_by_tag(tag, within, opts)
 end
 
 function M.invalidate()
-	snapshot = nil
+	snapshots = {}
 	header_cache = {}
 end
 

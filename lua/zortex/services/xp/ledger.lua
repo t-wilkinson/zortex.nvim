@@ -430,13 +430,14 @@ end
 
 --- Build the ledger now (uncached).
 function M.build()
-	local files = note_files()
+	local notes = require("zortex.core.notes")
+	local idx = notes.index({ include_archived = true })
 	local excluded = excluded_files()
 	local project_paths, task_paths = {}, {}
-	for _, path in ipairs(files) do
+	for _, path in ipairs(idx.files) do
 		local p = normalize(path)
 		if not excluded[p] then
-			local header = require("zortex.core.notes").header(p)
+			local header = idx.headers[path] or notes.header(p)
 			local doc_like = {
 				filepath = p,
 				has_tag = function(_, t)

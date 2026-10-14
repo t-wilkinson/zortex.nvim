@@ -115,6 +115,16 @@ T.test("following a > link opens the link it matched, or picks one", function()
 	assert(ok, err)
 end)
 
+T.test("a link written as a relative path opens that file", function()
+	local from = T.fixture("z/resources.zortex")
+	T.eq(links.relative_path("./garden.zortex#Plant", from), T.fixture("z/garden.zortex"))
+	T.eq(links.relative_path("../okr.zortex", from), T.fixture("okr.zortex"))
+	T.eq(links.relative_path("Garden/-Plant", from), nil)
+	require("zortex.features.links").open_info({ type = "link", definition = "../okr.zortex" }, { file = from })
+	T.eq(vim.fn.expand("%:t"), "okr.zortex")
+	vim.cmd("enew")
+end)
+
 T.test("the > picker shows each link's title, short target and section", function()
 	local doc = require("zortex.core.document").from_lines({
 		"@@Books",

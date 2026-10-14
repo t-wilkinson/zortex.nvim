@@ -30,6 +30,9 @@
 -- link means the same thing everywhere. Archived notes are skipped unless a
 -- component is @Archive or opts.include_archived is set.
 --
+-- Links written as relative paths ([./z/scan.pdf]) name files, not notes
+-- (relative_path below); resolving them is up to the caller.
+--
 -- The Go port is app/links; tests/gen_links.lua keeps the two in agreement.
 -- Following a link in a buffer (quickfix, footnotes, @[tag] searches) is
 -- features/links.
@@ -806,6 +809,22 @@ end
 function M.resolve_first(link, opts)
 	local results, err = M.resolve(link, opts)
 	return results[1], err
+end
+
+--- A link written as a path relative to its note ([./z/scan.pdf],
+--- [../folder]) names a file, not a note: the absolute path it names
+--- (without any #fragment), or nil for every other link.
+---@param definition string
+---@param from_file string the note the link is written in
+---@return string?
+function M.relative_path(definition, from_file)
+	local def = syntax.trim(definition or "")
+	if not def:match("^%.%.?/") then
+		return nil
+	end
+	def = def:gsub("#.*$", "")
+	local dir = vim.fn.fnamemodify(from_file, ":p:h")
+	return (vim.fn.simplify(dir .. "/" .. def):gsub("(.)/$", "%1"))
 end
 
 --- Canonical target of a link as a section node: the deepest section that

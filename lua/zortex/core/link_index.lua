@@ -7,7 +7,9 @@
 --   references(file, start_line, end_line)  links pointing into a line range
 --   backlinks(node_or_entity, opts)         links pointing at a section/entity
 --   links_from(file)                        links found in a note
---   unresolved()                            links that resolve nowhere
+--   unresolved()                            links that resolve nowhere (a
+--                                           path link, [./z/scan.pdf], when
+--                                           its file is missing)
 --
 -- The index is persisted to notes_dir/.z/link_index.json and refreshed
 -- incrementally. A link only needs re-resolving when
@@ -22,7 +24,7 @@ local M = {}
 
 local link_mod = require("zortex.core.link")
 
-local VERSION = 2 -- bump when link extraction changes (forces a rebuild)
+local VERSION = 3 -- bump when link extraction changes (forces a rebuild)
 local REFRESH_TTL_MS = 1000
 
 local state = {
@@ -85,8 +87,11 @@ local function stamp(path)
 end
 
 -- First component of a link definition, for invalidation:
--- { kind = "article"|"tag"|"global"|"local", text }
+-- { kind = "article"|"tag"|"global"|"local"|"path", text }
 local function first_component(def)
+	if vim.trim(def):match("^%.%.?/") then
+		return { kind = "path" } -- a file, checked when queried
+	end
 	local parsed = link_mod.parse(def)
 	if not parsed or not parsed.components[1] then
 		return { kind = "global" }
@@ -121,6 +126,10 @@ local function extract_links(doc)
 end
 
 local function resolve(link, source_path)
+	if link.first.kind == "path" then
+		link.target = nil
+		return
+	end
 	local opts = {}
 	if link.first.kind == "local" then
 		opts.doc = Document().get(source_path)
@@ -327,7 +336,13 @@ function M.unresolved()
 	local out = {}
 	for path, entry in pairs(state.files) do
 		for _, link in ipairs(entry.links) do
-			if not link.target then
+			local missing
+			if link.first.kind == "path" then
+				missing = not vim.uv.fs_stat(link_mod.relative_path(link.definition, path))
+			else
+				missing = not link.target
+			end
+			if missing then
 				out[#out + 1] = as_ref(path, link)
 			end
 		end

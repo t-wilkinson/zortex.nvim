@@ -179,9 +179,13 @@ func (s *Server) localRef(fromRel, p string, dirFirst bool, names map[string][]s
 // Extensions a zortex link can name besides resources ([./notes.txt]).
 var textExts = map[string]bool{"txt": true, "md": true, "markdown": true, "csv": true, "html": true, "htm": true}
 
-// fileLike reports whether a link definition names a file ("./scan.pdf")
-// rather than a note.
+// fileLike reports whether a link definition names a file ("./scan.pdf",
+// "./z/notes.zortex", "../folder") rather than a note: a resource or text
+// extension, or a path relative to the note.
 func (s *Server) fileLike(def string) bool {
+	if strings.HasPrefix(def, "./") || strings.HasPrefix(def, "../") {
+		return true
+	}
 	e := extOf(def)
 	return s.resExts[e] || textExts[e]
 }
@@ -204,15 +208,17 @@ func (s *Server) fileRefs(spans []syntax.Span, fn func(target string, strict boo
 	})
 }
 
-// collectFileLinks records the file references in a note.
+// collectFileLinks records the file references in a note (an archived
+// note's missing files aren't broken links).
 func (s *Server) collectFileLinks(doc *notes.Document, snap *snapshot, names map[string][]string) {
+	archived := s.ix.IsArchived(doc.Rel)
 	for lnum := range doc.Lines {
 		lnum++
 		if doc.InCode(lnum) {
 			continue
 		}
 		s.fileRefs(doc.Spans(lnum), func(target string, strict bool) {
-			s.addFileRef(snap, names, doc.Rel, true, lnum, doc.Lines[lnum-1], doc.NodeAt(lnum).Breadcrumb(" › "), target, strict, false)
+			s.addFileRef(snap, names, doc.Rel, true, lnum, doc.Lines[lnum-1], doc.NodeAt(lnum).Breadcrumb(" › "), target, strict && !archived, false)
 		})
 	}
 }

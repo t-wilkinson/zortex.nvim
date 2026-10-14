@@ -39,6 +39,24 @@ T.test("unresolved links", function()
 	T.eq(broken[1].text, "[P/#No such project]")
 end)
 
+T.test("a path link is broken only when its file is missing", function()
+	local probe = T.fixture("z/paths.zortex")
+	fs.write_lines(probe, { "@@Paths", "", "- [./garden.zortex] [../okr.zortex#x] [../z] [./gone.pdf]" })
+	local broken = function()
+		link_index.refresh(true)
+		return vim.tbl_map(function(r)
+			return r.text
+		end, link_index.unresolved())
+	end
+	T.eq(broken(), { "[P/#No such project]", "[./gone.pdf]" })
+	local gone = T.fixture("z/gone.pdf")
+	fs.write_lines(gone, { "%PDF" })
+	T.eq(broken(), { "[P/#No such project]" }) -- checked when queried
+	os.remove(gone)
+	os.remove(probe)
+	link_index.refresh(true)
+end)
+
 T.test("incremental refresh re-resolves links affected by a change", function()
 	local probe = T.fixture("probe.zortex")
 	fs.write_lines(probe, { "@@Probe", "", "- compare [P/#1.4]" })

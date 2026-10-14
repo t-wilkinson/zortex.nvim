@@ -273,6 +273,20 @@ function M.open_info(link_info, ctx)
 
 	-- Handle different link types
 	if link_info.type == "link" or link_info.type == "live_link" then
+		-- A path relative to this note ([./z/scan.pdf], [../folder]) names a file
+		local rel = link_mod.relative_path(link_info.definition, current_file)
+		if rel then
+			if not vim.uv.fs_stat(rel) then
+				vim.notify("File does not exist: " .. rel, vim.log.levels.WARN)
+			elseif is_media(rel) then
+				open_external(rel)
+			else
+				vim.api.nvim_set_current_win(buffer.get_target_window())
+				vim.cmd.edit(vim.fn.fnameescape(rel))
+			end
+			return
+		end
+
 		-- Zortex-style link format
 		local parsed = link_mod.parse(link_info.definition)
 		if not parsed then
@@ -283,13 +297,7 @@ function M.open_info(link_info, ctx)
 		-- Check if this is a direct media file path before resolving as a note
 		local def = link_info.definition
 		if is_media(def) then
-			local resolved_path = def
-			-- Resolve relative paths (./ or ../) relative to the current file
-			if def:sub(1, 2) == "./" or def:sub(1, 3) == "../" then
-				resolved_path = fs.joinpath(current_dir, def)
-			end
-
-			local expanded = vim.fn.expand(resolved_path)
+			local expanded = vim.fn.expand(def)
 			if fs.file_exists(expanded) then
 				open_external(expanded)
 				return

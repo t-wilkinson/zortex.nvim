@@ -335,6 +335,28 @@ func TestResources(t *testing.T) {
 	expect(t, ts, "/resources", 200, `new.pdf`)
 }
 
+func TestBrokenPathLinks(t *testing.T) {
+	s, dir, ts := newTestServer(t, "")
+	files := map[string]string{
+		"paths.zortex": "@@Paths\n\n- [./z/garden.zortex] [./z/docs] [./z/docs/manual.pdf#page=2]\n" +
+			"- [./z/gone.zortex] [../outside.zortex]\n",
+		// an archived note's broken links are left alone
+		"old.zortex": "@@Old\n@Archive\n\n- [Nowhere/#x] [./z/gone.pdf]\n",
+	}
+	for rel, content := range files {
+		os.WriteFile(filepath.Join(dir, rel), []byte(content), 0o644)
+	}
+	s.Refresh()
+
+	body := expect(t, ts, "/broken", 200, `./z/gone.zortex`, `../outside.zortex`, `paths.zortex:4`)
+	for _, ok := range []string{"./z/garden.zortex", "./z/docs]", "manual.pdf", "Nowhere", "gone.pdf", "old.zortex"} {
+		if strings.Contains(body, ok) {
+			t.Errorf("/broken lists %s", ok)
+		}
+	}
+	expect(t, ts, "/n/paths.zortex", 200, `href="/n/z/garden.zortex"`, `href="/f/z/docs"`, `href="/f/z/docs/manual.pdf#page=2"`)
+}
+
 func TestFileSorting(t *testing.T) {
 	s, dir, ts := newTestServer(t, "")
 	base := time.Now().Add(-time.Hour)

@@ -74,7 +74,12 @@ type Config struct {
 	// endpoint except /healthz; see auth.go. Empty: no login (keep the
 	// server on localhost behind a proxy that has one).
 	Accounts []Account
-	Logger   *log.Logger
+	// HTMLScripts lets HTML files in the notes folder run JavaScript in the
+	// file viewer and at /raw. They still run sandboxed, in an opaque origin:
+	// no access to this site's pages, cookies or login, and POSTs they send
+	// are refused (see htmlScriptsGuard). Off: HTML is shown without script.
+	HTMLScripts bool
+	Logger      *log.Logger
 }
 
 // DefaultSpecial are the top-level notes listed by default (the plugin's
@@ -484,7 +489,23 @@ func (s *Server) Handler() http.Handler {
 			strip.ServeHTTP(w, r)
 		})
 	}
+	if s.cfg.HTMLScripts {
+		h = htmlScriptsGuard(h)
+	}
 	return securityHeaders(s.requireLogin(h))
+}
+
+// htmlScriptsGuard refuses requests that change state when they come from a
+// sandboxed document (Origin: null), so an HTML file's script can't edit
+// notes or drive the clocks with the browser's saved login.
+func htmlScriptsGuard(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Header.Get("Origin") == "null" {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		h.ServeHTTP(w, r)
+	})
 }
 
 func securityHeaders(h http.Handler) http.Handler {

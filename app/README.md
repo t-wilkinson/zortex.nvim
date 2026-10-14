@@ -68,8 +68,8 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 | `/n/<path>?view=slides` | the note as a slide deck ([Slides](#slides)) |
 | `/search?q=` | structural search, the plugin's ranking: sections whose path matches the words in order, then lines with every word; results update as you type, `↑`/`↓` + Enter, `/` focuses search anywhere |
 | `/link?to=&from=` | resolve a link: one target redirects, several are listed (a tag search as a [table](#tag-tables)), failures say why |
-| `/f/<path>` | file browser (sort by name (notes by article name) or modified time, either direction: `?sort=modified&order=desc`, kept in folder links; top level: the main notes unless "show all"; hidden folders and Syncthing artefacts never) and viewer: PDF, image, video, audio (with seeking), text, sandboxed HTML/SVG |
-| `/raw/<path>` | the file as is: byte ranges, `?download=1`; HTML/SVG/XML with `Content-Security-Policy: sandbox`; nothing outside the folder, no hidden files |
+| `/f/<path>` | file browser (sort by name (notes by article name) or modified time, either direction: `?sort=modified&order=desc`, kept in folder links; top level: the main notes unless "show all"; hidden folders and Syncthing artefacts never) and viewer: PDF, image, video, audio (with seeking), text, sandboxed HTML/SVG (HTML runs script with `-html-scripts`) |
+| `/raw/<path>` | the file as is: byte ranges, `?download=1`; HTML/SVG/XML with `Content-Security-Policy: sandbox` (`sandbox allow-scripts` for HTML with `-html-scripts`); nothing outside the folder, no hidden files |
 | `/tags`, `/tag/<name>` | header tags and their notes (the top bar's Graph lists the tags too); an area attribute in a header (`@area(4.1)`, `@a(1.2/Fitness)`) links to its area (`[A/#4.1]`) |
 | `/resources` | PDFs, books, images, media and documents, and which ones nothing links to (filter by unlinked/linked, type, folder); file pages show their own "Linked from", folder listings count links and unlinked files |
 | `/broken` | links that don't resolve (notes and files) |
@@ -118,6 +118,17 @@ plugin's `tasks.edit_line`. XP isn't computed on the server: Neovim counts
 completed tasks from their `@done` dates when it next runs (it reloads
 changed notes on focus), and until then the home page shows how many web
 completions are waiting.
+
+**Scripts in HTML files (`-html-scripts`, `ZORTEX_HTML_SCRIPTS=1`; NixOS
+`web.htmlScripts`).** HTML files are shown without JavaScript by default.
+With this on, the file viewer's frame and `/raw` add `allow-scripts` to the
+sandbox, but never `allow-same-origin`: the page runs in an opaque origin,
+so its script can't read the site's pages, files or cookies, and the
+server refuses any POST from a sandboxed page (`Origin: null`), so it can't
+edit notes or drive the clocks. It can still do what any web page can:
+load things from the internet, and send what it sees there. Turn it on only
+for HTML you trust, such as exported notebooks or your own pages. SVG and
+XML never run script.
 
 **Live updates.** Open pages listen on `/api/events`: a note page redraws
 its note when the file changes (an edit in another tab, a note synced from

@@ -60,6 +60,10 @@ by the server). Edits are line-level and refused when the note changed since
 the page loaded; files are replaced atomically, so Syncthing never sees half
 a file.
 
+Add `-html-scripts` to let HTML files in the notes run JavaScript in the file
+viewer. They run sandboxed, in an opaque origin: no access to the site's
+pages or files, and their POSTs are refused. Use it only for HTML you trust.
+
 ### Docker
 
 ```sh

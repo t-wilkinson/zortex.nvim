@@ -72,6 +72,16 @@ func activeType(mimeType string) bool {
 		base == "text/xml" || strings.Contains(base, "javascript")
 }
 
+// sandbox is the sandbox an active file runs in: the iframe's sandbox
+// attribute and the CSP sandbox at /raw. HTML may run script with
+// Config.HTMLScripts, still in an opaque origin (no allow-same-origin).
+func (s *Server) sandbox(mimeType string) string {
+	if s.cfg.HTMLScripts && strings.SplitN(mimeType, ";", 2)[0] == "text/html" {
+		return "allow-scripts"
+	}
+	return ""
+}
+
 func isSyncArtifact(name string) bool {
 	return strings.HasPrefix(name, ".syncthing.") || strings.Contains(name, ".sync-conflict-") ||
 		strings.HasSuffix(name, ".tmp") || strings.HasPrefix(name, "~syncthing~")
@@ -367,6 +377,7 @@ func (s *Server) fileView(w http.ResponseWriter, r *http.Request, rel string, st
 		"Size":    st.Size(),
 		"ModTime": st.ModTime(),
 		"Raw":     s.rawURL(rel),
+		"Sandbox": s.sandbox(mt),
 	}
 	if s.isResource(rel) {
 		links := s.current().fileBacklinks[rel]
@@ -413,7 +424,7 @@ func (s *Server) handleRaw(w http.ResponseWriter, r *http.Request) {
 	h.Set("Content-Type", mt)
 	h.Set("Cache-Control", "private, max-age=0, must-revalidate")
 	if activeType(mt) {
-		h.Set("Content-Security-Policy", "sandbox")
+		h.Set("Content-Security-Policy", strings.TrimSpace("sandbox "+s.sandbox(mt)))
 	}
 	disp := "inline"
 	if r.URL.Query().Get("download") == "1" {

@@ -191,6 +191,7 @@ func TestFiles(t *testing.T) {
 		t.Error("sync artefact listed")
 	}
 	expect(t, ts, "/f/z/docs/manual.pdf", 200, `<iframe class="view doc"`)
+	expect(t, ts, "/f/z/docs/page.html", 200, `sandbox="" title="page.html"`)
 	expect(t, ts, "/f/z/docs/notes.txt", 200, `plain &lt;text&gt;`)
 	expect(t, ts, "/f/projects.zortex", 302)
 

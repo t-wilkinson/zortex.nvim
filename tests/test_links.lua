@@ -115,6 +115,40 @@ T.test("following a > link opens the link it matched, or picks one", function()
 	assert(ok, err)
 end)
 
+T.test("@[scope/tags] finds tagged lines, with tags inherited from headings", function()
+	local function lines(link, opts)
+		local out = {}
+		for _, r in ipairs(links.resolve(link, opts)) do
+			out[#out + 1] = r.lnum
+		end
+		return out
+	end
+	T.eq(lines("@[R/rust]"), { 9, 12, 13, 16 })
+	T.eq(lines("@[R/embedded & rust]"), { 16 }) -- @embedded on the heading, @rust on the line
+	T.eq(lines("@[@Library/rl+ai-model]"), { 20, 21 })
+	T.eq(lines("@[*/@rl & @ai-model]"), { 21 })
+	local doc = require("zortex.core.document").get(T.fixture("z/resources.zortex"))
+	T.eq(lines("@[rl]", { doc = doc }), { 20, 21 })
+	T.eq(links.parse_tag_search("R/#Rust/a & b + c").groups, { { "a", "b" }, { "c" } })
+	local _, err = links.resolve("@[Nope/rl]")
+	T.eq(err, "No article found: Nope")
+end)
+
+T.test("following @[...] lists the tagged lines, not the search itself", function()
+	local follow = require("zortex.features.links")
+	vim.cmd("edit " .. T.fixture("z/resources.zortex"))
+	vim.api.nvim_win_set_cursor(0, { 6, 6 }) -- - AI @[rl & ai-model]
+	follow.open_info(require("zortex.core.link").at(vim.api.nvim_get_current_line(), 6))
+	T.eq(vim.fn.expand("%:t") .. ":" .. vim.fn.line("."), "resources.zortex:21")
+	vim.cmd("enew")
+end)
+
+T.test("- matches a list item by its markdown link's text", function()
+	T.eq(target("[R/#Rust/-The Rust Book]"), "resources.zortex:9")
+	T.eq(links.item_component("- [The Rust Book](https://doc.rust-lang.org/book) @rust"), "-The Rust Book")
+	T.eq(links.link_text("- [a](x) and **[b](y)** c", 2), "a and **b** c")
+end)
+
 T.test("conformance: resolve and search fixtures are up to date", function()
 	local Config = require("zortex.config")
 	local saved = Config.notes_dir

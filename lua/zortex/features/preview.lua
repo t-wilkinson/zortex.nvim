@@ -2,7 +2,9 @@
 --
 -- Shows the section a link resolves to (same rules as following it) in a
 -- floating window next to the cursor, with Zortex highlighting. The matched
--- line is highlighted when the link points inside a section.
+-- line is highlighted when the link points inside a section. A link ending in
+-- ">" ([R/#Rust/>The Rust Book]) shows the lines of the links it matches with
+-- the notes nested under them, and <CR> goes to that line.
 --
 --   <CR>      open the target (in the target window)
 --   q / <Esc> close
@@ -28,11 +30,66 @@ function M.close()
 	state.win, state.buf, state.link = nil, nil, nil
 end
 
+-- The line of each link a ">" link matches, with the lines nested under it
+-- (its notes), blocks separated by a blank line
+local function follow_content(results)
+	local link_mod = require("zortex.core.link")
+	local lines = {}
+	for i, r in ipairs(results) do
+		if #lines >= MAX_LINES then
+			break
+		end
+		-- two links on one line make one block
+		local same_line = i > 1 and results[i - 1].lnum == r.lnum and results[i - 1].file == r.file
+		if not same_line then
+			if #lines > 0 then
+				lines[#lines + 1] = ""
+			end
+			local doc = r.doc
+			local indent = #(doc.lines[r.lnum]:match("^%s*"))
+			local e = r.lnum
+			for l = r.lnum + 1, #doc.lines do
+				local line = doc.lines[l]
+				if doc:node_starting_at(l) then
+					break
+				end
+				if line:match("%S") then
+					if #line:match("^%s*") <= indent then
+						break
+					end
+					e = l
+				end
+			end
+			vim.list_extend(lines, doc:get_lines(r.lnum, math.min(e, r.lnum + MAX_LINES - #lines - 1)))
+		end
+	end
+	local first = results[1]
+	local node = first.doc:node_at(first.lnum)
+	local where = node:is_root() and vim.fn.fnamemodify(first.file, ":t") or node:get_breadcrumb(" › ")
+	local title = #results == 1 and (where .. " › " .. link_mod.follow_text(first.text, first.target))
+		or (where .. " · " .. #results .. " links")
+	return {
+		lines = lines,
+		title = title,
+		focus = 1,
+		location = { file = first.file, lnum = first.lnum, col = first.col or 1 },
+	}
+end
+
 -- What to show for a link: { lines, title, focus (1-based within lines), location }
 local function target_content(link_info)
 	local link_mod = require("zortex.core.link")
 
 	if link_info.type == "link" or link_info.type == "live_link" then
+		local parsed = link_mod.parse(link_info.definition)
+		local last = parsed and parsed.components[#parsed.components]
+		if last and last.type == "follow" then
+			local results, err = link_mod.resolve(parsed)
+			if #results == 0 then
+				return nil, err or ("No match for " .. link_info.full_match_text)
+			end
+			return follow_content(results)
+		end
 		local node, result, err = link_mod.resolve_node(link_info.definition)
 		if not node then
 			return nil, err or ("No match for " .. link_info.full_match_text)

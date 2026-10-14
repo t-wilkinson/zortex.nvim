@@ -18,6 +18,12 @@
 --                              the last component. Following it opens what
 --                              those links point to (features/links)
 --
+-- Tag searches, @[scope/tags], resolve here too (tag_search below): the
+-- components before the last "/" are a link giving where to look (none: the
+-- current note; "*": every note), the last one the tags, "a + b" either and
+-- "a & b" both (spaces optional, "@" optional). A line matches when it, or a
+-- section heading above it, carries the tags as bare @words.
+--
 -- Results come back in note order (top-level files first, then line order), so
 -- results[1] is the canonical target. Every consumer (following links,
 -- completion, projects, OKR, calendar, the link index) uses this module, so a
@@ -260,6 +266,35 @@ function M.on_line(line)
 	return out
 end
 
+--- `line` from byte `from` (0-based) on, with markdown links replaced by
+--- their text: "[The Rust Book](https://…) @rust" -> "The Rust Book @rust".
+--- List items match a "-" component by this text.
+function M.link_text(line, from)
+	from = from or 0
+	if not line:find("](", from + 1, true) then
+		return line:sub(from + 1)
+	end
+	local spans = {}
+	syntax.walk_spans(syntax.inline(line), function(span)
+		if span.type == "markdown" and span.s >= from then
+			spans[#spans + 1] = span
+		end
+	end)
+	table.sort(spans, function(a, b)
+		return a.s < b.s
+	end)
+	local out, pos = {}, from
+	for _, span in ipairs(spans) do
+		if span.s >= pos then
+			out[#out + 1] = line:sub(pos + 1, span.s)
+			out[#out + 1] = span.text
+			pos = span.e
+		end
+	end
+	out[#out + 1] = line:sub(pos + 1)
+	return table.concat(out)
+end
+
 -- Spans a > component can follow
 local FOLLOWABLE = { link = true, live_link = true, markdown = true, url = true, filepath = true }
 
@@ -377,14 +412,15 @@ function M.search_lines(lines, component, start_line, end_line)
 	local out = {}
 	if component.type == "listitem" then
 		-- A list item whose key ("- KR1: …") or text ("- [ ] Call the bank")
-		-- starts with the component text (case-insensitive)
+		-- starts with the component text (case-insensitive); a markdown
+		-- link counts as its text ("- [The Rust Book](…)")
 		local want = vim.trim(component.text):lower()
 		for lnum = start_line or 1, math.min(end_line or #lines, #lines) do
 			local line = lines[lnum]
 			local it = line:find("%S") and syntax.item(line)
 			if it then
 				local key = it.key and it.key:lower()
-				local body = syntax.strip_attributes(line:sub(it.content_col + 1)):lower()
+				local body = syntax.strip_attributes(M.link_text(line, it.content_col)):lower()
 				if key == want or body:sub(1, #want) == want or (key and key:sub(1, #want) == want) then
 					out[#out + 1] = { lnum = lnum, col = (it.marker_col or 0) + 1 }
 				end
@@ -450,6 +486,8 @@ end
 ---@field lines string[] lines of the file
 ---@field doc Document snapshot the result came from
 ---@field target table? for a > component, the link to follow (as at())
+---@field whole boolean? the result is a whole note (article and tag components)
+---@field end_line integer? last line of the range the result covers (line searches)
 
 local function make_result(doc, lnum, col, component, text)
 	return {
@@ -478,6 +516,12 @@ end
 ---@return SearchResult[] results, string? err
 function M.resolve(link, opts)
 	opts = opts or {}
+	if type(link) == "string" then
+		local content = syntax.trim(link):match("^@%[(.*)%]$")
+		if content then
+			return M.tag_search(content, opts)
+		end
+	end
 	local parsed = type(link) == "table" and link or M.parse(link)
 	if not parsed or not parsed.components or #parsed.components == 0 then
 		return {}, "Invalid link"
@@ -570,7 +614,9 @@ function M.resolve(link, opts)
 					if doc then
 						local lnum = doc.header.name_lnum or 1
 						local text = comp.type == "article" and ("Article: " .. comp.text) or nil
-						results[#results + 1] = make_result(doc, lnum, 1, comp, text)
+						local r = make_result(doc, lnum, 1, comp, text)
+						r.whole = true
+						results[#results + 1] = r
 					end
 				end
 			end
@@ -584,6 +630,7 @@ function M.resolve(link, opts)
 						for _, m in ipairs(matches) do
 							local r = make_result(doc, m.lnum, m.col, comp)
 							r.target = m.target -- > components: the link to follow
+							r.end_line = M.section_end(doc, m.lnum, comp)
 							results[#results + 1] = r
 						end
 					elseif matches[1] then
@@ -608,6 +655,148 @@ function M.resolve(link, opts)
 
 	if #results == 0 then
 		return {}, "No matches found for: " .. parsed.components[#parsed.components].original
+	end
+	return results
+end
+
+-- =============================================================================
+-- Tag searches: @[scope/tags]
+-- =============================================================================
+
+--- "R/#Rust/rl + ai" -> { scope = { "R", "#Rust" } | nil, is_local, all,
+--- groups = { { "rl" }, { "ai" } } } (any group, all of its tags)
+function M.parse_tag_search(content)
+	local parts, scope = M.split(content)
+	local query = table.remove(parts) or ""
+	local groups = {}
+	for group in (query .. "+"):gmatch("([^+]*)%+") do
+		local terms = {}
+		for term in (group .. "&"):gmatch("([^&]*)&") do
+			term = (syntax.trim(term):gsub("^@", "")):lower()
+			if term ~= "" then
+				terms[#terms + 1] = term
+			end
+		end
+		if #terms > 0 then
+			groups[#groups + 1] = terms
+		end
+	end
+	local all = #parts == 1 and parts[1] == "*"
+	return {
+		scope = (#parts > 0 and not all) and parts or nil,
+		is_local = scope == "local",
+		all = all,
+		groups = groups,
+	}
+end
+
+-- Bare @words on a line ({ [tag] = 1-based col }), from its inline spans
+local function line_tags(doc, lnum)
+	local out = {}
+	syntax.walk_spans(doc:inline(lnum), function(span)
+		if span.type == "attribute" and span.value == nil then
+			local key = span.key:lower()
+			out[key] = out[key] or span.s + 1
+		end
+	end)
+	return out
+end
+
+local NOT_CONTENT = { blank = true, article = true, tag = true }
+
+--- Lines tagged as a tag search asks, in the notes or sections its scope
+--- resolves to (see the module header). Same results shape as resolve().
+---@param content string what is inside @[...]
+---@param opts { bufnr?: integer, doc?: table }?
+---@return SearchResult[] results, string? err
+function M.tag_search(content, opts)
+	opts = opts or {}
+	local q = M.parse_tag_search(content)
+	local component = { type = "tag_search", text = content, original = "@[" .. content .. "]" }
+	if #q.groups == 0 then
+		return {}, "No tags in " .. component.original
+	end
+
+	-- Ranges to look in: { doc, s, e }
+	local ranges = {}
+	if q.all then
+		for _, path in ipairs(notes().index().files) do
+			local doc = Document().get(path)
+			if doc then
+				ranges[#ranges + 1] = { doc = doc, s = 1, e = #doc.lines }
+			end
+		end
+	elseif q.scope then
+		local results, err = M.resolve((q.is_local and "/" or "") .. table.concat(q.scope, "/"), opts)
+		if #results == 0 then
+			return {}, err
+		end
+		for _, r in ipairs(results) do
+			local e = r.whole and #r.doc.lines or r.end_line or r.lnum
+			ranges[#ranges + 1] = { doc = r.doc, s = r.whole and 1 or r.lnum, e = e }
+		end
+	else
+		local doc = opts.doc or Document().from_buffer(opts.bufnr or 0)
+		if not doc then
+			return {}, "No buffer to resolve a local link in"
+		end
+		ranges[1] = { doc = doc, s = 1, e = #doc.lines }
+	end
+
+	local results, seen = {}, {}
+	for _, range in ipairs(ranges) do
+		local doc = range.doc
+		local inherited = {} -- section start line -> tags of it and its ancestors
+		local function section_tags(node)
+			if node:is_root() or node.type == "article" then
+				return {}
+			end
+			if not inherited[node.start_line] then
+				local tags = vim.deepcopy(section_tags(node.parent))
+				for tag in pairs(line_tags(doc, node.start_line)) do
+					tags[tag] = true
+				end
+				inherited[node.start_line] = tags
+			end
+			return inherited[node.start_line]
+		end
+		for lnum = range.s, math.min(range.e, #doc.lines) do
+			local info = doc:info(lnum)
+			local key = tostring(doc.filepath) .. ":" .. lnum
+			if info and not NOT_CONTENT[info.kind] and not doc:in_code(lnum) and not seen[key] then
+				local own = line_tags(doc, lnum)
+				local above = section_tags(doc:node_at(lnum))
+				local match = false
+				for _, group in ipairs(q.groups) do
+					match = true
+					for _, tag in ipairs(group) do
+						if not (own[tag] or above[tag]) then
+							match = false
+							break
+						end
+					end
+					if match then
+						break
+					end
+				end
+				if match then
+					seen[key] = true
+					-- the column of the first queried tag on the line itself
+					local col
+					for _, group in ipairs(q.groups) do
+						for _, tag in ipairs(group) do
+							if own[tag] and (not col or own[tag] < col) then
+								col = own[tag]
+							end
+						end
+					end
+					results[#results + 1] = make_result(doc, lnum, col or 1, component)
+				end
+			end
+		end
+	end
+	if #results == 0 then
+		return {}, "No matches found for: " .. component.original
 	end
 	return results
 end
@@ -686,7 +875,7 @@ function M.item_component(line)
 	if item.key then
 		return "-" .. M.component_text(item.key)
 	end
-	return "-" .. M.component_text(item.text)
+	return "-" .. M.component_text(M.link_text(item.text))
 end
 
 --- Canonical link to a section node, e.g. "[Projects/#1 Programming/#1.4 - zortex]".

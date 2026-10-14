@@ -98,7 +98,7 @@ Nothing inside a code or math block is structure.
 |---|---|---|
 | `[Link/#Heading]` | `link` | see Links below |
 | `![Live link]` | `live_link` | a link shown in place (the digest note) |
-| `@[cars & parts]` | `tag_search` | notes whose header has the tags (`&` all, `+` any) |
+| `@[cars & parts]` | `tag_search` | lines tagged `@cars` and `@parts` (`&` all, `+` any); see Tag searches below |
 | `[text](https://example.com)` | `markdown` | a markdown link |
 | `[^1]` | `footnote_ref` | a footnote reference |
 | `https://example.com` | `url` | |
@@ -147,7 +147,7 @@ case-insensitive and by prefix: `[P/#1.4]` finds `## 1.4 - zortex`.
 | `#` heading | `[P/#1.4 - zortex]` | a heading at any depth in the range |
 | `:` label | `[A/#1.2/:Fitness]` | a label |
 | `*` bold | `[Note/*Next steps]` | a bold heading or bold text |
-| `-` item | `[O/#Current/-KR1]` | a list item by its key or text |
+| `-` item | `[O/#Current/-KR1]` | a list item by its key or text (a markdown link counts as its text: `-The Rust Book`) |
 | `%` query | `[Note/%sparkplug]` | any line containing the text (`a + b` either, `a & b` both) |
 | `>` follow | `[R/#Rust/>The Rust Book]` | a link in the range, by its text or its line's text; following it opens what that link points to (last component only) |
 
@@ -167,6 +167,27 @@ case-insensitive and by prefix: `[P/#1.4]` finds `## 1.4 - zortex`.
   still finds it.
 
 `doc/Architecture.md` (Links) has the exact resolution rules.
+
+## Tag searches
+
+`@[tags]` finds the lines tagged with bare `@words`: `@[rust]` finds
+`- [The Rust Book](https://doc.rust-lang.org/book) @rust`. Before the last
+`/` is where to look, written as a link; without it, the note the search is
+in; `*` is every note:
+
+| Search | Finds |
+|---|---|
+| `@[rl + ai-model]` | lines in this note tagged `@rl` or `@ai-model` |
+| `@[rl & ai-model]` | lines tagged both (`rl&ai-model`, `@rl & @ai-model` too) |
+| `@[R/#Rust/async]` | lines tagged `@async` in the Rust section of Resources |
+| `@[@Library/rl]` | lines tagged `@rl` in every note tagged `@Library` |
+| `@[*/rust]` | lines tagged `@rust` in every note |
+
+A tag on a heading, bold heading or label tags every line in its section:
+under `## Embedded @embedded`, `- [The Embedded Rust Book](…) @rust` matches
+`@[embedded & rust]`. Tags in a note's header select notes (`@[@Library/…]`)
+and are not inherited by its lines. A line nested under a resource (a note
+about it) is not tagged by it.
 
 ## Special notes
 

@@ -151,7 +151,7 @@ completion). A typed component (`#…`, `:…`, `-…`, `*…`) is never split a
 and `on_line(line)` find links on a line (from syntax spans; `@a(...)`
 resolves to its area link). Resolution and link building are in the same
 module (next sections); following a link in a buffer (quickfix list,
-footnotes, `@[tag]` searches) is `features/links`.
+footnotes, `@[scope/tag]` searches) is `features/links`.
 
 ### Sections — `core/section.lua`
 
@@ -235,6 +235,16 @@ tasks as `[P/#…/-Improve website]`.
 - Archived notes are skipped unless a component is `@Archive` or
   `opts.include_archived` is set.
 - Local links (`[/…]`) resolve in the current buffer.
+- `resolve("@[scope/tags]")` is a tag search (`tag_search(content)`): the
+  scope link's results become ranges (a whole note for article and tag
+  components, `result.whole`; otherwise `lnum..result.end_line`), and every
+  non-blank, non-header line outside code in them matches when its own bare
+  `@words` plus those of the section headings above it satisfy the query
+  (`a + b` any, `a & b` all; groups of `&` joined by `+`). No scope is the
+  current note, `*` every note.
+- A `-` component compares a list item's text with markdown links replaced
+  by their text (`link_text`), so `-The Rust Book` finds
+  `- [The Rust Book](…)`; `item_component` writes it that way.
 - A `>` component gives one result per matching link (a line with two links
   gives two), each with `result.target`, the link (as `at()` returns it).
   Following the link opens that target instead of the line, from the note it

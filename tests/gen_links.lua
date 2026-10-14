@@ -9,8 +9,8 @@
 --   tests/fixtures/search.json   [{ prompt, mode, results = [{ type, rel, lnum, breadcrumb?, score?, child? }] }]
 --
 -- The cases are every section of every note (its canonical link), every link
--- written in the notes, and the hand-picked cases below. The Go port
--- (app/links, app/search) is tested against these files; test_links.lua
+-- and tag search written in the notes, and the hand-picked cases below. The
+-- Go port (app/links, app/search) is tested against these files; test_links.lua
 -- checks that they are up to date.
 local root = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p:h:h")
 vim.opt.rtp:prepend(root)
@@ -78,6 +78,23 @@ M.EXTRA_LINKS = {
 	{ link = "[R/>Spinning/#AI]" },
 	{ link = "[>Spinning]" },
 	{ link = "[/>The Rust]", from = "z/resources.zortex" },
+	{ link = "[R/#Rust/-The Rust Book]" },
+	{ link = "[R/-rust by]" },
+	{ link = "@[R/rust]" },
+	{ link = "@[R/#Rust/async]" },
+	{ link = "@[R/embedded & rust]" },
+	{ link = "@[R/#Rust/embedded]" },
+	{ link = "@[@Library/rl]" },
+	{ link = "@[@Library/rl&ai-model]" },
+	{ link = "@[R/@rl & @ai-model]" },
+	{ link = "@[*/rl]" },
+	{ link = "@[*/rust+rl]" },
+	{ link = "@[R/#Rust/-The Rust Book/rust]" },
+	{ link = "@[R/nothing]" },
+	{ link = "@[Nope/rl]" },
+	{ link = "@[R/#Rust/ & ]" },
+	{ link = "@[rl]", from = "z/resources.zortex" },
+	{ link = "@[/#AI/rl]", from = "z/resources.zortex" },
 	{ link = "P/#1.4" },
 	{ link = "[]" },
 }
@@ -204,6 +221,12 @@ function M.resolve_cases()
 					local def = span.definition
 					add("[" .. def .. "]", def:sub(1, 1) == "/" and rel(path) or nil)
 				end
+				-- tag searches (@[tags] searches the note it is in)
+				syntax.walk_spans(syntax.inline(line), function(span)
+					if span.type == "tag_search" then
+						add("@[" .. span.content .. "]", rel(path))
+					end
+				end)
 			end
 		end
 	end

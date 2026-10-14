@@ -19,6 +19,7 @@ package links
 
 import (
 	"errors"
+	"sort"
 	"strings"
 
 	"github.com/t-wilkinson/zortex.nvim/app/notes"
@@ -210,6 +211,33 @@ type Match struct {
 	Link      *syntax.Span
 }
 
+// LinkText is line from byte from on, with markdown links replaced by their
+// text ("[The Rust Book](https://…) @rust" -> "The Rust Book @rust"). List
+// items match a listitem component by this text.
+func LinkText(line string, from int) string {
+	if !strings.Contains(line[from:], "](") {
+		return line[from:]
+	}
+	var spans []syntax.Span
+	syntax.Walk(syntax.Inline(line, 0, len(line)), func(sp *syntax.Span) {
+		if sp.Type == "markdown" && sp.S >= from {
+			spans = append(spans, *sp)
+		}
+	})
+	sort.SliceStable(spans, func(i, j int) bool { return spans[i].S < spans[j].S })
+	var b strings.Builder
+	pos := from
+	for _, sp := range spans {
+		if sp.S >= pos {
+			b.WriteString(line[pos:sp.S])
+			b.WriteString(sp.Text)
+			pos = sp.E
+		}
+	}
+	b.WriteString(line[pos:])
+	return b.String()
+}
+
 // followable: spans a follow component can follow.
 var followable = map[string]bool{"link": true, "live_link": true, "markdown": true, "url": true, "filepath": true}
 
@@ -305,7 +333,7 @@ func listItemMatch(line, want string) (int, bool) {
 		return 0, false
 	}
 	key := syntax.Lower(it.Key)
-	body := syntax.Lower(syntax.StripAttributes(line[it.ContentCol:]))
+	body := syntax.Lower(syntax.StripAttributes(LinkText(line, it.ContentCol)))
 	if (it.Key != "" && key == want) || strings.HasPrefix(body, want) || (it.Key != "" && strings.HasPrefix(key, want)) {
 		return it.MarkerCol + 1, true
 	}
@@ -463,6 +491,8 @@ type Result struct {
 	Lnum, Col int
 	Component Component
 	Link      *syntax.Span // follow components: the link to follow
+	Whole     bool         // a whole note (article and tag components)
+	End       int          // line searches: last line of the range the result covers
 }
 
 // Options for Resolve.
@@ -488,6 +518,9 @@ func mentionsArchive(d Definition) bool {
 
 // Resolve returns every location a link resolves to, canonical first.
 func Resolve(ix *notes.Index, link string, opts Options) ([]Result, error) {
+	if t := syntax.Trim(link); strings.HasPrefix(t, "@[") && strings.HasSuffix(t, "]") {
+		return TagSearch(ix, t[2:len(t)-1], opts)
+	}
 	def := Parse(link)
 	if len(def.Components) == 0 {
 		return nil, errors.New("Invalid link")
@@ -566,7 +599,7 @@ func Resolve(ix *notes.Index, link string, opts Options) ([]Result, error) {
 						if lnum == 0 {
 							lnum = 1
 						}
-						results = append(results, Result{Doc: c.doc, Lnum: lnum, Col: 1, Component: comp})
+						results = append(results, Result{Doc: c.doc, Lnum: lnum, Col: 1, Component: comp, Whole: true})
 					}
 				}
 				continue
@@ -628,7 +661,7 @@ func Resolve(ix *notes.Index, link string, opts Options) ([]Result, error) {
 					if lnum == 0 {
 						lnum = 1
 					}
-					results = append(results, Result{Doc: c.doc, Lnum: lnum, Col: 1, Component: comp})
+					results = append(results, Result{Doc: c.doc, Lnum: lnum, Col: 1, Component: comp, Whole: true})
 				}
 			}
 			continue
@@ -643,7 +676,7 @@ func Resolve(ix *notes.Index, link string, opts Options) ([]Result, error) {
 			matches := SearchLines(d.Lines, comp, cands[k].start, cands[k].end)
 			if last {
 				for _, m := range matches {
-					results = append(results, Result{Doc: d, Lnum: m.Lnum, Col: m.Col, Component: comp, Link: m.Link})
+					results = append(results, Result{Doc: d, Lnum: m.Lnum, Col: m.Col, Component: comp, Link: m.Link, End: SectionEnd(d, m.Lnum, comp)})
 				}
 			} else if len(matches) > 0 {
 				lnum := matches[0].Lnum

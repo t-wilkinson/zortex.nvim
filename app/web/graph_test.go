@@ -157,3 +157,27 @@ func TestGraphCardsAndTags(t *testing.T) {
 		t.Error("Graph isn't the current tab")
 	}
 }
+
+func TestGraphBulletGroups(t *testing.T) {
+	ts := newSlidesServer(t, map[string]string{
+		"structure.zortex": "@@Structure\n\n- Zortex\n    - [Inbox]\n\n- [Me]\n    - [Me/#Contacts]\n    - [Blog]\n\n- The arts\n    - [Art]\n        - [Design]\n    - Plain leaf\n",
+		"inbox.zortex":     "@@Inbox\n",
+		"me.zortex":        "@@Me\n\n# Contacts\n",
+		"blog.zortex":      "@@Blog\n",
+		"art.zortex":       "@@Art\n",
+		"design.zortex":    "@@Design\n",
+	})
+	page := expect(t, ts, "/graph", 200,
+		`<section class="gt-card"><h2>Zortex <span class="gt-n dim" title="Notes in it">1</span></h2>`,
+		`<section class="gt-card"><h2>The arts <span class="gt-n dim" title="Notes in it">2</span></h2>`)
+	arts := page[strings.Index(page, `<h2>The arts`):]
+	if !strings.Contains(arts[:strings.Index(arts, "</section>")], `data-rel="art.zortex"`) {
+		t.Error("Art isn't under The arts")
+	}
+	if strings.Count(page, `data-rel="me.zortex"`) != 1 {
+		t.Error("[Me/#Contacts] under [Me] listed Me again")
+	}
+	if strings.Contains(page, "Plain leaf") {
+		t.Error("a bullet with nothing under it is shown")
+	}
+}

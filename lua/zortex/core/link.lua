@@ -927,6 +927,26 @@ function M.extract_line_identifier(line)
 	return text
 end
 
+--- A link's title for pickers: a markdown link's text, else the text of
+--- its line before the line's first link ("- The Art of Electronics:
+--- ./z/books/aoe.pdf" -> "The Art of Electronics"), else the line's text
+--- after the link.
+function M.follow_title(line, target)
+	line = line or ""
+	if target and target.type == "markdown" and target.display_text ~= "" then
+		return target.display_text
+	end
+	local col = target and target.col or 1
+	local first = M.follow_targets(line)[1]
+	local before = line_text(line:sub(1, math.min(col, first and first.col or col) - 1)):gsub("[%s:;,%-|]+$", "")
+	if before ~= "" then
+		return before
+	end
+	local full = target and target.full_match_text or ""
+	local after = line_text(line:sub(col + #full)):gsub("^[%s:;,%-|]+", "")
+	return after
+end
+
 --- The text a > component uses for a link on `line`: a markdown link's
 --- text, else the line's text before the link, else the whole line's text
 --- (shortened like other components).

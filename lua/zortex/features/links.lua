@@ -196,41 +196,68 @@ end
 M.jump_to_location = jump_to_location
 
 -- Following a > link: the links it matched, opened directly when there is
--- one and through a picker otherwise. Each is opened from the note it is
+-- one and through a picker otherwise (telescope, with a preview and <C-l> to
+-- go to the link's line, when installed). Each is opened from the note it is
 -- written in (relative paths, local links), up to MAX_FOLLOW links deep.
 local MAX_FOLLOW = 5
 
-local function follow_label(result)
-	local t = result.target
-	local text = link_mod.follow_text(result.text, t)
-	local where = t.url or t.path or t.definition or ""
-	local node = result.doc and result.doc:node_at(result.lnum)
-	local crumb = node and not node:is_root() and node:get_breadcrumb(" › ") or ""
-	local label = text ~= "" and text or where
-	if where ~= "" and where ~= label then
-		label = label .. "  " .. where
+-- Where a link goes, short: a URL without its scheme, a file's name, a
+-- zortex link as written
+local function short_target(t)
+	if t.url then
+		return (t.url:gsub("^%a+://", ""):gsub("^www%.", ""))
+	elseif t.path then
+		return vim.fn.fnamemodify(t.path, ":t")
 	end
-	return crumb ~= "" and (label .. "  (" .. crumb .. ")") or label
+	return "[" .. (t.definition or "") .. "]"
 end
 
+-- A matched link as the picker shows it: { title, target, where, result }
+local function follow_entry(result)
+	local t = result.target
+	local node = result.doc and result.doc:node_at(result.lnum)
+	local where = node and not node:is_root() and node:get_breadcrumb(" › ")
+		or vim.fn.fnamemodify(result.file, ":t")
+	local target = short_target(t)
+	local title = link_mod.follow_title(result.text, t)
+	return { title = title ~= "" and title or target, target = target, where = where, result = result }
+end
+M._follow_entry = follow_entry
+
 local function follow(results, ctx)
-	local open = function(result)
-		if not result then
+	local function open(entry)
+		if not entry then
 			return
 		end
-		M.open_info(result.target, {
-			file = result.file,
-			doc = result.doc,
+		M.open_info(entry.result.target, {
+			file = entry.result.file,
+			doc = entry.result.doc,
 			depth = (ctx.depth or 0) + 1,
 		})
 	end
-	if #results == 1 then
-		open(results[1])
+	local entries = vim.tbl_map(follow_entry, results)
+	if #entries == 1 then
+		open(entries[1])
 		return
 	end
-	vim.ui.select(results, { prompt = "Follow link", format_item = follow_label }, open)
+	if M.use_telescope() then
+		require("zortex.ui.telescope.follow").pick(entries, open, function(entry)
+			jump_to_location(entry.result, true)
+		end)
+		return
+	end
+	vim.ui.select(entries, {
+		prompt = "Follow link",
+		format_item = function(e)
+			return e.title .. " — " .. e.target .. " (" .. e.where .. ")"
+		end,
+	}, open)
 end
-M._follow_label = follow_label
+
+-- The telescope picker when telescope is installed; vim.ui.select otherwise
+function M.use_telescope()
+	return (pcall(require, "telescope.pickers.entry_display"))
+end
 
 -- Open a link (as core/link.at returns it). ctx: where the link is written
 -- (file, doc; the current buffer when nil) and how many > links led here.

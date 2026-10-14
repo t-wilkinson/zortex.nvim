@@ -39,7 +39,8 @@ The first release for people other than the author.
 - Links to links: a `>` component (`[R/#Rust/>The Rust Book]`) opens the link
   it matches instead of the line it is on, with a picker when several match
   and completion after `>`; its preview shows the link's line and the notes
-  nested under it.
+  nested under it. With telescope the picker shows every match with its
+  title, target and section and a preview; `<C-l>` goes to the link's line.
 - Tag searches take a scope: `@[R/#Rust/async]`, `@[@Library/rl & ai-model]`,
   `@[*/rust]`; a tag on a heading tags its section. `-` finds a list item by
   its markdown link's text (`[R/#Rust/-The Rust Book]`).

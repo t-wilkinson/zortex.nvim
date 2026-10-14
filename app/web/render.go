@@ -4,6 +4,7 @@ import (
 	"html/template"
 	"net/url"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 
@@ -35,6 +36,9 @@ type noteRenderer struct {
 	doc *notes.Document
 	ast *syntax.AST
 	b   strings.Builder
+
+	slides bool        // a slide deck: attributes are hidden
+	steps  map[int]int // slides: lnum -> the reveal step it appears in
 }
 
 // renderNote is the HTML body of a note (without its header block, which
@@ -51,9 +55,13 @@ func (r *noteRenderer) w(parts ...string) {
 	}
 }
 
-func (r *noteRenderer) render() {
-	lines, ast := r.doc.Lines, r.ast
-	for i := 0; i < len(lines); i++ {
+func (r *noteRenderer) render() { r.renderRange(1, len(r.doc.Lines)) }
+
+// renderRange renders lines first..last (1-based, inclusive). A code, math
+// or table block that starts in the range is rendered whole.
+func (r *noteRenderer) renderRange(first, last int) {
+	ast := r.ast
+	for i := first - 1; i < last; i++ {
 		lnum := i + 1
 		d := ast.Lines[i]
 		if lnum <= ast.Header.LastLnum {
@@ -125,7 +133,11 @@ func (r *noteRenderer) table(i int) int {
 		if k < j && ast.Lines[k+1].Separator != nil && *ast.Lines[k+1].Separator {
 			cell = "th"
 		}
-		r.w(`<tr id="L`, itoa(k+1), `">`)
+		r.w(`<tr id="L`, itoa(k+1), `"`)
+		if n := r.steps[k+1]; n > 0 {
+			r.w(` data-step="`, itoa(n), `"`)
+		}
+		r.w(`>`)
 		for _, c := range tableCells(lines[k]) {
 			r.w("<", cell, ">", r.inline(c, syntax.Inline(c, 0, len(c)), 0, len(c)), "</", cell, ">")
 		}
@@ -161,6 +173,9 @@ func (r *noteRenderer) line(lnum int, d *syntax.Line) {
 	indent := ""
 	if d.Indent > 0 {
 		indent = ` style="--ind:` + itoa(d.Indent) + `"`
+	}
+	if n := r.steps[lnum]; n > 0 {
+		indent += ` data-step="` + itoa(n) + `"`
 	}
 
 	switch d.Kind {
@@ -259,7 +274,12 @@ func (r *noteRenderer) inline(line string, spans []syntax.Span, from, to int) st
 func (r *noteRenderer) span(line string, sp *syntax.Span) string {
 	raw := line[sp.S:sp.E]
 	switch sp.Type {
-	case "link", "live_link":
+	case "live_link":
+		if resourceKind(extOf(sp.Definition)) == "image" && r.s.fileLike(sp.Definition) {
+			return r.s.imageHTML(r.doc, sp.Definition)
+		}
+		return r.s.linkHTML(r.doc, sp.Definition)
+	case "link":
 		return r.s.linkHTML(r.doc, sp.Definition)
 	case "markdown":
 		href, ok := r.s.pathHref(r.doc, sp.URL)
@@ -284,6 +304,9 @@ func (r *noteRenderer) span(line string, sp *syntax.Span) string {
 		// the tagged lines it finds (links.TagSearch), listed on the link page
 		return `<a class="tagsearch" href="` + esc(r.s.linkURL("@["+sp.Content+"]", r.doc.Rel)) + `">` + esc(raw) + `</a>`
 	case "attribute":
+		if r.slides {
+			return ""
+		}
 		return `<span class="attr">` + esc(raw) + `</span>`
 	case "hidden":
 		return ""
@@ -405,6 +428,31 @@ func (s *Server) linkURL(def, from string) string {
 // "../other.zortex", "tt.pdf") to a viewer URL, with localRef's rules.
 // External URLs pass through. ok is false when the file doesn't exist.
 func (s *Server) pathHref(from *notes.Document, p string) (string, bool) {
+	rel, frag, local, dir, ok := s.resolveFile(from, p)
+	if !ok || !local {
+		return rel, ok
+	}
+	if !dir && s.isNote(rel) {
+		return s.noteURL(rel, 0) + frag, true
+	}
+	return s.fileURL(rel) + frag, true
+}
+
+// rawHref is pathHref for the file's bytes (an image's src), not a viewer.
+func (s *Server) rawHref(from *notes.Document, p string) (string, bool) {
+	rel, _, local, dir, ok := s.resolveFile(from, p)
+	if !ok || !local {
+		return rel, ok
+	}
+	if dir {
+		return "", false
+	}
+	return s.rawURL(rel), true
+}
+
+// resolveFile finds the file or folder a path in a note names: its rel (and
+// #fragment) when local, or the path itself when external (local false).
+func (s *Server) resolveFile(from *notes.Document, p string) (rel, frag string, local, dir, ok bool) {
 	var names map[string][]string
 	if snap := s.current(); snap != nil {
 		names = snap.names
@@ -412,21 +460,28 @@ func (s *Server) pathHref(from *notes.Document, p string) (string, bool) {
 	rel, frag, local, found := s.localRef(from.Rel, p, false, names)
 	if !local {
 		if p == "" || strings.HasPrefix(p, "~") {
-			return "", false
+			return "", "", false, false, false
 		}
-		return p, true
+		return p, "", false, false, true
 	}
 	if !found {
-		return "", false
+		return "", "", true, false, false
 	}
 	st, err := os.Stat(s.ix.Path(rel))
 	if err != nil {
-		return "", false
+		return "", "", true, false, false
 	}
-	if !st.IsDir() && s.isNote(rel) {
-		return s.noteURL(rel, 0) + frag, true
+	return rel, frag, true, st.IsDir(), true
+}
+
+// imageHTML renders ![./pic.png]: the image itself (a missing file is a
+// broken link, as [./pic.png] would be).
+func (s *Server) imageHTML(from *notes.Document, def string) string {
+	src, ok := s.rawHref(from, def)
+	if !ok {
+		return `<a class="zl broken" title="File not found">` + esc(def) + `</a>`
 	}
-	return s.fileURL(rel) + frag, true
+	return `<img class="embed" src="` + esc(src) + `" alt="` + esc(path.Base(def)) + `" loading="lazy">`
 }
 
 // tocEntry is a section in a note's outline.

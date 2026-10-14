@@ -37,6 +37,7 @@
         {{if .Archived}}<span class="archived">archived</span>{{end}}
         <span class="dim">changed {{ago .ModTime}}</span>
         <a class="dim" href="{{.Raw}}">raw</a>
+        <a class="dim" href="?view=slides" title="Present this note as slides">slides</a>
         {{if .Writable}}<button type="button" class="edit-toggle head-edit" aria-pressed="false" title="Tap a line to change it, drag ⠿ to move it">Edit</button>{{end}}
       </p>
     </header>

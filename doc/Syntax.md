@@ -133,6 +133,16 @@ projects, calendar entries):
 | `@spent(1h25m)` | time worked on it, added by the web app's clocks ([time tracking](../app/README.md#time-tracking)) |
 | `@notify(15)`, `@n(0, 30)` | calendar: notify minutes before (several allowed) |
 | `@repeat(weekly)` | calendar: repetition |
+| `@slides(2)` | in a header: the heading level that starts a slide ([slides](../app/README.md#slides)) |
+| `@step`, `@steps` | slides: reveal a line, or each item of a slide, one at a time |
+
+## Embeds
+
+`![…]` shows what it links to in place instead of linking to it. A path to
+an image (`![./images/pic.png]`, `![https://example.com/a.png]`) is shown
+as the image on the web; other embeds (`![Live link]`) are links for now and
+are reserved for showing zortex data in place. Math is `$inline$`,
+`$$display$$` or a block between `$$` lines, typeset with KaTeX on the web.
 
 ## Links
 

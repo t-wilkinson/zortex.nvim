@@ -64,6 +64,7 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 | `/` | search box, the **calendar** (days of `calendar.zortex`, a month grid, scheduled notifications), the **pomodoro** clock with **timer**, **alarm** and **stopwatch** tabs, **season and XP** (level and tier, progress to the next level, XP per day for two weeks, top areas, recent awards), the main notes (`-special`), recently changed notes, notes not yet in the structure, counts |
 | `/structure` | notes that neither the Structure note (`@@Structure`) nor any `@Structure` note links to (archived notes left out) |
 | `/n/<path>` | a rendered note: outline, every line anchored (`#L12`), links resolved with the plugin's rules (to the canonical target; `⁺` when there are more), broken links in red, file paths and markdown links to the file viewer, "Linked from" (backlinks) |
+| `/n/<path>?view=slides` | the note as a slide deck ([Slides](#slides)) |
 | `/search?q=` | structural search, the plugin's ranking: sections whose path matches the words in order, then lines with every word; results update as you type, `↑`/`↓` + Enter, `/` focuses search anywhere |
 | `/link?to=&from=` | resolve a link: one target redirects, several are listed, failures say why |
 | `/f/<path>` | file browser (sort by name (notes by article name) or modified time, either direction: `?sort=modified&order=desc`, kept in folder links; top level: the main notes unless "show all"; hidden folders and Syncthing artefacts never) and viewer: PDF, image, video, audio (with seeking), text, sandboxed HTML/SVG |
@@ -123,6 +124,41 @@ Neovim), the home page its calendar, XP and pomodoro. Changes made through
 Syncthing show up after Syncthing has synced the file (its folder watcher
 waits 10 s by default: lower `fsWatcherDelayS` for faster updates) and
 the server's next rescan (`-poll`, 3 s).
+
+### Slides
+
+`/n/<path>?view=slides` (the **slides** link on a note page, or
+`:ZortexPresent` in Neovim) shows a note as a slide deck. Nothing in the
+note has to change:
+
+| in the note | on the slides |
+|---|---|
+| `@@Name` and the lines before the first heading | the title slide |
+| headings at the slide level | one slide each, with everything up to the next one |
+| headings above the slide level | section slides |
+| `Notes:` (or `**Notes:**`) in a slide | speaker notes: hidden, shown in the presenter window |
+| `@step` on a line | revealed on its own click, with the lines nested under it |
+| `@steps` on a slide's heading | each of its top-level items revealed in turn |
+| `@slides(n)` in the header | headings of level n start the slides |
+
+The slide level is `@slides(n)`, or else the second heading level the note
+uses (with `#` and `##`, `##` are slides and `#` section slides), or the only
+one. Attributes are hidden on slides; links, tasks, tables, code, math and
+images (`![./pic.png]`) render as on the note page, and a slide whose text
+doesn't fit is shrunk until it does.
+
+Keys: `→` `Space` `PgDn` next, `←` `PgUp` previous, `Home`/`End`, a number
+and `Enter` to jump, `o` overview, `s` presenter window (current slide, next
+slide, notes, a timer: click pauses, double-click resets; it and the deck
+follow each other), `f` fullscreen, `b` black screen, `?` the keys. Swipe on
+a phone. The hash is the position (`#3`, `#3.2` for its second step; `#L42`
+opens the slide holding line 42), a link to a line of the note goes to its
+slide, and the deck redraws in place when the note is saved. Printing
+(Ctrl+P) gives one 16:9 page per slide.
+
+**Math.** `$inline$`, `$$display$$` and `$$` blocks are typeset with
+[KaTeX](https://katex.org) on every page (`static/katex`, vendored: loaded
+only on pages with math, no CDN).
 
 ### Time tracking
 

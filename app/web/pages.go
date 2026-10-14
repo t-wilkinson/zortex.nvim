@@ -61,6 +61,12 @@ func (s *Server) parseTemplates() error {
 		}
 		s.pages[name] = t
 	}
+	// a slide deck is a page of its own, without the layout
+	t, err := template.New("slides.html").Funcs(funcs).ParseFS(templateFS, "templates/slides.html")
+	if err != nil {
+		return fmt.Errorf("template slides: %w", err)
+	}
+	s.pages["slides"] = t
 	return nil
 }
 
@@ -78,8 +84,11 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, page string, sta
 	}
 	t := s.pages[page]
 	name := "layout.html"
-	if page == "results" {
+	switch page {
+	case "results":
 		name = "results"
+	case "slides":
+		name = "slides.html"
 	}
 	var buf bytes.Buffer
 	if err := t.ExecuteTemplate(&buf, name, data); err != nil {
@@ -236,6 +245,10 @@ func (s *Server) handleNote(w http.ResponseWriter, r *http.Request) {
 	}
 	if doc == nil {
 		s.notFound(w, r, "No such note: "+rel)
+		return
+	}
+	if r.URL.Query().Get("view") == "slides" {
+		s.handleSlides(w, r, rel)
 		return
 	}
 	s.renderNotePage(w, r, rel, "")

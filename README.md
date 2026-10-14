@@ -256,6 +256,7 @@ require("zortex").setup({
 | `:ZortexOpenCalendar` | `<leader>zfc` | `open_calendar` | Open calendar.zortex |
 | `:ZortexOpenStructure` | `<leader>zfs` | `open_structure` | Open structure.zortex |
 | `:ZortexOpenInbox` | `<leader>zfi` | `open_inbox` | Open inbox.zortex |
+| `:ZortexPresent` | `<leader>zS` | `present` | Present this note as slides in the web app, from the slide under the cursor |
 
 **XP**
 

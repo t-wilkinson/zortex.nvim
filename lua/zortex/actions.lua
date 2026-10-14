@@ -539,6 +539,14 @@ M.list = {
 		desc = "Open inbox.zortex",
 		run = file("get_inbox_file"),
 	},
+	{
+		id = "present",
+		command = "Present",
+		key = "S",
+		group = "Files",
+		desc = "Present this note as slides in the web app, from the slide under the cursor",
+		run = call("zortex.features.present", "present"),
+	},
 
 	-- XP -----------------------------------------------------------------------
 	{

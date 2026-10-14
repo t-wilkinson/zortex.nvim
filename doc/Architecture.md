@@ -36,13 +36,13 @@ and tags). Everything else is built on documents:
   file) as line edits; nothing regenerates a whole note.
 - **State** in `notes_dir/.z` (link index, search history, XP, notifications)
   goes through one versioned module (`core/state`).
-- **UI** (pickers, completion, preview, skill tree, calendar, digest, review)
+- **UI** (pickers, completion, preview, mastery tree, calendar, digest, review)
   only reads these APIs. **`zortex.query`** exposes the same model as plain
   data (JSON-safe) for anything outside Neovim.
 
 ```
             ┌───────────────────────────────────────────────────────────┐
-  UI        │ telescope/projects  telescope/search  skill_tree  calendar │
+  UI        │ telescope/projects  telescope/search  mastery_tree  calendar │
             │ highlights folding toc completion preview review           │
             │ actions.lua ──► commands, keymaps, api.actions, :ZortexHelp│
             └──────────────▲────────────────────────────▲────────────────┘
@@ -208,14 +208,14 @@ The old JSON tree cache in `stdpath("cache")` is gone.
 A link is `/`-separated components resolved **left to right**. Each component
 narrows a list of candidates (file + line range):
 
-| Component    | Example                   | Narrows to                                                                                                  |
-| ------------ | ------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Article      | `P`, `Projects`           | Files declaring the alias, **then** files tagged with it.                                                   |
-| Tag          | `@P`                      | Files whose header has the tag. If no file declares it, a line search for `@P`.                             |
-| Heading      | `#1.4 - zortex`           | Heading lines whose text **starts with** the text, case-insensitive, at **any depth** in the current range. |
-| Label / bold | `:Fitness`, `*X`          | Line searches.                                                                                              |
-| List item    | `-KR1`, `-Call the bank`  | A list item whose key (`- KR1: …`) or text (checkbox and attributes ignored) starts with the text.          |
-| Query        | `%text`, `a + b`, `a & b` | Line searches. Case-sensitive only if the query has an uppercase letter.                                    |
+| Component    | Example                   | Narrows to                                                                                                                                                     |
+| ------------ | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Article      | `P`, `Projects`           | Files declaring the alias, **then** files tagged with it.                                                                                                      |
+| Tag          | `@P`                      | Files whose header has the tag. If no file declares it, a line search for `@P`.                                                                                |
+| Heading      | `#1.4 - zortex`           | Heading lines whose text **starts with** the text, case-insensitive, at **any depth** in the current range.                                                    |
+| Label / bold | `:Fitness`, `*X`          | Line searches.                                                                                                                                                 |
+| List item    | `-KR1`, `-Call the bank`  | A list item whose key (`- KR1: …`) or text (checkbox and attributes ignored) starts with the text.                                                             |
+| Query        | `%text`, `a + b`, `a & b` | Line searches. Case-sensitive only if the query has an uppercase letter.                                                                                       |
 | Follow       | `>The Rust Book`          | Links on lines in range whose own text (markdown text, definition, URL, path) or line text starts with the text; `>` alone is every link. Last component only. |
 
 **Generated link text** keeps only `[A-Za-z0-9 _-().]`: `component_text`
@@ -519,7 +519,7 @@ XP is derived, not recorded (see [Planning.md](Planning.md)):
 - `stores/xp` keeps only seasons (name, date window, history), the level
   curves and the levels last announced.
 - `xp/stats` (`require("zortex").xp`), the `XP*` and `Season*` actions, the
-  skill tree and `query.xp()` read the ledger. `Area:xp()` / `total_xp()`
+  mastery tree and `query.xp()` read the ledger. `Area:xp()` / `total_xp()`
   read it too (sub-areas count `xp.area.bubble` toward their parent).
 
 ## Entry points: API, actions, commands, keymaps
@@ -550,7 +550,7 @@ XP is derived, not recorded (see [Planning.md](Planning.md)):
 | `ui/telescope/projects.lua`                         | `projects.query`                                          |
 | `ui/telescope/search.lua`                           | `services/search` (picker only)                           |
 | `features/highlights.lua`, `folding.lua`, `toc.lua` | `core/document` syntax and tree                           |
-| `ui/skill_tree.lua`                                 | `areas`, `projects`, `xp/stats`                           |
+| `ui/mastery_tree.lua`                               | `areas`, `projects`, `xp/stats`                           |
 | `ui/calendar/view.lua` (+ `render`, `keys`)         | `stores/calendar`, `agenda` (digest panel), `projects`    |
 | `ui/calendar/init.lua`                              | `stores/calendar`                                         |
 | `features/completion.lua`                           | `core/link`, `notes`, `document`                          |
@@ -712,9 +712,9 @@ outline, lines and full syntax with spans), `search(prompt)`,
 `index.json` plus `notes/<rel>.json`). Dates are `YYYY-MM-DD` strings; every
 result survives `vim.json.encode`.
 
-**Skill tree** (`ui/skill_tree.lua`): season status from `xp/stats`, top areas
+**Mastery tree** (`ui/mastery_tree.lua`): season status from `xp/stats`, top areas
 from `areas.top`, and the area tree from Area objects. Levels come from
-`total_xp`. The highlight groups `ZortexSkillLevel1..4` and `ZortexProgressBar`
+`total_xp`. The highlight groups `ZortexMasteryLevel1..4` and `ZortexProgressBar`
 default-link to standard groups.
 
 **Calendar view** (`ui/calendar/`): `view.lua` owns the window and its
@@ -732,11 +732,11 @@ icons take two columns but one character.
 its own slice the same way `search.setup` does. Relevant constants live in
 `constants.lua`:
 
-| constant                           | meaning                             |
-| ---------------------------------- | ----------------------------------- |
-| `PROJECT_TAG = "P"`                | the projects tag and link namespace |
-| `ARCHIVE_TAG = "Archive"`          | marks archived notes                |
-| `DEFAULT_TASK_SIZE = "md"`         | what an unsized task counts as      |
+| constant                   | meaning                             |
+| -------------------------- | ----------------------------------- |
+| `PROJECT_TAG = "P"`        | the projects tag and link namespace |
+| `ARCHIVE_TAG = "Archive"`  | marks archived notes                |
+| `DEFAULT_TASK_SIZE = "md"` | what an unsized task counts as      |
 
 ## Testing
 

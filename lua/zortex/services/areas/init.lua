@@ -100,7 +100,7 @@ M.extract_area_paths = M.keys_for
 -- XP views
 -- =============================================================================
 
--- The area tree for the skill tree UI (root = the Areas article)
+-- The area tree for the mastery tree UI (root = the Areas article)
 function M.get_area_tree()
 	return M.roots()[1]
 end

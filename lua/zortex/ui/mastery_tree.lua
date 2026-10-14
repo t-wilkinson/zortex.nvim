@@ -1,4 +1,4 @@
--- ui/skill_tree.lua - Revamped Skill Tree UI for dual progression system
+-- ui/mastery_tree.lua - Revamped Mastery Tree UI for dual progression system
 local M = {}
 
 local config = require("zortex.config")
@@ -195,7 +195,7 @@ function M.show()
 	local cfg = vim.tbl_extend(
 		"force",
 		{ width = 80, height = 35, border = "rounded" },
-		(config.ui and config.ui.skill_tree) or {}
+		(config.ui and config.ui.mastery_tree) or {}
 	)
 
 	-- Create buffer

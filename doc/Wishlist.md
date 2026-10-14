@@ -59,7 +59,7 @@ line → location map), `core/workspace`, `stores/calendar.add_entry`,
 
 A page per PARA area that answers "how is this part of my life going?"
 (`:ZortexArea [key]`, picker over `areas.all()` when no key; also `<CR>` on an
-area in the skill tree).
+area in the mastery tree).
 
 ```
 @@Area: 1.2 Vitality

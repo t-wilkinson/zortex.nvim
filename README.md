@@ -254,7 +254,7 @@ require("zortex").setup({
 
 | Command | Keys | Action id | Does |
 |---|---|---|---|
-| `:ZortexSkillTree` | `<leader>zk` | `skill_tree` | Skill tree and season progress |
+| `:ZortexMasteryTree` | `<leader>zk` | `mastery_tree` | Mastery tree and season progress |
 | `:ZortexXPStats` | `<leader>zxs` | `xp_stats` | XP statistics |
 | `:ZortexXPAreas` | `<leader>zxa` | `xp_areas` | Top areas by XP |
 | `:ZortexXPExplain` | `<leader>zxe` | `xp_explain` | How the project at the cursor earned its XP |

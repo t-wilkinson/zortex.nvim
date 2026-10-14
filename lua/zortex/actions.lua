@@ -534,12 +534,12 @@ M.list = {
 
 	-- XP -----------------------------------------------------------------------
 	{
-		id = "skill_tree",
-		command = "SkillTree",
+		id = "mastery_tree",
+		command = "MasteryTree",
 		key = "k",
 		group = "XP",
-		desc = "Skill tree and season progress",
-		run = call("zortex.ui.skill_tree", "show"),
+		desc = "Mastery tree and season progress",
+		run = call("zortex.ui.mastery_tree", "show"),
 	},
 	{
 		id = "xp_stats",

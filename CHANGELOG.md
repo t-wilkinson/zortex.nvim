@@ -24,7 +24,7 @@ The first release for people other than the author.
   `:ZortexXPGuide` shows the calibration from your config.
 - Seasons are progress on their objectives (weighted by objective XP), with
   tiers at 25/50/70/85/100%; with no season started by hand, the season is
-  the calendar quarter. A skill tree shows both.
+  the calendar quarter. A mastery tree shows both.
 - The day planner ranks key-result work first, the further behind schedule
   the higher; a daily review (`:ZortexReview day`) next to the weekly one,
   both opening with objectives, XP on key results and time spent.

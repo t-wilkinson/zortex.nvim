@@ -108,7 +108,7 @@ p:area_links()                   -- its @a(...) links, including unresolved ones
 
 XP is recorded under area **keys** (`Areas/4 Learning & Education/4.1 Education & Skills`).
 Task, project and objective area links are all resolved to these keys, so the
-skill tree and the XP store always agree.
+mastery tree and the XP store always agree.
 
 ## Picker
 

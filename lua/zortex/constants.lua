@@ -156,7 +156,7 @@ M.HIGHLIGHTS = {
 	XP_GAIN = "ZortexXPGain",
 	XP_LEVEL = "ZortexXPLevel",
 
-	-- Skill tree
+	-- Mastery tree
 	SKILL_LEVEL_1_3 = "ZortexSkillLevel1",
 	SKILL_LEVEL_4_6 = "ZortexSkillLevel2",
 	SKILL_LEVEL_7_9 = "ZortexSkillLevel3",

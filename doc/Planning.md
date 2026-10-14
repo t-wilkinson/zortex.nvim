@@ -155,7 +155,7 @@ removes that whole class of problems.
 | `:ZortexXPStats` (`<leader>zxs`) | season, projects in progress, recent awards, areas |
 | `:ZortexXPExplain` (`<leader>zxe`) | how the project at the cursor earned its XP, award by award |
 | `:ZortexXPAreas` (`<leader>zxa`) | top areas |
-| `:ZortexSkillTree` (`<leader>zk`) | the season's objectives and tier, and the area tree |
+| `:ZortexMasteryTree` (`<leader>zk`) | the season's objectives and tier, and the area tree |
 | `:ZortexSeasonStart` / `SeasonStatus` / `SeasonEnd` | a season of your own instead of the quarter |
 
 On the web, the home page of `zortex serve` shows the season (progress,

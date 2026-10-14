@@ -19,13 +19,15 @@
 --   * its first component is not an article/tag (it searches every note), or
 --   * its first component is an article/tag that a changed note declares.
 -- When any changed note's header (aliases/tags) changed, everything is
--- re-resolved. Refreshes are lazy (on query) and throttled.
+-- re-resolved. Refreshes are lazy (on query) and throttled; the file is
+-- written a little after the last refresh (and on exit), not on every one.
 local M = {}
 
 local link_mod = require("zortex.core.link")
 
 local VERSION = 3 -- bump when link extraction changes (forces a rebuild)
 local REFRESH_TTL_MS = 1000
+local SAVE_DELAY_MS = 10000
 
 local state = {
 	loaded = false,
@@ -59,13 +61,30 @@ local function load_from_disk()
 	state.files = store:get().files or {}
 end
 
+local save_timer = nil
+
 local function save_to_disk()
+	if save_timer then
+		save_timer:stop()
+		save_timer:close()
+		save_timer = nil
+	end
 	if not state.dirty then
 		return
 	end
 	store:get().files = state.files
 	store:save()
 	state.dirty = false
+end
+
+-- Encoding a large index takes a while: refreshes (after every save of a
+-- note) only schedule the write
+local function schedule_save()
+	if save_timer then
+		return
+	end
+	save_timer = vim.uv.new_timer()
+	save_timer:start(SAVE_DELAY_MS, 0, vim.schedule_wrap(save_to_disk))
 end
 
 -- =============================================================================
@@ -242,7 +261,7 @@ function M.refresh(force)
 		end
 	end
 
-	save_to_disk()
+	schedule_save()
 end
 
 --- Drop the index (memory and disk) and rebuild it from scratch.
@@ -269,6 +288,9 @@ local function as_ref(path, link)
 		target = link.target,
 	}
 end
+
+--- Write the index to disk now (normally a little after it changes).
+M.save = save_to_disk
 
 --- Links found in a note.
 function M.links_from(path)
@@ -373,12 +395,20 @@ end
 
 function M.setup()
 	vim.api.nvim_create_autocmd("VimLeavePre", {
-		callback = save_to_disk,
+		group = vim.api.nvim_create_augroup("ZortexLinkIndex", { clear = true }),
+		callback = function()
+			save_to_disk()
+		end,
 	})
 end
 
 -- Test hook
 function M._reset()
+	if save_timer then
+		save_timer:stop()
+		save_timer:close()
+		save_timer = nil
+	end
 	state = { loaded = false, files = {}, last_refresh = nil, dirty = false }
 end
 

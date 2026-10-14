@@ -127,6 +127,38 @@ T.test("conformance: fixtures parse to tests/fixtures/ast", function()
 	end
 end)
 
+T.test("bold headings show their text and colon, not the stars", function()
+	local hl = require("zortex.features.highlights")
+	vim.cmd("enew!")
+	local buf = vim.api.nvim_get_current_buf()
+	local lines = { "**Heading:**", "**Next steps:**  " }
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+	hl.highlight_buffer(buf)
+	local ns = vim.api.nvim_create_namespace("zortex_highlights")
+	for row, line in ipairs(lines) do
+		local hidden, painted = {}, nil
+		for _, m in ipairs(vim.api.nvim_buf_get_extmarks(buf, ns, { row - 1, 0 }, { row - 1, -1 }, { details = true })) do
+			if m[4].conceal == "" then
+				for col = m[3], m[4].end_col - 1 do
+					hidden[col] = true
+				end
+			elseif m[4].hl_group == "ZortexBoldHeading" then
+				painted = line:sub(m[3] + 1, m[4].end_col)
+			end
+		end
+		local shown = {}
+		for col = 0, #line - 1 do
+			if not hidden[col] then
+				shown[#shown + 1] = line:sub(col + 1, col + 1)
+			end
+		end
+		local title = line:match("^%*%*(.-)%*%*")
+		T.eq(vim.trim(table.concat(shown)), title, line)
+		T.eq(painted, title, line)
+	end
+	vim.cmd("bwipeout!")
+end)
+
 T.test("highlights paint from the syntax", function()
 	local hl = require("zortex.features.highlights")
 	vim.cmd("enew!")

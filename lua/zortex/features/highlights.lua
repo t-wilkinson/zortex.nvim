@@ -361,9 +361,10 @@ local function paint_line(buf, row, line, d, spans)
 			paint(buf, row, "ZortexObjective", caps[i] - 1, caps[i + 2] - 1)
 		end
 	elseif kind == "bold_heading" then
-		paint(buf, row, "ZortexBoldHeading", d.content_col, d.content_end)
+		-- "**Title:**": content_end is the colon, which stays visible
+		paint(buf, row, "ZortexBoldHeading", d.content_col, d.content_end + 1)
 		conceal(buf, row, 0, 2)
-		conceal(buf, row, d.content_end, d.content_end + 2)
+		conceal(buf, row, d.content_end + 1, d.content_end + 3)
 	elseif kind == "label" then
 		local colon = #line - 1
 		if d.item then

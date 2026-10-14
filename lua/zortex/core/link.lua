@@ -372,6 +372,49 @@ end
 
 local QUERY_TYPES = { query = true, and_query = true, or_query = true }
 
+-- Lowercased lines, per lines table (document snapshots never change, so a
+-- note searched by many links is lowercased once)
+local lowered = setmetatable({}, { __mode = "k" })
+
+local function lower_line(lines, lnum)
+	local cache = lowered[lines]
+	if not cache then
+		cache = {}
+		lowered[lines] = cache
+	end
+	local line = cache[lnum]
+	if not line then
+		line = lines[lnum]:lower()
+		cache[lnum] = line
+	end
+	return line
+end
+
+-- Line numbers of the lines starting with `char`, per lines table: heading
+-- and tag components only ever match those
+local ANCHOR = { heading = "#", tag = "@" }
+local anchored = setmetatable({}, { __mode = "k" })
+
+local function lines_starting_with(lines, char)
+	local by_char = anchored[lines]
+	if not by_char then
+		by_char = {}
+		anchored[lines] = by_char
+	end
+	local list = by_char[char]
+	if not list then
+		list = {}
+		local byte = char:byte()
+		for lnum, line in ipairs(lines) do
+			if line:byte(1) == byte then
+				list[#list + 1] = lnum
+			end
+		end
+		by_char[char] = list
+	end
+	return list
+end
+
 --- Find lines in [start_line, end_line] matching a component. Matching is
 --- case-insensitive, except for %/+/& queries that contain an uppercase letter.
 ---@return { lnum: integer, col: integer }[]
@@ -431,8 +474,9 @@ function M.search_lines(lines, component, start_line, end_line)
 		end
 		return out
 	end
-	for lnum = start_line or 1, math.min(end_line or #lines, #lines) do
-		local line = case_sensitive and lines[lnum] or lines[lnum]:lower()
+	local first, last = start_line or 1, math.min(end_line or #lines, #lines)
+	local function try(lnum)
+		local line = case_sensitive and lines[lnum] or lower_line(lines, lnum)
 		local is_match, match_col = require_all, nil
 		for _, pat in ipairs(patterns) do
 			local col = line:find(pat)
@@ -449,6 +493,20 @@ function M.search_lines(lines, component, start_line, end_line)
 		end
 		if is_match then
 			out[#out + 1] = { lnum = lnum, col = match_col or 1 }
+		end
+	end
+	local anchor = ANCHOR[component.type]
+	if anchor then
+		for _, lnum in ipairs(lines_starting_with(lines, anchor)) do
+			if lnum > last then
+				break
+			elseif lnum >= first then
+				try(lnum)
+			end
+		end
+	else
+		for lnum = first, last do
+			try(lnum)
 		end
 	end
 	return out
@@ -502,6 +560,29 @@ local function make_result(doc, lnum, col, component, text)
 		lines = doc.lines,
 		doc = doc,
 	}
+end
+
+-- Lowercased alias/tag -> { [path] = true } for a notes snapshot, so an
+-- article component doesn't compare its name against every header
+local function header_sets(idx)
+	if not idx.header_sets then
+		local names, tags = {}, {}
+		local function add(set, key, path)
+			key = key:lower()
+			set[key] = set[key] or {}
+			set[key][path] = true
+		end
+		for path, h in pairs(idx.headers) do
+			for _, n in ipairs(h.names or {}) do
+				add(names, n, path)
+			end
+			for _, t in ipairs(h.tags or {}) do
+				add(tags, t, path)
+			end
+		end
+		idx.header_sets = { names = names, tags = tags }
+	end
+	return idx.header_sets
 end
 
 local function mentions_archive(parsed)
@@ -572,7 +653,12 @@ function M.resolve(link, opts)
 		-- only tagged with it.
 		local select_file, rank
 		if not is_local and comp.type == "article" then
-			select_file = function(h)
+			local sets = idx and header_sets(idx)
+			local key = comp.text:lower()
+			select_file = function(h, path)
+				if sets and idx.headers[path] == h then
+					return (sets.names[key] and sets.names[key][path]) or (sets.tags[key] and sets.tags[key][path]) or false
+				end
 				return syntax.list_has(h.names, comp.text) or syntax.list_has(h.tags, comp.text)
 			end
 			rank = function(h)
@@ -595,7 +681,7 @@ function M.resolve(link, opts)
 			local kept = {}
 			for _, c in ipairs(cands) do
 				local h = header(c)
-				if h and select_file(h) then
+				if h and select_file(h, c.path) then
 					kept[#kept + 1] = { path = c.path, doc = c.doc }
 				end
 			end

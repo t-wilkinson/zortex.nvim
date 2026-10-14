@@ -245,3 +245,27 @@ func TestXPSummaryWithoutDataDir(t *testing.T) {
 		t.Errorf("hidden state served: %d", code)
 	}
 }
+
+func TestHTMLScripts(t *testing.T) {
+	s, dir, _, _ := newStateServer(t, "")
+	os.WriteFile(filepath.Join(dir, "z/docs/pic.svg"), []byte("<svg/>"), 0o644)
+	s.cfg.HTMLScripts = true
+	ts := httptest.NewServer(s.Handler())
+	t.Cleanup(ts.Close)
+
+	expect(t, ts, "/f/z/docs/page.html", 200, `sandbox="allow-scripts" title="page.html"`)
+	if _, h, _ := get(t, ts, "/raw/z/docs/page.html"); h.Get("Content-Security-Policy") != "sandbox allow-scripts" {
+		t.Errorf("html CSP %q", h.Get("Content-Security-Policy"))
+	}
+	if _, h, _ := get(t, ts, "/raw/z/docs/pic.svg"); h.Get("Content-Security-Policy") != "sandbox" {
+		t.Errorf("svg CSP %q", h.Get("Content-Security-Policy"))
+	}
+
+	// a sandboxed page's POSTs are refused; the site's own go through
+	if code, _ := post(t, ts, "/api/pomodoro/start", "", map[string]string{"Origin": "null"}); code != http.StatusForbidden {
+		t.Errorf("POST from a sandboxed page: %d", code)
+	}
+	if code, _ := post(t, ts, "/api/pomodoro/start", "", map[string]string{"Origin": ts.URL}); code != http.StatusOK {
+		t.Errorf("POST from the site: %d", code)
+	}
+}

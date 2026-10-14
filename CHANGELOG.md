@@ -61,6 +61,8 @@ The first release for people other than the author.
 - Calendar notifications, pomodoro changes, timers and alarms through ntfy.
 - `-writable`: check off tasks, edit, add, move and delete lines, add to the
   inbox, from any browser.
+- `-html-scripts`: HTML files in the notes may run JavaScript, sandboxed in
+  an opaque origin (off by default).
 - `GET /api/digest`: the coming days of the calendar for any mail service.
 - Slides: any note as a slide deck (`?view=slides`, `:ZortexPresent`), cut at
   its headings (`@slides(n)` to choose the level), with speaker notes

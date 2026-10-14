@@ -170,6 +170,7 @@ func serveCmd(args []string) {
 	sendEvery := fs.Duration("send-interval", 20*time.Second, "how often due notifications are sent")
 	authFile := fs.String("auth-file", os.Getenv("ZORTEX_AUTH_FILE"), "file of user:password lines: a login (HTTP basic auth) for every page; use it over HTTPS ($ZORTEX_AUTH_FILE, or ZORTEX_AUTH=user:password)")
 	writable := fs.Bool("writable", os.Getenv("ZORTEX_WRITABLE") == "1" || os.Getenv("ZORTEX_WRITABLE") == "true", "let the web app edit notes: toggle tasks, edit, add and remove lines, add to inbox.zortex ($ZORTEX_WRITABLE=1)")
+	htmlScripts := fs.Bool("html-scripts", os.Getenv("ZORTEX_HTML_SCRIPTS") == "1" || os.Getenv("ZORTEX_HTML_SCRIPTS") == "true", "let HTML files in the notes folder run JavaScript, sandboxed away from the site ($ZORTEX_HTML_SCRIPTS=1)")
 	_ = fs.Parse(args)
 	if v := os.Getenv("ZORTEX_POLL"); v != "" && !flagSet(fs, "poll") {
 		if d, err := time.ParseDuration(v); err == nil {
@@ -216,6 +217,7 @@ func serveCmd(args []string) {
 		APIKey:       *apiKey,
 		SendInterval: *sendEvery,
 		Writable:     *writable,
+		HTMLScripts:  *htmlScripts,
 		ResourceExts: func() []string {
 			if *resources == "" {
 				return nil

@@ -53,6 +53,7 @@ let
     web.basePath
   ]
   ++ optionals web.writable [ "-writable" ]
+  ++ optionals web.htmlScripts [ "-html-scripts" ]
   ++ optionals (web.resourceExtensions != null) [
     "-resources"
     (concatStringsSep "," web.resourceExtensions)
@@ -252,6 +253,17 @@ in
           service (use notesGroup with a group-writable folder, e.g. the
           Syncthing group). Edits are line-level and refused when the note
           changed since the page was loaded.
+        '';
+      };
+
+      htmlScripts = mkOption {
+        type = types.bool;
+        default = false;
+        description = ''
+          Let HTML files in the notes folder run JavaScript in the file
+          viewer. Scripts run in a sandbox with an opaque origin: they can't
+          read the site's pages or files, and POSTs they send are
+          refused. Only turn it on if you trust the HTML files you sync.
         '';
       };
 

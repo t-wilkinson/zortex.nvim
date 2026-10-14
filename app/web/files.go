@@ -366,26 +366,40 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 
 const maxTextView = 1 << 20
 
+// fileView shows a file. HTML and Markdown are shown rendered (HTML in a
+// sandboxed frame, Markdown like a note); ?source=1 shows their text.
 func (s *Server) fileView(w http.ResponseWriter, r *http.Request, rel string, st os.FileInfo) {
 	mt := mimeOf(rel)
+	kind := viewKind(mt)
+	if isMarkdown(rel) {
+		kind = "markdown"
+	}
 	data := map[string]any{
 		"Title":   path.Base(rel),
 		"Rel":     rel,
 		"Crumbs":  s.crumbs(rel),
-		"Kind":    viewKind(mt),
 		"Mime":    mt,
 		"Size":    st.Size(),
 		"ModTime": st.ModTime(),
 		"Raw":     s.rawURL(rel),
 		"Sandbox": s.sandbox(mt),
 	}
+	if (kind == "html" || kind == "markdown") && strings.HasPrefix(mt, "text/") {
+		if r.URL.Query().Get("source") == "1" {
+			kind = "text"
+			data["Rendered"] = s.fileURL(rel)
+		} else {
+			data["Source"] = s.fileURL(rel) + "?source=1"
+		}
+	}
+	data["Kind"] = kind
 	if s.isResource(rel) {
 		links := s.current().fileBacklinks[rel]
 		data["Resource"] = true
 		data["Backlinks"] = s.groupBacklinks(links)
 		data["BackCount"] = len(links)
 	}
-	if data["Kind"] == "text" {
+	if kind == "text" || kind == "markdown" {
 		abs, _, _ := s.resolvePath(rel)
 		if f, err := os.Open(abs); err == nil {
 			buf, _ := io.ReadAll(io.LimitReader(f, maxTextView+1))
@@ -394,7 +408,12 @@ func (s *Server) fileView(w http.ResponseWriter, r *http.Request, rel string, st
 			if len(buf) > maxTextView {
 				buf = buf[:maxTextView]
 			}
-			data["Text"] = strings.ToValidUTF8(string(buf), string(utf8.RuneError))
+			text := strings.ToValidUTF8(string(buf), string(utf8.RuneError))
+			if kind == "markdown" {
+				data["Body"] = s.renderMarkdown(rel, text)
+			} else {
+				data["Text"] = text
+			}
 		}
 	}
 	s.render(w, r, "file", http.StatusOK, data)

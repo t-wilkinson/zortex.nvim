@@ -1,0 +1,16 @@
+@@Resources
+@@R
+
+# Rust
+- [The Rust Book](https://doc.rust-lang.org/book) @rust
+- [Rust by Example](https://doc.rust-lang.org/rust-by-example) @rust
+- Async book: https://rust-lang.github.io/async-book @rust @async
+- Garden notes [Garden/-Plant] and [Flipping/#Subaru]
+## Embedded
+- [The Embedded Rust Book](https://docs.rust-embedded.org/book) @rust @embedded
+- Pinout ./pinout.png
+
+# AI
+- [Spinning Up](https://spinningup.openai.com) @rl
+- [Sutton & Barto](https://incompleteideas.net/book) and [lecture notes](https://example.com/rl-notes) @rl
+- Reading list: [R/#Rust/>The Rust Book]

@@ -6,12 +6,21 @@
   <p class="error">{{.Error}}</p>
   <p><a href="{{u "/search"}}?q={{.Def}}">Search for it instead</a></p>
   {{else}}
+  {{if .Follow}}
+  <p>{{len .Targets}} links match; pick one.</p>
+  <ol class="targets">
+    {{range .Targets}}
+    <li>{{if .Href}}<a href="{{.Href}}"><strong>{{.Title}}</strong>{{if .Breadcrumb}} <span class="bc">{{.Breadcrumb}}</span>{{end}}</a>{{else}}<strong>{{.Title}}</strong> <span class="dim">(goes nowhere)</span>{{end}}<div class="src">{{.Line}}</div><div class="dim"><a href="{{noteURL .Rel .Lnum}}">{{.Rel}}:{{.Lnum}}</a></div></li>
+    {{end}}
+  </ol>
+  {{else}}
   <p>{{len .Targets}} matches; the first is where the link goes.</p>
   <ol class="targets">
     {{range .Targets}}
     <li><a href="{{noteURL .Rel .Lnum}}"><strong>{{.Title}}</strong>{{if .Breadcrumb}} <span class="bc">{{.Breadcrumb}}</span>{{end}}</a><div class="src">{{.Line}}</div><div class="dim">{{.Rel}}:{{.Lnum}}</div></li>
     {{end}}
   </ol>
+  {{end}}
   {{end}}
 </section>
 {{end}}

@@ -334,6 +334,19 @@ func (s *Server) linkHTML(from *notes.Document, def string) string {
 		return `<a class="zl broken" href="` + esc(s.linkURL(def, from.Rel)) + `" title="` + esc(msg) + `">` + text + `</a>`
 	}
 	first := results[0]
+	if first.Link != nil {
+		// [R/#Rust/>Book]: straight to the link it matched; several go to
+		// the /link page to pick one
+		if len(results) > 1 {
+			title := itoa(len(results)) + " links"
+			return `<a class="zl multi" href="` + esc(s.linkURL(def, from.Rel)) + `" title="` + esc(title) + `">` + text + `</a>`
+		}
+		href, ok := s.followHref(first, 1)
+		if !ok {
+			return `<a class="zl broken" href="` + esc(s.linkURL(def, from.Rel)) + `" title="Goes nowhere">` + text + `</a>`
+		}
+		return `<a class="zl" href="` + esc(href) + `"` + externalAttrs(href) + ` title="` + esc(links.SpanText(first.Link)) + `">` + text + `</a>`
+	}
 	title := first.Doc.Title()
 	if first.Lnum > 1 {
 		if n := first.Doc.NodeAt(first.Lnum); n != nil && !n.IsRoot() {
@@ -346,6 +359,40 @@ func (s *Server) linkHTML(from *notes.Document, def string) string {
 		title += " (+" + itoa(len(results)-1) + " more)"
 	}
 	return `<a class="` + cls + `" href="` + esc(s.noteURL(first.Doc.Rel, first.Lnum)) + `" title="` + esc(title) + `">` + text + `</a>`
+}
+
+// maxFollow bounds chains of > links ([R/>a] matching a line whose link is
+// itself a > link).
+const maxFollow = 5
+
+// followHref is where the link a follow component matched goes: a URL, a
+// file, or the target of a zortex link (resolved from the note it is in).
+// Several targets, or too long a chain, go to the /link page.
+func (s *Server) followHref(r links.Result, depth int) (string, bool) {
+	sp := r.Link
+	switch sp.Type {
+	case "markdown":
+		return s.pathHref(r.Doc, sp.URL)
+	case "url":
+		return sp.URL, true
+	case "filepath":
+		return s.pathHref(r.Doc, strings.TrimRight(sp.Path, ".,;:!?"))
+	}
+	def := sp.Definition
+	if s.fileLike(def) {
+		return s.pathHref(r.Doc, def)
+	}
+	results, err := links.Resolve(s.ix, "["+def+"]", links.Options{From: r.Doc})
+	if err != nil || len(results) == 0 {
+		return "", false
+	}
+	if results[0].Link != nil {
+		if len(results) > 1 || depth >= maxFollow {
+			return s.linkURL(def, r.Doc.Rel), true
+		}
+		return s.followHref(results[0], depth+1)
+	}
+	return s.noteURL(results[0].Doc.Rel, results[0].Lnum), true
 }
 
 // linkURL is the /link page for a definition (lists every target).

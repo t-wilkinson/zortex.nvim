@@ -36,11 +36,15 @@ The first release for people other than the author.
 - `:help zortex`, generated from the actions and the configuration defaults.
 - Works without telescope.nvim and nvim-cmp; the pickers say they need
   telescope instead of failing.
+- Links to links: a `>` component (`[R/#Rust/>The Rust Book]`) opens the link
+  it matches instead of the line it is on, with a picker when several match
+  and completion after `>`.
 
 ### Server (`zortex serve`)
 
 - Rendered notes, search, file browser, tags, broken links, the notes not
   linked from Structure; live updates while you edit elsewhere.
+- `>` links go straight to the link they match, or to a page listing them.
 - Home page: today's calendar, the pomodoro (shared with Neovim), timers,
   alarms and a stopwatch, time tracking on tasks (`@spent`), the season's objectives and Mastery XP.
 - Calendar notifications, pomodoro changes, timers and alarms through ntfy.

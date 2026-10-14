@@ -345,6 +345,76 @@
     ]
   },
   {
+    "link": "[Resources]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 1,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Resources/#Rust]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 4,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Resources/#Rust/#Embedded]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 9,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Resources/#AI]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 13,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Garden/-Plant]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 4,
+        "rel": "z/garden.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Flipping/#Subaru]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 11,
+        "rel": "flipping.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[R/#Rust/>The Rust Book]",
+    "results": [
+      {
+        "col": 3,
+        "lnum": 5,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
     "link": "[P]",
     "results": [
       {
@@ -762,6 +832,192 @@
     "error": "No matches found for: @size(lg)",
     "link": "[P/@size(lg)]",
     "results": []
+  },
+  {
+    "link": "[R/>The Rust Book]",
+    "results": [
+      {
+        "col": 3,
+        "lnum": 5,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[R/#Rust/>rust]",
+    "results": [
+      {
+        "col": 3,
+        "lnum": 6,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[R/#Rust/>]",
+    "results": [
+      {
+        "col": 3,
+        "lnum": 5,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 3,
+        "lnum": 6,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 15,
+        "lnum": 7,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 16,
+        "lnum": 8,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 36,
+        "lnum": 8,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 3,
+        "lnum": 10,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 10,
+        "lnum": 11,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[R/#Rust/>Async]",
+    "results": [
+      {
+        "col": 15,
+        "lnum": 7,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[R/#Rust/>https:]",
+    "results": [
+      {
+        "col": 15,
+        "lnum": 7,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[R/#Rust/>Garden notes]",
+    "results": [
+      {
+        "col": 16,
+        "lnum": 8,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 36,
+        "lnum": 8,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[R/#Rust/>Flipping]",
+    "results": [
+      {
+        "col": 36,
+        "lnum": 8,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[R/#Embedded/>pinout]",
+    "results": [
+      {
+        "col": 10,
+        "lnum": 11,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[R/#Embedded/>.]",
+    "results": [
+      {
+        "col": 10,
+        "lnum": 11,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[R/#AI/>Sutton & Barto]",
+    "results": [
+      {
+        "col": 3,
+        "lnum": 15,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[R/#AI/>lecture]",
+    "results": [
+      {
+        "col": 58,
+        "lnum": 15,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[R/#AI/>Reading]",
+    "results": [
+      {
+        "col": 17,
+        "lnum": 16,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "error": "No matches found for: >nothing",
+    "link": "[R/#AI/>nothing]",
+    "results": []
+  },
+  {
+    "error": "Nothing can come after >Spinning",
+    "link": "[R/>Spinning/#AI]",
+    "results": []
+  },
+  {
+    "link": "[>Spinning]",
+    "results": [
+      {
+        "col": 3,
+        "lnum": 14,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "from": "z/resources.zortex",
+    "link": "[/>The Rust]",
+    "results": [
+      {
+        "col": 3,
+        "lnum": 5,
+        "rel": "z/resources.zortex"
+      }
+    ]
   },
   {
     "link": "P/#1.4",

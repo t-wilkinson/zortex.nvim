@@ -1,0 +1,349 @@
+{
+  "blocks": [],
+  "header": {
+    "last_lnum": 2,
+    "name_lnum": 1,
+    "names": [
+      "Resources",
+      "R"
+    ],
+    "tag_lines": [],
+    "tags": []
+  },
+  "lines": [
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [],
+      "kind": "article",
+      "level": 0,
+      "names": [
+        "Resources",
+        "R"
+      ],
+      "section": true,
+      "text": "Resources"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [],
+      "kind": "article",
+      "text": "R"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 2,
+      "heading": 1,
+      "indent": 0,
+      "inline": [],
+      "kind": "heading",
+      "level": 1,
+      "section": true,
+      "text": "Rust"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 49,
+          "s": 2,
+          "text": "The Rust Book",
+          "type": "markdown",
+          "url": "https://doc.rust-lang.org/book"
+        },
+        {
+          "e": 55,
+          "key": "rust",
+          "s": 50,
+          "type": "attribute"
+        }
+      ],
+      "item": {
+        "content_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 62,
+          "s": 2,
+          "text": "Rust by Example",
+          "type": "markdown",
+          "url": "https://doc.rust-lang.org/rust-by-example"
+        },
+        {
+          "e": 68,
+          "key": "rust",
+          "s": 63,
+          "type": "attribute"
+        }
+      ],
+      "item": {
+        "content_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 52,
+          "s": 14,
+          "type": "url",
+          "url": "https://rust-lang.github.io/async-book"
+        },
+        {
+          "e": 58,
+          "key": "rust",
+          "s": 53,
+          "type": "attribute"
+        },
+        {
+          "e": 65,
+          "key": "async",
+          "s": 59,
+          "type": "attribute"
+        }
+      ],
+      "item": {
+        "content_col": 2,
+        "key": "Async book",
+        "key_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [
+        {
+          "definition": "Garden/-Plant",
+          "e": 30,
+          "s": 15,
+          "type": "link"
+        },
+        {
+          "definition": "Flipping/#Subaru",
+          "e": 53,
+          "s": 35,
+          "type": "link"
+        }
+      ],
+      "item": {
+        "content_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 3,
+      "heading": 2,
+      "indent": 0,
+      "inline": [],
+      "kind": "heading",
+      "level": 2,
+      "section": true,
+      "text": "Embedded"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 63,
+          "s": 2,
+          "text": "The Embedded Rust Book",
+          "type": "markdown",
+          "url": "https://docs.rust-embedded.org/book"
+        },
+        {
+          "e": 69,
+          "key": "rust",
+          "s": 64,
+          "type": "attribute"
+        },
+        {
+          "e": 79,
+          "key": "embedded",
+          "s": 70,
+          "type": "attribute"
+        }
+      ],
+      "item": {
+        "content_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 21,
+          "path": "./pinout.png",
+          "s": 9,
+          "type": "filepath"
+        }
+      ],
+      "item": {
+        "content_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 2,
+      "heading": 1,
+      "indent": 0,
+      "inline": [],
+      "kind": "heading",
+      "level": 1,
+      "section": true,
+      "text": "AI"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 46,
+          "s": 2,
+          "text": "Spinning Up",
+          "type": "markdown",
+          "url": "https://spinningup.openai.com"
+        },
+        {
+          "e": 50,
+          "key": "rl",
+          "s": 47,
+          "type": "attribute"
+        }
+      ],
+      "item": {
+        "content_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 52,
+          "s": 2,
+          "text": "Sutton & Barto",
+          "type": "markdown",
+          "url": "https://incompleteideas.net/book"
+        },
+        {
+          "e": 102,
+          "s": 57,
+          "text": "lecture notes",
+          "type": "markdown",
+          "url": "https://example.com/rl-notes"
+        },
+        {
+          "e": 106,
+          "key": "rl",
+          "s": 103,
+          "type": "attribute"
+        }
+      ],
+      "item": {
+        "content_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [
+        {
+          "definition": "R/#Rust/>The Rust Book",
+          "e": 40,
+          "s": 16,
+          "type": "link"
+        }
+      ],
+      "item": {
+        "content_col": 2,
+        "key": "Reading list",
+        "key_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    }
+  ],
+  "sections": [
+    {
+      "level": 0,
+      "lnum": 1,
+      "names": [
+        "Resources",
+        "R"
+      ],
+      "text": "Resources",
+      "type": "article"
+    },
+    {
+      "level": 1,
+      "lnum": 4,
+      "text": "Rust",
+      "type": "heading"
+    },
+    {
+      "level": 2,
+      "lnum": 9,
+      "text": "Embedded",
+      "type": "heading"
+    },
+    {
+      "level": 1,
+      "lnum": 13,
+      "text": "AI",
+      "type": "heading"
+    }
+  ],
+  "version": 1
+}

@@ -2,7 +2,8 @@
 --
 -- What a link means is core/link; this module opens what it points to:
 -- notes (quickfix list for several targets), @[tag] searches in the buffer,
--- footnotes, URLs, media and files.
+-- footnotes, URLs, media and files. A link ending in a > component opens
+-- the links it matched (a picker when there are several).
 local M = {}
 
 local link_mod = require("zortex.core.link")
@@ -287,13 +288,54 @@ end
 
 M.jump_to_location = jump_to_location
 
--- Open link at cursor or search forward
-function M.open_link()
-	local link_info = M.link_at_cursor()
-	if not link_info then
-		vim.notify("No link found on current line", vim.log.levels.INFO)
+-- Following a > link: the links it matched, opened directly when there is
+-- one and through a picker otherwise. Each is opened from the note it is
+-- written in (relative paths, local links), up to MAX_FOLLOW links deep.
+local MAX_FOLLOW = 5
+
+local function follow_label(result)
+	local t = result.target
+	local text = link_mod.follow_text(result.text, t)
+	local where = t.url or t.path or t.definition or ""
+	local node = result.doc and result.doc:node_at(result.lnum)
+	local crumb = node and not node:is_root() and node:get_breadcrumb(" › ") or ""
+	local label = text ~= "" and text or where
+	if where ~= "" and where ~= label then
+		label = label .. "  " .. where
+	end
+	return crumb ~= "" and (label .. "  (" .. crumb .. ")") or label
+end
+
+local function follow(results, ctx)
+	local open = function(result)
+		if not result then
+			return
+		end
+		M.open_info(result.target, {
+			file = result.file,
+			doc = result.doc,
+			depth = (ctx.depth or 0) + 1,
+		})
+	end
+	if #results == 1 then
+		open(results[1])
 		return
 	end
+	vim.ui.select(results, { prompt = "Follow link", format_item = follow_label }, open)
+end
+M._follow_label = follow_label
+
+-- Open a link (as core/link.at returns it). ctx: where the link is written
+-- (file, doc; the current buffer when nil) and how many > links led here.
+function M.open_info(link_info, ctx)
+	ctx = ctx or {}
+	if (ctx.depth or 0) > MAX_FOLLOW then
+		vim.notify("Too many > links in a row", vim.log.levels.WARN)
+		return
+	end
+	local current_file = ctx.file or vim.fn.expand("%:p")
+	local current_dir = vim.fn.fnamemodify(current_file, ":h")
+	local in_buffer = ctx.file == nil
 
 	-- Handle different link types
 	if link_info.type == "link" or link_info.type == "live_link" then
@@ -310,7 +352,6 @@ function M.open_link()
 			local resolved_path = def
 			-- Resolve relative paths (./ or ../) relative to the current file
 			if def:sub(1, 2) == "./" or def:sub(1, 3) == "../" then
-				local current_dir = vim.fn.expand("%:p:h")
 				resolved_path = fs.joinpath(current_dir, def)
 			end
 
@@ -322,8 +363,7 @@ function M.open_link()
 		end
 
 		-- For live links in digest, just navigate normally but register for updates
-		if link_info.type == "live_link" then
-			local current_file = vim.fn.expand("%:p")
+		if link_info.type == "live_link" and in_buffer then
 			if current_file:match(constants.FILES.DIGEST .. "$") then
 				-- This is a live link in the digest
 				local digest = require("zortex.services.digest")
@@ -338,11 +378,14 @@ function M.open_link()
 			end
 		end
 
-		local results, err = link_mod.resolve(parsed)
+		local results, err = link_mod.resolve(parsed, ctx.doc and { doc = ctx.doc } or nil)
 
 		if #results == 0 then
 			vim.notify(err or "No matches", vim.log.levels.INFO)
 			return
+		elseif parsed.components[#parsed.components].type == "follow" then
+			-- [R/#Rust/>Book]: open what the matched links point to
+			follow(results, ctx)
 		elseif #results == 1 then
 			-- Single result - jump directly
 			jump_to_location(results[1], true)
@@ -369,6 +412,17 @@ function M.open_link()
 		end
 	elseif link_info.type == "website" then
 		open_external(link_info.url)
+	elseif link_info.type == "filepath" then
+		-- A bare path (./scan.pdf), followed through a > link
+		local p = link_info.path:gsub("[%.,;:!%?]+$", "")
+		local full_path = vim.fn.expand(p:match("^%.%.?/") and fs.joinpath(current_dir, p) or p)
+		if not fs.file_exists(full_path) then
+			vim.notify("File does not exist: " .. full_path, vim.log.levels.WARN)
+		elseif is_media(full_path) then
+			open_external(full_path)
+		else
+			vim.api.nvim_win_set_buf(buffer.get_target_window(), vim.fn.bufadd(full_path))
+		end
 	elseif link_info.type == "footnote" then
 		-- Handle footnote reference
 		local footnote_loc = search_footnote(link_info.ref_id)
@@ -381,7 +435,6 @@ function M.open_link()
 	elseif link_info.type == "markdown" then
 		-- Handle markdown-style link
 		local url = link_info.url
-		local current_dir = vim.fn.expand("%:p:h")
 
 		-- 1. If it's a web URL, open immediately
 		if url:match("^https?://") then
@@ -424,6 +477,16 @@ function M.open_link()
 			end
 		end
 	end
+end
+
+-- Open link at cursor or search forward
+function M.open_link()
+	local link_info = M.link_at_cursor()
+	if not link_info then
+		vim.notify("No link found on current line", vim.log.levels.INFO)
+		return
+	end
+	M.open_info(link_info)
 end
 
 -- =============================================================================

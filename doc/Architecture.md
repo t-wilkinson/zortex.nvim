@@ -216,6 +216,7 @@ narrows a list of candidates (file + line range):
 | Label / bold | `:Fitness`, `*X`          | Line searches.                                                                                              |
 | List item    | `-KR1`, `-Call the bank`  | A list item whose key (`- KR1: …`) or text (checkbox and attributes ignored) starts with the text.          |
 | Query        | `%text`, `a + b`, `a & b` | Line searches. Case-sensitive only if the query has an uppercase letter.                                    |
+| Follow       | `>The Rust Book`          | Links on lines in range whose own text (markdown text, definition, URL, path) or line text starts with the text; `>` alone is every link. Last component only. |
 
 **Generated link text** keeps only `[A-Za-z0-9 _-().]`: `component_text`
 takes the longest such prefix (with balanced parentheses), so
@@ -234,6 +235,12 @@ tasks as `[P/#…/-Improve website]`.
 - Archived notes are skipped unless a component is `@Archive` or
   `opts.include_archived` is set.
 - Local links (`[/…]`) resolve in the current buffer.
+- A `>` component gives one result per matching link (a line with two links
+  gives two), each with `result.target`, the link (as `at()` returns it).
+  Following the link opens that target instead of the line, from the note it
+  is written in: directly when there is one, through `vim.ui.select` (Neovim)
+  or the link page (web app) when there are several. Chains of `>` links stop
+  after five.
 
 The article-or-tag rule is what lets `[P/…]` mean "the project namespace". It
 searches the Projects article first, then every `@P` note, so
@@ -249,6 +256,7 @@ searches the Projects article first, then every `@P` note, so
 | `process_link(parsed)`                                                        | UI wrapper that notifies when nothing matched                                        |
 | `build_link(parts)`, `node_components(doc, node)`, `link_for_node(doc, node)` | link building                                                                        |
 | `build_result_link(result)`                                                   | link shown in the quickfix list                                                      |
+| `follow_targets(line)`, `follow_text(line, target)`                           | the links a `>` component can match on a line; the text it uses for one              |
 | `search_lines`, `section_end`, `get_section_end`                              | building blocks                                                                      |
 
 ### Link index — `core/link_index.lua`

@@ -11,7 +11,8 @@
 --   [/|                sections of the current note (local link)
 --
 -- A typed "#", ":" or "*" narrows completions to headings, labels or bold
--- headings. Every suggestion resolves when inserted.
+-- headings; a typed ">" offers the links in range ([R/#Rust/>The Rust Book]).
+-- Every suggestion resolves when inserted.
 local M = {}
 
 
@@ -28,7 +29,7 @@ local function link_mod()
 end
 
 -- LSP CompletionItemKind values
-local KIND = { article = 17, tag = 14, heading = 22, bold_heading = 13, label = 10 }
+local KIND = { article = 17, tag = 14, heading = 22, bold_heading = 13, label = 10, follow = 18 }
 local PREFIX = { heading = "#", label = ":", bold_heading = "*" }
 local FILTER = { ["#"] = "heading", [":"] = "label", ["*"] = "bold_heading" }
 
@@ -212,6 +213,33 @@ local function after_parts(ctx, opts)
 	return items
 end
 
+-- Links a ">" component can follow in the range the typed parts reach (the
+-- current note when there are none)
+local function follow_items(ctx, opts)
+	local base = (ctx.is_local or #ctx.parts == 0) and "/" or ""
+	if #ctx.parts > 0 then
+		base = base .. table.concat(ctx.parts, "/") .. "/"
+	end
+	local resolve_opts = (ctx.is_local or #ctx.parts == 0) and { doc = opts.doc } or nil
+	if resolve_opts and not opts.doc then
+		return {}
+	end
+	local items = {}
+	for i, r in ipairs(link_mod().resolve(base .. ">", resolve_opts)) do
+		local text = link_mod().follow_text(r.text, r.target)
+		if text ~= "" then
+			local t = r.target
+			items[#items + 1] = {
+				label = ">" .. text,
+				kind = KIND.follow,
+				detail = t.url or t.path or t.definition,
+				sortText = string.format("%06d", i),
+			}
+		end
+	end
+	return items
+end
+
 -- =============================================================================
 -- Area attributes: @a(...) / @area(...)
 -- =============================================================================
@@ -320,7 +348,9 @@ function M.get_completions(line, col, opts)
 
 	local items
 	local first_char = ctx.typing:sub(1, 1)
-	if #ctx.parts == 0 then
+	if first_char == ">" then
+		items = follow_items(ctx, opts)
+	elseif #ctx.parts == 0 then
 		if ctx.is_local then
 			items = opts.doc and section_items(opts.doc, opts.doc.tree) or {}
 		elseif first_char == "@" then
@@ -376,7 +406,7 @@ function M.new()
 	end
 
 	function source:get_trigger_characters()
-		return { "[", "/", "#", "@", ":", "*", "(", "," }
+		return { "[", "/", "#", "@", ":", "*", "(", ",", ">" }
 	end
 
 	function source:get_keyword_pattern()

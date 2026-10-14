@@ -191,7 +191,7 @@ func TestStructure(t *testing.T) {
 	}
 	// /structure is the Structure note, rendered like any note, with the
 	// notes it doesn't reach in the sidebar
-	page := expect(t, ts, "/structure", 200, `<h1>Structure</h1>`, `class="side-unlinked"`, `5 of 9 notes are not linked from Structure`, `href="/structure" aria-current="page"`)
+	page := expect(t, ts, "/structure", 200, `<h1>Structure</h1>`, `class="side-unlinked"`, `5 of 9 notes are not linked from Structure`, `href="/graph" aria-current="page"`)
 	if !strings.Contains(page, `href="/n/okr.zortex"`) || !strings.Contains(page, `href="/n/hub.zortex`) {
 		t.Errorf("structure page body or sidebar: %s", page)
 	}

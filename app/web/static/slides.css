@@ -33,7 +33,7 @@ body.deck-page { overflow: hidden; background: var(--bg); }
 .slide .box.done::after, .slide .box.other { font-size: 0.55em; }
 .slide pre.code, .slide pre.math-block { font-size: 0.7em; }
 .slide .table-wrap table { font-size: 0.8em; }
-.slide img.embed { display: block; max-width: 100%; max-height: 520px; margin: 0.3em auto; }
+.slide img.embed, .slide video.embed { display: block; max-width: 100%; max-height: 520px; margin: 0.3em auto; }
 
 /* title and section slides */
 .slide.title .slide-inner, .slide.section .slide-inner { justify-content: center; }

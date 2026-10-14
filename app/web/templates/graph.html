@@ -1,43 +1,36 @@
 {{define "content"}}
-<div class="graph-page">
-  <section class="graph-tree">
+<div class="graph-page" id="graph-page">
+  <header class="graph-head">
     <h1>Graph</h1>
+    <input type="search" id="graph-q" class="graph-q" data-slash placeholder="Filter notes, or @tags  ( / )" aria-label="Filter notes and tags" autocomplete="off">
+    <span class="graph-status dim" id="graph-status" aria-live="polite"></span>
+  </header>
+  <section class="graph-tree" id="graph-tree">
     {{if .HasTree}}
-    <p class="dim">The structure: the Structure note's sections and links, with each note that has a <code># Structure</code> section opened under it. Hover a note to see the notes it links with.</p>
-    <div id="graph-tree">{{.Tree}}</div>
+    <p class="dim">The structure{{if .Roots}} from {{range $i, $r := .Roots}}{{if $i}}, {{end}}{{$r}}{{end}}{{end}}, a card per section; a note with a <code># Structure</code> section opens under it. Hover a note to mark its links, click a tag to mark its notes.</p>
+    {{.Tree}}
     {{else}}
     <p class="dim">No structure yet. Create <code>structure.zortex</code> with <code>@@Structure</code> and link your notes from it, or give a note a <code># Structure</code> section listing its sub-notes.</p>
     {{end}}
   </section>
   <aside class="graph-side">
-    <h2>Not in the structure</h2>
-    {{if .Unlinked}}
-    <p class="dim">{{len .Unlinked}} of {{.Total}} notes</p>
-    <ul class="plain">{{range .Unlinked}}<li><a class="gt-note" href="{{noteURL .Rel 0}}" data-rel="{{.Rel}}">{{.Title}}</a></li>{{end}}</ul>
-    {{else}}
-    <p class="dim">Every note is in it.</p>
-    {{end}}
+    <section class="gt-tags">
+      <h2>Tags</h2>
+      {{if .Tags}}
+      <p class="gt-tag-list">{{range .Tags}}<button type="button" class="tag gt-tag" data-tag="{{lower .Name}}" data-name="{{.Name}}" data-href="{{u "/tag/"}}{{.Name}}" aria-pressed="false">@{{.Name}} <span class="dim">{{len .Notes}}</span></button> {{end}}</p>
+      <p class="gt-tag-info dim" id="gt-tag-info" hidden></p>
+      {{else}}<p class="dim">No note has header tags.</p>{{end}}
+    </section>
+    <section class="gt-unlinked">
+      <h2>Not in the structure</h2>
+      {{if .Unlinked}}
+      <p class="dim">{{len .Unlinked}} of {{.Total}} notes</p>
+      <ul class="plain">{{range .Unlinked}}<li>{{.}}</li>{{end}}</ul>
+      {{else}}
+      <p class="dim">Every note is in it.</p>
+      {{end}}
+    </section>
   </aside>
 </div>
-<script>
-(function () {
-  // hovering a note marks the notes it links with (in either direction)
-  var page = document.querySelector(".graph-page");
-  if (!page) return;
-  function mark(a) {
-    page.classList.toggle("focus", !!a);
-    Array.prototype.forEach.call(page.querySelectorAll(".gt-note.hit, .gt-note.self"), function (el) { el.classList.remove("hit", "self"); });
-    if (!a) return;
-    var rels = (a.dataset.links || "").split("\n");
-    Array.prototype.forEach.call(page.querySelectorAll(".gt-note"), function (el) {
-      if (el.dataset.rel === a.dataset.rel) el.classList.add("self");
-      else if (rels.indexOf(el.dataset.rel) >= 0) el.classList.add("hit");
-    });
-  }
-  page.addEventListener("mouseover", function (e) { var a = e.target.closest(".gt-note"); if (a) mark(a); });
-  page.addEventListener("mouseout", function (e) { if (e.target.closest(".gt-note")) mark(null); });
-  page.addEventListener("focusin", function (e) { var a = e.target.closest(".gt-note"); if (a) mark(a); });
-  page.addEventListener("focusout", function () { mark(null); });
-})();
-</script>
+<script src="{{asset "/static/graph.js"}}" defer></script>
 {{end}}

@@ -14,9 +14,10 @@ import (
 // A note page shows the note's neighbourhood: the notes whose structure
 // lists it (above), the notes its own # Structure section lists (below),
 // and the other notes it links to (left) and that link to it (right).
-// /graph shows the whole structure as a tree: the Structure note's sections
-// and links, each hub note expanded with its own # Structure section, and
-// a note's other links highlighted on hover.
+// /graph shows the whole structure as columns of cards, one per top-level
+// section of the Structure note (and per hub the tree doesn't reach), each
+// hub note expanded with its own # Structure section; hovering a note marks
+// its other links, a tag marks its notes, and a filter narrows it all.
 
 // neighbours of a note, each list in order without repeats.
 type neighbours struct {
@@ -274,6 +275,7 @@ type treeNode struct {
 	Lnum     int // where its parent lists it
 	Children []*treeNode
 	Again    bool // already in the tree above: not expanded again
+	Root     bool // a Structure note (else a hub the tree doesn't reach)
 	level    int
 	indent   int
 }
@@ -304,20 +306,20 @@ func (s *Server) structureTree() []*treeNode {
 		}
 		walk(n.Children)
 	}
-	add := func(rel string) {
+	add := func(rel string, root bool) {
 		if seen[rel] {
 			return
 		}
-		n := &treeNode{Rel: rel, Text: s.noteTitle(rel)}
+		n := &treeNode{Rel: rel, Text: s.noteTitle(rel), Root: root}
 		expand(n)
 		roots = append(roots, n)
 	}
 	for _, r := range info.Roots {
-		add(r)
+		add(r, true)
 	}
 	// hubs nothing in the tree reaches: their own trees, after
 	for _, r := range info.Sources {
-		add(r)
+		add(r, false)
 	}
 	return roots
 }
@@ -369,8 +371,19 @@ func (s *Server) structureOf(rel string) []*treeNode {
 			}
 			var first *treeNode
 			for _, t := range targets {
-				c := &treeNode{Rel: t, Text: s.noteTitle(t), Lnum: lnum, indent: indent}
-				parent.Children = append(parent.Children, c)
+				// listed again under the same parent: the same entry
+				var c *treeNode
+				for _, sib := range parent.Children {
+					if sib.Rel == t {
+						c = sib
+						break
+					}
+				}
+				if c == nil {
+					c = &treeNode{Rel: t, Text: s.noteTitle(t), Lnum: lnum}
+					parent.Children = append(parent.Children, c)
+				}
+				c.indent = indent
 				if first == nil {
 					first = c
 				}
@@ -393,50 +406,123 @@ func prune(list []*treeNode) []*treeNode {
 	return out
 }
 
-func (s *Server) treeHTML(roots []*treeNode) template.HTML {
+// gtNote is a note in /graph: its link, with the notes it links with (for
+// hover) and its header tags (for the tag filter) as data, and (count) how
+// many notes those are.
+func (s *Server) gtNote(rel, text string, count bool) string {
 	snap := s.current()
+	var rels []string
+	for _, l := range snap.forward[rel] {
+		rels = append(rels, l.To)
+	}
+	for _, bl := range snap.backlinks[rel] {
+		if bl.FromNote {
+			rels = append(rels, bl.From)
+		}
+	}
+	sort.Strings(rels)
+	rels = compactStrings(rels)
+	var tags []string
+	if d := s.ix.Doc(rel); d != nil {
+		for _, t := range d.Header().Tags {
+			tags = append(tags, strings.ToLower(t))
+		}
+	}
+	a := `<a class="gt-note" href="` + esc(s.noteURL(rel, 0)) + `" data-rel="` + esc(rel) + `" data-links="` + esc(strings.Join(rels, "\n")) + `"`
+	if len(tags) > 0 {
+		a += ` data-tags="` + esc(strings.Join(tags, " ")) + `"`
+	}
+	a += `>` + esc(text) + `</a>`
+	if count && len(rels) > 0 {
+		a += ` <span class="gt-count dim" title="Notes it links to or that link to it">` + strconv.Itoa(len(rels)) + `</span>`
+	}
+	return a
+}
+
+// openDepth: lists this deep in a card start open; deeper ones are closed,
+// showing how many notes they hold.
+const openDepth = 2
+
+// graphHTML lays the tree out as cards: each Structure note's top-level
+// sections and sub-trees, its loose notes together, and each hub the tree
+// doesn't reach.
+func (s *Server) graphHTML(roots []*treeNode) template.HTML {
 	var b strings.Builder
 	var write func(list []*treeNode, depth int)
 	write = func(list []*treeNode, depth int) {
 		b.WriteString(`<ul class="gt">`)
 		for _, n := range list {
+			open := ""
+			if depth < openDepth {
+				open = " open"
+			}
+			more := ""
+			if depth >= openDepth {
+				more = ` <span class="gt-more dim" title="Notes under it">+` + strconv.Itoa(countNotes(n.Children)) + `</span>`
+			}
 			if n.Rel == "" {
-				b.WriteString(`<li class="gt-sec"><details open><summary>` + esc(n.Text) + `</summary>`)
+				b.WriteString(`<li class="gt-sec"><details` + open + `><summary>` + esc(n.Text) + more + `</summary>`)
 				write(n.Children, depth+1)
 				b.WriteString(`</details></li>`)
 				continue
 			}
-			// the note's other links, for highlighting
-			var rels []string
-			for _, l := range snap.forward[n.Rel] {
-				rels = append(rels, l.To)
-			}
-			for _, bl := range snap.backlinks[n.Rel] {
-				if bl.FromNote {
-					rels = append(rels, bl.From)
-				}
-			}
-			sort.Strings(rels)
-			rels = compactStrings(rels)
-			a := `<a class="gt-note" href="` + esc(s.noteURL(n.Rel, 0)) + `" data-rel="` + esc(n.Rel) + `" data-links="` + esc(strings.Join(rels, "\n")) + `">` + esc(n.Text) + `</a>`
-			if len(rels) > 0 {
-				a += ` <span class="gt-count dim" title="Notes it links to or that link to it">` + strconv.Itoa(len(rels)) + `</span>`
-			}
+			a := s.gtNote(n.Rel, n.Text, true)
 			if n.Again {
-				a += ` <span class="dim">(above)</span>`
+				a += ` <span class="dim" title="Listed in another place too; its notes are shown there">(above)</span>`
 			}
 			if len(n.Children) == 0 {
 				b.WriteString(`<li>` + a + `</li>`)
 				continue
 			}
-			b.WriteString(`<li><details open><summary>` + a + `</summary>`)
+			b.WriteString(`<li><details` + open + `><summary>` + a + more + `</summary>`)
 			write(n.Children, depth+1)
 			b.WriteString(`</details></li>`)
 		}
 		b.WriteString(`</ul>`)
 	}
-	write(roots, 0)
+	card := func(title string, list []*treeNode) {
+		b.WriteString(`<section class="gt-card"><h2>` + title + ` <span class="gt-n dim" title="Notes in it">` + strconv.Itoa(countNotes(list)) + `</span></h2>`)
+		write(list, 0)
+		b.WriteString(`</section>`)
+	}
+	b.WriteString(`<div class="gt-cols">`)
+	for _, root := range roots {
+		if !root.Root {
+			card(s.gtNote(root.Rel, root.Text, false), root.Children)
+			continue
+		}
+		var loose []*treeNode
+		for _, c := range root.Children {
+			if c.Rel != "" && len(c.Children) == 0 {
+				loose = append(loose, c)
+			}
+		}
+		if len(loose) > 0 {
+			card(s.gtNote(root.Rel, root.Text, false), loose)
+		}
+		for _, c := range root.Children {
+			switch {
+			case c.Rel == "":
+				card(esc(c.Text), c.Children)
+			case len(c.Children) > 0:
+				card(s.gtNote(c.Rel, c.Text, false), c.Children)
+			}
+		}
+	}
+	b.WriteString(`</div>`)
 	return template.HTML(b.String())
+}
+
+// countNotes counts the notes in a tree.
+func countNotes(list []*treeNode) int {
+	n := 0
+	for _, c := range list {
+		if c.Rel != "" {
+			n++
+		}
+		n += countNotes(c.Children)
+	}
+	return n
 }
 
 func compactStrings(list []string) []string {
@@ -450,18 +536,27 @@ func compactStrings(list []string) []string {
 }
 
 func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
-	info := s.current().structure
-	type row struct{ Rel, Title string }
-	var unlinked []row
+	snap := s.current()
+	info := snap.structure
+	var unlinked []template.HTML
 	for _, u := range info.Unlinked {
-		unlinked = append(unlinked, row{u, s.noteTitle(u)})
+		unlinked = append(unlinked, template.HTML(s.gtNote(u, s.noteTitle(u), true)))
+	}
+	roots := s.structureTree()
+	var main []template.HTML // the Structure notes, named in the intro
+	for _, n := range roots {
+		if n.Root {
+			main = append(main, template.HTML(s.gtNote(n.Rel, n.Text, false)))
+		}
 	}
 	s.render(w, r, "graph", http.StatusOK, map[string]any{
 		"Title":    "Graph",
-		"Tree":     s.treeHTML(s.structureTree()),
+		"Tree":     s.graphHTML(roots),
+		"Roots":    main,
 		"HasTree":  len(info.Sources) > 0,
 		"Unlinked": unlinked,
 		"Linked":   info.Linked,
 		"Total":    info.Total,
+		"Tags":     snap.tags,
 	})
 }

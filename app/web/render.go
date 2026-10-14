@@ -290,7 +290,7 @@ func (r *noteRenderer) span(line string, sp *syntax.Span) string {
 	raw := line[sp.S:sp.E]
 	switch sp.Type {
 	case "live_link":
-		if resourceKind(extOf(sp.Definition)) == "image" && r.s.fileLike(sp.Definition) {
+		if k := resourceKind(extOf(sp.Definition)); (k == "image" || k == "video") && r.s.fileLike(sp.Definition) {
 			return r.s.imageHTML(r.doc, sp.Definition)
 		}
 		return r.s.linkHTML(r.doc, sp.Definition)
@@ -489,12 +489,15 @@ func (s *Server) resolveFile(from *notes.Document, p string) (rel, frag string, 
 	return rel, frag, true, st.IsDir(), true
 }
 
-// imageHTML renders ![./pic.png]: the image itself (a missing file is a
-// broken link, as [./pic.png] would be).
+// imageHTML renders ![./pic.png] and ![./clip.mp4]: the image or video
+// itself (a missing file is a broken link, as [./pic.png] would be).
 func (s *Server) imageHTML(from *notes.Document, def string) string {
 	src, ok := s.rawHref(from, def)
 	if !ok {
 		return `<a class="zl broken" title="File not found">` + esc(def) + `</a>`
+	}
+	if resourceKind(extOf(def)) == "video" {
+		return `<video class="embed" src="` + esc(src) + `" controls preload="metadata" playsinline title="` + esc(path.Base(def)) + `"></video>`
 	}
 	return `<img class="embed" src="` + esc(src) + `" alt="` + esc(path.Base(def)) + `" loading="lazy">`
 }

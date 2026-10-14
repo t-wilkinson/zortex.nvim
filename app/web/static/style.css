@@ -130,7 +130,8 @@ pre.math-block.tex { background: none; padding: 0.2rem 0; font-style: normal; wh
 pre.math-block.tex > code { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: pre; }
 .tex-out { overflow-x: auto; overflow-y: hidden; }
 .tex-error { color: var(--broken); }
-img.embed { max-width: 100%; height: auto; border-radius: 6px; vertical-align: middle; }
+img.embed, video.embed { max-width: 100%; height: auto; border-radius: 6px; vertical-align: middle; }
+video.embed { display: block; max-height: 70vh; background: #000; }
 .table-wrap { overflow-x: auto; margin: 0.5rem 0; }
 .table-wrap table { border-collapse: collapse; font-size: 0.93rem; }
 .table-wrap th, .table-wrap td { border: 1px solid var(--rule); padding: 0.25rem 0.6rem; text-align: left; vertical-align: top; }
@@ -560,12 +561,22 @@ svg.graph .ga { fill: var(--dim); }
 .graph-key { font-size: 0.82rem; margin-top: 0.3rem; }
 .graph-key .k-structure { color: var(--accent); font-weight: 600; }
 
-/* /graph: the whole structure */
-.graph-page { display: grid; grid-template-columns: minmax(0, 1fr) 16rem; gap: 2rem; max-width: 72rem; margin: 0 auto; }
-@media (max-width: 52rem) { .graph-page { grid-template-columns: 1fr; } }
-ul.gt { list-style: none; margin: 0; padding-left: 1.1rem; border-left: 1px solid var(--rule); }
-#graph-tree > ul.gt { padding-left: 0; border-left: 0; }
-ul.gt li { margin: 0.12rem 0; }
+/* /graph: the whole structure, a card per section */
+.graph-page { display: grid; grid-template-columns: minmax(0, 1fr) 15rem; grid-template-areas: "head head" "tree side"; gap: 0.6rem 2rem; max-width: 96rem; margin: 0 auto; }
+.graph-head { grid-area: head; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 1rem; }
+.graph-head h1 { margin: 0; }
+.graph-q { flex: 1 1 16rem; max-width: 28rem; font: inherit; padding: 0.35rem 0.6rem; border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); color: inherit; }
+.graph-tree { grid-area: tree; min-width: 0; }
+.graph-side { grid-area: side; min-width: 0; }
+@media (max-width: 52rem) { .graph-page { grid-template-columns: 1fr; grid-template-areas: "head" "side" "tree"; } .gt-unlinked ul { max-height: 10rem; } }
+.graph-page [hidden] { display: none !important; }
+.gt-cols { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 0.9rem; align-items: start; }
+.gt-card { border: 1px solid var(--rule); border-radius: 8px; padding: 0.55rem 0.8rem 0.65rem; background: var(--panel); min-width: 0; }
+.gt-card h2 { font-size: 1rem; margin: 0 0 0.35rem; overflow-wrap: anywhere; }
+.gt-n, .gt-more { font-size: 0.78rem; font-weight: normal; }
+ul.gt { list-style: none; margin: 0; padding-left: 0.9rem; border-left: 1px solid var(--rule); }
+.gt-card > ul.gt { padding-left: 0; border-left: 0; }
+ul.gt li { margin: 0.1rem 0; overflow-wrap: anywhere; }
 ul.gt summary { cursor: pointer; }
 ul.gt .gt-sec > details > summary { font-weight: 600; color: var(--dim); font-size: 0.92rem; }
 .gt-count { font-size: 0.78rem; }
@@ -574,4 +585,11 @@ ul.gt .gt-sec > details > summary { font-weight: 600; color: var(--dim); font-si
 .graph-page.focus .gt-note.self, .graph-page.focus .gt-note.hit { opacity: 1; }
 .graph-page .gt-note.self { background: var(--accent-soft); font-weight: 600; }
 .graph-page .gt-note.hit { background: var(--mark); }
-.graph-side h2 { margin-top: 0.4rem; }
+.graph-page.filtering .gt-note.gt-q { font-weight: 600; text-decoration: underline; text-decoration-color: var(--accent); }
+.graph-side h2 { margin: 0.2rem 0 0.4rem; font-size: 1.05rem; }
+.gt-tags { margin-bottom: 1.2rem; }
+.gt-tag-list { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0; }
+.gt-tag { border: 1px solid transparent; cursor: pointer; font: inherit; font-size: 0.85em; }
+.gt-tag[aria-pressed="true"] { border-color: var(--accent); background: var(--mark); }
+.gt-tag-info { margin: 0.4rem 0 0; font-size: 0.85rem; }
+.gt-unlinked ul { max-height: 60vh; overflow: auto; }

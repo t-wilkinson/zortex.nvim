@@ -224,12 +224,12 @@
       <ul class="plain">
         {{range .StructureShown}}<li><a href="{{noteURL . 0}}">{{title .}}</a> <span class="dim">{{dir .}}</span></li>{{end}}
       </ul>
-      {{if gt (len .Structure.Unlinked) (len .StructureShown)}}<p class="more"><a href="{{u "/structure"}}">All {{len .Structure.Unlinked}} unlinked notes →</a></p>{{end}}
+      {{if gt (len .Structure.Unlinked) (len .StructureShown)}}<p class="more"><a href="{{u "/graph"}}">All {{len .Structure.Unlinked}} unlinked notes →</a></p>{{end}}
       {{end}}
     </div>
     {{end}}
   </div>
-  <p class="stats dim">{{.Notes}} notes · {{.Links}} links · <a href="{{u "/broken"}}">{{.Broken}} broken</a> · <a href="{{u "/tags"}}">{{.Tags}} tags</a> · <a href="{{u "/resources"}}">{{.Resources}} resources ({{.Unlinked}} unlinked)</a>{{if .Structure.Sources}} · <a href="{{u "/structure"}}">{{.Structure.Linked}}/{{.Structure.Total}} in structure</a>{{end}} · indexed {{ago .Built}}</p>
+  <p class="stats dim">{{.Notes}} notes · {{.Links}} links · <a href="{{u "/broken"}}">{{.Broken}} broken</a> · <a href="{{u "/graph"}}">{{.Tags}} tags</a> · <a href="{{u "/resources"}}">{{.Resources}} resources ({{.Unlinked}} unlinked)</a>{{if .Structure.Sources}} · <a href="{{u "/graph"}}">{{.Structure.Linked}}/{{.Structure.Total}} in structure</a>{{end}} · indexed {{ago .Built}}</p>
 </section>
 <script src="{{asset "/static/home.js"}}" defer></script>
 <script src="{{asset "/static/clocks.js"}}" defer></script>

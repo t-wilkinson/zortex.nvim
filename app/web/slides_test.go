@@ -36,6 +36,7 @@ Closing text.
 ## Picture
 ![./images/pic.png]
 ![./images/missing.png]
+![./clips/demo.mp4]
 $x^2$ and
 $$
 \frac{1}{2}
@@ -76,7 +77,7 @@ func TestSlidesSplitAtHeadings(t *testing.T) {
 	ts := newSlidesServer(t, map[string]string{"talk.zortex": talkNote, "images/pic.png": "png"})
 	body := expect(t, ts, "/n/talk.zortex?view=slides", 200, `<h1 class="deck-title">Talk</h1>`)
 	got := strings.Join(slidesOf(body), ", ")
-	want := "title 1-5 0, section 6-6 0, slide 7-14 0, slide 15-21 3, section 22-22 0, slide 23-29 0"
+	want := "title 1-5 0, section 6-6 0, slide 7-14 0, slide 15-21 3, section 22-22 0, slide 23-30 0"
 	if got != want {
 		t.Fatalf("slides:\n got %s\nwant %s", got, want)
 	}
@@ -86,7 +87,7 @@ func TestSlidesSplitAtHeadings(t *testing.T) {
 	one := strings.Replace(talkNote, "@Example\n", "@Example\n@slides(1)\n", 1)
 	ts1 := newSlidesServer(t, map[string]string{"talk.zortex": one})
 	_, _, body1 := get(t, ts1, "/n/talk.zortex?view=slides")
-	if got := strings.Join(slidesOf(body1), ", "); got != "title 1-6 0, slide 7-22 1, slide 23-30 0" {
+	if got := strings.Join(slidesOf(body1), ", "); got != "title 1-6 0, slide 7-22 1, slide 23-31 0" {
 		t.Fatalf("@slides(1): %s", got)
 	}
 
@@ -136,10 +137,11 @@ func TestSlidesNotesStepsAndAttributes(t *testing.T) {
 }
 
 func TestImageLinks(t *testing.T) {
-	ts := newSlidesServer(t, map[string]string{"talk.zortex": talkNote, "images/pic.png": "png"})
+	ts := newSlidesServer(t, map[string]string{"talk.zortex": talkNote, "images/pic.png": "png", "clips/demo.mp4": "mp4"})
 	body := expect(t, ts, "/n/talk.zortex", 200,
 		`<img class="embed" src="/raw/images/pic.png" alt="pic.png" loading="lazy">`,
 		`<a class="zl broken" title="File not found">./images/missing.png</a>`,
+		`<video class="embed" src="/raw/clips/demo.mp4" controls preload="metadata" playsinline title="demo.mp4"></video>`,
 		`<span class="math">x^2</span>`, `<pre class="math-block"`)
 	if strings.Contains(body, `src="/raw/images/missing.png"`) {
 		t.Error("missing image rendered")

@@ -365,13 +365,21 @@ func (s *Server) handleLink(w http.ResponseWriter, r *http.Request) {
 		opts.From = s.ix.Doc(fromRel)
 	}
 	results, err := links.Resolve(s.ix, "["+strings.TrimSuffix(strings.TrimPrefix(def, "["), "]")+"]", opts)
+	follow := len(results) > 0 && results[0].Link != nil
 	if err == nil && len(results) == 1 {
-		http.Redirect(w, r, s.noteURL(results[0].Doc.Rel, results[0].Lnum), http.StatusFound)
+		href := s.noteURL(results[0].Doc.Rel, results[0].Lnum)
+		if follow {
+			if h, ok := s.followHref(results[0], 1); ok {
+				href = h
+			}
+		}
+		http.Redirect(w, r, href, http.StatusFound)
 		return
 	}
 	type target struct {
 		Rel, Title, Breadcrumb, Line string
 		Lnum                         int
+		Href                         string // > links: where the matched link goes
 	}
 	var targets []target
 	for _, res := range results {
@@ -379,7 +387,12 @@ func (s *Server) handleLink(w http.ResponseWriter, r *http.Request) {
 		if n := res.Doc.NodeAt(res.Lnum); n != nil && !n.IsRoot() {
 			bc = n.Breadcrumb(" › ")
 		}
-		targets = append(targets, target{Rel: res.Doc.Rel, Title: res.Doc.Title(), Breadcrumb: bc, Line: strings.TrimSpace(res.Doc.Lines[res.Lnum-1]), Lnum: res.Lnum})
+		t := target{Rel: res.Doc.Rel, Title: res.Doc.Title(), Breadcrumb: bc, Line: strings.TrimSpace(res.Doc.Lines[res.Lnum-1]), Lnum: res.Lnum}
+		if follow {
+			t.Title = links.SpanText(res.Link)
+			t.Href, _ = s.followHref(res, 1)
+		}
+		targets = append(targets, t)
 	}
 	status := http.StatusOK
 	msg := ""
@@ -391,6 +404,7 @@ func (s *Server) handleLink(w http.ResponseWriter, r *http.Request) {
 		"Def":     def,
 		"From":    fromRel,
 		"Targets": targets,
+		"Follow":  follow,
 		"Error":   msg,
 	})
 }
@@ -451,7 +465,7 @@ func (s *Server) apiSearch(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, res)
 }
 
-// apiResolve: GET /api/resolve?to=&from= -> {results: [{rel, lnum, col, url}], error?}
+// apiResolve: GET /api/resolve?to=&from= -> {results: [{rel, lnum, col, url, follow?}], error?}
 func (s *Server) apiResolve(w http.ResponseWriter, r *http.Request) {
 	var opts links.Options
 	if from := r.URL.Query().Get("from"); from != "" {
@@ -464,11 +478,17 @@ func (s *Server) apiResolve(w http.ResponseWriter, r *http.Request) {
 		Lnum int    `json:"lnum"`
 		Col  int    `json:"col"`
 		URL  string `json:"url"`
+		// > links: where the matched link goes
+		Follow string `json:"follow,omitempty"`
 	}
 	body := map[string]any{"results": []res{}}
 	list := []res{}
 	for _, x := range results {
-		list = append(list, res{x.Doc.Rel, x.Lnum, x.Col, s.noteURL(x.Doc.Rel, x.Lnum)})
+		item := res{Rel: x.Doc.Rel, Lnum: x.Lnum, Col: x.Col, URL: s.noteURL(x.Doc.Rel, x.Lnum)}
+		if x.Link != nil {
+			item.Follow, _ = s.followHref(x, 1)
+		}
+		list = append(list, item)
 	}
 	body["results"] = list
 	status := http.StatusOK

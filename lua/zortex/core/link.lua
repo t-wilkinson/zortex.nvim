@@ -13,6 +13,10 @@
 --                              ANY depth inside the current range; the first
 --                              match per file becomes the new range (its section)
 --   Label, list item, highlight, %query, a + b, a & b: line searches likewise
+--   Follow    [R/#Rust/>Book]  the links on the lines in range whose text (or
+--                              whose line's text) starts with "Book"; must be
+--                              the last component. Following it opens what
+--                              those links point to (features/links)
 --
 -- Results come back in note order (top-level files first, then line order), so
 -- results[1] is the canonical target. Every consumer (following links,
@@ -71,7 +75,7 @@ function M.parse_component(component)
 	-- ---------------------------------------------------------------
 	-- Infix operators apply to untyped components only, so "#R & D" stays a
 	-- heading and "#4 Learning & Education" is not an AND query.
-	local typed = first_char == "#" or first_char == ":" or first_char == "-" or first_char == "*"
+	local typed = first_char == "#" or first_char == ":" or first_char == "-" or first_char == "*" or first_char == ">"
 	local query_type, tags = syntax.split_query(component)
 	if not typed and query_type ~= "single" and #tags >= 2 then
 		return {
@@ -107,6 +111,8 @@ function M.parse_component(component)
 		return { type = "highlight", text = component:sub(2), original = component, attributes = attributes }
 	elseif first_char == "%" then
 		return { type = "query", text = component:sub(2), original = component, attributes = attributes }
+	elseif first_char == ">" then
+		return { type = "follow", text = syntax.trim(component:sub(2)), original = component, attributes = attributes }
 	elseif first_char == "+" then
 		-- Legacy OR Query: +term1+term2
 		local tags = {}
@@ -254,6 +260,34 @@ function M.on_line(line)
 	return out
 end
 
+-- Spans a > component can follow
+local FOLLOWABLE = { link = true, live_link = true, markdown = true, url = true, filepath = true }
+
+--- The links on a line that a > component can follow, in order:
+--- { info (as at()), text (what > matches: markdown text, link definition,
+--- URL or path) }
+function M.follow_targets(line)
+	local out = {}
+	syntax.walk_spans(syntax.inline(line), function(span)
+		if FOLLOWABLE[span.type] then
+			local info = link_info(line, span)
+			if info then
+				local text = span.text or span.definition or span.url or span.path or ""
+				out[#out + 1] = { info = info, text = text, col = span.s + 1 }
+			end
+		end
+	end)
+	return out
+end
+
+-- A line's text for > matching: a list item's text, or the trimmed line,
+-- without attributes
+local function line_text(line)
+	local it = syntax.item(line)
+	local body = it and line:sub(it.content_col + 1) or line
+	return syntax.trim(syntax.strip_attributes(body))
+end
+
 -- =============================================================================
 -- Line matching
 -- =============================================================================
@@ -304,6 +338,28 @@ local QUERY_TYPES = { query = true, and_query = true, or_query = true }
 --- case-insensitive, except for %/+/& queries that contain an uppercase letter.
 ---@return { lnum: integer, col: integer }[]
 function M.search_lines(lines, component, start_line, end_line)
+	if component.type == "follow" then
+		-- Every link whose own text, or whose line's text, starts with the
+		-- component text (case-insensitive); "" matches every link
+		local out = {}
+		local want = component.text:lower()
+		local function starts(s)
+			return s:lower():sub(1, #want) == want
+		end
+		for lnum = start_line or 1, math.min(end_line or #lines, #lines) do
+			local line = lines[lnum]
+			local targets = line:find("[%[/:]") and M.follow_targets(line) or {}
+			if targets[1] then
+				local whole = starts(line_text(line))
+				for _, t in ipairs(targets) do
+					if whole or starts(t.text) then
+						out[#out + 1] = { lnum = lnum, col = t.col, target = t.info }
+					end
+				end
+			end
+		end
+		return out
+	end
 	local pattern = search_pattern(component)
 	if not pattern then
 		return {}
@@ -363,7 +419,7 @@ end
 -- Section Boundaries
 -- =============================================================================
 
-local SINGLE_LINE = { listitem = true, query = true, and_query = true, or_query = true, tag = true }
+local SINGLE_LINE = { listitem = true, query = true, and_query = true, or_query = true, tag = true, follow = true }
 
 -- Range a match narrows to: the section that starts at the matched line (a
 -- single line for list items, queries, tags and plain highlights).
@@ -393,6 +449,7 @@ end
 ---@field component table the component that matched
 ---@field lines string[] lines of the file
 ---@field doc Document snapshot the result came from
+---@field target table? for a > component, the link to follow (as at())
 
 local function make_result(doc, lnum, col, component, text)
 	return {
@@ -459,6 +516,9 @@ function M.resolve(link, opts)
 	local results = {}
 	for i, comp in ipairs(parsed.components) do
 		local last = i == #parsed.components
+		if comp.type == "follow" and not last then
+			return {}, "Nothing can come after " .. comp.original
+		end
 
 		-- Article and header-tag components select whole files. An article
 		-- name ranks files that declare it as an alias before files that are
@@ -522,7 +582,9 @@ function M.resolve(link, opts)
 					local matches = M.search_lines(doc.lines, comp, c.start_line, c.end_line)
 					if last then
 						for _, m in ipairs(matches) do
-							results[#results + 1] = make_result(doc, m.lnum, m.col, comp)
+							local r = make_result(doc, m.lnum, m.col, comp)
+							r.target = m.target -- > components: the link to follow
+							results[#results + 1] = r
 						end
 					elseif matches[1] then
 						local lnum = matches[1].lnum
@@ -676,6 +738,18 @@ function M.extract_line_identifier(line)
 	return text
 end
 
+--- The text a > component uses for a link on `line`: a markdown link's
+--- text, else the line's text before the link, else the whole line's text
+--- (shortened like other components).
+function M.follow_text(line, target)
+	line = line or ""
+	if target and target.type == "markdown" then
+		return M.component_text(target.display_text)
+	end
+	local text = target and target.col and M.component_text(line_text(line:sub(1, target.col - 1))) or ""
+	return text ~= "" and text or M.component_text(line_text(line))
+end
+
 --- Build a full zortex-style link string from a search result: the section
 --- path to the matched line, plus the matched component when the line is not
 --- itself a section header.
@@ -712,6 +786,8 @@ function M.build_result_link(result)
 			table.insert(parts, "-" .. comp.text)
 		elseif comp.type == "highlight" then
 			table.insert(parts, "*" .. comp.text)
+		elseif comp.type == "follow" then
+			table.insert(parts, ">" .. M.follow_text(result.text, result.target))
 		elseif comp.type == "article" and #parts == 0 then
 			table.insert(parts, comp.text)
 		end

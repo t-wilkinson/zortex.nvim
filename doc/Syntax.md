@@ -149,8 +149,15 @@ case-insensitive and by prefix: `[P/#1.4]` finds `## 1.4 - zortex`.
 | `*` bold | `[Note/*Next steps]` | a bold heading or bold text |
 | `-` item | `[O/#Current/-KR1]` | a list item by its key or text |
 | `%` query | `[Note/%sparkplug]` | any line containing the text (`a + b` either, `a & b` both) |
+| `>` follow | `[R/#Rust/>The Rust Book]` | a link in the range, by its text or its line's text; following it opens what that link points to (last component only) |
 
 - `[/#Local heading]` (leading `/`) resolves in the current note.
+- `>` links to the links in a note, so a list of resources can be linked by
+  name: `[R/#Rust/>The Rust Book]` opens the book from
+  `- [The Rust Book](https://doc.rust-lang.org/book) @rust`. It matches a
+  markdown link's text, a link's definition, a URL or a path, or the text of
+  the line it is on, by prefix; `>` alone is every link in the range. When
+  several match, Neovim shows a picker and the web app a page to pick from.
 - The first match is the link's target; when there are more, the quickfix
   list (Neovim) or the link page (web app) shows them all.
 - Archived notes (tagged `@Archive`, or `z/archive.*.zortex`) are skipped

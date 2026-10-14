@@ -11,6 +11,8 @@
 //	#1.4 - zortex      heading starting with the text, any depth
 //	:Fitness           label    *Bold  highlight    -Item  list item (key or text)
 //	%text, a + b, a & b    line queries (case-sensitive when the query has capitals)
+//	>Book              the links on lines in range whose text (or line's text)
+//	                   starts with "Book"; last component only (Result.Link)
 //
 // Results come back in note order; the first is the canonical target.
 package links
@@ -25,7 +27,7 @@ import (
 
 // Component is one parsed link component.
 type Component struct {
-	Type     string   // article tag heading label listitem highlight query or_query and_query
+	Type     string   // article tag heading label listitem highlight query or_query and_query follow
 	Text     string   // text without prefix (and without attributes for article/heading/label)
 	Original string   // as written
 	Tags     []string // or_query / and_query terms
@@ -152,7 +154,7 @@ func legacyTerms(s string, sep byte) []string {
 // ParseComponent types one component.
 func ParseComponent(c string) Component {
 	first := c[0]
-	typed := first == '#' || first == ':' || first == '-' || first == '*'
+	typed := first == '#' || first == ':' || first == '-' || first == '*' || first == '>'
 	if qt, terms := syntax.SplitQuery(c); !typed && qt != "single" && len(terms) >= 2 {
 		return Component{Type: qt + "_query", Tags: terms, Text: c, Original: c}
 	}
@@ -173,6 +175,8 @@ func ParseComponent(c string) Component {
 		return Component{Type: "highlight", Text: c[1:], Original: c}
 	case '%':
 		return Component{Type: "query", Text: c[1:], Original: c}
+	case '>':
+		return Component{Type: "follow", Text: syntax.Trim(c[1:]), Original: c}
 	case '+':
 		clean := removeAttrs(c)
 		return Component{Type: "or_query", Tags: legacyTerms(clean, '+'), Text: clean, Original: c}
@@ -199,8 +203,58 @@ func Parse(def string) Definition {
 // Line matching (search_lines)
 // =============================================================================
 
-// Match is a matching line (1-based line and column).
-type Match struct{ Lnum, Col int }
+// Match is a matching line (1-based line and column); Link is the link a
+// follow component matched.
+type Match struct {
+	Lnum, Col int
+	Link      *syntax.Span
+}
+
+// followable: spans a follow component can follow.
+var followable = map[string]bool{"link": true, "live_link": true, "markdown": true, "url": true, "filepath": true}
+
+// FollowTarget is a link a follow component can match.
+type FollowTarget struct {
+	Span syntax.Span
+	Text string // markdown text, link definition, URL or path
+}
+
+// FollowTargets lists the links on a line a follow component can match.
+func FollowTargets(line string) []FollowTarget {
+	var out []FollowTarget
+	syntax.Walk(syntax.Inline(line, 0, len(line)), func(sp *syntax.Span) {
+		if !followable[sp.Type] {
+			return
+		}
+		out = append(out, FollowTarget{Span: *sp, Text: SpanText(sp)})
+	})
+	return out
+}
+
+// SpanText is the text a follow component matches for a link span: a
+// markdown link's text, a zortex link's definition, a URL or a path.
+func SpanText(sp *syntax.Span) string {
+	switch sp.Type {
+	case "markdown":
+		return sp.Text
+	case "link", "live_link":
+		return sp.Definition
+	case "url":
+		return sp.URL
+	case "filepath":
+		return sp.Path
+	}
+	return ""
+}
+
+// followLineText is a line's text for follow matching: a list item's text,
+// or the trimmed line, without attributes.
+func followLineText(line string) string {
+	if it := syntax.ItemOf(line); it != nil {
+		line = line[it.ContentCol:]
+	}
+	return syntax.Trim(syntax.StripAttributes(line))
+}
 
 func headingMatch(line, text string) bool {
 	hashes := 0
@@ -282,7 +336,30 @@ func SearchLines(lines []string, c Component, start, end int) []Match {
 		want := syntax.Lower(syntax.Trim(c.Text))
 		for lnum := start; lnum <= end; lnum++ {
 			if col, ok := listItemMatch(lines[lnum-1], want); ok {
-				out = append(out, Match{lnum, col})
+				out = append(out, Match{Lnum: lnum, Col: col})
+			}
+		}
+		return out
+	}
+	if c.Type == "follow" {
+		// every link whose own text, or whose line's text, starts with the
+		// component text; "" matches every link
+		want := syntax.Lower(c.Text)
+		starts := func(s string) bool { return strings.HasPrefix(syntax.Lower(s), want) }
+		for lnum := start; lnum <= end; lnum++ {
+			line := lines[lnum-1]
+			if !strings.ContainsAny(line, "[/:") {
+				continue
+			}
+			targets := FollowTargets(line)
+			if len(targets) == 0 {
+				continue
+			}
+			whole := starts(followLineText(line))
+			for i := range targets {
+				if whole || starts(targets[i].Text) {
+					out = append(out, Match{Lnum: lnum, Col: targets[i].Span.S + 1, Link: &targets[i].Span})
+				}
 			}
 		}
 		return out
@@ -349,7 +426,7 @@ func SearchLines(lines []string, c Component, start, end int) []Match {
 			}
 		}
 		if col > 0 {
-			out = append(out, Match{lnum, col})
+			out = append(out, Match{Lnum: lnum, Col: col})
 		}
 	}
 	return out
@@ -360,7 +437,7 @@ func SearchLines(lines []string, c Component, start, end int) []Match {
 // highlights).
 func SectionEnd(doc *notes.Document, lnum int, c Component) int {
 	switch c.Type {
-	case "listitem", "query", "and_query", "or_query", "tag":
+	case "listitem", "query", "and_query", "or_query", "tag", "follow":
 		return lnum
 	}
 	node := doc.NodeStartingAt(lnum)
@@ -385,6 +462,7 @@ type Result struct {
 	Doc       *notes.Document
 	Lnum, Col int
 	Component Component
+	Link      *syntax.Span // follow components: the link to follow
 }
 
 // Options for Resolve.
@@ -455,6 +533,9 @@ func Resolve(ix *notes.Index, link string, opts Options) ([]Result, error) {
 	var results []Result
 	for i, comp := range def.Components {
 		last := i == len(def.Components)-1
+		if comp.Type == "follow" && !last {
+			return nil, errors.New("Nothing can come after " + comp.Original)
+		}
 
 		// Header components on every note: straight from the catalog
 		if whole && (comp.Type == "article" || comp.Type == "tag") {
@@ -562,7 +643,7 @@ func Resolve(ix *notes.Index, link string, opts Options) ([]Result, error) {
 			matches := SearchLines(d.Lines, comp, cands[k].start, cands[k].end)
 			if last {
 				for _, m := range matches {
-					results = append(results, Result{Doc: d, Lnum: m.Lnum, Col: m.Col, Component: comp})
+					results = append(results, Result{Doc: d, Lnum: m.Lnum, Col: m.Col, Component: comp, Link: m.Link})
 				}
 			} else if len(matches) > 0 {
 				lnum := matches[0].Lnum

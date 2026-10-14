@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -137,6 +138,28 @@ func TestLinkPage(t *testing.T) {
 	_, _, body := get(t, ts, "/api/resolve?to=[P/%23Subaru]")
 	if !strings.Contains(body, `"rel":"flipping.zortex"`) {
 		t.Errorf("api/resolve: %s", body)
+	}
+}
+
+func TestFollowLinks(t *testing.T) {
+	_, _, ts := newTestServer(t, "")
+	// one match: straight to where the matched link goes
+	code, h, _ := get(t, ts, "/link?to="+url.QueryEscape("R/#Rust/>The Rust Book"))
+	if code != 302 || h.Get("Location") != "https://doc.rust-lang.org/book" {
+		t.Errorf("> link should redirect to its target, got %d %s", code, h.Get("Location"))
+	}
+	code, h, _ = get(t, ts, "/link?to="+url.QueryEscape("R/#Rust/>Flipping"))
+	if code != 302 || h.Get("Location") != "/n/flipping.zortex#L11" {
+		t.Errorf("> link to a zortex link, got %d %s", code, h.Get("Location"))
+	}
+	// several: a page to pick one
+	expect(t, ts, "/link?to="+url.QueryEscape("R/#Rust/>Garden notes"), 200,
+		"2 links match; pick one.", `href="/n/z/garden.zortex#L4"`, `href="/n/flipping.zortex#L11"`)
+	// in a note: [R/#Rust/>The Rust Book] (a chain) goes to the book
+	expect(t, ts, "/n/z/resources.zortex", 200, `<a class="zl" href="https://doc.rust-lang.org/book"`)
+	_, _, body := get(t, ts, "/api/resolve?to="+url.QueryEscape("[R/>Spinning]"))
+	if !strings.Contains(body, `"follow":"https://spinningup.openai.com"`) {
+		t.Errorf("api/resolve follow: %s", body)
 	}
 }
 

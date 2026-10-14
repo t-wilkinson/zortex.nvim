@@ -189,3 +189,13 @@ T.test("area items keep the Areas note's order in cmp", function()
 	-- anything that isn't an area item is left to cmp's own comparators
 	T.eq(completion.order_comparator(entry({ label = "x" }), entry(items[1])), nil)
 end)
+
+T.test("'>' offers the links in range", function()
+	T.eq(labels("[R/#Rust/#Embedded/>"), { ">The Embedded Rust Book", ">Pinout" })
+	local l = labels("[R/#AI/>")
+	T.ok(has(l, ">Sutton  Barto") or has(l, ">Sutton"), vim.inspect(l))
+	T.ok(has(l, ">lecture notes") and has(l, ">Spinning Up"), vim.inspect(l))
+	for _, label in ipairs(labels("[R/#Rust/>")) do
+		T.ok(#require("zortex.core.link").resolve("[R/#Rust/" .. label .. "]") > 0, label)
+	end
+end)

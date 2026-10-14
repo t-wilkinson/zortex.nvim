@@ -76,6 +76,45 @@ T.test("task checkboxes are not links", function()
 	T.eq(link.on_line("- KR1: [ ] text [P/#Habits]")[1].definition, "P/#Habits")
 end)
 
+T.test("> components match links by their text or their line's text", function()
+	local r = links.resolve("[R/#Rust/>Garden notes]")
+	T.eq(vim.tbl_map(function(x)
+		return x.target.definition
+	end, r), { "Garden/-Plant", "Flipping/#Subaru" })
+	T.eq(links.resolve_first("[R/>the rust]").target.url, "https://doc.rust-lang.org/book")
+	T.eq(links.build_result_link(links.resolve_first("[R/>The Rust Book]")), "[Resources/#Rust/>The Rust Book]")
+	T.eq(links.build_result_link(links.resolve_first("[R/#Rust/>Async]")), "[Resources/#Rust/>Async book]")
+	T.eq(#links.resolve("[R/#Embedded/>]"), 2)
+	local _, err = links.resolve("[R/>Spinning/#AI]")
+	T.eq(err, "Nothing can come after >Spinning")
+	T.eq(links.parse_component(">Sutton & Barto").type, "follow")
+end)
+
+T.test("following a > link opens the link it matched, or picks one", function()
+	local follow = require("zortex.features.links")
+	local select = vim.ui.select
+	local shown
+	vim.ui.select = function(items, opts, choose)
+		shown = vim.tbl_map(opts.format_item, items)
+		choose(items[2])
+	end
+	local ok, err = pcall(function()
+		follow.open_info({ type = "link", definition = "R/#Rust/>Garden notes" })
+		T.eq(shown, {
+			"Garden notes  Garden/-Plant  (Resources › Rust)",
+			"Garden notes  Flipping/#Subaru  (Resources › Rust)",
+		})
+		T.eq(vim.fn.expand("%:t") .. ":" .. vim.fn.line("."), "flipping.zortex:11")
+		shown = nil
+		vim.cmd("enew")
+		follow.open_info({ type = "link", definition = "R/#Rust/>Flipping" })
+		T.eq(shown, nil) -- one match: no picker
+		T.eq(vim.fn.expand("%:t") .. ":" .. vim.fn.line("."), "flipping.zortex:11")
+	end)
+	vim.ui.select = select
+	assert(ok, err)
+end)
+
 T.test("conformance: resolve and search fixtures are up to date", function()
 	local Config = require("zortex.config")
 	local saved = Config.notes_dir

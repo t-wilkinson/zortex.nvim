@@ -246,7 +246,7 @@ func TestNav(t *testing.T) {
 	if nav = nav[:strings.Index(nav, "</nav>")]; strings.Contains(nav, "Calendar") {
 		t.Error("the calendar is on the home page, not a tab")
 	}
-	expect(t, ts, "/tags", 200, `href="/graph"`, `href="/tags" aria-current="page"`)
+	expect(t, ts, "/tags", 200, `href="/graph" aria-current="page"`)
 	expect(t, ts, "/f/z", 200, `href="/f/" aria-current="page"`)
 }
 

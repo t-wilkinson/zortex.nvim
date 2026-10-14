@@ -29,7 +29,7 @@
     var el = document.activeElement;
     var typing = el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA");
     if (e.key === "/" && !typing) {
-      var box = document.getElementById("search-input") || document.getElementById("quick");
+      var box = document.getElementById("search-input") || document.querySelector("[data-slash]") || document.getElementById("quick");
       if (box) { e.preventDefault(); box.focus(); box.select(); }
     }
   });

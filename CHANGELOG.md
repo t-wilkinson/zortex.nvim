@@ -74,7 +74,8 @@ The first release for people other than the author.
 - A note's `# Structure` section lists its sub-notes: they count as in the
   structure, and the hub owns its part of the tree.
 - Connections on every note page (structure parents and children, links
-  each way) and `/graph`, the whole structure as a tree.
+  each way) and `/graph`, the whole structure as a card per section, with
+  the tags beside it and a filter for notes and tags.
 - An optional login (`-auth-file`, `ZORTEX_AUTH`) for setups without a proxy
   that has one; a warning when listening beyond localhost without a login.
 - Released as binaries for Linux and macOS and as

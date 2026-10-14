@@ -126,7 +126,34 @@ func TestGraphNoDuplicates(t *testing.T) {
 	}
 	// what is indented under the repeat nests under the one entry
 	inbox := page[strings.Index(page, `data-rel="inbox.zortex"`):]
-	if !strings.Contains(inbox[:strings.Index(inbox, "</details>")], `data-rel="async.zortex"`) {
+	if !strings.Contains(inbox[:strings.Index(inbox, "</section>")], `data-rel="async.zortex"`) {
 		t.Error("Async isn't under Inbox")
+	}
+}
+
+func TestGraphCardsAndTags(t *testing.T) {
+	ts := newSlidesServer(t, map[string]string{
+		"structure.zortex": "@@Structure\n\n- [Inbox]\n\n# Life\n- [Areas]\n  - [Health]\n    - [Sleep]\n      - [Naps]\n",
+		"inbox.zortex":     "@@Inbox\n@Work\n",
+		"areas.zortex":     "@@Areas\n",
+		"health.zortex":    "@@Health\n@Body\n@Work\n",
+		"sleep.zortex":     "@@Sleep\n",
+		"naps.zortex":      "@@Naps\n",
+		"loose.zortex":     "@@Loose\n@Body\n",
+	})
+	page := expect(t, ts, "/graph", 200,
+		`<section class="gt-card"><h2><a class="gt-note" href="/n/structure.zortex"`, // the loose notes
+		`<section class="gt-card"><h2>Life <span class="gt-n dim" title="Notes in it">4</span></h2>`,
+		`data-tags="body work">Health</a>`,
+		`<details><summary><a class="gt-note" href="/n/sleep.zortex"`, // two levels down: starts closed
+		`<span class="gt-more dim" title="Notes under it">+1</span>`,
+		`data-tag="body" data-name="Body"`, `data-tag="work" data-name="Work"`,
+		`data-rel="loose.zortex" data-links="" data-tags="body">Loose</a>`,
+		`id="graph-q" class="graph-q" data-slash`, `/static/graph.js`)
+	if strings.Contains(page, `href="/tags"`) {
+		t.Error("the top bar still has Tags")
+	}
+	if !strings.Contains(page, `href="/graph" aria-current="page"`) {
+		t.Error("Graph isn't the current tab")
 	}
 }

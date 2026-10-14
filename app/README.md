@@ -63,14 +63,14 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 |---|---|
 | `/` | search box, the **calendar** (days of `calendar.zortex`, a month grid, scheduled notifications), the **pomodoro** clock with **timer**, **alarm** and **stopwatch** tabs, **season and XP** (level and tier, progress to the next level, XP per day for two weeks, top areas, recent awards), the main notes (`-special`), recently changed notes, notes not yet in the structure, counts |
 | `/structure` | notes that neither the Structure note (`@@Structure`), any `@Structure` note, nor any note's `# Structure` section links to (archived notes left out); not in the top bar, since `/graph` lists the same notes |
-| `/graph` | the whole structure as a tree: the Structure note's sections and links, each note with a `# Structure` section opened in place; hover a note to mark the notes it links with; the notes not in it |
+| `/graph` | the whole structure as cards side by side, one per section of the Structure note, each note with a `# Structure` section opened in place; hover a note to mark the notes it links with, click a tag to mark its notes, filter notes and tags as you type (`@word` for tags); the notes not in it |
 | `/n/<path>` | a rendered note: outline, every line anchored (`#L12`), links resolved with the plugin's rules (to the canonical target; `⁺` when there are more), broken links in red, file paths and markdown links to the file viewer, [tag tables](#tag-tables), its [connections](#connections-and-the-graph), "Linked from" (backlinks) |
 | `/n/<path>?view=slides` | the note as a slide deck ([Slides](#slides)) |
 | `/search?q=` | structural search, the plugin's ranking: sections whose path matches the words in order, then lines with every word; results update as you type, `↑`/`↓` + Enter, `/` focuses search anywhere |
 | `/link?to=&from=` | resolve a link: one target redirects, several are listed (a tag search as a [table](#tag-tables)), failures say why |
 | `/f/<path>` | file browser (sort by name (notes by article name) or modified time, either direction: `?sort=modified&order=desc`, kept in folder links; top level: the main notes unless "show all"; hidden folders and Syncthing artefacts never) and viewer: PDF, image, video, audio (with seeking), text, sandboxed HTML/SVG |
 | `/raw/<path>` | the file as is: byte ranges, `?download=1`; HTML/SVG/XML with `Content-Security-Policy: sandbox`; nothing outside the folder, no hidden files |
-| `/tags`, `/tag/<name>` | header tags and their notes; an area attribute in a header (`@area(4.1)`, `@a(1.2/Fitness)`) links to its area (`[A/#4.1]`) |
+| `/tags`, `/tag/<name>` | header tags and their notes (the top bar's Graph lists the tags too); an area attribute in a header (`@area(4.1)`, `@a(1.2/Fitness)`) links to its area (`[A/#4.1]`) |
 | `/resources` | PDFs, books, images, media and documents, and which ones nothing links to (filter by unlinked/linked, type, folder); file pages show their own "Linked from", folder listings count links and unlinked files |
 | `/broken` | links that don't resolve (notes and files) |
 | `/api/search?q=`, `/api/resolve?to=&from=`, `/api/backlinks?rel=`, `/api/resources?show=unlinked&kind=&dir=`, `/api/structure` | JSON |
@@ -143,7 +143,13 @@ A note page ends with its **connections**: the notes whose structure lists
 it (above, with the section they list it under), the notes its own
 `# Structure` section lists (below), the other notes it links to (left) and
 that link to it (right); `↔` when a link goes both ways. `/graph` is the
-whole structure as a tree, every hub opened in place once.
+whole structure, every hub opened in place once, laid out as a card per
+top-level section (the Structure note's loose notes share the first card;
+lists more than two levels down start folded, with a count). Beside it are
+the header tags (click one to mark its notes) and the notes not in the
+structure. The filter box (`/`) hides what doesn't match and opens the
+sections that hold matches; `@word` filters by tag; Enter opens the first
+match.
 
 ### Slides
 

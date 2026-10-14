@@ -1,7 +1,7 @@
 # Example notes
 
 A small notes folder that uses most of the format: the six key notes
-(`structure`, `projects`, `areas`, `okr`, `calendar`, `inbox`) and two
+(`structure`, `projects`, `areas`, `okr`, `calendar`, `inbox`) and three
 library notes in `z/`. The screenshots in the main README are of it.
 
 Try it on a copy:
@@ -31,3 +31,5 @@ What to look at:
   what you're working on.
 - `z/sourdough.zortex`: headings, bold headings (`**Feeding:**`), labels
   (`Mix:`), a table, a quote, and links back into the structure.
+- `z/zortex-talk.zortex`: a note that is also a slide deck (the **slides**
+  link on its page): speaker notes, step-by-step items, an image and math.

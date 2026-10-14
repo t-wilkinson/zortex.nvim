@@ -177,6 +177,10 @@ With `server.enabled`:
   pomodoro, the same one as the home page;
 - the XP summary is posted to the server as well as written to `.z/`.
 
+`:ZortexPresent` (`<leader>zS`, with or without `server.enabled`) opens the
+note as slides at the slide under the cursor; set `server.web_url` when the
+browser reaches the web app at another address than `api_endpoint`.
+
 Set `-api-key` (or `ZORTEX_API_KEY`) on the server so only Neovim can post
 to `/notify`, `/pending` and `/api/xp`; the browser pages don't need it.
 

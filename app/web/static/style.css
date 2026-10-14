@@ -124,6 +124,13 @@ pre.code[data-lang]::before { content: attr(data-lang); position: absolute; top:
 pre.code code { background: none; padding: 0; }
 .cl { display: block; min-height: 1.2em; white-space: pre; }
 pre.math-block { font-family: var(--serif); font-style: italic; text-align: center; }
+/* math typeset by KaTeX (math.js); a block keeps its source lines, hidden, for their anchors */
+.math.tex { font-family: inherit; font-style: normal; }
+pre.math-block.tex { background: none; padding: 0.2rem 0; font-style: normal; white-space: normal; }
+pre.math-block.tex > code { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: pre; }
+.tex-out { overflow-x: auto; overflow-y: hidden; }
+.tex-error { color: var(--broken); }
+img.embed { max-width: 100%; height: auto; border-radius: 6px; vertical-align: middle; }
 .table-wrap { overflow-x: auto; margin: 0.5rem 0; }
 .table-wrap table { border-collapse: collapse; font-size: 0.93rem; }
 .table-wrap th, .table-wrap td { border: 1px solid var(--rule); padding: 0.25rem 0.6rem; text-align: left; vertical-align: top; }

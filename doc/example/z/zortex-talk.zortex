@@ -1,0 +1,42 @@
+@@Zortex in five minutes
+@@Talk
+@Talks
+
+Plain-text notes, projects and a calendar, in Neovim and on the web.
+This note is also a slide deck: open it on the web and click **slides**.
+
+# Why
+## Notes are structure
+Every heading, bold heading and label is a section, so a link can point
+anywhere: [Projects/#2 Learning] or [Sourdough/#Method/:Bake].
+
+- One format for notes, tasks and the calendar
+- Readable without any tool
+- Links by name, not by path
+
+Notes:
+- The web app and Neovim share one parser, tested against the same fixtures
+- Ask who already keeps notes in plain text
+
+## The loop @steps
+- Objectives say what matters this quarter
+- Projects say what to do about it
+  - their tasks carry `@size`, so progress and XP follow
+- The calendar says when
+
+# How
+## The plan, drawn
+![./images/loop.svg]
+
+## Math
+Time on a task in hours is $t = \frac{\text{XP}}{10}$, and over a season
+
+$$
+\text{progress} = \sum_{o} w_o \cdot \frac{\text{done}_o}{\text{total}_o}
+$$
+
+## Try it
+```sh
+zortex serve -dir doc/example
+```
+Then open this note and press `s` on the slides for the presenter window.

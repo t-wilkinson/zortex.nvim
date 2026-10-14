@@ -46,6 +46,9 @@ local defaults = {
 		api_endpoint = "http://127.0.0.1:8090",
 		api_key = nil, -- the server's -api-key / ZORTEX_API_KEY, if set
 		user_id = "default",
+		-- the web app's address for :ZortexPresent when it isn't api_endpoint
+		-- (e.g. "https://zortex.home.lab/notes"); nil: api_endpoint
+		web_url = nil,
 	},
 
 	features = {

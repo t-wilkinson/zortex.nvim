@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 200" font-family="sans-serif" font-size="20">
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#6b6f76"/></marker></defs>
+  <g fill="#e3eef6" stroke="#1d5f8a" stroke-width="2">
+    <rect x="10" y="70" width="160" height="60" rx="10"/>
+    <rect x="240" y="70" width="160" height="60" rx="10"/>
+    <rect x="470" y="70" width="160" height="60" rx="10"/>
+  </g>
+  <g fill="#1f2328" text-anchor="middle">
+    <text x="90" y="107">Objectives</text>
+    <text x="320" y="107">Projects</text>
+    <text x="550" y="107">Calendar</text>
+  </g>
+  <g stroke="#6b6f76" stroke-width="2" fill="none" marker-end="url(#a)">
+    <path d="M170 100H236"/>
+    <path d="M400 100H466"/>
+    <path d="M550 130C550 190 90 190 90 134"/>
+  </g>
+</svg>

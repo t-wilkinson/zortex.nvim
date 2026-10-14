@@ -331,8 +331,10 @@ func (s *Server) rebuild(res []resource, linking []string, fingerprint uint64) {
 }
 
 // collectLinks resolves every link in doc (outside code) to its canonical
-// target, as the plugin's link index does.
+// target, as the plugin's link index does. Archived notes have no broken
+// links: they're left as they were.
 func (s *Server) collectLinks(doc *notes.Document, snap *snapshot) {
+	archived := s.ix.IsArchived(doc.Rel)
 	for lnum := range doc.Lines {
 		lnum++
 		if doc.InCode(lnum) {
@@ -348,6 +350,9 @@ func (s *Server) collectLinks(doc *notes.Document, snap *snapshot) {
 			snap.links++
 			r, err := links.ResolveFirst(s.ix, "["+sp.Definition+"]", links.Options{From: doc})
 			if err != nil || r == nil {
+				if archived {
+					return
+				}
 				msg := "no match"
 				if err != nil {
 					msg = err.Error()

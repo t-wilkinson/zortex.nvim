@@ -709,7 +709,7 @@ function M.create_keymaps(prefix, mappings)
 		for _, key in ipairs(keys_of(a, mappings)) do
 			vim.keymap.set("n", prefix .. key, function()
 				a.run()
-			end, { silent = true, desc = "Zortex: " .. a.desc })
+			end, { silent = true, desc = a.desc })
 		end
 	end
 end

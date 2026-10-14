@@ -62,7 +62,7 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 | page | what |
 |---|---|
 | `/` | search box, the **calendar** (days of `calendar.zortex`, a month grid, scheduled notifications), the **pomodoro** clock with **timer**, **alarm** and **stopwatch** tabs, **season and XP** (level and tier, progress to the next level, XP per day for two weeks, top areas, recent awards), the main notes (`-special`), recently changed notes, notes not yet in the structure, counts |
-| `/structure` | notes that neither the Structure note (`@@Structure`), any `@Structure` note, nor any note's `# Structure` section links to (archived notes left out) |
+| `/structure` | notes that neither the Structure note (`@@Structure`), any `@Structure` note, nor any note's `# Structure` section links to (archived notes left out); not in the top bar, since `/graph` lists the same notes |
 | `/graph` | the whole structure as a tree: the Structure note's sections and links, each note with a `# Structure` section opened in place; hover a note to mark the notes it links with; the notes not in it |
 | `/n/<path>` | a rendered note: outline, every line anchored (`#L12`), links resolved with the plugin's rules (to the canonical target; `⁺` when there are more), broken links in red, file paths and markdown links to the file viewer, [tag tables](#tag-tables), its [connections](#connections-and-the-graph), "Linked from" (backlinks) |
 | `/n/<path>?view=slides` | the note as a slide deck ([Slides](#slides)) |
@@ -164,7 +164,7 @@ note has to change:
 The slide level is `@slides(n)`, or else the second heading level the note
 uses (with `#` and `##`, `##` are slides and `#` section slides), or the only
 one. Attributes are hidden on slides; links, tasks, tables, code, math and
-images (`![./pic.png]`) render as on the note page, and a slide whose text
+images and videos (`![./pic.png]`, `![./clip.mp4]`; a video pauses when you leave its slide) render as on the note page, and a slide whose text
 doesn't fit is shrunk until it does.
 
 Keys: `→` `Space` `PgDn` next, `←` `PgUp` previous, `Home`/`End`, a number

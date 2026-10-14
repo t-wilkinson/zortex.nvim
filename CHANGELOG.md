@@ -67,7 +67,7 @@ The first release for people other than the author.
   (`Notes:`), step-by-step reveal (`@step`, `@steps`), a presenter window,
   an overview, live redraw and one page per slide when printed.
 - Math (`$…$`, `$$…$$`, `$$` blocks) typeset with KaTeX; `![./pic.png]`
-  shows the image.
+  shows the image, `![./clip.mp4]` the video.
 - Tag tables: `!@[scope/tags]` shows a tag search as a sortable, filterable
   table (item, link and its kind, tags, one column per `@key(value)`,
   where, nested notes); `@[…]` link pages show the same table.

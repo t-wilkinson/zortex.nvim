@@ -61,7 +61,10 @@
     if (!slides.length) return;
     i = Math.max(0, Math.min(slides.length - 1, i));
     st = Math.max(0, Math.min(stepsOf(i), st));
-    if (slides[cur]) slides[cur].classList.remove("current");
+    if (slides[cur]) {
+      slides[cur].classList.remove("current");
+      if (i !== cur) Array.prototype.forEach.call(slides[cur].querySelectorAll("video"), function (v) { v.pause(); });
+    }
     cur = i; step = st;
     var s = slides[cur];
     s.classList.add("current");
@@ -200,6 +203,7 @@
     var t = e.target;
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
     var k = e.key;
+    if (k === " " && t && t.tagName === "VIDEO") return; // play/pause, not next
     if (/^[0-9]$/.test(k)) { typed += k; return; }
     if (k === "Enter" && typed) { show(parseInt(typed, 10) - 1, 0); typed = ""; e.preventDefault(); return; }
     typed = "";

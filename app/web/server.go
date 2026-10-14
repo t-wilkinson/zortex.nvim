@@ -324,13 +324,21 @@ func (s *Server) rebuild(res []resource, linking []string, fingerprint uint64) {
 			}
 		}
 	}
-	for _, list := range snap.forward {
+	for rel, list := range snap.forward {
 		sort.Slice(list, func(i, j int) bool {
 			if list[i].Lnum != list[j].Lnum {
 				return list[i].Lnum < list[j].Lnum
 			}
 			return list[i].To < list[j].To
 		})
+		// a line linking a note twice ([OKR] [OKR/#Goals]) is one link to it
+		out := list[:0]
+		for i, l := range list {
+			if i == 0 || l != list[i-1] {
+				out = append(out, l)
+			}
+		}
+		snap.forward[rel] = out
 	}
 	snap.structure = s.buildStructure(snap)
 	for _, t := range tags {

@@ -162,7 +162,7 @@ func (s *Server) structureSide(rel string) map[string]any {
 func (s *Server) handleStructure(w http.ResponseWriter, r *http.Request) {
 	info := s.current().structure
 	if len(info.Roots) > 0 {
-		s.renderNotePage(w, r, info.Roots[0], "structure")
+		s.renderNotePage(w, r, info.Roots[0], "graph")
 		return
 	}
 	s.render(w, r, "structure", http.StatusOK, map[string]any{"Title": "Structure"})

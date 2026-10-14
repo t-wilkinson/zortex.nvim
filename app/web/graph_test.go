@@ -107,3 +107,26 @@ func TestLocalGraph(t *testing.T) {
 		t.Error("loose.zortex is linked from Rust")
 	}
 }
+
+func TestGraphNoDuplicates(t *testing.T) {
+	ts := newSlidesServer(t, map[string]string{
+		"structure.zortex": "@@Structure\n\n- [OKR] [OKR/#Goals] [OKR/#Vision]\n- [Inbox]\n- [Inbox]\n  - [Async]\n",
+		"okr.zortex":       "@@OKR\n\n# Goals\n# Vision\n",
+		"inbox.zortex":     "@@Inbox\n",
+		"async.zortex":     "@@Async\n",
+	})
+	page := expect(t, ts, "/graph", 200)
+	for _, rel := range []string{"okr.zortex", "inbox.zortex"} {
+		if n := strings.Count(page, `data-rel="`+rel+`"`); n != 1 {
+			t.Errorf("%s listed %d times", rel, n)
+		}
+	}
+	if strings.Contains(page, "(above)") {
+		t.Error("a repeated line is marked as listed above")
+	}
+	// what is indented under the repeat nests under the one entry
+	inbox := page[strings.Index(page, `data-rel="inbox.zortex"`):]
+	if !strings.Contains(inbox[:strings.Index(inbox, "</details>")], `data-rel="async.zortex"`) {
+		t.Error("Async isn't under Inbox")
+	}
+}

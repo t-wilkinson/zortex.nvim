@@ -141,7 +141,7 @@ projects, calendar entries):
 
 `![…]` shows what it links to in place instead of linking to it. A path to
 an image (`![./images/pic.png]`, `![https://example.com/a.png]`) is shown
-as the image on the web; `!@[tags]` shows a tag search as a table (Tag
+as the image on the web, and a video (`![./clips/demo.mp4]`) as a player; `!@[tags]` shows a tag search as a table (Tag
 tables, below); other embeds (`![Live link]`) are links for now and are
 reserved for showing zortex data in place. Math is `$inline$`,
 `$$display$$` or a block between `$$` lines, typeset with KaTeX on the web.

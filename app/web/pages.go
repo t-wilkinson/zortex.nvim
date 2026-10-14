@@ -102,7 +102,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, page string, sta
 }
 
 // navOf: which top-bar tab a page belongs to.
-var navOf = map[string]string{"files": "files", "file": "files", "resources": "files", "tags": "tags", "tag": "tags", "broken": "broken", "structure": "structure", "graph": "graph"}
+var navOf = map[string]string{"files": "files", "file": "files", "resources": "resources", "tags": "tags", "tag": "tags", "broken": "broken", "structure": "graph", "graph": "graph"}
 
 // backGroup is the backlinks from one note or file.
 type backGroup struct {
@@ -263,7 +263,7 @@ func (s *Server) renderNotePage(w http.ResponseWriter, r *http.Request, rel, nav
 	}
 	side := s.structureSide(rel)
 	if side != nil && nav == "" {
-		nav = "structure"
+		nav = "graph"
 	}
 	groups := s.groupBacklinks(s.current().backlinks[rel])
 	h := doc.Header()

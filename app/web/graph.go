@@ -369,8 +369,19 @@ func (s *Server) structureOf(rel string) []*treeNode {
 			}
 			var first *treeNode
 			for _, t := range targets {
-				c := &treeNode{Rel: t, Text: s.noteTitle(t), Lnum: lnum, indent: indent}
-				parent.Children = append(parent.Children, c)
+				// listed again under the same parent: the same entry
+				var c *treeNode
+				for _, sib := range parent.Children {
+					if sib.Rel == t {
+						c = sib
+						break
+					}
+				}
+				if c == nil {
+					c = &treeNode{Rel: t, Text: s.noteTitle(t), Lnum: lnum}
+					parent.Children = append(parent.Children, c)
+				}
+				c.indent = indent
 				if first == nil {
 					first = c
 				}

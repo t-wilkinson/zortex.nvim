@@ -2,6 +2,7 @@ package links
 
 import (
 	"errors"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -63,6 +64,34 @@ func lineTags(d *notes.Document, lnum int) map[string]int {
 			}
 		}
 	})
+	return out
+}
+
+// TagsAt lists the bare @tags of a line as a tag search sees them: its own
+// (in order) and then those of the sections above it, nearest first.
+func TagsAt(d *notes.Document, lnum int) []string {
+	var out []string
+	seen := map[string]bool{}
+	add := func(l int) {
+		tags := lineTags(d, l)
+		keys := make([]string, 0, len(tags))
+		for t := range tags {
+			keys = append(keys, t)
+		}
+		sort.Slice(keys, func(i, j int) bool { return tags[keys[i]] < tags[keys[j]] })
+		for _, t := range keys {
+			if !seen[t] {
+				seen[t] = true
+				out = append(out, t)
+			}
+		}
+	}
+	add(lnum)
+	for n := d.NodeAt(lnum); n != nil && !n.IsRoot() && n.Type != syntax.KindArticle; n = n.Parent {
+		if n.Start != lnum {
+			add(n.Start)
+		}
+	}
 	return out
 }
 

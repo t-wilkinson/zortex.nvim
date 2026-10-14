@@ -99,6 +99,7 @@ Nothing inside a code or math block is structure.
 | `[Link/#Heading]` | `link` | see Links below |
 | `![Live link]` | `live_link` | a link shown in place (the digest note) |
 | `@[cars & parts]` | `tag_search` | lines tagged `@cars` and `@parts` (`&` all, `+` any); see Tag searches below |
+| `!@[R/rust & async]` | `tag_search` | the same search shown in place: a table on the web; see Tag searches below |
 | `[text](https://example.com)` | `markdown` | a markdown link |
 | `[^1]` | `footnote_ref` | a footnote reference |
 | `https://example.com` | `url` | |
@@ -140,8 +141,9 @@ projects, calendar entries):
 
 `![…]` shows what it links to in place instead of linking to it. A path to
 an image (`![./images/pic.png]`, `![https://example.com/a.png]`) is shown
-as the image on the web; other embeds (`![Live link]`) are links for now and
-are reserved for showing zortex data in place. Math is `$inline$`,
+as the image on the web; `!@[tags]` shows a tag search as a table (Tag
+tables, below); other embeds (`![Live link]`) are links for now and are
+reserved for showing zortex data in place. Math is `$inline$`,
 `$$display$$` or a block between `$$` lines, typeset with KaTeX on the web.
 
 ## Links
@@ -201,6 +203,22 @@ under `## Embedded @embedded`, `- [The Embedded Rust Book](…) @rust` matches
 and are not inherited by its lines. A line nested under a resource (a note
 about it) is not tagged by it.
 
+**Tag tables.** `!@[…]` on a line of its own shows the search in place: on
+the web, a table of the lines it finds, with a column for the item, the link
+it holds and its kind (web, pdf, book, note…), its other tags, each
+`@key(value)` attribute the rows use (`@status(reading)`, `@rating(4)`),
+where it is, and the lines nested under it. Sort by any column; filter by
+text, kind or tag. An `@[…]` link that finds several lines opens the same
+table. In Neovim `!@[…]` follows like `@[…]`.
+
+```zortex
+# Reading
+!@[*/book]
+
+- [The Rust Book](https://doc.rust-lang.org/book) @book @status(reading) @rating(5)
+  - chapters 1-8 first
+```
+
 ## Special notes
 
 | Note | Name | What it holds |
@@ -209,7 +227,7 @@ about it) is not tagged by it.
 | `areas.zortex` | `@@Areas` / `@@A` | headings and labels are areas (`# 1 Personal`, `## 1.2 Health`, `Fitness:`) |
 | `okr.zortex` | `@@Objectives` / `@@OKR` | headings like `## 3M-2026-Q1 Title` are objectives; `- KRn: [ ] …` items are key results; project links on a KR drive its progress |
 | `calendar.zortex` | `@@Calendar` | `YYYY-MM-DD:` labels with entries under them: `- [ ] task`, `14:00 event`, `16:00 - 17:00 event`, `- note` |
-| `structure.zortex` | `@@Structure` | links to your notes; notes nothing here links to are listed as unlinked |
+| `structure.zortex` | `@@Structure` | links to your notes; notes nothing here links to are listed as unlinked. A note tagged `@Structure` adds all its links; a note with a top-level `# Structure` heading adds the links in that section: its own sub-notes, so a hub note can own its part of the tree |
 | `inbox.zortex` | `@@Inbox` | tasks and notes added from the web app |
 
 `setup()` creates these from short templates in a new notes folder;

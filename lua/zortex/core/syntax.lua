@@ -41,6 +41,7 @@
 --   link         definition                      [Projects/#1 Programming]
 --   live_link    definition                      ![Article]
 --   tag_search   content, terms, query_type      @[cars & parts]
+--                embed (true: shown in place)    !@[cars & parts]
 --   markdown     text, url                       [text](https://...)
 --   footnote_ref id                              [^1]
 --   url          url                             https://...
@@ -526,6 +527,14 @@ scanners["$"] = function(line, i)
 end
 
 scanners["!"] = function(line, i)
+	if line:sub(i + 1, i + 2) == "@[" then
+		-- !@[tags]: the tag search shown in place (a table on the web)
+		local span = scanners["@"](line, i + 1)
+		if span then
+			span.s, span.embed = i - 1, true
+		end
+		return span
+	end
 	if line:sub(i + 1, i + 1) ~= "[" then
 		return nil
 	end

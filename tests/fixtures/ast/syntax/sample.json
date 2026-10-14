@@ -622,6 +622,25 @@
         }
       ],
       "kind": "text"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [
+        {
+          "content": "R/rust & async",
+          "e": 18,
+          "embed": true,
+          "query_type": "and",
+          "s": 0,
+          "terms": [
+            "R/rust",
+            "async"
+          ],
+          "type": "tag_search"
+        }
+      ],
+      "kind": "text"
     }
   ],
   "sections": [

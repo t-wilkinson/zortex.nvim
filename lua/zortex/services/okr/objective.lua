@@ -260,7 +260,7 @@ M.Objective = Objective
 
 function M.init(o)
 	o.attributes = attributes.parse_attributes(o.doc.lines[o.lnum] or "", OBJECTIVE_SCHEMA)
-	o.attributes.context = nil
+	o.attributes.tags = nil
 	local info = o.kind == "heading" and M.parse_objective(o.name) or nil
 	o.is_objective = info ~= nil
 	if info then

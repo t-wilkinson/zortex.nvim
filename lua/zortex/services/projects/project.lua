@@ -30,7 +30,7 @@ local function article_attributes(doc)
 		return {}
 	end
 	local attrs = attributes.parse_project_attributes(table.concat(doc.header.tag_lines, " "))
-	attrs.context = nil
+	attrs.tags = nil
 	return attrs
 end
 

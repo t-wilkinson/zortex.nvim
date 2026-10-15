@@ -136,6 +136,7 @@ projects, calendar entries):
 | `@repeat(weekly)` | calendar: repetition |
 | `@slides(2)` | in a header: the heading level that starts a slide ([slides](../app/README.md#slides)) |
 | `@step`, `@steps` | slides: reveal a line, or each item of a slide, one at a time |
+| `@rust`, `@home`, `@ai-model` | any other bare `@word`: a tag, found by tag searches (`@[rust]`; see [Tag searches](#tag-searches)) |
 
 ## Embeds
 

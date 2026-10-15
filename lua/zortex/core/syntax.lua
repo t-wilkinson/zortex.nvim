@@ -46,7 +46,7 @@
 --   footnote_ref id                              [^1]
 --   url          url                             https://...
 --   filepath     path                            ./image.png, ~/notes
---   attribute    key, value?                     @size(lg), @p1, @home
+--   attribute    key, value?                     @size(lg), @p1, @rust
 --   code         inner_s, inner_e                `code`
 --   math         inner_s, inner_e, display       $x^2$, $$x$$
 --   bold/italic  inner_s, inner_e, children      **text**, *text*

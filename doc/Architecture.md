@@ -134,8 +134,7 @@ definitions.
 
 - **Project tasks** are the checkbox items in a project's own range
   (`doc:items(s, e, { tasks = true })`).
-- **Key results** are items keyed `KRn` (`- KR2: [ ] …`); the legacy
-  `- KR-text` form still parses.
+- **Key results** are items keyed `KRn` (`- KR2: [ ] …`).
 - **Calendar entries** are the items under a date label
   (`services/calendar_entry`): an entry _is_ its Item, plus `type`
   (task/event/note), `text` without the time prefix, `date_context`,
@@ -146,8 +145,7 @@ definitions.
 
 `split` / `parse` / `parse_component` turn a link definition into typed
 components (`split` ignores `/` inside parentheses and is shared with
-completion). A typed component (`#…`, `:…`, `-…`, `*…`) is never split as a
-`+` / `&` query, so `#4 Learning & Education` is a heading. `at(line, col)`
+completion). `at(line, col)`
 and `on_line(line)` find links on a line (from syntax spans; `@a(...)`
 resolves to its area link). Resolution and link building are in the same
 module (next sections); following a link in a buffer (quickfix list,
@@ -168,7 +166,7 @@ have `type`, `text` (clean), `level`, `start_line`, `end_line`, `children`,
 | `find(pred)` / `filter(pred)`                                   | first / all matches                                        |
 | `fold(fn)`                                                      | post-order aggregation `fn(node, child_results)`           |
 | `ancestors()`, `path_texts()`, `get_breadcrumb(sep)`, `depth()` | paths                                                      |
-| `get_direct_end_line()`, `get_direct_lines(bufnr)`              | content before the first child                             |
+| `get_direct_end_line()`                                         | content before the first child                             |
 | `derive(root, keep, make)`                                      | builds a domain tree from chosen node types (see entities) |
 
 ### Documents — `core/document.lua`
@@ -190,8 +188,7 @@ Because snapshots are immutable, anything derived from one (projects, areas)
 is cached **on the snapshot**. When the file changes there is a new snapshot,
 and the cache goes with the old one.
 
-`core/tree.lua` is a thin facade (`get_tree(path)` → `Document.get(path).tree`).
-The old JSON tree cache in `stdpath("cache")` is gone.
+A note's tree is `Document.get(path).tree`.
 
 ### Notes index — `core/notes.lua`
 
@@ -200,7 +197,7 @@ The old JSON tree cache in `stdpath("cache")` is gone.
 - `index()` is a short-lived (1 s) snapshot `{ files, headers }` (one with
   archived notes, one without), so bulk work (resolving many links) doesn't
   re-stat every file per link.
-- `find_by_name(name)` and `find_by_tag(tag)` are case-insensitive.
+- `find_by_tag(tag)` is case-insensitive.
 - `header(path)` reads **only** the header block, cached by mtime.
 - `is_archived(path)` is true for `archive.*` filenames or the `@Archive` tag.
 
@@ -216,7 +213,7 @@ narrows a list of candidates (file + line range):
 | Heading      | `#1.4 - zortex`           | Heading lines whose text **starts with** the text, case-insensitive, at **any depth** in the current range.                                                    |
 | Label / bold | `:Fitness`, `*X`          | Line searches.                                                                                                                                                 |
 | List item    | `-KR1`, `-Call the bank`  | A list item whose key (`- KR1: …`) or text (checkbox and attributes ignored) starts with the text.                                                             |
-| Query        | `%text`, `a + b`, `a & b` | Line searches. Case-sensitive only if the query has an uppercase letter.                                                                                       |
+| Query        | `%text`                   | Line searches. Case-sensitive only if the query has an uppercase letter.                                                                                       |
 | Follow       | `>The Rust Book`          | Links on lines in range whose own text (markdown text, definition, URL, path) or line text starts with the text; `>` alone is every link. Last component only. |
 
 **Parent-relative links**: `[./-Item]` (`./` then `-`, `#`, `:`, `*` or `>`)
@@ -250,7 +247,7 @@ tasks as `[P/#…/-Improve website]`.
   components, `result.whole`; otherwise `lnum..result.end_line`), and every
   non-blank, non-header line outside code in them matches when its own bare
   `@words` plus those of the section headings above it satisfy the query
-  (`a + b` any, `a & b` all; groups of `&` joined by `+`). No scope is the
+  (words: all of them; commas separate alternatives). No scope is the
   current note, `*` every note.
 - A `-` component compares a list item's text with markdown links replaced
   by their text (`link_text`), so `-The Rust Book` finds
@@ -369,7 +366,7 @@ Every edit emits `workspace:lines_changed` `{ file, start_line, end_line, count 
 ### State — `core/state.lua`
 
 Everything Zortex keeps in `notes_dir/.z` is one JSON file per name, opened
-with `State.open(name, { version, default, migrate })`:
+with `State.open(name, { version, default })`:
 
 | method                 | does                                                     |
 | ---------------------- | -------------------------------------------------------- |
@@ -378,9 +375,8 @@ with `State.open(name, { version, default, migrate })`:
 | `reset()` / `reload()` | back to `default()` and save / forget the in-memory copy |
 
 Loading never fails: a missing file gives `default()`, a corrupt one is kept
-as `<name>.json.corrupt-<time>` and replaced, and a different version goes
-through `migrate(data, from)` (or is replaced). Files from before versioning
-count as version 1. Files: `link_index`, `search_history`, `xp_state`,
+as `<name>.json.corrupt-<time>` and replaced, and a different version is
+replaced by `default()`. Files: `link_index`, `search_history`, `xp_state`,
 `notifications_state`; logs go to `.z/zortex.log`. Stores save when they
 change; there is no persistence manager.
 
@@ -437,8 +433,8 @@ are areas, and the namespace is `A`.
 ### OKR — `services/okr/`
 
 Objectives are entities (registry over `okr.zortex`, namespace `O`). Every
-heading is an entity; headings matching `3M-2026-Q1 Title` (or the legacy
-`3M 2026 01 Title`) are objectives (`is_objective`), others such as
+heading is an entity; headings matching `3M-2026-Q1 Title` are objectives
+(`is_objective`), others such as
 `# Current` are containers.
 
 - **Objective:** `span`, `year`, `period`, `title`, `attributes`, `completed`
@@ -453,8 +449,8 @@ heading is an entity; headings matching `3M-2026-Q1 Title` (or the legacy
 - **KR progress** = points done / points across the linked projects'
   subtrees. A checked KR is 1. A KR without project links is 0 until checked.
 - API: `objectives({ current })`, `key_results({ open })`,
-  `get_key_results(project)`, the registry functions (`get`, `resolve`, `at`,
-  …), and the older `get_objectives()` / `get_current_objectives()`.
+  `get_key_results(project)`, and the registry functions (`get`, `resolve`,
+  `at`, …).
 
 ### Calendar — `stores/calendar.lua`
 

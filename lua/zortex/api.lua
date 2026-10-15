@@ -26,8 +26,8 @@
 --   z.calendar   calendar entries: get_entries_for_date, add_entry, ...  (stores/calendar)
 --   z.tasks      toggle/complete/uncomplete on the cursor line, find_task_by_id
 --   z.search     structural search: search, build_index, query_index     (services/search)
---   z.search_history  record, boost, clear
---   z.digest     digest note and email content
+--   z.search_history  record, clear
+--   z.digest     the digest note
 --   z.review     weekly review buffer: open, render                       (ui/review)
 --   z.planner    day planning: candidates, template, put                  (services/planner)
 --   z.xp         XP views and seasons                                    (services/xp/stats)

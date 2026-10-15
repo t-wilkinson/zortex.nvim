@@ -66,9 +66,8 @@ Nothing inside a code or math block is structure.
 | `Label: text after colon` | `text` | nothing may follow the colon |
 | `Not a label: one. Two: three` | `text` | no sentence (`. `) in a label |
 | `Trailing spaces label:   ` | `text` | no trailing spaces after a label's colon |
-| `- plain bullet with [^1]` | `item` | bullets: `-`, `+`, `*` and a space |
-| `+ plus bullet` | `item` | |
-| `* star bullet` | `item` | |
+| `- plain bullet with [^1]` | `item` | a bullet: `-` and a space |
+| `+ not a bullet` | `text` | bullets are `-` only |
 | `*not a bullet*` | `text` | italic text, not a bullet |
 | `1. numbered` | `item` | ordered: a number or one letter, `.` and a space |
 | `B. lettered` | `item` | |
@@ -83,8 +82,8 @@ Nothing inside a code or math block is structure.
 | `- 09:00 Bulleted time` | `item` | a bullet whose text starts with a time (not a time item) |
 | `09:00-10:30x not a range` | `text` | |
 | `\| col a \| col b \|` | `table` | rows start and end with `\|` |
-| `\| a quote line` | `quote` | `\|` without a closing `\|` |
-| `> another quote` | `quote` | |
+| `> a quote` | `quote` | `> ` and a space |
+| `\| not a quote` | `text` | `\|` without a closing `\|` is text |
 | `>not quote` | `text` | the space is required |
 | `` ```lua `` | `fence` | ` ``` ` or `~~~` fences; the closing fence uses the same character |
 | `# not a heading` | `code` | inside a fence |
@@ -99,8 +98,8 @@ Nothing inside a code or math block is structure.
 |---|---|---|
 | `[Link/#Heading]` | `link` | see Links below |
 | `![Live link]` | `live_link` | a link shown in place (the digest note) |
-| `@[cars & parts]` | `tag_search` | lines tagged `@cars` and `@parts` (`&` all, `+` any); see Tag searches below |
-| `!@[R/rust & async]` | `tag_search` | the same search shown in place: a table on the web; see Tag searches below |
+| `@[cars parts]` | `tag_search` | lines tagged `@cars` and `@parts` (words: all of them; commas: any); see Tag searches below |
+| `!@[R/rust async]` | `tag_search` | the same search shown in place: a table on the web; see Tag searches below |
 | `[text](https://example.com)` | `markdown` | a markdown link |
 | `[^1]` | `footnote_ref` | a footnote reference |
 | `https://example.com` | `url` | |
@@ -161,7 +160,7 @@ case-insensitive and by prefix: `[P/#1.4]` finds `## 1.4 - zortex`.
 | `:` label | `[A/#1.2/:Fitness]` | a label |
 | `*` bold | `[Note/*Next steps]` | a bold heading or bold text |
 | `-` item | `[O/#Current/-KR1]` | a list item by its key or text (a markdown link counts as its text: `-The Rust Book`) |
-| `%` query | `[Note/%sparkplug]` | any line containing the text (`a + b` either, `a & b` both) |
+| `%` query | `[Note/%sparkplug]` | any line containing the text |
 | `>` follow | `[R/#Rust/>The Rust Book]` | a link in the range, by its text or its line's text; following it opens what that link points to (last component only) |
 
 - `[/#Local heading]` (leading `/`) resolves in the current note.
@@ -197,15 +196,16 @@ in; `*` is every note:
 
 | Search | Finds |
 |---|---|
-| `@[rl + ai-model]` | lines in this note tagged `@rl` or `@ai-model` |
-| `@[rl & ai-model]` | lines tagged both (`rl&ai-model`, `@rl & @ai-model` too) |
+| `@[rl ai-model]` | lines in this note tagged both `@rl` and `@ai-model` (`@rl @ai-model` too) |
+| `@[rl, ai-model]` | lines tagged `@rl` or `@ai-model` |
+| `@[rust async, rl]` | lines tagged both `@rust` and `@async`, or `@rl` |
 | `@[R/#Rust/async]` | lines tagged `@async` in the Rust section of Resources |
 | `@[@Library/rl]` | lines tagged `@rl` in every note tagged `@Library` |
 | `@[*/rust]` | lines tagged `@rust` in every note |
 
 A tag on a heading, bold heading or label tags every line in its section:
 under `## Embedded @embedded`, `- [The Embedded Rust Book](…) @rust` matches
-`@[embedded & rust]`. Tags in a note's header select notes (`@[@Library/…]`)
+`@[embedded rust]`. Tags in a note's header select notes (`@[@Library/…]`)
 and are not inherited by its lines. A line nested under a resource (a note
 about it) is not tagged by it.
 

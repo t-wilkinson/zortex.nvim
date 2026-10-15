@@ -10,7 +10,6 @@
 -- checked KR always counts as done. Objective progress is the mean of its KRs.
 local M = {}
 
-local syntax = require("zortex.core.syntax")
 local attributes = require("zortex.utils.attributes")
 local Item = require("zortex.core.item")
 local Entity = require("zortex.core.entity").Entity
@@ -21,14 +20,10 @@ local OBJECTIVE_SCHEMA = vim.tbl_extend("force", attributes.schemas.project, {
 
 -- Objective headings (text with attributes stripped)
 local OBJECTIVE = "^(%w+)%-(%d%d%d%d)%-(%w+)%s+(.+)$" -- "3M-2026-Q1 Title"
-local OBJECTIVE_LEGACY = "^(%w+) (%d%d%d%d) (%d%d?) (.+)$" -- "3M 2026 01 Title"
 
 -- Parse objective heading text -> { span, year, period, title } or nil
 function M.parse_objective(text)
 	local span, year, period, title = text:match(OBJECTIVE)
-	if not span then
-		span, year, period, title = text:match(OBJECTIVE_LEGACY)
-	end
 	if not span then
 		return nil
 	end
@@ -127,18 +122,7 @@ function M.parse_key_result(line)
 		text = text:gsub("^" .. id .. ":%s*", "")
 	end
 	if not id then
-		-- Legacy forms: "- KR-text", "- KR1 text"
-		local num, rest = item.body:match("^KR(%d*)%-%s*(.*)$")
-		if not num then
-			num, rest = item.body:match("^KR(%d+)%s+(.*)$")
-		end
-		if not num then
-			return nil
-		end
-		id = "KR" .. num
-		local mark, after = rest:match("^%[(.)%]%s*(.*)$")
-		completed = mark == "x" or mark == "X"
-		text = syntax.strip_attributes(after or rest)
+		return nil
 	end
 	return {
 		id = id,

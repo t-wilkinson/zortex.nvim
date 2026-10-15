@@ -461,7 +461,7 @@
   },
   {
     "from": "z/resources.zortex",
-    "link": "@[rust + rl]",
+    "link": "@[rust, rl]",
     "results": [
       {
         "col": 51,
@@ -497,7 +497,7 @@
   },
   {
     "from": "z/resources.zortex",
-    "link": "@[rl & ai-model]",
+    "link": "@[rl ai-model]",
     "results": [
       {
         "col": 104,
@@ -797,31 +797,6 @@
     "results": []
   },
   {
-    "link": "[P/routine + website]",
-    "results": [
-      {
-        "col": 15,
-        "lnum": 16,
-        "rel": "projects.zortex"
-      },
-      {
-        "col": 15,
-        "lnum": 31,
-        "rel": "projects.zortex"
-      },
-      {
-        "col": 15,
-        "lnum": 32,
-        "rel": "projects.zortex"
-      }
-    ]
-  },
-  {
-    "error": "No matches found for: zortex & website",
-    "link": "[P/zortex & website]",
-    "results": []
-  },
-  {
     "link": "[%zortex]",
     "results": [
       {
@@ -873,26 +848,6 @@
         "col": 17,
         "lnum": 5,
         "rel": "z/day-plan.zortex"
-      }
-    ]
-  },
-  {
-    "link": "[P/+habits+routine]",
-    "results": [
-      {
-        "col": 4,
-        "lnum": 30,
-        "rel": "projects.zortex"
-      },
-      {
-        "col": 15,
-        "lnum": 31,
-        "rel": "projects.zortex"
-      },
-      {
-        "col": 15,
-        "lnum": 32,
-        "rel": "projects.zortex"
       }
     ]
   },
@@ -1207,7 +1162,7 @@
     ]
   },
   {
-    "link": "@[R/embedded & rust]",
+    "link": "@[R/embedded rust]",
     "results": [
       {
         "col": 65,
@@ -1252,7 +1207,7 @@
     ]
   },
   {
-    "link": "@[@Library/rl&ai-model]",
+    "link": "@[@Library/rl ai-model]",
     "results": [
       {
         "col": 104,
@@ -1262,7 +1217,7 @@
     ]
   },
   {
-    "link": "@[R/@rl & @ai-model]",
+    "link": "@[R/@rl @ai-model]",
     "results": [
       {
         "col": 104,
@@ -1287,7 +1242,7 @@
     ]
   },
   {
-    "link": "@[*/rust+rl]",
+    "link": "@[*/rust, rl]",
     "results": [
       {
         "col": 51,
@@ -1342,8 +1297,8 @@
     "results": []
   },
   {
-    "error": "No tags in @[R/#Rust/ & ]",
-    "link": "@[R/#Rust/ & ]",
+    "error": "No tags in @[R/#Rust/ , ]",
+    "link": "@[R/#Rust/ , ]",
     "results": []
   },
   {

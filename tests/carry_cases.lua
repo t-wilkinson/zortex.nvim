@@ -16,7 +16,7 @@ return {
 			"  - Notes:",
 			"    - [ ] [./-Change task sizes]",
 			"- [ ] Call the mechanic",
-			"- [ ] Water plants @every(day)",
+			"- [ ] Water plants @repeat(daily)",
 			"- [-] Other mark stays",
 			"- Note line",
 			"",

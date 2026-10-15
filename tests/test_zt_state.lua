@@ -7,12 +7,6 @@ T.test("state files: default, save, reload, versions, corrupt files", function()
 		default = function()
 			return { n = 0 }
 		end,
-		migrate = function(data, from)
-			if from == 1 then
-				data.n = (data.old or 0) * 10
-				return data
-			end
-		end,
 	})
 	local path = s:path()
 	T.ok(path:match("/%.z/test_state%.json$"), path)
@@ -24,10 +18,13 @@ T.test("state files: default, save, reload, versions, corrupt files", function()
 	s:reload()
 	T.eq(s:get(), { n = 5, version = 2 })
 
-	-- unversioned files count as version 1 and are migrated
-	vim.fn.writefile({ '{"old": 4}' }, path)
+	-- another version (or none) is replaced by the default
+	vim.fn.writefile({ '{"n": 4, "version": 1}' }, path)
 	s:reload()
-	T.eq(s:get().n, 40)
+	T.eq(s:get(), { n = 0, version = 2 })
+	vim.fn.writefile({ '{"n": 4}' }, path)
+	s:reload()
+	T.eq(s:get().n, 0)
 
 	-- corrupt files are kept aside and replaced by the default
 	vim.fn.writefile({ "{not json" }, path)

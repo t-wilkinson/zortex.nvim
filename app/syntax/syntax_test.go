@@ -127,12 +127,6 @@ func TestHelpers(t *testing.T) {
 	if got := StripAttributes("1.4 - zortex @p1 @size(lg) me@example.com"); got != "1.4 - zortex me@example.com" {
 		t.Errorf("StripAttributes: %q", got)
 	}
-	if qt, terms := SplitQuery("cars & parts"); qt != "and" || !reflect.DeepEqual(terms, []string{"cars", "parts"}) {
-		t.Errorf("SplitQuery: %s %v", qt, terms)
-	}
-	if qt, terms := SplitQuery("c++"); qt != "single" || terms[0] != "c++" {
-		t.Errorf("SplitQuery c++: %s %v", qt, terms)
-	}
 	it := ItemOf("- KR1: [ ] Key result [P/#1 Programming]")
 	if it == nil || it.Key != "KR1" || it.Mark != " " || *it.MarkCol != 7 || it.ContentCol != 11 {
 		t.Errorf("ItemOf KR: %+v", it)
@@ -145,9 +139,6 @@ func TestHelpers(t *testing.T) {
 	}
 	line := "see [P/#1.4 - zortex] and **b [L]**"
 	spans := Inline(line, 0, len(line))
-	if s := SpanAt(spans, 6); s == nil || s.Definition != "P/#1.4 - zortex" {
-		t.Errorf("SpanAt: %+v", s)
-	}
 	if links := Links(spans); len(links) != 2 || links[1].Definition != "L" {
 		t.Errorf("Links: %+v", links)
 	}

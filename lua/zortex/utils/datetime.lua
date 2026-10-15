@@ -203,13 +203,6 @@ local duration_multipliers = {
 	w = 60 * 24 * 7, -- weeks to minutes
 }
 
--- Parse duration and units and return in minutes
-function M.parse_duration(duration)
-	local num, unit = duration:match("(%d+%.?%d*)%s*([hdmw])")
-	local total = num * (duration_multipliers[unit] or 0)
-	return total > 0 and total or nil
-end
-
 -- Parse multiple duration num+unit pairs
 function M.parse_durations(durations)
 	local total = 0
@@ -240,23 +233,6 @@ function M.format_datetime(dt, format_str)
 			:gsub("hh", replacements.hh)
 			:gsub("mm", replacements.mm)
 	)
-end
-
---- Compares two dates.
--- @param date1 table First date
--- @param date2 table Second date
--- @return number -1 if date1 < date2, 0 if equal, 1 if date1 > date2
-function M.compare_dates(date1, date2)
-	local time1 = os.time(date1)
-	local time2 = os.time(date2)
-
-	if time1 < time2 then
-		return -1
-	elseif time1 > time2 then
-		return 1
-	else
-		return 0
-	end
 end
 
 --- Gets the day of week name.
@@ -354,22 +330,6 @@ function M.format_relative_date(date, reference)
 	end
 end
 
---- Gets the day of week name abbreviated.
--- @param wday number Day of week (1-7, Sunday is 1)
--- @return string Abbreviated day name
-function M.get_day_abbrev(wday)
-	local days = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" }
-	return days[wday] or ""
-end
-
---- Gets the month name abbreviated.
--- @param month number Month (1-12)
--- @return string Abbreviated month name
-function M.get_month_abbrev(month)
-	local months = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" }
-	return months[month] or ""
-end
-
 --- Gets the first weekday of a month.
 -- @param year number The year
 -- @param month number The month (1-12)
@@ -384,17 +344,6 @@ end
 -- @return string Formatted string like "January 2024"
 function M.format_month_year(date)
 	return string.format("%s %d", M.get_month_name(date.month), date.year)
-end
-
---- Normalizes a date to noon (for consistent date comparisons).
--- @param date table Date to normalize
--- @return table New date table with time set to noon
-function M.normalize_date(date)
-	return vim.tbl_extend("force", {}, date, {
-		hour = 12,
-		min = 0,
-		sec = 0,
-	})
 end
 
 --- Checks if two dates are the same day.

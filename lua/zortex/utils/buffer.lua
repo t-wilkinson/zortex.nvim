@@ -1,20 +1,6 @@
 -- utils/buffer.lua - Buffer operations for Zortex
 local M = {}
 
-
-function M.get_filepath(bufnr)
-	return vim.api.nvim_buf_get_name(bufnr)
-end
-
-function M.get_context()
-	local cursor = vim.api.nvim_win_get_cursor(0)
-	return {
-		bufnr = vim.api.nvim_get_current_buf(),
-		lnum = cursor[1],
-		col = cursor[0],
-	}
-end
-
 -- =============================================================================
 -- Buffer Reading
 -- =============================================================================
@@ -46,11 +32,6 @@ end
 -- Buffer Modification Helpers
 -- =============================================================================
 
-function M.update_line(bufnr, lnum, new_text)
-	bufnr = bufnr or 0
-	vim.api.nvim_buf_set_lines(bufnr, lnum - 1, lnum, false, { new_text })
-end
-
 function M.insert_lines(bufnr, lnum, lines)
 	bufnr = bufnr or 0
 	vim.api.nvim_buf_set_lines(bufnr, lnum - 1, lnum - 1, false, lines)
@@ -59,65 +40,6 @@ end
 function M.delete_lines(bufnr, start_lnum, end_lnum)
 	bufnr = bufnr or 0
 	vim.api.nvim_buf_set_lines(bufnr, start_lnum - 1, end_lnum - 1, false, {})
-end
-
--- =============================================================================
--- Special Buffer Detection
--- =============================================================================
-
-function M.is_special_buffer()
-	local special_articles = vim.g.zortex_special_articles or {}
-	if type(special_articles) ~= "table" or #special_articles == 0 then
-		return false
-	end
-
-	-- Check first 5 non-blank lines for article titles
-	local lines = M.get_lines(0, 0, 20)
-	local non_blank_count = 0
-
-	for _, line in ipairs(lines) do
-		if line:match("%S") then
-			non_blank_count = non_blank_count + 1
-			local title = line:match("^@@(.+)")
-			if title then
-				title = vim.trim(title):lower()
-				for _, special in ipairs(special_articles) do
-					if special:lower() == title then
-						return true
-					end
-				end
-			end
-			if non_blank_count >= 5 then
-				break
-			end
-		end
-	end
-
-	return false
-end
-
--- =============================================================================
--- Window Management
--- =============================================================================
-
-function M.get_target_window()
-	local current_win = vim.api.nvim_get_current_win()
-	local all_wins = vim.api.nvim_list_wins()
-
-	-- If only one window and in special buffer, create vertical split
-	if #all_wins == 1 and M.is_special_buffer() then
-		vim.cmd("vsplit")
-		-- Return the new window (not the current one)
-		local new_wins = vim.api.nvim_list_wins()
-		for _, win in ipairs(new_wins) do
-			if win ~= current_win then
-				return win
-			end
-		end
-	end
-
-	-- Otherwise use current window
-	return current_win
 end
 
 return M

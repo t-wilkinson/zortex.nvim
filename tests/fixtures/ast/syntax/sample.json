@@ -1,20 +1,20 @@
 {
   "blocks": [
     {
-      "finish": 35,
+      "finish": 34,
       "kind": "table",
-      "start": 33
+      "start": 32
     },
     {
-      "finish": 43,
+      "finish": 42,
       "kind": "code",
       "lang": "lua",
-      "start": 40
+      "start": 39
     },
     {
-      "finish": 47,
+      "finish": 46,
       "kind": "math",
-      "start": 45
+      "start": 44
     }
   ],
   "header": {
@@ -390,28 +390,10 @@
       "kind": "item"
     },
     {
-      "content_col": 2,
+      "content_col": 0,
       "indent": 0,
       "inline": [],
-      "item": {
-        "content_col": 2,
-        "marker": "+",
-        "marker_col": 0,
-        "marker_type": "bullet"
-      },
-      "kind": "item"
-    },
-    {
-      "content_col": 2,
-      "indent": 0,
-      "inline": [],
-      "item": {
-        "content_col": 2,
-        "marker": "*",
-        "marker_col": 0,
-        "marker_type": "bullet"
-      },
-      "kind": "item"
+      "kind": "text"
     },
     {
       "content_col": 3,
@@ -528,16 +510,16 @@
       "kind": "blank"
     },
     {
-      "content_col": 1,
+      "content_col": 2,
       "indent": 0,
       "inline": [],
       "kind": "quote"
     },
     {
-      "content_col": 2,
+      "content_col": 0,
       "indent": 0,
       "inline": [],
-      "kind": "quote"
+      "kind": "text"
     },
     {
       "content_col": 0,
@@ -613,32 +595,27 @@
       "indent": 0,
       "inline": [
         {
-          "content": "cars & parts",
-          "e": 19,
-          "query_type": "and",
+          "content": "cars parts",
+          "e": 17,
           "s": 4,
-          "terms": [
-            "cars",
-            "parts"
-          ],
           "type": "tag_search"
         },
         {
           "definition": "Live link",
-          "e": 33,
-          "s": 21,
+          "e": 31,
+          "s": 19,
           "type": "live_link"
         },
         {
-          "e": 65,
-          "s": 38,
+          "e": 63,
+          "s": 36,
           "text": "text",
           "type": "markdown",
           "url": "https://example.com"
         },
         {
-          "e": 74,
-          "s": 69,
+          "e": 72,
+          "s": 67,
           "type": "time",
           "value": "10:30"
         }
@@ -650,15 +627,10 @@
       "indent": 0,
       "inline": [
         {
-          "content": "R/rust & async",
-          "e": 18,
+          "content": "R/rust async",
+          "e": 16,
           "embed": true,
-          "query_type": "and",
           "s": 0,
-          "terms": [
-            "R/rust",
-            "async"
-          ],
           "type": "tag_search"
         }
       ],

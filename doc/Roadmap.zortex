@@ -33,8 +33,8 @@ Things that break or embarrass a first-time user. Do these before telling anyone
 - [x] Remove personal files: `.vim/coc-settings.json`; trim the Node section of `.gitignore` @p2 @size(xs) @done(2026-10-12)
 - [x] `features/archive.lua`: `revert_archive` is a stub; implement or remove the command @p2 @size(sm) @done(2026-10-13)
 - [x] `nix/module.nix` header: no Flask server any more, and the app has a login (`web.authFile`) @p3 @size(xs) @done(2026-10-14)
-- [ ] Remove dead code: ~40 functions nothing calls (`utils/filesystem` archive/json helpers, `utils/datetime` abbreviations, `ui/calendar` interactive add/delete, `attributes.to_line`, ...), the unused provider `test` functions (removed), `special_articles` (read from a `vim.g` nothing sets) @p2 @size(sm)
-- [ ] Remove compatibility shims with no callers: `okr.get_current_objectives`, `areas.extract_area_paths`, `completion.parse_link_context`, `filesystem.get_all_note_files`, `search.search_sections`, the `every` recurrence leftover, the legacy objective title `3M 2026 01 Title` and `KR-` / `KR1 text` key results, the `-calendar` server flag, the pomodoro slot in notifications_state @p2 @size(sm)
+- [x] Remove dead code: ~45 functions nothing calls, `core/tree.lua`, the digest's HTML email, the provider `test` functions, special buffers (`special_articles`, read from a `vim.g` nothing set; a quickfix jump opened notes in the quickfix window), Go's `syntax.SpanAt` @p2 @size(sm) @done(2026-10-15)
+- [x] Remove compatibility shims: old names (`okr.get_objectives`, `areas.extract_area_paths`, `completion.parse_link_context`, ...), the old objective and key-result forms, the `xp_state` migration and `State` migrate hook, the `-calendar` server flag, the pomodoro `stopped` phase @p2 @size(sm) @done(2026-10-15)
 
 ## 1.3 CI and releases
 - [x] GitHub Actions: `tests/run.lua` on Neovim stable + nightly, `go test -race ./...`, `gofmt -l`, and fail when `tests/gen_docs.lua` / `gen_ast.lua` would change a file @p1 @size(sm) @done(2026-10-13)
@@ -76,11 +76,11 @@ Things that break or embarrass a first-time user. Do these before telling anyone
 - [ ] Search history on the web, kept apart from `.z/search_history.json` (open question in the wishlist) @p3 @size(sm)
 
 ## 3.5 Syntax: one way to write each thing
-- [ ] Tag searches: words are all-of, commas any-of (`@[rust async]`, `@[rust, rl]`), like the search box; drop ` + ` / ` & ` and the legacy `+a+b` / `&a&b` link queries (keep reading them for a release, with a warning) @p2 @size(md)
-- [ ] Quotes: `> ` only (Markdown); drop `| quote` (a line starting with `|` is a table row or nothing) @p2 @size(sm)
-- [ ] One spelling per attribute: drop `@sz` and the bare sizes (`@sm`), keep `@a` as the short form of `@area`; fix `depends = { types = ... }` (typo, never parsed as a string) @p3 @size(sm)
-- [ ] Bullets: `-` only (drop `+`; `*` collides with italics and bold headings) @p3 @size(sm)
-- [ ] One extension: `.zortex` (drop `.zx` from ftdetect) @p3 @size(xs)
+- [x] Tag searches: words are all-of, commas any-of (`@[rust async]`, `@[rust, rl]`), like the search box; ` + ` / ` & ` and the `+a+b` / `&a&b` link queries are gone @p2 @size(md) @done(2026-10-15)
+- [x] Quotes: `> ` only (Markdown); `| line` is text @p2 @size(sm) @done(2026-10-15)
+- [x] One spelling per attribute: `@sz` and `@every` gone (the bare sizes `@sm` and `@a` for `@area` stay); `depends` fixed (it said `types =`) @p3 @size(sm) @done(2026-10-15)
+- [x] Bullets: `-` only (the web app still reads `*` / `+` lists in Markdown files) @p3 @size(sm) @done(2026-10-15)
+- [x] One extension: `.zortex` @p3 @size(xs) @done(2026-10-15)
 
 ## 3.6 Planning on the calendar
 - [x] Task copies: a project task on the calendar keeps its `@id`; lines with the same `@id` are one task (status, XP once, toggles kept in step, time adds up) @p1 @size(lg) @done(2026-10-14)

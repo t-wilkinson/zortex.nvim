@@ -13,8 +13,7 @@ local store = State.open("notifications_state", {
 				sent = {}, -- Deduplication tracking
 			},
 
-			-- Legacy/specific module state
-			pomodoro = {}, -- Pomodoro session state
+			pomodoro = {}, -- the local pomodoro clock (without a server)
 		}
 	end,
 })
@@ -36,7 +35,7 @@ function M.save_notification_state(state_data)
 end
 
 -- ===========================================================================
--- Legacy Support - Pomodoro
+-- The local pomodoro clock (without a server)
 -- ===========================================================================
 
 function M.get_pomodoro()

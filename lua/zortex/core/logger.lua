@@ -133,10 +133,6 @@ function M.enable()
 	cfg.enabled = true
 end
 
-function M.disable()
-	cfg.enabled = false
-end
-
 function M.setup(opts)
 	cfg = vim.tbl_extend("force", cfg, opts or {})
 	if type(cfg.level) == "string" then

@@ -183,46 +183,27 @@
           "type": "live_link"
         },
         {
-          "content": "a + b",
-          "e": 36,
-          "query_type": "or",
+          "content": "a, b",
+          "e": 35,
           "s": 28,
-          "terms": [
-            "a",
-            "b"
-          ],
           "type": "tag_search"
         },
         {
           "content": "c++",
-          "e": 43,
-          "query_type": "single",
-          "s": 37,
-          "terms": [
-            "c++"
-          ],
+          "e": 42,
+          "s": 36,
           "type": "tag_search"
         },
         {
           "content": "r&d",
-          "e": 50,
-          "query_type": "single",
-          "s": 44,
-          "terms": [
-            "r&d"
-          ],
+          "e": 49,
+          "s": 43,
           "type": "tag_search"
         },
         {
-          "content": "a & b & c",
-          "e": 63,
-          "query_type": "and",
-          "s": 51,
-          "terms": [
-            "a",
-            "b",
-            "c"
-          ],
+          "content": "a b c",
+          "e": 58,
+          "s": 50,
           "type": "tag_search"
         }
       ],
@@ -716,16 +697,10 @@
       "kind": "item"
     },
     {
-      "content_col": 2,
+      "content_col": 0,
       "indent": 0,
       "inline": [],
-      "item": {
-        "content_col": 2,
-        "marker": "*",
-        "marker_col": 0,
-        "marker_type": "bullet"
-      },
-      "kind": "item"
+      "kind": "text"
     },
     {
       "content_col": 0,
@@ -743,16 +718,10 @@
       "kind": "text"
     },
     {
-      "content_col": 2,
+      "content_col": 0,
       "indent": 0,
       "inline": [],
-      "item": {
-        "content_col": 2,
-        "marker": "+",
-        "marker_col": 0,
-        "marker_type": "bullet"
-      },
-      "kind": "item"
+      "kind": "text"
     },
     {
       "content_col": 2,
@@ -918,10 +887,10 @@
       "separator": true
     },
     {
-      "content_col": 1,
+      "content_col": 0,
       "indent": 0,
       "inline": [],
-      "kind": "quote"
+      "kind": "text"
     },
     {
       "content_col": 2,

@@ -159,7 +159,7 @@ end)
 
 T.test("okr objectives parse new heading format", function()
 	local okr = require("zortex.services.okr")
-	local objs = okr.get_objectives()
+	local objs = okr.objectives()
 	T.eq(#objs, 2)
 	T.eq(objs[1].span, "3M")
 	T.eq(objs[1].period, "Q1")

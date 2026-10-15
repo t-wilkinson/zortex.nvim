@@ -5,7 +5,6 @@ local constants = require("zortex.constants")
 local defaults = {
 	notes_dir = vim.fn.expand("~/.zortex/"),
 	extension = ".zortex",
-	special_articles = { "structure" }, -- Changes link opening behavior
 	-- A new notes folder gets calendar, projects, areas, okr, structure and
 	-- inbox notes from short templates (:ZortexInit adds missing ones later)
 	init_files = true,

@@ -53,24 +53,6 @@ local function timing_text(entry)
 	return nil
 end
 
-local function recurrence_text(recurrence)
-	local pattern = recurrence.pattern
-	if pattern == "day" or pattern == "daily" then
-		return "daily"
-	elseif pattern == "week" or pattern == "weekly" then
-		if #recurrence.modifiers > 0 then
-			return "weekly (" .. table.concat(recurrence.modifiers, ",") .. ")"
-		end
-		return "weekly"
-	elseif pattern == "month" or pattern == "monthly" then
-		if #recurrence.modifiers > 0 then
-			return "monthly (day " .. recurrence.modifiers[1] .. ")"
-		end
-		return "monthly"
-	end
-	return pattern -- intervals like "2w", "3d"
-end
-
 function M.pretty(entry)
 	local parts = {}
 	if entry.type == "task" then
@@ -95,9 +77,10 @@ function M.pretty(entry)
 		if entry:is_deadline() then
 			table.insert(parts, "⚠️ Deadline")
 		end
-		if timing.recurrence then
-			table.insert(parts, "🔁 " .. recurrence_text(timing.recurrence))
-		end
+	end
+
+	if entry.attributes["repeat"] then
+		table.insert(parts, "🔁 " .. entry.attributes["repeat"])
 	end
 
 	table.insert(parts, " " .. entry.text)

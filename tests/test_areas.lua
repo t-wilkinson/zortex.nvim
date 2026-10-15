@@ -55,7 +55,7 @@ end)
 T.test("keys_for: XP area keys from tasks, projects (inherited) and objectives", function()
 	local task = { attributes = require("zortex.utils.attributes").parse_task_attributes("x @a(1.2/Fitness)") }
 	local search = P.get("Projects/1 Programming/1.4 - zortex/1.4.1 - zortex search")
-	local okr = require("zortex.services.okr").get_objectives()
+	local okr = require("zortex.services.okr").objectives()
 	T.eq(A.keys_for(task, search, okr[2]), {
 		"Areas/1 Personal Foundation/1.2 Vitality/Fitness",
 		"Areas/4 Learning & Education/4.1 Education & Skills",

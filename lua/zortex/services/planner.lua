@@ -635,7 +635,7 @@ end
 --- [P/#1.4 - zortex]") is copied under a copy of that line ("- [P/#1.4 -
 --- zortex]", the time dropped; same lines merge), its [./-Item] links kept
 --- when that line is their parent; other tasks become "- [ ] ..." with
---- their [./-Item] links written out. Repeating entries (@every, @repeat) stay
+--- their [./-Item] links written out. Repeating entries (@repeat) stay
 --- where they are; a task whose @id is already on today is only marked.
 ---@param opts { from?: string, new_id: fun(): string }
 function M.carry(lines, today, opts)
@@ -693,7 +693,7 @@ function M.carry(lines, today, opts)
 				local it = not in_fence and not is_fence(line) and syntax.item(line)
 				if is_fence(line) then
 					in_fence = not in_fence
-				elseif it and it.mark == " " and not line:find("@every(", 1, true) and not line:find("@repeat(", 1, true) then
+				elseif it and it.mark == " " and not line:find("@repeat(", 1, true) then
 					-- the nearest linked line above it that isn't a task (head),
 					-- and the nearest linked one (its ./ links' parent)
 					local head, parent

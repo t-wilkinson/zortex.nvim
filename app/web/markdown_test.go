@@ -77,3 +77,15 @@ func TestMarkdownFile(t *testing.T) {
 	// a note's link to a Markdown file lands on the rendered page
 	expect(t, ts, "/n/z/md/notes.zortex", 200, `href="/f/z/md/readme.md"`)
 }
+
+// Markdown's "*" and "+" bullets are lists, though notes use only "-".
+func TestMarkdownBullets(t *testing.T) {
+	s, dir, ts := newTestServer(t, "")
+	os.WriteFile(filepath.Join(dir, "z/list.md"), []byte("* star item\n  + plus item\n* * *\n- dash item\n"), 0o644)
+	s.Refresh()
+	expect(t, ts, "/f/z/list.md", 200,
+		`<span class="body">star item</span>`,
+		`<span class="body">plus item</span>`,
+		`<hr class="ln" id="L3">`,
+		`<span class="body">dash item</span>`)
+}

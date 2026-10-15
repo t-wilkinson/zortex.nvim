@@ -316,6 +316,9 @@ z.agenda.upcoming(7)
 z.links.resolve_first("[A/#1 Personal Foundation]")
 z.document.get(path).syntax               -- the parsed note
 z.syntax.parse(lines, { inline = true })  -- the grammar itself
+
+-- in a statusline: "🍅 12:34" while a pomodoro runs, "" otherwise
+require("zortex.notifications.types.pomodoro").statusline()
 ```
 
 | name                                     | module            | what                                                                                                                                                |
@@ -326,7 +329,7 @@ z.syntax.parse(lines, { inline = true })  -- the grammar itself
 | `calendar`                               | `stores/calendar` | entries by date, `add_entry`, `update_entry`, `delete_entry`                                                                                        |
 | `tasks`                                  | `services/tasks`  | toggle/complete on the cursor line, `find_task_by_id`                                                                                               |
 | `search`, `search_history`               | `services/*`      | structural search and its ranking history                                                                                                           |
-| `digest`, `review`, `xp`                 |                   | digest note and email, review buffer, XP and seasons                                                                                                |
+| `digest`, `review`, `xp`                 |                   | digest note, review buffer, XP and seasons                                                                                                          |
 | `notes`, `document`, `syntax`, `item`    | `core/*`          | note index, parsed snapshots, grammar, list items                                                                                                   |
 | `links`, `link_index`                    |                   | link resolution and the index of every link                                                                                                         |
 | `workspace`, `state`, `events`, `config` |                   | line edits, `.z` state files, domain events, configuration                                                                                          |

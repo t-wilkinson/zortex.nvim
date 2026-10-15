@@ -95,7 +95,7 @@ function Area:objectives(opts)
 	opts = opts or {}
 	local areas = require("zortex.services.areas")
 	local out = {}
-	for _, objective in ipairs(require("zortex.services.okr").get_objectives()) do
+	for _, objective in ipairs(require("zortex.services.okr").objectives()) do
 		for _, area in ipairs(areas.from_attributes(objective.attributes)) do
 			if linked(self, area, opts.descendants) then
 				out[#out + 1] = objective

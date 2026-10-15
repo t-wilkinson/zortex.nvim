@@ -156,7 +156,6 @@ func serveCmd(args []string) {
 	poll := fs.Duration("poll", 3*time.Second, "how often to rescan the folder (negative: never)")
 	special := fs.String("special", envOr("ZORTEX_SPECIAL", strings.Join(web.DefaultSpecial, ",")), "top-level notes listed by default ($ZORTEX_SPECIAL)")
 	resources := fs.String("resources", os.Getenv("ZORTEX_RESOURCES"), "extensions tracked as resources for backlinks and the unlinked list, e.g. pdf,epub,png (default: documents, books, images, media) ($ZORTEX_RESOURCES)")
-	_ = fs.String("calendar", "", "deprecated: the calendar is part of the web app now")
 	dataDefault := os.Getenv("ZORTEX_DATA_DIR")
 	if dataDefault == "" {
 		dataDefault = os.Getenv("STATE_DIRECTORY") // systemd StateDirectory=

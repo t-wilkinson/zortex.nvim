@@ -306,34 +306,6 @@ function M.curve_steps(total_xp, total_tasks, completed)
 	return steps, phases
 end
 
---- { total_xp, earned_xp, completion_percent, completed_tasks, total_tasks, curve_type, phases }
---- for a Project (its own tasks).
-function M.calculate_project_xp(project)
-	local tasks = project:tasks()
-	local stats = project:stats()
-	local total_xp = M.calculate_project_total_xp(project, tasks)
-	if stats.total == 0 then
-		return 0, { total_xp = total_xp, earned_xp = 0, completion_percent = 0, completed_tasks = 0, total_tasks = 0 }
-	end
-	local curve = M._select_curve(stats.total)
-	local phases = M._build_phase_map(curve, stats.total)
-	local earned = M._calculate_curve_xp(phases, stats.done, stats.total, total_xp)
-	if project.attributes and project.attributes.done then
-		earned = total_xp -- a finished project pays out in full
-	end
-	earned = math.floor(earned + 0.5)
-	return earned,
-		{
-			total_xp = total_xp,
-			earned_xp = earned,
-			completion_percent = (stats.done / stats.total) * 100,
-			completed_tasks = stats.done,
-			total_tasks = stats.total,
-			curve_type = curve.type,
-			phases = phases,
-		}
-end
-
 -- =============================================================================
 -- Sharing an award between areas
 -- =============================================================================

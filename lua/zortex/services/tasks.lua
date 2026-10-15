@@ -2,7 +2,6 @@
 local M = {}
 
 local Events = require("zortex.core.event_bus")
-local Logger = require("zortex.core.logger")
 local Item = require("zortex.core.item")
 local workspace = require("zortex.core.workspace")
 local attributes = require("zortex.utils.attributes")
@@ -166,9 +165,8 @@ function M.convert_line_to_task(line, id)
 	-- Parse the line structure
 	local indent, content = line:match("^(%s*)(.-)%s*$")
 
-	-- Check if content starts with a list marker and extract the actual text
-	-- Handles: "- text", "-text", "* text", "+ text", etc.
-	local list_text = content:match("^[-*+]%s*(.+)") or content
+	-- Drop a list marker: "- text", "-text"
+	local list_text = content:match("^%-%s*(.+)") or content
 
 	-- Build the task line
 	local task_id = id or generate_task_id()

@@ -24,7 +24,7 @@
 --                attributes stripped
 --   heading      number of "#" (headings)
 --   item         list-item details (items, and labels written as "- Label:"):
---                  marker        "-", "+", "*", "1.", "A.", or "14:00"
+--                  marker        "-", "1.", "A.", or "14:00"
 --                  marker_type   "bullet" | "ordered" | "time"
 --                  marker_col    0-based column of the marker
 --                  time          { from = "14:00", to = "16:00"? } (time items)
@@ -40,8 +40,8 @@
 --   { type, s, e, ... }
 --   link         definition                      [Projects/#1 Programming]
 --   live_link    definition                      ![Article]
---   tag_search   content, terms, query_type      @[cars & parts]
---                embed (true: shown in place)    !@[cars & parts]
+--   tag_search   content                         @[cars parts]
+--                embed (true: shown in place)    !@[cars parts]
 --   markdown     text, url                       [text](https://...)
 --   footnote_ref id                              [^1]
 --   url          url                             https://...
@@ -97,29 +97,6 @@ function M.strip_attributes(text)
 	s = s:gsub("%s@[%w_]+%b()", "")
 	s = s:gsub("%s@[%w_%-]+", "")
 	return trim((s:gsub("%s+", " ")))
-end
-
---- Split "a + b" (OR) or "a & b" (AND) into terms. Spaces around the operator
---- are required so "c++" or "r&d" are not split.
----@return "single"|"or"|"and", string[]
-function M.split_query(content)
-	local query_type, sep = "single", nil
-	if content:find(" %+ ") then
-		query_type, sep = "or", "+"
-	elseif content:find(" & ") then
-		query_type, sep = "and", "&"
-	end
-	if not sep then
-		return query_type, { trim(content) }
-	end
-	local terms = {}
-	for term in content:gmatch("([^" .. sep .. "]+)") do
-		local t = trim(term)
-		if t ~= "" then
-			terms[#terms + 1] = t
-		end
-	end
-	return query_type, terms
 end
 
 -- =============================================================================
@@ -184,9 +161,9 @@ function M.item(line)
 	local rest = line:sub(pos)
 	local item
 
-	local bullet, sp = rest:match("^([-+*])(%s+)")
-	if bullet and not (bullet == "*" and rest:sub(2, 2) == "*") then
-		item = { marker = bullet, marker_type = "bullet", consumed = 1 + #sp }
+	local sp = rest:match("^%-(%s+)")
+	if sp then
+		item = { marker = "-", marker_type = "bullet", consumed = 1 + #sp }
 	elseif rest:match("^%-%[") or rest == "-" then
 		item = { marker = "-", marker_type = "bullet", consumed = 1 }
 	else
@@ -340,12 +317,9 @@ function M.classify(line)
 		}
 	end
 
-	if line:match("^%s*|") then
-		if count(line, "|") > 1 then
-			local separator = line:match("^%s*|[|%-:%s]*|%s*$") ~= nil and line:find("-", 1, true) ~= nil
-			return { kind = "table", separator = separator, indent = indent, content_col = indent }
-		end
-		return { kind = "quote", indent = indent, content_col = indent + 1 }
+	if line:match("^%s*|") and count(line, "|") > 1 then
+		local separator = line:match("^%s*|[|%-:%s]*|%s*$") ~= nil and line:find("-", 1, true) ~= nil
+		return { kind = "table", separator = separator, indent = indent, content_col = indent }
 	end
 	if line:match("^%s*>%s") then
 		return { kind = "quote", indent = indent, content_col = #line:match("^%s*>%s*") }
@@ -548,15 +522,7 @@ scanners["@"] = function(line, i)
 	if line:sub(i + 1, i + 1) == "[" then
 		local content = line:match("^@%[([^%]]+)%]", i)
 		if content then
-			local query_type, terms = M.split_query(content)
-			return {
-				type = "tag_search",
-				s = i - 1,
-				e = i + #content + 2,
-				content = content,
-				terms = terms,
-				query_type = query_type,
-			}
+			return { type = "tag_search", s = i - 1, e = i + #content + 2, content = content }
 		end
 		return nil
 	end

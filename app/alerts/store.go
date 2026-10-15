@@ -1,7 +1,7 @@
 // Package alerts is the notification side of `zortex serve`: the scheduled
 // notifications Neovim syncs from calendar.zortex (POST /notify), persisted in
 // a JSON file, and the sender that delivers them through ntfy when they are
-// due. It replaces the old Flask server, its SQLite database and send.sh.
+// due.
 //
 // The store keeps one list per user. A sync replaces the user's pending
 // notifications with the incoming set (matched by deduplication key, so
@@ -71,7 +71,6 @@ type SyncResult struct {
 	Added     int    `json:"added"`
 	Updated   int    `json:"updated"`
 	Removed   int    `json:"removed"`
-	Upserted  int    `json:"upserted"` // added + updated (the old server's field)
 	Total     int    `json:"total"`
 	Manifest  string `json:"manifest"`
 }
@@ -223,7 +222,6 @@ func (s *Store) Sync(user string, list []Incoming) (SyncResult, error) {
 		s.insert(user, in, now)
 		res.Added++
 	}
-	res.Upserted = res.Added + res.Updated
 	s.data.Manifests[user] = manifestRecord{Hash: hash, SyncAt: now}
 	s.sortLocked()
 	return res, s.save()

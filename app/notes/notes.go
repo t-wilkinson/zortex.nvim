@@ -57,8 +57,8 @@ func Open(root, ext string) (*Index, error) {
 }
 
 // All lists every note, archived ones included: top-level notes first, then
-// deeper ones, alphabetical by path. Hidden folders are skipped; symlinks are
-// not followed (as in the plugin).
+// deeper ones, alphabetical by path. Hidden folders and conflict copies are
+// skipped; symlinks are not followed (as in the plugin).
 func (ix *Index) All() []string {
 	ix.mu.Lock()
 	if ix.scanned {
@@ -82,7 +82,7 @@ func (ix *Index) walk() []string {
 			}
 			return nil
 		}
-		if d.Type().IsRegular() && strings.HasSuffix(d.Name(), ix.Ext) {
+		if d.Type().IsRegular() && strings.HasSuffix(d.Name(), ix.Ext) && !IsConflictCopy(d.Name()) {
 			rel, _ := filepath.Rel(ix.Root, path)
 			out = append(out, filepath.ToSlash(rel))
 		}
@@ -96,6 +96,14 @@ func (ix *Index) walk() []string {
 		return out[i] < out[j]
 	})
 	return out
+}
+
+// IsConflictCopy reports whether a file name is a sync tool's conflict copy:
+// Syncthing's "note.sync-conflict-20261015-143000-ABCDEFG.zortex", or
+// Dropbox's and Nextcloud's "note (… conflicted copy …).zortex". They are not
+// notes: a copy of projects.zortex would be a second @@Projects.
+func IsConflictCopy(name string) bool {
+	return strings.Contains(name, ".sync-conflict-") || strings.Contains(name, "conflicted copy")
 }
 
 // Files lists the notes, without archived ones unless includeArchived.

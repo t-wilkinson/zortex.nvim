@@ -4,6 +4,7 @@ local M = {}
 function M.check()
 	local health = vim.health
 	local Config = require("zortex.config")
+	local fs = require("zortex.utils.filesystem")
 
 	health.start("Zortex")
 	local v = vim.version()
@@ -47,6 +48,25 @@ function M.check()
 		else
 			health.warn(string.format("%d broken links", #broken), { ":ZortexBrokenLinks lists them" })
 		end
+	end
+
+	local conflicts = fs.find_all_notes(nil, { conflicts = true })
+	if #conflicts == 0 then
+		health.ok("No conflict copies from a sync tool")
+	else
+		local names = {}
+		for i = 1, math.min(#conflicts, 5) do
+			names[i] = conflicts[i]:sub(#Config.notes_dir + 1)
+		end
+		health.warn(
+			string.format(
+				"%d conflict %s (left out of the notes): %s",
+				#conflicts,
+				#conflicts == 1 and "copy" or "copies",
+				table.concat(names, ", ")
+			),
+			{ "Merge each into its note by hand, then delete it" }
+		)
 	end
 
 	local missing = require("zortex.core.starter").missing()

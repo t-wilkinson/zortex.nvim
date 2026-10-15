@@ -50,7 +50,11 @@ The first public release.
 - First run: a new notes folder gets calendar, projects, areas, okr,
   structure and inbox notes from short templates (`:ZortexInit` later).
 - `:checkhealth zortex`: Neovim version, the notes folder, key notes, broken
-  links, the ntfy topic, optional integrations.
+  links, sync conflict copies, the ntfy topic, optional integrations.
+- Conflict copies from Syncthing (`note.sync-conflict-….zortex`), Dropbox
+  and Nextcloud (`note (… conflicted copy …).zortex`) are not notes, in
+  Neovim and on the web, so a copy of `projects.zortex` doesn't double
+  every project.
 - `:help zortex`, generated from the actions and the configuration defaults.
 - Pickers on snacks.picker, telescope or fzf-lua, with the same keys and
   previews on each (`ui.picker = "auto"` follows LazyVim's choice), and

@@ -51,6 +51,8 @@ The first public release.
   both opening with what is left in the inbox, then objectives, XP on key
   results and time spent.
 - [doc/Planning.md](doc/Planning.md) explains the plan, the loop and XP.
+- A `notes_dir` reached through a symlink (or macOS's `/var`) is resolved,
+  so the calendar, the Projects note and task links work in its buffers.
 - First run: a new notes folder gets calendar, projects, areas, okr,
   structure and inbox notes from short templates (`:ZortexInit` later).
 - `:checkhealth zortex`: Neovim version, the notes folder, key notes, broken

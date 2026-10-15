@@ -395,6 +395,15 @@ function Config.setup(opts)
 	vim.fn.mkdir(fs.joinpath(Config.notes_dir, ".z"), "p") -- Store data
 	vim.fn.mkdir(fs.joinpath(Config.notes_dir, "z"), "p") -- Resources and archives
 
+	-- Neovim names a buffer by its resolved path, so resolve notes_dir too:
+	-- a notes folder reached through a symlink (or macOS's /var) must give
+	-- the same paths as its buffers, or the calendar, the Projects note and
+	-- the key notes aren't recognized
+	local real = vim.uv.fs_realpath(Config.notes_dir)
+	if real then
+		Config.notes_dir = real:match("/$") and real or (real .. "/")
+	end
+
 	return Config
 end
 

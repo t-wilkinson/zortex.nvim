@@ -129,8 +129,8 @@ Deferred for now; listed so the pieces fit together later.
   were typed (article only for one word, article + H1/H2 for two, …).
 - **Search inside a folder:** a `z/` or `dir:z/projects` prefix, or a picker
   scope, limiting `services/search` to notes under a directory.
-- **Full-text tokens** described in [Search.md](Search.md) (`@tag` words,
-  escaped spaces everywhere) that the picker does not implement yet.
+- **Tag words in search:** `@tag` narrowing results to sections or lines
+  with that tag.
 
 ## 5. Editing and maintenance
 
@@ -185,8 +185,8 @@ Editing started as a non-goal; `-writable` now covers line-level edits
 
 - **Language: Go.** A single static binary, small resident memory, a mature
   standard library for HTTP and file watching, and simple Nix packaging
-  (`buildGoModule`). Rust would also fit; Python (Flask, like the current `app/`)
-  is the easiest to write but the heaviest at runtime.
+  (`buildGoModule`). Rust would also fit; Python is the easiest to write but the
+  heaviest at runtime.
 - **Grammar: decided — hand-port `core/syntax` to Go** and validate it
   against the conformance fixtures (option A below). A tree-sitter grammar
   is wanted later (section 7).
@@ -265,8 +265,8 @@ two resolvers in sync becomes the main cost, **D** is the natural next step;
   watch it with fsnotify/inotify.
 - **Exposure:** bind to localhost and publish it through the existing reverse
   proxy with authentication (or Tailscale only). The notes are private.
-- **Notifications:** the current `app/` server (Flask + SQLite + ntfy) can stay
-  a separate service, or later become a route in the app.
+- **Notifications:** part of the same binary (`app/alerts`), sent through
+  ntfy.
 
 ### Phases
 

@@ -312,7 +312,7 @@ T.test("bold headings are **Text:** only", function()
 	T.eq({ d.kind, d.text, d.content_col, d.content_end }, { "bold_heading", "Fitness", 2, 9 })
 	T.eq(k("**Spaced:**   ").kind, "bold_heading")
 	T.eq(k("**Ideas @a(4.1):**").text, "Ideas")
-	-- the old forms are plain text now
+	-- bold text, with or without a colon after it, is not a bold heading
 	T.ok(k("**Fitness**").kind ~= "bold_heading")
 	T.ok(k("**Fitness**:").kind ~= "bold_heading")
 	T.ok(k("**:**").kind ~= "bold_heading")

@@ -32,9 +32,6 @@ lives in `-data`. Without `-data` it serves the notes only. The server never
 creates notes of its own except `inbox.zortex` (web edits); Neovim's
 `setup()` creates the key notes in a new folder.
 
-It replaces the old Flask notification server (SQLite, `send.sh`, cron) and
-the old Node app.
-
 ## Quick start
 
 ```sh
@@ -61,14 +58,14 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 
 | page | what |
 |---|---|
-| `/` | search box, the **calendar** (days of `calendar.zortex`, a month grid, scheduled notifications), the **pomodoro** clock with **timer**, **alarm** and **stopwatch** tabs, **season and XP** (level and tier, progress to the next level, XP per day for two weeks, top areas, recent awards), the main notes (`-special`), recently changed notes, notes not yet in the structure, counts |
+| `/` | search box, the **calendar** (days of `calendar.zortex`, a month grid, scheduled notifications), the **pomodoro** clock with **timer**, **alarm** and **stopwatch** tabs, **season and XP** (level and tier, progress to the next level, XP per day for two weeks, top areas, recent awards), recently changed notes, notes not yet in the structure, counts |
 | `/structure` | notes that neither the Structure note (`@@Structure`), any `@Structure` note, nor any note's `# Structure` section links to (archived notes left out); not in the top bar, since `/graph` lists the same notes |
 | `/graph` | the whole structure as cards side by side, one per section of the Structure note, each note with a `# Structure` section opened in place; hover a note to mark the notes it links with, click a tag to mark its notes, filter notes and tags as you type (`@word` for tags); the notes not in it |
 | `/n/<path>` | a rendered note: outline, every line anchored (`#L12`), links resolved with the plugin's rules (to the canonical target; `⁺` when there are more), broken links in red, file paths and markdown links to the file viewer, [tag tables](#tag-tables) and [indexes](#tag-indexes), its [connections](#connections-and-the-graph), "Linked from" (backlinks) |
 | `/n/<path>?view=slides` | the note as a slide deck ([Slides](#slides)) |
 | `/search?q=` | structural search, the plugin's ranking: sections whose path matches the words in order, then lines with every word; results update as you type, `↑`/`↓` + Enter, `/` focuses search anywhere |
 | `/link?to=&from=` | resolve a link: one target redirects, several are listed (a tag search as a [table](#tag-tables)), failures say why |
-| `/f/<path>` | file browser (sort by name (notes by article name) or modified time, either direction: `?sort=modified&order=desc`, kept in folder links; top level: the main notes unless "show all"; hidden folders and Syncthing artefacts never) and viewer: PDF, image, video, audio (with seeking), text, sandboxed HTML/SVG (HTML runs script with `-html-scripts`), [Markdown](#markdown-files) rendered like a note; HTML and Markdown have a "source" link (`?source=1`) to their text |
+| `/f/<path>` | file browser (sort by name (notes by article name) or modified time, either direction: `?sort=modified&order=desc`, kept in folder links; notes with a generated name, like `2026-10-15.042.zortex` from "create note" in search, only with "show all"; hidden folders and Syncthing artefacts never) and viewer: PDF, image, video, audio (with seeking), text, sandboxed HTML/SVG (HTML runs script with `-html-scripts`), [Markdown](#markdown-files) rendered like a note; HTML and Markdown have a "source" link (`?source=1`) to their text |
 | `/raw/<path>` | the file as is: byte ranges, `?download=1`; HTML/SVG/XML with `Content-Security-Policy: sandbox` (`sandbox allow-scripts` for HTML with `-html-scripts`); nothing outside the folder, no hidden files |
 | `/tags`, `/tag/<name>` | header tags and their notes (the top bar's Graph lists the tags too); an area attribute in a header (`@area(4.1)`, `@a(1.2/Fitness)`) links to its area (`[A/#4.1]`) |
 | `/resources` | PDFs, books, images, media and documents, and which ones nothing links to (all by default; filter by unlinked/linked, type, folder); file pages show their own "Linked from", folder listings count links and unlinked files |
@@ -81,9 +78,7 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 Flags (each also an environment variable): `-dir` (`ZORTEX_NOTES_DIR`),
 `-addr` (`ZORTEX_ADDR`, default `127.0.0.1:8090`), `-base` (`ZORTEX_BASE`:
 the URL prefix when a proxy serves it below `/`, e.g. `/notes`), `-title`
-(`ZORTEX_TITLE`), `-poll` (`ZORTEX_POLL`, default `3s`), `-special`
-(`ZORTEX_SPECIAL`, default `calendar,structure,projects,areas,okr`),
-`-resources` (`ZORTEX_RESOURCES`: extensions tracked as resources; NixOS:
+(`ZORTEX_TITLE`), `-poll` (`ZORTEX_POLL`, default `3s`), `-resources` (`ZORTEX_RESOURCES`: extensions tracked as resources; NixOS:
 `web.resourceExtensions`).
 
 **Resources and their backlinks.** A file counts as linked when a note or
@@ -311,9 +306,7 @@ State flags (with `-data`): `-data` (`ZORTEX_DATA_DIR`, or systemd's
 }
 ```
 
-The old `services.zortex.port`, `interval`, `notesUrl` and
-`web.calendarUrl` options still evaluate (with a warning) but do nothing:
-everything is one service on `web.port`. It runs as the `zortex` user with
+Everything is one service on `web.port`. It runs as the `zortex` user with
 read-only access to `notesDir`, a writable `dataDir` (`/var/lib/zortex`) and
 the usual systemd hardening.
 
@@ -324,7 +317,7 @@ the usual systemd hardening.
 | `POST /notify` | `{user_id, operation: "sync", notifications: [...]}` replaces the user's pending notifications (unchanged ones keep their identity; an identical manifest is a no-op: `{unchanged: true}`); `operation: "notify"` adds one; `"clear"` removes the pending ones |
 | `GET /pending?user_id=` | pending notifications |
 | `POST /test` | `{title?, message?}`: publish through ntfy now and report |
-| `GET /api/calendar?from=&to=` | `days` (entries of `calendar.zortex` with time, text, rendered HTML, task state, whether a notification is scheduled), `notifications`, `count`, `next_event`; plus the old server's `events` / `text_view` |
+| `GET /api/calendar?from=&to=` | `days` (entries of `calendar.zortex` with time, text, rendered HTML, task state, whether a notification is scheduled), `notifications`, `count`, `next_event` |
 | `GET /api/summary` | for homelab dashboards: pending count, upcoming notifications as text/HTML, the pomodoro |
 | `GET /api/pomodoro` | phase, running, remaining, ends_at, session, completed, today, settings, `next_alarm`, `ntfy` |
 | `POST /api/pomodoro/{start,pause,resume,toggle,skip,stop,restart}` | drive the clock |
@@ -355,12 +348,6 @@ break, or Restart cycle), `pomodoro-work-end` / `pomodoro-break-end` (the next
 phase waits for you when auto-start is off), `pomodoro-stop`. Timers carry
 `timer`, alarms `alarm`. A timer or alarm that came due while the server was
 down is sent when it starts again if it is under 10 minutes late.
-
-**Migrating from the Flask server**: point the plugin's `server.api_endpoint`
-at `zortex serve` (port 8090 by default, plus `-base` if set) and save the
-calendar once (or `:ZortexNotificationsSync force`); the old
-`notifications.db` isn't read. The Flask `/api/notes/*` endpoints are gone:
-the web app's pages and `/api/search`, `/api/resolve`, `/raw/…` cover them.
 
 ## Go packages
 

@@ -62,6 +62,12 @@ local function item_line(item)
 		}
 end
 
+-- An inbox line, as written ("- [ ] Call the plumber"; plain text gets a "- ")
+local function inbox_line(x)
+	local line = x.text:match("^[-*+] ") and x.text or ("- " .. x.text)
+	return line, { file = x.file, lnum = x.lnum }
+end
+
 local function entity_line(e, suffix)
 	return "- " .. (e.link or e.name) .. (suffix and (" " .. vim.trim(suffix)) or ""), { file = e.file, lnum = e.lnum }
 end
@@ -110,14 +116,16 @@ function M.render(r, opts)
 	add(string.format("Today %s · looking back to %s, ahead to %s", r.today, r.from, r.to))
 	add(
 		string.format(
-			"%d overdue · %d due soon · %d completed · %d stale · %d broken links",
+			"%d overdue · %d due soon · %d completed · %d stale · %d broken links · %d in the inbox",
 			#r.overdue,
 			#r.due_soon,
 			#r.completed,
 			#r.stale,
-			#r.broken_links
+			#r.broken_links,
+			#(r.inbox or {})
 		)
 	)
+	M.render_inbox(r, section)
 
 	M.render_plan(r, add, section)
 
@@ -257,6 +265,14 @@ function M.render_plan(r, add, section, opts)
 	end
 end
 
+--- The inbox, first: thoughts added since (from Neovim or the web app) to
+--- move into projects, the calendar or notes. Nothing when it is empty.
+function M.render_inbox(r, section)
+	if r.inbox and #r.inbox > 0 then
+		section("Inbox (move each into a project, the calendar or a note)", r.inbox, inbox_line)
+	end
+end
+
 --- The daily review: what today (or since the last daily review) added up to.
 function M.render_day(r, add, section)
 	local since = r.from == r.today and "today" or ("since " .. r.from)
@@ -265,14 +281,16 @@ function M.render_day(r, add, section)
 	local cal = r.calendar or { entries = 0, tasks = 0, done = 0, open = {} }
 	add(
 		string.format(
-			"%d completed · %d of %d calendar tasks done · %d overdue · %d due by tomorrow",
+			"%d completed · %d of %d calendar tasks done · %d overdue · %d due by tomorrow · %d in the inbox",
 			#r.completed,
 			cal.done,
 			cal.tasks,
 			#r.overdue,
-			#r.due_soon
+			#r.due_soon,
+			#(r.inbox or {})
 		)
 	)
+	M.render_inbox(r, section)
 	M.render_plan(r, add, section, { brief = false })
 	add("")
 	add("# Day")

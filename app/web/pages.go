@@ -182,13 +182,6 @@ func ago(t time.Time) string {
 
 func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 	snap := s.current()
-	var special []string
-	for _, name := range s.cfg.Special {
-		rel := strings.ToLower(strings.TrimSpace(name)) + s.cfg.Ext
-		if s.ix.Doc(rel) != nil {
-			special = append(special, rel)
-		}
-	}
 	recent := snap.recent
 	if len(recent) > 15 {
 		recent = recent[:15]
@@ -221,7 +214,6 @@ func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 		"Writable":       s.cfg.Writable,
 		"Structure":      snap.structure,
 		"StructureShown": shown,
-		"Special":        special,
 		"Recent":         rows,
 		"Notes":          snap.notes,
 		"Links":          snap.links,

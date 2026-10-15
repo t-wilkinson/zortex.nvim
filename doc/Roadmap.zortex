@@ -93,6 +93,18 @@ Things that break or embarrass a first-time user. Do these before telling anyone
 - [ ] `:ZortexProjectRename`: rename a heading and rewrite every link (`link_index.references`) @p3 @size(md)
 - [ ] Broken links as `vim.diagnostic` from `link_index.unresolved()` @p3 @size(sm)
 
+## 3.8 Before publishing
+- [x] Web: a "- Key: text" item wraps under its key, not in a column after it @p3 @size(xs) @done(2026-10-15)
+- [x] File browser lists every file and hides only notes with generated names (`2026-10-15.042.zortex`) until "show all"; `-special`, `ZORTEX_SPECIAL`, `notesSpecial` and the home page's Notes panel are gone @p2 @size(sm) @done(2026-10-15)
+- [x] Search: a note's file name is an alias of its articles (section, article and text mode; Neovim and web) @p2 @size(sm) @done(2026-10-15)
+- [x] Daily and weekly reviews list what is left in the inbox first @p2 @size(sm) @done(2026-10-15)
+- [x] ntfy `zortex-notify` warning only on the public ntfy.sh; `/api/calendar` `events` / `text_view` and the sync reply's `upserted` removed @p3 @size(xs) @done(2026-10-15)
+- [x] Docs: default `notes_dir` `~/zortex`; notes in `notes_dir`, `z/` for resources and archives; keeping notes in sync with a server; README introduction; Search.md as a guide; no Upgrading section; no comments about earlier versions @p2 @size(md) @done(2026-10-15)
+- [ ] Leave Syncthing conflict copies (`*.sync-conflict-*.zortex`) out of the note index in Neovim and Go: today they are notes, so a conflicted `projects.zortex` doubles every project and makes links ambiguous @p1 @size(xs)
+- [ ] doc/Philosophy.md for strangers: it describes `- #one#two#` tags and a "Storage" file that don't exist, and has typos @p2 @size(xs)
+- [ ] Retake `doc/images/web-home.png` (the Notes panel is gone) @p3 @size(xs)
+- [ ] Web search: plain text mode, as in Neovim @p3 @size(sm)
+
 # 4 After v0.1.0
 - [ ] Tree-sitter grammar with the AST fixtures as acceptance tests (Wishlist # 7) @size(xl)
 - [x] LazyVim defaults: blink.cmp source next to the nvim-cmp one; pickers behind one interface with snacks.picker and fzf-lua backends next to telescope (`ui.picker = "auto"`) @size(lg) @done(2026-10-15)

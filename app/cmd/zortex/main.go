@@ -58,7 +58,7 @@ func usage() {
   zortex sections FILE...
   zortex resolve [-dir DIR] [-from REL] LINK...
   zortex search [-dir DIR] [-mode section|article] [-n N] PROMPT...
-  zortex serve [-dir DIR] [-addr HOST:PORT] [-base /PREFIX] [-title T] [-poll D] [-special a,b] [-resources pdf,png,...]
+  zortex serve [-dir DIR] [-addr HOST:PORT] [-base /PREFIX] [-title T] [-poll D] [-resources pdf,png,...]
                [-data DIR] [-ntfy-url URL] [-ntfy-topic T] [-ntfy-token TOKEN] [-api-key KEY] [-writable]
   zortex version`)
 	os.Exit(2)
@@ -154,7 +154,6 @@ func serveCmd(args []string) {
 	base := fs.String("base", os.Getenv("ZORTEX_BASE"), "URL prefix when proxied below /, e.g. /notes ($ZORTEX_BASE)")
 	title := fs.String("title", envOr("ZORTEX_TITLE", "Zortex"), "site title ($ZORTEX_TITLE)")
 	poll := fs.Duration("poll", 3*time.Second, "how often to rescan the folder (negative: never)")
-	special := fs.String("special", envOr("ZORTEX_SPECIAL", strings.Join(web.DefaultSpecial, ",")), "top-level notes listed by default ($ZORTEX_SPECIAL)")
 	resources := fs.String("resources", os.Getenv("ZORTEX_RESOURCES"), "extensions tracked as resources for backlinks and the unlinked list, e.g. pdf,epub,png (default: documents, books, images, media) ($ZORTEX_RESOURCES)")
 	dataDefault := os.Getenv("ZORTEX_DATA_DIR")
 	if dataDefault == "" {
@@ -210,7 +209,6 @@ func serveCmd(args []string) {
 		Title:        *title,
 		Base:         *base,
 		Poll:         *poll,
-		Special:      strings.Split(*special, ","),
 		DataDir:      *data,
 		Ntfy:         ntfy,
 		APIKey:       *apiKey,

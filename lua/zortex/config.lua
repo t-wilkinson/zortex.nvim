@@ -3,7 +3,7 @@ local Config = {}
 local constants = require("zortex.constants")
 
 local defaults = {
-	notes_dir = vim.fn.expand("~/.zortex/"),
+	notes_dir = vim.fn.expand("~/zortex/"),
 	extension = ".zortex",
 	-- A new notes folder gets calendar, projects, areas, okr, structure and
 	-- inbox notes from short templates (:ZortexInit adds missing ones later)
@@ -145,7 +145,7 @@ local defaults = {
 		picker = "auto",
 
 		-- Highlight groups: linked to your colorscheme by default.
-		-- preset = "rose-pine" for the original palette; groups = { ZortexLink = { fg = "#3e8fb0" } }
+		-- preset = "rose-pine" for a Rose Pine Moon palette; groups = { ZortexLink = { fg = "#3e8fb0" } }
 		highlights = {
 			preset = nil,
 			groups = {},
@@ -393,7 +393,7 @@ function Config.setup(opts)
 	-- Ensure core zortex folders exist
 	local fs = require("zortex.utils.filesystem")
 	vim.fn.mkdir(fs.joinpath(Config.notes_dir, ".z"), "p") -- Store data
-	vim.fn.mkdir(fs.joinpath(Config.notes_dir, "z"), "p") -- User library
+	vim.fn.mkdir(fs.joinpath(Config.notes_dir, "z"), "p") -- Resources and archives
 
 	return Config
 end

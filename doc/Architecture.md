@@ -614,8 +614,8 @@ syntax (sections start folds; other lines nest by indentation), so code inside
 fences never opens a fold.
 
 **Structural search** (`services/search.lua` for matching and ranking,
-`ui/picker/search.lua` for the picker) works like the original search
-service. Results are sections shown as **full breadcrumbs** of their
+`ui/picker/search.lua` for the picker; [Search.md](Search.md) is the user's
+guide). Results are sections shown as **full breadcrumbs** of their
 hierarchy, followed by lines that contain every word.
 
 **Matching follows the path in order.** Search words are matched against a
@@ -631,7 +631,7 @@ section's path (article → headings → … → the section itself):
 
 | word               | matches                                                   |
 | ------------------ | --------------------------------------------------------- |
-| `plain`            | any section (article aliases count, so `p` matches `@@P`) |
+| `plain`            | any section (article aliases and the file name count, so `p` matches `@@P`) |
 | `@@name`           | articles only                                             |
 | `#name`            | headings only                                             |
 | `:name`            | labels only                                               |
@@ -681,9 +681,6 @@ quickfix list) records it:
   Word quality is worth 100 per point, so history reorders similar matches
   and files but never outranks a better match type (article vs heading)
 - `search_history.clear()` forgets everything
-
-[Search.md](Search.md) is the fuller target spec; the table above is what is
-implemented.
 
 **Completion** (`features/completion.lua`; the nvim-cmp source, and
 `features/blink.lua` for blink.cmp, both from `lsp_items`): `setup()`

@@ -107,6 +107,7 @@ h1:hover .pin, h2:hover .pin, h3:hover .pin, h4:hover .pin, h5:hover .pin, h6:ho
 .marker.time, .time { font-family: var(--mono); font-size: 0.86em; color: var(--accent); font-variant-numeric: tabular-nums; }
 .marker.time { flex: none; }
 .key { flex: none; font-weight: 600; margin-right: 0.15rem; }
+.body.keyed > .box { margin: 0 0.3rem 0 0.15rem; }
 .box { flex: none; display: inline-block; width: 0.95rem; height: 0.95rem; border: 1.5px solid var(--dim); border-radius: 3px; transform: translateY(0.12rem); text-align: center; font-size: 0.7rem; line-height: 0.8rem; }
 .box.done { background: var(--done); border-color: var(--done); }
 .box.done::after { content: "✓"; color: var(--panel); font-weight: 700; }

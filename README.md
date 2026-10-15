@@ -1,28 +1,57 @@
 # zortex.nvim
 
-A plain-text second brain for Neovim. Notes are `.zortex` files (a markdown
-dialect) that link to each other by structure: `[Sourdough/#Method]`,
-`[P/#1.1 Kitchen shelves]`. Projects, areas, objectives and a calendar are
-notes too, so tasks, plans and knowledge live in one folder you can sync.
-An optional server shows it all in the browser, with a calendar, a pomodoro
-and notifications on your phone.
+A plain-text life-management system for Neovim. It started as a
+Zettelkasten and second-brain experiment and grew into one folder that holds
+what you know and what you're doing: notes, projects, areas, objectives, a
+calendar and a pomodoro, all linked to each other. Notes are `.zortex`
+files (a markdown dialect) that link by structure, not ids:
+`[Sourdough/#Method]`, `[P/#1.1 Kitchen shelves]`. The backlinks, tags,
+embeds, graph and slides you'd expect from Obsidian are here too, in plain
+text you own and sync however you like.
 
 <p align="center">
   <img src="doc/images/nvim-projects.png" width="49%" alt="A projects note in Neovim: headings, tasks with sizes and dates, links">
   <img src="doc/images/web-home.png" width="49%" alt="The web app's home page: today's calendar, the pomodoro and the season">
 </p>
 
-- **Structural search** over every note: `2 4` finds `1 › 2 › 3 › 4`.
-  Hundreds of notes and tens of thousands of lines stay instant.
-- **Links** that name structure, not ids: follow, preview, complete while
-  typing, backlinks, broken links.
+**Notes and knowledge**
+
+- **Structural search** over every note: `2 4` finds `1 › 2 › 3 › 4`, and a
+  file name finds its note. Hundreds of notes and tens of thousands of
+  lines stay instant.
+- **Links** that name structure: follow, preview, complete while typing,
+  backlinks, and **broken-link tracking** in Neovim, the reviews and the
+  web app.
+- **Tag tables**: `!@[@Library/rust]` gathers the lines tagged `@rust` in
+  every `@Library` note into a table, in place.
+- **Slides**: any note is a deck (`:ZortexPresent`), with speaker notes,
+  items revealed step by step, images and math.
+
+**Planning and doing**
+
 - **Projects, areas and OKRs** (PARA plus objectives and key results) with
-  progress, due dates and a weekly review; a **day planner** that fills the
-  calendar from them.
-- **XP and seasons** read off the tasks you complete.
-- **`zortex serve`** (optional, one Go binary): your notes on the web, the
-  calendar, ntfy notifications, a pomodoro shared with Neovim, timers and
-  time tracking, light editing from your phone.
+  progress, due dates and daily and weekly reviews; a **day planner** that
+  fills the calendar, key-result work first.
+- **XP that follows the plan**: finished tasks pay XP by their estimated
+  hours, work on a project a key result links counts toward that
+  objective's areas, and the season is progress on this quarter's
+  objectives. Getting PARA work done shows up as OKR results, with no
+  bookkeeping.
+- **Pomodoro** shared by Neovim and the browser; its time goes to the
+  calendar task you're on (`@spent(1h25m)`).
+- **Inbox**: jot a thought down from the web app (or Neovim) and the next
+  review lists it for you to file away.
+
+**On the web** (`zortex serve`, optional: one Go binary)
+
+- Your notes rendered and searchable, with the calendar, the pomodoro and
+  XP on the home page, light editing from your phone, and ntfy
+  notifications.
+- A **note graph**: the Structure note as cards, the notes each one links
+  with marked on hover, and the notes it doesn't reach.
+- A **personal file viewer**: PDFs, images, video, Markdown with math
+  (KaTeX), sandboxed HTML; each file shows which notes link to it, and
+  `/resources` lists the ones nothing links to.
 
 ## Quickstart
 
@@ -61,7 +90,7 @@ Then, in five minutes:
 3. **Add a task** under `# 1 Example project`: `- [ ] Read the docs @size(sm)`.
    Toggle it with `<leader>zT`: it becomes `[x]` with `@done(today)` (and
    an `@id`, which keeps links and the web app pointing at it).
-4. **Write a note**: `:e ~/zortex/z/bread.zortex`, first line `@@Bread`, then
+4. **Write a note**: `:e ~/zortex/bread.zortex`, first line `@@Bread`, then
    `# Method` and a few lines. Back in the structure note, type `[Bre`:
    completion offers `Bread`; `[Bread/#Method]` links to the heading.
 5. **Search** with `<leader>zz`: type `bread meth` (words match the section
@@ -72,7 +101,8 @@ Then, in five minutes:
 Next: the note format is in [doc/Syntax.md](doc/Syntax.md),
 [doc/example](doc/example) is a small folder using most of it, and
 `:checkhealth zortex` checks the setup. The server is optional; see
-[doc/Server.md](doc/Server.md).
+[doc/Server.md](doc/Server.md), which also covers keeping the notes in sync
+with a server (Syncthing, Nextcloud, Unison, git or rsync).
 
 **Configuration.** Every option and its default is in
 [`lua/zortex/config.lua`](lua/zortex/config.lua); `setup()` merges yours over
@@ -85,8 +115,9 @@ and `xp` (how many hours each `@size` stands for, and what that is worth;
 
 ## Notes
 
-Every note is a `.zortex` file under `notes_dir` (subfolders included; `z/`
-is the usual place for the library). A note starts with a header:
+Every note is a `.zortex` file under `notes_dir`. Notes go in `notes_dir`
+itself; `z/` holds resources (PDFs, images, books) and archives. Notes in
+subfolders work too. A note starts with a header:
 
 ```
 @@Projects          article name (the first @@ line)
@@ -122,7 +153,8 @@ Special notes:
 
 - **Structural search** (`<leader>zz`): words match a section's path in order
   (`2 4` finds `1 › 2 › 3 › 4`), results are breadcrumbs ranked by hierarchy,
-  and what you open often ranks higher. `<leader>z/` searches plain text in
+  and what you open often ranks higher. A note's file name is one more
+  alias of its articles (`okr` finds `@@Objectives` in `okr.zortex`). `<leader>z/` searches plain text in
   every line instead; `<M-t>` in the picker cycles section, article and text
   search.
 - **which-key**: when [which-key.nvim](https://github.com/folke/which-key.nvim)
@@ -145,7 +177,7 @@ Special notes:
   stays in the list; `i`/`o`/`O` put it on the current/next/previous line
   and let you type its time.
 - **Reviews**: daily (`<leader>zW`, since the last one) and weekly
-  (`<leader>zw`). Both open with your objectives and key results against the
+  (`<leader>zw`). Both open with what is left in the inbox, then your objectives and key results against the
   time passed, the XP earned and how much of it was on key results, and the
   time spent per task; then what you completed, what's overdue or due, and
   (weekly) stale and unscheduled projects, key results without projects,

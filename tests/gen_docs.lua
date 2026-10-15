@@ -96,11 +96,13 @@ local function wrap(text, indent)
 end
 
 local INTRO = {
-	"zortex.nvim is a plain-text second brain: notes are `.zortex` files (a",
-	"markdown dialect) that link to each other by structure, `[Sourdough/#Method]`",
-	"or `[P/#1.1 Kitchen shelves]`. Projects, areas, objectives and the calendar",
-	"are notes too. An optional server (`zortex serve`) shows them in a browser,",
-	"with a calendar, a pomodoro and phone notifications through ntfy.",
+	"zortex.nvim is a plain-text life-management system: notes are `.zortex`",
+	"files (a markdown dialect) that link to each other by structure,",
+	"`[Sourdough/#Method]` or `[P/#1.1 Kitchen shelves]`. Projects, areas,",
+	"objectives and the calendar are notes too. Notes live in `notes_dir`",
+	"(default `~/zortex`); `z/` holds resources and archives. An optional server",
+	"(`zortex serve`) shows them in a browser, with a calendar, a pomodoro and",
+	"phone notifications through ntfy.",
 	"",
 	"Requires Neovim 0.10 or newer. Optional: snacks.nvim, telescope.nvim or",
 	"fzf-lua (pickers; `ui.picker`), blink.cmp or nvim-cmp (link completion).",
@@ -202,7 +204,7 @@ function M.vimdoc_lines()
 			out[#out + 1] = t
 		end
 	end
-	add("*zortex.txt*  A plain-text second brain for Neovim")
+	add("*zortex.txt*  Plain-text notes and life management for Neovim")
 	add(string.rep(" ", W - #"*zortex* *zortex.nvim*") .. "*zortex* *zortex.nvim*")
 	add("")
 	add("Generated from lua/zortex/actions.lua and config.lua by tests/gen_docs.lua.")

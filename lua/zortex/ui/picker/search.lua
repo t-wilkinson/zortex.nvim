@@ -71,6 +71,9 @@ function M.format(r)
 		out[#out + 1] = { " › ", "Comment" }
 	end
 	out[#out + 1] = { vim.trim(r.line), line_hl(r.line) }
+	if r.file_match then
+		out[#out + 1] = { "  (file " .. r.file_match .. ")", "Comment" }
+	end
 	return out
 end
 

@@ -89,8 +89,8 @@ function M.check_ntfy(health, Config)
 		health.warn("ntfy is enabled but has no topic: nothing is sent", {
 			"Set notifications.providers.ntfy.topic to a private, hard-to-guess name",
 		})
-	elseif topic == "zortex-notify" then
-		health.warn("ntfy topic is zortex-notify, the old shared default: anyone can read it", {
+	elseif topic == "zortex-notify" and (ntfy.server_url or "https://ntfy.sh"):match("^https?://ntfy%.sh/?$") then
+		health.warn("ntfy topic is zortex-notify on the public ntfy.sh: anyone can read it", {
 			"Pick a private, hard-to-guess topic (and the same in the server's NTFY_TOPIC)",
 		})
 	else

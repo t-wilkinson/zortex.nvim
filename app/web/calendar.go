@@ -192,7 +192,6 @@ func (r *noteRenderer) entryHTML(line string, lnum, from int) string {
 //	notifications  scheduled notifications from 30 days ago on
 //	count          pending notifications
 //	next_event     "HH:MM title" of the next notification
-//	events, text_view   the old server's fields (dashboards)
 func (s *Server) apiCalendar(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	from, to := r.URL.Query().Get("from"), r.URL.Query().Get("to")
@@ -220,11 +219,9 @@ func (s *Server) apiCalendar(w http.ResponseWriter, r *http.Request) {
 		"today":         now.Format("2006-01-02"),
 		"days":          days,
 		"notifications": view.events,
-		"events":        view.events,
 		"count":         view.pending,
 		"next_event":    view.next,
 		"next_time":     view.nextTime,
-		"text_view":     view.text,
 		"notes_enabled": s.alerts != nil,
 		"writable":      s.cfg.Writable,
 		"ntfy":          s.cfg.Ntfy.Enabled(),

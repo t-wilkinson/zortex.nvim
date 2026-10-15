@@ -26,7 +26,7 @@ Notes:
 
 # How
 ## The plan, drawn
-![./images/loop.svg]
+![./z/images/loop.svg]
 
 ## Math
 Time on a task in hours is $t = \frac{\text{XP}}{10}$, and over a season

@@ -92,14 +92,10 @@ local attribute_parsers = {
 				local link = "[" .. definition .. "]"
 
 				table.insert(links, {
-					raw = v, -- Original value
+					raw = v, -- the attribute value as written
 					definition = definition,
 					link = link, -- Full link format
 					path = link_path,
-					-- components = components, -- Original components
-					-- processed = processed, -- Processed components with prefixes
-					-- heading = processed[1], -- The heading component (with #)
-					-- label = processed[2], -- The label component (with :) if exists
 				})
 			end
 			::continue::

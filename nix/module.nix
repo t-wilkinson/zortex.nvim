@@ -38,8 +38,6 @@ let
     web.title
     "-poll"
     web.pollInterval
-    "-special"
-    (concatStringsSep "," cfg.notesSpecial)
     "-data"
     (toString cfg.dataDir)
   ]
@@ -153,20 +151,6 @@ in
       description = "Extra group that gives the service read access to notesDir.";
     };
 
-    notesSpecial = mkOption {
-      type = types.listOf types.str;
-      default = [
-        "calendar"
-        "structure"
-        "projects"
-        "areas"
-        "okr"
-      ];
-      description = ''
-        Top-level notes listed on the home page and shown by default in file
-        listings (other top-level files are hidden until "show all").
-      '';
-    };
 
     timezone = mkOption {
       type = types.nullOr types.str;
@@ -308,8 +292,8 @@ in
         services.zortex.ntfy.topic is not set: calendar notifications and
         pomodoro alerts won't be sent. Set a private, hard-to-guess topic.
       ''
-      ++ optional (cfg.ntfy.topic == "zortex-notify") ''
-        services.zortex.ntfy.topic is "zortex-notify", the old shared default:
+      ++ optional (cfg.ntfy.topic == "zortex-notify" && hasPrefix "https://ntfy.sh" cfg.ntfy.url) ''
+        services.zortex.ntfy.topic is "zortex-notify" on the public ntfy.sh:
         anyone can read it. Pick a private, hard-to-guess topic.
       '';
 

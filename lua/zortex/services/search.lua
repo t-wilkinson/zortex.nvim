@@ -43,7 +43,6 @@
 -- No UI here: ui/telescope/search.lua is the picker, zortex.query.search the
 -- plain-data entry point.
 local M = {}
-local fs = require("zortex.utils.filesystem")
 local Config = require("zortex.config")
 
 -- ---------------------------------------------------------------------------
@@ -536,7 +535,6 @@ end
 -- Exposed for tests
 M._tokenize = tokenize
 M._path_match = path_match
-
 
 --- Every note to search, archived ones included, in a stable order (top-level
 --- first, then by path; core/notes), so line results come out the same on any

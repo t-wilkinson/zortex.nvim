@@ -15,7 +15,6 @@
 -- Every suggestion resolves when inserted.
 local M = {}
 
-
 local function notes()
 	return require("zortex.core.notes")
 end
@@ -510,6 +509,5 @@ function M.setup_cmp_sorting(cmp)
 	}
 	pcall(cmp.setup.filetype, "zortex", current)
 end
-
 
 return M

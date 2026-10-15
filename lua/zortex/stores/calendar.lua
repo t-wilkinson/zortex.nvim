@@ -319,16 +319,6 @@ function M.delete_entry(entry)
 	return true
 end
 
-function M.delete_entry_by_text(date_str, entry_text)
-	M.ensure_loaded()
-	for _, entry in ipairs(state.entries[date_str] or {}) do
-		if entry.raw_text == entry_text then
-			return M.delete_entry(entry)
-		end
-	end
-	return false
-end
-
 -- Index into get_entries_for_date(date_str): the list the UI shows.
 function M.delete_entry_by_index(date_str, entry_index)
 	local entries = M.get_entries_for_date(date_str)
@@ -389,25 +379,6 @@ function M.get_entries_for_date(date_str)
 	return active_entries
 end
 
-function M.get_entries_in_range(start_date, end_date)
-	M.ensure_loaded()
-
-	local entries_by_date = {}
-	local current = datetime.parse_date(start_date)
-	local end_time = os.time(datetime.parse_date(end_date))
-
-	while os.time(current) <= end_time do
-		local date_str = datetime.format_datetime(current, "YYYY-MM-DD")
-		local entries = M.get_entries_for_date(date_str)
-		if #entries > 0 then
-			entries_by_date[date_str] = entries
-		end
-		current = datetime.add_days(current, 1)
-	end
-
-	return entries_by_date
-end
-
 -- Get all entries (for search/telescope)
 function M.get_all_entries()
 	M.ensure_loaded()
@@ -424,6 +395,5 @@ function M.get_all_entries()
 
 	return all_entries
 end
-
 
 return M

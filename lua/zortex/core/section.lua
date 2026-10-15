@@ -43,14 +43,6 @@ function Section:is_root()
 	return self.type == "root"
 end
 
--- Unique identifier: lowercased "/"-joined path of texts.
-function Section:get_id()
-	if not self._id then
-		self._id = table.concat(self:path_texts(), "/"):gsub("%s+", "_"):lower()
-	end
-	return self._id
-end
-
 -- Ancestors from the root down to (excluding) this section. Cached.
 function Section:get_path()
 	if not self._path then
@@ -110,11 +102,6 @@ function Section:get_direct_end_line()
 	return self.end_line
 end
 
--- Only the lines belonging directly to this section (excluding sub-sections)
-function Section:get_direct_lines(bufnr)
-	return require("zortex.utils.buffer").get_lines(bufnr, self.start_line, self:get_direct_end_line())
-end
-
 function Section:contains_line(line_num)
 	return line_num >= self.start_line and line_num <= self.end_line
 end
@@ -127,26 +114,11 @@ function Section:get_priority()
 	return self.level or constants.SECTION_HIERARCHY.get_priority(self.type)
 end
 
-function Section:can_contain(other_section)
-	return self:get_priority() < other_section:get_priority()
-end
-
 function Section:add_child(child)
 	child.parent = self
 	table.insert(self.children, child)
 	child._path = nil
 	child._id = nil
-end
-
-function Section:remove_child(child)
-	for i, c in ipairs(self.children) do
-		if c == child then
-			table.remove(self.children, i)
-			child.parent = nil
-			return true
-		end
-	end
-	return false
 end
 
 -- Deepest descendant containing line (nil if no child contains it)
@@ -233,43 +205,6 @@ end
 -- -----------------------------------------------------------------------------
 -- Editing helpers
 -- -----------------------------------------------------------------------------
-
--- Update section bounds (after buffer changes)
-function Section:update_bounds(start_line, end_line)
-	local line_diff = (end_line - start_line) - (self.end_line - self.start_line)
-
-	self.end_line = end_line
-
-	local function shift_sections(section, diff)
-		section.start_line = section.start_line + diff
-		section.end_line = section.end_line + diff
-		for _, child in ipairs(section.children) do
-			shift_sections(child, diff)
-		end
-	end
-
-	if self.parent then
-		local found_self = false
-		for _, sibling in ipairs(self.parent.children) do
-			if found_self and sibling ~= self then
-				shift_sections(sibling, line_diff)
-			elseif sibling == self then
-				found_self = true
-			end
-		end
-	end
-end
-
-function Section:format_display()
-	local type_symbols = {
-		[constants.SECTION_TYPE.ARTICLE] = "📄",
-		[constants.SECTION_TYPE.HEADING] = string.rep("#", self.level or 1),
-		[constants.SECTION_TYPE.BOLD_HEADING] = "**",
-		[constants.SECTION_TYPE.LABEL] = ":",
-		[constants.SECTION_TYPE.TAG] = "@",
-	}
-	return string.format("%s %s", type_symbols[self.type] or "", self.text)
-end
 
 -- =============================================================================
 -- Tree construction (single canonical builder)

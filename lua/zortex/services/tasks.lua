@@ -2,7 +2,6 @@
 local M = {}
 
 local Events = require("zortex.core.event_bus")
-local Logger = require("zortex.core.logger")
 local Item = require("zortex.core.item")
 local workspace = require("zortex.core.workspace")
 local attributes = require("zortex.utils.attributes")

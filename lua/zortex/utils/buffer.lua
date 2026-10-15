@@ -1,20 +1,6 @@
 -- utils/buffer.lua - Buffer operations for Zortex
 local M = {}
 
-
-function M.get_filepath(bufnr)
-	return vim.api.nvim_buf_get_name(bufnr)
-end
-
-function M.get_context()
-	local cursor = vim.api.nvim_win_get_cursor(0)
-	return {
-		bufnr = vim.api.nvim_get_current_buf(),
-		lnum = cursor[1],
-		col = cursor[0],
-	}
-end
-
 -- =============================================================================
 -- Buffer Reading
 -- =============================================================================
@@ -45,11 +31,6 @@ end
 -- =============================================================================
 -- Buffer Modification Helpers
 -- =============================================================================
-
-function M.update_line(bufnr, lnum, new_text)
-	bufnr = bufnr or 0
-	vim.api.nvim_buf_set_lines(bufnr, lnum - 1, lnum, false, { new_text })
-end
 
 function M.insert_lines(bufnr, lnum, lines)
 	bufnr = bufnr or 0

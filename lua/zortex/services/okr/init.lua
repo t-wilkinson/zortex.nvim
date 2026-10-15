@@ -55,7 +55,6 @@ function M.objectives(opts)
 	})
 end
 
-
 -- Every key result, in document order. opts.open: only KRs not done.
 ---@param opts { open?: boolean }?
 function M.key_results(opts)

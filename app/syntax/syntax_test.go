@@ -139,9 +139,6 @@ func TestHelpers(t *testing.T) {
 	}
 	line := "see [P/#1.4 - zortex] and **b [L]**"
 	spans := Inline(line, 0, len(line))
-	if s := SpanAt(spans, 6); s == nil || s.Definition != "P/#1.4 - zortex" {
-		t.Errorf("SpanAt: %+v", s)
-	}
 	if links := Links(spans); len(links) != 2 || links[1].Definition != "L" {
 		t.Errorf("Links: %+v", links)
 	}

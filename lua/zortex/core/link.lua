@@ -317,7 +317,6 @@ local function search_pattern(component)
 	end
 end
 
-
 -- Lowercased lines, per lines table (document snapshots never change, so a
 -- note searched by many links is lowercased once)
 local lowered = setmetatable({}, { __mode = "k" })

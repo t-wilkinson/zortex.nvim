@@ -33,11 +33,6 @@ function M.schedule(notification)
 	return manager.schedule_notification(notification)
 end
 
--- Cancel a scheduled notification
-function M.cancel(id)
-	return manager.cancel_notification(id)
-end
-
 -- List scheduled notifications with optional filter
 function M.list_scheduled(filter)
 	return manager.list_scheduled(filter)

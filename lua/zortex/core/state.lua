@@ -128,11 +128,4 @@ function State:reload()
 	self.data = nil
 end
 
---- Drop every in-memory copy (notes_dir changed, tests).
-function M.reload_all()
-	for _, s in pairs(handles) do
-		s.data = nil
-	end
-end
-
 return M

@@ -166,7 +166,7 @@ have `type`, `text` (clean), `level`, `start_line`, `end_line`, `children`,
 | `find(pred)` / `filter(pred)`                                   | first / all matches                                        |
 | `fold(fn)`                                                      | post-order aggregation `fn(node, child_results)`           |
 | `ancestors()`, `path_texts()`, `get_breadcrumb(sep)`, `depth()` | paths                                                      |
-| `get_direct_end_line()`, `get_direct_lines(bufnr)`              | content before the first child                             |
+| `get_direct_end_line()`                                         | content before the first child                             |
 | `derive(root, keep, make)`                                      | builds a domain tree from chosen node types (see entities) |
 
 ### Documents — `core/document.lua`
@@ -188,8 +188,7 @@ Because snapshots are immutable, anything derived from one (projects, areas)
 is cached **on the snapshot**. When the file changes there is a new snapshot,
 and the cache goes with the old one.
 
-`core/tree.lua` is a thin facade (`get_tree(path)` → `Document.get(path).tree`).
-The old JSON tree cache in `stdpath("cache")` is gone.
+A note's tree is `Document.get(path).tree`.
 
 ### Notes index — `core/notes.lua`
 
@@ -198,7 +197,7 @@ The old JSON tree cache in `stdpath("cache")` is gone.
 - `index()` is a short-lived (1 s) snapshot `{ files, headers }` (one with
   archived notes, one without), so bulk work (resolving many links) doesn't
   re-stat every file per link.
-- `find_by_name(name)` and `find_by_tag(tag)` are case-insensitive.
+- `find_by_tag(tag)` is case-insensitive.
 - `header(path)` reads **only** the header block, cached by mtime.
 - `is_archived(path)` is true for `archive.*` filenames or the `@Archive` tag.
 

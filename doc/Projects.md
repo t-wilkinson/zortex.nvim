@@ -136,7 +136,7 @@ Projects and areas are both built from these:
 
 - `core/document`: cached snapshot of a note (lines, tree, names, tags).
   Prefers a modified buffer over the file on disk.
-- `core/notes`: the note list and header index (`find_by_name`, `find_by_tag`).
+- `core/notes`: the note list and header index (`find_by_tag`).
 - `core/section`: the structural tree, plus `walk`, `find`, `filter`, `fold`,
   and `derive(root, keep, make)`, which builds a domain tree from chosen
   section types (projects keep articles and headings).

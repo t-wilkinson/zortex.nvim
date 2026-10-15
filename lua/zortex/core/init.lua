@@ -35,22 +35,4 @@ function M.setup(opts)
 	stop_timer()
 end
 
--- =============================================================================
--- Status and Debugging
--- =============================================================================
-
--- Get system status
-function M.get_status()
-	return {
-		event_bus = Events.get_performance_report(),
-		workspace = {},
-	}
-end
-
--- Print status report
-function M.print_status()
-	local status = M.get_status()
-	print(vim.inspect(status))
-end
-
 return M

@@ -341,26 +341,6 @@ function M.update_attribute(line, key, value)
 	end
 end
 
-function M.update_attributes(line, updates)
-	local modified_line = line
-
-	for key, value in pairs(updates) do
-		if value == nil then
-			-- Remove attribute
-			modified_line = M.remove_attribute(modified_line, key)
-		else
-			-- Update/add attribute
-			modified_line = M.update_attribute(modified_line, key, value)
-		end
-	end
-
-	return modified_line
-end
-
-function M.to_line(attributes)
-	return M.update_attributes("", attributes)
-end
-
 -- Remove attribute
 function M.remove_attribute(line, key)
 	if not line or not key then
@@ -486,11 +466,6 @@ function M.parse_project_attributes(line, context)
 	return M.parse_attributes(line, M.schemas.project, context)
 end
 
--- Parse event attributes
-function M.parse_event_attributes(line, context)
-	return M.parse_attributes(line, M.schemas.event, context)
-end
-
 -- Parse calendar entry attributes
 function M.parse_calendar_attributes(line, context)
 	return M.parse_attributes(line, M.schemas.calendar_entry, context)
@@ -511,34 +486,6 @@ function M.update_progress_attribute(line, completed, total)
 	else
 		return M.remove_attribute(line, "progress")
 	end
-end
-
-function M.extract_progress(line)
-	local progress_str = M.extract_attribute(line, "progress")
-	if progress_str then
-		local completed, total = progress_str:match("(%d+)/(%d+)")
-		if completed and total then
-			return {
-				completed = tonumber(completed),
-				total = tonumber(total),
-				percentage = tonumber(total) > 0 and (tonumber(completed) / tonumber(total)) or 0,
-			}
-		end
-	end
-	return nil
-end
-
--- Done attribute helpers
-function M.update_done_attribute(line, done)
-	if done then
-		return M.update_attribute(line, "done", os.date("%Y-%m-%d"))
-	else
-		return M.remove_attribute(line, "done")
-	end
-end
-
-function M.was_done(line)
-	return M.extract_attribute(line, "done") ~= nil
 end
 
 -- =============================================================================

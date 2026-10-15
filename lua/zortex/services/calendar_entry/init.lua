@@ -255,8 +255,4 @@ function Entry:format_pretty()
 	return format().pretty(self)
 end
 
-function Entry:format_simple()
-	return format().simple(self)
-end
-
 return M

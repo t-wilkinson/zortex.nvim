@@ -92,7 +92,7 @@ func tagIndexAt(d *notes.Document, ast *syntax.AST, lnum int) *tagIndex {
 				if sp != nil {
 					return nil
 				}
-				node.name = ln.Item.Key
+				node.name = syntax.SectionText(line[ln.Item.ContentCol:], syntax.KindLabel)
 				break
 			}
 			from = ln.Item.ContentCol

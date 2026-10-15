@@ -49,6 +49,9 @@ local function generate_task_id()
 	return id
 end
 
+--- A new task id, unused in the project sources and the calendar.
+M.new_id = generate_task_id
+
 -- =============================================================================
 -- Task Finding and Retrieval
 -- =============================================================================
@@ -116,6 +119,8 @@ function M.complete_task(task, doc_context)
 	if not success then
 		return nil, "Failed to update line"
 	end
+	-- The same task elsewhere (its project, other calendar days)
+	require("zortex.services.mirrors").sync(doc_context.filepath, doc_context.lnum, new_line)
 
 	-- Emit event
 	Events.emit("task:completed", { task = task, doc_context = doc_context })
@@ -140,6 +145,7 @@ function M.uncomplete_task(task, doc_context)
 	if not success then
 		return nil, "Failed to update line"
 	end
+	require("zortex.services.mirrors").sync(doc_context.filepath, doc_context.lnum, new_line)
 
 	-- Emit event
 	Events.emit("task:uncompleted", { task = task, doc_context = doc_context })
@@ -267,6 +273,15 @@ function M.change_task_completion(doc_context, should_complete)
 	-- Get task at current line
 	local task = Item.task(doc_context.line)
 
+	-- A calendar line without a checkbox that links a task stands for it:
+	-- toggle the task it points at
+	if not task then
+		local forwarded, err = M.toggle_reference(doc_context, should_complete)
+		if forwarded or err then
+			return forwarded, err
+		end
+	end
+
 	-- If there's still no task object, it means the line is not a task. Convert it.
 	if not task then
 		-- Structure isn't a task: toggling with the cursor on a (folded)
@@ -317,6 +332,43 @@ function M.change_task_completion(doc_context, should_complete)
 	end
 
 	return result, err
+end
+
+--- Toggle the task a calendar reference line points at. Returns the task
+--- (nil, nil when the line is no reference).
+function M.toggle_reference(doc_context, should_complete)
+	local mirrors = require("zortex.services.mirrors")
+	local path = doc_context.filepath and vim.fn.fnamemodify(doc_context.filepath, ":p")
+	if path ~= mirrors.calendar_path() then
+		return nil
+	end
+	local lines = doc_context.doc and doc_context.doc.lines or workspace.get_lines(doc_context.bufnr)
+	local ref = mirrors.reference(lines, doc_context.lnum, doc_context.doc)
+	if not ref then
+		return nil
+	end
+	local want = should_complete
+	if want == nil then
+		want = not ref.task.completed
+	end
+	if want == ref.task.completed then
+		return ref.task
+	end
+	local new_line, err = M.edit_line(ref.line, want and "done" or "open")
+	if not new_line then
+		return nil, err
+	end
+	workspace.set_line(ref.file, ref.lnum, new_line)
+	mirrors.sync(ref.file, ref.lnum, new_line)
+	local task = Item.task(new_line, { lnum = ref.lnum, file = ref.file })
+	local ctx = { file = ref.file, filepath = ref.file, lnum = ref.lnum, line = new_line }
+	Events.emit(want and "task:completed" or "task:uncompleted", { task = task, doc_context = ctx })
+	vim.notify(
+		string.format("%s %s (%s)", want and "Done:" or "Reopened:", task.text, vim.fn.fnamemodify(ref.file, ":t")),
+		vim.log.levels.INFO,
+		{ title = "Zortex" }
+	)
+	return task
 end
 
 -- =============================================================================

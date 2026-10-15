@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/t-wilkinson/zortex.nvim/app/links"
 	"github.com/t-wilkinson/zortex.nvim/app/notes"
 	"github.com/t-wilkinson/zortex.nvim/app/syntax"
 )
@@ -184,6 +185,9 @@ var textExts = map[string]bool{"txt": true, "md": true, "markdown": true, "csv":
 // "./z/notes.zortex", "../folder") rather than a note: a resource or text
 // extension, or a path relative to the note.
 func (s *Server) fileLike(def string) bool {
+	if links.IsParentRelative(def) {
+		return false // [./-Item]: its parent line's link continued
+	}
 	if strings.HasPrefix(def, "./") || strings.HasPrefix(def, "../") {
 		return true
 	}

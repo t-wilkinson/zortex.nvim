@@ -15,6 +15,7 @@ import (
 
 	"github.com/t-wilkinson/zortex.nvim/app/alerts"
 	"github.com/t-wilkinson/zortex.nvim/app/clocks"
+	"github.com/t-wilkinson/zortex.nvim/app/edit"
 	"github.com/t-wilkinson/zortex.nvim/app/notes"
 	"github.com/t-wilkinson/zortex.nvim/app/pomodoro"
 	"github.com/t-wilkinson/zortex.nvim/app/syntax"
@@ -91,6 +92,8 @@ type calEntry struct {
 	HTML   string `json:"html"`           // text with links rendered
 	Task   bool   `json:"task,omitempty"`
 	Done   bool   `json:"done,omitempty"`
+	Moved  bool   `json:"moved,omitempty"` // [>]: carried to a later day
+	Ref    string `json:"ref,omitempty"`   // no checkbox: the task it links ("rel:lnum"), whose state Done is
 	Depth  int    `json:"depth,omitempty"` // nesting under another entry
 	Notify bool   `json:"notify,omitempty"`
 	URL    string `json:"url"`
@@ -145,6 +148,14 @@ func (s *Server) calendarDays(from, to string) map[string][]calEntry {
 			Depth: (it.MarkerCol - baseIndent + 1) / 2,
 			URL:   s.noteURL(doc.Rel, lnum),
 		}
+		if it.Mark == edit.Moved {
+			e.Moved = true
+		}
+		if !e.Task {
+			if ref := s.referenceOf(doc, lnum); ref != nil {
+				e.Task, e.Done, e.Ref = true, ref.Done, fmt.Sprintf("%s:%d", ref.Rel, ref.Lnum)
+			}
+		}
 		if s.cfg.Writable {
 			e.Src, e.Rel = line, doc.Rel
 		}
@@ -161,6 +172,7 @@ func (s *Server) calendarDays(from, to string) map[string][]calEntry {
 
 // entryHTML renders line[from:] like a note line, without attributes.
 func (r *noteRenderer) entryHTML(line string, lnum, from int) string {
+	r.lnum = lnum
 	spans := append([]syntax.Span(nil), r.doc.Spans(lnum)...)
 	for i := range spans {
 		if spans[i].Type == "attribute" {
@@ -192,6 +204,10 @@ func (s *Server) apiCalendar(w http.ResponseWriter, r *http.Request) {
 	}
 	days := s.calendarDays(from, to)
 	view := s.notificationView(now)
+	carry := 0 // open tasks of the days before that could come to today
+	if s.cfg.Writable {
+		carry = s.carryCount(now.Format("2006-01-02"))
+	}
 	// mark entries that have a notification on their day
 	for date, list := range days {
 		for i := range list {
@@ -212,6 +228,7 @@ func (s *Server) apiCalendar(w http.ResponseWriter, r *http.Request) {
 		"notes_enabled": s.alerts != nil,
 		"writable":      s.cfg.Writable,
 		"ntfy":          s.cfg.Ntfy.Enabled(),
+		"carry":         carry,
 	})
 }
 

@@ -31,7 +31,10 @@
 -- component is @Archive or opts.include_archived is set.
 --
 -- Links written as relative paths ([./z/scan.pdf]) name files, not notes
--- (relative_path below); resolving them is up to the caller.
+-- (relative_path below); resolving them is up to the caller. A "./" followed
+-- by a typed component ([./-Improve website], [./#Notes]) is relative to the
+-- parent line's link instead (absolute below): written under
+-- "09:00 [P/#1.4 - zortex]" it means [P/#1.4 - zortex/-Improve website].
 --
 -- The Go port is app/links; tests/gen_links.lua keeps the two in agreement.
 -- Following a link in a buffer (quickfix, footnotes, @[tag] searches) is
@@ -594,9 +597,11 @@ local function mentions_archive(parsed)
 	return false
 end
 
---- Resolve a link to every matching location.
+--- Resolve a link to every matching location. A parent-relative link
+--- ([./-Item]) needs the note (doc or bufnr) and the line it is written on
+--- (lnum).
 ---@param link string|table  "[P/#1.4 - zortex]", "P/#1.4", or parse() output
----@param opts { bufnr?: integer, doc?: table, include_archived?: boolean }?
+---@param opts { bufnr?: integer, doc?: table, lnum?: integer, include_archived?: boolean }?
 ---@return SearchResult[] results, string? err
 function M.resolve(link, opts)
 	opts = opts or {}
@@ -604,6 +609,15 @@ function M.resolve(link, opts)
 		local content = syntax.trim(link):match("^@%[(.*)%]$")
 		if content then
 			return M.tag_search(content, opts)
+		end
+		local def = syntax.trim(link):match("^%[(.*)%]$") or syntax.trim(link)
+		if M.is_parent_relative(def) then
+			local doc = opts.doc or (opts.bufnr and Document().from_buffer(opts.bufnr))
+			local abs, err = M.absolute(def, doc and doc.lines, opts.lnum or 0)
+			if not abs then
+				return {}, err
+			end
+			link = "[" .. abs .. "]"
 		end
 	end
 	local parsed = type(link) == "table" and link or M.parse(link)
@@ -897,15 +911,85 @@ function M.resolve_first(link, opts)
 	return results[1], err
 end
 
+--- Is this "./" followed by a typed component ([./-Item], [./#Heading],
+--- [./:Label], [./*Bold], [./>Link])? Such a link continues its parent line's
+--- link (absolute); other "./" links are file paths.
+---@param definition string
+function M.is_parent_relative(definition)
+	return syntax.trim(definition or ""):match("^%./[#:%-%*>]") ~= nil
+end
+
+M.NO_PARENT_LINK = "No link on a parent line for ./"
+
+local function indent_of(line)
+	return #line:match("^[ \t]*")
+end
+
+--- The link a parent-relative link stands for: the first link of the
+--- nearest parent line (less indented, above it) that has one, followed by
+--- the components after "./". Parents may be relative themselves. Other
+--- links come back unchanged. `lines` are the note's lines, `lnum` the line
+--- the link is written on. app/links (Absolute) is the same.
+---@param definition string without brackets
+---@param lines string[]
+---@param lnum integer
+---@return string? definition, string? err
+function M.absolute(definition, lines, lnum)
+	local def = syntax.trim(definition or "")
+	if not M.is_parent_relative(def) then
+		return def
+	end
+	local rest = def:sub(3)
+	local line = lines and lines[lnum]
+	if not line then
+		return nil, M.NO_PARENT_LINK
+	end
+	local want = indent_of(line)
+	for l = lnum - 1, 1, -1 do
+		local text = lines[l]
+		if text:match("%S") and indent_of(text) < want then
+			for _, span in ipairs(M.links_on(text)) do
+				local parent = span.definition
+				if M.is_parent_relative(parent) then
+					local abs, err = M.absolute(parent, lines, l)
+					if not abs then
+						return nil, err
+					end
+					return abs .. "/" .. rest
+				elseif not parent:match("^%.%.?/") and not parent:match("^~") then
+					return parent .. "/" .. rest
+				end
+			end
+			want = indent_of(text)
+			if want == 0 then
+				break
+			end
+		end
+	end
+	return nil, M.NO_PARENT_LINK
+end
+
+--- Plain links ([...], not ![...]) on a line, in order.
+function M.links_on(line)
+	local out = {}
+	for _, span in ipairs(syntax.links(line)) do
+		if span.type == "link" then
+			out[#out + 1] = span
+		end
+	end
+	return out
+end
+
 --- A link written as a path relative to its note ([./z/scan.pdf],
 --- [../folder]) names a file, not a note: the absolute path it names
---- (without any #fragment), or nil for every other link.
+--- (without any #fragment), or nil for every other link (parent-relative
+--- links included).
 ---@param definition string
 ---@param from_file string the note the link is written in
 ---@return string?
 function M.relative_path(definition, from_file)
 	local def = syntax.trim(definition or "")
-	if not def:match("^%.%.?/") then
+	if not def:match("^%.%.?/") or M.is_parent_relative(def) then
 		return nil
 	end
 	def = def:gsub("#.*$", "")

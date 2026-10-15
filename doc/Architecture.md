@@ -219,6 +219,15 @@ narrows a list of candidates (file + line range):
 | Query        | `%text`, `a + b`, `a & b` | Line searches. Case-sensitive only if the query has an uppercase letter.                                                                                       |
 | Follow       | `>The Rust Book`          | Links on lines in range whose own text (markdown text, definition, URL, path) or line text starts with the text; `>` alone is every link. Last component only. |
 
+**Parent-relative links**: `[./-Item]` (`./` then `-`, `#`, `:`, `*` or `>`)
+is `absolute(def, lines, lnum)`: the first link of the nearest line above
+with less indentation that has one (`links_on`, skipping file paths;
+relative parents expand first), then `/` and the rest. `resolve` expands it
+when given `doc` and `lnum`; callers that read links off lines (link index,
+following, preview, the web renderer) pass them. Other `./` links are file
+paths (`relative_path`). app/links `Absolute` is the same, checked by the
+`lnum` cases of `tests/fixtures/resolve.json`.
+
 **Generated link text** keeps only `[A-Za-z0-9 _-().]`: `component_text`
 takes the longest such prefix (with balanced parentheses), so
 `#4 Learning & Education` is written `#4 Learning` and still resolves by
@@ -496,6 +505,19 @@ which a cron job can hand to any mail provider.
 `toggle_current_task` / `complete_current_task` / `uncomplete_current_task`
 work in any note. Toggling edits the line in place: only the checkbox and
 `@done(...)` change, so other attributes, tags and indentation stay as written. `find_task_by_id` searches project sources and the calendar.
+After a toggle, `services/mirrors.sync` gives every other line with the
+task's `@id` (project sources and calendar; not `[>]` lines) the same state,
+and on a calendar line without a checkbox `toggle_reference` toggles the task
+its link points at.
+
+`services/mirrors` owns the shared-`@id` rules: `copies()` (the calendar's
+tasks by `@id`, cached on the calendar snapshot), `apply(tasks)` (used by
+`Project:tasks`, whose caches are dropped when the calendar snapshot changes:
+a checked copy completes the task), `reference`, `ensure_id`, `issues`. The
+ledger skips calendar copies of project tasks. `services/planner` puts copies
+and project blocks on a day (`add_task`, `add_project`) and carries open
+tasks forward (`carry`, pure, written to `tests/fixtures/carry.json` for
+app/edit `Carry`).
 Completing a task emits `task:completed` with the document context. Event
 handlers run asynchronously (`vim.schedule`).
 

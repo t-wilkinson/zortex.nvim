@@ -18,9 +18,17 @@ T.test("backlinks of a project (own content vs subtree)", function()
 	local own = vim.tbl_map(function(r)
 		return short(r.file) .. ":" .. r.lnum
 	end, zortex:backlinks())
-	T.eq(own, { "calendar.zortex:5", "calendar.zortex:11", "okr.zortex:14" })
+	-- day-plan: "09:00 [P/#1.4 - zortex]" and its [./-Item] children
+	T.eq(own, {
+		"calendar.zortex:5",
+		"calendar.zortex:11",
+		"okr.zortex:14",
+		"day-plan.zortex:3",
+		"day-plan.zortex:4",
+		"day-plan.zortex:8",
+	})
 	local all = zortex:backlinks({ descendants = true })
-	T.eq(#all, 4) -- + KR2 -> 1.4.1
+	T.eq(#all, 9) -- + KR2 -> 1.4.1, and day-plan's [./#1.4.1 ...] and its child
 end)
 
 T.test("backlinks of a section node", function()

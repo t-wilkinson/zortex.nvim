@@ -388,6 +388,23 @@ M.list = {
 		end,
 	},
 	{
+		id = "carry_forward",
+		command = "CarryForward",
+		key = "Cf",
+		group = "Plan",
+		desc = "Copy the open tasks of the days before to today (or a date), marking the old lines [>]",
+		nargs = "?",
+		run = function(args)
+			local date = args and args.args ~= "" and args.args or nil
+			local moved, added = require("zortex.services.planner").carry_forward(date)
+			vim.notify(
+				string.format("%d task%s carried, %d copied", moved, moved == 1 and "" or "s", added),
+				vim.log.levels.INFO,
+				{ title = "Zortex" }
+			)
+		end,
+	},
+	{
 		id = "calendar",
 		command = "Calendar",
 		key = "c",

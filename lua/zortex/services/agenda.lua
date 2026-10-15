@@ -15,6 +15,9 @@
 --             "due"                       (project task with @due on the day)
 --             "project_due"               (project with @due on the day)
 --   date, time ("HH:MM" or nil), text, done, priority ("1".."3" or nil)
+--   moved     a calendar task carried to a later day ([>], services/mirrors)
+--   ref       a calendar line without a checkbox linking a task: the task
+--             ({ file, lnum, task }); done is the task's
 --   entry     CalendarEntry (calendar items)
 --   task      project task (due items)
 --   project   Project the item belongs to / links to (if any)
@@ -63,20 +66,32 @@ local function calendar_projects()
 end
 
 local function calendar_items(date, ctx)
+	local mirrors = require("zortex.services.mirrors")
 	local items = {}
 	for _, entry in ipairs(require("zortex.stores.calendar").get_entries_for_date(date)) do
-		items[#items + 1] = {
+		local item = {
 			kind = entry.type,
 			date = date,
 			time = entry:get_time_string(),
 			text = entry.text,
 			done = entry.type == "task" and entry.completed or false,
+			moved = entry.mark == mirrors.MOVED,
 			priority = entry.attributes.p,
 			entry = entry,
 			project = ctx.calendar_projects[entry.lnum],
 			file = ctx.calendar_path,
 			lnum = entry.lnum,
 		}
+		if entry.type ~= "task" and entry.lnum and ctx.calendar_doc and entry.raw_text:find("[", 1, true) then
+			local ref = mirrors.reference(ctx.calendar_doc.lines, entry.lnum, ctx.calendar_doc)
+			if ref then
+				local id = ref.task.attributes.id
+				local copy = id and mirrors.copies()[id]
+				item.ref = ref
+				item.done = ref.task.completed or (copy and copy.done) or false
+			end
+		end
+		items[#items + 1] = item
 	end
 	return items
 end
@@ -122,6 +137,7 @@ end
 local function context(opts)
 	local ctx = {}
 	ctx.calendar_projects, ctx.calendar_path = calendar_projects()
+	ctx.calendar_doc = require("zortex.services.mirrors").calendar_doc()
 	ctx.due_tasks, ctx.due_projects = due_index(opts and opts.include_done)
 	return ctx
 end
@@ -296,14 +312,22 @@ function M.review(opts)
 		end
 	end
 
-	-- Calendar tasks in the review window
-	for _, day in ipairs(M.range(past, today, { kinds = { task = true } })) do
+	-- Calendar tasks in the review window (and lines standing for a task).
+	-- Copies of project tasks and references are completed once, above;
+	-- tasks carried to a later day ([>]) are neither open nor done.
+	local project_ids = require("zortex.services.mirrors").project_ids()
+	for _, day in ipairs(M.range(past, today)) do
 		for _, item in ipairs(day.items) do
-			if item.done then
-				local done = date_of(item.entry.attributes.done) or day.date
-				table.insert(r.completed, vim.tbl_extend("force", item, { date = done }))
-			elseif day.date < today then
-				table.insert(r.overdue, item)
+			if (item.kind == "task" or item.ref) and not item.moved then
+				local id = item.entry.attributes.id
+				if item.done then
+					if not item.ref and not (id and project_ids[id]) then
+						local done = date_of(item.entry.attributes.done) or day.date
+						table.insert(r.completed, vim.tbl_extend("force", item, { date = done }))
+					end
+				elseif day.date < today then
+					table.insert(r.overdue, item)
+				end
 			end
 		end
 	end
@@ -339,6 +363,7 @@ function M.review(opts)
 	end
 
 	r.broken_links = require("zortex.core.link_index").unresolved()
+	r.mirror_issues = require("zortex.services.mirrors").issues()
 	M.plan_findings(r, today)
 	return r
 end

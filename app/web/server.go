@@ -108,6 +108,7 @@ type Server struct {
 
 	editMu      sync.Mutex    // one edit at a time
 	completions completionLog // tasks completed on the web, until Neovim counts them
+	copies      copyCache     // calendar copies of tasks by @id (mirrors.go)
 
 	events        eventHub // live updates for open pages (/api/events)
 	xpFileMu      sync.Mutex
@@ -320,6 +321,7 @@ func (s *Server) rebuild(res []resource, linking []string, fingerprint uint64) {
 	for _, rel := range linking {
 		s.collectMarkdownLinks(rel, snap, snap.names)
 	}
+	snap.broken = append(snap.broken, s.mirrorIssues()...)
 	snap.unlinked = snap.unlinkedIn()
 	snap.forward = map[string][]outLink{}
 	for to, list := range snap.backlinks {
@@ -384,7 +386,7 @@ func (s *Server) collectLinks(doc *notes.Document, snap *snapshot) {
 				return // a file: collectFileLinks
 			}
 			snap.links++
-			r, err := links.ResolveFirst(s.ix, "["+sp.Definition+"]", links.Options{From: doc})
+			r, err := links.ResolveFirst(s.ix, "["+sp.Definition+"]", links.Options{From: doc, Lnum: lnum})
 			if err != nil || r == nil {
 				if archived {
 					return
@@ -442,6 +444,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/structure", s.apiStructure)
 	// calendar and notifications (Neovim syncs to /notify)
 	mux.HandleFunc("GET /api/calendar", s.apiCalendar)
+	mux.HandleFunc("POST /api/calendar/carry", s.apiCarry)
 	mux.HandleFunc("GET /api/summary", s.apiSummary)
 	mux.HandleFunc("GET /api/digest", s.apiDigest)
 	mux.HandleFunc("POST /notify", s.handleNotify)

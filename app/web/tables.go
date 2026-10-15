@@ -250,7 +250,7 @@ func (s *Server) tagRowOf(d *notes.Document, lnum int, query map[string]bool) ta
 				}
 				return
 			}
-			res, err := links.ResolveFirst(s.ix, "["+sp.Definition+"]", links.Options{From: d})
+			res, err := links.ResolveFirst(s.ix, "["+sp.Definition+"]", links.Options{From: d, Lnum: lnum})
 			if err != nil || res == nil {
 				return
 			}

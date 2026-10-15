@@ -168,6 +168,12 @@ function M.render(r, opts)
 		return string.format("- %s:%d %s", rel(ref.file), ref.lnum, ref.text or ""),
 			{ file = ref.file, lnum = ref.lnum }
 	end)
+	if r.mirror_issues and #r.mirror_issues > 0 then
+		section("Task ids that don't line up", r.mirror_issues, function(x)
+			return string.format("- %s:%d %s: %s", rel(x.file), x.lnum, x.text or "", x.problem),
+				{ file = x.file, lnum = x.lnum }
+		end)
+	end
 
 	return lines, locations
 end

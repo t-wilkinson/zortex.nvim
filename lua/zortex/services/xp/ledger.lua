@@ -10,7 +10,10 @@
 --                   completion curve, one award per completed task, dated by
 --                   the task's @done; a project marked @done pays the rest
 --   other tasks     a completed task anywhere else (calendar, any note):
---                   its @size in hours x XP per hour x priority x importance
+--                   its @size in hours x XP per hour x priority x importance;
+--                   a calendar copy of a project task (same @id,
+--                   services/mirrors) pays nothing itself: checking it
+--                   completes the project task, which pays
 --   key results     a key result reached (its linked projects done, or the
 --                   KR checked): the completion bonus of its objective's
 --                   value over its key results, to the objective's areas
@@ -354,20 +357,23 @@ local function project_entries(out, group, kr_index)
 	end
 end
 
-local function task_entries(out, path)
+local function task_entries(out, path, skip_ids)
 	local share = calculator.alignment("task_area")
 	for _, t in ipairs(checked_tasks(path)) do
-		local xp = calculator.calculate_task_xp(t)
-		local areas, add = area_list()
-		task_areas(t, add)
-		out[#out + 1] = entry("task", {
-			title = t.text,
-			file = path,
-			lnum = t.lnum,
-			date = date_string(t.attributes.done),
-			xp = xp,
-			areas = calculator.area_shares(xp, areas, share),
-		})
+		local id = t.attributes and t.attributes.id
+		if not (id and skip_ids and skip_ids[id]) then
+			local xp = calculator.calculate_task_xp(t)
+			local areas, add = area_list()
+			task_areas(t, add)
+			out[#out + 1] = entry("task", {
+				title = t.text,
+				file = path,
+				lnum = t.lnum,
+				date = date_string(t.attributes.done),
+				xp = xp,
+				areas = calculator.area_shares(xp, areas, share),
+			})
+		end
 	end
 end
 
@@ -466,8 +472,18 @@ function M.build()
 	for _, key in ipairs(order) do
 		project_entries(entries, groups[key], kr_index)
 	end
+	-- calendar copies of project tasks are paid by their project
+	local project_ids = {}
+	for _, g in pairs(groups) do
+		for _, t in ipairs(g.tasks) do
+			if t.attributes and t.attributes.id then
+				project_ids[t.attributes.id] = true
+			end
+		end
+	end
+	local calendar = normalize(require("zortex.utils.filesystem").get_calendar_file())
 	for _, path in ipairs(task_paths) do
-		task_entries(entries, path)
+		task_entries(entries, path, path == calendar and project_ids or nil)
 	end
 	key_result_entries(entries)
 	objective_entries(entries)

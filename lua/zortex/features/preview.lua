@@ -81,6 +81,18 @@ local function target_content(link_info)
 	local link_mod = require("zortex.core.link")
 
 	if link_info.type == "link" or link_info.type == "live_link" then
+		if link_mod.is_parent_relative(link_info.definition) then
+			-- [./-Item] under the cursor: relative to its parent line's link
+			local abs, err = link_mod.absolute(
+				link_info.definition,
+				vim.api.nvim_buf_get_lines(0, 0, -1, false),
+				vim.api.nvim_win_get_cursor(0)[1]
+			)
+			if not abs then
+				return nil, err
+			end
+			link_info = vim.tbl_extend("force", link_info, { definition = abs })
+		end
 		local parsed = link_mod.parse(link_info.definition)
 		local last = parsed and parsed.components[#parsed.components]
 		if last and last.type == "follow" then

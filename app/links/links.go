@@ -498,7 +498,78 @@ type Result struct {
 // Options for Resolve.
 type Options struct {
 	From            *notes.Document // the current note, for local links
+	Lnum            int             // the line the link is written on (parent-relative links)
 	IncludeArchived *bool           // nil: only when a component is @Archive
+}
+
+// NoParentLink: a parent-relative link with no link on a parent line.
+const NoParentLink = "No link on a parent line for ./"
+
+// IsParentRelative: "./" followed by a typed component ("./-Item",
+// "./#Heading", "./:Label", "./*Bold", "./>Link") continues its parent
+// line's link (Absolute); other "./" links are file paths.
+func IsParentRelative(def string) bool {
+	d := syntax.Trim(def)
+	return len(d) > 2 && d[0] == '.' && d[1] == '/' && strings.IndexByte("#:-*>", d[2]) >= 0
+}
+
+func indentOf(line string) int {
+	n := 0
+	for n < len(line) && (line[n] == ' ' || line[n] == '\t') {
+		n++
+	}
+	return n
+}
+
+// LinksOn: the plain links ([...], not ![...]) on a line, in order.
+func LinksOn(line string) []*syntax.Span {
+	var out []*syntax.Span
+	syntax.Walk(syntax.Inline(line, 0, len(line)), func(sp *syntax.Span) {
+		if sp.Type == "link" {
+			out = append(out, sp)
+		}
+	})
+	return out
+}
+
+// Absolute is the link a parent-relative link stands for: the first link of
+// the nearest parent line (less indented, above line lnum) that has one,
+// followed by the components after "./". Other links come back unchanged.
+// core/link.absolute in the plugin is the same.
+func Absolute(lines []string, lnum int, def string) (string, error) {
+	d := syntax.Trim(def)
+	if !IsParentRelative(d) {
+		return d, nil
+	}
+	rest := d[2:]
+	if lnum < 1 || lnum > len(lines) {
+		return "", errors.New(NoParentLink)
+	}
+	want := indentOf(lines[lnum-1])
+	for l := lnum - 1; l >= 1; l-- {
+		text := lines[l-1]
+		if strings.TrimSpace(text) == "" || indentOf(text) >= want {
+			continue
+		}
+		for _, sp := range LinksOn(text) {
+			parent := sp.Definition
+			if IsParentRelative(parent) {
+				abs, err := Absolute(lines, l, parent)
+				if err != nil {
+					return "", err
+				}
+				return abs + "/" + rest, nil
+			}
+			if !strings.HasPrefix(parent, "./") && !strings.HasPrefix(parent, "../") && !strings.HasPrefix(parent, "~") {
+				return parent + "/" + rest, nil
+			}
+		}
+		want = indentOf(text)
+		if want == 0 {
+			break
+		}
+	}
+	return "", errors.New(NoParentLink)
 }
 
 type candidate struct {
@@ -520,6 +591,17 @@ func mentionsArchive(d Definition) bool {
 func Resolve(ix *notes.Index, link string, opts Options) ([]Result, error) {
 	if t := syntax.Trim(link); strings.HasPrefix(t, "@[") && strings.HasSuffix(t, "]") {
 		return TagSearch(ix, t[2:len(t)-1], opts)
+	}
+	if t := strings.TrimSuffix(strings.TrimPrefix(syntax.Trim(link), "["), "]"); IsParentRelative(t) {
+		var lines []string
+		if opts.From != nil {
+			lines = opts.From.Lines
+		}
+		abs, err := Absolute(lines, opts.Lnum, t)
+		if err != nil {
+			return nil, err
+		}
+		link = "[" + abs + "]"
 	}
 	def := Parse(link)
 	if len(def.Components) == 0 {

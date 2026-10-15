@@ -40,6 +40,7 @@ type noteRenderer struct {
 	slides bool        // a slide deck: attributes are hidden
 	steps  map[int]int // slides: lnum -> the reveal step it appears in
 
+	lnum   int    // the line being rendered (parent-relative links)
 	md     *mdDoc // a Markdown file (markdown.go)
 	inPara bool   // Markdown: inside a <p> of text lines
 }
@@ -175,6 +176,7 @@ func tableCells(line string) []string {
 }
 
 func (r *noteRenderer) line(lnum int, d *syntax.Line) {
+	r.lnum = lnum
 	line := r.doc.Lines[lnum-1]
 	id := itoa(lnum)
 	spans := r.doc.Spans(lnum)
@@ -284,13 +286,21 @@ func (r *noteRenderer) marker(line string, it *syntax.Item) {
 	}
 	if it.Mark != "" {
 		state, label := "open", "open task"
+		title := ""
 		if it.Mark == "x" || it.Mark == "X" {
 			state, label = "done", "done"
+		} else if it.Mark == ">" {
+			state, label = "other moved", "carried to a later day"
+			title = ` title="carried to a later day"`
 		} else if it.Mark != " " {
 			state, label = "other", it.Mark
+		} else if r.md == nil && r.s.doneOnCalendar(r.doc, line) {
+			// a calendar copy (same @id) is checked: done (mirrors.go)
+			state, label = "done mirrored", "done on the calendar"
+			title = ` title="done on the calendar"`
 		}
-		r.w(`<span class="box `, state, `" role="img" aria-label="`, esc(label), `">`)
-		if state == "other" {
+		r.w(`<span class="box `, state, `" role="img" aria-label="`, esc(label), `"`, title, `>`)
+		if strings.HasPrefix(state, "other") {
 			r.w(esc(it.Mark))
 		}
 		r.w(`</span>`)
@@ -323,9 +333,9 @@ func (r *noteRenderer) span(line string, sp *syntax.Span) string {
 		if k := resourceKind(extOf(sp.Definition)); (k == "image" || k == "video") && r.s.fileLike(sp.Definition) {
 			return r.s.imageHTML(r.doc, sp.Definition)
 		}
-		return r.s.linkHTML(r.doc, sp.Definition)
+		return r.linkHTML(sp.Definition)
 	case "link":
-		return r.s.linkHTML(r.doc, sp.Definition)
+		return r.linkHTML(sp.Definition)
 	case "markdown":
 		href, ok := r.s.pathHref(r.doc, sp.URL)
 		cls := "md"
@@ -386,10 +396,30 @@ func externalAttrs(href string) string {
 	return ""
 }
 
+// linkHTML renders a link written on the line being rendered: a
+// parent-relative one ([./-Item]) through its parent line's link, shown by
+// its text ("Item").
+func (r *noteRenderer) linkHTML(def string) string {
+	if links.IsParentRelative(def) {
+		text := strings.TrimSpace(syntax.Trim(def)[3:])
+		abs, err := links.Absolute(r.doc.Lines, r.lnum, def)
+		if err != nil {
+			return `<a class="zl broken" title="` + esc(err.Error()) + `">` + esc(def) + `</a>`
+		}
+		return r.s.linkHTMLAs(r.doc, abs, text)
+	}
+	return r.s.linkHTML(r.doc, def)
+}
+
 // linkHTML renders a zortex link, resolved from `from`: it points at the
 // canonical target (the first result, as following the link in Neovim does).
 func (s *Server) linkHTML(from *notes.Document, def string) string {
-	text := esc(def)
+	return s.linkHTMLAs(from, def, def)
+}
+
+// linkHTMLAs is linkHTML for `def` shown as `written`.
+func (s *Server) linkHTMLAs(from *notes.Document, def, written string) string {
+	text := esc(written)
 	if s.fileLike(def) {
 		if href, ok := s.pathHref(from, def); ok {
 			return `<a class="zl file" href="` + esc(href) + `">` + text + `</a>`

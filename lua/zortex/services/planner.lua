@@ -9,6 +9,13 @@
 --       an explicit link to it ("Improve website [P/#1 Programming/#1.4 - zortex/-Improve website]")
 --   template(date)          -> template lines for a new calendar day
 --   put(line, col, text)    -> the line with `text` put at the cursor
+--   add_task(date, c)       -> a project task onto the day as a copy with its
+--                              @id (services/mirrors), under the day's block
+--                              for its project when there is one
+--   add_project(date, c)    -> a block for the project with its open tasks
+--   carry(lines, today, opts) / carry_forward(date)
+--                           -> open tasks of earlier days copied to the day
+--                              (same @id), the old lines marked [>]
 --
 -- Ranking: signals add up, so a TODO with a high priority that is also due
 -- beats any one of those alone (weights in M.weights). Alignment counts
@@ -229,6 +236,10 @@ function M.candidates(opts)
 					tasks[#tasks + 1] = {
 						kind = "task",
 						text = plain(task.text) .. " " .. M.item_link(p.link, task.raw_text),
+						link = M.item_link(p.link, task.raw_text),
+						component = require("zortex.core.link").item_component(task.raw_text),
+						project_key = p.key,
+						project_link = p.link,
 						badges = badges,
 						score = s,
 						file = task.file,
@@ -291,6 +302,8 @@ function M.candidates(opts)
 			plist[#plist + 1] = {
 				kind = "project",
 				text = p.link,
+				project_key = p.key,
+				project_link = p.link,
 				badges = badges,
 				score = score.project_score(p) + a,
 				file = p.file,
@@ -412,6 +425,458 @@ function M.put(line, col, text)
 	end
 	local new = left .. text .. right
 	return new, #left + #vim.trim(text) - 1
+end
+
+-- =============================================================================
+-- Copies on the calendar (services/mirrors)
+-- =============================================================================
+
+local function link_mod()
+	return require("zortex.core.link")
+end
+
+local function indent_of(line)
+	return #line:match("^[ \t]*")
+end
+
+local function calendar_target()
+	return require("zortex.utils.filesystem").get_calendar_file()
+end
+
+--- The line in the day's block (block from stores/calendar.date_block) that
+--- heads `project_key`: not a task, its first link points at the project
+--- itself (its heading, or its note). Returns its line number and the last
+--- line of what's nested under it.
+function M.find_block(lines, block, project_key)
+	local projects = require("zortex.services.projects")
+	local syntax = require("zortex.core.syntax")
+	local want = projects.get(project_key)
+	for l = block.heading_lnum + 1, block.last_lnum do
+		local line = lines[l]
+		local first = want and line:find("[", 1, true) and link_mod().links_on(line)[1]
+		local it = first and syntax.item(line)
+		if first and not (it and it.mark) then
+			local def = link_mod().absolute(first.definition, lines, l)
+			local ok, r = pcall(link_mod().resolve_first, def and ("[" .. def .. "]") or "")
+			local p = ok and r and projects.at(r.file, r.lnum)
+			if p and p.key == project_key and (r.lnum == p.lnum or r.whole) then
+				local last = l
+				for k = l + 1, block.last_lnum do
+					if lines[k]:match("%S") then
+						if indent_of(lines[k]) <= indent_of(line) then
+							break
+						end
+						last = k
+					end
+				end
+				return l, last
+			end
+		end
+	end
+	return nil
+end
+
+local function day_has_id(lines, block, id)
+	local needle = "@id(" .. id .. ")"
+	for l = block.heading_lnum + 1, block.last_lnum do
+		if lines[l]:find(needle, 1, true) then
+			return l
+		end
+	end
+	return nil
+end
+
+-- The day's block (created from the template when missing) and the lines.
+local function day_block(date)
+	local calendar = require("zortex.stores.calendar")
+	local workspace = require("zortex.core.workspace")
+	local target = calendar_target()
+	local block = calendar.date_block(date, workspace.get_lines(target))
+	if not block then
+		calendar.ensure_date(date, M.template(date))
+		block = calendar.date_block(date, workspace.get_lines(target))
+	end
+	return block, workspace.get_lines(target)
+end
+
+--- The copy of a project task candidate (file, lnum, link, component):
+--- "[ ] <link> @id(x)", the task getting its @id first when it has none.
+--- opts.relative: "[ ] [./-Item] @id(x)", for under the project's block.
+function M.copy_text(c, opts)
+	local id, err = require("zortex.services.mirrors").ensure_id(c.file, c.lnum)
+	if not id then
+		return nil, err
+	end
+	local link = (opts and opts.relative and c.component) and ("[./" .. c.component .. "]") or c.link
+	return "[ ] " .. link .. " @id(" .. id .. ")", id
+end
+
+--- Put a project task (a candidate with file, lnum, link, component,
+--- project_key) on `date`: under the day's block for its project
+--- ("09:00 [P/#1.4 - zortex]") as "  - [ ] [./-Item] @id(x)", else at the end
+--- of the day with its full link. Nothing is added when the day already has
+--- a line with its @id. Returns that calendar line and whether it is new.
+function M.add_task(date, c)
+	if not (c.file and c.lnum and c.link) then
+		return nil, false
+	end
+	local workspace = require("zortex.core.workspace")
+	local block, lines = day_block(date)
+	if not block then
+		return nil, false
+	end
+	local id = require("zortex.services.mirrors").ensure_id(c.file, c.lnum)
+	if not id then
+		return nil, false
+	end
+	local existing = day_has_id(lines, block, id)
+	if existing then
+		return existing, false
+	end
+	local head, last
+	if c.project_key then
+		head, last = M.find_block(lines, block, c.project_key)
+	end
+	local line, at
+	if head then
+		line = string.rep(" ", indent_of(lines[head]) + 2) .. "- " .. M.copy_text(c, { relative = true })
+		at = last + 1
+	else
+		line = "- " .. M.copy_text(c)
+		at = block.last_lnum + 1
+	end
+	workspace.insert_lines(calendar_target(), at, { line })
+	return at, true
+end
+
+--- Put a project on `date`: a block "- [P/...]" (unless the day has one)
+--- with every open task of its own copied under it. c: a candidate with
+--- project_key. Returns the block's line and how many tasks were added.
+function M.add_project(date, c)
+	local projects = require("zortex.services.projects")
+	local p = c.project_key and projects.get(c.project_key)
+	if not p then
+		return nil, 0
+	end
+	local workspace = require("zortex.core.workspace")
+	local block, lines = day_block(date)
+	if not block then
+		return nil, 0
+	end
+	local head = M.find_block(lines, block, p.key)
+	if not head then
+		head = block.last_lnum + 1
+		workspace.insert_lines(calendar_target(), head, { "- " .. p.link })
+	end
+	local added = 0
+	for _, t in ipairs(p:tasks()) do
+		if not t.completed then
+			local _, ok = M.add_task(date, {
+				file = t.file,
+				lnum = t.lnum,
+				link = M.item_link(p.link, t.raw_text),
+				component = link_mod().item_component(t.raw_text),
+				project_key = p.key,
+			})
+			if ok then
+				added = added + 1
+			end
+		end
+	end
+	return head, added
+end
+
+-- =============================================================================
+-- Carrying open tasks forward
+-- =============================================================================
+
+local DATE_LINE = "^(%d%d%d%d)%-(%d%d)%-(%d%d):%s*$"
+
+local function day_number(date_str)
+	local y, m, d = date_str:match("^(%d+)%-(%d+)%-(%d+)$")
+	return math.floor(os.time({ year = tonumber(y), month = tonumber(m), day = tonumber(d), hour = 12 }) / 86400)
+end
+
+local function is_fence(line)
+	local t = vim.trim(line)
+	return t:sub(1, 3) == "```" or t:sub(1, 3) == "~~~"
+end
+
+-- line:sub(from + 1) of line `lnum`, with its parent-relative links
+-- ([./-Item]) written out in full where they resolve
+local function absolute_text(lines, lnum, from)
+	local line = lines[lnum]
+	local out, pos = {}, from + 1
+	for _, span in ipairs(link_mod().links_on(line)) do
+		if span.s >= from and link_mod().is_parent_relative(span.definition) then
+			local abs = link_mod().absolute(span.definition, lines, lnum)
+			if abs then
+				out[#out + 1] = line:sub(pos, span.s)
+				out[#out + 1] = "[" .. abs .. "]"
+				pos = span.e + 1
+			end
+		end
+	end
+	out[#out + 1] = line:sub(pos)
+	return table.concat(out)
+end
+
+--- What carrying the open tasks of the days in [opts.from, today) to
+--- `today` changes in the calendar's `lines` (pure; app/edit Carry is the
+--- same, checked against tests/fixtures/carry.json):
+---   edits  { { lnum, line } }: each carried task marked [>] (moved), with an
+---          @id (opts.new_id() when it had none)
+---   inserts { { at, lines } }, ascending: insert `lines` before line `at`:
+---          the copies, with the same @id, at the end of today's block (or a
+---          new "YYYY-MM-DD:" block for them placed by date); copies whose
+---          block today already has (a line whose first link is the same)
+---          go at the end of that block instead
+--- A task nested under a linked line that isn't a task ("09:00
+--- [P/#1.4 - zortex]") is copied under a copy of that line ("- [P/#1.4 -
+--- zortex]", the time dropped; same lines merge), its [./-Item] links kept
+--- when that line is their parent; other tasks become "- [ ] ..." with
+--- their [./-Item] links written out. Repeating entries (@every, @repeat) stay
+--- where they are; a task whose @id is already on today is only marked.
+---@param opts { from?: string, new_id: fun(): string }
+function M.carry(lines, today, opts)
+	local syntax = require("zortex.core.syntax")
+	local attributes = require("zortex.utils.attributes")
+	local moved = require("zortex.services.mirrors").MOVED
+	local blocks, fence = {}, false
+	for i, l in ipairs(lines) do
+		if is_fence(l) then
+			fence = not fence
+		elseif not fence then
+			local y, m, d = l:match(DATE_LINE)
+			if y then
+				blocks[#blocks + 1] = { date = y .. "-" .. m .. "-" .. d, heading = i }
+			end
+		end
+	end
+	for i, b in ipairs(blocks) do
+		local stop = blocks[i + 1] and (blocks[i + 1].heading - 1) or #lines
+		b.last = b.heading
+		for l = b.heading + 1, stop do
+			if lines[l]:match("%S") then
+				b.last = l
+			end
+		end
+	end
+	local today_block
+	for _, b in ipairs(blocks) do
+		if b.date == today and not today_block then
+			today_block = b
+		end
+	end
+	local on_today = {}
+	if today_block then
+		for l = today_block.heading + 1, today_block.last do
+			local id = lines[l]:match("@id%(([^)%s]+)%)")
+			if id then
+				on_today[id] = true
+			end
+		end
+	end
+
+	local edits, groups, order, carried, head_def = {}, {}, {}, {}, {}
+	-- a linked line's first link, written out (how blocks are matched)
+	local function first_def(lnum)
+		local first = link_mod().links_on(lines[lnum])[1]
+		local def = first and link_mod().absolute(first.definition, lines, lnum)
+		return def and vim.trim(def):lower() or nil
+	end
+	for _, b in ipairs(blocks) do
+		if b.date >= (opts.from or "") and b.date < today then
+			local in_fence = false
+			for l = b.heading + 1, b.last do
+				local line = lines[l]
+				local it = not in_fence and not is_fence(line) and syntax.item(line)
+				if is_fence(line) then
+					in_fence = not in_fence
+				elseif it and it.mark == " " and not line:find("@every(", 1, true) and not line:find("@repeat(", 1, true) then
+					-- the nearest linked line above it that isn't a task (head),
+					-- and the nearest linked one (its ./ links' parent)
+					local head, parent
+					local want = indent_of(line)
+					for k = l - 1, b.heading + 1, -1 do
+						local up = lines[k]
+						if up:match("%S") and indent_of(up) < want then
+							local up_it = syntax.item(up)
+							if #link_mod().links_on(up) > 0 then
+								parent = parent or k
+								if not (up_it and up_it.mark) then
+									head = k
+									break
+								end
+							end
+							want = indent_of(up)
+							if want == 0 then
+								break
+							end
+						end
+					end
+					local id = line:match("@id%(([^)%s]+)%)")
+					local marked = line:sub(1, it.mark_col + 1) .. moved .. line:sub(it.mark_col + 3)
+					if not id then
+						id = opts.new_id()
+						marked = attributes.add_attribute(marked, "id", id)
+					end
+					edits[#edits + 1] = { lnum = l, line = marked }
+					if not on_today[id] and not carried[id] then
+						carried[id] = true
+						local copy, key
+						if head then
+							-- [./-Item] links stay relative when the copy keeps their parent
+							copy = "  - "
+								.. (parent == head and line:sub(it.mark_col + 1) or absolute_text(lines, l, it.mark_col))
+							local hit = syntax.item(lines[head])
+							key = "- " .. absolute_text(lines, head, hit and hit.content_col or indent_of(lines[head]))
+							head_def[key] = head_def[key] or first_def(head)
+						else
+							copy = "- " .. absolute_text(lines, l, it.mark_col)
+							key = ""
+						end
+						copy = attributes.add_attribute(copy, "id", id)
+						if not groups[key] then
+							groups[key] = {}
+							order[#order + 1] = key
+						end
+						table.insert(groups[key], copy)
+					end
+				end
+			end
+		end
+	end
+
+	-- today's blocks by their first link: carried copies join them
+	local today_heads = {}
+	if today_block then
+		for l = today_block.heading + 1, today_block.last do
+			local up_it = syntax.item(lines[l])
+			if not (up_it and up_it.mark) and #link_mod().links_on(lines[l]) > 0 then
+				local def = first_def(l)
+				if def and not today_heads[def] then
+					local last = l
+					for k = l + 1, today_block.last do
+						if lines[k]:match("%S") then
+							if indent_of(lines[k]) <= indent_of(lines[l]) then
+								break
+							end
+							last = k
+						end
+					end
+					today_heads[def] = { lnum = l, last = last }
+				end
+			end
+		end
+	end
+
+	local inserts, out = {}, {}
+	for _, key in ipairs(order) do
+		local match = key ~= "" and head_def[key] and today_heads[head_def[key]]
+		if match then
+			local pad = string.rep(" ", indent_of(lines[match.lnum]) + 2)
+			local children = {}
+			for _, copy in ipairs(groups[key]) do
+				children[#children + 1] = pad .. copy:sub(3)
+			end
+			inserts[#inserts + 1] = { at = match.last + 1, lines = children }
+		else
+			if key ~= "" then
+				out[#out + 1] = key
+			end
+			vim.list_extend(out, groups[key])
+		end
+	end
+	local function finish()
+		-- ascending, inserts at the same line kept in order
+		local merged = {}
+		for _, ins in ipairs(inserts) do
+			local same
+			for _, m in ipairs(merged) do
+				if m.at == ins.at then
+					same = m
+				end
+			end
+			if same then
+				vim.list_extend(same.lines, ins.lines)
+			else
+				merged[#merged + 1] = { at = ins.at, lines = vim.list_slice(ins.lines) }
+			end
+		end
+		table.sort(merged, function(a, b)
+			return a.at < b.at
+		end)
+		return { edits = edits, inserts = merged }
+	end
+	if #out == 0 then
+		return finish()
+	end
+	if today_block then
+		inserts[#inserts + 1] = { at = today_block.last + 1, lines = out }
+		return finish()
+	end
+	-- a new day, next to its nearest neighbour in time (as stores/calendar)
+	local target = day_number(today)
+	local before_i, before_n, after_i, after_n
+	for i, b in ipairs(blocks) do
+		local n = day_number(b.date)
+		if n < target and (not before_n or n >= before_n) then
+			before_i, before_n = i, n
+		elseif n > target and (not after_n or n < after_n) then
+			after_i, after_n = i, n
+		end
+	end
+	local at = #lines + 1
+	if after_i then
+		if before_i and (target - before_n) <= (after_n - target) then
+			at = blocks[before_i + 1] and blocks[before_i + 1].heading or (#lines + 1)
+		else
+			at = blocks[after_i].heading
+		end
+	end
+	local new = { today .. ":" }
+	vim.list_extend(new, out)
+	new[#new + 1] = ""
+	if at > #lines then
+		at = #lines + 1
+		if #lines > 0 and lines[#lines]:match("%S") then
+			table.insert(new, 1, "")
+		end
+		table.remove(new)
+	elseif at > 1 and lines[at - 1]:match("%S") then
+		table.insert(new, 1, "")
+	end
+	inserts[#inserts + 1] = { at = at, lines = new }
+	return finish()
+end
+
+--- Carry the open tasks of the last `days` days (default 14) to `date`
+--- (default today) in the calendar. Returns how many tasks were carried
+--- (marked [>]) and how many copies were added.
+---@param opts { days?: integer }?
+function M.carry_forward(date, opts)
+	opts = opts or {}
+	date = date or os.date("%Y-%m-%d")
+	local workspace = require("zortex.core.workspace")
+	local target = calendar_target()
+	local lines = workspace.get_lines(target)
+	local from = datetime.format_datetime(datetime.add_days(datetime.parse_date(date), -(opts.days or 14)), "YYYY-MM-DD")
+	local plan = M.carry(lines, date, { from = from, new_id = require("zortex.services.tasks").new_id })
+	for _, e in ipairs(plan.edits) do
+		workspace.set_line(target, e.lnum, e.line)
+	end
+	local added = 0
+	for i = #plan.inserts, 1, -1 do -- bottom up: earlier line numbers stay valid
+		local ins = plan.inserts[i]
+		workspace.insert_lines(target, ins.at, ins.lines)
+		for _, l in ipairs(ins.lines) do
+			if l:find("@id(", 1, true) then
+				added = added + 1
+			end
+		end
+	end
+	return #plan.edits, added
 end
 
 return M

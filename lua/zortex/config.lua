@@ -148,6 +148,10 @@ local defaults = {
 			max_tasks = 30,
 			width = 70, -- plan window width
 			advance = false, -- after a put, move the calendar cursor to the next line
+			-- :ZortexPlan for today copies the open tasks of the days before
+			-- (same @id) and marks the old lines [>]; how many days back
+			carry_forward = true,
+			carry_days = 14,
 			-- Lines for a new calendar day. Keys: monday … sunday override
 			-- weekday / saturday / sunday. e.g.
 			--   weekday = { "07:00 Morning routine [P/#1 Personal/#Habits]", "09:00", "12:00 Lunch", "13:00", "17:00" },

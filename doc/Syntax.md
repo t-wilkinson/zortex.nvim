@@ -75,6 +75,7 @@ Nothing inside a code or math block is structure.
 | `1.not ordered` | `text` | the space is required |
 | `- [ ] Open task @size(sm) @due(2026-10-12)` | `item` | a task: `[ ]` open, `[x]` done; text must follow |
 | `- [x] Done task @done(2026-10-08)` | `item` | `@done(date)` dates the completion (XP counts it then) |
+| `- [>] Carried task @id(aB3x9)` | `item` | carried to a later day: neither open nor done ([Planning](Planning.md#the-day-on-the-calendar)) |
 | `  - [ ] Nested task` | `item` | indented items nest |
 | `- KR1: [ ] Key result [P/#1 Programming]` | `item` | a keyed item: `Key:` then an optional checkbox (key results) |
 | `14:00 Timed entry [Flipping]` | `item` | a time item (calendar events) |
@@ -122,7 +123,7 @@ projects, calendar entries):
 
 | Attribute | Meaning |
 |---|---|
-| `@id(4Fz9q)` | a task's id (added when a task is created) |
+| `@id(4Fz9q)` | a task's id (added when a task is created); the same `@id` in the calendar and a project note is one task ([Planning](Planning.md#the-day-on-the-calendar)) |
 | `@done(2026-10-12)` | when a task was completed |
 | `@due(2026-10-20)` | due date |
 | `@p1` `@p2` `@p3`, `@i1` … `@i3` | priority, importance |
@@ -164,6 +165,11 @@ case-insensitive and by prefix: `[P/#1.4]` finds `## 1.4 - zortex`.
 | `>` follow | `[R/#Rust/>The Rust Book]` | a link in the range, by its text or its line's text; following it opens what that link points to (last component only) |
 
 - `[/#Local heading]` (leading `/`) resolves in the current note.
+- `[./-Item]` (`./` and a typed component: `-`, `#`, `:`, `*`, `>`) continues
+  the link of the line it's nested under: below `09:00 [P/#1.4 - zortex]`,
+  `  - [ ] [./-Improve website]` is `[P/#1.4 - zortex/-Improve website]`. The
+  parent is the nearest less-indented line above with a link (a parent can be
+  relative too). Any other `./` link is a file path (`[./scan.pdf]`).
 - `>` links to the links in a note, so a list of resources can be linked by
   name: `[R/#Rust/>The Rust Book]` opens the book from
   `- [The Rust Book](https://doc.rust-lang.org/book) @rust`. It matches a

@@ -110,6 +110,12 @@ h1:hover .pin, h2:hover .pin, h3:hover .pin, h4:hover .pin, h5:hover .pin, h6:ho
 .box { flex: none; display: inline-block; width: 0.95rem; height: 0.95rem; border: 1.5px solid var(--dim); border-radius: 3px; transform: translateY(0.12rem); text-align: center; font-size: 0.7rem; line-height: 0.8rem; }
 .box.done { background: var(--done); border-color: var(--done); }
 .box.done::after { content: "✓"; color: var(--panel); font-weight: 700; }
+/* task copies (mirrors.go): done through a calendar copy; carried to a later day */
+.box.done.mirrored { background: color-mix(in srgb, var(--done) 55%, transparent); border-style: dashed; }
+.box.moved { border-style: dashed; color: var(--dim); font-size: 0.65rem; }
+.box.ref { border-style: dotted; }
+.event-item.moved .event-title { color: var(--dim); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--dim) 50%, transparent); }
+.cal-head .carry { margin-left: 0.6rem; }
 .task.done .body { color: var(--dim); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--dim) 60%, transparent); }
 blockquote.ln { border-left: 3px solid var(--rule); padding-left: 0.8rem; color: var(--dim); }
 .footnote { font-size: 0.9rem; color: var(--dim); }

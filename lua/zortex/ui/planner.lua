@@ -2,17 +2,31 @@
 --
 -- :ZortexPlan [YYYY-MM-DD] (default today)
 --   1. opens calendar.zortex at the day, creating it from the day's template
---      (ui.planner.templates: weekday / saturday / sunday / monday ...)
+--      (ui.planner.templates: weekday / saturday / sunday / monday ...), and
+--      carries the open tasks of the days before to it (the old lines marked
+--      [>]; ui.planner.carry_forward, :ZortexCarryForward)
 --   2. opens zortex://plan beside it: ranked tasks (TODOs, priority, due,
---      OKR), projects, key results and areas. Every line is exactly what gets
---      written: the item's text and an explicit link to it.
+--      OKR), projects, key results and areas.
+--
+-- Two ways to put a project task on the day (services/mirrors):
+--   a copy      "- [ ] [P/#1.4 - zortex/-Improve website] @id(aB3x9)" (p, P):
+--               its own checkbox and the task's @id; checking either checks
+--               both, XP is paid once. Under the day's block for its project
+--               ("09:00 [P/#1.4 - zortex]") it is "[./-Improve website]".
+--   a reference "09:00 Improve website [P/…/-Improve website]" (<CR>, i, o):
+--               no checkbox; it shows the task's state and toggling it
+--               toggles the task. A timed line can't hold a checkbox, so
+--               this is the way to give a task a time.
 --
 -- In the plan buffer:
+--   p          add it to the day: a task as a copy (under its project's block
+--              when the day has one), anything else as "- text"; stay here
+--              (walk the list adding what you want)
+--   P          on a project (or a task): a block for the project with all of
+--              its open tasks copied under it
 --   i / o / O  put the text on the current / next / previous calendar line
 --              (no marker added) and jump there in insert mode at the start of
 --              the line, ready to type a time ("09:00 ")
---   p          add "- text" after the day's last entry; stay in the plan buffer
---              (walk the list adding what you want)
 --   <CR>       put the text at the calendar cursor (single spaces around it;
 --              never inside a "09:00" or "- " marker; "- text" on a blank line)
 --   <C-n> <C-p> move the calendar cursor down / up
@@ -87,6 +101,10 @@ local function current_item()
 	return state.items[vim.api.nvim_win_get_cursor(0)[1]]
 end
 
+local function is_task(item)
+	return item.kind == "task" and item.link and item.file and item.lnum
+end
+
 --- Put the candidate under the cursor at the calendar cursor.
 function M.put()
 	local item = current_item()
@@ -134,10 +152,21 @@ function M.place(where)
 	vim.cmd("startinsert")
 end
 
---- Add "- text" after the last entry of the planned day; focus stays here.
+--- Add the candidate to the planned day; focus stays here. A task goes in
+--- as a copy (under its project's block when the day has one), anything
+--- else as "- text" after the day's last entry.
 function M.append()
 	local item = current_item()
 	if not item or not state.date then
+		return
+	end
+	if is_task(item) then
+		local at, added = planner.add_task(state.date, item)
+		local win = calendar_window()
+		if at and win then
+			vim.api.nvim_win_set_cursor(win, { at, 0 })
+		end
+		vim.api.nvim_echo({ { (added and "Added to " or "Already on ") .. state.date .. ": " .. item.text, "Comment" } }, false, {})
 		return
 	end
 	local calendar = require("zortex.stores.calendar")
@@ -156,6 +185,23 @@ function M.append()
 		vim.api.nvim_win_set_cursor(win, { at, 0 })
 	end
 	vim.api.nvim_echo({ { "Added to " .. state.date .. ": " .. item.text, "Comment" } }, false, {})
+end
+
+--- Add the project of the candidate (a project, or a task's project) to the
+--- planned day as a block with all of its open tasks copied under it.
+function M.append_project()
+	local item = current_item()
+	if not item or not state.date or not item.project_key then
+		return M.append()
+	end
+	local at, added = planner.add_project(state.date, item)
+	local win = calendar_window()
+	if at and win then
+		vim.api.nvim_win_set_cursor(win, { at, 0 })
+	end
+	vim.api.nvim_echo({
+		{ string.format("%s on %s: %d task%s added", item.project_link or item.text, state.date, added, added == 1 and "" or "s"), "Comment" },
+	}, false, {})
 end
 
 local function move_calendar(delta)
@@ -197,7 +243,8 @@ local function plan_buffer()
 	map("O", function()
 		M.place("previous")
 	end, "put on a new line above, then type a time")
-	map("p", M.append, "add as '- text' after the day's last entry")
+	map("p", M.append, "add to the day (a task as a copy, under its project's block if there is one)")
+	map("P", M.append_project, "add the project with its open tasks")
 	map("<C-n>", function()
 		move_calendar(1)
 	end, "calendar cursor down")
@@ -257,6 +304,15 @@ function M.open(opts)
 	if not heading then
 		vim.notify("Invalid date: " .. tostring(date), vim.log.levels.ERROR)
 		return
+	end
+	-- open tasks of the days before come along (today's plan only)
+	if cfg().carry_forward ~= false and date == os.date("%Y-%m-%d") then
+		local moved, added = planner.carry_forward(date, { days = cfg().carry_days })
+		if added > 0 then
+			vim.notify(string.format("Carried %d open task%s to today", added, added == 1 and "" or "s"), vim.log.levels.INFO, { title = "Zortex" })
+		elseif moved > 0 then
+			vim.notify(string.format("Marked %d task%s carried ([>])", moved, moved == 1 and "" or "s"), vim.log.levels.INFO, { title = "Zortex" })
+		end
 	end
 
 	-- Calendar on the left, at the day

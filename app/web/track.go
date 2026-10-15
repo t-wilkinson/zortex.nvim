@@ -136,8 +136,9 @@ func abs(n int) int {
 }
 
 // calendarTarget: what the current calendar entry means to work on: the
-// task its first link points at when that is a task, else the entry itself.
-// nil when no timed entry is running now.
+// first open task nested under it (mirrors.go blockTask), else the task its
+// first link points at when that is a task, else the entry itself. nil when
+// no timed entry is running now.
 func (s *Server) calendarTarget(now time.Time) *tracker.Target {
 	doc := s.calendarDoc()
 	if doc == nil {
@@ -165,13 +166,17 @@ func (s *Server) calendarTarget(now time.Time) *tracker.Target {
 			return nil
 		}
 	}
-	if !cur.Task {
+	// a block with tasks under it ("09:00 [P/#1.4 - zortex]"): the first open one
+	if t := s.blockTask(doc, cur.Lnum); t != nil {
+		return t
+	}
+	if !cur.Task || cur.Ref != "" { // a reference stands for the task it links
 		var target *tracker.Target
 		syntax.Walk(doc.Spans(cur.Lnum), func(sp *syntax.Span) {
 			if target != nil || sp.Type != "link" || s.fileLike(sp.Definition) {
 				return
 			}
-			r, err := links.ResolveFirst(s.ix, "["+sp.Definition+"]", links.Options{From: doc})
+			r, err := links.ResolveFirst(s.ix, "["+sp.Definition+"]", links.Options{From: doc, Lnum: cur.Lnum})
 			if err != nil || r == nil {
 				return
 			}

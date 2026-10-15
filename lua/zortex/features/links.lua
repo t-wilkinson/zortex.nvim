@@ -273,6 +273,19 @@ function M.open_info(link_info, ctx)
 
 	-- Handle different link types
 	if link_info.type == "link" or link_info.type == "live_link" then
+		-- [./-Item]: relative to the parent line's link
+		if link_mod.is_parent_relative(link_info.definition) then
+			local lnum = ctx.lnum or (in_buffer and buffer.get_cursor_pos()) or nil
+			local lines = ctx.doc and ctx.doc.lines
+				or (in_buffer and vim.api.nvim_buf_get_lines(0, 0, -1, false))
+				or require("zortex.utils.filesystem").read_lines(current_file)
+			local abs, err = link_mod.absolute(link_info.definition, lines or {}, lnum or 0)
+			if not abs then
+				vim.notify(err, vim.log.levels.WARN)
+				return
+			end
+			link_info = vim.tbl_extend("force", link_info, { definition = abs })
+		end
 		-- A path relative to this note ([./z/scan.pdf], [../folder]) names a file
 		local rel = link_mod.relative_path(link_info.definition, current_file)
 		if rel then

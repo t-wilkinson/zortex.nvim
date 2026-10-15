@@ -47,12 +47,16 @@
     entries.forEach(function (e, i) {
       var m = minutes(e.time);
       var past = isToday && m !== null && i < current;
-      var cls = "event-item" + (past ? " past" : "") + (e.done ? " done" : "") + (i === current ? " current" : "");
+      var cls = "event-item" + (past ? " past" : "") + (e.done ? " done" : "") + (e.moved ? " moved" : "") + (i === current ? " current" : "");
       var time = e.time ? esc(e.time) + (e.end ? '<span class="end">–' + esc(e.end) + "</span>" : "") : "";
       var box = "";
-      if (e.task && e.src && calWritable) {
-        box = '<button type="button" class="box ' + (e.done ? "done" : "open") + '" data-day="' + esc(key) + '" data-i="' + i +
-          '" aria-pressed="' + (e.done ? "true" : "false") + '" aria-label="' + (e.done ? "Done; mark open" : "Mark done") + '"></button>';
+      // a line without a checkbox that stands for a task (e.ref) toggles that task
+      var refCls = e.ref ? " ref" : "", refTitle = e.ref ? ' title="the task in ' + esc(e.ref) + '"' : "";
+      if (e.moved) {
+        box = '<span class="box moved" title="carried to a later day" aria-label="carried to a later day">&gt;</span>';
+      } else if (e.task && e.src && calWritable) {
+        box = '<button type="button" class="box ' + (e.done ? "done" : "open") + refCls + '" data-day="' + esc(key) + '" data-i="' + i +
+          '" aria-pressed="' + (e.done ? "true" : "false") + '" aria-label="' + (e.done ? "Done; mark open" : "Mark done") + '"' + refTitle + '></button>';
       } else if (e.task) {
         box = '<span class="box ' + (e.done ? "done" : "open") + '" aria-label="' + (e.done ? "done" : "open task") + '"></span>';
       }
@@ -110,6 +114,7 @@
         Object.keys(data.days || {}).forEach(function (k) { cal.days[k] = data.days[k]; });
         cal.loaded[rg.key] = true;
         calWritable = !!data.writable;
+        cal.carry = data.carry || 0;
         cal.notifications = data.notifications || [];
         cal.next = data.next_time ? { time: data.next_time, text: data.next_event } : null;
         var stats = $("cal-stats");
@@ -118,7 +123,31 @@
             " · next: " + data.next_event + (data.ntfy ? " · via ntfy" : " · ntfy off");
         }
       });
-    })).then(function () { renderDay(); renderMonth(); renderPomodoro(); });
+    })).then(function () { renderDay(); renderMonth(); renderPomodoro(); renderCarry(); });
+  }
+
+  // -writable: open tasks of the days before, copied to today (same @id) and
+  // marked [>] where they were
+  function renderCarry() {
+    var head = document.querySelector(".cal-head");
+    if (!head) return;
+    var btn = head.querySelector("button.carry");
+    if (!calWritable || !cal.carry) { if (btn) btn.remove(); return; }
+    if (!btn) {
+      btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "link-btn carry";
+      btn.addEventListener("click", function () {
+        btn.disabled = true;
+        fetch(base + "/api/calendar/carry", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+          .then(function (r) { if (!r.ok) return r.json().then(function (x) { window.alert(x.error || "Couldn't carry"); }); })
+          .catch(function () { window.alert("Server unreachable; nothing was changed"); })
+          .then(function () { btn.disabled = false; cal.loaded = {}; return loadCalendar(true); });
+      });
+      head.appendChild(btn);
+    }
+    btn.textContent = "Carry " + cal.carry + " open task" + (cal.carry === 1 ? "" : "s") + " to today";
+    btn.title = "Copy the open tasks of the days before to today; the old lines are marked [>]";
   }
 
   // -writable: check off calendar tasks here

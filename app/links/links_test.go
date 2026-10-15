@@ -14,6 +14,7 @@ import (
 type resolveCase struct {
 	Link    string `json:"link"`
 	From    string `json:"from"`
+	Lnum    int    `json:"lnum"`
 	Error   string `json:"error"`
 	Results []struct {
 		Rel  string `json:"rel"`
@@ -54,11 +55,15 @@ func conform(t *testing.T, ix *notes.Index, cases []resolveCase) {
 		if c.From != "" {
 			name += " from " + c.From
 		}
+		if c.Lnum > 0 {
+			name += fmt.Sprintf(":%d", c.Lnum)
+		}
 		t.Run(name, func(t *testing.T) {
 			var opts Options
 			if c.From != "" {
 				opts.From = ix.Doc(c.From)
 			}
+			opts.Lnum = c.Lnum
 			results, err := Resolve(ix, c.Link, opts)
 			got := make([]string, len(results))
 			for i, r := range results {

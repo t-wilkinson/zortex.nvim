@@ -11,6 +11,17 @@ The first release for people other than the author.
 
 ### Neovim plugin
 
+- Task copies: a project task put on the calendar keeps its `@id`, and lines
+  with the same `@id` are one task: checked when any copy is, XP paid once
+  by the project, toggling one toggles the others, `@spent` adds up. A
+  calendar line without a checkbox that links a task stands for it.
+- `[./-Item]` links continue the link of the line they're nested under
+  (`09:00 [P/#1.4 - zortex]` / `  - [ ] [./-Improve website]`).
+- The planner puts tasks on the day as copies (`p`, under their project's
+  block), projects as blocks with their open tasks (`P`), and carries the open
+  tasks of the days before to today, marking the old lines `[>]`
+  (`:ZortexCarryForward`, `ui.planner.carry_forward`).
+
 - One grammar (`core/syntax`) for every feature, documented in
   [doc/Syntax.md](doc/Syntax.md) and checked against the parser by a test.
 - Structural search, links with completion and preview, backlinks and broken
@@ -72,6 +83,12 @@ The first release for people other than the author.
   shows the image, `![./clip.mp4]` the video.
 - Markdown files (`.md`, `.markdown`) render in the file viewer like a note,
   math included; HTML and Markdown files have a "source" link to their text.
+- Task copies on the web: toggling a calendar copy toggles its project task
+  (and the other way round), calendar lines that link a task show and toggle
+  it, a project task done through its copy shows done, the clocks count
+  against the first open task of the running calendar block, a **Carry**
+  button (`POST /api/calendar/carry`) brings open tasks to today, and
+  `/broken` lists ids that don't line up.
 - `/resources` lists every resource by default (`?show=unlinked` for the
   unlinked ones; `/api/resources` still defaults to unlinked).
 - Tag tables: `!@[scope/tags]` shows a tag search as a sortable, filterable

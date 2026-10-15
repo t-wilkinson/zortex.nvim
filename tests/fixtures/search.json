@@ -39,6 +39,13 @@
         "type": "section"
       },
       {
+        "breadcrumb": "Day plan",
+        "lnum": 1,
+        "rel": "z/day-plan.zortex",
+        "score": 2000,
+        "type": "section"
+      },
+      {
         "breadcrumb": "Garden",
         "lnum": 1,
         "rel": "z/garden.zortex",
@@ -129,6 +136,21 @@
         "child": true,
         "lnum": 11,
         "rel": "flipping.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Day plan",
+        "lnum": 1,
+        "rel": "z/day-plan.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Day plan › Notes",
+        "child": true,
+        "lnum": 7,
+        "rel": "z/day-plan.zortex",
         "score": 2100,
         "type": "section"
       },
@@ -283,6 +305,21 @@
         "type": "line"
       },
       {
+        "lnum": 3,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 4,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 6,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
         "lnum": 2,
         "rel": "z/garden.zortex",
         "type": "line"
@@ -407,6 +444,21 @@
         "lnum": 27,
         "rel": "projects.zortex",
         "type": "line"
+      },
+      {
+        "lnum": 3,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 5,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 8,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
       }
     ]
   },
@@ -437,6 +489,16 @@
       {
         "lnum": 24,
         "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 3,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 5,
+        "rel": "z/day-plan.zortex",
         "type": "line"
       }
     ]
@@ -492,6 +554,16 @@
       {
         "lnum": 15,
         "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 3,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 5,
+        "rel": "z/day-plan.zortex",
         "type": "line"
       }
     ]
@@ -561,6 +633,11 @@
       {
         "lnum": 15,
         "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 5,
+        "rel": "z/day-plan.zortex",
         "type": "line"
       }
     ]
@@ -648,6 +725,21 @@
       {
         "lnum": 15,
         "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 3,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 5,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 9,
+        "rel": "z/day-plan.zortex",
         "type": "line"
       }
     ]
@@ -1128,6 +1220,41 @@
         "type": "line"
       },
       {
+        "lnum": 3,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 4,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 5,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 6,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 8,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 9,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 10,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
         "lnum": 2,
         "rel": "z/garden.zortex",
         "type": "line"
@@ -1285,6 +1412,11 @@
         "lnum": 27,
         "rel": "projects.zortex",
         "type": "line"
+      },
+      {
+        "lnum": 6,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
       }
     ]
   },
@@ -1404,6 +1536,21 @@
         "child": true,
         "lnum": 29,
         "rel": "projects.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Day plan",
+        "lnum": 1,
+        "rel": "z/day-plan.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Day plan › Notes",
+        "child": true,
+        "lnum": 7,
+        "rel": "z/day-plan.zortex",
         "score": 2100,
         "type": "section"
       },
@@ -1713,6 +1860,41 @@
         "type": "line"
       },
       {
+        "lnum": 3,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 4,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 5,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 6,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 8,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 9,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 10,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
         "lnum": 2,
         "rel": "z/garden.zortex",
         "type": "line"
@@ -1811,6 +1993,13 @@
         "type": "section"
       },
       {
+        "breadcrumb": "Day plan › Notes",
+        "lnum": 7,
+        "rel": "z/day-plan.zortex",
+        "score": 600,
+        "type": "section"
+      },
+      {
         "lnum": 11,
         "rel": "z/resources.zortex",
         "type": "line"
@@ -1870,6 +2059,13 @@
         "breadcrumb": "Projects › 1 Programming › 1.4 - zortex › Notes",
         "lnum": 23,
         "rel": "projects.zortex",
+        "score": 400,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Day plan › Notes",
+        "lnum": 7,
+        "rel": "z/day-plan.zortex",
         "score": 400,
         "type": "section"
       },
@@ -2134,6 +2330,41 @@
         "type": "line"
       },
       {
+        "lnum": 3,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 4,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 5,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 6,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 8,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 9,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 10,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
         "lnum": 2,
         "rel": "z/garden.zortex",
         "type": "line"
@@ -2371,6 +2602,11 @@
         "lnum": 15,
         "rel": "okr.zortex",
         "type": "line"
+      },
+      {
+        "lnum": 3,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
       }
     ]
   },
@@ -2396,6 +2632,11 @@
       {
         "lnum": 15,
         "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 3,
+        "rel": "z/day-plan.zortex",
         "type": "line"
       }
     ]
@@ -2453,6 +2694,13 @@
         "breadcrumb": "Flipping",
         "lnum": 1,
         "rel": "flipping.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Day plan",
+        "lnum": 1,
+        "rel": "z/day-plan.zortex",
         "score": 2100,
         "type": "section"
       },
@@ -2535,6 +2783,13 @@
         "breadcrumb": "Projects",
         "lnum": 1,
         "rel": "projects.zortex",
+        "score": 2000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Day plan",
+        "lnum": 1,
+        "rel": "z/day-plan.zortex",
         "score": 2000,
         "type": "section"
       },

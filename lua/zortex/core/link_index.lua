@@ -108,6 +108,9 @@ end
 -- First component of a link definition, for invalidation:
 -- { kind = "article"|"tag"|"global"|"local"|"path", text }
 local function first_component(def)
+	if link_mod.is_parent_relative(def) then
+		return { kind = "global" } -- through its parent line's link: re-resolve with every change
+	end
 	if vim.trim(def):match("^%.%.?/") then
 		return { kind = "path" } -- a file, checked when queried
 	end
@@ -150,8 +153,9 @@ local function resolve(link, source_path)
 		return
 	end
 	local opts = {}
-	if link.first.kind == "local" then
+	if link.first.kind == "local" or link_mod.is_parent_relative(link.definition) then
 		opts.doc = Document().get(source_path)
+		opts.lnum = link.lnum
 	end
 	local ok, result = pcall(function()
 		return (link_mod.resolve_first(link.definition, opts))

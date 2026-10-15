@@ -32,12 +32,14 @@ end
 
 --- Time per task over [from, to] ("YYYY-MM-DD"), most first:
 --- { minutes = total, tasks = { { text, rel, lnum, file, minutes } } }
+--- Lines with the same @id are one task (a project task and its calendar
+--- copies, services/mirrors).
 function M.between(from, to)
 	local by_key, order, total = {}, {}, 0
 	for day, list in pairs(M.days()) do
 		if day >= from and day <= to then
 			for _, t in ipairs(list) do
-				local key = t.key or ((t.rel or "") .. "|" .. (t.text or ""))
+				local key = (t.id and t.id ~= "" and ("#" .. t.id)) or t.key or ((t.rel or "") .. "|" .. (t.text or ""))
 				local agg = by_key[key]
 				if not agg then
 					agg = { text = t.text, rel = t.rel, lnum = t.lnum, minutes = 0, last = day }

@@ -146,8 +146,7 @@ definitions.
 
 `split` / `parse` / `parse_component` turn a link definition into typed
 components (`split` ignores `/` inside parentheses and is shared with
-completion). A typed component (`#…`, `:…`, `-…`, `*…`) is never split as a
-`+` / `&` query, so `#4 Learning & Education` is a heading. `at(line, col)`
+completion). `at(line, col)`
 and `on_line(line)` find links on a line (from syntax spans; `@a(...)`
 resolves to its area link). Resolution and link building are in the same
 module (next sections); following a link in a buffer (quickfix list,
@@ -216,7 +215,7 @@ narrows a list of candidates (file + line range):
 | Heading      | `#1.4 - zortex`           | Heading lines whose text **starts with** the text, case-insensitive, at **any depth** in the current range.                                                    |
 | Label / bold | `:Fitness`, `*X`          | Line searches.                                                                                                                                                 |
 | List item    | `-KR1`, `-Call the bank`  | A list item whose key (`- KR1: …`) or text (checkbox and attributes ignored) starts with the text.                                                             |
-| Query        | `%text`, `a + b`, `a & b` | Line searches. Case-sensitive only if the query has an uppercase letter.                                                                                       |
+| Query        | `%text`                   | Line searches. Case-sensitive only if the query has an uppercase letter.                                                                                       |
 | Follow       | `>The Rust Book`          | Links on lines in range whose own text (markdown text, definition, URL, path) or line text starts with the text; `>` alone is every link. Last component only. |
 
 **Parent-relative links**: `[./-Item]` (`./` then `-`, `#`, `:`, `*` or `>`)
@@ -250,7 +249,7 @@ tasks as `[P/#…/-Improve website]`.
   components, `result.whole`; otherwise `lnum..result.end_line`), and every
   non-blank, non-header line outside code in them matches when its own bare
   `@words` plus those of the section headings above it satisfy the query
-  (`a + b` any, `a & b` all; groups of `&` joined by `+`). No scope is the
+  (words: all of them; commas separate alternatives). No scope is the
   current note, `*` every note.
 - A `-` component compares a list item's text with markdown links replaced
   by their text (`link_text`), so `-The Rust Book` finds

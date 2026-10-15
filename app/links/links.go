@@ -10,7 +10,7 @@
 //	@P                 tag: files whose header has the tag
 //	#1.4 - zortex      heading starting with the text, any depth
 //	:Fitness           label    *Bold  highlight    -Item  list item (key or text)
-//	%text, a + b, a & b    line queries (case-sensitive when the query has capitals)
+//	%text              line query (case-sensitive when the query has capitals)
 //	>Book              the links on lines in range whose text (or line's text)
 //	                   starts with "Book"; last component only (Result.Link)
 //
@@ -28,10 +28,9 @@ import (
 
 // Component is one parsed link component.
 type Component struct {
-	Type     string   // article tag heading label listitem highlight query or_query and_query follow
-	Text     string   // text without prefix (and without attributes for article/heading/label)
-	Original string   // as written
-	Tags     []string // or_query / and_query terms
+	Type     string // article tag heading label listitem highlight query follow
+	Text     string // text without prefix (and without attributes for article/heading/label)
+	Original string // as written
 }
 
 // Definition is a parsed link.
@@ -133,33 +132,9 @@ func isAlnum(b byte) bool {
 	return (b >= '0' && b <= '9') || (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
 }
 
-// legacyTerms reads "+a+b" / "&a&b" terms.
-func legacyTerms(s string, sep byte) []string {
-	var out []string
-	for i := 0; i < len(s); i++ {
-		if s[i] != sep {
-			continue
-		}
-		j := i + 1
-		for j < len(s) && s[j] != sep {
-			j++
-		}
-		if j > i+1 {
-			out = append(out, syntax.Trim(s[i+1:j]))
-		}
-		i = j - 1
-	}
-	return out
-}
-
 // ParseComponent types one component.
 func ParseComponent(c string) Component {
-	first := c[0]
-	typed := first == '#' || first == ':' || first == '-' || first == '*' || first == '>'
-	if qt, terms := syntax.SplitQuery(c); !typed && qt != "single" && len(terms) >= 2 {
-		return Component{Type: qt + "_query", Tags: terms, Text: c, Original: c}
-	}
-	switch first {
+	switch c[0] {
 	case '@':
 		return Component{Type: "tag", Text: c[1:], Original: c}
 	case '#':
@@ -178,12 +153,6 @@ func ParseComponent(c string) Component {
 		return Component{Type: "query", Text: c[1:], Original: c}
 	case '>':
 		return Component{Type: "follow", Text: syntax.Trim(c[1:]), Original: c}
-	case '+':
-		clean := removeAttrs(c)
-		return Component{Type: "or_query", Tags: legacyTerms(clean, '+'), Text: clean, Original: c}
-	case '&':
-		clean := removeAttrs(c)
-		return Component{Type: "and_query", Tags: legacyTerms(clean, '&'), Text: clean, Original: c}
 	}
 	return Component{Type: "article", Text: removeAttrs(c), Original: c}
 }
@@ -395,8 +364,7 @@ func SearchLines(lines []string, c Component, start, end int) []Match {
 	if c.Type == "article" {
 		return nil // only selects files (global links); nothing to search in a note
 	}
-	query := c.Type == "query" || c.Type == "and_query" || c.Type == "or_query"
-	caseSensitive := query && hasUpper(c.Text)
+	caseSensitive := c.Type == "query" && hasUpper(c.Text)
 	norm := func(s string) string {
 		if caseSensitive {
 			return s
@@ -404,10 +372,6 @@ func SearchLines(lines []string, c Component, start, end int) []Match {
 		return syntax.Lower(s)
 	}
 	text := norm(c.Text)
-	terms := make([]string, len(c.Tags))
-	for i, t := range c.Tags {
-		terms[i] = norm(t)
-	}
 	for lnum := start; lnum <= end; lnum++ {
 		line := norm(lines[lnum-1])
 		col := 0
@@ -430,28 +394,6 @@ func SearchLines(lines []string, c Component, start, end int) []Match {
 			if i := strings.Index(line, text); i >= 0 {
 				col = i + 1
 			}
-		case "and_query":
-			col = -1
-			for _, t := range terms {
-				i := strings.Index(line, t)
-				if i < 0 {
-					col = 0
-					break
-				}
-				if col < 0 {
-					col = i + 1
-				}
-			}
-			if col < 0 {
-				col = 1 // no terms: everything matches
-			}
-		case "or_query":
-			for _, t := range terms {
-				if i := strings.Index(line, t); i >= 0 {
-					col = i + 1
-					break
-				}
-			}
 		}
 		if col > 0 {
 			out = append(out, Match{Lnum: lnum, Col: col})
@@ -465,7 +407,7 @@ func SearchLines(lines []string, c Component, start, end int) []Match {
 // highlights).
 func SectionEnd(doc *notes.Document, lnum int, c Component) int {
 	switch c.Type {
-	case "listitem", "query", "and_query", "or_query", "tag", "follow":
+	case "listitem", "query", "tag", "follow":
 		return lnum
 	}
 	node := doc.NodeStartingAt(lnum)

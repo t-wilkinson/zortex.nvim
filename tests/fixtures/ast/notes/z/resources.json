@@ -52,14 +52,9 @@
       "indent": 0,
       "inline": [
         {
-          "content": "rust + rl",
-          "e": 12,
-          "query_type": "or",
+          "content": "rust, rl",
+          "e": 11,
           "s": 0,
-          "terms": [
-            "rust",
-            "rl"
-          ],
           "type": "tag_search"
         }
       ],
@@ -70,14 +65,9 @@
       "indent": 0,
       "inline": [
         {
-          "content": "rl & ai-model",
-          "e": 21,
-          "query_type": "and",
+          "content": "rl ai-model",
+          "e": 19,
           "s": 5,
-          "terms": [
-            "rl",
-            "ai-model"
-          ],
           "type": "tag_search"
         }
       ],

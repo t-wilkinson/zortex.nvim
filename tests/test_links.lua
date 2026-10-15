@@ -152,12 +152,13 @@ T.test("@[scope/tags] finds tagged lines, with tags inherited from headings", fu
 		return out
 	end
 	T.eq(lines("@[R/rust]"), { 9, 12, 13, 16 })
-	T.eq(lines("@[R/embedded & rust]"), { 16 }) -- @embedded on the heading, @rust on the line
-	T.eq(lines("@[@Library/rl+ai-model]"), { 20, 21 })
-	T.eq(lines("@[*/@rl & @ai-model]"), { 21 })
+	T.eq(lines("@[R/embedded rust]"), { 16 }) -- @embedded on the heading, @rust on the line
+	T.eq(lines("@[@Library/rl, ai-model]"), { 20, 21 })
+	T.eq(lines("@[*/@rl @ai-model]"), { 21 })
 	local doc = require("zortex.core.document").get(T.fixture("z/resources.zortex"))
 	T.eq(lines("@[rl]", { doc = doc }), { 20, 21 })
-	T.eq(links.parse_tag_search("R/#Rust/a & b + c").groups, { { "a", "b" }, { "c" } })
+	T.eq(links.parse_tag_search("R/#Rust/a b, c").groups, { { "a", "b" }, { "c" } })
+	T.eq(links.parse_tag_search("c++, r&d").groups, { { "c++" }, { "r&d" } }) -- no other operators
 	local _, err = links.resolve("@[Nope/rl]")
 	T.eq(err, "No article found: Nope")
 end)
@@ -165,7 +166,7 @@ end)
 T.test("following @[...] lists the tagged lines, not the search itself", function()
 	local follow = require("zortex.features.links")
 	vim.cmd("edit " .. T.fixture("z/resources.zortex"))
-	vim.api.nvim_win_set_cursor(0, { 6, 6 }) -- - AI @[rl & ai-model]
+	vim.api.nvim_win_set_cursor(0, { 6, 6 }) -- - AI @[rl ai-model]
 	follow.open_info(require("zortex.core.link").at(vim.api.nvim_get_current_line(), 6))
 	T.eq(vim.fn.expand("%:t") .. ":" .. vim.fn.line("."), "resources.zortex:21")
 	vim.cmd("enew")

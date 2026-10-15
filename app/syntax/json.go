@@ -66,7 +66,7 @@ func (s Span) MarshalJSON() ([]byte, error) {
 	case "link", "live_link":
 		m["definition"] = s.Definition
 	case "tag_search":
-		m["content"], m["terms"], m["query_type"] = s.Content, s.Terms, s.QueryType
+		m["content"] = s.Content
 		if s.Embed {
 			m["embed"] = true
 		}

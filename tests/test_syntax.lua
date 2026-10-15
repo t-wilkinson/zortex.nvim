@@ -68,20 +68,20 @@ T.test("list items: markers, keys, checkboxes, times", function()
 end)
 
 T.test("inline spans", function()
-	local line = "See @[cars & parts], ![Live] and [text](https://x.io) at 10:30, me@x.com @p1 **b [L]**"
+	local line = "See @[cars parts], ![Live] and [text](https://x.io) at 10:30, me@x.com @p1 **b [L]**"
 	local spans = syntax.inline(line)
 	local got = vim.tbl_map(function(s)
 		return s.type .. "=" .. line:sub(s.s + 1, s.e)
 	end, spans)
 	T.eq(got, {
-		"tag_search=@[cars & parts]",
+		"tag_search=@[cars parts]",
 		"live_link=![Live]",
 		"markdown=[text](https://x.io)",
 		"time=10:30",
 		"attribute=@p1",
 		"bold=**b [L]**",
 	})
-	T.eq(spans[1].terms, { "cars", "parts" })
+	T.eq(spans[1].content, "cars parts")
 	T.eq(spans[#spans].children[1].definition, "L")
 	-- checkboxes and footnotes are not links; "$5 and $6" is not math
 	T.eq(#syntax.links("- [x] done [^1] costs $5 and $6"), 0)

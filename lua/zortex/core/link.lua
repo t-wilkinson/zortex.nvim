@@ -12,7 +12,7 @@
 --   Heading   [.../#1.4 - z]   case-insensitive prefix match on heading lines at
 --                              ANY depth inside the current range; the first
 --                              match per file becomes the new range (its section)
---   Label, list item, highlight, %query, a + b, a & b: line searches likewise
+--   Label, list item, highlight, %query: line searches likewise
 --   Follow    [R/#Rust/>Book]  the links on the lines in range whose text (or
 --                              whose line's text) starts with "Book"; must be
 --                              the last component. Following it opens what
@@ -20,8 +20,9 @@
 --
 -- Tag searches, @[scope/tags], resolve here too (tag_search below): the
 -- components before the last "/" are a link giving where to look (none: the
--- current note; "*": every note), the last one the tags, "a + b" either and
--- "a & b" both (spaces optional, "@" optional). A line matches when it, or a
+-- current note; "*": every note), the last one the tags: words are all of
+-- them, commas separate alternatives ("rust async, rl": both rust and async,
+-- or rl; "@" optional). A line matches when it, or a
 -- section heading above it, carries the tags as bare @words.
 --
 -- Results come back in note order (top-level files first, then line order), so
@@ -61,8 +62,8 @@ M.escape_pattern = escape_pattern
 -- Grammar
 -- =============================================================================
 
---- One component ("#1.4 - zortex", "@P", "a + b", ...) as
---- { type, text, original, attributes, tags? }.
+--- One component ("#1.4 - zortex", "@P", "%sparkplug", ...) as
+--- { type, text, original, attributes }.
 function M.parse_component(component)
 	if not component or component == "" then
 		return nil
@@ -70,8 +71,6 @@ function M.parse_component(component)
 
 	local first_char = component:sub(1, 1)
 
-	-- Extract the base text without attributes
-	local base_text = component
 	local attributes = {}
 
 	-- Check if component has attributes (contains @key(...))
@@ -80,28 +79,6 @@ function M.parse_component(component)
 		attributes[key] = value
 	end
 
-	-- ---------------------------------------------------------------
-	-- Infix operators: "term1 + term2" (OR), "term1 & term2" (AND)
-	-- Detected before prefix checks. Spaces around the operator are
-	-- required so that "c++" or "r&d" aren't mis-parsed.
-	-- ---------------------------------------------------------------
-	-- Infix operators apply to untyped components only, so "#R & D" stays a
-	-- heading and "#4 Learning & Education" is not an AND query.
-	local typed = first_char == "#" or first_char == ":" or first_char == "-" or first_char == "*" or first_char == ">"
-	local query_type, tags = syntax.split_query(component)
-	if not typed and query_type ~= "single" and #tags >= 2 then
-		return {
-			type = query_type .. "_query",
-			tags = tags,
-			text = component,
-			original = component,
-			attributes = attributes,
-		}
-	end
-
-	-- ---------------------------------------------------------------
-	-- Prefix-based parsing (original syntax, also serves as fallback)
-	-- ---------------------------------------------------------------
 	if first_char == "@" then
 		return { type = "tag", text = component:sub(2), original = component, attributes = attributes }
 	elseif first_char == "#" then
@@ -125,22 +102,6 @@ function M.parse_component(component)
 		return { type = "query", text = component:sub(2), original = component, attributes = attributes }
 	elseif first_char == ">" then
 		return { type = "follow", text = syntax.trim(component:sub(2)), original = component, attributes = attributes }
-	elseif first_char == "+" then
-		-- Legacy OR Query: +term1+term2
-		local tags = {}
-		local clean_text = component:gsub(attr_pattern, ""):gsub("%s+", " "):gsub("%s*$", "")
-		for tag in clean_text:gmatch("%+([^%+]+)") do
-			table.insert(tags, syntax.trim(tag))
-		end
-		return { type = "or_query", tags = tags, text = clean_text, original = component, attributes = attributes }
-	elseif first_char == "&" then
-		-- Legacy AND Query: &term1&term2
-		local tags = {}
-		local clean_text = component:gsub(attr_pattern, ""):gsub("%s+", " "):gsub("%s*$", "")
-		for tag in clean_text:gmatch("&([^&]+)") do
-			table.insert(tags, syntax.trim(tag))
-		end
-		return { type = "and_query", tags = tags, text = clean_text, original = component, attributes = attributes }
 	else
 		-- Article - remove attributes from the text
 		local text = component:gsub(attr_pattern, ""):gsub("%s+", " "):gsub("%s*$", "")
@@ -235,7 +196,6 @@ local function link_info(line, span)
 		info.type, info.display_text, info.definition = t, span.definition, span.definition
 	elseif t == "tag_search" then
 		info.type, info.display_text = "tag_search", span.content
-		info.terms, info.query_type = span.terms, span.query_type
 	elseif t == "url" then
 		info.type, info.url, info.display_text = "website", span.url, span.url
 	elseif t == "filepath" then
@@ -254,7 +214,7 @@ local function link_info(line, span)
 end
 
 --- The link (any kind) under 0-based byte column `col`, or nil:
---- { type, display_text, definition?, url?, ref_id?, terms?, query_type?, path?, full_match_text, col }
+--- { type, display_text, definition?, url?, ref_id?, path?, full_match_text, col }
 function M.at(line, col)
 	local span = syntax.span_at(line, col)
 	return span and link_info(line, span) or nil
@@ -351,29 +311,12 @@ local function search_pattern(component)
 	elseif component.type == "query" then
 		-- Plain substring search
 		return text
-	elseif component.type == "and_query" then
-		-- Return a table of patterns to search for simultaneously (ALL must match)
-		local patterns = {}
-		for _, tag in ipairs(component.tags) do
-			local escaped = escape_pattern(tag)
-			table.insert(patterns, escaped)
-		end
-		return patterns
-	elseif component.type == "or_query" then
-		-- Return a table of patterns (ANY must match)
-		local patterns = {}
-		for _, tag in ipairs(component.tags) do
-			local escaped = escape_pattern(tag)
-			table.insert(patterns, escaped)
-		end
-		return patterns
 	elseif component.type == "article" then
 		-- This is handled differently - by finding article files
 		return nil
 	end
 end
 
-local QUERY_TYPES = { query = true, and_query = true, or_query = true }
 
 -- Lowercased lines, per lines table (document snapshots never change, so a
 -- note searched by many links is lowercased once)
@@ -419,7 +362,7 @@ local function lines_starting_with(lines, char)
 end
 
 --- Find lines in [start_line, end_line] matching a component. Matching is
---- case-insensitive, except for %/+/& queries that contain an uppercase letter.
+--- case-insensitive, except for % queries that contain an uppercase letter.
 ---@return { lnum: integer, col: integer }[]
 function M.search_lines(lines, component, start_line, end_line)
 	if component.type == "follow" then
@@ -449,14 +392,10 @@ function M.search_lines(lines, component, start_line, end_line)
 		return {}
 	end
 
-	local case_sensitive = QUERY_TYPES[component.type] and component.text:match("[A-Z]") ~= nil
-	local patterns = type(pattern) == "table" and pattern or { pattern }
+	local case_sensitive = component.type == "query" and component.text:match("[A-Z]") ~= nil
 	if not case_sensitive then
-		for i, pat in ipairs(patterns) do
-			patterns[i] = pat:lower()
-		end
+		pattern = pattern:lower()
 	end
-	local require_all = component.type ~= "or_query"
 
 	local out = {}
 	if component.type == "listitem" then
@@ -480,22 +419,9 @@ function M.search_lines(lines, component, start_line, end_line)
 	local first, last = start_line or 1, math.min(end_line or #lines, #lines)
 	local function try(lnum)
 		local line = case_sensitive and lines[lnum] or lower_line(lines, lnum)
-		local is_match, match_col = require_all, nil
-		for _, pat in ipairs(patterns) do
-			local col = line:find(pat)
-			if require_all then
-				if not col then
-					is_match = false
-					break
-				end
-				match_col = match_col or col
-			elseif col then
-				is_match, match_col = true, col
-				break
-			end
-		end
-		if is_match then
-			out[#out + 1] = { lnum = lnum, col = match_col or 1 }
+		local col = line:find(pattern)
+		if col then
+			out[#out + 1] = { lnum = lnum, col = col }
 		end
 	end
 	local anchor = ANCHOR[component.type]
@@ -519,7 +445,7 @@ end
 -- Section Boundaries
 -- =============================================================================
 
-local SINGLE_LINE = { listitem = true, query = true, and_query = true, or_query = true, tag = true, follow = true }
+local SINGLE_LINE = { listitem = true, query = true, tag = true, follow = true }
 
 -- Range a match narrows to: the section that starts at the matched line (a
 -- single line for list items, queries, tags and plain highlights).
@@ -766,16 +692,17 @@ end
 -- Tag searches: @[scope/tags]
 -- =============================================================================
 
---- "R/#Rust/rl + ai" -> { scope = { "R", "#Rust" } | nil, is_local, all,
+--- "R/#Rust/rl, ai" -> { scope = { "R", "#Rust" } | nil, is_local, all,
 --- groups = { { "rl" }, { "ai" } } } (any group, all of its tags)
 function M.parse_tag_search(content)
 	local parts, scope = M.split(content)
 	local query = table.remove(parts) or ""
 	local groups = {}
-	for group in (query .. "+"):gmatch("([^+]*)%+") do
+	-- "a b, c": (a and b) or c
+	for group in (query .. ","):gmatch("([^,]*),") do
 		local terms = {}
-		for term in (group .. "&"):gmatch("([^&]*)&") do
-			term = (syntax.trim(term):gsub("^@", "")):lower()
+		for term in group:gmatch("%S+") do
+			term = (term:gsub("^@", "")):lower()
 			if term ~= "" then
 				terms[#terms + 1] = term
 			end
@@ -1172,7 +1099,7 @@ function M.build_result_link(result)
 	-- Append the matched component unless the match IS the innermost section.
 	local comp = result.component
 	if comp and section_lnum ~= result.lnum then
-		if QUERY_TYPES[comp.type] or comp.type == "tag_search" then
+		if comp.type == "query" or comp.type == "tag_search" then
 			table.insert(parts, "%" .. M.extract_line_identifier(result.text))
 		elseif comp.type == "tag" then
 			table.insert(parts, "@" .. comp.text)

@@ -351,7 +351,7 @@ function M.open_info(link_info, ctx)
 			vim.notify(string.format("Found %d matches. Quickfix list populated.", #results), vim.log.levels.INFO)
 		end
 	elseif link_info.type == "tag_search" then
-		-- @[scope/tag1 + tag2]: tagged lines (core/link tag_search), minus
+		-- @[scope/tag1, tag2]: tagged lines (core/link tag_search), minus
 		-- the line the search is written on
 		local source_lnum = buffer.get_cursor_pos()
 		local results, err = link_mod.tag_search(link_info.display_text, ctx.doc and { doc = ctx.doc } or nil)

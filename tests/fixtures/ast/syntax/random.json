@@ -171,12 +171,7 @@
         {
           "content": "a & b",
           "e": 11,
-          "query_type": "and",
           "s": 3,
-          "terms": [
-            "a",
-            "b"
-          ],
           "type": "tag_search"
         }
       ],
@@ -693,12 +688,7 @@
         {
           "content": "a & b",
           "e": 15,
-          "query_type": "and",
           "s": 7,
-          "terms": [
-            "a",
-            "b"
-          ],
           "type": "tag_search"
         }
       ],
@@ -939,12 +929,7 @@
         {
           "content": "a & b",
           "e": 21,
-          "query_type": "and",
           "s": 13,
-          "terms": [
-            "a",
-            "b"
-          ],
           "type": "tag_search"
         }
       ],
@@ -2740,12 +2725,7 @@
         {
           "content": "a & b",
           "e": 12,
-          "query_type": "and",
           "s": 4,
-          "terms": [
-            "a",
-            "b"
-          ],
           "type": "tag_search"
         }
       ],

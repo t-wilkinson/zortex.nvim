@@ -183,49 +183,6 @@ func StripAttributes(text string) string {
 	return Trim(string(out))
 }
 
-// SplitQuery splits "a + b" (or) / "a & b" (and) into terms. Spaces around
-// the operator are required, so "c++" and "r&d" are single terms.
-func SplitQuery(content string) (string, []string) {
-	var sep byte
-	queryType := "single"
-	if containsStr(content, " + ") {
-		queryType, sep = "or", '+'
-	} else if containsStr(content, " & ") {
-		queryType, sep = "and", '&'
-	}
-	if sep == 0 {
-		return queryType, []string{Trim(content)}
-	}
-	terms := []string{}
-	start := -1
-	flush := func(end int) {
-		if start >= 0 {
-			if t := Trim(content[start:end]); t != "" {
-				terms = append(terms, t)
-			}
-			start = -1
-		}
-	}
-	for i := 0; i < len(content); i++ {
-		if content[i] == sep {
-			flush(i)
-		} else if start < 0 {
-			start = i
-		}
-	}
-	flush(len(content))
-	return queryType, terms
-}
-
-func containsStr(s, sub string) bool {
-	for i := 0; i+len(sub) <= len(s); i++ {
-		if s[i:i+len(sub)] == sub {
-			return true
-		}
-	}
-	return false
-}
-
 // =============================================================================
 // Header
 // =============================================================================

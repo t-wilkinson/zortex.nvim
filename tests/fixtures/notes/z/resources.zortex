@@ -2,8 +2,8 @@
 @@R
 @Library
 
-@[rust + rl]
-- AI @[rl & ai-model]
+@[rust, rl]
+- AI @[rl ai-model]
 
 # Rust
 - [The Rust Book](https://doc.rust-lang.org/book) @rust

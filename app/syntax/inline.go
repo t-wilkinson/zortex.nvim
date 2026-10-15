@@ -6,7 +6,7 @@ import "strings"
 // Which other fields are set depends on Type:
 //
 //	link, live_link   Definition             [Projects/#Heading], ![Article]
-//	tag_search        Content, Terms, QueryType   @[cars & parts], !@[...] (Embed)
+//	tag_search        Content                     @[cars parts], !@[...] (Embed)
 //	markdown          Text, URL              [text](https://...)
 //	footnote_ref      ID                     [^1]
 //	url               URL                    https://...
@@ -25,8 +25,6 @@ type Span struct {
 	Embed      bool // tag_search written !@[...]: shown in place
 	Definition string
 	Content    string
-	Terms      []string
-	QueryType  string
 	Text       string
 	URL        string
 	ID         string
@@ -130,8 +128,7 @@ func scanAt(line string, i int) *Span {
 			return nil
 		}
 		content := line[i+2 : i+2+n]
-		qt, terms := SplitQuery(content)
-		return &Span{Type: "tag_search", S: i, E: i + n + 3, Content: content, Terms: terms, QueryType: qt}
+		return &Span{Type: "tag_search", S: i, E: i + n + 3, Content: content}
 	}
 	if !wordStart(line, i) {
 		return nil

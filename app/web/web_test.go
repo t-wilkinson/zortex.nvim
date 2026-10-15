@@ -38,11 +38,12 @@ func newTestServer(t *testing.T, base string) (*Server, string, *httptest.Server
 		t.Fatal(err)
 	}
 	files := map[string]string{
-		"z/docs/manual.pdf":   "%PDF-1.4 test",
-		"z/docs/page.html":    "<script>alert(1)</script>",
-		"z/docs/notes.txt":    "plain <text>",
-		".z/state.json":       "{}",
-		"z/a.sync-conflict-1": "x",
+		"z/docs/manual.pdf":     "%PDF-1.4 test",
+		"z/docs/page.html":      "<script>alert(1)</script>",
+		"z/docs/notes.txt":      "plain <text>",
+		".z/state.json":         "{}",
+		"z/a.sync-conflict-1":   "x",
+		"2026-10-15.042.zortex": "@@Quick thought\n",
 		"links.zortex": "@@Links\n\n- [P/#1.4 - zortex] and [Nope/#x] and [/#Local]\n" +
 			"- file ./z/docs/manual.pdf, [doc](z/docs/notes.txt), https://example.com\n" +
 			"# Local\n```\n[P] in code\n```\n| [P] | b |\n" +
@@ -236,11 +237,11 @@ func TestTagIndex(t *testing.T) {
 
 func TestFiles(t *testing.T) {
 	_, _, ts := newTestServer(t, "")
-	root := expect(t, ts, "/f/", 200, `z/`, `Calendar`, `Show all`)
-	if strings.Contains(root, `href="/n/links.zortex"`) || strings.Contains(root, `"/f/.z"`) {
-		t.Error("root lists non-special top-level notes or hidden folders")
+	root := expect(t, ts, "/f/", 200, `z/`, `Calendar`, `href="/n/links.zortex"`, `1 note with generated names hidden`, `Show all`)
+	if strings.Contains(root, `2026-10-15.042`) || strings.Contains(root, `"/f/.z"`) {
+		t.Error("root lists notes with generated names or hidden folders")
 	}
-	expect(t, ts, "/f/?all=1", 200, `href="/n/links.zortex"`)
+	expect(t, ts, "/f/?all=1", 200, `href="/n/2026-10-15.042.zortex"`, `Hide notes with generated names`)
 	docs := expect(t, ts, "/f/z/docs", 200, `manual.pdf`, `notes.txt`)
 	if strings.Contains(docs, "sync-conflict") {
 		t.Error("sync artefact listed")
@@ -465,8 +466,8 @@ func TestFileSorting(t *testing.T) {
 		`href="/f/z/sort?order=asc&amp;sort=modified">Changed <span aria-hidden="true">↓</span>`,
 		`href="/f/z/sort/sub?sort=modified&amp;order=desc"`,
 		`href="/f/z?sort=modified&amp;order=desc"`)
-	// the root keeps ?all=1 when sorting, and the all toggle keeps the sort
-	expect(t, ts, "/f/?all=1&sort=modified", 200, `href="/f/?all=1&amp;order=asc&amp;sort=modified"`, `href="/f/?order=desc&amp;sort=modified">Only the main notes`)
+	// ?all=1 is kept when sorting, and the all toggle keeps the sort
+	expect(t, ts, "/f/?all=1&sort=modified", 200, `href="/f/?all=1&amp;order=asc&amp;sort=modified"`, `href="/f/?order=desc&amp;sort=modified">Hide notes with generated names`)
 }
 
 func TestAreaAttributeTag(t *testing.T) {

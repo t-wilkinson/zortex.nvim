@@ -8,16 +8,17 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
 )
 
-// The file browser lists every file in the notes folder, like the
-// dashboard's Notes tab: hidden folders (.z, .git, .stversions) and
-// Syncthing artefacts are never shown, and at the top level only the
-// special notes (Config.Special) unless ?all=1.
+// The file browser lists every file in the notes folder. Hidden folders
+// (.z, .git, .stversions) and Syncthing artefacts are never shown, and notes
+// with a generated name (2026-10-15.042.zortex, from "create note" in
+// search) only with ?all=1.
 
 var extraTypes = map[string]string{
 	".pdf": "application/pdf", ".epub": "application/epub+zip", ".md": "text/markdown",
@@ -97,7 +98,7 @@ type entry struct {
 	Size     int64
 	ModTime  time.Time
 	Kind     string
-	Hidden   bool // top-level note not in Special (shown with ?all=1)
+	Hidden   bool // a note with a generated name (shown with ?all=1)
 	Resource bool // tracked resource (see resources.go)
 	Links    int  // resource: links to it
 	Unlinked int  // folder: unlinked resources inside it
@@ -183,7 +184,7 @@ func (s *Server) listDir(rel string, all bool) ([]entry, int, error) {
 					e.Title = d.Title()
 				}
 			}
-			if rel == "" && !s.isSpecial(erel) {
+			if e.Note && generatedName(name, s.cfg.Ext) {
 				e.Hidden = true
 				hidden++
 				if !all {
@@ -355,13 +356,22 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 		"Entries":  entries,
 		"Hidden":   hidden,
 		"All":      all,
-		"Root":     rel == "",
 		"Keep":     keep, // appended to folder links: subfolders keep the order
 		"SortName": ls.header("name", s.fileURL(rel), extra),
 		"SortTime": ls.header("modified", s.fileURL(rel), extra),
-		"ShowAll":  withQuery(s.fileURL(""), ls, url.Values{"all": {"1"}}),
-		"MainOnly": withQuery(s.fileURL(""), ls, nil),
+		"ShowAll":  withQuery(s.fileURL(rel), ls, url.Values{"all": {"1"}}),
+		"Named":    withQuery(s.fileURL(rel), ls, nil),
 	})
+}
+
+// generatedRe matches the names "create note" gives a note: a date and a
+// number (2026-10-15.042).
+var generatedRe = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}\.\d{3}$`)
+
+// generatedName reports whether a note's file name was generated rather than
+// chosen.
+func generatedName(name, ext string) bool {
+	return generatedRe.MatchString(strings.TrimSuffix(name, ext))
 }
 
 const maxTextView = 1 << 20

@@ -38,8 +38,6 @@ let
     web.title
     "-poll"
     web.pollInterval
-    "-special"
-    (concatStringsSep "," cfg.notesSpecial)
     "-data"
     (toString cfg.dataDir)
   ]
@@ -153,20 +151,6 @@ in
       description = "Extra group that gives the service read access to notesDir.";
     };
 
-    notesSpecial = mkOption {
-      type = types.listOf types.str;
-      default = [
-        "calendar"
-        "structure"
-        "projects"
-        "areas"
-        "okr"
-      ];
-      description = ''
-        Top-level notes listed on the home page and shown by default in file
-        listings (other top-level files are hidden until "show all").
-      '';
-    };
 
     timezone = mkOption {
       type = types.nullOr types.str;

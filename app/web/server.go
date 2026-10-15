@@ -45,12 +45,11 @@ var staticFS embed.FS
 
 // Config of a Server.
 type Config struct {
-	Root    string        // notes folder
-	Ext     string        // note extension (default ".zortex")
-	Title   string        // site title (default "Zortex")
-	Base    string        // URL path prefix when served below "/", e.g. "/notes"
-	Poll    time.Duration // rescan interval (default 3s; <0: never)
-	Special []string      // top-level notes shown in the file browser root and on the home page
+	Root  string        // notes folder
+	Ext   string        // note extension (default ".zortex")
+	Title string        // site title (default "Zortex")
+	Base  string        // URL path prefix when served below "/", e.g. "/notes"
+	Poll  time.Duration // rescan interval (default 3s; <0: never)
 	// DataDir holds the server's own state: scheduled notifications and the
 	// pomodoro clock. Empty: read-only mode (no /notify, no pomodoro).
 	DataDir string
@@ -82,15 +81,10 @@ type Config struct {
 	Logger      *log.Logger
 }
 
-// DefaultSpecial are the top-level notes listed by default (the plugin's
-// well-known files).
-var DefaultSpecial = []string{"calendar", "structure", "projects", "areas", "okr"}
-
 // Server serves a notes folder. Create it with New.
 type Server struct {
 	cfg     Config
 	ix      *notes.Index
-	special map[string]bool
 	resExts map[string]bool
 	pages   map[string]*template.Template
 	static  http.Handler
@@ -182,9 +176,6 @@ func New(cfg Config) (*Server, error) {
 	if cfg.Poll == 0 {
 		cfg.Poll = 3 * time.Second
 	}
-	if cfg.Special == nil {
-		cfg.Special = DefaultSpecial
-	}
 	cfg.Base = strings.TrimRight(cfg.Base, "/")
 	if cfg.Base != "" && !strings.HasPrefix(cfg.Base, "/") {
 		cfg.Base = "/" + cfg.Base
@@ -196,18 +187,13 @@ func New(cfg Config) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Server{cfg: cfg, ix: ix, special: map[string]bool{}, resExts: map[string]bool{}, log: cfg.Logger}
+	s := &Server{cfg: cfg, ix: ix, resExts: map[string]bool{}, log: cfg.Logger}
 	if cfg.ResourceExts == nil {
 		cfg.ResourceExts = DefaultResourceExts
 	}
 	for _, e := range cfg.ResourceExts {
 		if e = strings.ToLower(strings.TrimPrefix(strings.TrimSpace(e), ".")); e != "" {
 			s.resExts[e] = true
-		}
-	}
-	for _, name := range cfg.Special {
-		if name = strings.ToLower(strings.TrimSpace(name)); name != "" {
-			s.special[name] = true
 		}
 	}
 	if cfg.Calendar == "" {
@@ -570,14 +556,6 @@ func (s *Server) rawURL(rel string) string { return s.url("/raw/" + escapePath(r
 
 // isNote reports whether rel names a note (by extension).
 func (s *Server) isNote(rel string) bool { return strings.HasSuffix(rel, s.cfg.Ext) }
-
-// isSpecial reports whether a top-level note is one of Config.Special.
-func (s *Server) isSpecial(rel string) bool {
-	if strings.Contains(rel, "/") || !s.isNote(rel) {
-		return false
-	}
-	return s.special[strings.ToLower(strings.TrimSuffix(rel, s.cfg.Ext))]
-}
 
 // cleanRel normalizes a request path to a rel path ("" for the root); ok is
 // false for paths that try to leave the folder.

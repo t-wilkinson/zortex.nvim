@@ -2,8 +2,8 @@
 <section class="narrow wide">
   <nav class="crumbs">{{range $i, $c := .Crumbs}}{{if $i}}<span>/</span>{{end}}<a href="{{$c.URL}}">{{$c.Name}}</a>{{end}}</nav>
   {{if .Unlinked}}<p class="dim toggle"><a href="{{u "/resources"}}?show=unlinked{{if .Rel}}&amp;dir={{.Rel}}{{end}}">{{.Unlinked}} unlinked resource{{if ne .Unlinked 1}}s{{end}}</a> in this folder</p>{{end}}
-  {{if and .Root .Hidden}}
-  <p class="dim toggle">{{if .All}}Showing every top-level file. <a href="{{.MainOnly}}">Only the main notes</a>{{else}}{{.Hidden}} other top-level files hidden. <a href="{{.ShowAll}}">Show all</a>{{end}}</p>
+  {{if .Hidden}}
+  <p class="dim toggle">{{if .All}}Showing every note. <a href="{{.Named}}">Hide notes with generated names</a>{{else}}{{.Hidden}} note{{if ne .Hidden 1}}s{{end}} with generated names hidden. <a href="{{.ShowAll}}">Show all</a>{{end}}</p>
   {{end}}
   <p class="sort-small dim">Sort: <a class="sort{{if .SortName.Arrow}} on{{end}}" href="{{.SortName.URL}}">name{{if .SortName.Arrow}} {{.SortName.Arrow}}{{end}}</a> · <a class="sort{{if .SortTime.Arrow}} on{{end}}" href="{{.SortTime.URL}}">changed{{if .SortTime.Arrow}} {{.SortTime.Arrow}}{{end}}</a></p>
   <table class="listing">

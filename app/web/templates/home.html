@@ -202,14 +202,6 @@
   </section>
 
   <div class="cols">
-    {{if .Special}}
-    <div class="panel">
-      <h2>Notes</h2>
-      <ul class="plain">
-        {{range .Special}}<li><a href="{{noteURL . 0}}">{{title .}}</a> <span class="dim">{{.}}</span></li>{{end}}
-      </ul>
-    </div>
-    {{end}}
     <div class="panel">
       <h2>Recently changed</h2>
       <ul class="plain">

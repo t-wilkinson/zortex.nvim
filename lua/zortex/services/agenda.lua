@@ -218,6 +218,29 @@ local function has_schedule(project, from, to)
 	return #project:schedule({ descendants = true, from = from, to = to }) > 0
 end
 
+--- What is left in the inbox: every line of inbox.zortex after its header
+--- that is not blank and not a finished or carried task ([x], [>]). The web
+--- app's "Add to inbox" appends here; the reviews list it to clear.
+---@param path string? default: the notes folder's inbox.zortex
+---@return { text: string, file: string, lnum: integer }[]
+function M.inbox(path)
+	path = path or require("zortex.utils.filesystem").get_inbox_file()
+	local doc = path and require("zortex.core.document").get(path)
+	local out = {}
+	if not doc then
+		return out
+	end
+	for lnum = (doc.header.last_lnum or 0) + 1, #doc.lines do
+		local text = vim.trim(doc.lines[lnum])
+		local d = doc.syntax.lines[lnum]
+		local mark = d and d.item and d.item.mark
+		if text ~= "" and (mark == nil or mark == " ") then
+			out[#out + 1] = { text = text, file = path, lnum = lnum }
+		end
+	end
+	return out
+end
+
 --- Findings for a review over the last/next `days` days:
 ---   overdue                 open project tasks due before today, and open
 ---                           calendar tasks from the last `days` days
@@ -246,6 +269,7 @@ end
 ---                           an area
 ---   calendar                calendar entries in the window: { entries,
 ---                           tasks, done, open = { items } }
+---   inbox                   what is left in inbox.zortex (M.inbox)
 ---
 --- opts.scope "day" (the daily review) looks back to the day after the last
 --- daily review (at most 7 days; M.day_window) and ahead one day; "week"
@@ -279,6 +303,7 @@ function M.review(opts)
 		objectives_without_krs = {},
 		areas_without_projects = {},
 		broken_links = {},
+		inbox = M.inbox(),
 	}
 
 	-- Project tasks

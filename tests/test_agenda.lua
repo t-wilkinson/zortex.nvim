@@ -34,6 +34,28 @@ T.test("range skips empty days unless asked", function()
 	T.eq(#A.upcoming(3, { today = "2026-10-09" }), 2)
 end)
 
+T.test("the inbox: open lines after the header, in both reviews", function()
+	local path = vim.fn.tempname() .. ".zortex"
+	vim.fn.writefile({ "@@Inbox", "@Ignore", "", "- [ ] Call the plumber", "- [x] Done already", "- [>] Carried", "Idea from the web", "" }, path)
+	local items = A.inbox(path)
+	T.eq(vim.tbl_map(function(x)
+		return x.text
+	end, items), { "- [ ] Call the plumber", "Idea from the web" })
+	T.eq(items[1].lnum, 4)
+	T.eq(#A.inbox(vim.fn.tempname()), 0) -- no inbox note: nothing
+	local review = require("zortex.ui.review")
+	for _, scope in ipairs({ "day", "week" }) do
+		local r = A.review({ today = TODAY, scope = scope })
+		r.inbox = items
+		local lines, locations = review.render(r)
+		local at = vim.fn.index(lines, "- Idea from the web") + 1
+		T.ok(at > 0, scope .. ": inbox line listed")
+		T.eq(locations[at], { file = path, lnum = 7 })
+		T.ok(lines[3]:find("2 in the inbox", 1, true), scope .. ": counted in the summary")
+	end
+	os.remove(path)
+end)
+
 T.test("review findings", function()
 	local r = A.review({ today = TODAY, days = 7 })
 	T.eq(texts(r.overdue), { "Morning routine", "Call the mechanic" })

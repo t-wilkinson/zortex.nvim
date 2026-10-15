@@ -61,7 +61,7 @@ Then, in five minutes:
 3. **Add a task** under `# 1 Example project`: `- [ ] Read the docs @size(sm)`.
    Toggle it with `<leader>zT`: it becomes `[x]` with `@done(today)` (and
    an `@id`, which keeps links and the web app pointing at it).
-4. **Write a note**: `:e ~/zortex/z/bread.zortex`, first line `@@Bread`, then
+4. **Write a note**: `:e ~/zortex/bread.zortex`, first line `@@Bread`, then
    `# Method` and a few lines. Back in the structure note, type `[Bre`:
    completion offers `Bread`; `[Bread/#Method]` links to the heading.
 5. **Search** with `<leader>zz`: type `bread meth` (words match the section
@@ -85,8 +85,9 @@ and `xp` (how many hours each `@size` stands for, and what that is worth;
 
 ## Notes
 
-Every note is a `.zortex` file under `notes_dir` (subfolders included; `z/`
-is the usual place for the library). A note starts with a header:
+Every note is a `.zortex` file under `notes_dir`. Notes go in `notes_dir`
+itself; `z/` holds resources (PDFs, images, books) and archives. Notes in
+subfolders work too. A note starts with a header:
 
 ```
 @@Projects          article name (the first @@ line)

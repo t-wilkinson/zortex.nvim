@@ -24,8 +24,10 @@ Ideas:
 - [x] Improve website @done(2026-10-12)
 ```
 
-A note is a `.zortex` file anywhere under `notes_dir` (`z/` is the usual
-place for the library; folders starting with `.` are skipped).
+A note is a `.zortex` file under `notes_dir`. Notes go in `notes_dir`
+itself; `z/` holds resources (PDFs, images, books) and archives
+(`z/archive.*.zortex`). Notes in subfolders work too; folders starting with
+`.` are skipped.
 
 **Header.** The note starts with its header: `@@Name` lines (the first is
 the article name, the rest are aliases) and `@Tag` lines. Blank lines are

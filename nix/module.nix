@@ -5,22 +5,21 @@
   ...
 }:
 
-# services.zortex: `zortex serve`, one Go service that is the whole server side:
+# services.zortex: `zortex serve` (zortex-web.service), one Go service that
+# is the whole server side:
 #
-#   - the notes web app: rendered notes, links, backlinks, search, files
+#   - the notes web app: rendered notes, links, backlinks, search, files,
+#     and with web.writable light editing and time tracking
 #   - the calendar (from calendar.zortex) and the notification API Neovim
-#     syncs to (POST /notify); due notifications go out through ntfy
+#     syncs to (POST /notify); due notifications go out through ntfy when
+#     ntfy.topic is set
 #   - the pomodoro clock shared by Neovim and the home page, and the home
-#     page's timers, alarms (sent through ntfy) and stopwatch
+#     page's timers, alarms and stopwatch
 #
-# It reads notesDir (a Syncthing folder, say) and keeps its own state
-# (notifications, pomodoro) in dataDir. Keep it on localhost and publish it
-# through a reverse proxy with authentication: notes are private and the app
-# has no login of its own.
-#
-# This replaces the Flask notification server + zortex-sender timer. Either
-# `enable` turns the service on (both are kept so existing
-# configurations keep working).
+# It reads notesDir (a Syncthing folder, say) and keeps its own state in
+# dataDir. Notes are private: keep it on localhost behind a reverse proxy
+# with authentication, or give it a login of its own with web.authFile (HTTP
+# basic auth; use HTTPS).
 
 with lib;
 
@@ -43,6 +42,8 @@ let
     (concatStringsSep "," cfg.notesSpecial)
     "-data"
     (toString cfg.dataDir)
+  ]
+  ++ optionals (cfg.ntfy.topic != null) [
     "-ntfy-url"
     cfg.ntfy.url
     "-ntfy-topic"
@@ -86,8 +87,7 @@ in
         State: scheduled notifications (notifications.json), the pomodoro
         clock (pomodoro.json), timers, alarms and the stopwatch
         (clocks.json), time tracking (track.json, track_log.jsonl) and the
-        XP summary. The old notifications.db is no
-        longer used; Neovim re-syncs the calendar on its next save.
+        XP summary.
       '';
     };
 
@@ -99,9 +99,14 @@ in
       };
 
       topic = mkOption {
-        type = types.str;
-        default = "zortex-notify";
-        description = "Topic for calendar notifications and pomodoro alerts.";
+        type = types.nullOr types.str;
+        default = null;
+        example = "zortex-7f3k2q";
+        description = ''
+          Topic for calendar notifications, pomodoro changes, timers and
+          alarms. Anyone who knows a topic on a public server can read it:
+          pick a private, hard-to-guess one. Null: nothing is sent.
+        '';
       };
 
       authToken = mkOption {
@@ -164,9 +169,14 @@ in
     };
 
     timezone = mkOption {
-      type = types.str;
-      default = "America/New_York";
-      description = "Time zone for the calendar and notification times.";
+      type = types.nullOr types.str;
+      default = config.time.timeZone;
+      defaultText = literalExpression "config.time.timeZone";
+      example = "America/New_York";
+      description = ''
+        Time zone for the calendar and notification times (TZ). Null leaves
+        TZ unset: the system's time zone.
+      '';
     };
 
     web = {
@@ -293,6 +303,16 @@ in
       }
     ];
 
+    warnings =
+      optional (cfg.ntfy.topic == null) ''
+        services.zortex.ntfy.topic is not set: calendar notifications and
+        pomodoro alerts won't be sent. Set a private, hard-to-guess topic.
+      ''
+      ++ optional (cfg.ntfy.topic == "zortex-notify") ''
+        services.zortex.ntfy.topic is "zortex-notify", the old shared default:
+        anyone can read it. Pick a private, hard-to-guess topic.
+      '';
+
     users.groups.zortex = { };
     users.users.zortex = {
       isSystemUser = true;
@@ -307,9 +327,8 @@ in
       wants = [ "network-online.target" ];
       wantedBy = [ "multi-user.target" ];
 
-      environment = {
-        TZ = cfg.timezone;
-      }
+      environment =
+        optionalAttrs (cfg.timezone != null) { TZ = cfg.timezone; }
       // optionalAttrs (web.memoryLimit != null) { GOMEMLIMIT = web.memoryLimit; }
       // optionalAttrs (cfg.ntfy.authToken != null) { NTFY_AUTH_TOKEN = cfg.ntfy.authToken; }
       // optionalAttrs (cfg.apiKey != null) { ZORTEX_API_KEY = cfg.apiKey; };

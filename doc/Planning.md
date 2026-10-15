@@ -83,7 +83,7 @@ without duplicating them: a task on the calendar is the project's task.
   open tasks of the last 14 days to today with the same `@id`, under their
   block (today's, when today already has one for the same link, say from the
   day's template), and marks the old lines `[>]` (carried: neither open nor
-  done, kept as the record of that day). Repeating entries (`@every`) stay.
+  done, kept as the record of that day). Repeating entries (`@repeat`) stay.
 
 In the planner, `p` puts a task on the day as a copy (under its project's
 block when the day has one; the task gets an `@id` if it has none), `P` a

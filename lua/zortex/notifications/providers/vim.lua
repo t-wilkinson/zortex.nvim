@@ -17,9 +17,5 @@ end
 
 return base.create_provider("vim", {
 	send = send,
-
-	test = function()
-		return send("Zortex Test", "Vim notification test", {}, {})
-	end,
 })
 

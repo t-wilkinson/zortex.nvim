@@ -90,8 +90,10 @@ local defaults = {
 			},
 			ntfy = {
 				enabled = false,
-				server_url = "http://ntfy.sh",
-				topic = "zortex-notify",
+				server_url = "https://ntfy.sh",
+				-- Required: anyone who knows a topic can read it, so pick a
+				-- private, hard-to-guess one. Nothing is sent without it.
+				topic = nil,
 				priority = "default",
 				tags = { "zortex" },
 				auth_token = nil,

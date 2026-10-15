@@ -47,7 +47,7 @@ The first release for people other than the author.
 - First run: a new notes folder gets calendar, projects, areas, okr,
   structure and inbox notes from short templates (`:ZortexInit` later).
 - `:checkhealth zortex`: Neovim version, the notes folder, key notes, broken
-  links, old-style bold headings, optional integrations.
+  links, the ntfy topic, optional integrations.
 - `:help zortex`, generated from the actions and the configuration defaults.
 - Works without telescope.nvim and nvim-cmp; the pickers say they need
   telescope instead of failing.
@@ -108,8 +108,15 @@ The first release for people other than the author.
 
 - **Neovim 0.10** or newer is required.
 - **Bold headings** are `**Text:**` only; `**Text**` and `**Text**:` lines are
-  now bold text and a label. `:ZortexMigrate` rewrites them (it lists every
-  change first).
+  now bold text and a label. To rewrite them, in the notes folder (commit or
+  back up first; on macOS `sed -i ''`):
+
+  ```sh
+  find . -name '*.zortex' -exec sed -E -i 's/^\*\*([^*]*[^*:])\*\*:?[[:space:]]*$/**\1:**/' {} +
+  ```
+- **ntfy** has no default topic: set `notifications.providers.ntfy.topic`
+  (and the server's `NTFY_TOPIC`, `services.zortex.ntfy.topic`) to a private
+  one; nothing is sent without it. The default server is `https://ntfy.sh`.
 - **Highlights** follow your colorscheme. The old palette is
   `ui = { highlights = { preset = "rose-pine" } }`.
 - **Calendar icons** are plain Unicode; the Nerd Font set is in a comment in

@@ -45,14 +45,4 @@ end
 
 return base.create_provider("system", {
 	send = send,
-
-	test = function()
-		return send("Zortex Test", "System notification test", {}, {
-			commands = {
-				macos = "terminal-notifier -title '%s' -message '%s' -sound default",
-				linux = "notify-send -u normal -t 10000 '%s' '%s'",
-				termux = "termux-notification --title '%s' --content '%s'",
-			},
-		})
-	end,
 })

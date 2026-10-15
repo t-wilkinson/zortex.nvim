@@ -26,7 +26,8 @@ and notifications on your phone.
 
 ## Quickstart
 
-Needs Neovim 0.10 or newer. With [lazy.nvim](https://github.com/folke/lazy.nvim):
+Needs Neovim 0.10 or newer. Linux and macOS; Windows untested. With
+[lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ```lua
 {
@@ -35,9 +36,10 @@ Needs Neovim 0.10 or newer. With [lazy.nvim](https://github.com/folke/lazy.nvim)
     "nvim-telescope/telescope.nvim", -- optional: search and project pickers
     "hrsh7th/nvim-cmp",              -- optional: link completion
   },
-  config = function()
-    require("zortex").setup({ notes_dir = "~/zortex" })
-  end,
+  opts = { notes_dir = "~/zortex" },
+  -- optional, to load on demand (calendar notifications and the starter
+  -- notes then wait until it loads):
+  -- ft = "zortex", cmd = { "ZortexSearch", "ZortexPlan" }, keys = { "<leader>z" },
 }
 ```
 

@@ -52,8 +52,4 @@ return base.create_provider("homelab", {
 	send = send,
 	sync = sync_notifications,
 	wire = wire,
-
-	test = function()
-		return send("Zortex Test", "Server notification test", { priority = "high", tags = { "test", "zortex" } })
-	end,
 })

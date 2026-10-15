@@ -75,7 +75,9 @@ docker run -d --name zortex -p 127.0.0.1:8090:8090 \
 
 Mount the notes read-only (`/notes:ro`) unless you add `-e ZORTEX_WRITABLE=1`.
 [`app/docker-compose.yml`](../app/docker-compose.yml) does the same with a
-`.env` file. Set `TZ`: the calendar and alarms use the server's time zone.
+`.env` file; it refuses to start without `NTFY_TOPIC` (a private,
+hard-to-guess topic). Set `TZ`: the calendar and alarms use the server's
+time zone (UTC when unset). On NixOS, `timezone` follows `time.timeZone`.
 
 ### NixOS
 

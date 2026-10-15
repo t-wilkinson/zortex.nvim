@@ -22,13 +22,19 @@ Things that break or embarrass a first-time user. Do these before telling anyone
 - [x] Defaults that assume your setup: `MiniHipatternsTodo` groups in `ui.calendar.colors`, hard-coded hex colors in `features/highlights.lua`, Nerd Font icons; fall back to standard groups and plain icons @p1 @size(sm) @done(2026-10-13)
 - [x] Pick a minimum Neovim (0.10: `vim.system`, `vim.uv`, `vim.islist`), check it in `:checkhealth zortex`, and replace deprecated calls (`nvim_buf_set_option`, `vim.tbl_islist`, `vim.loop`; ~40 call sites) @p1 @size(sm) @done(2026-10-13)
 - [x] First run: `setup()` creates calendar/projects/areas/okr/structure/inbox from short templates in a new folder; `:ZortexInit` adds missing ones @p2 @size(sm) @done(2026-10-12)
-- [x] Bold headings are `**Text:**` only now: add `:ZortexMigrate` (or document the one-line sed) for `**Text**` / `**Text**:` in existing vaults, and run it on yours @p1 @size(xs) @done(2026-10-13)
+- [x] Bold headings are `**Text:**` only now: document the one-line sed for `**Text**` / `**Text**:` in existing vaults (CHANGELOG, Upgrading), and run it on yours @p1 @size(xs) @done(2026-10-14)
+- [x] No personal defaults for ntfy: no default topic (nothing is sent without one; the plugin, `NTFY_TOPIC` in docker-compose and `services.zortex.ntfy.topic` all require a private one), `https://ntfy.sh`, a `:checkhealth` warning for a missing topic or `zortex-notify`, and a NixOS warning @p1 @size(sm) @done(2026-10-14)
+- [x] No personal time zone: NixOS `timezone` follows `time.timeZone` (null leaves `TZ` unset), no `TZ` default in docker-compose @p2 @size(xs) @done(2026-10-14)
+- [x] README: "Linux and macOS; Windows untested", an `opts = { notes_dir = ... }` lazy.nvim spec with an optional lazy-loading line @p2 @size(xs) @done(2026-10-14)
 
 ## 1.2 Repository hygiene
 - [x] Add LICENSE (MIT, as the Nix meta already claims) @p1 @size(xs) @done(2026-10-13)
 - [x] Delete the Node era: `legacy/` (15 MB Next.js app), `autoload/` (VimL RPC to it; nothing else calls it), `test/` (old manual harness), `release.sh` (builds the legacy binaries), the commented `zortex#legacy#init` in `plugin/zortex.vim` @p1 @size(sm) @done(2026-10-12)
 - [x] Remove personal files: `.vim/coc-settings.json`; trim the Node section of `.gitignore` @p2 @size(xs) @done(2026-10-12)
 - [x] `features/archive.lua`: `revert_archive` is a stub; implement or remove the command @p2 @size(sm) @done(2026-10-13)
+- [x] `nix/module.nix` header: no Flask server any more, and the app has a login (`web.authFile`) @p3 @size(xs) @done(2026-10-14)
+- [ ] Remove dead code: ~40 functions nothing calls (`utils/filesystem` archive/json helpers, `utils/datetime` abbreviations, `ui/calendar` interactive add/delete, `attributes.to_line`, ...), the unused provider `test` functions (removed), `special_articles` (read from a `vim.g` nothing sets) @p2 @size(sm)
+- [ ] Remove compatibility shims with no callers: `okr.get_current_objectives`, `areas.extract_area_paths`, `completion.parse_link_context`, `filesystem.get_all_note_files`, `search.search_sections`, the `every` recurrence leftover, the legacy objective title `3M 2026 01 Title` and `KR-` / `KR1 text` key results, the `-calendar` server flag, the pomodoro slot in notifications_state @p2 @size(sm)
 
 ## 1.3 CI and releases
 - [x] GitHub Actions: `tests/run.lua` on Neovim stable + nightly, `go test -race ./...`, `gofmt -l`, and fail when `tests/gen_docs.lua` / `gen_ast.lua` would change a file @p1 @size(sm) @done(2026-10-13)
@@ -69,18 +75,32 @@ Things that break or embarrass a first-time user. Do these before telling anyone
 - [ ] Domain views (Wishlist # 6 phase 4): projects, OKR progress, weekly review @p3 @size(lg)
 - [ ] Search history on the web, kept apart from `.z/search_history.json` (open question in the wishlist) @p3 @size(sm)
 
-## 3.5 Editing
+## 3.5 Syntax: one way to write each thing
+- [ ] Tag searches: words are all-of, commas any-of (`@[rust async]`, `@[rust, rl]`), like the search box; drop ` + ` / ` & ` and the legacy `+a+b` / `&a&b` link queries (keep reading them for a release, with a warning) @p2 @size(md)
+- [ ] Quotes: `> ` only (Markdown); drop `| quote` (a line starting with `|` is a table row or nothing) @p2 @size(sm)
+- [ ] One spelling per attribute: drop `@sz` and the bare sizes (`@sm`), keep `@a` as the short form of `@area`; fix `depends = { types = ... }` (typo, never parsed as a string) @p3 @size(sm)
+- [ ] Bullets: `-` only (drop `+`; `*` collides with italics and bold headings) @p3 @size(sm)
+- [ ] One extension: `.zortex` (drop `.zx` from ftdetect) @p3 @size(xs)
+
+## 3.6 Planning on the calendar
+- [x] Task copies: a project task on the calendar keeps its `@id`; lines with the same `@id` are one task (status, XP once, toggles kept in step, time adds up) @p1 @size(lg) @done(2026-10-14)
+- [x] `[./-Item]` links relative to the parent line's link @p2 @size(md) @done(2026-10-14)
+- [x] Calendar lines without a checkbox that link a task stand for it (state, toggling; Neovim and web) @p2 @size(sm) @done(2026-10-14)
+- [x] Carry open tasks forward (`[>]`), planner `p` / `P`, time tracking on the running block's tasks @p2 @size(md) @done(2026-10-14)
+- [x] Markdown files render in the web file viewer (math included); source links for HTML and Markdown @p3 @size(md) @done(2026-10-14)
+
+## 3.7 Editing
 - [ ] `:ZortexProjectRename`: rename a heading and rewrite every link (`link_index.references`) @p3 @size(md)
 - [ ] Broken links as `vim.diagnostic` from `link_index.unresolved()` @p3 @size(sm)
 
 # 4 After v0.1.0
 - [ ] Tree-sitter grammar with the AST fixtures as acceptance tests (Wishlist # 7) @size(xl)
-- [ ] blink.cmp source next to the nvim-cmp one @size(sm)
+- [ ] LazyVim defaults: blink.cmp source next to the nvim-cmp one; pickers behind one interface with snacks.picker and fzf-lua backends next to telescope (`ui.picker = "auto"`) @size(lg)
 - [ ] Web app as an installable PWA (phone + Syncthing) @size(md)
 - [x] Pomodoro sessions into the calendar / XP (log what a session was spent on): time tracking writes @spent @size(md) @done(2026-10-12)
 - [ ] Import from Markdown / Obsidian vaults @size(lg)
 
 Decisions:
 - One repo, one version for the plugin and `zortex serve`? (Simplest: yes, tag both together.)
-- Platforms promised: Linux and macOS; Windows "best effort"?
+- Platforms promised: Linux and macOS; Windows untested (README, decided 2026-10-14).
 - Name on the plugin registries and the container image.

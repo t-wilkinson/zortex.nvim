@@ -158,8 +158,12 @@ the lines: the item (attributes left out), its first link and what kind of
 thing it is (web, pdf, book, image, video, audio, document, note), its tags
 besides the searched ones (its own and its sections'), one column per
 `@key(value)` any row has (not `@id`), the note and section it is in, and
-the lines nested under it. Click a header to sort; type to filter, or click
-a kind or tag to keep only those rows. Empty columns are left out.
+its notes: the lines nested under it (labels too), or the section of a
+heading that is only a link (`### [Book](https://…) @rust`). Up to three
+lines of notes show under the item; longer ones open in a panel (a bottom
+sheet on a phone), rendered like the note, with the first note they link
+to below them. Click a header to sort; type to filter, or click a kind or
+tag to keep only those rows. Empty columns are left out.
 
 ### Tag indexes
 

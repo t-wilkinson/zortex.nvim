@@ -156,7 +156,7 @@ T.test("@[scope/tags] finds tagged lines, with tags inherited from headings", fu
 		end
 		return out
 	end
-	T.eq(lines("@[R/rust]"), { 9, 12, 13, 16 })
+	T.eq(lines("@[R/rust]"), { 9, 12, 13, 16, 25 })
 	T.eq(lines("@[R/embedded rust]"), { 16 }) -- @embedded on the heading, @rust on the line
 	T.eq(lines("@[@Library/rl, ai-model]"), { 20, 21 })
 	T.eq(lines("@[*/@rl @ai-model]"), { 21 })
@@ -166,6 +166,24 @@ T.test("@[scope/tags] finds tagged lines, with tags inherited from headings", fu
 	T.eq(links.parse_tag_search("c++, r&d").groups, { { "c++" }, { "r&d" } }) -- no other operators
 	local _, err = links.resolve("@[Nope/rl]")
 	T.eq(err, "No article found: Nope")
+end)
+
+T.test("a resource heading's section is its notes: they don't take its tags", function()
+	local doc = require("zortex.core.document").get(T.fixture("z/resources.zortex"))
+	T.eq(doc.lines[25]:match("^### %[Rust for Rustaceans%]") ~= nil, true)
+	T.ok(links.is_resource_heading(doc, 25), "### [link] @tags")
+	T.ok(not links.is_resource_heading(doc, 24), "# Books @book")
+	T.ok(not links.is_resource_heading(doc, 27), "#### Ownership")
+	local out = {}
+	for _, r in ipairs(links.resolve("@[R/book]")) do
+		out[#out + 1] = r.lnum
+	end
+	-- the tagged headings and the resources under them, not their notes
+	T.eq(out, { 24, 25, 29, 30, 31 })
+	-- lines nested under an item holding a link (labels too) are its notes
+	T.ok(links.is_resource_note(doc, 32) and links.is_resource_note(doc, 33) and links.is_resource_note(doc, 34), "notes")
+	T.ok(not links.is_resource_note(doc, 31), "the item itself")
+	T.ok(not links.is_resource_note(doc, 26), "a heading's section is checked by is_resource_heading")
 end)
 
 T.test("following @[...] lists the tagged lines, not the search itself", function()

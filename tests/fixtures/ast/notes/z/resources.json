@@ -392,6 +392,190 @@
         "marker_type": "bullet"
       },
       "kind": "item"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 2,
+      "heading": 1,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 13,
+          "key": "book",
+          "s": 8,
+          "type": "attribute"
+        }
+      ],
+      "kind": "heading",
+      "level": 1,
+      "section": true,
+      "text": "Books"
+    },
+    {
+      "content_col": 4,
+      "heading": 3,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 58,
+          "s": 4,
+          "text": "Rust for Rustaceans",
+          "type": "markdown",
+          "url": "https://rust-for-rustaceans.com"
+        },
+        {
+          "e": 64,
+          "key": "rust",
+          "s": 59,
+          "type": "attribute"
+        },
+        {
+          "e": 81,
+          "key": "status",
+          "s": 65,
+          "type": "attribute",
+          "value": "reading"
+        }
+      ],
+      "kind": "heading",
+      "level": 3,
+      "section": true,
+      "text": "[Rust for Rustaceans](https://rust-for-rustaceans.com)"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "text"
+    },
+    {
+      "content_col": 5,
+      "heading": 4,
+      "indent": 0,
+      "inline": [],
+      "kind": "heading",
+      "level": 4,
+      "section": true,
+      "text": "Ownership"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 4,
+      "heading": 3,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 52,
+          "s": 4,
+          "text": "The Pragmatic Programmer",
+          "type": "markdown",
+          "url": "https://pragprog.com"
+        },
+        {
+          "e": 66,
+          "key": "status",
+          "s": 53,
+          "type": "attribute",
+          "value": "done"
+        }
+      ],
+      "kind": "heading",
+      "level": 3,
+      "section": true,
+      "text": "[The Pragmatic Programmer](https://pragprog.com)"
+    },
+    {
+      "content_col": 2,
+      "heading": 1,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 13,
+          "key": "book",
+          "s": 8,
+          "type": "attribute"
+        }
+      ],
+      "kind": "heading",
+      "level": 1,
+      "section": true,
+      "text": "Later"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 56,
+          "s": 2,
+          "text": "SICP",
+          "type": "markdown",
+          "url": "https://mitp-content-server.mit.edu/books/sicp"
+        },
+        {
+          "e": 71,
+          "key": "status",
+          "s": 57,
+          "type": "attribute",
+          "value": "later"
+        }
+      ],
+      "item": {
+        "content_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 4,
+      "indent": 2,
+      "inline": [],
+      "item": {
+        "content_col": 4,
+        "marker": "-",
+        "marker_col": 2,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 2,
+      "indent": 2,
+      "inline": [],
+      "kind": "label",
+      "level": 10,
+      "section": true,
+      "text": "Exercises"
+    },
+    {
+      "content_col": 6,
+      "indent": 4,
+      "inline": [],
+      "item": {
+        "content_col": 6,
+        "marker": "-",
+        "marker_col": 4,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
     }
   ],
   "sections": [
@@ -422,6 +606,42 @@
       "lnum": 19,
       "text": "AI",
       "type": "heading"
+    },
+    {
+      "level": 1,
+      "lnum": 24,
+      "text": "Books",
+      "type": "heading"
+    },
+    {
+      "level": 3,
+      "lnum": 25,
+      "text": "[Rust for Rustaceans](https://rust-for-rustaceans.com)",
+      "type": "heading"
+    },
+    {
+      "level": 4,
+      "lnum": 27,
+      "text": "Ownership",
+      "type": "heading"
+    },
+    {
+      "level": 3,
+      "lnum": 29,
+      "text": "[The Pragmatic Programmer](https://pragprog.com)",
+      "type": "heading"
+    },
+    {
+      "level": 1,
+      "lnum": 30,
+      "text": "Later",
+      "type": "heading"
+    },
+    {
+      "level": 10,
+      "lnum": 33,
+      "text": "Exercises",
+      "type": "label"
     }
   ],
   "version": 1

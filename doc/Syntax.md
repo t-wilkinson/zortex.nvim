@@ -207,14 +207,36 @@ in; `*` is every note:
 A tag on a heading, bold heading or label tags every line in its section:
 under `## Embedded @embedded`, `- [The Embedded Rust Book](…) @rust` matches
 `@[embedded rust]`. Tags in a note's header select notes (`@[@Library/…]`)
-and are not inherited by its lines. A line nested under a resource (a note
-about it) is not tagged by it.
+and are not inherited by its lines.
+
+**Resources and their notes.** A list item that holds a link is a resource;
+the lines nested under it, labels included, are notes about it. A heading
+that is nothing but a link and attributes is a resource too, and its
+section is its notes, sub-headings and all. Notes match a tag search only by
+their own tags: not the resource's, nor those of the sections above it.
+
+```zortex
+# Rust @rust
+- [The Rust Book](https://doc.rust-lang.org/book) @status(reading)
+  - chapters 1-8 first
+  Ownership:
+    - moves vs borrows
+  - Full notes: [Rust book notes]
+
+### [Rust for Rustaceans](https://rust-for-rustaceans.com) @status(next)
+Read after the book.
+#### Setup
+- `cargo new`
+```
+
+`@[rust]` finds the two resources (and the heading), not their notes.
 
 **Tag tables.** `!@[…]` on a line of its own shows the search in place: on
 the web, a table of the lines it finds, with a column for the item, the link
 it holds and its kind (web, pdf, book, note…), its other tags, each
 `@key(value)` attribute the rows use (`@status(reading)`, `@rating(4)`),
-where it is, and the lines nested under it. Sort by any column; filter by
+where it is, and its notes: up to three lines under the item, longer ones
+in a panel, followed by the first note they link to. Sort by any column; filter by
 text, kind or tag. An `@[…]` link that finds several lines opens the same
 table. In Neovim `!@[…]` follows like `@[…]`.
 

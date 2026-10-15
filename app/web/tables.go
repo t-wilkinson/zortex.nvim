@@ -15,7 +15,12 @@ import (
 // in place, and the /link page of an @[...] search shows the same table.
 // Every column is read off the lines: the item, the link it holds (and what
 // kind of thing that is), its other tags, one column per @key(value)
-// attribute the rows use, where it is, and the lines nested under it.
+// attribute the rows use, where it is, and its notes: the lines nested
+// under it (labels too), or a resource heading's section. Up to
+// shortNotes lines show under the item; longer notes open in a panel,
+// rendered like the note, with the first note they link to below them.
+
+const shortNotes = 3
 
 type tagRow struct {
 	doc        *notes.Document
@@ -25,7 +30,10 @@ type tagRow struct {
 	kind       string // web, pdf, book, image, video, audio, document, note, file
 	tags       []string
 	attrs      map[string]string
-	nested     []int // lines indented under it (notes about it)
+	nested     []int  // lines of its notes (not blank)
+	notesTo    int    // the notes' last line (they start at lnum+1)
+	notesBase  int    // their indent, shown as none
+	notesRel   string // the first note they link to
 	task, done bool
 }
 
@@ -49,7 +57,7 @@ func (s *Server) tagTableHTML(from *notes.Document, content string) string {
 	rows := make([]tagRow, 0, len(results))
 	var attrKeys []string
 	hasAttr := map[string]bool{}
-	var anyLink, anyTags, anyNested, anyTask bool
+	var anyLink, anyTags, anyTask bool
 	kinds := map[string]bool{}
 	tagCount := map[string]int{}
 	for _, res := range results {
@@ -72,7 +80,6 @@ func (s *Server) tagTableHTML(from *notes.Document, content string) string {
 		}
 		anyLink = anyLink || row.href != ""
 		anyTags = anyTags || len(row.tags) > 0
-		anyNested = anyNested || len(row.nested) > 0
 		anyTask = anyTask || row.task
 		if row.kind != "" {
 			kinds[row.kind] = true
@@ -81,6 +88,11 @@ func (s *Server) tagTableHTML(from *notes.Document, content string) string {
 			tagCount[t]++
 		}
 		rows = append(rows, row)
+	}
+
+	anyLong := false
+	for _, row := range rows {
+		anyLong = anyLong || len(row.nested) > shortNotes
 	}
 
 	var b strings.Builder
@@ -132,20 +144,33 @@ func (s *Server) tagTableHTML(from *notes.Document, content string) string {
 		th("@"+esc(k), "value")
 	}
 	th("Where", "text")
-	if anyNested {
+	if anyLong {
 		th("Notes", "value")
 	}
 	w(`</tr></thead><tbody>`)
 
+	asts := map[*notes.Document]*syntax.AST{}
 	for _, row := range rows {
 		d := row.doc
 		r := &noteRenderer{s: s, doc: d, slides: true} // slides: attributes hidden
 		line := d.Lines[row.lnum-1]
-		from := 0
+		from, to := 0, len(line)
 		if it := syntax.ItemOf(line); it != nil {
 			from = it.ContentCol
+		} else if c := syntax.Classify(line); c.Kind == syntax.KindHeading && c.ContentCol != nil {
+			from = *c.ContentCol
+			if c.ContentEnd != nil {
+				to = *c.ContentEnd
+			}
 		} else {
 			from = len(line) - len(strings.TrimLeft(line, " \t"))
+		}
+		notesHTML := ""
+		if len(row.nested) > 0 {
+			if asts[d] == nil {
+				asts[d] = d.Parse()
+			}
+			notesHTML = s.notesHTML(d, asts[d], row.lnum+1, row.notesTo, row.notesBase)
 		}
 		w(`<tr data-kind="`, esc(row.kind), `" data-tags="`, esc(strings.Join(row.tags, " ")), `">`)
 		if anyTask {
@@ -158,7 +183,11 @@ func (s *Server) tagTableHTML(from *notes.Document, content string) string {
 				w(`<td></td>`)
 			}
 		}
-		w(`<td class="tt-item">`, r.inline(line, d.Spans(row.lnum), from, len(line)), `</td>`)
+		w(`<td class="tt-item">`, r.inline(line, d.Spans(row.lnum), from, to))
+		if n := len(row.nested); n > 0 && n <= shortNotes {
+			w(`<div class="tt-notes">`, notesHTML, `</div>`)
+		}
+		w(`</td>`)
 		if anyLink {
 			w(`<td class="tt-link">`)
 			if row.href != "" {
@@ -185,26 +214,31 @@ func (s *Server) tagTableHTML(from *notes.Document, content string) string {
 			}
 		}
 		where := d.Title()
-		if n := d.NodeAt(row.lnum); n != nil && !n.IsRoot() {
+		n := d.NodeAt(row.lnum)
+		if n != nil && n.Start == row.lnum && links.IsResourceHeading(d, row.lnum) {
+			n = n.Parent // a resource heading is where it is, not its own section
+		}
+		if n != nil && !n.IsRoot() {
 			if bc := n.Breadcrumb(" › "); bc != "" {
 				where = bc
 			}
 		}
 		w(`<td class="tt-where"><a href="`, esc(s.noteURL(d.Rel, row.lnum)), `">`, esc(where), `</a></td>`)
-		if anyNested {
-			if len(row.nested) == 0 {
-				w(`<td data-v="0"></td>`)
+		if anyLong {
+			if n := len(row.nested); n <= shortNotes {
+				w(`<td data-v="`, itoa(n), `"></td>`)
 			} else {
-				w(`<td data-v="`, itoa(len(row.nested)), `"><details><summary>`, itoa(len(row.nested)), `</summary><ul class="plain">`)
-				for _, l := range row.nested {
-					nl := d.Lines[l-1]
-					nf := len(nl) - len(strings.TrimLeft(nl, " \t"))
-					if it := syntax.ItemOf(nl); it != nil {
-						nf = it.ContentCol
+				// the panel (tables.js): the notes, then the note they link to
+				title := plainText(line, d.Spans(row.lnum), from, to)
+				w(`<td data-v="`, itoa(n), `"><button type="button" class="tt-notes-btn" aria-haspopup="dialog" data-title="`, esc(title), `"`)
+				if row.notesRel != "" {
+					title := row.notesRel
+					if nd := s.ix.Doc(row.notesRel); nd != nil {
+						title = nd.Title()
 					}
-					w(`<li>`, r.inline(nl, d.Spans(l), nf, len(nl)), `</li>`)
+					w(` data-note="`, esc(row.notesRel), `" data-note-href="`, esc(s.noteURL(row.notesRel, 0)), `" data-note-title="`, esc(title), `"`)
 				}
-				w(`</ul></details></td>`)
+				w(`>Notes <span class="dim">`, itoa(n), `</span></button><template>`, notesHTML, `</template></td>`)
 			}
 		}
 		w(`</tr>`)
@@ -264,17 +298,41 @@ func (s *Server) tagRowOf(d *notes.Document, lnum int, query map[string]bool) ta
 			row.href, row.linkText, row.kind = s.noteURL(res.Doc.Rel, res.Lnum), sp.Definition, "note"
 		}
 	})
-	indent := len(line) - len(strings.TrimLeft(line, " \t"))
-	for l := lnum + 1; l <= len(d.Lines) && len(row.nested) < 50; l++ {
-		nl := d.Lines[l-1]
-		if strings.TrimSpace(nl) == "" {
-			continue
+	// its notes: a resource heading's section, or the lines indented under
+	// it (labels among them stay its notes)
+	if n := d.NodeStartingAt(lnum); n != nil && links.IsResourceHeading(d, lnum) {
+		for l := lnum + 1; l <= n.End && len(row.nested) < 200; l++ {
+			if strings.TrimSpace(d.Lines[l-1]) != "" {
+				row.nested = append(row.nested, l)
+				row.notesTo = l
+			}
 		}
-		if len(nl)-len(strings.TrimLeft(nl, " \t")) <= indent || d.NodeStartingAt(l) != nil {
-			break
+	} else {
+		indent := len(line) - len(strings.TrimLeft(line, " \t"))
+		row.notesBase = -1
+		for l := lnum + 1; l <= len(d.Lines) && len(row.nested) < 200; l++ {
+			nl := d.Lines[l-1]
+			if strings.TrimSpace(nl) == "" {
+				continue
+			}
+			ind := len(nl) - len(strings.TrimLeft(nl, " \t"))
+			if ind <= indent {
+				break
+			}
+			if n := d.NodeStartingAt(l); n != nil && n.Type != syntax.KindLabel {
+				break
+			}
+			row.nested = append(row.nested, l)
+			row.notesTo = l
+			if row.notesBase < 0 || ind < row.notesBase {
+				row.notesBase = ind
+			}
 		}
-		row.nested = append(row.nested, l)
+		if row.notesBase < 0 {
+			row.notesBase = 0
+		}
 	}
+	row.notesRel = s.linkedNote(d, row.nested)
 	return row
 }
 
@@ -315,4 +373,82 @@ func shortTarget(target string) string {
 		return host + "/" + p
 	}
 	return path.Base(target)
+}
+
+// plainText is line[from:to] as text: links by their text, no attributes.
+func plainText(line string, spans []syntax.Span, from, to int) string {
+	var b strings.Builder
+	pos := from
+	for i := range spans {
+		sp := &spans[i]
+		if sp.S < pos || sp.E > to {
+			continue
+		}
+		b.WriteString(line[pos:sp.S])
+		switch sp.Type {
+		case "attribute", "hidden":
+		case "bold", "italic":
+			b.WriteString(plainText(line, sp.Children, sp.InnerS, sp.InnerE))
+		case "code", "math":
+			b.WriteString(line[sp.InnerS:sp.InnerE])
+		default:
+			if t := links.SpanText(sp); t != "" {
+				b.WriteString(t)
+			} else {
+				b.WriteString(line[sp.S:sp.E])
+			}
+		}
+		pos = sp.E
+	}
+	if pos < to {
+		b.WriteString(line[pos:to])
+	}
+	return strings.Join(strings.Fields(b.String()), " ")
+}
+
+// notesHTML renders a row's notes (lines first..last) like the note, with
+// their indent from base shown as none and without the note's line ids
+// (the page may hold the note too).
+func (s *Server) notesHTML(d *notes.Document, ast *syntax.AST, first, last, base int) string {
+	r := &noteRenderer{s: s, doc: d, ast: ast, dedent: base}
+	r.renderRange(first, last)
+	return strings.ReplaceAll(r.b.String(), ` id="`, ` data-id="`)
+}
+
+// linkedNote is the first note the lines link to as a whole ([Rust book],
+// [z/rust-book.zortex](…)), or "".
+func (s *Server) linkedNote(d *notes.Document, lines []int) string {
+	for _, l := range lines {
+		rel := ""
+		syntax.Walk(d.Spans(l), func(sp *syntax.Span) {
+			if rel != "" {
+				return
+			}
+			switch sp.Type {
+			case "link", "live_link":
+				if s.fileLike(sp.Definition) {
+					if r, _, local, dir, ok := s.resolveFile(d, sp.Definition); ok && local && !dir && s.isNote(r) {
+						rel = r
+					}
+					return
+				}
+				res, err := links.ResolveFirst(s.ix, "["+sp.Definition+"]", links.Options{From: d, Lnum: l})
+				if err == nil && res != nil && res.Whole && res.Doc != d {
+					rel = res.Doc.Rel
+				}
+			case "markdown", "filepath":
+				p := sp.URL
+				if sp.Type == "filepath" {
+					p = strings.TrimRight(sp.Path, ".,;:!?")
+				}
+				if r, _, local, dir, ok := s.resolveFile(d, p); ok && local && !dir && s.isNote(r) {
+					rel = r
+				}
+			}
+		})
+		if rel != "" {
+			return rel
+		}
+	}
+	return ""
 }

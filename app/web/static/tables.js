@@ -4,6 +4,7 @@
 // without setup.
 (function () {
   "use strict";
+  var base = document.body.dataset.base || "";
 
   function cellValue(row, i) {
     var td = row.cells[i];
@@ -56,7 +57,56 @@
     if (count) count.textContent = shown === rows.length ? "" : shown + " of " + rows.length;
   }
 
+  // ---------------------------------------------------------------------------
+  // A row's notes in a panel (a side panel; a bottom sheet on a phone): its
+  // notes rendered like the note, then the first note they link to.
+  // ---------------------------------------------------------------------------
+  var panel = null;
+  function notesPanel() {
+    if (panel) return panel;
+    panel = document.createElement("dialog");
+    panel.className = "notes-panel";
+    panel.setAttribute("aria-labelledby", "np-title");
+    panel.innerHTML = '<div class="np-head"><h2 id="np-title"></h2>' +
+      '<button type="button" class="np-close" aria-label="Close">✕</button></div><div class="np-body"></div>';
+    panel.querySelector(".np-close").addEventListener("click", function () { panel.close(); });
+    // a click on the backdrop closes it
+    panel.addEventListener("click", function (e) { if (e.target === panel) panel.close(); });
+    document.body.appendChild(panel);
+    return panel;
+  }
+  function showNotes(btn) {
+    var p = notesPanel(), body = p.querySelector(".np-body");
+    p.querySelector("#np-title").textContent = btn.dataset.title || "Notes";
+    var tpl = btn.parentNode.querySelector("template");
+    body.innerHTML = '<div class="np-notes"></div>';
+    body.firstChild.appendChild(tpl.content.cloneNode(true));
+    var rel = btn.dataset.note;
+    if (rel) {
+      var sec = document.createElement("section");
+      sec.className = "np-linked";
+      sec.innerHTML = '<h3><span></span> <a class="np-open">open</a></h3><div class="np-note dim">Loading…</div>';
+      sec.querySelector("h3 span").textContent = btn.dataset.noteTitle || rel;
+      sec.querySelector(".np-open").href = btn.dataset.noteHref || "#";
+      body.appendChild(sec);
+      fetch(base + "/api/note?rel=" + encodeURIComponent(rel), { cache: "no-store" })
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function (res) {
+          var box = sec.querySelector(".np-note");
+          box.classList.remove("dim");
+          box.innerHTML = res.body || "";
+          // its line ids would clash with the page's
+          Array.prototype.forEach.call(box.querySelectorAll("[id]"), function (el) { el.removeAttribute("id"); });
+        })
+        .catch(function () { sec.querySelector(".np-note").textContent = "Could not load the note."; });
+    }
+    if (typeof p.showModal === "function") { if (!p.open) p.showModal(); } else p.setAttribute("open", "");
+    body.scrollTop = 0;
+  }
+
   document.addEventListener("click", function (e) {
+    var notesBtn = e.target.closest(".tag-table .tt-notes-btn");
+    if (notesBtn) return showNotes(notesBtn);
     var sort = e.target.closest(".tag-table .tt-sort");
     if (sort) return sortBy(sort);
     var chip = e.target.closest(".tag-table .tt-chip");
@@ -75,8 +125,6 @@
   // button undoes it; nothing is chosen at first. Without this script the
   // chips are plain links to the search's page.
   // ---------------------------------------------------------------------------
-  var base = document.body.dataset.base || "";
-
   function hashQuery() {
     var m = /^#tags=(.*)$/.exec(location.hash);
     if (!m) return "";

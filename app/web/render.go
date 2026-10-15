@@ -40,6 +40,7 @@ type noteRenderer struct {
 	slides bool        // a slide deck: attributes are hidden
 	steps  map[int]int // slides: lnum -> the reveal step it appears in
 
+	dedent int    // indent shown as none (a tag table row's notes)
 	lnum   int    // the line being rendered (parent-relative links)
 	md     *mdDoc // a Markdown file (markdown.go)
 	inPara bool   // Markdown: inside a <p> of text lines
@@ -208,8 +209,8 @@ func (r *noteRenderer) line(lnum int, d *syntax.Line) {
 		return
 	}
 	indent := ""
-	if d.Indent > 0 {
-		indent = ` style="--ind:` + itoa(d.Indent) + `"`
+	if ind := d.Indent - r.dedent; ind > 0 {
+		indent = ` style="--ind:` + itoa(ind) + `"`
 	}
 	if n := r.steps[lnum]; n > 0 {
 		indent += ` data-step="` + itoa(n) + `"`
@@ -239,6 +240,19 @@ func (r *noteRenderer) line(lnum int, d *syntax.Line) {
 		}
 		r.w(content(), `</div>`)
 	case syntax.KindItem:
+		// "- Key: text": marker() shows the key, the content the rest
+		if it := d.Item; it.Key != "" && it.KeyCol != nil && r.md == nil {
+			k := *it.KeyCol + len(it.Key)
+			if k < len(line) && line[k] == ':' {
+				k++
+			}
+			for k < len(line) && (line[k] == ' ' || line[k] == '\t') {
+				k++
+			}
+			if k > from && k <= to {
+				from = k
+			}
+		}
 		cls := "ln item"
 		if d.Item.Mark != "" {
 			cls += " task"
@@ -601,7 +615,12 @@ func toc(doc *notes.Document) []tocEntry {
 		for _, c := range n.Children {
 			switch c.Type {
 			case syntax.KindHeading, syntax.KindBoldHeading:
-				out = append(out, tocEntry{Text: c.Text, Lnum: c.Start, Depth: depth})
+				text := c.Text
+				if c.Type == syntax.KindHeading && strings.ContainsAny(text, "[(") {
+					// links by their text: "[Rust for Rustaceans](https://…)"
+					text = plainText(text, syntax.Inline(text, 0, len(text)), 0, len(text))
+				}
+				out = append(out, tocEntry{Text: text, Lnum: c.Start, Depth: depth})
 				walk(c, depth+1)
 			case syntax.KindArticle:
 				walk(c, depth)

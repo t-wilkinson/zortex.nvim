@@ -248,7 +248,10 @@ tasks as `[P/#…/-Improve website]`.
   non-blank, non-header line outside code in them matches when its own bare
   `@words` plus those of the section headings above it satisfy the query
   (words: all of them; commas separate alternatives). No scope is the
-  current note, `*` every note.
+  current note, `*` every note. Notes about a resource match by their own
+  tags only: the lines nested under an item holding a link
+  (`is_resource_note`) and the section of a heading that is only a link
+  (`is_resource_heading`, which itself takes the tags above it).
 - A `-` component compares a list item's text with markdown links replaced
   by their text (`link_text`), so `-The Rust Book` finds
   `- [The Rust Book](…)`; `item_component` writes it that way.

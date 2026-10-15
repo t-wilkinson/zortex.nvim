@@ -286,13 +286,21 @@ func (r *noteRenderer) marker(line string, it *syntax.Item) {
 	}
 	if it.Mark != "" {
 		state, label := "open", "open task"
+		title := ""
 		if it.Mark == "x" || it.Mark == "X" {
 			state, label = "done", "done"
+		} else if it.Mark == ">" {
+			state, label = "other moved", "carried to a later day"
+			title = ` title="carried to a later day"`
 		} else if it.Mark != " " {
 			state, label = "other", it.Mark
+		} else if r.md == nil && r.s.doneOnCalendar(r.doc, line) {
+			// a calendar copy (same @id) is checked: done (mirrors.go)
+			state, label = "done mirrored", "done on the calendar"
+			title = ` title="done on the calendar"`
 		}
-		r.w(`<span class="box `, state, `" role="img" aria-label="`, esc(label), `">`)
-		if state == "other" {
+		r.w(`<span class="box `, state, `" role="img" aria-label="`, esc(label), `"`, title, `>`)
+		if strings.HasPrefix(state, "other") {
 			r.w(esc(it.Mark))
 		}
 		r.w(`</span>`)

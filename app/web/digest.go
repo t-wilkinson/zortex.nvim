@@ -95,6 +95,8 @@ func (s *Server) apiDigest(w http.ResponseWriter, r *http.Request) {
 			switch {
 			case e.Done:
 				mark = "[x] "
+			case e.Moved:
+				mark = "[>] "
 			case e.Task:
 				mark = "[ ] "
 			}

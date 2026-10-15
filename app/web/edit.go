@@ -32,6 +32,11 @@ import (
 //	                                    is the text of line `to`
 //	POST /api/inbox  {text, kind}       append a task or a note to inbox.zortex
 //
+// Task ops keep copies in step (mirrors.go): the other lines with the
+// task's @id in the calendar and the project notes get the same state, and
+// on a calendar line without a checkbox that links a task they act on that
+// task.
+//
 // Every edit names the line it expects (`expect`); when the file changed
 // since the page was loaded (Neovim, Syncthing) nothing is written and the
 // reply is 409 with the current note. Files are replaced atomically through
@@ -496,6 +501,21 @@ func (s *Server) apiEdit(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]any{"error": "no such note: " + req.Rel})
 		return
 	}
+	page := rel // the note the reply redraws
+	taskOp := req.Op == edit.Open || req.Op == edit.Done || req.Op == edit.Toggle
+	if cal := s.calendarDoc(); taskOp && cal != nil && cal.Rel == rel &&
+		req.Lnum >= 1 && req.Lnum <= len(cal.Lines) && cal.Lines[req.Lnum-1] == req.Expect {
+		// a line standing for a task ("09:00 [P/…/-Improve website]"): toggle the task
+		if ref := s.referenceOf(cal, req.Lnum); ref != nil {
+			if req.Op == edit.Toggle {
+				req.Op = edit.Done
+				if ref.Done {
+					req.Op = edit.Open
+				}
+			}
+			rel, req.Lnum, req.Expect = ref.Rel, ref.Lnum, ref.Line
+		}
+	}
 	s.editMu.Lock()
 	f, err := readNoteFile(s.ix.Path(rel))
 	if err != nil {
@@ -511,10 +531,17 @@ func (s *Server) apiEdit(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		err = f.write()
 	}
+	var synced []string
+	if err == nil && taskOp && lnum >= 1 && lnum <= len(f.lines) {
+		var serr error
+		if synced, serr = s.syncMirrors(rel, lnum, f.lines[lnum-1]); serr != nil {
+			s.log.Printf("edit: keeping copies in step: %v", serr)
+		}
+	}
 	s.editMu.Unlock()
 	if errors.Is(err, errChanged) {
 		s.afterWrite() // pick up whatever changed it
-		out := s.noteState(rel)
+		out := s.noteState(page)
 		out["error"] = err.Error()
 		writeJSON(w, http.StatusConflict, out)
 		return
@@ -530,8 +557,14 @@ func (s *Server) apiEdit(w http.ResponseWriter, r *http.Request) {
 	s.recordCompletion(rel, before, after)
 	s.afterWrite()
 	s.log.Printf("edit %s:%d %s", rel, req.Lnum, req.Op)
-	out := s.noteState(rel)
+	if len(synced) > 0 {
+		s.log.Printf("edit: same @id updated in %s", strings.Join(synced, ", "))
+	}
+	out := s.noteState(page)
 	out["ok"], out["lnum"], out["line"] = true, lnum, after
+	if page != rel {
+		out["lnum"], out["task"] = 0, map[string]any{"rel": rel, "lnum": lnum, "line": after}
+	}
 	writeJSON(w, http.StatusOK, out)
 }
 

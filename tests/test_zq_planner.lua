@@ -72,6 +72,8 @@ end)
 T.test("plan buffer puts items into the calendar day", function()
 	local cal = require("zortex.utils.filesystem").get_calendar_file()
 	local original = vim.fn.readfile(cal)
+	local proj = require("zortex.utils.filesystem").get_projects_file()
+	local original_proj = vim.fn.readfile(proj) -- p gives the task an @id
 	with_config({ todo_link = "P/#1 Programming/#1.4 - zortex", templates = { sunday = { "09:00", "12:00 Lunch" } } }, function()
 		local ui = require("zortex.ui.planner")
 		local buf = ui.open({ date = "2026-10-18" }) -- a Sunday, not in the calendar yet
@@ -129,19 +131,37 @@ T.test("plan buffer puts items into the calendar day", function()
 		T.eq(vim.api.nvim_buf_get_lines(st.cal_buf, h + 2, h + 3, false)[1], text)
 		vim.api.nvim_buf_set_lines(st.cal_buf, h + 2, h + 3, false, {})
 
-		-- p: "- text" after the day's last entry, focus stays in the plan buffer
+		-- p: a task goes in as a copy with the task's @id, after the day's last
+		-- entry; focus stays in the plan buffer
 		vim.api.nvim_set_current_win(st.win)
 		vim.api.nvim_win_set_cursor(st.win, { first, 0 })
 		vim.fn.maparg("p", "n", false, true).callback()
 		T.eq(vim.api.nvim_get_current_win(), st.win)
 		local block = require("zortex.stores.calendar").date_block("2026-10-18", vim.api.nvim_buf_get_lines(st.cal_buf, 0, -1, false))
-		T.eq(vim.api.nvim_buf_get_lines(st.cal_buf, block.last_lnum - 1, block.last_lnum, false)[1], "- " .. text)
+		local id = require("zortex.services.mirrors").id_of(select(2, (function()
+			for i, l in ipairs(vim.fn.readfile(proj)) do
+				if l:find("Improve website", 1, true) then
+					return i, l
+				end
+			end
+		end)()))
+		T.ok(id, "the project task has an @id")
+		T.eq(
+			vim.api.nvim_buf_get_lines(st.cal_buf, block.last_lnum - 1, block.last_lnum, false)[1],
+			"- [ ] [P/#1 Programming/#1.4 - zortex/-Improve website] @id(" .. id .. ")"
+		)
 		T.eq(block.last_lnum, h + 3) -- 09:00 …, 12:00 Lunch, then the new entry
+		-- again: it's already on the day
+		vim.fn.maparg("p", "n", false, true).callback()
+		block = require("zortex.stores.calendar").date_block("2026-10-18", vim.api.nvim_buf_get_lines(st.cal_buf, 0, -1, false))
+		T.eq(block.last_lnum, h + 3)
 
 		ui.close()
 		vim.cmd("silent! bwipeout! " .. st.cal_buf)
 	end)
 	vim.fn.writefile(original, cal)
+	vim.fn.writefile(original_proj, proj)
+	require("zortex.core.document").invalidate()
 	require("zortex.stores.calendar").load()
 end)
 

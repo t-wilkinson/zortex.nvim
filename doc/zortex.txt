@@ -173,6 +173,10 @@ PLAN ~
     Plan a day: calendar day (from its template) plus ranked tasks, projects,
     KRs and areas to put on it. Keys: <leader>zm. Id: plan.
 
+:ZortexCarryForward                                      *:ZortexCarryForward*
+    Copy the open tasks of the days before to today (or a date), marking the
+    old lines [>]. Keys: <leader>zCf. Id: carry_forward.
+
 :ZortexCalendar                                              *:ZortexCalendar*
     Calendar view. Keys: <leader>zc. Id: calendar.
 
@@ -447,6 +451,10 @@ setup() merges your options over these defaults: >lua
           max_tasks = 30,
           width = 70, -- plan window width
           advance = false, -- after a put, move the calendar cursor to the next line
+          -- :ZortexPlan for today copies the open tasks of the days before
+          -- (same @id) and marks the old lines [>]; how many days back
+          carry_forward = true,
+          carry_days = 14,
           -- Lines for a new calendar day. Keys: monday … sunday override
           -- weekday / saturday / sunday. e.g.
           --   weekday = { "07:00 Morning routine [P/#1 Personal/#Habits]", "09:00", "12:00 Lunch", "13:00", "17:00" },

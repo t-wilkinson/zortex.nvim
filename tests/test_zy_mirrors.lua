@@ -200,3 +200,96 @@ T.test("time spent adds up over the copies of a task", function()
 		os.remove(path)
 	end
 end)
+
+T.test("planner: a task goes on the day as a copy, under its project's block when there is one", function()
+	local restore = snapshot({ CAL, PROJ })
+	local planner = require("zortex.services.planner")
+	local link = require("zortex.core.link")
+	local function candidate(text)
+		local i, line = find(fs.read_lines(PROJ), text)
+		return {
+			kind = "task",
+			file = PROJ,
+			lnum = i,
+			link = planner.item_link("[P/#1 Programming/#1.4 - zortex]", line),
+			component = link.item_component(line),
+			project_key = ZORTEX,
+		}
+	end
+	local day = "2026-10-20"
+	local at, added = planner.add_task(day, candidate("Improve website"))
+	T.ok(added, "added")
+	local cal = fs.read_lines(CAL)
+	local _, proj = find(fs.read_lines(PROJ), "Improve website")
+	local id = mirrors.id_of(proj)
+	T.ok(id, "the project task got an @id: " .. proj)
+	T.eq(cal[at], "- [ ] [P/#1 Programming/#1.4 - zortex/-Improve website] @id(" .. id .. ")")
+	T.eq(select(2, planner.add_task(day, candidate("Improve website"))), false, "not twice")
+
+	-- the project with its open tasks: a block, the ones already on the day skipped
+	local head, n = planner.add_project(day, { project_key = ZORTEX })
+	cal = fs.read_lines(CAL)
+	T.eq(cal[head], "- [P/#1 Programming/#1.4 - zortex]")
+	T.eq(n, 2) -- Add research-ready references, Change task sizes
+	T.ok(cal[head + 1]:match("^  %- %[ %] %[%./%-Add research%-ready references%] @id%(%w+%)$"), cal[head + 1])
+	T.ok(cal[head + 2]:match("^  %- %[ %] %[%./%-Change task sizes%] @id%(%w+%)$"), cal[head + 2])
+	-- a task added later goes under the block, with a ./ link
+	local next_day = "2026-10-21"
+	planner.add_project(next_day, { project_key = ZORTEX })
+	at = planner.add_task(next_day, candidate("Improve website"))
+	cal = fs.read_lines(CAL)
+	T.eq(cal[at], "  - [ ] [./-Improve website] @id(" .. id .. ")", "already in the block: " .. cal[at])
+	T.eq(mirrors.issues(), {})
+	restore()
+end)
+
+T.test("carry forward: open tasks of the days before move to today, [>] on the old lines", function()
+	local restore = snapshot({ CAL, PROJ })
+	local planner = require("zortex.services.planner")
+	set(CAL, function(lines)
+		vim.list_extend(lines, {
+			"",
+			"2026-10-20:",
+			"09:00 [P/#1.4 - zortex]",
+			"  - [ ] [./-Improve website] @id(web01)",
+			"  - [x] [./-Change task sizes] @id(chg01) @done(2026-10-20)",
+			"- [ ] Call the bank",
+		})
+	end)
+	local moved, added = planner.carry_forward("2026-10-21")
+	T.eq({ moved, added }, { 2, 2 })
+	local cal = fs.read_lines(CAL)
+	T.ok(find(cal, "  - [>] [./-Improve website] @id(web01)"), "marked")
+	local i = find(cal, "2026-10-21:")
+	T.eq(vim.list_slice(cal, i, i + 3), {
+		"2026-10-21:",
+		"- [P/#1.4 - zortex]",
+		"  - [ ] [./-Improve website] @id(web01)",
+		cal[i + 3],
+	})
+	T.ok(cal[i + 3]:match("^%- %[ %] Call the bank @id%(%w+%)$"), cal[i + 3])
+	-- the moved line is neither open nor done; the copy is the task now
+	local review = require("zortex.services.agenda").review({ today = "2026-10-21", days = 7 })
+	for _, item in ipairs(review.overdue) do
+		T.ok(not (item.text or ""):find("Improve website", 1, true), "moved copy isn't overdue")
+	end
+	T.eq({ planner.carry_forward("2026-10-21") }, { 0, 0 }, "nothing left to carry")
+	restore()
+end)
+
+T.test("carry: the fixture is up to date", function()
+	local planner = require("zortex.services.planner")
+	local fx = vim.json.decode(table.concat(vim.fn.readfile(T.root .. "/tests/fixtures/carry.json"), "\n"))
+	for i, c in ipairs(require("carry_cases")) do
+		local n = 0
+		local plan = planner.carry(c.lines, c.today, {
+			from = c.from,
+			new_id = function()
+				n = n + 1
+				return string.format("C%04d", n)
+			end,
+		})
+		T.eq(plan.lines, fx.cases[i].add, c.name)
+		T.eq(plan.at or 0, fx.cases[i].at, c.name)
+	end
+end)

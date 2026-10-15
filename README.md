@@ -72,7 +72,8 @@ Then, in five minutes:
 Next: the note format is in [doc/Syntax.md](doc/Syntax.md),
 [doc/example](doc/example) is a small folder using most of it, and
 `:checkhealth zortex` checks the setup. The server is optional; see
-[doc/Server.md](doc/Server.md).
+[doc/Server.md](doc/Server.md), which also covers keeping the notes in sync
+with a server (Syncthing, Nextcloud, Unison, git or rsync).
 
 **Configuration.** Every option and its default is in
 [`lua/zortex/config.lua`](lua/zortex/config.lua); `setup()` merges yours over

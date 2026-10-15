@@ -18,18 +18,32 @@ This guide gets it running. Every flag, page and endpoint is in
 ## 1. Get the notes to the server
 
 The server reads a folder of notes; it doesn't sync them. Run it where the
-notes already are (your laptop), or sync them to a home server with
-[Syncthing](https://syncthing.net) (what the author does). Two Syncthing
-tips:
+notes already are (your laptop), or keep a copy on the server in step with
+the one Neovim edits. With `-writable` the web app edits notes too (tasks,
+the inbox, carried tasks), so the sync has to run both ways.
 
-- **Lower the delay.** Syncthing waits 10 s before syncing a change by
-  default; set the folder's *Advanced → fsWatcherDelayS* to 1 or 2 so the
-  web pages follow Neovim closely. The server itself rescans every 3 s
-  (`-poll`).
-- **Keep `.z/` in sync.** Neovim's state lives in `notes/.z/`. The web app
+| Tool | Both ways | Good for |
+| --- | --- | --- |
+| [Syncthing](https://syncthing.net) | yes, continuous | the usual choice (what the author uses): phone, laptop and server stay in step within seconds |
+| Nextcloud, Dropbox, iCloud Drive and similar | yes | a sync client you already run; point `-dir` at its folder on the server |
+| [Unison](https://github.com/bcpierce00/unison) | yes, on demand or `-repeat watch` | two machines over SSH, no daemon on the server |
+| git | yes, by hand (commit, pull, push) | history and review; a pull on the server (cron or a hook) updates it, edits from the web need a commit and push back |
+| rsync | one way | a read-only web app (no `-writable`): `rsync -a --delete ~/zortex/ server:zortex/` after you edit |
+
+Whatever you use:
+
+- **Sync `.z/` too.** Neovim's state lives in `notes/.z/`. The web app
   reads `.z/xp_summary.json` from there (Neovim writes it after every XP
-  change), so don't exclude `.z` in `.stignore` unless you also point the
-  plugin at the server (step 5).
+  change), so don't leave `.z` out (`.stignore`, `.gitignore`) unless you
+  also point the plugin at the server (step 5).
+- **Conflicts.** When both sides change one note before a sync, the tool
+  keeps both (Syncthing writes `note.sync-conflict-….zortex`). The file
+  browser hides Syncthing's conflict and temporary files; merge the copy by
+  hand and delete it.
+- **Syncthing: lower the delay.** Syncthing waits 10 s before syncing a
+  change by default; set the folder's *Advanced → fsWatcherDelayS* to 1 or
+  2 so the web pages follow Neovim closely. The server itself rescans every
+  3 s (`-poll`).
 
 ## 2. Run it
 

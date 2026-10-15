@@ -173,6 +173,23 @@ T.test("text mode has no word syntax and uses smart case", function()
 	T.eq(#search.query_index(index(), "", { mode = "text" }), 0)
 end)
 
+T.test("file names are article aliases in every mode", function()
+	-- okr.zortex is @@Objectives
+	local r = search.query_index(index(), "okr", { mode = "article" })
+	T.eq(#r, 1)
+	T.eq(r[1].breadcrumb, "Objectives")
+	T.eq(sections(search.query_index(index(), "okr"))[1].breadcrumb, "Objectives")
+	-- text mode: the file's article line first, marked as a file-name match
+	local t = search.query_index(index(), "day-plan", { mode = "text" })
+	T.eq(t[1].line, "@@Day plan")
+	T.eq(t[1].file_match, "day-plan")
+	T.eq(t[1].lnum, 1)
+	-- smart case applies to the name too
+	T.eq(#vim.tbl_filter(function(x)
+		return x.file_match
+	end, search.query_index(index(), "OKR", { mode = "text" })), 0)
+end)
+
 -- ---------------------------------------------------------------------------
 -- Ranking
 -- ---------------------------------------------------------------------------

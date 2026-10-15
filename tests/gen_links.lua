@@ -137,6 +137,10 @@ M.SEARCHES = {
 	{ prompt = "P", mode = "article" },
 	{ prompt = "o", mode = "article" },
 	{ prompt = "", mode = "article" },
+	-- file names are article aliases: okr.zortex is @@Objectives
+	{ prompt = "okr" },
+	{ prompt = "okr", mode = "article" },
+	{ prompt = "day-plan", mode = "article" },
 }
 
 -- Pretty JSON with sorted keys (same as gen_ast.lua)

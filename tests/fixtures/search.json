@@ -2971,5 +2971,62 @@
         "type": "section"
       }
     ]
+  },
+  {
+    "mode": "section",
+    "prompt": "okr",
+    "results": [
+      {
+        "breadcrumb": "Objectives",
+        "lnum": 1,
+        "rel": "okr.zortex",
+        "score": 2300,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Objectives › Current",
+        "child": true,
+        "lnum": 6,
+        "rel": "okr.zortex",
+        "score": 2300,
+        "type": "section"
+      },
+      {
+        "lnum": 2,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 18,
+        "rel": "projects.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "article",
+    "prompt": "okr",
+    "results": [
+      {
+        "breadcrumb": "Objectives",
+        "lnum": 1,
+        "rel": "okr.zortex",
+        "score": 2300,
+        "type": "section"
+      }
+    ]
+  },
+  {
+    "mode": "article",
+    "prompt": "day-plan",
+    "results": [
+      {
+        "breadcrumb": "Day plan",
+        "lnum": 1,
+        "rel": "z/day-plan.zortex",
+        "score": 2300,
+        "type": "section"
+      }
+    ]
   }
 ]

@@ -157,9 +157,18 @@ end
 -- purely in-memory structure (see M.query_index).
 -- ---------------------------------------------------------------------------
 
+-- A note's file name without folder or extension ("z/bread.zortex" -> "bread"):
+-- searched as one more alias of each of its articles.
+local function file_stem(filepath)
+	local name = filepath:match("([^/]+)$") or filepath
+	return name:match("^(.+)%.[^.]+$") or name
+end
+
 function M.build_index(files)
 	local index = {}
 	for _, filepath in ipairs(files) do
+		local stem = file_stem(filepath)
+		local stem_lower = stem:lower()
 		local doc = require("zortex.core.document").get(filepath)
 		local lines = doc and doc.lines
 		if lines and not doc:has_tag("Ignore") then
@@ -193,6 +202,9 @@ function M.build_index(files)
 							local texts = { (p.text or ""):lower() }
 							for _, alias in ipairs(p.names or {}) do
 								texts[#texts + 1] = alias:lower()
+							end
+							if p.type == "article" and stem_lower ~= texts[1] then
+								texts[#texts + 1] = stem_lower
 							end
 							typed[#typed + 1] = { type = p.type, text = texts[1], texts = texts }
 						end
@@ -231,6 +243,7 @@ function M.build_index(files)
 
 				index[#index + 1] = {
 					filepath = filepath,
+					stem = stem,
 					archived = require("zortex.core.notes").is_archived(filepath),
 					raw_lines = lines,
 					lower_lines = lower_lines,
@@ -443,6 +456,8 @@ end
 
 -- Plain text: every line containing `prompt` literally (smart case), live
 -- notes first, then document order. `col` is the 1-based start of the match.
+-- A note whose file name contains `prompt` also gives its first article line
+-- (`file_match`), before its other lines.
 local function match_text(index, prompt)
 	local results = {}
 	if not prompt or prompt == "" then
@@ -463,8 +478,23 @@ local function match_text(index, prompt)
 	for _, file in ipairs(files) do
 		local haystack = ignore_case and file.lower_lines or file.raw_lines or {}
 		local a = 1
+		local stem = file.stem and (ignore_case and file.stem:lower() or file.stem)
+		local named_lnum
+		if stem and stem:find(prompt, 1, true) and file.raw_lines and #file.raw_lines > 0 then
+			local first = (file.articles or {})[1]
+			named_lnum = first and first.start_line or 1
+			results[#results + 1] = {
+				result_type = "line",
+				filepath = file.filepath,
+				lnum = named_lnum,
+				line = file.raw_lines[named_lnum],
+				article_name = first and first.text or nil,
+				archived = file.archived,
+				file_match = file.stem,
+			}
+		end
 		for lnum, text in ipairs(haystack) do
-			local col = text:find(prompt, 1, true)
+			local col = lnum ~= named_lnum and text:find(prompt, 1, true)
 			if col then
 				local articles = file.articles or {}
 				while articles[a] and articles[a].end_line < lnum do

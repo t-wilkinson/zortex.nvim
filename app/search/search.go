@@ -9,6 +9,7 @@
 package search
 
 import (
+	"path"
 	"sort"
 	"strings"
 
@@ -91,6 +92,7 @@ func Build(ix *notes.Index, rels []string) *Index {
 			continue
 		}
 		f := file{rel: rel, archived: ix.IsArchived(rel), text: doc.Lines}
+		stem := syntax.Lower(fileStem(rel))
 		structural := map[int]bool{}
 		for _, n := range doc.Sections() {
 			structural[n.Start] = true
@@ -107,6 +109,9 @@ func Build(ix *notes.Index, rels []string) *Index {
 				for _, alias := range p.Names {
 					texts = append(texts, syntax.Lower(alias))
 				}
+				if p.Type == "article" && stem != texts[0] {
+					texts = append(texts, stem)
+				}
 				path = append(path, element{typ: p.Type, texts: texts})
 			}
 			f.sections = append(f.sections, section{node: n, rel: rel, breadcrumb: n.Breadcrumb(" › "), path: path, rootLevel: rootLevel})
@@ -120,6 +125,14 @@ func Build(ix *notes.Index, rels []string) *Index {
 		out.files = append(out.files, f)
 	}
 	return out
+}
+
+// fileStem is a note's file name without folder or extension
+// ("z/bread.zortex" -> "bread"), searched as one more alias of each of its
+// articles.
+func fileStem(rel string) string {
+	base := path.Base(rel)
+	return strings.TrimSuffix(base, path.Ext(base))
 }
 
 // BuildAll indexes every note, archived ones included.

@@ -261,8 +261,16 @@ func (r *noteRenderer) line(lnum int, d *syntax.Line) {
 			}
 		}
 		r.w(`<div class="`, cls, `" id="L`, id, `"`, indent, `>`)
-		r.marker(line, d.Item)
-		r.w(`<span class="body">`, content(), `</span></div>`)
+		r.bullet(d.Item)
+		if d.Item.Key != "" && r.md == nil {
+			// "- Key: text" wraps under the key, not in a column after it
+			r.w(`<span class="body keyed">`)
+			r.keyBox(line, d.Item)
+			r.w(content(), `</span></div>`)
+		} else {
+			r.keyBox(line, d.Item)
+			r.w(`<span class="body">`, content(), `</span></div>`)
+		}
 	case syntax.KindQuote:
 		r.w(`<blockquote class="ln" id="L`, id, `"`, indent, `>`, content(), `</blockquote>`)
 	case syntax.KindFootnote:
@@ -294,6 +302,12 @@ func embedOnly(line string, spans []syntax.Span) *syntax.Span {
 
 // marker renders a list item's marker, key and checkbox.
 func (r *noteRenderer) marker(line string, it *syntax.Item) {
+	r.bullet(it)
+	r.keyBox(line, it)
+}
+
+// bullet renders a list item's marker: a dot, a number or a time.
+func (r *noteRenderer) bullet(it *syntax.Item) {
 	switch it.MarkerType {
 	case "time":
 		r.w(`<span class="marker time">`, esc(it.Marker), `</span>`)
@@ -302,6 +316,10 @@ func (r *noteRenderer) marker(line string, it *syntax.Item) {
 	default:
 		r.w(`<span class="marker bullet" aria-hidden="true"></span>`)
 	}
+}
+
+// keyBox renders a list item's key and checkbox.
+func (r *noteRenderer) keyBox(line string, it *syntax.Item) {
 	if it.Key != "" && r.md == nil {
 		r.w(`<span class="key">`, esc(it.Key), `:</span>`)
 	}

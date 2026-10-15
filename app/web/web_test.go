@@ -45,7 +45,8 @@ func newTestServer(t *testing.T, base string) (*Server, string, *httptest.Server
 		"z/a.sync-conflict-1": "x",
 		"links.zortex": "@@Links\n\n- [P/#1.4 - zortex] and [Nope/#x] and [/#Local]\n" +
 			"- file ./z/docs/manual.pdf, [doc](z/docs/notes.txt), https://example.com\n" +
-			"# Local\n```\n[P] in code\n```\n| [P] | b |\n",
+			"# Local\n```\n[P] in code\n```\n| [P] | b |\n" +
+			"- Long label: text that wraps\n",
 	}
 	for rel, content := range files {
 		p := filepath.Join(dir, rel)
@@ -102,6 +103,10 @@ func TestNotePage(t *testing.T) {
 		`<span class="cl" id="L7">[P] in code`, // code stays text
 		`<table>`,
 	)
+	// "- Key: text" wraps under the key: key and text share one body span
+	if !strings.Contains(body, `<span class="body keyed"><span class="key">Long label:</span>text that wraps</span>`) {
+		t.Error("keyed item: key not inside the body span")
+	}
 	if strings.Contains(body, `in code</a>`) {
 		t.Error("link rendered inside a code block")
 	}

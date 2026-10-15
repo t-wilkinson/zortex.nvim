@@ -89,6 +89,10 @@ M.EXTRA_LINKS = {
 	{ link = "@[*/rust, rl]" },
 	{ link = "@[R/#Rust/-The Rust Book/rust]" },
 	{ link = "@[R/nothing]" },
+	{ link = "@[R/book]" }, -- resource headings, not their notes
+	{ link = "@[R/#Books/rust book]" },
+	{ link = "@[R/#Later/book]" }, -- the item, not its notes
+	{ link = "@[R/#Later/status]" },
 	{ link = "@[Nope/rl]" },
 	{ link = "@[R/#Rust/ , ]" },
 	{ link = "@[rl]", from = "z/resources.zortex" },

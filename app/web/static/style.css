@@ -152,7 +152,7 @@ a.zl::after { content: "]"; color: var(--dim); }
 a.zl.multi::after { content: "]⁺"; }
 a.broken, a.zl.broken { color: var(--broken); border-bottom: 1px dashed var(--broken); }
 a.url { overflow-wrap: anywhere; }
-a.tagsearch { font-family: var(--mono); font-size: 0.9em; }
+a.tagsearch .ts-at { color: var(--dim); margin-right: 0.05em; }
 
 /* backlinks */
 .backlinks { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--rule); }
@@ -555,6 +555,52 @@ button.box.done { background: var(--done); }
 .tt details summary { cursor: pointer; color: var(--accent); }
 .tt details ul { margin: 0.3rem 0 0; font-size: 0.9em; }
 .tt-empty { margin: 0.3rem 0; }
+
+/* Tag indexes: rows of chips over one shared table (tagindex.go). One grid
+   for every row, so the chips line up under each other. */
+.tag-index { margin: 0.4rem 0 1rem; }
+.ti-rows { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 0.8rem; align-items: center; }
+.ti-block, .ti-row { display: contents; }
+.ti-caption { grid-column: 1 / -1; font-weight: 600; }
+.ti-block + .ti-block > :first-child { margin-top: 0.4rem; }
+.ti-head { font-weight: 600; justify-self: start; }
+.ti-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; }
+.ti-chip { display: inline-flex; align-items: baseline; gap: 0.3em; font-size: 0.88rem; line-height: 1.5; color: var(--ink); border: 1px solid var(--rule); border-radius: 999px; padding: 0 0.6rem; white-space: nowrap; }
+.ti-chip.ti-head { font-size: 0.95rem; }
+.ti-chip:hover { text-decoration: none; border-color: var(--accent); color: var(--accent); }
+.ti-chip .ti-n { font-size: 0.8em; color: var(--dim); font-variant-numeric: tabular-nums; }
+.ti-chip.none { opacity: 0.5; }
+.ti-chip[aria-current="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }
+.ti-table:not(:empty) { margin-top: 0.6rem; border-top: 1px solid var(--rule); padding-top: 0.4rem; }
+.ti-table.loading { opacity: 0.6; }
+.ti-for { margin: 0 0 0.3rem; font-size: 0.9rem; }
+
+/* A tag table row's notes: short ones under the item, long ones in a panel */
+.tt-notes { margin-top: 0.15rem; font-size: 0.86em; color: var(--dim); }
+.tt-notes .ln { padding-left: calc(var(--ind, 0) * 0.45rem); }
+.tt-notes h1, .tt-notes h2, .tt-notes h3, .tt-notes h4, .tt-notes h5, .tt-notes h6 { font-size: 1em; margin: 0.2rem 0 0; color: var(--ink); }
+.tt-notes .pin, .notes-panel .pin { display: none; }
+.tt-notes-btn { font: inherit; font-size: 0.85rem; color: var(--accent); background: none; border: 1px solid var(--rule); border-radius: 6px; padding: 0.05rem 0.5rem; cursor: pointer; white-space: nowrap; }
+.tt-notes-btn:hover { border-color: var(--accent); }
+.notes-panel { position: fixed; inset: 0 0 0 auto; margin: 0; width: min(34rem, 100%); max-width: 100%; height: 100%; max-height: 100%; padding: 0; border: 0; border-left: 1px solid var(--rule); background: var(--bg); color: var(--ink); box-shadow: -8px 0 24px rgb(0 0 0 / 0.12); }
+.notes-panel[open] { display: flex; flex-direction: column; }
+.notes-panel::backdrop { background: rgb(0 0 0 / 0.25); }
+.np-head { display: flex; align-items: baseline; gap: 0.5rem; padding: 0.8rem 1rem 0.5rem; border-bottom: 1px solid var(--rule); }
+.np-head h2 { flex: 1; margin: 0; font-size: 1.05rem; overflow-wrap: anywhere; }
+.np-close { font: inherit; background: none; border: 0; color: var(--dim); cursor: pointer; font-size: 1rem; padding: 0.2rem 0.4rem; }
+.np-close:hover { color: var(--ink); }
+.np-body { overflow-y: auto; padding: 0.6rem 1rem 1.5rem; overscroll-behavior: contain; }
+.np-linked { margin-top: 1rem; border-top: 1px solid var(--rule); padding-top: 0.6rem; }
+.np-linked h3 { font-size: 0.95rem; margin: 0 0 0.4rem; }
+.np-open { font-weight: 400; font-size: 0.85rem; }
+@media (max-width: 560px) {
+  .notes-panel { inset: auto 0 0 0; width: 100%; height: auto; max-height: 80vh; border-left: 0; border-top: 1px solid var(--rule); border-radius: 12px 12px 0 0; box-shadow: 0 -8px 24px rgb(0 0 0 / 0.15); }
+}
+@media (max-width: 560px) {
+  .ti-rows { grid-template-columns: 1fr; gap: 0.25rem; }
+  .ti-chips { margin-bottom: 0.3rem; }
+}
+}
 .ln.embed-table { padding-left: 0; }
 
 /* the local graph on a note page (graph.go) */

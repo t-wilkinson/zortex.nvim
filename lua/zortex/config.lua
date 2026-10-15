@@ -45,7 +45,8 @@ local defaults = {
 		api_endpoint = "http://127.0.0.1:8090",
 		api_key = nil, -- the server's -api-key / ZORTEX_API_KEY, if set
 		user_id = "default",
-		-- the web app's address for :ZortexPresent when it isn't api_endpoint
+		-- the web app's address for :ZortexPresent and <prefix>gX when it
+		-- isn't api_endpoint
 		-- (e.g. "https://zortex.home.lab/notes"); nil: api_endpoint
 		web_url = nil,
 	},
@@ -56,6 +57,12 @@ local defaults = {
 			-- note (zo / zR open folds); 99 opens everything
 			level = 1,
 			include_empty_lines = true,
+		},
+		-- <prefix>gX: links in the web app (server.web_url)
+		web = {
+			-- show them in the tab on this computer you focused last, when
+			-- the server is enabled and one is open; false: a new tab
+			reuse_tab = true,
 		},
 	},
 

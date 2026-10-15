@@ -460,6 +460,46 @@
     ]
   },
   {
+    "link": "[Resources/#Books]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 24,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "error": "No matches found for: #Rust for Rustaceans(https:rust-for-rustaceans.com)",
+    "link": "[Resources/#Books/#Rust for Rustaceans(https:rust-for-rustaceans.com)]",
+    "results": []
+  },
+  {
+    "error": "No matches found for: #Rust for Rustaceans(https:rust-for-rustaceans.com)",
+    "link": "[Resources/#Books/#Rust for Rustaceans(https:rust-for-rustaceans.com)/#Ownership]",
+    "results": []
+  },
+  {
+    "error": "No matches found for: #The Pragmatic Programmer(https:pragprog.com)",
+    "link": "[Resources/#Books/#The Pragmatic Programmer(https:pragprog.com)]",
+    "results": []
+  },
+  {
+    "link": "[Resources/#Later]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 30,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "error": "No matches found for: :Exercises",
+    "link": "[Resources/#Later/:Exercises]",
+    "results": []
+  },
+  {
     "from": "z/resources.zortex",
     "link": "@[rust, rl]",
     "results": [
@@ -491,6 +531,11 @@
       {
         "col": 104,
         "lnum": 21,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 60,
+        "lnum": 25,
         "rel": "z/resources.zortex"
       }
     ]
@@ -1148,6 +1193,11 @@
         "col": 65,
         "lnum": 16,
         "rel": "z/resources.zortex"
+      },
+      {
+        "col": 60,
+        "lnum": 25,
+        "rel": "z/resources.zortex"
       }
     ]
   },
@@ -1273,6 +1323,11 @@
         "col": 104,
         "lnum": 21,
         "rel": "z/resources.zortex"
+      },
+      {
+        "col": 60,
+        "lnum": 25,
+        "rel": "z/resources.zortex"
       }
     ]
   },
@@ -1289,6 +1344,66 @@
   {
     "error": "No matches found for: @[R/nothing]",
     "link": "@[R/nothing]",
+    "results": []
+  },
+  {
+    "link": "@[R/book]",
+    "results": [
+      {
+        "col": 9,
+        "lnum": 24,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 25,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 29,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 9,
+        "lnum": 30,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 31,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "@[R/#Books/rust book]",
+    "results": [
+      {
+        "col": 60,
+        "lnum": 25,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "@[R/#Later/book]",
+    "results": [
+      {
+        "col": 9,
+        "lnum": 30,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 31,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "error": "No matches found for: @[R/#Later/status]",
+    "link": "@[R/#Later/status]",
     "results": []
   },
   {

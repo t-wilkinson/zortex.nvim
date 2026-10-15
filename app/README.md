@@ -64,7 +64,7 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 | `/` | search box, the **calendar** (days of `calendar.zortex`, a month grid, scheduled notifications), the **pomodoro** clock with **timer**, **alarm** and **stopwatch** tabs, **season and XP** (level and tier, progress to the next level, XP per day for two weeks, top areas, recent awards), the main notes (`-special`), recently changed notes, notes not yet in the structure, counts |
 | `/structure` | notes that neither the Structure note (`@@Structure`), any `@Structure` note, nor any note's `# Structure` section links to (archived notes left out); not in the top bar, since `/graph` lists the same notes |
 | `/graph` | the whole structure as cards side by side, one per section of the Structure note, each note with a `# Structure` section opened in place; hover a note to mark the notes it links with, click a tag to mark its notes, filter notes and tags as you type (`@word` for tags); the notes not in it |
-| `/n/<path>` | a rendered note: outline, every line anchored (`#L12`), links resolved with the plugin's rules (to the canonical target; `⁺` when there are more), broken links in red, file paths and markdown links to the file viewer, [tag tables](#tag-tables), its [connections](#connections-and-the-graph), "Linked from" (backlinks) |
+| `/n/<path>` | a rendered note: outline, every line anchored (`#L12`), links resolved with the plugin's rules (to the canonical target; `⁺` when there are more), broken links in red, file paths and markdown links to the file viewer, [tag tables](#tag-tables) and [indexes](#tag-indexes), its [connections](#connections-and-the-graph), "Linked from" (backlinks) |
 | `/n/<path>?view=slides` | the note as a slide deck ([Slides](#slides)) |
 | `/search?q=` | structural search, the plugin's ranking: sections whose path matches the words in order, then lines with every word; results update as you type, `↑`/`↓` + Enter, `/` focuses search anywhere |
 | `/link?to=&from=` | resolve a link: one target redirects, several are listed (a tag search as a [table](#tag-tables)), failures say why |
@@ -74,6 +74,8 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 | `/resources` | PDFs, books, images, media and documents, and which ones nothing links to (all by default; filter by unlinked/linked, type, folder); file pages show their own "Linked from", folder listings count links and unlinked files |
 | `/broken` | links that don't resolve (notes and files), and task ids that don't line up (a project task's `@id` on two lines, a calendar copy whose link points at another task) |
 | `/api/search?q=`, `/api/resolve?to=&from=`, `/api/backlinks?rel=`, `/api/resources?show=unlinked&kind=&dir=`, `/api/structure` | JSON |
+| `/api/tagtable?q=&from=` | a tag search's table, as HTML ([tag indexes](#tag-indexes)) |
+| `POST /api/open`, `/api/presence`, `/api/open/ack` | show a page in an open tab ([from Neovim](#opening-pages-from-neovim)) |
 | `/healthz` (`/health`) | counts and last index time |
 
 Flags (each also an environment variable): `-dir` (`ZORTEX_NOTES_DIR`),
@@ -156,8 +158,43 @@ the lines: the item (attributes left out), its first link and what kind of
 thing it is (web, pdf, book, image, video, audio, document, note), its tags
 besides the searched ones (its own and its sections'), one column per
 `@key(value)` any row has (not `@id`), the note and section it is in, and
-the lines nested under it. Click a header to sort; type to filter, or click
-a kind or tag to keep only those rows. Empty columns are left out.
+its notes: the lines nested under it (labels too), or the section of a
+heading that is only a link (`### [Book](https://…) @rust`). Up to three
+lines of notes show under the item; longer ones open in a panel (a bottom
+sheet on a phone), rendered like the note, with the first note they link
+to below them. Click a header to sort; type to filter, or click a kind or
+tag to keep only those rows. Empty columns are left out.
+
+### Tag indexes
+
+A label whose lines are all `@[…]` searches, or items grouping them, renders
+as rows of chips, each with how many lines its search finds (none: dimmed),
+over one shared table ([Syntax](../doc/Syntax.md#tag-searches)). Choosing a
+chip loads its table (`/api/tagtable?q=&from=`, an HTML fragment) and puts
+the search in the address (`#tags=R/rl`); choosing it again clears it, and
+the back button undoes it. Nothing is chosen at first. Without script the
+chips are links to the search's page.
+
+### Opening pages from Neovim
+
+`:ZortexLinkOpenWeb` (`<leader>zgX`) shows the link under the cursor in the
+web app: zortex links and tag searches through `/link`, files in the
+viewer, a tag index with the line's chip chosen, else the note at the
+cursor's line (`gx` on an index's label does it too). With `server.enabled`
+the page goes to the tab on the same device that was focused last, instead
+of a new tab:
+
+- each page opens `/api/events?client=<id>` (one id per tab) and posts
+  `/api/presence` when it's focused;
+- Neovim posts `{"path": "/n/x.zortex#L3"}` to `/api/open`; the server sends
+  it to that tab, which answers `/api/open/ack` and goes there;
+  `{"opened": true}` then, `{"opened": false}` after 2 s or with no tab, and
+  Neovim opens a new one.
+
+"Same device" is the same client address: behind a proxy on the server's
+machine or network, its `X-Forwarded-For`. A page can change what it shows
+but not raise its window. `features.web.reuse_tab = false` always opens a
+new tab.
 
 ### Connections and the graph
 

@@ -228,20 +228,28 @@ local size_values = {
 	ultimate = true,
 }
 
--- Parse @key(value) attributes from text
+--- Is a bare @word a task size shortcut (@sm, @xl, @epic)?
+function M.is_size(key)
+	return size_values[key] == true
+end
+
+-- Parse @key(value) attributes from text. Bare @words that aren't a
+-- shortcut (@2h, @p1, @sm) or a boolean of the schema are tags (@rust,
+-- @home): attrs.tags lists them in order, lower case, as tag searches
+-- (@[rust]) see them.
 -- @param parser_context table Context of the text being parsed to optionally pass to functions like parse_datetime() default_date_str.
 --  The attribute parsers know how to take the parser_context and pass relevant information to functions as necessary.
 function M.parse_attributes(text, schema, parser_context)
 	local attrs = {}
-	local contexts = {}
+	local tags, seen = {}, {}
 
 	-- Attributes start a word (like syntax.strip_attributes): "[@P/...]" in a
 	-- link and "me@example.com" are text, not attributes.
 	text = " " .. text
 
 	-- Pattern for @key(value)
-	text = text:gsub("(%s)@(%w+)%(([^)]*)%)", function(space, key, value)
-		if type(schema[key]) == "string" then
+	text = text:gsub("(%s)@([%w_]+)%(([^)]*)%)", function(space, key, value)
+		if schema and type(schema[key]) == "string" then
 			key = schema[key]
 		end
 
@@ -260,8 +268,8 @@ function M.parse_attributes(text, schema, parser_context)
 		return space
 	end)
 
-	-- Pattern for bare @key
-	text = text:gsub("(%s)@(%w+)", function(space, key)
+	-- Pattern for bare @key (the syntax scanner's: "@ai-model" is one tag)
+	text = text:gsub("(%s)@([%w_][%w_%-]*)", function(space, key)
 		key = key:lower()
 
 		-- Check duration shortcuts
@@ -300,16 +308,17 @@ function M.parse_attributes(text, schema, parser_context)
 		-- Boolean flags
 		if schema and schema[key] and schema[key].type == "boolean" then
 			attrs[key] = true
-		else
-			-- Otherwise it's a context (@home, @work, @phone)
-			table.insert(contexts, key)
+		elseif not seen[key] then
+			-- Otherwise it's a tag (@rust, @home)
+			seen[key] = true
+			table.insert(tags, key)
 		end
 
 		return space
 	end)
 
-	if #contexts > 0 then
-		attrs.context = contexts
+	if #tags > 0 then
+		attrs.tags = tags
 	end
 
 	return attrs, trim(text:gsub("%s+", " "))

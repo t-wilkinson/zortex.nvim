@@ -1,8 +1,10 @@
 // zortex serve: tag tables (!@[...] in a note, @[...] link pages): sort by
-// a column, filter by text, kind or tag. Event delegation, so tables that
-// arrive with a redrawn note work without setup.
+// a column, filter by text, kind or tag; and tag indexes, whose chips load
+// a table. Event delegation, so tables that arrive with a redrawn note work
+// without setup.
 (function () {
   "use strict";
+  var base = document.body.dataset.base || "";
 
   function cellValue(row, i) {
     var td = row.cells[i];
@@ -55,7 +57,56 @@
     if (count) count.textContent = shown === rows.length ? "" : shown + " of " + rows.length;
   }
 
+  // ---------------------------------------------------------------------------
+  // A row's notes in a panel (a side panel; a bottom sheet on a phone): its
+  // notes rendered like the note, then the first note they link to.
+  // ---------------------------------------------------------------------------
+  var panel = null;
+  function notesPanel() {
+    if (panel) return panel;
+    panel = document.createElement("dialog");
+    panel.className = "notes-panel";
+    panel.setAttribute("aria-labelledby", "np-title");
+    panel.innerHTML = '<div class="np-head"><h2 id="np-title"></h2>' +
+      '<button type="button" class="np-close" aria-label="Close">✕</button></div><div class="np-body"></div>';
+    panel.querySelector(".np-close").addEventListener("click", function () { panel.close(); });
+    // a click on the backdrop closes it
+    panel.addEventListener("click", function (e) { if (e.target === panel) panel.close(); });
+    document.body.appendChild(panel);
+    return panel;
+  }
+  function showNotes(btn) {
+    var p = notesPanel(), body = p.querySelector(".np-body");
+    p.querySelector("#np-title").textContent = btn.dataset.title || "Notes";
+    var tpl = btn.parentNode.querySelector("template");
+    body.innerHTML = '<div class="np-notes"></div>';
+    body.firstChild.appendChild(tpl.content.cloneNode(true));
+    var rel = btn.dataset.note;
+    if (rel) {
+      var sec = document.createElement("section");
+      sec.className = "np-linked";
+      sec.innerHTML = '<h3><span></span> <a class="np-open">open</a></h3><div class="np-note dim">Loading…</div>';
+      sec.querySelector("h3 span").textContent = btn.dataset.noteTitle || rel;
+      sec.querySelector(".np-open").href = btn.dataset.noteHref || "#";
+      body.appendChild(sec);
+      fetch(base + "/api/note?rel=" + encodeURIComponent(rel), { cache: "no-store" })
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function (res) {
+          var box = sec.querySelector(".np-note");
+          box.classList.remove("dim");
+          box.innerHTML = res.body || "";
+          // its line ids would clash with the page's
+          Array.prototype.forEach.call(box.querySelectorAll("[id]"), function (el) { el.removeAttribute("id"); });
+        })
+        .catch(function () { sec.querySelector(".np-note").textContent = "Could not load the note."; });
+    }
+    if (typeof p.showModal === "function") { if (!p.open) p.showModal(); } else p.setAttribute("open", "");
+    body.scrollTop = 0;
+  }
+
   document.addEventListener("click", function (e) {
+    var notesBtn = e.target.closest(".tag-table .tt-notes-btn");
+    if (notesBtn) return showNotes(notesBtn);
     var sort = e.target.closest(".tag-table .tt-sort");
     if (sort) return sortBy(sort);
     var chip = e.target.closest(".tag-table .tt-chip");
@@ -67,4 +118,72 @@
   document.addEventListener("input", function (e) {
     if (e.target.classList && e.target.classList.contains("tt-filter")) filter(e.target.closest(".tag-table"));
   });
+
+  // ---------------------------------------------------------------------------
+  // Tag indexes: a chip loads its search's table under the rows. The choice
+  // lives in the URL (#tags=rtos+embedded), so it can be linked and the back
+  // button undoes it; nothing is chosen at first. Without this script the
+  // chips are plain links to the search's page.
+  // ---------------------------------------------------------------------------
+  function hashQuery() {
+    var m = /^#tags=(.*)$/.exec(location.hash);
+    if (!m) return "";
+    try { return decodeURIComponent(m[1].replace(/\+/g, " ")); } catch (e) { return ""; }
+  }
+  // readable in the address bar: #tags=R/rust,rl+async
+  function encodeQuery(q) {
+    return encodeURIComponent(q).replace(/%2F/gi, "/").replace(/%2C/gi, ",").replace(/%20/g, "+");
+  }
+
+  function show(index, q) {
+    var table = index.querySelector(".ti-table");
+    Array.prototype.forEach.call(index.querySelectorAll(".ti-chip"), function (c) {
+      if (c.dataset.q === q) c.setAttribute("aria-current", "true");
+      else c.removeAttribute("aria-current");
+    });
+    if (!q) { table.innerHTML = ""; delete table.dataset.q; return; }
+    if (table.dataset.q === q && table.firstChild) return;
+    table.dataset.q = q;
+    table.classList.add("loading");
+    var url = base + "/api/tagtable?q=" + encodeURIComponent(q) + "&from=" + encodeURIComponent(index.dataset.from || "");
+    fetch(url, { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.text() : Promise.reject(r.status); })
+      .then(function (html) { if (table.dataset.q === q) table.innerHTML = html; })
+      .catch(function () { if (table.dataset.q === q) table.innerHTML = '<p class="tt-empty dim">Could not load this search.</p>'; })
+      .then(function () { table.classList.remove("loading"); });
+  }
+
+  // the hash's chip, in the first index that has it; the others clear.
+  // scroll: bring that index into view (a link to it, not a click on it)
+  function apply(scroll) {
+    var q = hashQuery(), done = false;
+    Array.prototype.forEach.call(document.querySelectorAll(".tag-index"), function (index) {
+      var has = q && !done && Array.prototype.some.call(index.querySelectorAll(".ti-chip"), function (c) { return c.dataset.q === q; });
+      show(index, has ? q : "");
+      if (has) {
+        done = true;
+        if (scroll === true) index.scrollIntoView({ block: "start" });
+      }
+    });
+  }
+
+  document.addEventListener("click", function (e) {
+    var chip = e.target.closest(".tag-index .ti-chip");
+    if (!chip || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (e.defaultPrevented) return; // editing the note: the editor has the click
+    e.preventDefault();
+    var q = chip.getAttribute("aria-current") === "true" ? "" : chip.dataset.q;
+    var url = location.pathname + location.search + (q ? "#tags=" + encodeQuery(q) : "");
+    history.pushState(null, "", url);
+    apply(false);
+  });
+  window.addEventListener("popstate", function () { apply(false); });
+  window.addEventListener("hashchange", function () { apply(true); });
+  // a note redrawn in place (live.js) comes back with empty indexes
+  document.addEventListener("zortex:note-updated", function () {
+    Array.prototype.forEach.call(document.querySelectorAll(".tag-index .ti-table"), function (t) { delete t.dataset.q; });
+    apply(false);
+  });
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { apply(true); });
+  else apply(true);
 })();

@@ -32,7 +32,8 @@ func TestTagTable(t *testing.T) {
 		`<a href="https://doc.rust-lang.org/book" target="_blank" rel="noopener noreferrer">doc.rust-lang.org/book</a>`,
 		`<td class="tt-kind">pdf</td>`, `<td class="tt-kind">web</td>`,
 		`<span class="tag">@rust</span>`, `<span class="tag">@ml</span>`, // own and inherited tags
-		`<details><summary>1</summary><ul class="plain"><li>chapters 1-8 first</li>`,
+		// short notes show under the item
+		`<div class="tt-notes"><div class="ln item" data-id="L8"><span class="marker bullet" aria-hidden="true"></span><span class="body">chapters 1-8 first</span></div></div>`,
 		`<a href="/n/reading.zortex#L7">Reading › Rust</a>`,
 		`data-tag="rust">@rust</button>`, `data-kind="pdf">pdf</button>`,
 	} {
@@ -51,6 +52,49 @@ func TestTagTable(t *testing.T) {
 	ts2 := newSlidesServer(t, map[string]string{"a.zortex": "@@A\n\nsee !@[*/x] here\n- b @x\n"})
 	if _, _, b := get(t, ts2, "/n/a.zortex"); strings.Contains(b, "tag-table") || !strings.Contains(b, `class="tagsearch"`) {
 		t.Error("inline !@[...] should render as a link")
+	}
+}
+
+func TestTagTableNotes(t *testing.T) {
+	ts := newSlidesServer(t, map[string]string{
+		"books.zortex": "@@Books\n\n!@[book]\n\n# Reading @book\n" +
+			"- [The Rust Book](https://doc.rust-lang.org/book) @rust\n" +
+			"  - chapters 1-8 first\n" +
+			"  Ownership:\n" +
+			"    - moves vs borrows\n" +
+			"    - [x] lifetimes\n" +
+			"  - Full notes: [Rust book notes]\n" +
+			"### [Rustaceans](https://rust-for-rustaceans.com) @rust\n" +
+			"Read after the book.\n" +
+			"#### Setup\n" +
+			"- `cargo new`\n",
+		"rust-book-notes.zortex": "@@Rust book notes\n\n# Ch 1\nHello\n",
+	})
+	body := expect(t, ts, "/n/books.zortex", 200, `class="tag-table"`)
+	table := body[strings.Index(body, `class="tag-table"`):]
+	table = table[:strings.Index(table, `</table>`)]
+	for _, want := range []string{
+		// an indented label stays in the item's notes; the panel has them all
+		`<button type="button" class="tt-notes-btn" aria-haspopup="dialog" data-title="The Rust Book" data-note="rust-book-notes.zortex" data-note-href="/n/rust-book-notes.zortex" data-note-title="Rust book notes">Notes <span class="dim">5</span></button><template>`,
+		`<div class="ln label" data-id="L8">Ownership:</div>`,
+		`<div class="ln item" data-id="L9" style="--ind:2">`,
+		// a resource heading: a row named by its link, its section its notes
+		`<td class="tt-item"><a class="md" href="https://rust-for-rustaceans.com" target="_blank" rel="noopener noreferrer">Rustaceans</a> <div class="tt-notes">`,
+		`Read after the book.`,
+		`<h4 class="ln" data-id="L14">Setup`,
+	} {
+		if !strings.Contains(table, want) {
+			t.Errorf("table lacks %s", want)
+		}
+	}
+	// their notes aren't rows, though the heading above them is tagged; a
+	// resource heading is in the section above it
+	if !strings.Contains(table, `placeholder="Filter 3 rows"`) || !strings.Contains(table, `<a href="/n/books.zortex#L12">Books › Reading</a>`) {
+		t.Errorf("rows: %s", table)
+	}
+	// a keyed item shows its key once
+	if strings.Count(table, "Full notes:") != 1 {
+		t.Errorf("key repeated: %s", table)
 	}
 }
 

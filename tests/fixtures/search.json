@@ -378,6 +378,16 @@
         "lnum": 21,
         "rel": "z/resources.zortex",
         "type": "line"
+      },
+      {
+        "lnum": 31,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 32,
+        "rel": "z/resources.zortex",
+        "type": "line"
       }
     ]
   },
@@ -946,6 +956,49 @@
         "type": "section"
       },
       {
+        "breadcrumb": "Resources › Books",
+        "lnum": 24,
+        "rel": "z/resources.zortex",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Resources › Books › [Rust for Rustaceans](https://rust-for-rustaceans.com)",
+        "lnum": 25,
+        "rel": "z/resources.zortex",
+        "score": 950,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Resources › Books › [Rust for Rustaceans](https://rust-for-rustaceans.com) › Ownership",
+        "lnum": 27,
+        "rel": "z/resources.zortex",
+        "score": 900,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Resources › Books › [The Pragmatic Programmer](https://pragprog.com)",
+        "lnum": 29,
+        "rel": "z/resources.zortex",
+        "score": 950,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Resources › Later",
+        "lnum": 30,
+        "rel": "z/resources.zortex",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Resources › Later › Exercises",
+        "child": true,
+        "lnum": 33,
+        "rel": "z/resources.zortex",
+        "score": 1050,
+        "type": "section"
+      },
+      {
         "breadcrumb": "Projects › 1 Programming",
         "lnum": 5,
         "rel": "z/archive.projects.zortex",
@@ -1338,6 +1391,31 @@
         "lnum": 22,
         "rel": "z/resources.zortex",
         "type": "line"
+      },
+      {
+        "lnum": 26,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 28,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 31,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 32,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 34,
+        "rel": "z/resources.zortex",
+        "type": "line"
       }
     ]
   },
@@ -1585,6 +1663,22 @@
         "type": "section"
       },
       {
+        "breadcrumb": "Resources › Books",
+        "child": true,
+        "lnum": 24,
+        "rel": "z/resources.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Resources › Later",
+        "child": true,
+        "lnum": 30,
+        "rel": "z/resources.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
         "breadcrumb": "Projects",
         "lnum": 1,
         "rel": "z/archive.projects.zortex",
@@ -1978,6 +2072,31 @@
         "lnum": 22,
         "rel": "z/resources.zortex",
         "type": "line"
+      },
+      {
+        "lnum": 26,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 28,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 31,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 32,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 34,
+        "rel": "z/resources.zortex",
+        "type": "line"
       }
     ]
   },
@@ -2066,6 +2185,13 @@
         "breadcrumb": "Day plan › Notes",
         "lnum": 7,
         "rel": "z/day-plan.zortex",
+        "score": 400,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Resources › Later › Exercises",
+        "lnum": 33,
+        "rel": "z/resources.zortex",
         "score": 400,
         "type": "section"
       },
@@ -2448,6 +2574,31 @@
         "lnum": 22,
         "rel": "z/resources.zortex",
         "type": "line"
+      },
+      {
+        "lnum": 26,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 28,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 31,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 32,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 34,
+        "rel": "z/resources.zortex",
+        "type": "line"
       }
     ]
   },
@@ -2669,6 +2820,11 @@
       },
       {
         "lnum": 21,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 31,
         "rel": "z/resources.zortex",
         "type": "line"
       }

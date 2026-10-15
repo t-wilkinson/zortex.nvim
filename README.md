@@ -129,10 +129,11 @@ Special notes:
   is installed, `<leader>z` shows as "Zortex" and its sub-prefixes by name
   (`<leader>zC` "Calendar & digest", `<leader>zx` "XP", ...); rename them
   with `keymaps.groups`.
-- **Links**: follow (`<leader>zgx`), preview in a float (`<leader>zK`, or on
-  hover with `ui = { preview = { on_hover = true } }`), complete while typing,
-  backlinks and broken links in the quickfix list. A persistent link index
-  keeps this fast.
+- **Links**: follow (`<leader>zgx`), open in the web app (`<leader>zgX`),
+  preview in a float (`<leader>zK`, or on hover with
+  `ui = { preview = { on_hover = true } }`), complete while typing (tags
+  too, after `@` and in `@[...]`), backlinks and broken links in the
+  quickfix list. A persistent link index keeps this fast.
 - **Highlighting and folding** for the whole format, with concealed markers.
 - **Projects**: picker with progress, points, due dates, areas and key
   results; `@progress` written back on request.
@@ -197,6 +198,7 @@ require("zortex").setup({
 | Command | Keys | Action id | Does |
 |---|---|---|---|
 | `:ZortexLinkOpen` | `<leader>zgx` | `link_open` | Follow the link under the cursor |
+| `:ZortexLinkOpenWeb` | `<leader>zgX` | `link_open_web` | Open the link under the cursor (or this line) in the web app |
 | `:ZortexLinkPreview` | `<leader>zK` | `link_preview` | Preview the link target in a float |
 | `:ZortexBacklinks` | `<leader>zb` | `backlinks` | Links into the section under the cursor (quickfix) |
 | `:ZortexBrokenLinks` | `<leader>zB` | `broken_links` | Links that resolve nowhere (quickfix) |

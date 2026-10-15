@@ -248,7 +248,10 @@ tasks as `[P/#…/-Improve website]`.
   non-blank, non-header line outside code in them matches when its own bare
   `@words` plus those of the section headings above it satisfy the query
   (words: all of them; commas separate alternatives). No scope is the
-  current note, `*` every note.
+  current note, `*` every note. Notes about a resource match by their own
+  tags only: the lines nested under an item holding a link
+  (`is_resource_note`) and the section of a heading that is only a link
+  (`is_resource_heading`, which itself takes the tags above it).
 - A `-` component compares a list item's text with markdown links replaced
   by their text (`link_text`), so `-The Rust Book` finds
   `- [The Rust Book](…)`; `item_component` writes it that way.
@@ -577,6 +580,7 @@ XP is derived, not recorded (see [Planning.md](Planning.md)):
 | `ui/calendar/view.lua` (+ `render`, `keys`)         | `stores/calendar`, `agenda` (digest panel), `projects`    |
 | `features/completion.lua` (+ `blink.lua`)           | `core/link`, `notes`, `document`                          |
 | `features/preview.lua`                              | `core/link`, `features/links`                             |
+| `features/web.lua` (+ `core/tag_index.lua`)         | `core/link`, `notifications/server` (`/api/open`)         |
 | `ui/review.lua`                                     | `agenda.review`                                           |
 | `services/search_history.lua`                       | `services/search` (adds boosts); the picker records opens |
 

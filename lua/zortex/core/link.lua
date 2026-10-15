@@ -721,6 +721,68 @@ end
 
 local NOT_CONTENT = { blank = true, article = true, tag = true }
 
+local RESOURCE_SPANS = { link = true, live_link = true, markdown = true, url = true, filepath = true }
+
+--- Is the heading at lnum a resource: nothing but one link (and
+--- attributes), as in "### [The Rust Book](https://...) @rust"? Its section
+--- is notes about it: they don't take its tags, or those above it.
+function M.is_resource_heading(doc, lnum)
+	local d = doc:info(lnum)
+	if not d or d.kind ~= "heading" or not d.content_col then
+		return false
+	end
+	local line = doc.lines[lnum]
+	local pos, links = d.content_col, 0
+	for _, span in ipairs(doc:inline(lnum)) do
+		if line:sub(pos + 1, span.s):match("%S") then
+			return false
+		end
+		if RESOURCE_SPANS[span.type] then
+			links = links + 1
+		elseif span.type ~= "attribute" then
+			return false
+		end
+		pos = span.e
+	end
+	return links == 1 and not line:sub(pos + 1, d.content_end or #line):match("%S")
+end
+
+local function indent_width(line)
+	return #(line:match("^%s*") or "")
+end
+
+local function holds_link(doc, lnum)
+	local found = false
+	syntax.walk_spans(doc:inline(lnum), function(span)
+		found = found or RESOURCE_SPANS[span.type] == true
+	end)
+	return found
+end
+
+--- Is lnum a note about a resource: nested (by indent, labels too) under a
+--- list item that holds a link? Notes match tag searches by their own tags
+--- only, like the lines of a resource heading's section.
+function M.is_resource_note(doc, lnum)
+	local ind = indent_width(doc.lines[lnum] or "")
+	for l = lnum - 1, 1, -1 do
+		if ind == 0 then
+			return false
+		end
+		local line = doc.lines[l]
+		if line:match("%S") and not doc:in_code(l) then
+			local li = indent_width(line)
+			if li < ind then
+				local d = doc:info(l)
+				if d and d.item and d.kind == "item" and holds_link(doc, l) then
+					return true
+				end
+				ind = li
+			end
+		end
+	end
+	return false
+end
+
 --- Lines tagged as a tag search asks, in the notes or sections its scope
 --- resolves to (see the module header). Same results shape as resolve().
 ---@param content string what is inside @[...]
@@ -769,9 +831,13 @@ function M.tag_search(content, opts)
 				return {}
 			end
 			if not inherited[node.start_line] then
-				local tags = vim.deepcopy(section_tags(node.parent))
-				for tag in pairs(line_tags(doc, node.start_line)) do
-					tags[tag] = true
+				local tags = {}
+				-- a resource heading's section (its notes) starts afresh
+				if not M.is_resource_heading(doc, node.start_line) then
+					tags = vim.deepcopy(section_tags(node.parent))
+					for tag in pairs(line_tags(doc, node.start_line)) do
+						tags[tag] = true
+					end
 				end
 				inherited[node.start_line] = tags
 			end
@@ -782,7 +848,16 @@ function M.tag_search(content, opts)
 			local key = tostring(doc.filepath) .. ":" .. lnum
 			if info and not NOT_CONTENT[info.kind] and not doc:in_code(lnum) and not seen[key] then
 				local own = line_tags(doc, lnum)
-				local above = section_tags(doc:node_at(lnum))
+				local node = doc:node_at(lnum)
+				-- a resource heading itself takes the tags above it
+				local above
+				if node.start_line == lnum and M.is_resource_heading(doc, lnum) then
+					above = section_tags(node.parent)
+				elseif M.is_resource_note(doc, lnum) then
+					above = {}
+				else
+					above = section_tags(node)
+				end
 				local match = false
 				for _, group in ipairs(q.groups) do
 					match = true

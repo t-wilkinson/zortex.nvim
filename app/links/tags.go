@@ -70,8 +70,80 @@ func lineTags(d *notes.Document, lnum int) map[string]int {
 	return out
 }
 
+var resourceSpans = map[string]bool{"link": true, "live_link": true, "markdown": true, "url": true, "filepath": true}
+
+// IsResourceHeading: the heading at lnum is nothing but one link (and
+// attributes), as in "### [The Rust Book](https://...) @rust". Its section
+// is notes about it: they don't take its tags, or those above it
+// (core/link is_resource_heading).
+func IsResourceHeading(d *notes.Document, lnum int) bool {
+	if lnum < 1 || lnum > len(d.Lines) || d.Kind(lnum) != syntax.KindHeading {
+		return false
+	}
+	line := d.Lines[lnum-1]
+	c := syntax.Classify(line)
+	if c.ContentCol == nil {
+		return false
+	}
+	pos, end := *c.ContentCol, len(line)
+	if c.ContentEnd != nil {
+		end = *c.ContentEnd
+	}
+	nlinks := 0
+	for _, sp := range d.Spans(lnum) {
+		if sp.S < pos || strings.TrimSpace(line[pos:sp.S]) != "" {
+			return false
+		}
+		switch {
+		case resourceSpans[sp.Type]:
+			nlinks++
+		case sp.Type != "attribute":
+			return false
+		}
+		pos = sp.E
+	}
+	return nlinks == 1 && pos <= end && strings.TrimSpace(line[pos:end]) == ""
+}
+
+func indentWidth(line string) int { return len(line) - len(strings.TrimLeft(line, " \t")) }
+
+func holdsLink(d *notes.Document, lnum int) bool {
+	found := false
+	syntax.Walk(d.Spans(lnum), func(sp *syntax.Span) {
+		found = found || resourceSpans[sp.Type]
+	})
+	return found
+}
+
+// IsResourceNote: lnum is nested (by indent, labels too) under a list item
+// that holds a link. Notes match tag searches by their own tags only, like
+// the lines of a resource heading's section (core/link is_resource_note).
+func IsResourceNote(d *notes.Document, lnum int) bool {
+	if lnum < 1 || lnum > len(d.Lines) {
+		return false
+	}
+	ind := indentWidth(d.Lines[lnum-1])
+	for l := lnum - 1; l >= 1; l-- {
+		if ind == 0 {
+			return false
+		}
+		line := d.Lines[l-1]
+		if strings.TrimSpace(line) == "" || d.InCode(l) {
+			continue
+		}
+		if li := indentWidth(line); li < ind {
+			if d.Kind(l) == syntax.KindItem && holdsLink(d, l) {
+				return true
+			}
+			ind = li
+		}
+	}
+	return false
+}
+
 // TagsAt lists the bare @tags of a line as a tag search sees them: its own
-// (in order) and then those of the sections above it, nearest first.
+// (in order) and then those of the sections above it, nearest first. The
+// notes under a resource heading (IsResourceHeading) have only their own.
 func TagsAt(d *notes.Document, lnum int) []string {
 	var out []string
 	seen := map[string]bool{}
@@ -90,8 +162,14 @@ func TagsAt(d *notes.Document, lnum int) []string {
 		}
 	}
 	add(lnum)
+	if IsResourceNote(d, lnum) {
+		return out
+	}
 	for n := d.NodeAt(lnum); n != nil && !n.IsRoot() && n.Type != syntax.KindArticle; n = n.Parent {
 		if n.Start != lnum {
+			if IsResourceHeading(d, n.Start) {
+				break
+			}
 			add(n.Start)
 		}
 	}
@@ -156,11 +234,14 @@ func TagSearch(ix *notes.Index, content string, opts Options) ([]Result, error) 
 				return tags
 			}
 			tags := map[string]bool{}
-			for t := range sectionTags(n.Parent) {
-				tags[t] = true
-			}
-			for t := range lineTags(d, n.Start) {
-				tags[t] = true
+			// a resource heading's section (its notes) starts afresh
+			if !IsResourceHeading(d, n.Start) {
+				for t := range sectionTags(n.Parent) {
+					tags[t] = true
+				}
+				for t := range lineTags(d, n.Start) {
+					tags[t] = true
+				}
 			}
 			inherited[n.Start] = tags
 			return tags
@@ -179,7 +260,15 @@ func TagSearch(ix *notes.Index, content string, opts Options) ([]Result, error) 
 				continue
 			}
 			own := lineTags(d, lnum)
-			above := sectionTags(d.NodeAt(lnum))
+			node := d.NodeAt(lnum)
+			var above map[string]bool
+			if node != nil && node.Start == lnum && IsResourceHeading(d, lnum) {
+				above = sectionTags(node.Parent) // the resource itself: the tags above it
+			} else if IsResourceNote(d, lnum) {
+				above = nil
+			} else {
+				above = sectionTags(node)
+			}
 			match := false
 			for _, group := range q.Groups {
 				match = true

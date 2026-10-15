@@ -161,6 +161,30 @@ T.test("bold headings show their text and colon, not the stars", function()
 	vim.cmd("bwipeout!")
 end)
 
+T.test("tags are painted on any line; the @ of @[tags] is dimmed", function()
+	local hl = require("zortex.features.highlights")
+	vim.cmd("enew!")
+	local buf = vim.api.nvim_get_current_buf()
+	local lines = { "Some prose about borrowing @rust @ai-model", "> a quote @rl", "- AI @[rl, ai-model]" }
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+	hl.highlight_buffer(buf)
+	local ns = vim.api.nvim_create_namespace("zortex_highlights")
+	local painted = {}
+	for _, m in ipairs(vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, { details = true })) do
+		local g = m[4].hl_group
+		if g == "ZortexAttribute" or g == "ZortexTagSearchAt" then
+			painted[#painted + 1] = g .. " " .. lines[m[2] + 1]:sub(m[3] + 1, m[4].end_col)
+		end
+	end
+	T.eq(painted, {
+		"ZortexAttribute @rust",
+		"ZortexAttribute @ai-model",
+		"ZortexAttribute @rl",
+		"ZortexTagSearchAt @",
+	})
+	vim.cmd("bwipeout!")
+end)
+
 T.test("highlights paint from the syntax", function()
 	local hl = require("zortex.features.highlights")
 	vim.cmd("enew!")
@@ -273,9 +297,9 @@ end)
 T.test("attributes start a word: links and emails keep their @", function()
 	local CalendarEntry = require("zortex.services.calendar_entry")
 	local ev = CalendarEntry.from_text("16:00 - 17:00 Wrench on [@P/#Subaru] @p1", "2026-10-09")
-	T.eq({ ev.text, ev.attributes.p, ev.attributes.context }, { "Wrench on [@P/#Subaru]", "1", nil })
-	local task = require("zortex.core.item").task("- [ ] Mail me@example.com @home")
-	T.eq({ task.text, task.attributes.context }, { "Mail me@example.com", { "home" } })
+	T.eq({ ev.text, ev.attributes.p, ev.attributes.tags }, { "Wrench on [@P/#Subaru]", "1", nil })
+	local task = require("zortex.core.item").task("- [ ] Mail me@example.com @home @AI-model @home @p1")
+	T.eq({ task.text, task.attributes.tags, task.attributes.p }, { "Mail me@example.com", { "home", "ai-model" }, "1" })
 	local timed = CalendarEntry.from_text("- 09:30 Standup @dur(15m)", "2026-10-12")
 	T.eq({ timed:get_end_time().hour, timed:get_end_time().min }, { 9, 45 })
 end)

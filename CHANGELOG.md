@@ -64,9 +64,33 @@ The first release for people other than the author.
 - Tag searches take a scope: `@[R/#Rust/async]`, `@[@Library/rl & ai-model]`,
   `@[*/rust]`; a tag on a heading tags its section. `-` finds a list item by
   its markdown link's text (`[R/#Rust/-The Rust Book]`).
+- Bare `@words` are tags on any line (`@rust`, `@home`, `@ai-model`); items
+  list them as `attributes.tags`. The separate "contexts" are gone.
+- Tags are highlighted on every line (text and quotes too), and the `@` of
+  `@[...]` is dimmed (`ZortexTagSearchAt`).
+- Resources and their notes: a heading that is only a link and attributes is
+  a resource, its section notes about it; notes (that, and lines nested
+  under an item holding a link) match tag searches only by their own tags.
+- Tag completion: after a bare `@` and inside `@[...]`, the tags your notes
+  use, most used first, with how many lines use each.
+- `:ZortexLinkOpenWeb` (`<leader>zgX`) opens the link under the cursor in the
+  web app (a zortex link, tag search, file, or the line itself), in the tab
+  you focused last on this computer when there is one
+  (`features.web.reuse_tab`). `gx` on a tag index's label opens the index.
 
 ### Server (`zortex serve`)
 
+- Tag indexes: a label whose lines are all `@[...]` searches (or items
+  grouping them) shows as rows of chips with counts over one shared table;
+  the chosen chip is in the address (`#tags=R/rl`). `@[...]` shows like a
+  link (a dim `@`, no brackets).
+- `POST /api/open` shows a page in the tab focused last on the same device
+  (for Neovim's `:ZortexLinkOpenWeb`).
+- Tag tables show a row's notes: up to three lines under the item, longer
+  notes in a panel with the note they link to. A heading that is only a
+  link (`### [Book](https://…) @rust`) is a row, and its section its notes;
+  labels indented under an item stay in its notes. A `- Key: text` item no
+  longer shows its key twice.
 - Rendered notes, search, file browser, tags, broken links, the notes not
   linked from Structure; live updates while you edit elsewhere.
 - `>` links go straight to the link they match, or to a page listing them.

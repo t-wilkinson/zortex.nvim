@@ -25,13 +25,13 @@ local M = {}
 
 local link_mod = require("zortex.core.link")
 
-local VERSION = 3 -- bump when link extraction changes (forces a rebuild)
+local VERSION = 4 -- bump when link extraction changes (forces a rebuild)
 local REFRESH_TTL_MS = 1000
 local SAVE_DELAY_MS = 10000
 
 local state = {
 	loaded = false,
-	files = {}, -- path -> { stamp, names, tags, links = { link... } }
+	files = {}, -- path -> { stamp, names, tags, links = { link... }, line_tags = { tag = count } }
 	last_refresh = nil,
 	dirty = false,
 }
@@ -126,6 +126,33 @@ local function first_component(def)
 		return { kind = c.type, text = c.text:lower() }
 	end
 	return { kind = "global" }
+end
+
+-- Bare @words that are attributes, not tags (utils/attributes shortcuts)
+local function shortcut(key)
+	return key:match("^%d+%.?%d*[hdmw]$") or key:match("^[pi][123]$") or key == "step" or key == "steps"
+		or require("zortex.utils.attributes").is_size(key)
+end
+
+-- The tags used on a note's lines: { tag = number of lines }
+local function extract_line_tags(doc)
+	local syntax = require("zortex.core.syntax")
+	local counts = {}
+	for lnum, line in ipairs(doc.lines) do
+		if line:find("@", 1, true) and not doc:in_code(lnum) then
+			local seen = {}
+			syntax.walk_spans(doc:inline(lnum), function(span)
+				if span.type == "attribute" and span.value == nil then
+					local key = span.key:lower()
+					if not seen[key] and not shortcut(key) then
+						seen[key] = true
+						counts[key] = (counts[key] or 0) + 1
+					end
+				end
+			end)
+		end
+	end
+	return counts
 end
 
 local function extract_links(doc)
@@ -239,7 +266,8 @@ function M.refresh(force)
 					mark_header(entry.names, entry.tags)
 				end
 				mark_header(names, tags)
-				state.files[path] = { stamp = s, names = names, tags = tags, links = extract_links(doc) }
+				state.files[path] =
+					{ stamp = s, names = names, tags = tags, links = extract_links(doc), line_tags = extract_line_tags(doc) }
 				changed[path] = true
 			end
 		end
@@ -297,6 +325,28 @@ end
 M.save = save_to_disk
 
 --- Links found in a note.
+--- The tags used on notes' lines, most used first: { { tag, count }... }
+function M.line_tags()
+	M.refresh()
+	local counts = {}
+	for _, entry in pairs(state.files) do
+		for tag, n in pairs(entry.line_tags or {}) do
+			counts[tag] = (counts[tag] or 0) + n
+		end
+	end
+	local out = {}
+	for tag, n in pairs(counts) do
+		out[#out + 1] = { tag = tag, count = n }
+	end
+	table.sort(out, function(a, b)
+		if a.count ~= b.count then
+			return a.count > b.count
+		end
+		return a.tag < b.tag
+	end)
+	return out
+end
+
 function M.links_from(path)
 	M.refresh()
 	path = vim.fn.fnamemodify(path, ":p")

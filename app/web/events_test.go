@@ -16,8 +16,14 @@ import (
 // stream reads server-sent events ("kind data") from /api/events.
 func stream(t *testing.T, url string) (<-chan string, func()) {
 	t.Helper()
+	return streamPath(t, url, "/api/events")
+}
+
+// streamPath is stream from path ("/api/events?client=a").
+func streamPath(t *testing.T, url, path string) (<-chan string, func()) {
+	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
-	req, _ := http.NewRequestWithContext(ctx, "GET", url+"/api/events", nil)
+	req, _ := http.NewRequestWithContext(ctx, "GET", url+path, nil)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -216,5 +222,99 @@ func TestClocksAPI(t *testing.T) {
 	code, out = getJSON(t, ts, "/api/clocks")
 	if code != 200 || len(out["alarms"].([]any)) != 1 || out["ntfy"] != true {
 		t.Fatalf("get: %d %v", code, out)
+	}
+}
+
+func postRaw(t *testing.T, url, body string) (int, string) {
+	t.Helper()
+	resp, err := http.Post(url, "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var b strings.Builder
+	sc := bufio.NewScanner(resp.Body)
+	for sc.Scan() {
+		b.WriteString(sc.Text())
+	}
+	return resp.StatusCode, b.String()
+}
+
+func TestOpenInTab(t *testing.T) {
+	s, _, ts, _ := newStateServer(t, "")
+	// no tab: Neovim opens a new one
+	if code, body := postRaw(t, ts.URL+"/api/open", `{"path":"/n/projects.zortex"}`); code != 200 || !strings.Contains(body, `"opened":false`) {
+		t.Fatalf("no tab: %d %s", code, body)
+	}
+	a, stopA := streamPath(t, ts.URL, "/api/events?client=a")
+	defer stopA()
+	b, stopB := streamPath(t, ts.URL, "/api/events?client=b")
+	defer stopB()
+	waitSubscribers(t, s, 2)
+	// b was focused last: it gets the path, and the request waits for its answer
+	time.Sleep(5 * time.Millisecond)
+	postRaw(t, ts.URL+"/api/presence", `{"client":"a"}`)
+	time.Sleep(5 * time.Millisecond)
+	postRaw(t, ts.URL+"/api/presence", `{"client":"b"}`)
+	done := make(chan string, 1)
+	go func() {
+		resp, err := http.Post(ts.URL+"/api/open", "application/json", strings.NewReader(`{"path":"/n/projects.zortex#L3"}`))
+		if err != nil {
+			done <- err.Error()
+			return
+		}
+		defer resp.Body.Close()
+		var b strings.Builder
+		sc := bufio.NewScanner(resp.Body)
+		for sc.Scan() {
+			b.WriteString(sc.Text())
+		}
+		done <- b.String()
+	}()
+	ev := next(t, b, "open")
+	var got struct{ Path, Token string }
+	if err := json.Unmarshal([]byte(strings.TrimPrefix(ev, "open ")), &got); err != nil || got.Path != "/n/projects.zortex#L3" || got.Token == "" {
+		t.Fatalf("open event: %s", ev)
+	}
+	if code, _ := postRaw(t, ts.URL+"/api/open/ack", `{"token":"`+got.Token+`"}`); code != 204 {
+		t.Fatalf("ack: %d", code)
+	}
+	if body := <-done; !strings.Contains(body, `"opened":true`) {
+		t.Fatalf("open: %s", body)
+	}
+	select {
+	case ev := <-a:
+		if strings.HasPrefix(ev, "open ") {
+			t.Fatalf("only the latest tab opens: %s", ev)
+		}
+	default:
+	}
+	// only paths in this app
+	for _, p := range []string{"https://example.com", "//example.com", "n/x"} {
+		if code, _ := postRaw(t, ts.URL+"/api/open", `{"path":"`+p+`"}`); code != 400 {
+			t.Errorf("%s: %d", p, code)
+		}
+	}
+	// a form post (no JSON) can't steer a tab
+	resp, err := http.Post(ts.URL+"/api/open", "application/x-www-form-urlencoded", strings.NewReader("path=/n/x"))
+	if err != nil || resp.StatusCode != 415 {
+		t.Errorf("form post: %v %v", err, resp)
+	}
+}
+
+func TestClientAddr(t *testing.T) {
+	for _, c := range []struct{ remote, xff, want string }{
+		{"10.0.0.5:4000", "", "10.0.0.5"},
+		{"127.0.0.1:4000", "192.168.1.20, 127.0.0.1", "192.168.1.20"},
+		{"203.0.113.9:4000", "1.2.3.4", "203.0.113.9"}, // a public peer can't claim an address
+	} {
+		r := httptest.NewRequest("GET", "/", nil)
+		r.RemoteAddr = c.remote
+		if c.xff != "" {
+			r.Header.Set("X-Forwarded-For", c.xff)
+		}
+		if got := clientAddr(r); got != c.want {
+			t.Errorf("%s %q: %s, want %s", c.remote, c.xff, got, c.want)
+		}
 	}
 }

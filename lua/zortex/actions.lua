@@ -229,6 +229,14 @@ M.list = {
 		run = call("zortex.features.links", "open_link"),
 	},
 	{
+		id = "link_open_web",
+		command = "LinkOpenWeb",
+		key = "gX",
+		group = "Links",
+		desc = "Open the link under the cursor (or this line) in the web app",
+		run = call("zortex.features.web", "open_at_cursor"),
+	},
+	{
 		id = "link_preview",
 		command = "LinkPreview",
 		key = "K",

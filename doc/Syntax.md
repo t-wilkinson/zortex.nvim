@@ -136,6 +136,7 @@ projects, calendar entries):
 | `@repeat(weekly)` | calendar: repetition |
 | `@slides(2)` | in a header: the heading level that starts a slide ([slides](../app/README.md#slides)) |
 | `@step`, `@steps` | slides: reveal a line, or each item of a slide, one at a time |
+| `@rust`, `@home`, `@ai-model` | any other bare `@word`: a tag, found by tag searches (`@[rust]`; see [Tag searches](#tag-searches)) |
 
 ## Embeds
 
@@ -206,14 +207,36 @@ in; `*` is every note:
 A tag on a heading, bold heading or label tags every line in its section:
 under `## Embedded @embedded`, `- [The Embedded Rust Book](…) @rust` matches
 `@[embedded rust]`. Tags in a note's header select notes (`@[@Library/…]`)
-and are not inherited by its lines. A line nested under a resource (a note
-about it) is not tagged by it.
+and are not inherited by its lines.
+
+**Resources and their notes.** A list item that holds a link is a resource;
+the lines nested under it, labels included, are notes about it. A heading
+that is nothing but a link and attributes is a resource too, and its
+section is its notes, sub-headings and all. Notes match a tag search only by
+their own tags: not the resource's, nor those of the sections above it.
+
+```zortex
+# Rust @rust
+- [The Rust Book](https://doc.rust-lang.org/book) @status(reading)
+  - chapters 1-8 first
+  Ownership:
+    - moves vs borrows
+  - Full notes: [Rust book notes]
+
+### [Rust for Rustaceans](https://rust-for-rustaceans.com) @status(next)
+Read after the book.
+#### Setup
+- `cargo new`
+```
+
+`@[rust]` finds the two resources (and the heading), not their notes.
 
 **Tag tables.** `!@[…]` on a line of its own shows the search in place: on
 the web, a table of the lines it finds, with a column for the item, the link
 it holds and its kind (web, pdf, book, note…), its other tags, each
 `@key(value)` attribute the rows use (`@status(reading)`, `@rating(4)`),
-where it is, and the lines nested under it. Sort by any column; filter by
+where it is, and its notes: up to three lines under the item, longer ones
+in a panel, followed by the first note they link to. Sort by any column; filter by
 text, kind or tag. An `@[…]` link that finds several lines opens the same
 table. In Neovim `!@[…]` follows like `@[…]`.
 
@@ -223,6 +246,28 @@ table. In Neovim `!@[…]` follows like `@[…]`.
 
 - [The Rust Book](https://doc.rust-lang.org/book) @book @status(reading) @rating(5)
   - chapters 1-8 first
+```
+
+**Tag indexes.** A label whose lines are all tag searches, or items that
+group them, is an index: on the web, rows of chips (each with how many
+lines it finds) over one shared table; choosing a chip shows its table and
+puts the search in the address (`#tags=R/rl`), so the choice can be linked.
+A chip's name is the text before its search, or the search itself; an item
+without a search groups the items under it, and its chip searches all of
+them (when they look in the same place). The label's lines end at the
+first blank line; index labels separated only by blank lines share one
+widget. In Neovim the lines are ordinary items: `gx` on one follows its
+search, and `gx` on the label opens the index in the web app
+(`:ZortexLinkOpenWeb`, `<leader>zgX`, opens any line's link there).
+
+```zortex
+Topics:
+- AI @[R/rl, ai-model]
+  - Reinforcement learning @[R/rl]
+  - Models @[R/rl ai-model]
+- Embedded
+  - RTOS @[R/rtos embedded]
+  - Rust @[R/rust]
 ```
 
 ## Special notes

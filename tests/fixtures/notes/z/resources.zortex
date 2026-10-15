@@ -20,3 +20,15 @@
 - [Spinning Up](https://spinningup.openai.com) @rl
 - [Sutton & Barto](https://incompleteideas.net/book) and [lecture notes](https://example.com/rl-notes) @rl @ai-model
 - Reading list: [R/#Rust/>The Rust Book]
+
+# Books @book
+### [Rust for Rustaceans](https://rust-for-rustaceans.com) @rust @status(reading)
+Read after the book.
+#### Ownership
+- moves vs borrows
+### [The Pragmatic Programmer](https://pragprog.com) @status(done)
+# Later @book
+- [SICP](https://mitp-content-server.mit.edu/books/sicp) @status(later)
+  - chapter 1 again
+  Exercises:
+    - 1.3 and 1.11

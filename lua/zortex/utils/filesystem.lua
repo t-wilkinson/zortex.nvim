@@ -68,10 +68,21 @@ end
 -- File Finding
 -- =============================================================================
 
--- Get all note files with basic filtering
-function M.find_all_notes(filter_fn)
+--- Whether a file name is a sync tool's conflict copy: Syncthing's
+--- "note.sync-conflict-20261015-143000-ABCDEFG.zortex", or Dropbox's and
+--- Nextcloud's "note (… conflicted copy …).zortex". They are not notes: a
+--- copy of projects.zortex would be a second @@Projects.
+function M.is_conflict_copy(name)
+	return name:find(".sync-conflict-", 1, true) ~= nil or name:find("conflicted copy", 1, true) ~= nil
+end
+
+--- Every note file under notes_dir (hidden folders and conflict copies left
+--- out), optionally filtered by filter_fn(path).
+--- opts.conflicts: list the conflict copies instead.
+function M.find_all_notes(filter_fn, opts)
 	local dir = Config.notes_dir
 	local pattern = "%" .. Config.extension .. "$"
+	local want_conflicts = opts and opts.conflicts or false
 	local files = {}
 
 	local function scan_dir(path)
@@ -91,7 +102,7 @@ function M.find_all_notes(filter_fn)
 			if type == "directory" and not name:match("^%.") then
 				-- Recursively scan subdirectories
 				scan_dir(full_path)
-			elseif type == "file" and name:match(pattern) then
+			elseif type == "file" and name:match(pattern) and M.is_conflict_copy(name) == want_conflicts then
 				if not filter_fn or filter_fn(full_path) then
 					table.insert(files, full_path)
 				end

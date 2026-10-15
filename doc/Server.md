@@ -37,9 +37,11 @@ Whatever you use:
   change), so don't leave `.z` out (`.stignore`, `.gitignore`) unless you
   also point the plugin at the server (step 5).
 - **Conflicts.** When both sides change one note before a sync, the tool
-  keeps both (Syncthing writes `note.sync-conflict-….zortex`). The file
-  browser hides Syncthing's conflict and temporary files; merge the copy by
-  hand and delete it.
+  keeps both (Syncthing writes `note.sync-conflict-….zortex`, Dropbox and
+  Nextcloud `note (… conflicted copy …).zortex`). Zortex leaves these copies
+  out of the notes, so a copy of `projects.zortex` doesn't double every
+  project, and the file browser hides them; `:checkhealth zortex` lists
+  them. Merge each into its note by hand and delete it.
 - **Syncthing: lower the delay.** Syncthing waits 10 s before syncing a
   change by default; set the folder's *Advanced → fsWatcherDelayS* to 1 or
   2 so the web pages follow Neovim closely. The server itself rescans every

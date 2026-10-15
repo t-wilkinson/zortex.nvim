@@ -66,3 +66,30 @@ T.test("fold aggregates bottom-up", function()
 	end)
 	T.eq(count, 1 + #doc.tree:get_descendants())
 end)
+
+T.test("sync tools' conflict copies are not notes", function()
+	local fs = require("zortex.utils.filesystem")
+	local Config = require("zortex.config")
+	local copies = {
+		Config.notes_dir .. "projects.sync-conflict-20261015-143000-ABCDEFG.zortex",
+		Config.notes_dir .. "z/garden (Trey's conflicted copy 2026-10-15).zortex",
+	}
+	for _, path in ipairs(copies) do
+		vim.fn.writefile({ "@@Projects" }, path)
+	end
+	local listed = {}
+	for _, path in ipairs(fs.find_all_notes()) do
+		listed[path] = true
+	end
+	local found = fs.find_all_notes(nil, { conflicts = true })
+	for _, path in ipairs(copies) do
+		os.remove(path)
+	end
+	for _, path in ipairs(copies) do
+		T.ok(not listed[path], "conflict copy listed as a note: " .. path)
+	end
+	T.eq(#found, 2)
+	T.ok(listed[Config.notes_dir .. "projects.zortex"], "the note itself is listed")
+	T.ok(fs.is_conflict_copy("a.sync-conflict-1-2-X.zortex"))
+	T.ok(not fs.is_conflict_copy("sync-conflicts.zortex"))
+end)

@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/t-wilkinson/zortex.nvim/app/notes"
 )
 
 // The file browser lists every file in the notes folder. Hidden folders
@@ -84,7 +86,7 @@ func (s *Server) sandbox(mimeType string) string {
 }
 
 func isSyncArtifact(name string) bool {
-	return strings.HasPrefix(name, ".syncthing.") || strings.Contains(name, ".sync-conflict-") ||
+	return strings.HasPrefix(name, ".syncthing.") || notes.IsConflictCopy(name) ||
 		strings.HasSuffix(name, ".tmp") || strings.HasPrefix(name, "~syncthing~")
 }
 

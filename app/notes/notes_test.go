@@ -26,6 +26,8 @@ func TestScanMode(t *testing.T) {
 	write(t, filepath.Join(dir, "z/b.zortex"), "@@B\n")
 	write(t, filepath.Join(dir, ".z/hidden.zortex"), "@@Hidden\n")
 	write(t, filepath.Join(dir, "z/scan.pdf"), "%PDF")
+	write(t, filepath.Join(dir, "a.sync-conflict-20261015-143000-ABCDEFG.zortex"), "@@A\n")
+	write(t, filepath.Join(dir, "z/b (Trey's conflicted copy 2026-10-15).zortex"), "@@B\n")
 	ix, _ := Open(dir, ".zortex")
 
 	if !ix.Scan() {

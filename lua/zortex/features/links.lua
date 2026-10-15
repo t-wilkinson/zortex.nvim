@@ -189,8 +189,8 @@ end
 M.jump_to_location = jump_to_location
 
 -- Following a > link: the links it matched, opened directly when there is
--- one and through a picker otherwise (telescope, with a preview and <C-l> to
--- go to the link's line, when installed). Each is opened from the note it is
+-- one and through a picker otherwise (ui/picker/follow: a preview, and <C-l>
+-- goes to the link's line). Each is opened from the note it is
 -- written in (relative paths, local links), up to MAX_FOLLOW links deep.
 local MAX_FOLLOW = 5
 
@@ -233,23 +233,9 @@ local function follow(results, ctx)
 		open(entries[1])
 		return
 	end
-	if M.use_telescope() then
-		require("zortex.ui.telescope.follow").pick(entries, open, function(entry)
-			jump_to_location(entry.result)
-		end)
-		return
-	end
-	vim.ui.select(entries, {
-		prompt = "Follow link",
-		format_item = function(e)
-			return e.title .. " — " .. e.target .. " (" .. e.where .. ")"
-		end,
-	}, open)
-end
-
--- The telescope picker when telescope is installed; vim.ui.select otherwise
-function M.use_telescope()
-	return (pcall(require, "telescope.pickers.entry_display"))
+	require("zortex.ui.picker.follow").pick(entries, open, function(entry)
+		jump_to_location(entry.result)
+	end)
 end
 
 -- Open a link (as core/link.at returns it). ctx: where the link is written

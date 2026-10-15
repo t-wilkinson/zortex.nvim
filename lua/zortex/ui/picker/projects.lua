@@ -1,15 +1,15 @@
--- ui/telescope/projects.lua - Project picker (a thin view over services/projects)
+-- ui/picker/projects.lua - The project picker (a view over services/projects)
 --
---   <CR>   open project          <C-x>/<C-v>  open in split / vsplit
---   <C-l>  insert link at cursor <C-y>        yank link
---   <C-s>  cycle sort order      <C-d>        toggle done projects
---   <C-e>  toggle leaf-only
+--   <CR>   open the project (split / vsplit / tab: the picker's own keys)
+--   <C-l>  insert its link at the cursor     <C-y>  yank its link
+--   <M-s>  cycle the sort order              <M-d>  show / hide done projects
+--   <M-e>  leaf projects only / all
 local M = {}
 
 local P = require("zortex.services.projects")
 local score = require("zortex.services.projects.score")
 local datetime = require("zortex.utils.datetime")
-local project_actions = require("zortex.ui.telescope.actions")
+local Picker = require("zortex.ui.picker")
 
 local SORTS = { "score", "okr", "priority", "due", "remaining", "size", "completion", "path", "name" }
 
@@ -39,24 +39,15 @@ local function display_parts(project)
 	}
 end
 
-local function make_display(entry)
-	local d = entry.parts
-	local text, hls = "", {}
-	local function add(s, hl, sep)
-		if s == "" then
-			return
-		end
-		text = text .. (text ~= "" and sep or "")
-		local start = #text
-		text = text .. s
-		hls[#hls + 1] = { { start, #text }, hl }
-	end
-	add(d.ancestors, "Comment", "")
-	add(d.name, entry.project:is_leaf() and "ZortexHeading2" or "ZortexHeading1", "")
-	add(d.progress, "Number", "  ")
-	add(d.points, "Comment", "  ")
-	add(d.indicators, "WarningMsg", "  ")
-	return text, hls
+local function format(project)
+	local d = display_parts(project)
+	return {
+		{ d.ancestors, "Comment" },
+		{ d.name, project:is_leaf() and "ZortexHeading2" or "ZortexHeading1" },
+		{ d.progress ~= "" and ("  " .. d.progress) or "", "Number" },
+		{ d.points ~= "" and ("  " .. d.points) or "", "Comment" },
+		{ d.indicators ~= "" and ("  " .. d.indicators) or "", "WarningMsg" },
+	}
 end
 
 local function preview_lines(project)
@@ -192,40 +183,8 @@ end
 -- =============================================================================
 
 ---@param opts { sort?: string, leaf?: boolean, include_done?: boolean, include_roots?: boolean }?
-function M.projects(opts)
+function M.spec(opts)
 	opts = vim.tbl_extend("keep", opts or {}, { sort = "score", include_done = false })
-
-	local pickers = require("telescope.pickers")
-	local finders = require("telescope.finders")
-	local conf = require("telescope.config").values
-	local actions = require("telescope.actions")
-	local action_state = require("telescope.actions.state")
-	local previewers = require("telescope.previewers")
-
-	local function make_finder()
-		local list = P.query({
-			sort = opts.sort,
-			leaf = opts.leaf,
-			include_done = opts.include_done,
-			include_roots = opts.include_roots,
-		})
-		return finders.new_table({
-			results = list,
-			entry_maker = function(project)
-				local entry = {
-					value = project,
-					project = project,
-					parts = display_parts(project),
-					ordinal = project:breadcrumb(" ") .. " " .. table.concat(project.tags, " "),
-					filename = project.file,
-					lnum = project.lnum,
-					text = project:breadcrumb(" › "),
-				}
-				entry.display = make_display
-				return entry
-			end,
-		})
-	end
 
 	local function title()
 		local flags = {}
@@ -238,74 +197,51 @@ function M.projects(opts)
 		return "Projects (" .. opts.sort .. (#flags > 0 and (", " .. table.concat(flags, ", ")) or "") .. ")"
 	end
 
-	pickers
-		.new(opts, {
-			prompt_title = title(),
-			finder = make_finder(),
-			-- Keep our sort order when the prompt is empty
-			sorter = conf.generic_sorter(opts),
-			previewer = previewers.new_buffer_previewer({
-				title = "Project",
-				define_preview = function(self, entry)
-					vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, preview_lines(entry.project))
-				end,
-			}),
-			attach_mappings = function(prompt_bufnr, map)
-				local function selected()
-					local s = action_state.get_selected_entry()
-					return s and s.project
-				end
+	local function insert_link(project)
+		if project and project.link then
+			vim.api.nvim_put({ project.link }, "c", true, true)
+		end
+	end
 
-				local function open_entry(entry, cmd)
-					if entry and entry.project then
-						P.jump(entry.project, cmd)
-					end
-				end
-
-				local function open(cmd)
-					return project_actions.smart_open(cmd, {
-						title = title,
-						open_entry = open_entry,
-					})
-				end
-
-				local function refresh()
-					local picker = action_state.get_current_picker(prompt_bufnr)
-					picker.prompt_border:change_title(title())
-					picker:refresh(make_finder(), { reset_prompt = false })
-				end
-
-				actions.select_default:replace(open("edit"))
-				map({ "i", "n" }, "<C-x>", open("split"))
-				map({ "i", "n" }, "<C-v>", open("vsplit"))
-
-				-- Send selections (or current) to Quickfix
-				map({ "i", "n" }, "<C-q>", function()
-					local selections = project_actions.get_selections(prompt_bufnr)
-					actions.close(prompt_bufnr)
-					if #selections > 0 then
-						project_actions.send_to_quickfix(selections, { title = title() })
-					end
-				end)
-
-				map({ "i", "n" }, "<C-l>", function()
-					local project = selected()
-					actions.close(prompt_bufnr)
-					if project and project.link then
-						vim.api.nvim_put({ project.link }, "c", true, true)
-					end
-				end)
-
-				map({ "i", "n" }, "<C-y>", function()
-					local project = selected()
+	return {
+		title = title,
+		items = function()
+			return P.query({
+				sort = opts.sort,
+				leaf = opts.leaf,
+				include_done = opts.include_done,
+				include_roots = opts.include_roots,
+			})
+		end,
+		text = function(project)
+			return project:breadcrumb(" ") .. " " .. table.concat(project.tags, " ")
+		end,
+		format = format,
+		location = function(project)
+			return { file = project.file, lnum = project.lnum, text = project:breadcrumb(" › ") }
+		end,
+		open = function(project, cmd)
+			P.jump(project, cmd)
+		end,
+		preview = function(project)
+			return { lines = preview_lines(project), title = "Project" }
+		end,
+		keys = {
+			["<C-l>"] = { desc = "Insert the project's link", close = true, fn = insert_link },
+			["<C-y>"] = {
+				desc = "Yank the project's link",
+				fn = function(project)
 					if project and project.link then
 						vim.fn.setreg('"', project.link)
 						pcall(vim.fn.setreg, "+", project.link)
 						vim.notify("Yanked " .. project.link)
 					end
-				end)
-
-				map({ "i", "n" }, "<C-s>", function()
+				end,
+			},
+			["<M-s>"] = {
+				desc = "Cycle the sort order",
+				refresh = true,
+				fn = function()
 					local idx = 1
 					for i, s in ipairs(SORTS) do
 						if s == opts.sort then
@@ -313,23 +249,28 @@ function M.projects(opts)
 						end
 					end
 					opts.sort = SORTS[idx % #SORTS + 1]
-					refresh()
-				end)
-
-				map({ "i", "n" }, "<C-d>", function()
+				end,
+			},
+			["<M-d>"] = {
+				desc = "Show / hide done projects",
+				refresh = true,
+				fn = function()
 					opts.include_done = not opts.include_done
-					refresh()
-				end)
-
-				map({ "i", "n" }, "<C-e>", function()
+				end,
+			},
+			["<M-e>"] = {
+				desc = "Leaf projects only / all",
+				refresh = true,
+				fn = function()
 					opts.leaf = not opts.leaf
-					refresh()
-				end)
+				end,
+			},
+		},
+	}
+end
 
-				return true
-			end,
-		})
-		:find()
+function M.open(opts)
+	return Picker.pick(M.spec(opts))
 end
 
 M.preview_lines = preview_lines

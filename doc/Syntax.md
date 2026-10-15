@@ -175,8 +175,8 @@ case-insensitive and by prefix: `[P/#1.4]` finds `## 1.4 - zortex`.
   markdown link's text, a link's definition, a URL or a path, or the text of
   the line it is on, by prefix; `>` alone is every link in the range. When
   several match, Neovim shows a picker and the web app a page to pick from.
-  With telescope.nvim the picker lists each link's title, target and section
-  with a preview of its line: `<CR>` opens the link, `<C-l>` goes to its line.
+  The picker lists each link's title, target and section with a preview of
+  its line: `<CR>` opens the link, `<C-l>` goes to its line.
 - The first match is the link's target; when there are more, the quickfix
   list (Neovim) or the link page (web app) shows them all.
 - Archived notes (tagged `@Archive`, or `z/archive.*.zortex`) are skipped

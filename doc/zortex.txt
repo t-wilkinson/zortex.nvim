@@ -23,8 +23,9 @@ or `[P/#1.1 Kitchen shelves]`. Projects, areas, objectives and the calendar
 are notes too. An optional server (`zortex serve`) shows them in a browser,
 with a calendar, a pomodoro and phone notifications through ntfy.
 
-Requires Neovim 0.10 or newer. Optional: telescope.nvim (search and project
-pickers), nvim-cmp (link completion). |:checkhealth| zortex checks the setup.
+Requires Neovim 0.10 or newer. Optional: snacks.nvim, telescope.nvim or
+fzf-lua (pickers; `ui.picker`), blink.cmp or nvim-cmp (link completion).
+|:checkhealth| zortex checks the setup.
 
 The full documentation is in the repository:
     README.md          quickstart, features
@@ -434,6 +435,12 @@ setup() merges your options over these defaults: >lua
       },
 
       ui = {
+        -- Search, projects, calendar and follow-link pickers: "telescope",
+        -- "snacks", "fzf_lua" or "select" (vim.ui.select). "auto": LazyVim's
+        -- picker, else a snacks.picker you enabled, telescope, fzf-lua,
+        -- snacks.picker, and vim.ui.select when none is installed.
+        picker = "auto",
+
         -- Highlight groups: linked to your colorscheme by default.
         -- preset = "rose-pine" for the original palette; groups = { ZortexLink = { fg = "#3e8fb0" } }
         highlights = {

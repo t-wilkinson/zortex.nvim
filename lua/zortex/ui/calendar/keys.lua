@@ -149,34 +149,10 @@ function M.view_entries()
 	end
 end
 
--- Pick an entry (newest day first) with vim.ui.select and jump to it.
+-- Pick an entry (newest day first) and jump to it (ui/picker/calendar).
 function M.search()
-	local items = calendar_store.get_all_entries()
-	if #items == 0 then
-		vim.notify("No calendar entries", vim.log.levels.INFO)
-		return
-	end
-	table.sort(items, function(a, b)
-		if a.date ~= b.date then
-			return a.date > b.date
-		end
-		return (a.entry.lnum or 0) < (b.entry.lnum or 0)
-	end)
 	view().close()
-	vim.ui.select(items, {
-		prompt = "Calendar",
-		format_item = function(item)
-			return item.date .. "  " .. vim.trim(item.entry.raw_text or "")
-		end,
-	}, function(item)
-		if not item then
-			return
-		end
-		vim.cmd("edit " .. fn.fnameescape(fs.get_calendar_file()))
-		local lnum = math.min(item.entry.lnum or 1, api.nvim_buf_line_count(0))
-		api.nvim_win_set_cursor(0, { lnum, 0 })
-		vim.cmd("normal! zz")
-	end)
+	require("zortex.ui.picker.calendar").open()
 end
 
 function M.show_digest()

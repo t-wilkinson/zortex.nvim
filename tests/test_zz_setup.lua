@@ -5,8 +5,8 @@ T.test("require('zortex').setup() succeeds with user overrides", function()
 	local notes_dir = require("zortex.config").notes_dir
 	local ok, err = pcall(require("zortex").setup, { notes_dir = notes_dir, ui = { search = { max_results = 9 } } })
 	T.ok(ok, tostring(err))
-	T.eq(require("zortex.ui.telescope.search").config.max_results, 9)
-	T.eq(require("zortex.ui.telescope.search").config.default_mode, "section")
+	T.eq(require("zortex.services.search").config.max_results, 9)
+	T.eq(require("zortex.services.search").config.default_mode, "section")
 end)
 
 T.test("calendar opens and every day can be selected", function()
@@ -28,6 +28,9 @@ end)
 T.test("calendar / picks an entry and jumps to its line", function()
 	local view = require("zortex.ui.calendar.view")
 	local cal = require("zortex.utils.filesystem").get_calendar_file()
+	local Config = require("zortex.config")
+	local picker = Config.ui.picker
+	Config.ui.picker = "select"
 	view.open()
 	local orig, offered = vim.ui.select, nil
 	vim.ui.select = function(items, opts, on_choice)
@@ -40,6 +43,7 @@ T.test("calendar / picks an entry and jumps to its line", function()
 	end
 	local ok, err = pcall(vim.cmd, "normal /")
 	vim.ui.select = orig
+	Config.ui.picker = picker
 	T.ok(ok, tostring(err))
 	T.ok(offered and #offered > 0, "no entries offered")
 	T.ok(offered[1]:match("^%d%d%d%d%-%d%d%-%d%d  "), offered[1])

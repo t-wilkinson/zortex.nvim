@@ -389,15 +389,41 @@ function M.get_completions(line, col, opts)
 end
 
 -- =============================================================================
--- nvim-cmp source
+-- Completion engines: blink.cmp (features/blink) and nvim-cmp
 -- =============================================================================
+
+M.TRIGGERS = { "[", "/", "#", "@", ":", "*", "(", ",", ">" }
+M.FILETYPES = { zortex = true, markdown = true, text = true }
+
+--- LSP completion items for the text before the cursor (`before`) on 0-based
+--- `row`: each replaces the component being typed (textEdit, byte columns),
+--- or nil when the cursor isn't in a link or an @a(...) value.
+function M.lsp_items(before, row, bufnr)
+	local items, ctx = M.get_completions(before, #before, { bufnr = bufnr })
+	if not ctx then
+		return nil
+	end
+	for _, item in ipairs(items) do
+		item.filterText = item.filterText or item.label
+		item.textEdit = {
+			newText = item.area_value or item.label,
+			range = {
+				start = { line = row, character = ctx.typing_col },
+				["end"] = { line = row, character = #before },
+			},
+		}
+		item.section_type = nil
+		item.area_value = nil
+		item.insertText = nil
+	end
+	return items
+end
 
 function M.new()
 	local source = {}
 
 	function source:is_available()
-		local ft = vim.bo.filetype
-		return ft == "zortex" or ft == "markdown" or ft == "text"
+		return M.FILETYPES[vim.bo.filetype] == true
 	end
 
 	function source:get_debug_name()
@@ -405,7 +431,7 @@ function M.new()
 	end
 
 	function source:get_trigger_characters()
-		return { "[", "/", "#", "@", ":", "*", "(", ",", ">" }
+		return M.TRIGGERS
 	end
 
 	function source:get_keyword_pattern()
@@ -420,29 +446,59 @@ function M.new()
 
 	function source:complete(params, callback)
 		local line = params.context.cursor_before_line
-		local row = params.context.cursor.row - 1
-		local items, ctx = M.get_completions(line, #line, { bufnr = params.context.bufnr })
-		if not ctx then
-			callback({ items = {}, isIncomplete = false })
-			return
-		end
-		for _, item in ipairs(items) do
-			item.filterText = item.filterText or item.label
-			item.textEdit = {
-				newText = item.area_value or item.label,
-				range = {
-					start = { line = row, character = ctx.typing_col },
-					["end"] = { line = row, character = #line },
-				},
-			}
-			item.section_type = nil
-			item.area_value = nil
-			item.insertText = nil
-		end
-		callback({ items = items, isIncomplete = false })
+		local items = M.lsp_items(line, params.context.cursor.row - 1, params.context.bufnr)
+		callback({ items = items or {}, isIncomplete = false })
 	end
 
 	return source
+end
+
+--- Hook the source into the completion plugin that is installed: blink.cmp
+--- when it is (features/blink), else nvim-cmp. Called on the first zortex
+--- buffer, so neither is loaded at startup on zortex's account.
+---@return "blink"|"cmp"|nil
+function M.register()
+	if M.register_blink() then
+		return "blink"
+	end
+	if M.register_cmp() then
+		return "cmp"
+	end
+	return nil
+end
+
+function M.setup()
+	local group = vim.api.nvim_create_augroup("ZortexCompletion", { clear = true })
+	if package.loaded["blink.cmp"] or package.loaded.cmp then
+		M.register()
+		return
+	end
+	vim.api.nvim_create_autocmd("FileType", {
+		group = group,
+		pattern = "zortex",
+		once = true,
+		callback = function()
+			M.register()
+		end,
+	})
+end
+
+--- blink.cmp: a "zortex" provider (unless your config defines one) that
+--- zortex buffers list next to your default sources.
+function M.register_blink()
+	local ok, blink = pcall(require, "blink.cmp")
+	if not ok or type(blink) ~= "table" or type(blink.add_source_provider) ~= "function" then
+		return false
+	end
+	local providers = vim.tbl_get(require("blink.cmp.config"), "sources", "providers") or {}
+	if not providers.zortex then
+		blink.add_source_provider("zortex", { name = "Zortex", module = "zortex.features.blink" })
+	end
+	if not M._blink_filetype then
+		M._blink_filetype = true
+		blink.add_filetype_source("zortex", "zortex")
+	end
+	return true
 end
 
 --- Register the nvim-cmp source once. setup() may run more than once
@@ -477,16 +533,29 @@ function M.order_comparator(a, b)
 	return nil
 end
 
+-- In zortex buffers: the zortex source next to your global sources (unless
+-- you set sources for zortex buffers), and the comparator above in front of
+-- yours (unless you set a sorting for them).
 function M.setup_cmp_sorting(cmp)
 	local ok, cfg = pcall(require, "cmp.config")
 	if not ok or type(cfg.filetypes) ~= "table" or not (cmp.setup and cmp.setup.filetype) then
 		return
 	end
-	-- keep whatever else the user set for zortex buffers; leave a sorting of
-	-- their own alone
 	local current = vim.deepcopy(cfg.filetypes.zortex or {})
 	current.revision = nil
+	local ours = M._cmp_sources and vim.deep_equal(current.sources, M._cmp_sources)
+	if not current.sources or ours then
+		local sources = { { name = "zortex" } }
+		for _, src in ipairs((cfg.global or {}).sources or {}) do
+			if src.name ~= "zortex" then
+				sources[#sources + 1] = src
+			end
+		end
+		current.sources = sources
+		M._cmp_sources = vim.deepcopy(sources)
+	end
 	if current.sorting and not current.sorting._zortex then
+		pcall(cmp.setup.filetype, "zortex", current)
 		return
 	end
 	local function chained(a, b)

@@ -25,3 +25,6 @@ Session.vim
 
 # state Zortex writes into a notes folder (when trying doc/example in place)
 /doc/example/.z/
+
+# plugins for the integration tests (tests/plugins.sh)
+/.tests/

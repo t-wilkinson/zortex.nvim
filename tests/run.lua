@@ -11,6 +11,18 @@ package.path = root .. "/tests/?.lua;" .. package.path
 local notes_dir = vim.fn.tempname() .. "/notes/"
 vim.fn.mkdir(notes_dir, "p")
 vim.fn.system({ "cp", "-r", root .. "/tests/fixtures/notes/.", notes_dir })
+-- ZORTEX_TEST_PLUGINS=dir: the plugins in dir (telescope.nvim, plenary.nvim,
+-- snacks.nvim, fzf-lua, blink.cmp; fzf in dir/bin) for the integration tests
+local plugins = os.getenv("ZORTEX_TEST_PLUGINS")
+if plugins and plugins ~= "" then
+	for _, dir in ipairs(vim.fn.glob(plugins .. "/*", false, true)) do
+		if vim.fn.isdirectory(dir .. "/lua") == 1 then
+			vim.opt.rtp:append(dir)
+		end
+	end
+	vim.env.PATH = plugins .. "/bin:" .. vim.env.PATH
+end
+
 local Config = require("zortex.config")
 Config.notes_dir = notes_dir
 Config.extension = ".zortex"

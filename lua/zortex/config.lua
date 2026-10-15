@@ -131,6 +131,12 @@ local defaults = {
 	},
 
 	ui = {
+		-- Search, projects, calendar and follow-link pickers: "telescope",
+		-- "snacks", "fzf_lua" or "select" (vim.ui.select). "auto": LazyVim's
+		-- picker, else a snacks.picker you enabled, telescope, fzf-lua,
+		-- snacks.picker, and vim.ui.select when none is installed.
+		picker = "auto",
+
 		-- Highlight groups: linked to your colorscheme by default.
 		-- preset = "rose-pine" for the original palette; groups = { ZortexLink = { fg = "#3e8fb0" } }
 		highlights = {

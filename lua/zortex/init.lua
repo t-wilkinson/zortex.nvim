@@ -19,7 +19,7 @@ function api.setup(opts)
 	require("zortex.features.highlights").setup()
 	require("zortex.features.folding").setup()
 	require("zortex.features.preview").setup(Config.ui.preview)
-	require("zortex.features.completion").register_cmp()
+	require("zortex.features.completion").setup()
 
 	-- Services with configuration
 	require("zortex.services.search").setup(Config.ui.search)

@@ -114,15 +114,16 @@ mastery tree and the XP store always agree.
 
 `:ZortexProjects`
 
-| key              | action                    |
-|------------------|---------------------------|
-| `<CR>`           | open                      |
-| `<C-x>` / `<C-v>`| open in split / vsplit    |
-| `<C-l>`          | insert the link at the cursor |
-| `<C-y>`          | yank the link             |
-| `<C-s>`          | cycle sort order          |
-| `<C-d>`          | show/hide done projects   |
-| `<C-e>`          | leaf projects only        |
+On telescope, snacks.picker or fzf-lua (`ui.picker`); their own keys open
+(`<CR>`, split, vsplit, tab) and send rows to the quickfix list.
+
+| key     | action                        |
+|---------|-------------------------------|
+| `<C-l>` | insert the link at the cursor |
+| `<C-y>` | yank the link                 |
+| `<M-s>` | cycle sort order              |
+| `<M-d>` | show/hide done projects       |
+| `<M-e>` | leaf projects only            |
 
 ## Building blocks
 

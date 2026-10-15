@@ -161,6 +161,7 @@ func (s *Server) calendarDays(from, to string) map[string][]calEntry {
 
 // entryHTML renders line[from:] like a note line, without attributes.
 func (r *noteRenderer) entryHTML(line string, lnum, from int) string {
+	r.lnum = lnum
 	spans := append([]syntax.Span(nil), r.doc.Spans(lnum)...)
 	for i := range spans {
 		if spans[i].Type == "attribute" {

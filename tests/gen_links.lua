@@ -5,7 +5,8 @@
 -- Runs the Lua link resolver and structural search over a copy of
 -- tests/fixtures/notes and writes what they return:
 --
---   tests/fixtures/resolve.json  [{ link, from?, results = [{ rel, lnum, col }], error? }]
+--   tests/fixtures/resolve.json  [{ link, from?, lnum?, results = [{ rel, lnum, col }], error? }]
+--                                (lnum: the line a parent-relative [./-Item] link is written on)
 --   tests/fixtures/search.json   [{ prompt, mode, results = [{ type, rel, lnum, breadcrumb?, score?, child? }] }]
 --
 -- The cases are every section of every note (its canonical link), every link
@@ -97,6 +98,10 @@ M.EXTRA_LINKS = {
 	{ link = "@[/#AI/rl]", from = "z/resources.zortex" },
 	{ link = "P/#1.4" },
 	{ link = "[]" },
+	-- parent-relative: on a line with no linked parent, and on deeper lines
+	{ link = "[./-Item]", from = "z/day-plan.zortex", lnum = 1 },
+	{ link = "[./-Fix project search]", from = "z/day-plan.zortex", lnum = 4 },
+	{ link = "[./-Nothing like this]", from = "z/day-plan.zortex", lnum = 6 },
 }
 
 M.SEARCHES = {
@@ -195,11 +200,11 @@ function M.resolve_cases()
 	end
 
 	local cases, seen = {}, {}
-	local function add(link, from)
-		local key = link .. "\0" .. (from or "")
+	local function add(link, from, lnum)
+		local key = link .. "\0" .. (from or "") .. "\0" .. (lnum or "")
 		if not seen[key] then
 			seen[key] = true
-			cases[#cases + 1] = { link = link, from = from }
+			cases[#cases + 1] = { link = link, from = from, lnum = lnum }
 		end
 	end
 
@@ -219,7 +224,11 @@ function M.resolve_cases()
 			if not doc:in_code(lnum) then
 				for _, span in ipairs(syntax.links(line)) do
 					local def = span.definition
-					add("[" .. def .. "]", def:sub(1, 1) == "/" and rel(path) or nil)
+					if resolver.is_parent_relative(def) then
+						add("[" .. def .. "]", rel(path), lnum)
+					else
+						add("[" .. def .. "]", def:sub(1, 1) == "/" and rel(path) or nil)
+					end
 				end
 				-- tag searches (@[tags] searches the note it is in)
 				syntax.walk_spans(syntax.inline(line), function(span)
@@ -231,13 +240,13 @@ function M.resolve_cases()
 		end
 	end
 	for _, c in ipairs(M.EXTRA_LINKS) do
-		add(c.link, c.from)
+		add(c.link, c.from, c.lnum)
 	end
 
 	for _, c in ipairs(cases) do
 		local opts
 		if c.from then
-			opts = { doc = Document.get(dir .. c.from) }
+			opts = { doc = Document.get(dir .. c.from), lnum = c.lnum }
 		end
 		local results, err = resolver.resolve(c.link, opts)
 		c.results = {}

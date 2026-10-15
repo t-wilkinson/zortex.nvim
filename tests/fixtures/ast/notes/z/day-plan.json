@@ -1,0 +1,210 @@
+{
+  "blocks": [],
+  "header": {
+    "last_lnum": 1,
+    "name_lnum": 1,
+    "names": [
+      "Day plan"
+    ],
+    "tag_lines": [],
+    "tags": []
+  },
+  "lines": [
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [],
+      "kind": "article",
+      "level": 0,
+      "names": [
+        "Day plan"
+      ],
+      "section": true,
+      "text": "Day plan"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 6,
+      "indent": 0,
+      "inline": [
+        {
+          "definition": "P/#1.4 - zortex",
+          "e": 23,
+          "s": 6,
+          "type": "link"
+        }
+      ],
+      "item": {
+        "content_col": 6,
+        "marker": "09:00",
+        "marker_col": 0,
+        "marker_type": "time",
+        "time": {
+          "at": "09:00"
+        }
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 8,
+      "indent": 2,
+      "inline": [
+        {
+          "definition": "./-Improve website",
+          "e": 28,
+          "s": 8,
+          "type": "link"
+        }
+      ],
+      "item": {
+        "content_col": 8,
+        "mark": " ",
+        "mark_col": 4,
+        "marker": "-",
+        "marker_col": 2,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 4,
+      "indent": 2,
+      "inline": [
+        {
+          "definition": "./#1.4.1 - zortex search",
+          "e": 30,
+          "s": 4,
+          "type": "link"
+        }
+      ],
+      "item": {
+        "content_col": 4,
+        "marker": "-",
+        "marker_col": 2,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 10,
+      "indent": 4,
+      "inline": [
+        {
+          "definition": "./-Fix project search",
+          "e": 33,
+          "s": 10,
+          "type": "link"
+        }
+      ],
+      "item": {
+        "content_col": 10,
+        "mark": " ",
+        "mark_col": 6,
+        "marker": "-",
+        "marker_col": 4,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 4,
+      "indent": 2,
+      "inline": [],
+      "item": {
+        "content_col": 4,
+        "marker": "-",
+        "marker_col": 2,
+        "marker_type": "bullet"
+      },
+      "kind": "label",
+      "level": 10,
+      "section": true,
+      "text": "Notes"
+    },
+    {
+      "content_col": 6,
+      "indent": 4,
+      "inline": [
+        {
+          "definition": "./-Change task sizes",
+          "e": 28,
+          "s": 6,
+          "type": "link"
+        }
+      ],
+      "item": {
+        "content_col": 6,
+        "marker": "-",
+        "marker_col": 4,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 6,
+      "indent": 0,
+      "inline": [
+        {
+          "definition": "Calendar/:2026-10-06",
+          "e": 28,
+          "s": 6,
+          "type": "link"
+        }
+      ],
+      "item": {
+        "content_col": 6,
+        "marker": "14:00",
+        "marker_col": 0,
+        "marker_type": "time",
+        "time": {
+          "at": "14:00"
+        }
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 8,
+      "indent": 2,
+      "inline": [
+        {
+          "definition": "./-Call the mechanic",
+          "e": 30,
+          "s": 8,
+          "type": "link"
+        }
+      ],
+      "item": {
+        "content_col": 8,
+        "mark": " ",
+        "mark_col": 4,
+        "marker": "-",
+        "marker_col": 2,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    }
+  ],
+  "sections": [
+    {
+      "level": 0,
+      "lnum": 1,
+      "names": [
+        "Day plan"
+      ],
+      "text": "Day plan",
+      "type": "article"
+    },
+    {
+      "level": 10,
+      "lnum": 7,
+      "text": "Notes",
+      "type": "label"
+    }
+  ],
+  "version": 1
+}

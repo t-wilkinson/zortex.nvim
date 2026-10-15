@@ -171,7 +171,7 @@ func (s *Server) calendarTarget(now time.Time) *tracker.Target {
 			if target != nil || sp.Type != "link" || s.fileLike(sp.Definition) {
 				return
 			}
-			r, err := links.ResolveFirst(s.ix, "["+sp.Definition+"]", links.Options{From: doc})
+			r, err := links.ResolveFirst(s.ix, "["+sp.Definition+"]", links.Options{From: doc, Lnum: cur.Lnum})
 			if err != nil || r == nil {
 				return
 			}

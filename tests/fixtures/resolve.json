@@ -335,6 +335,81 @@
     ]
   },
   {
+    "link": "[Day plan]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 1,
+        "rel": "z/day-plan.zortex"
+      }
+    ]
+  },
+  {
+    "error": "No matches found for: :Notes",
+    "link": "[Day plan/:Notes]",
+    "results": []
+  },
+  {
+    "from": "z/day-plan.zortex",
+    "link": "[./-Improve website]",
+    "lnum": 4,
+    "results": [
+      {
+        "col": 1,
+        "lnum": 16,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "from": "z/day-plan.zortex",
+    "link": "[./#1.4.1 - zortex search]",
+    "lnum": 5,
+    "results": [
+      {
+        "col": 1,
+        "lnum": 26,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "from": "z/day-plan.zortex",
+    "link": "[./-Fix project search]",
+    "lnum": 6,
+    "results": [
+      {
+        "col": 1,
+        "lnum": 27,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "from": "z/day-plan.zortex",
+    "link": "[./-Change task sizes]",
+    "lnum": 8,
+    "results": [
+      {
+        "col": 1,
+        "lnum": 17,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "from": "z/day-plan.zortex",
+    "link": "[./-Call the mechanic]",
+    "lnum": 10,
+    "results": [
+      {
+        "col": 1,
+        "lnum": 14,
+        "rel": "calendar.zortex"
+      }
+    ]
+  },
+  {
     "link": "[Garden]",
     "results": [
       {
@@ -788,6 +863,16 @@
         "col": 13,
         "lnum": 26,
         "rel": "projects.zortex"
+      },
+      {
+        "col": 17,
+        "lnum": 3,
+        "rel": "z/day-plan.zortex"
+      },
+      {
+        "col": 17,
+        "lnum": 5,
+        "rel": "z/day-plan.zortex"
       }
     ]
   },
@@ -1316,6 +1401,32 @@
   {
     "error": "Invalid link",
     "link": "[]",
+    "results": []
+  },
+  {
+    "error": "No link on a parent line for ./",
+    "from": "z/day-plan.zortex",
+    "link": "[./-Item]",
+    "lnum": 1,
+    "results": []
+  },
+  {
+    "from": "z/day-plan.zortex",
+    "link": "[./-Fix project search]",
+    "lnum": 4,
+    "results": [
+      {
+        "col": 1,
+        "lnum": 27,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "error": "No matches found for: -Nothing like this",
+    "from": "z/day-plan.zortex",
+    "link": "[./-Nothing like this]",
+    "lnum": 6,
     "results": []
   }
 ]

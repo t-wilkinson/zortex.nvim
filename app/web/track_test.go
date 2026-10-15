@@ -33,7 +33,9 @@ func TestTrackTime(t *testing.T) {
 	cal := "@@Calendar\n\n" + today + ":\n00:00 Work on [P/#1.4 - zortex/-Improve website]\n"
 	os.WriteFile(filepath.Join(dir, "calendar.zortex"), []byte(cal), 0o644)
 	s.Refresh()
-	clock := &fakeNow{t: time.Now()}
+	// noon today: the test adds 85 minutes, which mustn't cross midnight
+	y, m, d := time.Now().Date()
+	clock := &fakeNow{t: time.Date(y, m, d, 12, 0, 0, 0, time.Local)}
 	tr, err := tracker.OpenAt(filepath.Join(t.TempDir(), "track.json"), s.writeSpent, clock.now)
 	if err != nil {
 		t.Fatal(err)

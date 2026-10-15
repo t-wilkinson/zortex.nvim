@@ -384,7 +384,7 @@ func (s *Server) collectLinks(doc *notes.Document, snap *snapshot) {
 				return // a file: collectFileLinks
 			}
 			snap.links++
-			r, err := links.ResolveFirst(s.ix, "["+sp.Definition+"]", links.Options{From: doc})
+			r, err := links.ResolveFirst(s.ix, "["+sp.Definition+"]", links.Options{From: doc, Lnum: lnum})
 			if err != nil || r == nil {
 				if archived {
 					return

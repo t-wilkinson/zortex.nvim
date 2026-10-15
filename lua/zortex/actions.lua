@@ -176,7 +176,7 @@ M.list = {
 		key = "z",
 		group = "Find",
 		desc = "Search sections and lines (structural search)",
-		run = call("zortex.ui.telescope.search", "structural_search"),
+		run = call("zortex.ui.picker.search", "open"),
 	},
 	{
 		id = "search_articles",
@@ -184,7 +184,7 @@ M.list = {
 		key = "Z",
 		group = "Find",
 		desc = "Search article names",
-		run = call("zortex.ui.telescope.search", "structural_search", { mode = "article" }),
+		run = call("zortex.ui.picker.search", "open", { mode = "article" }),
 	},
 	{
 		id = "search_text",
@@ -192,7 +192,7 @@ M.list = {
 		key = "/",
 		group = "Find",
 		desc = "Search plain text in every line (smart case)",
-		run = call("zortex.ui.telescope.search", "structural_search", { mode = "text" }),
+		run = call("zortex.ui.picker.search", "open", { mode = "text" }),
 	},
 	{
 		id = "projects",
@@ -200,7 +200,7 @@ M.list = {
 		key = "p",
 		group = "Find",
 		desc = "Browse projects",
-		run = call("zortex.ui.telescope.projects", "projects"),
+		run = call("zortex.ui.picker.projects", "open"),
 	},
 	{
 		id = "toc",
@@ -687,13 +687,6 @@ for _, a in ipairs(M.list) do
 		local target = a.run
 		a.target = target
 		a.run = function()
-			-- the pickers are telescope's; say so instead of a module error
-			if target.module:find("^zortex%.ui%.telescope") and not pcall(require, "telescope") then
-				return notify(
-					":Zortex" .. (a.command or a.id) .. " needs telescope.nvim (nvim-telescope/telescope.nvim)",
-					vim.log.levels.WARN
-				)
-			end
 			return require(target.module)[target.fn](unpack(target.args))
 		end
 	end

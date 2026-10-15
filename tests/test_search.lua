@@ -1,5 +1,5 @@
 local T = require("helpers")
-local search = require("zortex.ui.telescope.search")
+local search = require("zortex.services.search")
 local fs = require("zortex.utils.filesystem")
 
 local function index()

@@ -1,6 +1,6 @@
 local T = require("helpers")
 local H = require("zortex.services.search_history")
-local search = require("zortex.ui.telescope.search")
+local search = require("zortex.services.search")
 local fs = require("zortex.utils.filesystem")
 local Document = require("zortex.core.document")
 

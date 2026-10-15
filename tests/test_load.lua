@@ -1,28 +1,6 @@
--- Every module must load (telescope is stubbed; it's an optional dependency).
+-- Every module must load without the optional plugins (pickers and
+-- completion engines are required only when used).
 local T = require("helpers")
-
-local stub = setmetatable({}, {
-	__index = function(t, k)
-		return function() end
-	end,
-})
-for _, name in ipairs({
-	"telescope",
-	"telescope.pickers",
-	"telescope.finders",
-	"telescope.config",
-	"telescope.actions",
-	"telescope.actions.state",
-	"telescope.previewers",
-	"telescope.sorters",
-	"telescope.themes",
-	"telescope.make_entry",
-	"telescope.pickers.entry_display",
-}) do
-	package.preload[name] = package.preload[name] or function()
-		return setmetatable({ values = stub }, { __index = stub })
-	end
-end
 
 local root = T.root
 local files = vim.fn.globpath(root .. "/lua", "zortex/**/*.lua", false, true)

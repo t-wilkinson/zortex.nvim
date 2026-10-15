@@ -61,12 +61,18 @@ function M.check()
 	M.check_ntfy(health, Config)
 
 	health.start("Zortex integrations")
-	for _, dep in ipairs({ { "telescope", "search and project pickers" }, { "cmp", "link completion" } }) do
-		if pcall(require, dep[1]) then
-			health.ok(dep[1] .. " (" .. dep[2] .. ")")
-		else
-			health.warn(dep[1] .. " not found: no " .. dep[2])
-		end
+	local picker = require("zortex.ui.picker").backend()
+	if picker == "select" then
+		health.info("Pickers: vim.ui.select (install snacks.nvim, telescope.nvim or fzf-lua for previews and keys)")
+	else
+		health.ok("Pickers: " .. picker .. " (ui.picker = " .. tostring(Config.ui.picker) .. ")")
+	end
+	if pcall(require, "blink.cmp") then
+		health.ok("Link completion: blink.cmp")
+	elseif pcall(require, "cmp") then
+		health.ok("Link completion: nvim-cmp")
+	else
+		health.warn("No completion plugin (blink.cmp or nvim-cmp): no link completion")
 	end
 end
 

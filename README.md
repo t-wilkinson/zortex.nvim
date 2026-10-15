@@ -32,16 +32,21 @@ Needs Neovim 0.10 or newer. Linux and macOS; Windows untested. With
 ```lua
 {
   "t-wilkinson/zortex.nvim",
-  dependencies = {
-    "nvim-telescope/telescope.nvim", -- optional: search and project pickers
-    "hrsh7th/nvim-cmp",              -- optional: link completion
-  },
   opts = { notes_dir = "~/zortex" },
   -- optional, to load on demand (calendar notifications and the starter
   -- notes then wait until it loads):
   -- ft = "zortex", cmd = { "ZortexSearch", "ZortexPlan" }, keys = { "<leader>z" },
 }
 ```
+
+Pickers use whichever of [snacks.nvim](https://github.com/folke/snacks.nvim),
+[telescope.nvim](https://github.com/nvim-telescope/telescope.nvim) or
+[fzf-lua](https://github.com/ibhagwan/fzf-lua) you have (LazyVim's choice
+when you use LazyVim), and link completion
+[blink.cmp](https://github.com/Saghen/blink.cmp) or
+[nvim-cmp](https://github.com/hrsh7th/nvim-cmp); nothing to configure (see
+[Pickers and completion](#pickers-and-completion)). Without a picker plugin,
+`vim.ui.select` lists the results.
 
 Then, in five minutes:
 
@@ -59,7 +64,7 @@ Then, in five minutes:
 4. **Write a note**: `:e ~/zortex/z/bread.zortex`, first line `@@Bread`, then
    `# Method` and a few lines. Back in the structure note, type `[Bre`:
    completion offers `Bread`; `[Bread/#Method]` links to the heading.
-5. **Search** with `<leader>zz` (telescope): type `bread meth` (words match the section
+5. **Search** with `<leader>zz`: type `bread meth` (words match the section
    path in order).
 6. **Plan the day** with `<leader>zm`: today's calendar next to your tasks;
    `p` puts one on the day.
@@ -118,7 +123,7 @@ Special notes:
 - **Structural search** (`<leader>zz`): words match a section's path in order
   (`2 4` finds `1 › 2 › 3 › 4`), results are breadcrumbs ranked by hierarchy,
   and what you open often ranks higher. `<leader>z/` searches plain text in
-  every line instead; `<C-t>` in the picker cycles section, article and text
+  every line instead; `<M-t>` in the picker cycles section, article and text
   search.
 - **which-key**: when [which-key.nvim](https://github.com/folke/which-key.nvim)
   is installed, `<leader>z` shows as "Zortex" and its sub-prefixes by name
@@ -288,11 +293,44 @@ require("zortex").setup({
 <!-- actions:end -->
 
 Inside the calendar view: `h/j/k/l` days and weeks, `H/J/K/L` years and
-months, `t` today, `a` add, `e` edit, `x` delete, `<CR>` entries, `v` toggle
-month/week, `d` digest panel, `/` search, `gf` go to the file, `n` sync
+months, `t` today, `a` add, `<CR>` entries, `v` toggle month/week, `d`
+digest panel, `/` search the entries, `gf` go to the file, `n` sync
 notifications, `?` help, `q` close (`ui.calendar.keymaps`). In the review
 buffer: `<CR>` jump to the source, `gx`/`K` follow or preview, `r` refresh,
 `q` close.
+
+### Pickers and completion
+
+Search, projects, calendar entries and `>` links that match several links
+open in one picker, on the plugin you have: `ui.picker = "auto"` takes
+LazyVim's picker (`vim.g.lazyvim_picker`), else a snacks.picker you enabled,
+telescope, fzf-lua, snacks.picker, and `vim.ui.select` when none is
+installed. Or name one: `"snacks"`, `"telescope"`, `"fzf_lua"`, `"select"`.
+
+The picker's own keys open a row (`<CR>`, and its split / vsplit / tab
+keys), select several (`<Tab>`; they go to the quickfix list and the first
+opens) and send rows to the quickfix list (`<C-q>`, fzf-lua `alt-q`). The
+zortex keys are the same everywhere: Ctrl acts on the row, Alt changes the
+list.
+
+| picker   | keys                                                                                                     |
+| -------- | -------------------------------------------------------------------------------------------------------- |
+| search   | `<C-o>` new note named after the query, `<M-t>` cycle section / article / text search                     |
+| projects | `<C-l>` insert the link, `<C-y>` yank it, `<M-s>` cycle the sort, `<M-d>` show done, `<M-e>` leaf only     |
+| follow   | `<C-l>` go to the link's line instead of following it                                                    |
+
+Link completion (`[`, `/`, `#`, `>`, `@a(`, ...) registers itself on the
+first zortex buffer: with blink.cmp as the `zortex` provider, listed for
+zortex buffers next to your default sources; with nvim-cmp in the zortex
+buffers' sources. To list it elsewhere (markdown, say), in blink.cmp's
+options:
+
+```lua
+sources = {
+  per_filetype = { markdown = { inherit_defaults = true, "zortex" } },
+  providers = { zortex = { name = "Zortex", module = "zortex.features.blink" } },
+}
+```
 
 ## Lua API
 

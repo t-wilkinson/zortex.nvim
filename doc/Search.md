@@ -2,7 +2,7 @@
 
 ## Overview
 
-The search is a Telescope-based dynamic picker (`finders.new_dynamic`) that queries across all `.zortex` note files. Every keystroke re-runs the full search pipeline. Results are divided into two ranked tiers: **section results** first, **line results** after. The pipeline has three stages: tokenization → scope resolution → content search.
+The search is a live picker (`ui/picker/search`, on telescope, snacks.picker or fzf-lua) that queries across all `.zortex` note files. Every keystroke re-runs the full search pipeline. Results are divided into two ranked tiers: **section results** first, **line results** after. The pipeline has three stages: tokenization → scope resolution → content search.
 
 ---
 
@@ -174,7 +174,7 @@ Bullet indent level is `floor(leading_spaces / 2) + 1`, capped at 4.
 
 ### Result Ordering
 
-Section results are always listed before line results. Within each tier, order is determined by the Telescope generic sorter applied to the `ordinal` field (breadcrumb string for sections, raw line text for lines). No further custom ranking is applied.
+Section results are always listed before line results. Within each tier, order is the search's own ranking (see Architecture.md); the picker keeps it.
 
 ---
 
@@ -217,7 +217,7 @@ Pressing Enter on any result closes the picker, opens the file with `:edit`, and
 
 ## Modes
 
-The picker has three modes; `<C-t>` cycles them, and `ui.search.default_mode` picks the one `:ZortexSearch` opens in.
+The picker has three modes; `<M-t>` cycles them, and `ui.search.default_mode` picks the one `:ZortexSearch` opens in.
 
 | Mode      | Opens with                              | Finds                                                                                     |
 | --------- | --------------------------------------- | ----------------------------------------------------------------------------------------- |

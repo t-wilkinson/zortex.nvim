@@ -1,5 +1,6 @@
-# Lua tests on Neovim stable and nightly, the Go module, and generated files
-# that must be up to date (README command table, parser fixtures).
+# Lua tests on Neovim stable and nightly, the pickers and completion against
+# the real plugins, the Go module, and generated files that must be up to
+# date (README command table, parser fixtures).
 name: CI
 
 on:
@@ -33,6 +34,20 @@ jobs:
           nvim --headless -u NONE -l tests/gen_links.lua
           nvim --headless -u NONE -l tests/gen_edits.lua
           git diff --exit-code || { echo "::error::run the tests/gen_*.lua scripts and commit the result"; exit 1; }
+
+  integrations:
+    name: Pickers and completion (telescope, snacks, fzf-lua, blink.cmp)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: stable
+      - name: Plugins (pinned in tests/plugins.sh)
+        run: tests/plugins.sh .tests/plugins
+      - name: Tests
+        run: ZORTEX_TEST_PLUGINS="$PWD/.tests/plugins" nvim --headless -u NONE -l tests/run.lua
 
   go:
     name: Go

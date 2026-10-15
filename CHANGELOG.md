@@ -29,7 +29,7 @@ The first release for people other than the author.
 - Structural search, links with completion and preview, backlinks and broken
   links from a persistent link index.
 - Plain text search (`:ZortexSearchText`, `<leader>z/`): the prompt as typed,
-  smart case, over every line; `<C-t>` cycles section, article and text mode.
+  smart case, over every line; `<M-t>` cycles section, article and text mode.
 - Key prefixes are named in which-key when it is installed (`<leader>z`
   "Zortex", `<leader>zC` "Calendar & digest", ...; `keymaps.groups`).
 - Projects, areas, objectives and key results as entities with progress,
@@ -51,13 +51,16 @@ The first release for people other than the author.
 - `:checkhealth zortex`: Neovim version, the notes folder, key notes, broken
   links, the ntfy topic, optional integrations.
 - `:help zortex`, generated from the actions and the configuration defaults.
-- Works without telescope.nvim and nvim-cmp; the pickers say they need
-  telescope instead of failing.
+- Pickers on snacks.picker, telescope or fzf-lua, with the same keys and
+  previews on each (`ui.picker = "auto"` follows LazyVim's choice), and
+  `vim.ui.select` without any. Link completion for blink.cmp and nvim-cmp,
+  registered and listed for zortex buffers by itself. CI runs both against
+  the real plugins (`tests/plugins.sh`).
 - Links to links: a `>` component (`[R/#Rust/>The Rust Book]`) opens the link
   it matches instead of the line it is on, with a picker when several match
   and completion after `>`; its preview shows the link's line and the notes
-  nested under it. With telescope the picker shows every match with its
-  title, target and section and a preview; `<C-l>` goes to the link's line.
+  nested under it. The picker shows every match with its title, target and
+  section and a preview; `<C-l>` goes to the link's line.
 - Tag searches take a scope: `@[R/#Rust/async]`, `@[@Library/rl & ai-model]`,
   `@[*/rust]`; a tag on a heading tags its section. `-` finds a list item by
   its markdown link's text (`[R/#Rust/-The Rust Book]`).
@@ -154,8 +157,19 @@ The first release for people other than the author.
   (`:ZortexTimerStart`, `:ZortexAlarm`, ... — they are on the web home page
   now), the old Node app (`legacy/`) and its VimL bridge (`autoload/`).
 - **Calendar view keys**: `telescope_search` is `search` (`/` now picks an
-  entry with `vim.ui.select`, so any picker works); `edit_entry` and
-  `delete_entry` are gone (they had no action). The empty `ui.telescope`
-  option and `:Telescope zortex` (an empty picker) are gone.
+  entry in the picker); `edit_entry` and `delete_entry` are gone (they had no
+  action). The empty `ui.telescope` option and `:Telescope zortex` (an empty
+  picker) are gone.
+- **Picker keys**: Alt changes the list, Ctrl acts on the row. Search mode is
+  `<M-t>` (was `<C-t>`); the projects picker's sort, done and leaf toggles
+  are `<M-s>`, `<M-d>`, `<M-e>` (were `<C-s>`, `<C-d>`, `<C-e>`). Opening in
+  a split, vsplit or tab uses the picker's own keys (telescope `<C-x>`,
+  snacks and fzf-lua `<C-s>`). The modules moved: `zortex.ui.telescope.search`
+  is `zortex.ui.picker.search` (`open`, was `structural_search`; its
+  `setup`/`query_index` are `zortex.services.search`'s), `.projects` is
+  `zortex.ui.picker.projects` (`open`, was `projects`).
+- **nvim-cmp** lists the zortex source in zortex buffers by itself (unless
+  you set sources for the `zortex` filetype); a `{ name = "zortex" }` you
+  added to your global sources can go.
 
 [0.1.0]: https://github.com/t-wilkinson/zortex.nvim/releases/tag/v0.1.0

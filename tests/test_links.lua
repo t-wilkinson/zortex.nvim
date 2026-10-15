@@ -92,6 +92,10 @@ end)
 
 T.test("following a > link opens the link it matched, or picks one", function()
 	local follow = require("zortex.features.links")
+	local Config = require("zortex.config")
+	Config.ui = Config.ui or {}
+	local picker = Config.ui.picker
+	Config.ui.picker = "select"
 	local select = vim.ui.select
 	local shown
 	vim.ui.select = function(items, opts, choose)
@@ -101,8 +105,8 @@ T.test("following a > link opens the link it matched, or picks one", function()
 	local ok, err = pcall(function()
 		follow.open_info({ type = "link", definition = "R/#Rust/>Garden notes" })
 		T.eq(shown, {
-			"Garden notes — [Garden/-Plant] (Resources › Rust)",
-			"Garden notes — [Flipping/#Subaru] (Resources › Rust)",
+			"Garden notes  [Garden/-Plant]  Resources › Rust",
+			"Garden notes  [Flipping/#Subaru]  Resources › Rust",
 		})
 		T.eq(vim.fn.expand("%:t") .. ":" .. vim.fn.line("."), "flipping.zortex:11")
 		shown = nil
@@ -112,6 +116,7 @@ T.test("following a > link opens the link it matched, or picks one", function()
 		T.eq(vim.fn.expand("%:t") .. ":" .. vim.fn.line("."), "flipping.zortex:11")
 	end)
 	vim.ui.select = select
+	Config.ui.picker = picker
 	assert(ok, err)
 end)
 

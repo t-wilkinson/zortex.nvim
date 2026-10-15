@@ -95,7 +95,7 @@ Things that break or embarrass a first-time user. Do these before telling anyone
 
 # 4 After v0.1.0
 - [ ] Tree-sitter grammar with the AST fixtures as acceptance tests (Wishlist # 7) @size(xl)
-- [ ] LazyVim defaults: blink.cmp source next to the nvim-cmp one; pickers behind one interface with snacks.picker and fzf-lua backends next to telescope (`ui.picker = "auto"`) @size(lg)
+- [x] LazyVim defaults: blink.cmp source next to the nvim-cmp one; pickers behind one interface with snacks.picker and fzf-lua backends next to telescope (`ui.picker = "auto"`) @size(lg) @done(2026-10-15)
 - [ ] Web app as an installable PWA (phone + Syncthing) @size(md)
 - [x] Pomodoro sessions into the calendar / XP (log what a session was spent on): time tracking writes @spent @size(md) @done(2026-10-12)
 - [ ] Import from Markdown / Obsidian vaults @size(lg)

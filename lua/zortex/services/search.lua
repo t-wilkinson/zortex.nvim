@@ -40,7 +40,7 @@
 --   breadcrumb_display
 --                       reserved (results always show the full breadcrumb)
 --
--- No UI here: ui/telescope/search.lua is the picker, zortex.query.search the
+-- No UI here: ui/picker/search.lua is the picker, zortex.query.search the
 -- plain-data entry point.
 local M = {}
 local Config = require("zortex.config")

@@ -42,7 +42,7 @@ and tags). Everything else is built on documents:
 
 ```
             ┌───────────────────────────────────────────────────────────┐
-  UI        │ telescope/projects  telescope/search  mastery_tree  calendar │
+  UI        │ picker/{search,projects,follow,calendar}  mastery_tree    │
             │ highlights folding toc completion preview review           │
             │ actions.lua ──► commands, keymaps, api.actions, :ZortexHelp│
             └──────────────▲────────────────────────────▲────────────────┘
@@ -568,23 +568,36 @@ XP is derived, not recorded (see [Planning.md](Planning.md)):
 
 | module                                              | uses                                                      |
 | --------------------------------------------------- | --------------------------------------------------------- |
-| `ui/telescope/projects.lua`                         | `projects.query`                                          |
-| `ui/telescope/search.lua`                           | `services/search` (picker only)                           |
+| `ui/picker/init.lua` (+ a file per backend)         | telescope, snacks.picker, fzf-lua or `vim.ui.select`      |
+| `ui/picker/projects.lua`                            | `projects.query`                                          |
+| `ui/picker/search.lua`                              | `services/search` (picker only)                           |
+| `ui/picker/follow.lua`, `calendar.lua`              | `features/links` (`>` links), `stores/calendar`           |
 | `features/highlights.lua`, `folding.lua`, `toc.lua` | `core/document` syntax and tree                           |
 | `ui/mastery_tree.lua`                               | `areas`, `projects`, `xp/stats`                           |
 | `ui/calendar/view.lua` (+ `render`, `keys`)         | `stores/calendar`, `agenda` (digest panel), `projects`    |
-| `features/completion.lua`                           | `core/link`, `notes`, `document`                          |
+| `features/completion.lua` (+ `blink.lua`)           | `core/link`, `notes`, `document`                          |
 | `features/preview.lua`                              | `core/link`, `features/links`                             |
 | `ui/review.lua`                                     | `agenda.review`                                           |
 | `services/search_history.lua`                       | `services/search` (adds boosts); the picker records opens |
 
-**Projects picker** (`ui/telescope/projects.lua`): rows show
+**Pickers** (`ui/picker`): each zortex picker is a spec (what to list, how
+a row looks, where it points, a preview, extra keys), and a backend shows it:
+`ui/picker/telescope`, `snacks`, `fzf_lua` or `select`, chosen by
+`ui.picker` (`"auto"`: LazyVim's picker, else an enabled snacks.picker,
+telescope, fzf-lua, snacks.picker, `vim.ui.select`). The spec gives either
+`items` (a list the backend fuzzy-filters) or `query` (a live list re-run on
+each keystroke, kept in its order: the structural search). Opening, several
+rows to the quickfix list, previews and the spec's keys (`close`, `refresh`)
+behave the same on every backend; `ui/picker/init.lua` has them. No backend
+is required until a picker opens, so the plugin loads without any of them.
+
+**Projects picker** (`ui/picker/projects.lua`): rows show
 `ancestors › name  done/total  open-points  [P1,DUE]`.
 
 - The preview shows attributes, own and total stats, areas, key results, the
   upcoming schedule, tasks sorted by score, and sub-projects.
-- Keys: `<CR>`/`<C-x>`/`<C-v>` open, `<C-l>` inserts the link, `<C-y>` yanks it,
-  `<C-s>` cycles the sort, `<C-d>` shows/hides done projects, `<C-e>` leaf-only.
+- Keys: the picker's own to open, `<C-l>` inserts the link, `<C-y>` yanks it,
+  `<M-s>` cycles the sort, `<M-d>` shows/hides done projects, `<M-e>` leaf-only.
 
 **Highlighting** (`features/highlights.lua`) paints from the document's
 syntax: each line kind and span type maps to a `Zortex*` group (headings,
@@ -597,7 +610,7 @@ syntax (sections start folds; other lines nest by indentation), so code inside
 fences never opens a fold.
 
 **Structural search** (`services/search.lua` for matching and ranking,
-`ui/telescope/search.lua` for the picker) works like the original search
+`ui/picker/search.lua` for the picker) works like the original search
 service. Results are sections shown as **full breadcrumbs** of their
 hierarchy, followed by lines that contain every word.
 
@@ -622,8 +635,9 @@ section's path (article → headings → … → the section itself):
 | `@@`, `#`, … alone | any section of that type                                  |
 | `a_b`, `a\ b`      | a word containing a space                                 |
 
-**Ranking.** Each match is scored, and the picker keeps that order (its sorter
-returns each result's rank and only borrows the fuzzy sorter's highlighter):
+**Ranking.** Each match is scored, and the picker keeps that order (a live
+list: telescope's sorter returns each result's rank, snacks and fzf-lua leave
+the order alone):
 
 - score = 100 × word quality (per word: exact 3, prefix 2, substring 1)
   - type bonus (article 2000, heading 1000 − 50 × level, bold heading 400,
@@ -641,7 +655,7 @@ calling `search.setup()` with no arguments resets to the defaults):
 
 | option               | effect                                                                                                                                                                                 |
 | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `default_mode`       | `"section"`: sections, then lines. `"article"`: article names only. `<C-t>` toggles in the picker.                                                                                     |
+| `default_mode`       | `"section"`: sections, then lines. `"article"`: article names only. `<M-t>` toggles in the picker.                                                                                     |
 | `max_results`        | caps the results of each query                                                                                                                                                         |
 | `token_filters[n]`   | section types that may be a result when the prompt has `n` words (the last entry applies beyond). Bold headings and labels above the first heading count as H1. Typed words bypass it. |
 | `access_decay_rate`  | per-day decay of a note's "opened from search" score (see history below)                                                                                                               |
@@ -649,8 +663,8 @@ calling `search.setup()` with no arguments resets to the defaults):
 | `breadcrumb_display` | reserved; nothing reads it yet (results always show the full breadcrumb)                                                                                                               |
 
 **Search history** (`services/search_history.lua`, stored in
-`notes_dir/.z/search_history.json`). Opening a result (`<CR>`, `<C-x>`,
-`<C-v>`) records it:
+`notes_dir/.z/search_history.json`). Opening a result (or sending it to the
+quickfix list) records it:
 
 - the note's score gets +1, decaying by `access_decay_rate` per day
 - the section and its ancestors get +1, ×`propagation_decay` per level,
@@ -664,10 +678,14 @@ calling `search.setup()` with no arguments resets to the defaults):
   and files but never outranks a better match type (article vs heading)
 - `search_history.clear()` forgets everything
 
-Telescope is loaded lazily, so the plugin sets up without it. [Search.md](Search.md)
-is the fuller target spec; the table above is what is implemented.
+[Search.md](Search.md) is the fuller target spec; the table above is what is
+implemented.
 
-**Completion** (`features/completion.lua`, an nvim-cmp source): the
+**Completion** (`features/completion.lua`; the nvim-cmp source, and
+`features/blink.lua` for blink.cmp, both from `lsp_items`): `setup()`
+registers it on the first zortex buffer, with blink.cmp when it is installed
+(the `zortex` provider, listed for zortex buffers) and nvim-cmp otherwise
+(the zortex buffers' sources). The
 components already typed are resolved with the link resolver, and the
 suggestions are what can come next. After `[` that's article names and aliases
 (`[@` gives tags). After an article, its sections; when the article was
@@ -766,6 +784,10 @@ nvim --headless -u NONE -l tests/run.lua projects   # files whose name contains 
 nvim --headless -u NONE -l tests/gen_ast.lua        # regenerate the AST fixtures (after a grammar change)
 nvim --headless -u NONE -l tests/gen_links.lua      # regenerate the resolve/search fixtures (after a resolver or search change)
 go -C app test ./...                                # Go parser, resolver, search, web app, notifications, pomodoro
+
+# the pickers and completion against the real plugins (pinned; also in CI)
+tests/plugins.sh .tests/plugins
+ZORTEX_TEST_PLUGINS=$PWD/.tests/plugins nvim --headless -u NONE -l tests/run.lua
 ```
 
 **One grammar, two implementations.** `core/syntax.lua` is the
@@ -785,7 +807,9 @@ targets or error text) and `tests/fixtures/search.json` (31 prompts with the
 ranked results, scores and breadcrumbs). `test_links` checks the files are up
 to date; `app/links` and `app/search` must reproduce them.
 
-- `tests/run.lua` has no plugin dependencies. It copies
+- `tests/run.lua` has no plugin dependencies (`ZORTEX_TEST_PLUGINS` adds
+  them for `test_zzz_integrations`; `ZORTEX_TEST_ONLY=text` runs only tests
+  whose name contains it). It copies
   `tests/fixtures/notes` to a temp directory (stores write state files into
   `notes_dir`) and points `Config.notes_dir` at it.
 - The fixtures are built from real examples: a Projects article, a standalone
@@ -801,7 +825,7 @@ to date; `app/links` and `app/search` must reproduce them.
 | `test_areas`             | area tree, `A/` links, projects/objectives, XP keys                                                                                                                              |
 | `test_search`            | config overlay, token filters, typed tokens, modes                                                                                                                               |
 | `test_tasks`             | toggling in a standalone note without losing unsaved edits; XP context                                                                                                           |
-| `test_load`              | every module under `lua/zortex` loads (Telescope stubbed)                                                                                                                        |
+| `test_load`              | every module under `lua/zortex` loads without the optional plugins                                                                                                               |
 | `test_okr`               | objective entities, `O/` links, KR projects and progress                                                                                                                         |
 | `test_agenda`            | day/range items, due tasks, review findings                                                                                                                                      |
 | `test_completion`        | link context, suggestions per position, every suggestion resolves                                                                                                                |
@@ -815,7 +839,9 @@ to date; `app/links` and `app/search` must reproduce them.
 | `test_zw_edits`          | editing layer; calendar line edits keep the file intact; buffer vs file                                                                                                          |
 | `test_zx_link_index`     | backlinks, unresolved links, incremental refresh, reload from disk                                                                                                               |
 | `test_zy_preview`        | preview content, focus line, `<CR>` opens the target                                                                                                                             |
+| `test_picker`            | backend choice, confirm / quickfix, the search spec, blink.cmp and nvim-cmp registration (stub plugins)                                                                          |
 | `test_zz_setup`          | full `require("zortex").setup()`, then opening and navigating the calendar                                                                                                       |
+| `test_zzz_integrations`  | with `ZORTEX_TEST_PLUGINS` (`tests/plugins.sh`): every picker key on telescope, snacks and fzf-lua; the blink.cmp provider                                                       |
 
 ## Conventions
 

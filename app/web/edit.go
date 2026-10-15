@@ -517,11 +517,24 @@ func (s *Server) apiEdit(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	s.editMu.Lock()
+	adopted := ""
+	if cal := s.calendarDoc(); taskOp && cal != nil && cal.Rel == rel &&
+		req.Lnum >= 1 && req.Lnum <= len(cal.Lines) && cal.Lines[req.Lnum-1] == req.Expect {
+		// a calendar task without @id linking a task becomes its copy
+		var aerr error
+		if adopted, aerr = s.adoptID(cal, req.Lnum); aerr != nil {
+			s.log.Printf("edit: taking the linked task's @id: %v", aerr)
+			adopted = ""
+		}
+	}
 	f, err := readNoteFile(s.ix.Path(rel))
 	if err != nil {
 		s.editMu.Unlock()
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
+	}
+	if adopted != "" && req.Lnum <= len(f.lines) && f.lines[req.Lnum-1] == req.Expect {
+		f.lines[req.Lnum-1], req.Expect = adopted, adopted
 	}
 	var before string
 	if req.Lnum >= 1 && req.Lnum <= len(f.lines) {

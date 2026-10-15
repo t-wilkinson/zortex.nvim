@@ -69,7 +69,10 @@ without duplicating them: a task on the calendar is the project's task.
   planner and the reviews see it done; it earns its XP once, as a project
   task (with the project's areas). Toggling one, in Neovim or on the web,
   toggles the others, so the notes read the same; a hand edit that leaves
-  them apart still counts once. `@spent` adds up over the copies.
+  them apart still counts once. `@spent` adds up over the copies. You can
+  write a copy by hand: `- [ ] [./-Improve website]` with no `@id` takes the
+  task's `@id` the first time you toggle it (the task gets one first if it
+  has none).
 - **Blocks.** `09:00 [P/#1.4 - zortex]` with tasks nested under it: the
   tasks' `[./-Item]` links continue the block's link
   ([Syntax](Syntax.md#links)), and while the block runs the web app's clocks

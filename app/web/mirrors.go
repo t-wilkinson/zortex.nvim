@@ -29,6 +29,8 @@ import (
 //   - a calendar line without a checkbox whose link points at a task stands
 //     for it: the calendar shows the task's state and toggling it toggles
 //     the task (referenceOf)
+//   - a calendar task without @id whose link points at a task takes the
+//     task's @id when toggled, becoming its copy (adoptID)
 //   - copies carried to a later day are marked [>] (edit.Moved) and left
 //     alone
 //
@@ -139,11 +141,20 @@ func (s *Server) referenceOf(doc *notes.Document, lnum int) *taskRef {
 	if doc == nil || lnum < 1 || lnum > len(doc.Lines) {
 		return nil
 	}
-	line := doc.Lines[lnum-1]
-	if !strings.Contains(line, "[") {
+	if it := syntax.ItemOf(doc.Lines[lnum-1]); it != nil && it.Mark != "" {
 		return nil
 	}
-	if it := syntax.ItemOf(line); it != nil && it.Mark != "" {
+	return s.linkedTask(doc, lnum)
+}
+
+// linkedTask: the task line lnum's first link points at, whether or not the
+// line has a checkbox. Otherwise nil.
+func (s *Server) linkedTask(doc *notes.Document, lnum int) *taskRef {
+	if doc == nil || lnum < 1 || lnum > len(doc.Lines) {
+		return nil
+	}
+	line := doc.Lines[lnum-1]
+	if !strings.Contains(line, "[") {
 		return nil
 	}
 	spans := links.LinksOn(line)
@@ -167,6 +178,38 @@ func (s *Server) referenceOf(doc *notes.Document, lnum int) *taskRef {
 		Rel: r.Doc.Rel, Lnum: r.Lnum, Line: target,
 		Done: isDone(target) || s.doneOnCalendar(r.Doc, target),
 	}
+}
+
+// adoptID: a calendar task with no @id whose link points at a task becomes a
+// copy of it: the line takes the task's @id (the task gets one first if it
+// has none), so toggling either toggles both. Returns the calendar line with
+// the @id, or "" when there is nothing to adopt. Call with editMu held.
+func (s *Server) adoptID(cal *notes.Document, lnum int) (string, error) {
+	line := cal.Lines[lnum-1]
+	it := syntax.ItemOf(line)
+	if it == nil || it.Mark == "" || edit.ID(line) != "" {
+		return "", nil
+	}
+	ref := s.linkedTask(cal, lnum)
+	if ref == nil || ref.Rel == cal.Rel {
+		return "", nil
+	}
+	id := edit.ID(ref.Line)
+	if id == "" {
+		f, err := readNoteFile(s.ix.Path(ref.Rel))
+		if err != nil {
+			return "", err
+		}
+		if ref.Lnum > len(f.lines) || f.lines[ref.Lnum-1] != ref.Line {
+			return "", nil // changed since the index read it
+		}
+		id = s.newID()
+		f.lines[ref.Lnum-1] = edit.AddAttribute(ref.Line, "id", id)
+		if err := f.write(); err != nil {
+			return "", err
+		}
+	}
+	return edit.AddAttribute(line, "id", id), nil
 }
 
 // ---------------------------------------------------------------------------

@@ -18,6 +18,9 @@
 -- Copies carried to a later day are marked [>] (moved, see carry_forward):
 -- neither open nor done, and left alone by sync.
 --
+-- A calendar task without an @id whose link points at a task becomes its
+-- copy when toggled: it takes the task's @id (tasks.linked_id).
+--
 -- A calendar line without a checkbox whose link points at a task
 -- ("- [P/#1.4 - zortex/-Improve website]", "09:00 [./-Improve website]") is a
 -- reference: it shows the task's state and toggling it toggles the task

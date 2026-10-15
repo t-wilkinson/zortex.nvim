@@ -13,7 +13,8 @@ The first public release.
 - Task copies: a project task put on the calendar keeps its `@id`, and lines
   with the same `@id` are one task: checked when any copy is, XP paid once
   by the project, toggling one toggles the others, `@spent` adds up. A
-  calendar line without a checkbox that links a task stands for it.
+  calendar line without a checkbox that links a task stands for it; a
+  checkbox line that links a task takes its `@id` when toggled.
 - `@[rust async]` (all of the tags) and `@[rust, rl]` (any); quotes `> `,
   bullets `-`.
 - `[./-Item]` links continue the link of the line they're nested under

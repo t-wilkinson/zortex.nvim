@@ -6,8 +6,9 @@ local PRIORITY = { min = 1, low = 2, default = 3, high = 4, max = 5, urgent = 5 
 -- Publishes as JSON (like the server does) with curl in the background: no
 -- shell, so quotes in titles are fine and the editor never waits.
 local function send(title, message, options, config)
-	if not config.topic then
-		return false, "No ntfy topic configured"
+	-- no default topic: on a public server anyone could read a shared one
+	if type(config.topic) ~= "string" or vim.trim(config.topic) == "" then
+		return false, "No ntfy topic configured (notifications.providers.ntfy.topic)"
 	end
 	local priority = options.priority or config.priority or "default"
 	local body = {
@@ -37,12 +38,5 @@ end
 
 return base.create_provider("ntfy", {
 	send = send,
-
-	test = function()
-		return send("Zortex Test", "ntfy notification test", { priority = "high", tags = { "test" } }, {
-			topic = "test-topic",
-			server_url = "http://ntfy.sh",
-		})
-	end,
 })
 

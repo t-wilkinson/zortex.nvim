@@ -58,6 +58,8 @@ function M.check()
 
 	health.info("State directory: " .. require("zortex.core.state").path(""):gsub("/%.json$", ""))
 
+	M.check_ntfy(health, Config)
+
 	health.start("Zortex integrations")
 	for _, dep in ipairs({ { "telescope", "search and project pickers" }, { "cmp", "link completion" } }) do
 		if pcall(require, dep[1]) then
@@ -65,6 +67,31 @@ function M.check()
 		else
 			health.warn(dep[1] .. " not found: no " .. dep[2])
 		end
+	end
+end
+
+--- ntfy: a topic is required and must be private (anyone who knows a
+--- topic on a public server can read it).
+function M.check_ntfy(health, Config)
+	local ntfy = vim.tbl_get(Config, "notifications", "providers", "ntfy")
+	if not (ntfy and ntfy.enabled) then
+		return
+	end
+	health.start("Zortex notifications (ntfy)")
+	local topic = type(ntfy.topic) == "string" and vim.trim(ntfy.topic) or ""
+	if topic == "" then
+		health.warn("ntfy is enabled but has no topic: nothing is sent", {
+			"Set notifications.providers.ntfy.topic to a private, hard-to-guess name",
+		})
+	elseif topic == "zortex-notify" then
+		health.warn("ntfy topic is zortex-notify, the old shared default: anyone can read it", {
+			"Pick a private, hard-to-guess topic (and the same in the server's NTFY_TOPIC)",
+		})
+	else
+		health.ok("ntfy topic set (" .. (ntfy.server_url or "https://ntfy.sh") .. ")")
+	end
+	if type(ntfy.server_url) == "string" and ntfy.server_url:match("^http://") then
+		health.warn("ntfy server_url is plain http: notifications travel unencrypted", { "Use https://" })
 	end
 end
 

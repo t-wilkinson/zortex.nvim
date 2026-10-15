@@ -17,11 +17,6 @@ M.interface = {
 	send = function(title, message, options, config)
 		error("Provider must implement send method")
 	end,
-
-	-- Test the provider
-	test = function()
-		return false, "Not implemented"
-	end,
 }
 
 -- Helper to create a new provider

@@ -6,14 +6,16 @@ services:
     container_name: zortex
     restart: unless-stopped
     environment:
-      # ntfy delivers calendar notifications and pomodoro alerts
+      # ntfy delivers calendar notifications and pomodoro alerts. Anyone who
+      # knows a topic on a public server can read it: pick a private one.
       - NTFY_SERVER_URL=${NTFY_SERVER_URL:-https://ntfy.sh}
-      - NTFY_TOPIC=${NTFY_TOPIC:-zortex-notify}
+      - NTFY_TOPIC=${NTFY_TOPIC:?set a private topic}
       - NTFY_AUTH_TOKEN=${NTFY_AUTH_TOKEN:-}
       # optional: required by /notify and /pending (set the same in the plugin's server.api_key)
       - ZORTEX_API_KEY=${ZORTEX_API_KEY:-}
       - ZORTEX_TITLE=${ZORTEX_TITLE:-Zortex}
-      - TZ=${TZ:-America/New_York}
+      # the calendar's time zone, e.g. America/New_York (unset: UTC)
+      - TZ=${TZ:-}
       # edit notes from the browser (then drop :ro below)
       - ZORTEX_WRITABLE=${ZORTEX_WRITABLE:-}
       # let HTML files run JavaScript (sandboxed)

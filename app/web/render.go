@@ -78,6 +78,13 @@ func (r *noteRenderer) renderRange(first, last int) {
 				continue
 			}
 		}
+		if d.Kind == syntax.KindLabel {
+			if idx, end := r.tagIndexRun(lnum); idx != nil && end <= last {
+				r.w(r.tagIndexHTML(idx, lnum, end))
+				i = end - 1
+				continue
+			}
+		}
 		switch d.Kind {
 		case syntax.KindFence:
 			i = r.block(i, "code", syntax.KindFence)

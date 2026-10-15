@@ -555,6 +555,30 @@ button.box.done { background: var(--done); }
 .tt details summary { cursor: pointer; color: var(--accent); }
 .tt details ul { margin: 0.3rem 0 0; font-size: 0.9em; }
 .tt-empty { margin: 0.3rem 0; }
+
+/* Tag indexes: rows of chips over one shared table (tagindex.go). One grid
+   for every row, so the chips line up under each other. */
+.tag-index { margin: 0.4rem 0 1rem; }
+.ti-rows { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 0.8rem; align-items: center; }
+.ti-block, .ti-row { display: contents; }
+.ti-caption { grid-column: 1 / -1; font-weight: 600; }
+.ti-block + .ti-block > :first-child { margin-top: 0.4rem; }
+.ti-head { font-weight: 600; justify-self: start; }
+.ti-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; }
+.ti-chip { display: inline-flex; align-items: baseline; gap: 0.3em; font-size: 0.88rem; line-height: 1.5; color: var(--ink); border: 1px solid var(--rule); border-radius: 999px; padding: 0 0.6rem; white-space: nowrap; }
+.ti-chip.ti-head { font-size: 0.95rem; }
+.ti-chip:hover { text-decoration: none; border-color: var(--accent); color: var(--accent); }
+.ti-chip .ti-n { font-size: 0.8em; color: var(--dim); font-variant-numeric: tabular-nums; }
+.ti-chip.none { opacity: 0.5; }
+.ti-chip[aria-current="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }
+.ti-table:not(:empty) { margin-top: 0.6rem; border-top: 1px solid var(--rule); padding-top: 0.4rem; }
+.ti-table.loading { opacity: 0.6; }
+.ti-for { margin: 0 0 0.3rem; font-size: 0.9rem; }
+@media (max-width: 560px) {
+  .ti-rows { grid-template-columns: 1fr; gap: 0.25rem; }
+  .ti-chips { margin-bottom: 0.3rem; }
+}
+}
 .ln.embed-table { padding-left: 0; }
 
 /* the local graph on a note page (graph.go) */

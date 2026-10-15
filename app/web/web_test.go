@@ -183,6 +183,47 @@ func TestTagSearch(t *testing.T) {
 	expect(t, ts, "/link?to="+url.QueryEscape("@[R/nothing]"), 404, "No matches found for: @[R/nothing]")
 }
 
+func TestTagIndex(t *testing.T) {
+	s, dir, ts := newTestServer(t, "")
+	note := "@@Topics hub\n\nTopics:\n- AI @[R/rl, ai-model]\n  - Reinforcement learning @[R/rl]\n" +
+		"  - Models @[R/rl ai-model]\n- Embedded\n  - Rust **embedded** @[R/rust embedded]\n  - @[R/async]\n" +
+		"- Gardening @[R/garden]\n\nReading:\n@[R/rust]\n@[R/nothing]\n\nNot an index:\n- plain item\n- @[R/rust]\n"
+	if err := os.WriteFile(filepath.Join(dir, "z/hub.zortex"), []byte(note), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s.Refresh()
+	body := expect(t, ts, "/n/z/hub.zortex", 200, `<div class="tag-index" id="L3" data-from="z/hub.zortex">`)
+	// one widget for both labels, its lines kept as anchors
+	if strings.Count(body, `class="tag-index"`) != 1 || !strings.Contains(body, `<span class="anchor" id="L14"></span>`) {
+		t.Errorf("adjacent index labels should share one widget: %s", body)
+	}
+	for _, want := range []string{
+		// a group with its own search heads its row
+		`<a class="ti-chip ti-head" href="/link?from=z%2Fhub.zortex&amp;to=%40%5BR%2Frl%2C+ai-model%5D" data-q="R/rl, ai-model" title="@[R/rl, ai-model]">AI <span class="ti-n">2</span></a>`,
+		// a group without one searches everything under it
+		`data-q="R/rust embedded, async" title="@[R/rust embedded, async]">Embedded <span class="ti-n">2</span>`,
+		// a chip is named by its text, or by its tags
+		`data-q="R/rust embedded" title="@[R/rust embedded]">Rust embedded <span class="ti-n">`,
+		`data-q="R/async" title="@[R/async]">async <span class="ti-n">1</span>`,
+		// no matches: dimmed
+		`<a class="ti-chip none" href=`,
+		`<span class="ti-head">Topics</span>`,
+		`data-q="R/rust, nothing" title="@[R/rust, nothing]">Reading`,
+		`<div class="ti-table" aria-live="polite"></div>`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("tag index lacks %s", want)
+		}
+	}
+	// an item without a search or items under it: an ordinary list
+	if !strings.Contains(body, `<div class="ln label" id="L16">Not an index:</div>`) {
+		t.Error("a label with a plain item is not an index")
+	}
+	// a chip's table
+	expect(t, ts, "/api/tagtable?from=z%2Fhub.zortex&q="+url.QueryEscape("R/rl"), 200, `class="tag-table"`, `Spinning Up`, `class="ti-for dim"`)
+	expect(t, ts, "/api/tagtable", 400)
+}
+
 func TestFiles(t *testing.T) {
 	_, _, ts := newTestServer(t, "")
 	root := expect(t, ts, "/f/", 200, `z/`, `Calendar`, `Show all`)

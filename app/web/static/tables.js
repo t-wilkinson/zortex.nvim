@@ -1,6 +1,7 @@
 // zortex serve: tag tables (!@[...] in a note, @[...] link pages): sort by
-// a column, filter by text, kind or tag. Event delegation, so tables that
-// arrive with a redrawn note work without setup.
+// a column, filter by text, kind or tag; and tag indexes, whose chips load
+// a table. Event delegation, so tables that arrive with a redrawn note work
+// without setup.
 (function () {
   "use strict";
 
@@ -67,4 +68,70 @@
   document.addEventListener("input", function (e) {
     if (e.target.classList && e.target.classList.contains("tt-filter")) filter(e.target.closest(".tag-table"));
   });
+
+  // ---------------------------------------------------------------------------
+  // Tag indexes: a chip loads its search's table under the rows. The choice
+  // lives in the URL (#tags=rtos+embedded), so it can be linked and the back
+  // button undoes it; nothing is chosen at first. Without this script the
+  // chips are plain links to the search's page.
+  // ---------------------------------------------------------------------------
+  var base = document.body.dataset.base || "";
+
+  function hashQuery() {
+    var m = /^#tags=(.*)$/.exec(location.hash);
+    if (!m) return "";
+    try { return decodeURIComponent(m[1].replace(/\+/g, " ")); } catch (e) { return ""; }
+  }
+  // readable in the address bar: #tags=R/rust,rl+async
+  function encodeQuery(q) {
+    return encodeURIComponent(q).replace(/%2F/gi, "/").replace(/%2C/gi, ",").replace(/%20/g, "+");
+  }
+
+  function show(index, q) {
+    var table = index.querySelector(".ti-table");
+    Array.prototype.forEach.call(index.querySelectorAll(".ti-chip"), function (c) {
+      if (c.dataset.q === q) c.setAttribute("aria-current", "true");
+      else c.removeAttribute("aria-current");
+    });
+    if (!q) { table.innerHTML = ""; delete table.dataset.q; return; }
+    if (table.dataset.q === q && table.firstChild) return;
+    table.dataset.q = q;
+    table.classList.add("loading");
+    var url = base + "/api/tagtable?q=" + encodeURIComponent(q) + "&from=" + encodeURIComponent(index.dataset.from || "");
+    fetch(url, { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.text() : Promise.reject(r.status); })
+      .then(function (html) { if (table.dataset.q === q) table.innerHTML = html; })
+      .catch(function () { if (table.dataset.q === q) table.innerHTML = '<p class="tt-empty dim">Could not load this search.</p>'; })
+      .then(function () { table.classList.remove("loading"); });
+  }
+
+  // the hash's chip, in the first index that has it; the others clear
+  function apply() {
+    var q = hashQuery(), done = false;
+    Array.prototype.forEach.call(document.querySelectorAll(".tag-index"), function (index) {
+      var has = q && !done && Array.prototype.some.call(index.querySelectorAll(".ti-chip"), function (c) { return c.dataset.q === q; });
+      show(index, has ? q : "");
+      if (has) done = true;
+    });
+  }
+
+  document.addEventListener("click", function (e) {
+    var chip = e.target.closest(".tag-index .ti-chip");
+    if (!chip || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (e.defaultPrevented) return; // editing the note: the editor has the click
+    e.preventDefault();
+    var q = chip.getAttribute("aria-current") === "true" ? "" : chip.dataset.q;
+    var url = location.pathname + location.search + (q ? "#tags=" + encodeQuery(q) : "");
+    history.pushState(null, "", url);
+    apply();
+  });
+  window.addEventListener("popstate", apply);
+  window.addEventListener("hashchange", apply);
+  // a note redrawn in place (live.js) comes back with empty indexes
+  document.addEventListener("zortex:note-updated", function () {
+    Array.prototype.forEach.call(document.querySelectorAll(".tag-index .ti-table"), function (t) { delete t.dataset.q; });
+    apply();
+  });
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", apply);
+  else apply();
 })();

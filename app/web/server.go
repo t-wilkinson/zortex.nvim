@@ -434,6 +434,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /broken", s.handleBroken)
 	mux.HandleFunc("GET /resources", s.handleResources)
 	mux.HandleFunc("GET /api/resources", s.apiResources)
+	mux.HandleFunc("GET /api/tagtable", s.apiTagTable)
 	mux.HandleFunc("GET /api/search", s.apiSearch)
 	mux.HandleFunc("GET /api/resolve", s.apiResolve)
 	mux.HandleFunc("GET /api/backlinks", s.apiBacklinks)

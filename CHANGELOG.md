@@ -71,6 +71,10 @@ The first release for people other than the author.
 
 ### Server (`zortex serve`)
 
+- Tag indexes: a label whose lines are all `@[...]` searches (or items
+  grouping them) shows as rows of chips with counts over one shared table;
+  the chosen chip is in the address (`#tags=R/rl`). `@[...]` shows like a
+  link (a dim `@`, no brackets).
 - Rendered notes, search, file browser, tags, broken links, the notes not
   linked from Structure; live updates while you edit elsewhere.
 - `>` links go straight to the link they match, or to a page listing them.

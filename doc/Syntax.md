@@ -226,6 +226,27 @@ table. In Neovim `!@[…]` follows like `@[…]`.
   - chapters 1-8 first
 ```
 
+**Tag indexes.** A label whose lines are all tag searches, or items that
+group them, is an index: on the web, rows of chips (each with how many
+lines it finds) over one shared table; choosing a chip shows its table and
+puts the search in the address (`#tags=R/rl`), so the choice can be linked.
+A chip's name is the text before its search, or the search itself; an item
+without a search groups the items under it, and its chip searches all of
+them (when they look in the same place). The label's lines end at the
+first blank line; index labels separated only by blank lines share one
+widget. In Neovim the lines are ordinary items: `gx` on one follows its
+search.
+
+```zortex
+Topics:
+- AI @[R/rl, ai-model]
+  - Reinforcement learning @[R/rl]
+  - Models @[R/rl ai-model]
+- Embedded
+  - RTOS @[R/rtos embedded]
+  - Rust @[R/rust]
+```
+
 ## Special notes
 
 | Note | Name | What it holds |

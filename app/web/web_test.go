@@ -170,6 +170,10 @@ func TestTagSearch(t *testing.T) {
 	if !strings.Contains(note, `href="/link?from=z%2Fresources.zortex&amp;to=%40%5Brl+ai-model%5D"`) {
 		t.Errorf("tag search href: %s", note)
 	}
+	// shown like a link: a dim @, no brackets, alternatives spaced
+	if !strings.Contains(note, `<span class="ts-at" aria-hidden="true">@</span>rust, rl</a>`) {
+		t.Errorf("tag search text: %s", note)
+	}
 	code, h, _ := get(t, ts, "/link?from=z%2Fresources.zortex&to="+url.QueryEscape("@[rl ai-model]"))
 	if code != 302 || h.Get("Location") != "/n/z/resources.zortex#L21" {
 		t.Errorf("one tagged line should redirect, got %d %s", code, h.Get("Location"))

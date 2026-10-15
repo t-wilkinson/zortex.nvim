@@ -152,7 +152,7 @@ a.zl::after { content: "]"; color: var(--dim); }
 a.zl.multi::after { content: "]⁺"; }
 a.broken, a.zl.broken { color: var(--broken); border-bottom: 1px dashed var(--broken); }
 a.url { overflow-wrap: anywhere; }
-a.tagsearch { font-family: var(--mono); font-size: 0.9em; }
+a.tagsearch .ts-at { color: var(--dim); margin-right: 0.05em; }
 
 /* backlinks */
 .backlinks { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--rule); }

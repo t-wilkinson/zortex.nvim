@@ -363,7 +363,7 @@ func (r *noteRenderer) span(line string, sp *syntax.Span) string {
 		return `<sup class="fnref"><a href="#fn-` + esc(sp.ID) + `">` + esc(sp.ID) + `</a></sup>`
 	case "tag_search":
 		// the tagged lines it finds (links.TagSearch), listed on the link page
-		return `<a class="tagsearch" href="` + esc(r.s.linkURL("@["+sp.Content+"]", r.doc.Rel)) + `">` + esc(raw) + `</a>`
+		return `<a class="tagsearch" href="` + esc(r.s.linkURL("@["+sp.Content+"]", r.doc.Rel)) + `" title="` + esc(raw) + `">` + tagSearchText(sp.Content) + `</a>`
 	case "attribute":
 		if r.slides {
 			return ""
@@ -387,6 +387,16 @@ func (r *noteRenderer) span(line string, sp *syntax.Span) string {
 		return `<span class="time">` + esc(raw) + `</span>`
 	}
 	return esc(raw)
+}
+
+// tagSearchText shows a tag search like a link: a dim "@", no brackets, and
+// its alternatives spaced ("rl,ai-model" -> "rl, ai-model").
+func tagSearchText(content string) string {
+	alts := strings.Split(content, ",")
+	for i, a := range alts {
+		alts[i] = strings.Join(strings.Fields(a), " ")
+	}
+	return `<span class="ts-at" aria-hidden="true">@</span>` + esc(strings.Join(alts, ", "))
 }
 
 func externalAttrs(href string) string {

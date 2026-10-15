@@ -66,6 +66,8 @@ The first release for people other than the author.
   its markdown link's text (`[R/#Rust/-The Rust Book]`).
 - Bare `@words` are tags on any line (`@rust`, `@home`, `@ai-model`); items
   list them as `attributes.tags`. The separate "contexts" are gone.
+- Tags are highlighted on every line (text and quotes too), and the `@` of
+  `@[...]` is dimmed (`ZortexTagSearchAt`).
 
 ### Server (`zortex serve`)
 

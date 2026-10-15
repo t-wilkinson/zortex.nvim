@@ -161,6 +161,30 @@ T.test("bold headings show their text and colon, not the stars", function()
 	vim.cmd("bwipeout!")
 end)
 
+T.test("tags are painted on any line; the @ of @[tags] is dimmed", function()
+	local hl = require("zortex.features.highlights")
+	vim.cmd("enew!")
+	local buf = vim.api.nvim_get_current_buf()
+	local lines = { "Some prose about borrowing @rust @ai-model", "> a quote @rl", "- AI @[rl, ai-model]" }
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+	hl.highlight_buffer(buf)
+	local ns = vim.api.nvim_create_namespace("zortex_highlights")
+	local painted = {}
+	for _, m in ipairs(vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, { details = true })) do
+		local g = m[4].hl_group
+		if g == "ZortexAttribute" or g == "ZortexTagSearchAt" then
+			painted[#painted + 1] = g .. " " .. lines[m[2] + 1]:sub(m[3] + 1, m[4].end_col)
+		end
+	end
+	T.eq(painted, {
+		"ZortexAttribute @rust",
+		"ZortexAttribute @ai-model",
+		"ZortexAttribute @rl",
+		"ZortexTagSearchAt @",
+	})
+	vim.cmd("bwipeout!")
+end)
+
 T.test("highlights paint from the syntax", function()
 	local hl = require("zortex.features.highlights")
 	vim.cmd("enew!")

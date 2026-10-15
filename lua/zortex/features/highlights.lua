@@ -45,6 +45,7 @@ local LINKS = {
 	ZortexTaskDone = { from = "Comment", strikethrough = true },
 	ZortexMarkdownLink = "Underlined",
 	ZortexLink = "Underlined",
+	ZortexTagSearchAt = "Comment", -- the "@" of @[tags]
 	ZortexFootnote = { from = "Comment", italic = true },
 	ZortexURL = "Underlined",
 	ZortexBold = { bold = true },
@@ -113,6 +114,7 @@ local ROSE_PINE = {
 	ZortexTaskDone = { fg = "#908caa", strikethrough = true },
 	ZortexMarkdownLink = { fg = "#3e8fb0", underline = true },
 	ZortexLink = { fg = "#3e8fb0", underline = true },
+	ZortexTagSearchAt = { fg = "#6e6a86" },
 	ZortexFootnote = { fg = "#9ccfd8", italic = true },
 	ZortexURL = { fg = "#3e8fb0", underline = true },
 	ZortexBold = { bold = true },
@@ -192,14 +194,15 @@ end
 -- Inline spans
 -- =============================================================================
 
-local ATTRIBUTE_KINDS = { heading = true, item = true, label = true, bold_heading = true }
-
 local function paint_spans(buf, row, spans, kind)
 	for _, span in ipairs(spans) do
 		local t, s, e = span.type, span.s, span.e
 		if t == "link" or t == "live_link" or t == "tag_search" then
 			-- "[" ... "]" (after "!" or "@" for live links and tag searches)
 			local open = t == "link" and s or s + 1
+			if t == "tag_search" then
+				paint(buf, row, "ZortexTagSearchAt", s, s + 1)
+			end
 			paint(buf, row, "ZortexLink", open + 1, e - 1)
 			conceal(buf, row, open, open + 1)
 			icon(buf, row, open)
@@ -223,9 +226,8 @@ local function paint_spans(buf, row, spans, kind)
 		elseif t == "math" then
 			paint(buf, row, span.display and "ZortexMathBlock" or "ZortexMathInline", s, e)
 		elseif t == "attribute" then
-			if ATTRIBUTE_KINDS[kind] then
-				paint(buf, row, "ZortexAttribute", s, e)
-			end
+			-- on any line: tags (@rust) end text lines and quotes too
+			paint(buf, row, "ZortexAttribute", s, e)
 		elseif t == "time" then
 			paint(buf, row, "ZortexTime", s, e)
 		end

@@ -145,7 +145,7 @@ local defaults = {
 		picker = "auto",
 
 		-- Highlight groups: linked to your colorscheme by default.
-		-- preset = "rose-pine" for the original palette; groups = { ZortexLink = { fg = "#3e8fb0" } }
+		-- preset = "rose-pine" for a Rose Pine Moon palette; groups = { ZortexLink = { fg = "#3e8fb0" } }
 		highlights = {
 			preset = nil,
 			groups = {},

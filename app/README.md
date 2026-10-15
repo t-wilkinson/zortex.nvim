@@ -32,9 +32,6 @@ lives in `-data`. Without `-data` it serves the notes only. The server never
 creates notes of its own except `inbox.zortex` (web edits); Neovim's
 `setup()` creates the key notes in a new folder.
 
-It replaces the old Flask notification server (SQLite, `send.sh`, cron) and
-the old Node app.
-
 ## Quick start
 
 ```sh
@@ -309,9 +306,7 @@ State flags (with `-data`): `-data` (`ZORTEX_DATA_DIR`, or systemd's
 }
 ```
 
-The old `services.zortex.port`, `interval`, `notesUrl` and
-`web.calendarUrl` options still evaluate (with a warning) but do nothing:
-everything is one service on `web.port`. It runs as the `zortex` user with
+Everything is one service on `web.port`. It runs as the `zortex` user with
 read-only access to `notesDir`, a writable `dataDir` (`/var/lib/zortex`) and
 the usual systemd hardening.
 
@@ -353,12 +348,6 @@ break, or Restart cycle), `pomodoro-work-end` / `pomodoro-break-end` (the next
 phase waits for you when auto-start is off), `pomodoro-stop`. Timers carry
 `timer`, alarms `alarm`. A timer or alarm that came due while the server was
 down is sent when it starts again if it is under 10 minutes late.
-
-**Migrating from the Flask server**: point the plugin's `server.api_endpoint`
-at `zortex serve` (port 8090 by default, plus `-base` if set) and save the
-calendar once (or `:ZortexNotificationsSync force`); the old
-`notifications.db` isn't read. The Flask `/api/notes/*` endpoints are gone:
-the web app's pages and `/api/search`, `/api/resolve`, `/raw/…` cover them.
 
 ## Go packages
 

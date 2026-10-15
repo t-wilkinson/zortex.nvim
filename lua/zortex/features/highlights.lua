@@ -18,7 +18,7 @@ local NS = vim.api.nvim_create_namespace("zortex_highlights")
 
 -- By default every group links to (or is derived from) a standard group, so
 -- the colorscheme decides the look and a colorscheme's own Zortex* groups
--- win. ui.highlights = { preset = "rose-pine" } gives the original palette;
+-- win. ui.highlights = { preset = "rose-pine" } gives a Rose Pine Moon palette;
 -- ui.highlights.groups overrides single groups ({ fg = "#..." } or { link = ... }).
 
 -- name -> standard group, or { from = group, <attrs to add> }
@@ -90,7 +90,7 @@ local function default_groups()
 	return out
 end
 
--- The original palette (Rose Pine Moon): ui.highlights = { preset = "rose-pine" }
+-- A Rose Pine Moon palette: ui.highlights = { preset = "rose-pine" }
 local ROSE_PINE = {
 	ZortexHeading1 = { bold = true, italic = true, fg = "#eb6f92", bg = "#2a273f" },
 	ZortexHeading2 = { bold = true, italic = true, fg = "#ea9a97", bg = "#232136" },

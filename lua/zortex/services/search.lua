@@ -11,7 +11,7 @@
 -- inside a word is a space ("1.4_zortex"). A prefix alone ("@@") matches any
 -- section of that type.
 --
--- Ranking (as in the original search service):
+-- Ranking:
 --   score  = 100 × word quality (exact 3, prefix 2, substring 1, summed)
 --          + type bonus (article 2000, heading 1000 − 50 × level,
 --            bold heading 400, label 300)
@@ -62,7 +62,7 @@ end
 
 -- Predicate over index entries: may this section be a result when the
 -- prompt has `n` words? Bold headings and labels above the first heading of
--- their article are treated as level-1 headings (as before).
+-- their article are treated as level-1 headings.
 local function section_filter(n)
 	local filters = cfg().token_filters or {}
 	local spec = filters[math.max(1, math.min(n, #filters))]

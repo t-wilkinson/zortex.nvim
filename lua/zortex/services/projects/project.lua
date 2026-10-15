@@ -50,14 +50,28 @@ end
 -- Content
 -- =============================================================================
 
--- Own tasks: core/item Items with a checkbox, plus `project`.
+-- Tasks, stats and rollups are cached on the project, and depend on the
+-- calendar too (services/mirrors: a checked copy completes a task): drop
+-- them when the calendar snapshot changed.
+local function fresh(self)
+	local cal = require("zortex.services.mirrors").calendar_doc() or false
+	if self._calendar ~= cal then
+		self._calendar = cal
+		self._tasks, self._stats, self._rollup = nil, nil, nil
+	end
+end
+
+-- Own tasks: core/item Items with a checkbox, plus `project`. A task with a
+-- checked calendar copy (same @id) is completed (services/mirrors).
 function Project:tasks()
+	fresh(self)
 	if not self._tasks then
 		local s, e = self:own_range()
 		self._tasks = self.doc:items(s + 1, e, { tasks = true })
 		for _, task in ipairs(self._tasks) do
 			task.project = self
 		end
+		require("zortex.services.mirrors").apply(self._tasks)
 	end
 	return self._tasks
 end
@@ -116,6 +130,7 @@ end
 -- Stats over the project's OWN tasks:
 -- { total, done, open, points, points_done, points_open, sizes = {xs=n,..}, completion }
 function Project:stats()
+	fresh(self)
 	if not self._stats then
 		local s = empty_stats()
 		for _, task in ipairs(self:tasks()) do
@@ -139,6 +154,7 @@ end
 
 -- Same shape as stats(), aggregated over the project and all sub-projects.
 function Project:rollup()
+	fresh(self)
 	if not self._rollup then
 		local s = add_stats(empty_stats(), self:stats())
 		for _, child in ipairs(self.children) do

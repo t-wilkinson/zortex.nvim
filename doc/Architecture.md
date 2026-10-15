@@ -134,8 +134,7 @@ definitions.
 
 - **Project tasks** are the checkbox items in a project's own range
   (`doc:items(s, e, { tasks = true })`).
-- **Key results** are items keyed `KRn` (`- KR2: [ ] …`); the legacy
-  `- KR-text` form still parses.
+- **Key results** are items keyed `KRn` (`- KR2: [ ] …`).
 - **Calendar entries** are the items under a date label
   (`services/calendar_entry`): an entry _is_ its Item, plus `type`
   (task/event/note), `text` without the time prefix, `date_context`,
@@ -368,7 +367,7 @@ Every edit emits `workspace:lines_changed` `{ file, start_line, end_line, count 
 ### State — `core/state.lua`
 
 Everything Zortex keeps in `notes_dir/.z` is one JSON file per name, opened
-with `State.open(name, { version, default, migrate })`:
+with `State.open(name, { version, default })`:
 
 | method                 | does                                                     |
 | ---------------------- | -------------------------------------------------------- |
@@ -377,9 +376,8 @@ with `State.open(name, { version, default, migrate })`:
 | `reset()` / `reload()` | back to `default()` and save / forget the in-memory copy |
 
 Loading never fails: a missing file gives `default()`, a corrupt one is kept
-as `<name>.json.corrupt-<time>` and replaced, and a different version goes
-through `migrate(data, from)` (or is replaced). Files from before versioning
-count as version 1. Files: `link_index`, `search_history`, `xp_state`,
+as `<name>.json.corrupt-<time>` and replaced, and a different version is
+replaced by `default()`. Files: `link_index`, `search_history`, `xp_state`,
 `notifications_state`; logs go to `.z/zortex.log`. Stores save when they
 change; there is no persistence manager.
 
@@ -436,8 +434,8 @@ are areas, and the namespace is `A`.
 ### OKR — `services/okr/`
 
 Objectives are entities (registry over `okr.zortex`, namespace `O`). Every
-heading is an entity; headings matching `3M-2026-Q1 Title` (or the legacy
-`3M 2026 01 Title`) are objectives (`is_objective`), others such as
+heading is an entity; headings matching `3M-2026-Q1 Title` are objectives
+(`is_objective`), others such as
 `# Current` are containers.
 
 - **Objective:** `span`, `year`, `period`, `title`, `attributes`, `completed`
@@ -452,8 +450,8 @@ heading is an entity; headings matching `3M-2026-Q1 Title` (or the legacy
 - **KR progress** = points done / points across the linked projects'
   subtrees. A checked KR is 1. A KR without project links is 0 until checked.
 - API: `objectives({ current })`, `key_results({ open })`,
-  `get_key_results(project)`, the registry functions (`get`, `resolve`, `at`,
-  …), and the older `get_objectives()` / `get_current_objectives()`.
+  `get_key_results(project)`, and the registry functions (`get`, `resolve`,
+  `at`, …).
 
 ### Calendar — `stores/calendar.lua`
 

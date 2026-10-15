@@ -5,12 +5,6 @@
 -- can't be derived: a season started by hand (a name and a date window),
 -- past seasons, and the area levels and season tier last announced (so each
 -- is announced once).
---
--- Version 3: seasons have tiers from OKR progress instead of levels.
--- Version 2. Version 1 kept a transaction log and running totals that drifted
--- (season resets wiped the log but not the area totals, unchecking a
--- standalone task didn't remove its XP, ...); they are dropped on migration,
--- seasons are kept.
 local M = {}
 
 local Events = require("zortex.core.event_bus")
@@ -23,26 +17,6 @@ local store = State.open("xp_state", {
 			current_season = nil, -- { name, start_date, end_date, start_time }
 			season_history = {}, -- { name, start_date, end_date, final_progress, final_tier }
 			seen = { season = nil, season_tier = 0, area_levels = {} },
-		}
-	end,
-	migrate = function(data)
-		local history = {}
-		for _, s in ipairs(data.season_history or {}) do
-			history[#history + 1] = {
-				name = s.name,
-				start_date = s.start_date,
-				end_date = s.end_date,
-				final_progress = s.final_progress,
-				final_tier = s.final_tier,
-				-- seasons before version 3 were XP and levels
-				final_level = s.final_level,
-				final_xp = s.final_xp,
-			}
-		end
-		return {
-			current_season = data.current_season,
-			season_history = history,
-			seen = { season = nil, season_tier = 0, area_levels = (data.seen or {}).area_levels or {} },
 		}
 	end,
 })

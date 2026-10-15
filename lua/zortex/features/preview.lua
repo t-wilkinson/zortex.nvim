@@ -234,7 +234,7 @@ function M.preview_link(opts)
 	local function open_target()
 		local location = content.location
 		M.close()
-		require("zortex.features.links").jump_to_location(location, true)
+		require("zortex.features.links").jump_to_location(location)
 	end
 	for _, key in ipairs({ "q", "<Esc>" }) do
 		vim.keymap.set("n", key, M.close, { buffer = buf, nowait = true, silent = true })

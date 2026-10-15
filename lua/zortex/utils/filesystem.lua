@@ -94,12 +94,6 @@ function M.find_files(dir, pattern)
 	return files
 end
 
--- Deprecated alias: all note files, recursively. Prefer core/notes.files(),
--- which also skips archived notes and orders results deterministically.
-function M.get_all_note_files()
-	return M.find_all_notes()
-end
-
 -- Get all note files with basic filtering
 function M.find_all_notes(filter_fn)
 	local dir = Config.notes_dir

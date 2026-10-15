@@ -50,8 +50,8 @@ end
 -- =============================================================================
 
 -- Jump to location
-local function jump_to_location(location, use_target_window)
-	local target_win = use_target_window and buffer.get_target_window() or vim.api.nvim_get_current_win()
+local function jump_to_location(location)
+	local target_win = vim.api.nvim_get_current_win()
 
 	-- Load file in target window
 	local bufnr = vim.fn.bufadd(location.file)
@@ -102,8 +102,8 @@ function M.quickfix_text_func(info)
 	return lines
 end
 
---- Jump from the quickfix window to the entry under the cursor,
---- opening in the target window (or previous window as fallback).
+--- Jump from the quickfix window to the entry under the cursor, opening it
+--- in the previous window.
 local function quickfix_jump()
 	local qf_list = vim.fn.getqflist()
 	local cursor_lnum = vim.api.nvim_win_get_cursor(0)[1]
@@ -114,22 +114,15 @@ local function quickfix_jump()
 		return
 	end
 
-	-- Determine target window: use zortex target window if available,
-	-- otherwise fall back to the previous window
-	local target_win = buffer.get_target_window()
-
-	-- Fallback: use the previous window (the one before quickfix was focused)
-	if not target_win or not vim.api.nvim_win_is_valid(target_win) then
-		local qf_win = vim.api.nvim_get_current_win()
-		vim.cmd("wincmd p")
-		target_win = vim.api.nvim_get_current_win()
-		-- If we're still in the quickfix window (no previous window), find any non-qf window
-		if target_win == qf_win then
-			for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-				if win ~= qf_win then
-					target_win = win
-					break
-				end
+	-- The previous window (the one before quickfix was focused), else any other
+	local qf_win = vim.api.nvim_get_current_win()
+	vim.cmd("wincmd p")
+	local target_win = vim.api.nvim_get_current_win()
+	if target_win == qf_win then
+		for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+			if win ~= qf_win then
+				target_win = win
+				break
 			end
 		end
 	end
@@ -242,7 +235,7 @@ local function follow(results, ctx)
 	end
 	if M.use_telescope() then
 		require("zortex.ui.telescope.follow").pick(entries, open, function(entry)
-			jump_to_location(entry.result, true)
+			jump_to_location(entry.result)
 		end)
 		return
 	end
@@ -294,7 +287,6 @@ function M.open_info(link_info, ctx)
 			elseif is_media(rel) then
 				open_external(rel)
 			else
-				vim.api.nvim_set_current_win(buffer.get_target_window())
 				vim.cmd.edit(vim.fn.fnameescape(rel))
 			end
 			return
@@ -343,10 +335,10 @@ function M.open_info(link_info, ctx)
 			follow(results, ctx)
 		elseif #results == 1 then
 			-- Single result - jump directly
-			jump_to_location(results[1], true)
+			jump_to_location(results[1])
 		else
 			-- Multiple results - jump to first and populate quickfix
-			jump_to_location(results[1], true)
+			jump_to_location(results[1])
 			M.populate_quickfix(results)
 			vim.notify(string.format("Found %d matches. Quickfix list populated.", #results), vim.log.levels.INFO)
 		end
@@ -363,9 +355,9 @@ function M.open_info(link_info, ctx)
 			vim.notify(err or ("No tag matches found for: " .. link_info.display_text), vim.log.levels.INFO)
 			return
 		elseif #results == 1 then
-			jump_to_location(results[1], true)
+			jump_to_location(results[1])
 		else
-			jump_to_location(results[1], true)
+			jump_to_location(results[1])
 			M.populate_quickfix(results)
 			vim.notify(string.format("Found %d tag matches. Quickfix list populated.", #results), vim.log.levels.INFO)
 		end
@@ -380,7 +372,7 @@ function M.open_info(link_info, ctx)
 		elseif is_media(full_path) then
 			open_external(full_path)
 		else
-			vim.api.nvim_win_set_buf(buffer.get_target_window(), vim.fn.bufadd(full_path))
+			vim.api.nvim_win_set_buf(0, vim.fn.bufadd(full_path))
 		end
 	elseif link_info.type == "footnote" then
 		-- Handle footnote reference
@@ -427,9 +419,7 @@ function M.open_info(link_info, ctx)
 		else
 			-- It's a text note, open in Vim
 			if fs.file_exists(full_path) then
-				local target_win = buffer.get_target_window()
-				local bufnr = vim.fn.bufadd(full_path)
-				vim.api.nvim_win_set_buf(target_win, bufnr)
+				vim.api.nvim_win_set_buf(0, vim.fn.bufadd(full_path))
 			else
 				-- Fallback: if we can't find it, try opening as external URL/File just in case
 				open_external(url)

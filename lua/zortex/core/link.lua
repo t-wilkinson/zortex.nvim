@@ -183,7 +183,7 @@ end
 -- Links on a line
 -- =============================================================================
 
--- Old-style link info for a syntax span (features/links, link_index, OKR)
+-- Link info for a syntax span (features/links, link_index, OKR)
 local function link_info(line, span)
 	local full = line:sub(span.s + 1, span.e)
 	local info = { full_match_text = full, col = span.s + 1 }

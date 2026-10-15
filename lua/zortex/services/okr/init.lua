@@ -55,14 +55,6 @@ function M.objectives(opts)
 	})
 end
 
--- Backwards-compatible names
-function M.get_objectives()
-	return M.objectives()
-end
-
-function M.get_current_objectives()
-	return M.objectives({ current = true })
-end
 
 -- Every key result, in document order. opts.open: only KRs not done.
 ---@param opts { open?: boolean }?

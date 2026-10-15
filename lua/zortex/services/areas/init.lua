@@ -111,8 +111,6 @@ function M.keys_for(...)
 	return keys
 end
 
--- Backwards-compatible name
-M.extract_area_paths = M.keys_for
 
 -- =============================================================================
 -- XP views

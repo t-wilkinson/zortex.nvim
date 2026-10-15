@@ -49,17 +49,41 @@ function M.base()
 	return (web:gsub("/+$", ""))
 end
 
---- A file's path relative to notes_dir ("z/resources.zortex"), or nil.
+local function under(root, path)
+	root = root:gsub("/+$", "")
+	if root ~= "" and path:sub(1, #root + 1) == root .. "/" then
+		return path:sub(#root + 2)
+	end
+end
+
+--- A file's path relative to notes_dir ("z/resources.zortex"), or nil. A
+--- symlink on either side (notes_dir, or the path the note was opened by)
+--- doesn't matter: the real paths are compared too.
 function M.rel(filepath)
 	if not filepath or filepath == "" then
 		return nil
 	end
-	local root = vim.fs.normalize(vim.fn.fnamemodify(Config.notes_dir, ":p")):gsub("/+$", "")
+	local root = vim.fs.normalize(vim.fn.fnamemodify(Config.notes_dir, ":p"))
 	local path = vim.fs.normalize(vim.fn.fnamemodify(filepath, ":p"))
-	if path:sub(1, #root + 1) ~= root .. "/" then
-		return nil
+	local rel = under(root, path)
+	if rel then
+		return rel
 	end
-	return path:sub(#root + 2)
+	local real_root = vim.uv.fs_realpath(root)
+	local real_path = vim.uv.fs_realpath(path)
+	if real_root and real_path then
+		return under(vim.fs.normalize(real_root), vim.fs.normalize(real_path))
+	end
+	-- a new note not yet written: its folder's real path
+	local real_dir = vim.uv.fs_realpath(vim.fs.dirname(path))
+	if real_root and real_dir then
+		local dir_rel = under(vim.fs.normalize(real_root), vim.fs.normalize(real_dir) .. "/x")
+		return dir_rel and (dir_rel:sub(1, -2) .. vim.fs.basename(path)) or nil
+	end
+end
+
+local function not_a_note(filepath)
+	return string.format("%s isn't inside notes_dir (%s), so the web app can't find it", filepath, Config.notes_dir)
 end
 
 local function escape_rel(rel)
@@ -74,7 +98,7 @@ end
 function M.note_path(filepath, lnum)
 	local rel = M.rel(filepath)
 	if not rel then
-		return nil, "Not a note in notes_dir"
+		return nil, not_a_note(filepath)
 	end
 	local p = "/n/" .. escape_rel(rel)
 	if lnum and lnum > 0 then
@@ -92,15 +116,28 @@ function M.file_path(filepath)
 	return "/f/" .. escape_rel(rel)
 end
 
---- The app path that resolves a link ("/link?to=...&from=..."). def is
---- "[R/#Rust]" or "@[rust]".
+--- The app path that resolves a link ("/link?to=...&from=..."), or nil,
+--- err. def is "[R/#Rust]" or "@[rust]". A link that resolves in the note
+--- it's in ([/#Heading], @[rust] without a scope) needs that note.
 function M.link_path(def, filepath)
 	local p = "/link?to=" .. qescape(def)
 	local rel = M.rel(filepath)
 	if rel then
-		p = p .. "&from=" .. qescape(rel)
+		return p .. "&from=" .. qescape(rel)
+	end
+	local inner = def:match("^@?%[(.*)%]$") or def
+	local is_local = inner:sub(1, 1) == "/" or (def:sub(1, 1) == "@" and not inner:find("/", 1, true))
+	if is_local then
+		return nil, not_a_note(filepath)
 	end
 	return p
+end
+
+local function path_target(p, err)
+	if not p then
+		return nil, err
+	end
+	return { path = p }
 end
 
 local function resolve_file(p, filepath)
@@ -133,9 +170,9 @@ function M.target(link_info, ctx)
 			local p, err = M.file_path(rel)
 			return p and { path = p } or nil, err
 		end
-		return { path = M.link_path("[" .. def .. "]", file) }
+		return path_target(M.link_path("[" .. def .. "]", file))
 	elseif t == "tag_search" then
-		return { path = M.link_path("@[" .. link_info.display_text .. "]", file) }
+		return path_target(M.link_path("@[" .. link_info.display_text .. "]", file))
 	elseif t == "website" then
 		return { url = link_info.url }
 	elseif t == "markdown" then
@@ -161,15 +198,16 @@ function M.target(link_info, ctx)
 end
 
 --- The tag index around a line: the index, at its label or with a line's
---- chip chosen ({ path }), or nil.
+--- chip chosen ({ path }); nil when lnum isn't in one, or nil, err when it
+--- is but the note can't be found.
 function M.index_target(doc, filepath, lnum)
 	local ix, query = require("zortex.core.tag_index").at(doc, lnum)
 	if not ix then
 		return nil
 	end
-	local p = M.note_path(filepath)
+	local p, err = M.note_path(filepath)
 	if not p then
-		return nil
+		return nil, err
 	end
 	if query then
 		-- the chip, as the page writes it: #tags=R/rust,rl+async
@@ -221,9 +259,14 @@ function M.open_at_cursor()
 
 	local doc = require("zortex.core.document").from_buffer(0)
 	local target, err
-	local index = doc and M.index_target(doc, file, lnum)
+	local index, index_err
+	if doc then
+		index, index_err = M.index_target(doc, file, lnum)
+	end
 	local info = require("zortex.features.links").link_at_cursor()
-	if info and not (index and info.type == "tag_search") then
+	if index_err then
+		target, err = nil, index_err
+	elseif info and not (index and info.type == "tag_search") then
 		target, err = M.target(info, ctx)
 	elseif index then
 		target = index

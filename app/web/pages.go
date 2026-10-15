@@ -3,6 +3,7 @@ package web
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -381,6 +382,16 @@ func linkDef(to string) string {
 	return "[" + strings.TrimSuffix(strings.TrimPrefix(to, "["), "]") + "]"
 }
 
+// localLink: the link resolves in the note it's in ([/#Heading], or a tag
+// search without a scope).
+func localLink(link string) bool {
+	if strings.HasPrefix(link, "@[") {
+		inner := strings.TrimSuffix(strings.TrimPrefix(link, "@["), "]")
+		return strings.HasPrefix(inner, "/") || !strings.Contains(inner, "/")
+	}
+	return strings.HasPrefix(strings.TrimPrefix(link, "["), "/")
+}
+
 func (s *Server) handleLink(w http.ResponseWriter, r *http.Request) {
 	def := r.URL.Query().Get("to")
 	fromRel := r.URL.Query().Get("from")
@@ -390,6 +401,14 @@ func (s *Server) handleLink(w http.ResponseWriter, r *http.Request) {
 	}
 	link := linkDef(def)
 	results, err := links.Resolve(s.ix, link, opts)
+	if err != nil && opts.From == nil && localLink(link) {
+		// say why instead of the resolver's "No buffer to resolve a local link in"
+		if fromRel != "" {
+			err = errors.New("This server has no note " + fromRel + " to resolve " + link + " in (not synced yet, or a different notes folder?)")
+		} else {
+			err = errors.New(link + " resolves in the note it's written in, and the request didn't say which (from=)")
+		}
+	}
 	follow := len(results) > 0 && results[0].Link != nil
 	if err == nil && len(results) == 1 {
 		href := s.noteURL(results[0].Doc.Rel, results[0].Lnum)

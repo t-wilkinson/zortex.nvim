@@ -425,10 +425,12 @@ function M.open_link()
 		local ix = doc and require("zortex.core.tag_index").at(doc, lnum)
 		if ix and ix.lnum == lnum then
 			local web = require("zortex.features.web")
-			local target = web.index_target(doc, vim.api.nvim_buf_get_name(0), lnum)
+			local target, err = web.index_target(doc, vim.api.nvim_buf_get_name(0), lnum)
 			if target then
 				return web.open(target)
 			end
+			vim.notify(err, vim.log.levels.WARN, { title = "Zortex" })
+			return
 		end
 		vim.notify("No link found on current line", vim.log.levels.INFO)
 		return

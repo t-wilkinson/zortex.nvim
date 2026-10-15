@@ -8,7 +8,6 @@ local Logger = require("zortex.core.logger")
 local datetime = require("zortex.utils.datetime")
 local fs = require("zortex.utils.filesystem")
 local link_mod = require("zortex.core.link")
-local constants = require("zortex.constants")
 local Events = require("zortex.core.event_bus")
 
 -- =============================================================================
@@ -18,7 +17,6 @@ local Events = require("zortex.core.event_bus")
 local state = {
 	last_generated = nil,
 	live_links = {}, -- Track live link subscriptions
-	update_timer = nil,
 	watchers = {}, -- File watchers for live links
 }
 
@@ -209,24 +207,6 @@ function M.generate_digest()
 	state.last_generated = os.time()
 
 	return lines
-end
-
--- =============================================================================
--- Email digest
--- =============================================================================
-
--- Calendar entries for the next `days` days, as
--- { ["YYYY-MM-DD"] = { CalendarEntry, ... } }, or nil when there are none.
-function M.calendar(days)
-	local by_date, any = {}, false
-	local kinds = { event = true, task = true, note = true }
-	for _, day in ipairs(agenda().upcoming(days or 7, { kinds = kinds })) do
-		by_date[day.date] = vim.tbl_map(function(item)
-			return item.entry
-		end, day.items)
-		any = true
-	end
-	return any and by_date or nil
 end
 
 -- =============================================================================
@@ -430,31 +410,6 @@ function M.update_digest()
 end
 
 -- =============================================================================
--- Auto-update
--- =============================================================================
-
--- Setup auto-update timer
-function M.setup_auto_update()
-	-- Clear existing timer
-	if state.update_timer then
-		state.update_timer:stop()
-		state.update_timer = nil
-	end
-
-	-- Check every hour if digest needs update
-	state.update_timer = vim.uv.new_timer()
-	state.update_timer:start(
-		60000, -- Initial delay: 1 minute
-		3600000, -- Repeat: every hour
-		vim.schedule_wrap(function()
-			if M.needs_update() then
-				M.update_digest()
-			end
-		end)
-	)
-end
-
--- =============================================================================
 -- Commands
 -- =============================================================================
 
@@ -465,27 +420,6 @@ end
 function M.force_update()
 	M.update_digest()
 	vim.notify("Digest updated", vim.log.levels.INFO)
-end
-
--- Setup
-function M.setup()
-	M.setup_auto_update()
-
-	-- Update digest on calendar changes
-	Events.on("calendar:entry_added", function()
-		if M.needs_update() then
-			vim.defer_fn(function()
-				M.update_digest()
-			end, 100)
-		end
-	end)
-
-	-- Update digest on task completion
-	Events.on("task:completed", function()
-		vim.defer_fn(function()
-			M.update_digest()
-		end, 100)
-	end)
 end
 
 return M

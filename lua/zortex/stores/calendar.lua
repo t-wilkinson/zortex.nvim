@@ -2,12 +2,10 @@
 local M = {}
 
 local Logger = require("zortex.core.logger")
-local constants = require("zortex.constants")
 local datetime = require("zortex.utils.datetime")
 local fs = require("zortex.utils.filesystem")
 local CalendarEntry = require("zortex.services.calendar_entry")
 local Events = require("zortex.core.event_bus")
-local attributes = require("zortex.utils.attributes")
 
 -- =============================================================================
 -- Store State
@@ -317,16 +315,6 @@ function M.delete_entry(entry)
 	end
 	notify_changed("calendar:entry_removed", { date = entry.date_context, entry = entry })
 	return true
-end
-
--- Index into get_entries_for_date(date_str): the list the UI shows.
-function M.delete_entry_by_index(date_str, entry_index)
-	local entries = M.get_entries_for_date(date_str)
-	local entry = entries[entry_index]
-	if not entry then
-		return false, "Invalid entry index"
-	end
-	return M.delete_entry(entry)
 end
 
 -- Replace an entry's text, keeping the line's indentation and "- " style.

@@ -103,10 +103,6 @@ function M.show_logs(count)
 	show(lines, "Zortex Logs")
 end
 
-function M.get_performance_report()
-	return vim.deepcopy(timings)
-end
-
 function M.show_performance_report()
 	local ops = vim.tbl_keys(timings)
 	table.sort(ops, function(a, b)
@@ -127,10 +123,6 @@ end
 
 function M.set_level(level)
 	cfg.level = M.levels[level] or tonumber(level) or cfg.level
-end
-
-function M.enable()
-	cfg.enabled = true
 end
 
 function M.setup(opts)

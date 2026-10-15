@@ -282,9 +282,4 @@ function M.setup(opts)
 	})
 end
 
--- Test hook
-function M._state()
-	return state
-end
-
 return M

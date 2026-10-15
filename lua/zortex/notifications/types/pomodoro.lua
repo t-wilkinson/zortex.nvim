@@ -349,12 +349,6 @@ local local_actions = {
 		return "restart"
 	end,
 }
-local_actions.resume = function(now)
-	if L.phase == PHASE.IDLE or L.running or not L.started then
-		return nil, "not paused"
-	end
-	return local_actions.start(now)
-end
 local_actions.toggle = function(now)
 	if L.running then
 		return local_actions.pause(now)
@@ -453,22 +447,15 @@ end
 function M.start()
 	return act("start")
 end
-function M.pause()
-	return act("pause")
-end
-function M.resume()
-	return act("resume")
-end
 function M.toggle()
 	return act("toggle")
 end
 function M.stop()
 	return act("stop")
 end
-function M.skip_to_next()
+function M.skip()
 	return act("skip")
 end
-M.skip = M.skip_to_next
 function M.restart()
 	return act("restart")
 end

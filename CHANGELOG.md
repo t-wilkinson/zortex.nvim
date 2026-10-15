@@ -153,5 +153,9 @@ The first release for people other than the author.
   (`:ZortexDigestSend`, `:ZortexDigestPreview`), Neovim's timers and alarms
   (`:ZortexTimerStart`, `:ZortexAlarm`, ... — they are on the web home page
   now), the old Node app (`legacy/`) and its VimL bridge (`autoload/`).
+- **Calendar view keys**: `telescope_search` is `search` (`/` now picks an
+  entry with `vim.ui.select`, so any picker works); `edit_entry` and
+  `delete_entry` are gone (they had no action). The empty `ui.telescope`
+  option and `:Telescope zortex` (an empty picker) are gone.
 
 [0.1.0]: https://github.com/t-wilkinson/zortex.nvim/releases/tag/v0.1.0

@@ -53,7 +53,8 @@ T.test("area:objectives()", function()
 end)
 
 T.test("keys_for: XP area keys from tasks, projects (inherited) and objectives", function()
-	local task = { attributes = require("zortex.utils.attributes").parse_task_attributes("x @a(1.2/Fitness)") }
+	local Attr = require("zortex.utils.attributes")
+	local task = { attributes = Attr.parse_attributes("x @a(1.2/Fitness)", Attr.schemas.task) }
 	local search = P.get("Projects/1 Programming/1.4 - zortex/1.4.1 - zortex search")
 	local okr = require("zortex.services.okr").objectives()
 	T.eq(A.keys_for(task, search, okr[2]), {

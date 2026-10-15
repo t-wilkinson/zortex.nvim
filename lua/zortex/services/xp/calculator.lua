@@ -16,10 +16,6 @@ function M.setup(opts)
 	cfg = opts or {}
 end
 
-function M.config()
-	return cfg
-end
-
 -- Config.xp until setup() hands it over (the projects API can run first)
 local function conf()
 	if next(cfg) ~= nil then

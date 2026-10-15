@@ -70,16 +70,4 @@ function M.save_pomodoro_pushed(settings)
 	return store:save()
 end
 
--- ===========================================================================
--- Utility
--- ===========================================================================
-
-function M.reload()
-	store:reload()
-end
-
-function M.save()
-	return store:save()
-end
-
 return M

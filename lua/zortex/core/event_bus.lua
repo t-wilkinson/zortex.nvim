@@ -92,8 +92,4 @@ function M.get_performance_report()
 	return report
 end
 
-function M.clear()
-	handlers, middleware, stats = {}, {}, {}
-end
-
 return M

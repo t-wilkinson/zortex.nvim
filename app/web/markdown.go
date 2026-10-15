@@ -36,6 +36,7 @@ type mdDoc struct {
 
 var (
 	mdRefDef = regexp.MustCompile(`^ {0,3}\[([^\]^][^\]]*)\]:[ \t]*<?([^\s>]+)>?(?:[ \t]+(?:"([^"]*)"|'([^']*)'|\(([^)]*)\)))?[ \t]*$`)
+	mdBullet = regexp.MustCompile(`^[ \t]*[*+][ \t]`)
 	mdRule   = regexp.MustCompile(`^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$`)
 	mdSetext = regexp.MustCompile(`^ {0,3}(=+|-+)[ \t]*$`)
 )
@@ -46,6 +47,14 @@ func isMarkdown(rel string) bool { return linkingExts[extOf(rel)] }
 func (s *Server) renderMarkdown(rel, text string) template.HTML {
 	text = strings.ReplaceAll(strings.TrimPrefix(text, "\ufeff"), "\r\n", "\n")
 	lines := strings.Split(strings.TrimSuffix(text, "\n"), "\n")
+	// Markdown's "*" and "+" bullets are "-" in a note (one byte for one, so
+	// columns stay put)
+	for i, l := range lines {
+		if mdBullet.MatchString(l) && !mdRule.MatchString(l) {
+			j := len(l) - len(strings.TrimLeft(l, " \t"))
+			lines[i] = l[:j] + "-" + l[j+1:]
+		}
+	}
 	doc := notes.FromLines(rel, lines)
 	r := &noteRenderer{s: s, doc: doc, ast: doc.Parse(), md: scanMarkdown(lines)}
 	r.ast.Header = syntax.Header{} // "@tag" lines are text in Markdown

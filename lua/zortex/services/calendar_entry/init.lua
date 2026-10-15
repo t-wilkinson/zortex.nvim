@@ -8,7 +8,7 @@
 --   type          "task" (has a checkbox) | "event" (has a time) | "note"
 --   text          display text: attributes and the time prefix removed
 --   date_context  the date heading it is under ("YYYY-MM-DD")
---   timing        { type = "point"|"range", start, end?, duration?, buffer?, recurrence? }
+--   timing        { type = "point"|"range", start, end?, duration?, buffer? }
 --
 -- Text formats for the calendar view, digest and notifications live in
 -- calendar_entry/format.
@@ -30,7 +30,7 @@ end
 -- Parsing
 -- =============================================================================
 
--- Timing from the time attributes (at; from/to; range) and recurrence (every)
+-- Timing from the time attributes (at; from/to; range)
 local function compute_timing(attrs)
 	local timing
 	if attrs.at then
@@ -39,10 +39,6 @@ local function compute_timing(attrs)
 		timing = { type = "range", start = attrs.from, ["end"] = attrs.to, buffer = attrs.buffer }
 	elseif attrs.range then
 		timing = { type = "range", start = attrs.range.start, ["end"] = attrs.range["end"], buffer = attrs.buffer }
-	end
-	if attrs.every then
-		timing = timing or {}
-		timing.recurrence = attrs.every
 	end
 	return timing
 end

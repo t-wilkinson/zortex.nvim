@@ -205,39 +205,6 @@ local attribute_parsers = {
 		return datetime.parse_datetime(v, context.default_date_str)
 	end,
 
-	every = function(v)
-		-- Parse recurrence: "day", "week,MWF", "month,15", "2w"
-		local parts = {}
-		for part in v:gmatch("([^,]+)") do
-			table.insert(parts, trim(part))
-		end
-
-		local pattern = parts[1]
-		local modifiers = {}
-		for i = 2, #parts do
-			table.insert(modifiers, parts[i])
-		end
-
-		-- Normalize common patterns
-		if pattern == "day" then
-			pattern = "daily"
-		end
-		if pattern == "week" then
-			pattern = "weekly"
-		end
-		if pattern == "month" then
-			pattern = "monthly"
-		end
-		if pattern == "year" then
-			pattern = "yearly"
-		end
-
-		return {
-			pattern = pattern,
-			modifiers = modifiers,
-		}
-	end,
-
 	buffer = function(v)
 		return datetime.parse_durations(v)
 	end,
@@ -425,7 +392,6 @@ M.schemas = {
 	task = {
 		id = { type = "string" },
 		size = { type = "enum", values = { "xs", "sm", "md", "lg", "xl", "2xl", "3xl", "4xl", "5xl" } },
-		sz = "size",
 		p = { type = "enum", values = { "1", "2", "3" } },
 		i = { type = "enum", values = { "1", "2", "3" } },
 		due = { type = "date" },
@@ -438,7 +404,7 @@ M.schemas = {
 		["repeat"] = { type = "string" },
 		notify = { type = "notify" },
 		n = "notify",
-		depends = { types = "string" }, -- Specifies task dependence
+		depends = { type = "string" }, -- Specifies task dependence
 		area = { type = "area" }, -- area-link
 		a = "area",
 	},
@@ -467,7 +433,6 @@ M.schemas = {
 				"ultimate",
 			},
 		},
-		sz = "size",
 		area = { type = "area" },
 		a = "area",
 	},

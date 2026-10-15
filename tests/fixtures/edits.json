@@ -203,17 +203,17 @@
     {
       "line": "* Star bullet",
       "op": "open",
-      "result": "- [ ] Star bullet @id(Tst01)"
+      "result": "- [ ] * Star bullet @id(Tst01)"
     },
     {
       "line": "* Star bullet",
       "op": "done",
-      "result": "- [x] Star bullet @id(Tst01) @done(2026-10-12)"
+      "result": "- [x] * Star bullet @id(Tst01) @done(2026-10-12)"
     },
     {
       "line": "* Star bullet",
       "op": "toggle",
-      "result": "- [ ] Star bullet @id(Tst01)"
+      "result": "- [ ] * Star bullet @id(Tst01)"
     },
     {
       "line": "* Star bullet",
@@ -223,17 +223,17 @@
     {
       "line": "+ Plus bullet",
       "op": "open",
-      "result": "- [ ] Plus bullet @id(Tst01)"
+      "result": "- [ ] + Plus bullet @id(Tst01)"
     },
     {
       "line": "+ Plus bullet",
       "op": "done",
-      "result": "- [x] Plus bullet @id(Tst01) @done(2026-10-12)"
+      "result": "- [x] + Plus bullet @id(Tst01) @done(2026-10-12)"
     },
     {
       "line": "+ Plus bullet",
       "op": "toggle",
-      "result": "- [ ] Plus bullet @id(Tst01)"
+      "result": "- [ ] + Plus bullet @id(Tst01)"
     },
     {
       "line": "+ Plus bullet",

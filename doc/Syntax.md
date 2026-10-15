@@ -66,9 +66,8 @@ Nothing inside a code or math block is structure.
 | `Label: text after colon` | `text` | nothing may follow the colon |
 | `Not a label: one. Two: three` | `text` | no sentence (`. `) in a label |
 | `Trailing spaces label:   ` | `text` | no trailing spaces after a label's colon |
-| `- plain bullet with [^1]` | `item` | bullets: `-`, `+`, `*` and a space |
-| `+ plus bullet` | `item` | |
-| `* star bullet` | `item` | |
+| `- plain bullet with [^1]` | `item` | a bullet: `-` and a space |
+| `+ not a bullet` | `text` | bullets are `-` only |
 | `*not a bullet*` | `text` | italic text, not a bullet |
 | `1. numbered` | `item` | ordered: a number or one letter, `.` and a space |
 | `B. lettered` | `item` | |
@@ -83,8 +82,8 @@ Nothing inside a code or math block is structure.
 | `- 09:00 Bulleted time` | `item` | a bullet whose text starts with a time (not a time item) |
 | `09:00-10:30x not a range` | `text` | |
 | `\| col a \| col b \|` | `table` | rows start and end with `\|` |
-| `\| a quote line` | `quote` | `\|` without a closing `\|` |
-| `> another quote` | `quote` | |
+| `> a quote` | `quote` | `> ` and a space |
+| `\| not a quote` | `text` | `\|` without a closing `\|` is text |
 | `>not quote` | `text` | the space is required |
 | `` ```lua `` | `fence` | ` ``` ` or `~~~` fences; the closing fence uses the same character |
 | `# not a heading` | `code` | inside a fence |

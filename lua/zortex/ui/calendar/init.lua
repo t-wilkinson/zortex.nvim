@@ -52,7 +52,7 @@ local function calendar_stats()
 		if notify and notify ~= "no" then
 			stats.entries_with_notifications = stats.entries_with_notifications + 1
 		end
-		if entry.attributes["repeat"] or entry.attributes.every then
+		if entry.attributes["repeat"] then
 			stats.recurring_entries = stats.recurring_entries + 1
 		end
 		if entry.type == "task" then

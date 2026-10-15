@@ -646,16 +646,10 @@
       "kind": "text"
     },
     {
-      "content_col": 2,
+      "content_col": 0,
       "indent": 0,
       "inline": [],
-      "item": {
-        "content_col": 2,
-        "marker": "*",
-        "marker_col": 0,
-        "marker_type": "bullet"
-      },
-      "kind": "item"
+      "kind": "text"
     },
     {
       "content_col": 1,
@@ -1808,7 +1802,7 @@
       "kind": "text"
     },
     {
-      "content_col": 2,
+      "content_col": 0,
       "indent": 0,
       "inline": [
         {
@@ -1827,13 +1821,7 @@
           "type": "italic"
         }
       ],
-      "item": {
-        "content_col": 2,
-        "marker": "*",
-        "marker_col": 0,
-        "marker_type": "bullet"
-      },
-      "kind": "item"
+      "kind": "text"
     },
     {
       "indent": 0,

@@ -268,8 +268,8 @@ func ItemOf(line string) *Item {
 	consumed := 0
 
 	switch {
-	case len(rest) >= 2 && (rest[0] == '-' || rest[0] == '+' || rest[0] == '*') && isSpace(rest[1]):
-		it = &Item{Marker: rest[:1], MarkerType: "bullet"}
+	case len(rest) >= 2 && rest[0] == '-' && isSpace(rest[1]):
+		it = &Item{Marker: "-", MarkerType: "bullet"}
 		consumed = 1 + spaceRun(rest, 1)
 	case len(rest) >= 2 && rest[0] == '-' && rest[1] == '[', rest == "-":
 		it = &Item{Marker: "-", MarkerType: "bullet"}
@@ -546,11 +546,8 @@ func Classify(line string) *Line {
 		}
 	}
 
-	if at(line, indent) == '|' {
-		if countByte(line, '|') > 1 {
-			return &Line{Kind: KindTable, Separator: boolp(isTableSeparator(line)), Indent: indent, ContentCol: intp(indent)}
-		}
-		return &Line{Kind: KindQuote, Indent: indent, ContentCol: intp(indent + 1)}
+	if at(line, indent) == '|' && countByte(line, '|') > 1 {
+		return &Line{Kind: KindTable, Separator: boolp(isTableSeparator(line)), Indent: indent, ContentCol: intp(indent)}
 	}
 	if at(line, indent) == '>' && isSpace(at(line, indent+1)) {
 		return &Line{Kind: KindQuote, Indent: indent, ContentCol: intp(indent + 1 + spaceRun(line, indent+1))}

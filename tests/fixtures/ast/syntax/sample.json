@@ -1,20 +1,20 @@
 {
   "blocks": [
     {
-      "finish": 35,
+      "finish": 34,
       "kind": "table",
-      "start": 33
+      "start": 32
     },
     {
-      "finish": 43,
+      "finish": 42,
       "kind": "code",
       "lang": "lua",
-      "start": 40
+      "start": 39
     },
     {
-      "finish": 47,
+      "finish": 46,
       "kind": "math",
-      "start": 45
+      "start": 44
     }
   ],
   "header": {
@@ -390,28 +390,10 @@
       "kind": "item"
     },
     {
-      "content_col": 2,
+      "content_col": 0,
       "indent": 0,
       "inline": [],
-      "item": {
-        "content_col": 2,
-        "marker": "+",
-        "marker_col": 0,
-        "marker_type": "bullet"
-      },
-      "kind": "item"
-    },
-    {
-      "content_col": 2,
-      "indent": 0,
-      "inline": [],
-      "item": {
-        "content_col": 2,
-        "marker": "*",
-        "marker_col": 0,
-        "marker_type": "bullet"
-      },
-      "kind": "item"
+      "kind": "text"
     },
     {
       "content_col": 3,
@@ -528,16 +510,16 @@
       "kind": "blank"
     },
     {
-      "content_col": 1,
+      "content_col": 2,
       "indent": 0,
       "inline": [],
       "kind": "quote"
     },
     {
-      "content_col": 2,
+      "content_col": 0,
       "indent": 0,
       "inline": [],
-      "kind": "quote"
+      "kind": "text"
     },
     {
       "content_col": 0,

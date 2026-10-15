@@ -31,9 +31,9 @@ local function link_mod()
 end
 
 -- LSP CompletionItemKind values
-local KIND = { article = 17, tag = 14, heading = 22, bold_heading = 13, label = 10, follow = 18, line_tag = 21 }
+local KIND = { article = 17, tag = 14, heading = 22, bold_heading = 13, label = 10, follow = 18, line_tag = 21, item = 12 }
 local PREFIX = { heading = "#", label = ":", bold_heading = "*" }
-local FILTER = { ["#"] = "heading", [":"] = "label", ["*"] = "bold_heading" }
+local FILTER = { ["#"] = "heading", [":"] = "label", ["*"] = "bold_heading", ["-"] = "item" }
 
 -- =============================================================================
 -- Context
@@ -138,6 +138,30 @@ local function section_items(doc, node)
 	return items
 end
 
+-- List items in `node`'s range as "-" components: its own items first (not
+-- inside a sub-section), then deeper ones, each in document order
+local function item_items(doc, node)
+	local items = {}
+	local last = node:is_root() and #doc.lines or node.end_line
+	for lnum = node:is_root() and 1 or node.start_line + 1, last do
+		local d = doc.syntax.lines[lnum]
+		if d and d.item then
+			local comp = link_mod().item_component(doc.lines[lnum])
+			if comp and comp ~= "-" then
+				local own = doc:node_at(lnum) == node
+				items[#items + 1] = {
+					label = comp,
+					kind = KIND.item,
+					detail = vim.trim(doc.lines[lnum]),
+					sortText = string.format("%s%06d", own and "0" or "1", lnum),
+					section_type = "item",
+				}
+			end
+		end
+	end
+	return items
+end
+
 -- Sections of `r.doc` (reached through a tag) that "[Name/<label>" would
 -- land on: no candidate before it in `results` has a match for the label.
 -- They sort after the main article's sections and show their note.
@@ -209,6 +233,9 @@ local function after_parts(ctx, opts)
 				end
 			elseif not node:is_root() then
 				vim.list_extend(items, section_items(r.doc, node))
+			end
+			if opts.items and not node:is_root() then
+				vim.list_extend(items, item_items(r.doc, node))
 			end
 		end
 	end
@@ -371,7 +398,7 @@ end
 M._area_items = area_items
 
 --- Completion items for the link at `col` (bytes before the cursor).
----@param opts { bufnr?: integer, doc?: table }?
+---@param opts { bufnr?: integer, doc?: table, lnum?: integer }? lnum: the line, for "[./" links
 ---@return table[] items { label, kind, detail, sortText }, table? ctx
 function M.get_completions(line, col, opts)
 	opts = opts or {}
@@ -391,11 +418,33 @@ function M.get_completions(line, col, opts)
 
 	local items
 	local first_char = ctx.typing:sub(1, 1)
+
+	-- "[./" continues the link of the line it is nested under: complete as
+	-- if that link were typed ("[./-" lists the parent section's items)
+	if not ctx.is_local and #ctx.parts == 1 and ctx.parts[1] == "." then
+		if not (ctx.typing == "" or link_mod().is_parent_relative("./" .. ctx.typing)) then
+			return {}, ctx -- "[./scan.pdf]" is a file path
+		end
+		local parent = opts.doc and opts.lnum and link_mod().parent_link(opts.doc.lines, opts.lnum)
+		if not parent then
+			return {}, ctx
+		end
+		ctx.is_local = parent:sub(1, 1) == "/"
+		ctx.parts = link_mod().split(ctx.is_local and parent:sub(2) or parent)
+		-- right after "./" every kind of component is offered, items too
+		opts.items = ctx.typing == "" or first_char == "-"
+	elseif first_char == "-" then
+		opts.items = true
+	end
+
 	if first_char == ">" then
 		items = follow_items(ctx, opts)
 	elseif #ctx.parts == 0 then
 		if ctx.is_local then
 			items = opts.doc and section_items(opts.doc, opts.doc.tree) or {}
+			if opts.items and opts.doc then
+				vim.list_extend(items, item_items(opts.doc, opts.doc.tree))
+			end
 		elseif first_char == "@" then
 			items = tag_items()
 		elseif FILTER[first_char] then
@@ -408,7 +457,7 @@ function M.get_completions(line, col, opts)
 		items = after_parts(ctx, opts)
 	end
 
-	-- A typed "#", ":" or "*" narrows to that section type
+	-- A typed "#", ":", "*" or "-" narrows to that kind of component
 	local wanted = FILTER[first_char]
 	if wanted then
 		items = vim.tbl_filter(function(item)
@@ -436,14 +485,14 @@ end
 -- Completion engines: blink.cmp (features/blink) and nvim-cmp
 -- =============================================================================
 
-M.TRIGGERS = { "[", "/", "#", "@", ":", "*", "(", ",", ">" }
+M.TRIGGERS = { "[", "/", "#", "@", ":", "*", "(", ",", ">", "-" }
 M.FILETYPES = { zortex = true, markdown = true, text = true }
 
 --- LSP completion items for the text before the cursor (`before`) on 0-based
 --- `row`: each replaces the component being typed (textEdit, byte columns),
 --- or nil when the cursor isn't in a link or an @a(...) value.
 function M.lsp_items(before, row, bufnr)
-	local items, ctx = M.get_completions(before, #before, { bufnr = bufnr })
+	local items, ctx = M.get_completions(before, #before, { bufnr = bufnr, lnum = row + 1 })
 	if not ctx then
 		return nil
 	end

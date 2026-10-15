@@ -234,6 +234,10 @@ function M.candidates(opts)
 				if s > 0 then
 					badges[#badges + 1] = p.name
 					tasks[#tasks + 1] = {
+						-- a to-do rather than project work: in the TODO project
+						-- (ui.planner.todo_link) or the Projects note's own list
+						todo = p:is_root() or (ctx.todo ~= nil and in_subtree(p, ctx.todo)) or nil,
+						project_name = p.name,
 						kind = "task",
 						text = plain(task.text) .. " " .. M.item_link(p.link, task.raw_text),
 						link = M.item_link(p.link, task.raw_text),
@@ -279,36 +283,40 @@ function M.candidates(opts)
 	end
 
 	-- Projects: OKR-linked or high priority/importance, with open work
+	local function project_candidate(p)
+		local r = p:rollup()
+		local a, a_badges = alignment(p, nil, ctx)
+		local badges = score.indicators(p)
+		for _, b in ipairs(a_badges) do
+			if b ~= "OKR" and b ~= "area" then
+				badges[#badges + 1] = b
+			end
+		end
+		badges[#badges + 1] = string.format("%d/%d", r.done, r.total)
+		for _, t in ipairs(p:tasks()) do
+			if not t.completed then
+				badges[#badges + 1] = "next: " .. t.text
+				break
+			end
+		end
+		return {
+			kind = "project",
+			text = p.link,
+			project_key = p.key,
+			project_link = p.link,
+			badges = badges,
+			score = score.project_score(p) + a,
+			file = p.file,
+			lnum = p.lnum,
+		}
+	end
 	local plist = {}
 	for _, p in ipairs(projects.all()) do
 		local attrs = p.attributes
 		local high = (tonumber(attrs.p) or 9) <= 2 or (tonumber(attrs.i) or 9) <= 2
-		local r = p:rollup()
-		local a, a_badges = alignment(p, nil, ctx)
-		if not p:is_root() and not p:is_done() and r.open > 0 and (ctx.kr_of[p] or high) then
-			local badges = score.indicators(p)
-			for _, b in ipairs(a_badges) do
-				if b ~= "OKR" and b ~= "area" then
-					badges[#badges + 1] = b
-				end
-			end
-			badges[#badges + 1] = string.format("%d/%d", r.done, r.total)
-			for _, t in ipairs(p:tasks()) do
-				if not t.completed then
-					badges[#badges + 1] = "next: " .. t.text
-					break
-				end
-			end
-			plist[#plist + 1] = {
-				kind = "project",
-				text = p.link,
-				project_key = p.key,
-				project_link = p.link,
-				badges = badges,
-				score = score.project_score(p) + a,
-				file = p.file,
-				lnum = p.lnum,
-			}
+		local _ = alignment(p, nil, ctx) -- fills ctx.kr_of[p]
+		if not p:is_root() and not p:is_done() and p:rollup().open > 0 and (ctx.kr_of[p] or high) then
+			plist[#plist + 1] = project_candidate(p)
 		end
 	end
 	sort_by_score(plist)
@@ -374,7 +382,48 @@ function M.candidates(opts)
 	end
 	sort_by_score(areas)
 
-	return { tasks = tasks, projects = plist, key_results = krs, areas = areas }
+	local todos, groups = M.group(tasks, plist, function(key)
+		local p = projects.get(key)
+		return p and project_candidate(p)
+	end)
+	return { tasks = tasks, projects = plist, key_results = krs, areas = areas, todos = todos, groups = groups }
+end
+
+--- Split ranked tasks into to-dos (the TODO project, the Projects note's own
+--- tasks, open calendar tasks of earlier days) and one group per project:
+--- { project = <project candidate>, tasks = { ... } }. Groups come in the
+--- order of their best task; projects from `plist` without a ranked task
+--- follow, in their own order. `make_project(key)` gives the heading of a
+--- project not in `plist`.
+function M.group(tasks, plist, make_project)
+	local todos, groups, by_key = {}, {}, {}
+	local listed = {}
+	for _, p in ipairs(plist) do
+		listed[p.project_key] = p
+	end
+	for _, t in ipairs(tasks) do
+		if t.todo or not t.project_key then
+			todos[#todos + 1] = t
+		else
+			local g = by_key[t.project_key]
+			if not g then
+				local project = listed[t.project_key]
+					or (make_project and make_project(t.project_key))
+					or { kind = "project", text = t.project_link, project_key = t.project_key, project_link = t.project_link, badges = {} }
+				g = { project = project, tasks = {} }
+				by_key[t.project_key] = g
+				groups[#groups + 1] = g
+			end
+			g.tasks[#g.tasks + 1] = t
+		end
+	end
+	for _, p in ipairs(plist) do
+		if not by_key[p.project_key] then
+			by_key[p.project_key] = true
+			groups[#groups + 1] = { project = p, tasks = {} }
+		end
+	end
+	return todos, groups
 end
 
 -- =============================================================================

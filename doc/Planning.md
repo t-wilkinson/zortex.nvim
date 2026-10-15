@@ -69,7 +69,10 @@ without duplicating them: a task on the calendar is the project's task.
   planner and the reviews see it done; it earns its XP once, as a project
   task (with the project's areas). Toggling one, in Neovim or on the web,
   toggles the others, so the notes read the same; a hand edit that leaves
-  them apart still counts once. `@spent` adds up over the copies.
+  them apart still counts once. `@spent` adds up over the copies. You can
+  write a copy by hand: `- [ ] [./-Improve website]` with no `@id` takes the
+  task's `@id` the first time you toggle it (the task gets one first if it
+  has none).
 - **Blocks.** `09:00 [P/#1.4 - zortex]` with tasks nested under it: the
   tasks' `[./-Item]` links continue the block's link
   ([Syntax](Syntax.md#links)), and while the block runs the web app's clocks
@@ -85,7 +88,10 @@ without duplicating them: a task on the calendar is the project's task.
   day's template), and marks the old lines `[>]` (carried: neither open nor
   done, kept as the record of that day). Repeating entries (`@repeat`) stay.
 
-In the planner, `p` puts a task on the day as a copy (under its project's
+The planner (`<leader>zm`) lists projects first, each under a heading with
+its ranked tasks, then key results, then to-dos (the TODO project,
+`ui.planner.todo_link`, the Projects note's own tasks and calendar tasks
+left open), then areas. In it, `p` puts a task on the day as a copy (under its project's
 block when the day has one; the task gets an `@id` if it has none), `P` a
 project as a block with all of its open tasks, and `<CR>` / `i` / `o` the
 task's text and link at the cursor (a reference, ready for a time). The

@@ -60,10 +60,39 @@ T.test("candidates: signals add up; every line carries a resolving link", functi
 		T.ok(c.key_results[1].text:find("/%-KR%d+%]"), c.key_results[1].text)
 
 		local resolver = require("zortex.core.link")
-		for _, section in pairs(c) do
-			for _, item in ipairs(section) do
+		for key, section in pairs(c) do
+			for _, item in ipairs(key == "groups" and {} or section) do
 				local link = item.text:match("%[([^%]]+)%]%s*$")
 				T.ok(link and resolver.resolve_first(link), "resolves: " .. item.text)
+			end
+		end
+	end)
+end)
+
+T.test("plan buffer: a heading per project with its tasks; Tasks holds the to-dos", function()
+	with_config({ todo_link = "P/#1 Programming/#1.4 - zortex/#1.4.1 - zortex search" }, function()
+		local c = planner.candidates({ today = TODAY })
+		local lines = require("zortex.ui.planner").render(c, TODAY)
+		local function at(text)
+			for i, l in ipairs(lines) do
+				if l:find(text, 1, true) then
+					return i
+				end
+			end
+		end
+		local projects, krs, todos, areas = at("# Projects ("), at("# Key results ("), at("# Tasks ("), at("# Areas (")
+		T.ok(projects < krs and krs < todos and todos < areas, "sections in order")
+		-- a project task sits under its project's heading
+		local heading = at("## [P/#1 Programming/#1.4 - zortex]")
+		local improve = at("Improve website [P/")
+		T.ok(heading and heading > projects and improve > heading and improve < krs, vim.inspect(lines))
+		-- a TODO-project task and an overdue calendar task are to-dos
+		T.ok(at("Fix project search [P/") > todos, "TODO project task under Tasks")
+		T.ok(at("Call the mechanic") > todos, "calendar task under Tasks")
+		for _, g in ipairs(c.groups) do
+			for _, t in ipairs(g.tasks) do
+				T.eq(t.project_key, g.project.project_key)
+				T.ok(not t.todo, t.text)
 			end
 		end
 	end)

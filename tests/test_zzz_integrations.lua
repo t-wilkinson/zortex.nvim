@@ -248,6 +248,29 @@ if T.plugin("blink.cmp") then
 		vim.cmd("silent! edit!")
 	end)
 
+	T.test("blink.cmp: '[./-' lists the parent line's items, filtered as one word", function()
+		vim.cmd("enew!")
+		vim.bo.filetype = "zortex"
+		local line = "    - [ ] [./-Imp"
+		vim.api.nvim_buf_set_lines(0, 0, -1, false, { "2026-10-15:", "16:00 [P/#1 Programming/#1.4 - zortex]", line })
+		local got
+		require("zortex.features.blink").new({}):get_completions({ line = line, cursor = { 3, #line }, bufnr = 0 }, function(r)
+			got = r
+		end)
+		local item
+		for _, i in ipairs(got.items) do
+			if i.label == "-Improve website" then
+				item = i
+			end
+		end
+		T.ok(item, vim.inspect(vim.tbl_map(function(i)
+			return i.label
+		end, got.items)))
+		T.eq(item.textEdit.range.start, { line = 2, character = #"    - [ ] [./" })
+		T.eq(item.filterText, "-Improve website")
+		vim.cmd("enew!")
+	end)
+
 	T.test("blink.cmp: its provider asks the source for the line at the cursor", function()
 		vim.cmd("enew!")
 		vim.bo.filetype = "zortex"

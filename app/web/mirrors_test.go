@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/t-wilkinson/zortex.nvim/app/edit"
 )
 
 // A project task and its calendar copies share an @id (mirrors.go).
@@ -202,5 +204,46 @@ func TestTrackBlockTasks(t *testing.T) {
 	})
 	if tg := s.calendarTarget(now); tg == nil || tg.Rel != "projects.zortex" || tg.Text != "Change task sizes" {
 		t.Fatalf("reference: %+v", tg)
+	}
+}
+
+// A checked calendar line without @id that links a task takes the task's
+// @id when toggled (and gives the task one first when it has none), so the
+// two become copies of one task.
+func TestMirrorAdoptsLinkedID(t *testing.T) {
+	s, dir, ts := mirrorServer(t, []string{
+		"16:00 [P/#1.4 - zortex]",
+		"  - [ ] [./-Improve website]",
+		"  - [ ] [P/#1 Programming/#1.4 - zortex/-Add research-ready references]",
+	})
+	url := ts.URL
+	cal, proj := filepath.Join(dir, "calendar.zortex"), filepath.Join(dir, "projects.zortex")
+
+	// the task has an @id: the calendar line takes it, and both are done
+	n, line := lineWith(t, cal, "[./-Improve website]")
+	if code, out := postJSON(t, url, "/api/edit", map[string]any{"rel": "calendar.zortex", "lnum": n, "expect": line, "op": "toggle"}); code != 200 {
+		t.Fatalf("toggle: %d %v", code, out)
+	}
+	if _, l := lineWith(t, cal, "[./-Improve website]"); l != "  - [x] [./-Improve website] @id(web01) @done("+today()+")" {
+		t.Fatalf("copy: %q", l)
+	}
+	if _, l := lineWith(t, proj, "Improve website"); !strings.HasPrefix(l, "- [x] Improve website") || !strings.Contains(l, "@id(web01)") {
+		t.Fatalf("project task: %q", l)
+	}
+
+	// the task has no @id: it gets a new one, shared with the calendar line
+	s.Refresh()
+	n, line = lineWith(t, cal, "-Add research-ready references]")
+	if code, out := postJSON(t, url, "/api/edit", map[string]any{"rel": "calendar.zortex", "lnum": n, "expect": line, "op": "toggle"}); code != 200 {
+		t.Fatalf("toggle: %d %v", code, out)
+	}
+	_, task := lineWith(t, proj, "Add research-ready references")
+	_, copyLine := lineWith(t, cal, "-Add research-ready references]")
+	id := edit.ID(task)
+	if id == "" || edit.ID(copyLine) != id || !strings.HasPrefix(task, "- [x]") {
+		t.Fatalf("task %q, copy %q", task, copyLine)
+	}
+	if issues := s.mirrorIssues(); len(issues) != 0 {
+		t.Fatalf("ids don't line up: %+v", issues)
 	}
 }

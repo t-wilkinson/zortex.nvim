@@ -692,7 +692,10 @@ suggestions are what can come next. After `[` that's article names and aliases
 (`[@` gives tags). After an article, its sections; when the article was
 reached through a tag (`[P/` reaching an `@P` note), the note's own name.
 After a section, its sub-sections, children first. `#`, `:` and `*` narrow to
-headings, labels and bold headings. Every suggestion resolves.
+headings, labels and bold headings; `-` lists the section's list items (its
+own first). `[./` completes as if the parent line's link were typed
+(`link.parent_link`), so `[./-` under `09:00 [P/#1.4 - zortex]` lists that
+project's items. Every suggestion resolves.
 `get_completions(line, col, opts)` is the testable core.
 
 **Hover preview:** with `ui.preview.on_hover = true`, resting the cursor on a
@@ -708,7 +711,11 @@ focuses it. Footnotes preview their definition.
 **Day planner** (`ui/planner.lua` + `services/planner.lua`, `:ZortexPlan
 [date]`, `<prefix>m`): opens `calendar.zortex` at the day, creating it from
 `ui.planner.templates` (`monday` … `sunday` override `weekday` / `saturday` /
-`sunday`), and a `zortex://plan` window beside it with ranked candidates:
+`sunday`), and a `zortex://plan` window beside it with ranked candidates in
+four sections: **Projects** (a `## <project link>` heading per project, its
+ranked tasks under it; `planner.group`), **Key results**, **Tasks** (to-dos:
+the TODO project, the Projects note's own tasks, open calendar tasks of
+earlier days) and **Areas**.
 
 - **Tasks** score by adding signals (`planner.weights`): in the TODO project
   (`ui.planner.todo_link`, default `P/#TODOs`) 3, `@p1/2/3` 3/2/1, `@i1/2`

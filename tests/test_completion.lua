@@ -229,3 +229,41 @@ T.test("tags: after a bare @ and inside @[...], most used first", function()
 	T.eq(async.textEdit.range.start.character, #"@[R/rust ")
 	T.eq(async.filterText, "rust async") -- what nvim-cmp compares with "rust a"
 end)
+
+-- "[./" continues the link of the line it's nested under
+local function rel_labels(lines, typed)
+	lines = vim.list_extend(vim.deepcopy(lines), { typed })
+	local d = Document.from_lines(lines, "/tmp/plan.zortex")
+	local items = C.get_completions(typed, #typed, { doc = d, lnum = #lines })
+	return vim.tbl_map(function(i)
+		return i.label
+	end, items)
+end
+
+T.test("'[./' completes from the parent line's link: items, sections, links", function()
+	local cal = { "@@Calendar", "", "2026-10-15:", "16:00 [P/#1 Programming/#1.4 - zortex]" }
+	-- "-" lists the section's items, its own first
+	local items = rel_labels(cal, "    - [ ] [./-")
+	T.eq(items[1], "-Add research-ready references")
+	T.ok(has(items, "-Improve website") and has(items, "-Calendar doesn"), vim.inspect(items))
+	T.ok(not has(items, "#1.4.1 - zortex search"), "only items after -")
+	T.ok(has(items, "-Fix project search"), "items of sub-sections come after")
+	-- "#", ":" and "*" narrow to that kind of section
+	T.eq(rel_labels(cal, "    - [./#"), { "#1.4.1 - zortex search" })
+	T.eq(rel_labels(cal, "    - [./:"), { ":Notes" })
+	-- right after "./": sections and items
+	local all = rel_labels(cal, "    - [./")
+	T.ok(has(all, "#1.4.1 - zortex search") and has(all, "-Improve website"), vim.inspect(all))
+	-- a relative parent continues its own parent
+	local nested = vim.list_extend(vim.deepcopy(cal), { "    - [./#1.4.1 - zortex search]" })
+	T.eq(rel_labels(nested, "        - [./-"), { "-Fix project search" })
+	-- no parent link, or a file path: nothing
+	T.eq(rel_labels({ "@@X", "" }, "- [./-"), {})
+	T.eq(rel_labels(cal, "    - [./sc"), {})
+end)
+
+T.test("'-' after a section lists its items anywhere in a link", function()
+	local l = labels("[P/#1 Programming/#1.4 - zortex/-Imp")
+	T.ok(has(l, "-Improve website"), vim.inspect(l))
+	T.ok(not has(l, "#1.4.1 - zortex search"), vim.inspect(l))
+end)

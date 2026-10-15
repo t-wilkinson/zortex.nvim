@@ -13,12 +13,16 @@ The first public release.
 - Task copies: a project task put on the calendar keeps its `@id`, and lines
   with the same `@id` are one task: checked when any copy is, XP paid once
   by the project, toggling one toggles the others, `@spent` adds up. A
-  calendar line without a checkbox that links a task stands for it.
+  calendar line without a checkbox that links a task stands for it; a
+  checkbox line that links a task takes its `@id` when toggled.
 - `@[rust async]` (all of the tags) and `@[rust, rl]` (any); quotes `> `,
   bullets `-`.
 - `[./-Item]` links continue the link of the line they're nested under
-  (`09:00 [P/#1.4 - zortex]` / `  - [ ] [./-Improve website]`).
-- The planner puts tasks on the day as copies (`p`, under their project's
+  (`09:00 [P/#1.4 - zortex]` / `  - [ ] [./-Improve website]`), and complete
+  from it: `[./-` lists that section's items, `[./#`, `[./:`, `[./*` and
+  `[./>` its sections and links. `-` lists a section's items in any link.
+- The planner lists projects with their tasks under a heading each, then
+  key results, to-dos and areas, and puts tasks on the day as copies (`p`, under their project's
   block), projects as blocks with their open tasks (`P`), and carries the open
   tasks of the days before to today, marking the old lines `[>]`
   (`:ZortexCarryForward`, `ui.planner.carry_forward`).

@@ -299,9 +299,10 @@ function M.change_task_completion(doc_context, should_complete)
 		return task, nil
 	end
 
-	-- Ensure task has ID
+	-- Ensure task has ID: a calendar task linking a task takes that task's
+	-- @id (becoming its copy); anything else gets a new one
 	if not task.attributes or not task.attributes.id then
-		local id = generate_task_id()
+		local id = M.linked_id(doc_context) or generate_task_id()
 		local new_line = attributes.add_attribute(doc_context.line, "id", id)
 		workspace.set_line(doc_context.bufnr, doc_context.lnum, new_line)
 		task = Item.task(new_line)
@@ -330,6 +331,22 @@ function M.change_task_completion(doc_context, should_complete)
 	end
 
 	return result, err
+end
+
+--- For a calendar task line with no @id whose link points at a task in
+--- another note: that task's @id, added to the task first when it has none.
+--- Toggling the line then makes it a copy of the task (services/mirrors).
+function M.linked_id(doc_context)
+	local mirrors = require("zortex.services.mirrors")
+	local path = doc_context.filepath and vim.fn.fnamemodify(doc_context.filepath, ":p")
+	if not path or path ~= mirrors.calendar_path() or not doc_context.doc then
+		return nil
+	end
+	local target = mirrors.reference_of_copy(doc_context.doc, doc_context.lnum)
+	if not target or vim.fn.fnamemodify(target.file, ":p") == path then
+		return nil
+	end
+	return (mirrors.ensure_id(target.file, target.lnum))
 end
 
 --- Toggle the task a calendar reference line points at. Returns the task

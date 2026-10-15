@@ -928,7 +928,17 @@ function M.absolute(definition, lines, lnum)
 	if not M.is_parent_relative(def) then
 		return def
 	end
-	local rest = def:sub(3)
+	local parent, err = M.parent_link(lines, lnum)
+	if not parent then
+		return nil, err
+	end
+	return parent .. "/" .. def:sub(3)
+end
+
+--- The absolute link a "./" link on line `lnum` continues: the first link
+--- on the nearest less-indented line above that has one (made absolute when
+--- it is relative itself). nil and NO_PARENT_LINK when there is none.
+function M.parent_link(lines, lnum)
 	local line = lines and lines[lnum]
 	if not line then
 		return nil, M.NO_PARENT_LINK
@@ -940,13 +950,9 @@ function M.absolute(definition, lines, lnum)
 			for _, span in ipairs(M.links_on(text)) do
 				local parent = span.definition
 				if M.is_parent_relative(parent) then
-					local abs, err = M.absolute(parent, lines, l)
-					if not abs then
-						return nil, err
-					end
-					return abs .. "/" .. rest
+					return M.absolute(parent, lines, l)
 				elseif not parent:match("^%.%.?/") and not parent:match("^~") then
-					return parent .. "/" .. rest
+					return parent
 				end
 			end
 			want = indent_of(text)

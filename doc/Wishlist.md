@@ -129,8 +129,8 @@ Deferred for now; listed so the pieces fit together later.
   were typed (article only for one word, article + H1/H2 for two, …).
 - **Search inside a folder:** a `z/` or `dir:z/projects` prefix, or a picker
   scope, limiting `services/search` to notes under a directory.
-- **Full-text tokens** described in [Search.md](Search.md) (`@tag` words,
-  escaped spaces everywhere) that the picker does not implement yet.
+- **Tag words in search:** `@tag` narrowing results to sections or lines
+  with that tag.
 
 ## 5. Editing and maintenance
 

@@ -28,11 +28,6 @@ function M.notify(title, message, options)
 	return manager.send_notification(title, message, options)
 end
 
--- Schedule a notification
-function M.schedule(notification)
-	return manager.schedule_notification(notification)
-end
-
 -- List scheduled notifications with optional filter
 function M.list_scheduled(filter)
 	return manager.list_scheduled(filter)
@@ -48,7 +43,6 @@ M.pomodoro = pomodoro
 -- Calendar functions
 M.calendar = {
 	sync = calendar.sync,
-	get_pending_for_date = calendar.get_pending_for_date,
 }
 
 -- ===========================================================================

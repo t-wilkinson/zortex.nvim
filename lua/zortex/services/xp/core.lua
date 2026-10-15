@@ -224,9 +224,4 @@ function M.init(opts)
 	end, 1500)
 end
 
---- Forget the last totals (tests).
-function M._reset()
-	last = nil
-end
-
 return M

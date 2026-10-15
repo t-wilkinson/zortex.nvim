@@ -456,11 +456,6 @@ M.schemas = {
 -- `context` parameter passes additional information for parsing attributes.
 -- Currently only used for passing a default date to the 'datetime' attribute
 
--- Parse task attributes
-function M.parse_task_attributes(line, context)
-	return M.parse_attributes(line, M.schemas.task, context)
-end
-
 -- Parse project attributes
 function M.parse_project_attributes(line, context)
 	return M.parse_attributes(line, M.schemas.project, context)
@@ -471,10 +466,6 @@ function M.parse_calendar_attributes(line, context)
 	return M.parse_attributes(line, M.schemas.calendar_entry, context)
 end
 
--- Strip attributes (returns clean text and extracted attributes)
-function M.strip_attributes(line, schema)
-	return M.parse_attributes(line, schema)
-end
 -- =============================================================================
 -- Specific Attribute Helpers
 -- =============================================================================

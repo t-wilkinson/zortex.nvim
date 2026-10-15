@@ -35,8 +35,6 @@ function api.setup(opts)
 			actions.register_which_key(Config.keymaps.prefix, Config.keymaps.mappings, Config.keymaps.groups)
 		end
 	end
-
-	require("zortex.ui.telescope.core").setup()
 end
 
 return api

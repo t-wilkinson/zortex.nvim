@@ -24,3 +24,25 @@ T.test("calendar opens and every day can be selected", function()
 	T.ok(moved_ok, tostring(moved_err))
 	pcall(view.close)
 end)
+
+T.test("calendar / picks an entry and jumps to its line", function()
+	local view = require("zortex.ui.calendar.view")
+	local cal = require("zortex.utils.filesystem").get_calendar_file()
+	view.open()
+	local orig, offered = vim.ui.select, nil
+	vim.ui.select = function(items, opts, on_choice)
+		offered = vim.tbl_map(opts.format_item, items)
+		for _, item in ipairs(items) do
+			if item.entry.lnum then
+				return on_choice(item)
+			end
+		end
+	end
+	local ok, err = pcall(vim.cmd, "normal /")
+	vim.ui.select = orig
+	T.ok(ok, tostring(err))
+	T.ok(offered and #offered > 0, "no entries offered")
+	T.ok(offered[1]:match("^%d%d%d%d%-%d%d%-%d%d  "), offered[1])
+	T.eq(vim.api.nvim_buf_get_name(0), vim.fn.fnamemodify(cal, ":p"))
+	T.ok(vim.api.nvim_get_current_line():match("%S"))
+end)

@@ -64,12 +64,12 @@ T.test("update and delete edit exactly one line", function()
 
 	local entries = calendar.get_entries_for_date("2026-10-10")
 	local target
-	for i, e in ipairs(entries) do
+	for _, e in ipairs(entries) do
 		if e.raw_text == "09:30 [Flipping]" then
-			target = i
+			target = e
 		end
 	end
-	T.ok(calendar.delete_entry_by_index("2026-10-10", target))
+	T.ok(calendar.delete_entry(target))
 	lines = fs.read_lines(cal_path)
 	T.eq(#lines, #before - 1)
 	T.eq(lines[10], "10:00 [P/#1.4 - Zortex]")

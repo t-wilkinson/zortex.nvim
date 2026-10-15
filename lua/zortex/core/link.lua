@@ -220,18 +220,6 @@ function M.at(line, col)
 	return span and link_info(line, span) or nil
 end
 
---- Every link on a line, in order (same shape as at()).
-function M.on_line(line)
-	local out = {}
-	syntax.walk_spans(syntax.inline(line), function(span)
-		local info = link_info(line, span)
-		if info then
-			out[#out + 1] = info
-		end
-	end)
-	return out
-end
-
 --- `line` from byte `from` (0-based) on, with markdown links replaced by
 --- their text: "[The Rust Book](https://…) @rust" -> "The Rust Book @rust".
 --- List items match a "-" component by this text.
@@ -1032,7 +1020,7 @@ function M.extract_line_identifier(line)
 	end
 
 	-- 3. Fallback: strip leading list markers and attributes
-	local text = syntax.strip_attributes((line:gsub("^%s*[%-*]%s*", "")))
+	local text = syntax.strip_attributes((line:gsub("^%s*%-%s*", "")))
 
 	-- Truncate if very long (keep it usable as a search term)
 	if #text > 80 then

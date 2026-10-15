@@ -4,29 +4,6 @@ local M = {}
 local Logger = require("zortex.core.logger")
 local Events = require("zortex.core.event_bus")
 
-function M.show_area_xp()
-	return require("zortex.services.xp.stats").show_area_xp(10)
-end
-
-function M.start_season()
-	return require("zortex.services.xp.stats").prompt_start_season()
-end
-
-function M.end_season()
-	local season_record = require("zortex.services.xp.stats").end_season()
-	if not season_record then
-		vim.notify("No active season to end", vim.log.levels.WARN)
-		return
-	end
-	local lines = {
-		string.format("Season '%s' completed!", season_record.name),
-		string.rep("─", 40),
-		string.format("Objectives: %d%%", math.floor((season_record.final_progress or 0) * 100 + 0.5)),
-		string.format("Tier: %s", season_record.final_tier or "none"),
-	}
-	vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO, { title = "Season Complete!", timeout = 10000 })
-end
-
 function M.init()
 	Events.on("season:tier_reached", function(data)
 		vim.notify(

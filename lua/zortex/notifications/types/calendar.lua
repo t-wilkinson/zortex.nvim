@@ -256,51 +256,6 @@ function M.sync_local(notifications)
 	return scheduled_count
 end
 
--- Get pending notifications for a specific date
-function M.get_pending_for_date(date_str)
-	local entries = calendar_store.get_entries_for_date(date_str)
-	local pending = {}
-
-	for _, entry in ipairs(entries) do
-		local notify_values = parse_notify_value(entry.attributes.notify)
-
-		if notify_values then
-			-- Check start time
-			local start_time = entry:get_start_time()
-			if start_time then
-				for _, advance_minutes in ipairs(notify_values) do
-					table.insert(pending, {
-						time = os.date("%H:%M", os.time(start_time) - (advance_minutes * 60)),
-						title = entry.text,
-						advance_minutes = advance_minutes,
-						type = "start",
-					})
-				end
-			end
-
-			-- Check end time
-			local end_time = entry:get_end_time()
-			if end_time and (not start_time or os.time(end_time) ~= os.time(start_time)) then
-				for _, advance_minutes in ipairs(notify_values) do
-					table.insert(pending, {
-						time = os.date("%H:%M", os.time(end_time) - (advance_minutes * 60)),
-						title = entry.text,
-						advance_minutes = advance_minutes,
-						type = "end",
-					})
-				end
-			end
-		end
-	end
-
-	-- Sort by time
-	table.sort(pending, function(a, b)
-		return a.time < b.time
-	end)
-
-	return pending
-end
-
 -- Setup
 function M.setup(opts)
 	cfg = opts

@@ -71,9 +71,9 @@ end)
 
 T.test("task checkboxes are not links", function()
 	local link = require("zortex.core.link")
-	T.eq(#link.on_line("- [ ] Task"), 0)
-	T.eq(#link.on_line("- [x] Done [P/#1.4]"), 1)
-	T.eq(link.on_line("- KR1: [ ] text [P/#Habits]")[1].definition, "P/#Habits")
+	T.eq(#link.links_on("- [ ] Task"), 0)
+	T.eq(#link.links_on("- [x] Done [P/#1.4]"), 1)
+	T.eq(link.links_on("- KR1: [ ] text [P/#Habits]")[1].definition, "P/#Habits")
 end)
 
 T.test("> components match links by their text or their line's text", function()

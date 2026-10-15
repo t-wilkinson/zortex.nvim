@@ -10,11 +10,6 @@ function M.get_lines(bufnr, start_line, end_line)
 	return vim.api.nvim_buf_get_lines(bufnr, start_line or 0, end_line or -1, false)
 end
 
-function M.set_lines(bufnr, start_line, end_line, lines)
-	bufnr = bufnr or 0
-	vim.api.nvim_buf_set_lines(bufnr, start_line, end_line, false, lines)
-end
-
 function M.get_current_line()
 	return vim.api.nvim_get_current_line()
 end
@@ -31,15 +26,5 @@ end
 -- =============================================================================
 -- Buffer Modification Helpers
 -- =============================================================================
-
-function M.insert_lines(bufnr, lnum, lines)
-	bufnr = bufnr or 0
-	vim.api.nvim_buf_set_lines(bufnr, lnum - 1, lnum - 1, false, lines)
-end
-
-function M.delete_lines(bufnr, start_lnum, end_lnum)
-	bufnr = bufnr or 0
-	vim.api.nvim_buf_set_lines(bufnr, start_lnum - 1, end_lnum - 1, false, {})
-end
 
 return M

@@ -201,14 +201,6 @@ function M.refresh()
 	end
 end
 
-function M.toggle()
-	if CalendarState.win_id and api.nvim_win_is_valid(CalendarState.win_id) then
-		M.close()
-	else
-		M.open()
-	end
-end
-
 function M.open_digest()
 	calendar_store.load()
 	M.open()

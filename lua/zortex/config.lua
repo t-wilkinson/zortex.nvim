@@ -247,9 +247,7 @@ local defaults = {
 				today = { "t", "T" },
 				add_entry = { "a", "i" },
 				view_entries = { "<CR>", "o" },
-				edit_entry = { "e" },
-				delete_entry = { "x" },
-				telescope_search = { "/" },
+				search = { "/" },
 				toggle_view = { "v" },
 				digest = { "d", "D" },
 				refresh = { "r", "R" },
@@ -257,9 +255,6 @@ local defaults = {
 				sync_notifications = { "n" },
 				help = { "?" },
 			},
-		},
-		telescope = {
-			-- Optional telescope-specific config
 		},
 	},
 

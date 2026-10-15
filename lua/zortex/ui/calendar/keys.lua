@@ -149,9 +149,34 @@ function M.view_entries()
 	end
 end
 
-function M.telescope_search()
+-- Pick an entry (newest day first) with vim.ui.select and jump to it.
+function M.search()
+	local items = calendar_store.get_all_entries()
+	if #items == 0 then
+		vim.notify("No calendar entries", vim.log.levels.INFO)
+		return
+	end
+	table.sort(items, function(a, b)
+		if a.date ~= b.date then
+			return a.date > b.date
+		end
+		return (a.entry.lnum or 0) < (b.entry.lnum or 0)
+	end)
 	view().close()
-	require("zortex.ui.telescope").calendar()
+	vim.ui.select(items, {
+		prompt = "Calendar",
+		format_item = function(item)
+			return item.date .. "  " .. vim.trim(item.entry.raw_text or "")
+		end,
+	}, function(item)
+		if not item then
+			return
+		end
+		vim.cmd("edit " .. fn.fnameescape(fs.get_calendar_file()))
+		local lnum = math.min(item.entry.lnum or 1, api.nvim_buf_line_count(0))
+		api.nvim_win_set_cursor(0, { lnum, 0 })
+		vim.cmd("normal! zz")
+	end)
 end
 
 function M.show_digest()
@@ -208,7 +233,7 @@ function M.show_help()
 		"  gf      - Go to calendar file",
 		"  n       - Sync notifications",
 		"  r/R     - Refresh",
-		"  /       - Search with Telescope",
+		"  /       - Search entries",
 		"  ?       - Show this help",
 		"  q/<Esc> - Close calendar",
 		"",
@@ -263,7 +288,7 @@ function M.attach(bufnr, cfg)
 		today = M.go_to_today,
 		add_entry = M.add_entry,
 		view_entries = M.view_entries,
-		telescope_search = M.telescope_search,
+		search = M.search,
 		digest = M.show_digest,
 		toggle_view = M.toggle_view,
 		go_to_file = M.go_to_file,

@@ -190,16 +190,4 @@ function M.update_seen(season_key, season_tier, area_levels)
 	return ups
 end
 
-function M.seen()
-	return data().seen
-end
-
-function M.reload()
-	store:reload()
-end
-
-function M.save()
-	store:save()
-end
-
 return M

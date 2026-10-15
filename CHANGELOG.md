@@ -71,6 +71,8 @@ The first release for people other than the author.
 - Resources and their notes: a heading that is only a link and attributes is
   a resource, its section notes about it; notes (that, and lines nested
   under an item holding a link) match tag searches only by their own tags.
+- Tag completion: after a bare `@` and inside `@[...]`, the tags your notes
+  use, most used first, with how many lines use each.
 - `:ZortexLinkOpenWeb` (`<leader>zgX`) opens the link under the cursor in the
   web app (a zortex link, tag search, file, or the line itself), in the tab
   you focused last on this computer when there is one

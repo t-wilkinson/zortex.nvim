@@ -13,6 +13,9 @@
 -- A typed "#", ":" or "*" narrows completions to headings, labels or bold
 -- headings; a typed ">" offers the links in range ([R/#Rust/>The Rust Book]).
 -- Every suggestion resolves when inserted.
+--
+-- Tags: after a bare "@" (starting a word) and inside @[...], the tags used
+-- on notes' lines, most used first, with how many lines use each.
 local M = {}
 
 local function notes()
@@ -28,7 +31,7 @@ local function link_mod()
 end
 
 -- LSP CompletionItemKind values
-local KIND = { article = 17, tag = 14, heading = 22, bold_heading = 13, label = 10, follow = 18 }
+local KIND = { article = 17, tag = 14, heading = 22, bold_heading = 13, label = 10, follow = 18, line_tag = 21 }
 local PREFIX = { heading = "#", label = ":", bold_heading = "*" }
 local FILTER = { ["#"] = "heading", [":"] = "label", ["*"] = "bold_heading" }
 
@@ -240,6 +243,43 @@ local function follow_items(ctx, opts)
 end
 
 -- =============================================================================
+-- Tags: @rust, @[rust async, rl]
+-- =============================================================================
+
+--- The tag being typed before `col`: after a bare "@" that starts a word, or
+--- a word inside @[...] (after its last "/", "," or space). Returns
+--- { typing, typing_col (0-based), tag = "bare"|"search" } or nil.
+function M.tag_context(line, col)
+	local before = line:sub(1, col)
+	local open = before:match(".*()@%[")
+	if open and not before:sub(open + 2):find("]", 1, true) then
+		local typing = before:match("([^/,%s]*)$")
+		return { typing = typing, typing_col = col - #typing, tag = "search" }
+	end
+	local at, word = before:match("()@([%w_%-]*)$")
+	if at and (at == 1 or before:sub(at - 1, at - 1):match("%s")) then
+		return { typing = "@" .. word, typing_col = at - 1, tag = "bare" }
+	end
+	return nil
+end
+
+local function line_tag_items(ctx)
+	local items = {}
+	for i, t in ipairs(require("zortex.core.link_index").line_tags()) do
+		local text = ctx.tag == "bare" and ("@" .. t.tag) or t.tag
+		items[#items + 1] = {
+			label = text,
+			kind = KIND.line_tag,
+			detail = t.count == 1 and "1 line" or (t.count .. " lines"),
+			sortText = string.format("%06d", i),
+			data = { zortex_order = i }, -- see order_comparator
+		}
+	end
+	return items
+end
+M._line_tag_items = line_tag_items
+
+-- =============================================================================
 -- Area attributes: @a(...) / @area(...)
 -- =============================================================================
 
@@ -341,6 +381,10 @@ function M.get_completions(line, col, opts)
 	end
 	local ctx = M.link_context(line, col)
 	if not ctx then
+		local tctx = M.tag_context(line, col)
+		if tctx then
+			return line_tag_items(tctx), tctx
+		end
 		return {}, nil
 	end
 	opts.doc = opts.doc or Document().from_buffer(opts.bufnr or 0)
@@ -403,8 +447,12 @@ function M.lsp_items(before, row, bufnr)
 	if not ctx then
 		return nil
 	end
+	-- what nvim-cmp filters by (get_keyword_pattern): the text since the last
+	-- "[", "/", "(" or ","; inside @[rust as] that's "rust as" for "async"
+	local kw = before:match(".*[%[/(,]()") or 1
+	local typed_before = ctx.tag and before:sub(kw, ctx.typing_col):gsub("^%s+", "") or ""
 	for _, item in ipairs(items) do
-		item.filterText = item.filterText or item.label
+		item.filterText = item.filterText or (typed_before .. item.label)
 		item.textEdit = {
 			newText = item.area_value or item.label,
 			range = {

@@ -199,3 +199,33 @@ T.test("'>' offers the links in range", function()
 		T.ok(#require("zortex.core.link").resolve("[R/#Rust/" .. label .. "]") > 0, label)
 	end
 end)
+
+T.test("tags: after a bare @ and inside @[...], most used first", function()
+	T.eq(C.tag_context("prose @ru", 9), { typing = "@ru", typing_col = 6, tag = "bare" })
+	T.eq(C.tag_context("see @[R/rust as", 15), { typing = "as", typing_col = 13, tag = "search" })
+	T.eq(C.tag_context("mail me@ex", 10), nil) -- not a word start
+	T.eq(C.tag_context("@[rust] done", 12), nil) -- a closed search
+
+	local items = C.get_completions("- [x](https://x.org) @", #"- [x](https://x.org) @", { doc = doc })
+	local by = {}
+	for _, i in ipairs(items) do
+		by[i.label] = i
+	end
+	T.ok(by["@rust"] and by["@rl"] and by["@ai-model"], vim.inspect(vim.tbl_keys(by)))
+	T.ok(by["@rust"].detail:match("^%d+ lines$"), by["@rust"].detail)
+	T.ok(not by["@p1"] and not by["@sm"], "shortcut attributes aren't tags")
+	T.eq(items[1].label, "@rust") -- the most used tag in the fixtures
+
+	-- inside a search: plain words, replacing only the word being typed
+	local line = "@[R/rust a"
+	local lsp = C.lsp_items(line, 0, 0)
+	local async
+	for _, i in ipairs(lsp) do
+		if i.label == "async" then
+			async = i
+		end
+	end
+	T.ok(async, "async offered")
+	T.eq(async.textEdit.range.start.character, #"@[R/rust ")
+	T.eq(async.filterText, "rust async") -- what nvim-cmp compares with "rust a"
+end)

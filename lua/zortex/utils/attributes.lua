@@ -228,6 +228,11 @@ local size_values = {
 	ultimate = true,
 }
 
+--- Is a bare @word a task size shortcut (@sm, @xl, @epic)?
+function M.is_size(key)
+	return size_values[key] == true
+end
+
 -- Parse @key(value) attributes from text. Bare @words that aren't a
 -- shortcut (@2h, @p1, @sm) or a boolean of the schema are tags (@rust,
 -- @home): attrs.tags lists them in order, lower case, as tag searches

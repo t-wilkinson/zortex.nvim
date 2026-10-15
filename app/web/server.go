@@ -110,7 +110,8 @@ type Server struct {
 	completions completionLog // tasks completed on the web, until Neovim counts them
 	copies      copyCache     // calendar copies of tasks by @id (mirrors.go)
 
-	events        eventHub // live updates for open pages (/api/events)
+	events        eventHub  // live updates for open pages (/api/events)
+	opens         openWaits // /api/open requests waiting for a tab (open.go)
 	xpFileMu      sync.Mutex
 	xpFileSeen    time.Time // mtime of .z/xp_summary.json at the last rescan
 	xpFileChecked bool
@@ -475,6 +476,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/note", s.apiNote)
 	// live updates
 	mux.HandleFunc("GET /api/events", s.apiEvents)
+	mux.HandleFunc("POST /api/presence", s.apiPresence)
+	mux.HandleFunc("POST /api/open", s.apiOpen)
+	mux.HandleFunc("POST /api/open/ack", s.apiOpenAck)
 	mux.Handle("GET /static/", s.cacheStatic(s.static))
 	var h http.Handler = mux
 	if base := s.cfg.Base; base != "" {

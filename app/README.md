@@ -75,6 +75,7 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 | `/broken` | links that don't resolve (notes and files), and task ids that don't line up (a project task's `@id` on two lines, a calendar copy whose link points at another task) |
 | `/api/search?q=`, `/api/resolve?to=&from=`, `/api/backlinks?rel=`, `/api/resources?show=unlinked&kind=&dir=`, `/api/structure` | JSON |
 | `/api/tagtable?q=&from=` | a tag search's table, as HTML ([tag indexes](#tag-indexes)) |
+| `POST /api/open`, `/api/presence`, `/api/open/ack` | show a page in an open tab ([from Neovim](#opening-pages-from-neovim)) |
 | `/healthz` (`/health`) | counts and last index time |
 
 Flags (each also an environment variable): `-dir` (`ZORTEX_NOTES_DIR`),
@@ -169,6 +170,27 @@ chip loads its table (`/api/tagtable?q=&from=`, an HTML fragment) and puts
 the search in the address (`#tags=R/rl`); choosing it again clears it, and
 the back button undoes it. Nothing is chosen at first. Without script the
 chips are links to the search's page.
+
+### Opening pages from Neovim
+
+`:ZortexLinkOpenWeb` (`<leader>zgX`) shows the link under the cursor in the
+web app: zortex links and tag searches through `/link`, files in the
+viewer, a tag index with the line's chip chosen, else the note at the
+cursor's line (`gx` on an index's label does it too). With `server.enabled`
+the page goes to the tab on the same device that was focused last, instead
+of a new tab:
+
+- each page opens `/api/events?client=<id>` (one id per tab) and posts
+  `/api/presence` when it's focused;
+- Neovim posts `{"path": "/n/x.zortex#L3"}` to `/api/open`; the server sends
+  it to that tab, which answers `/api/open/ack` and goes there;
+  `{"opened": true}` then, `{"opened": false}` after 2 s or with no tab, and
+  Neovim opens a new one.
+
+"Same device" is the same client address: behind a proxy on the server's
+machine or network, its `X-Forwarded-For`. A page can change what it shows
+but not raise its window. `features.web.reuse_tab = false` always opens a
+new tab.
 
 ### Connections and the graph
 

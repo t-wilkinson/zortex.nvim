@@ -577,6 +577,7 @@ XP is derived, not recorded (see [Planning.md](Planning.md)):
 | `ui/calendar/view.lua` (+ `render`, `keys`)         | `stores/calendar`, `agenda` (digest panel), `projects`    |
 | `features/completion.lua` (+ `blink.lua`)           | `core/link`, `notes`, `document`                          |
 | `features/preview.lua`                              | `core/link`, `features/links`                             |
+| `features/web.lua` (+ `core/tag_index.lua`)         | `core/link`, `notifications/server` (`/api/open`)         |
 | `ui/review.lua`                                     | `agenda.review`                                           |
 | `services/search_history.lua`                       | `services/search` (adds boosts); the picker records opens |
 

@@ -68,6 +68,10 @@ The first release for people other than the author.
   list them as `attributes.tags`. The separate "contexts" are gone.
 - Tags are highlighted on every line (text and quotes too), and the `@` of
   `@[...]` is dimmed (`ZortexTagSearchAt`).
+- `:ZortexLinkOpenWeb` (`<leader>zgX`) opens the link under the cursor in the
+  web app (a zortex link, tag search, file, or the line itself), in the tab
+  you focused last on this computer when there is one
+  (`features.web.reuse_tab`). `gx` on a tag index's label opens the index.
 
 ### Server (`zortex serve`)
 
@@ -75,6 +79,8 @@ The first release for people other than the author.
   grouping them) shows as rows of chips with counts over one shared table;
   the chosen chip is in the address (`#tags=R/rl`). `@[...]` shows like a
   link (a dim `@`, no brackets).
+- `POST /api/open` shows a page in the tab focused last on the same device
+  (for Neovim's `:ZortexLinkOpenWeb`).
 - Rendered notes, search, file browser, tags, broken links, the notes not
   linked from Structure; live updates while you edit elsewhere.
 - `>` links go straight to the link they match, or to a page listing them.

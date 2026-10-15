@@ -105,13 +105,17 @@
       .then(function () { table.classList.remove("loading"); });
   }
 
-  // the hash's chip, in the first index that has it; the others clear
-  function apply() {
+  // the hash's chip, in the first index that has it; the others clear.
+  // scroll: bring that index into view (a link to it, not a click on it)
+  function apply(scroll) {
     var q = hashQuery(), done = false;
     Array.prototype.forEach.call(document.querySelectorAll(".tag-index"), function (index) {
       var has = q && !done && Array.prototype.some.call(index.querySelectorAll(".ti-chip"), function (c) { return c.dataset.q === q; });
       show(index, has ? q : "");
-      if (has) done = true;
+      if (has) {
+        done = true;
+        if (scroll === true) index.scrollIntoView({ block: "start" });
+      }
     });
   }
 
@@ -123,15 +127,15 @@
     var q = chip.getAttribute("aria-current") === "true" ? "" : chip.dataset.q;
     var url = location.pathname + location.search + (q ? "#tags=" + encodeQuery(q) : "");
     history.pushState(null, "", url);
-    apply();
+    apply(false);
   });
-  window.addEventListener("popstate", apply);
-  window.addEventListener("hashchange", apply);
+  window.addEventListener("popstate", function () { apply(false); });
+  window.addEventListener("hashchange", function () { apply(true); });
   // a note redrawn in place (live.js) comes back with empty indexes
   document.addEventListener("zortex:note-updated", function () {
     Array.prototype.forEach.call(document.querySelectorAll(".tag-index .ti-table"), function (t) { delete t.dataset.q; });
-    apply();
+    apply(false);
   });
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", apply);
-  else apply();
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { apply(true); });
+  else apply(true);
 })();

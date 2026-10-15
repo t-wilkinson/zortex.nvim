@@ -2,7 +2,8 @@
 --
 -- What a link means is core/link; this module opens what it points to:
 -- notes (quickfix list for several targets), @[scope/tag] searches,
--- footnotes, URLs, media and files. A link ending in a > component opens
+-- footnotes, URLs, media and files. On a tag index's label (core/tag_index)
+-- it opens the index in the web app (features/web). A link ending in a > component opens
 -- the links it matched (a picker when there are several).
 local M = {}
 
@@ -418,6 +419,17 @@ end
 function M.open_link()
 	local link_info = M.link_at_cursor()
 	if not link_info then
+		-- a tag index's label: the index, in the web app
+		local doc = require("zortex.core.document").from_buffer(0)
+		local lnum = buffer.get_cursor_pos()
+		local ix = doc and require("zortex.core.tag_index").at(doc, lnum)
+		if ix and ix.lnum == lnum then
+			local web = require("zortex.features.web")
+			local target = web.index_target(doc, vim.api.nvim_buf_get_name(0), lnum)
+			if target then
+				return web.open(target)
+			end
+		end
 		vim.notify("No link found on current line", vim.log.levels.INFO)
 		return
 	end

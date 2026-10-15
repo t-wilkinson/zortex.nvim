@@ -18,6 +18,7 @@ import (
 //	event: xp         {}                                  a new XP summary from Neovim
 //	event: pomodoro   {}                                  the clock changed
 //	event: clocks     {}                                  timers, alarms or the stopwatch changed
+//	event: open       {"path": "/n/x.zortex#L3", "token": "…"}  sent to one tab: show this (open.go)
 //
 // Notes edited in Neovim reach the server through Syncthing; the server
 // notices on its next rescan (-poll).
@@ -29,11 +30,19 @@ type liveEvent struct {
 
 type eventHub struct {
 	mu     sync.Mutex
-	subs   map[chan liveEvent]struct{}
+	subs   map[chan liveEvent]*eventClient
 	closed bool
 }
 
-func (h *eventHub) subscribe() chan liveEvent {
+// eventClient is an open page: the id it gave (?client=, one per tab), the
+// address it connects from, and when it connected and was last focused.
+type eventClient struct {
+	id, addr  string
+	connected time.Time
+	focused   time.Time
+}
+
+func (h *eventHub) subscribe(c *eventClient) chan liveEvent {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	ch := make(chan liveEvent, 16)
@@ -42,10 +51,63 @@ func (h *eventHub) subscribe() chan liveEvent {
 		return ch
 	}
 	if h.subs == nil {
-		h.subs = map[chan liveEvent]struct{}{}
+		h.subs = map[chan liveEvent]*eventClient{}
 	}
-	h.subs[ch] = struct{}{}
+	if c == nil {
+		c = &eventClient{}
+	}
+	c.connected = time.Now()
+	h.subs[ch] = c
 	return ch
+}
+
+// focus records that the page with this id was focused.
+func (h *eventHub) focus(id string) {
+	if id == "" {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	now := time.Now()
+	for _, c := range h.subs {
+		if c.id == id {
+			c.focused = now
+		}
+	}
+}
+
+// sendToLatest sends to the page from addr that was focused (else
+// connected) most recently; false when there is none.
+func (h *eventHub) sendToLatest(addr, kind string, data any) bool {
+	raw, err := json.Marshal(data)
+	if err != nil {
+		return false
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	var best chan liveEvent
+	var bestAt time.Time
+	for ch, c := range h.subs {
+		if c.id == "" || c.addr != addr {
+			continue
+		}
+		at := c.focused
+		if at.IsZero() {
+			at = c.connected
+		}
+		if best == nil || at.After(bestAt) {
+			best, bestAt = ch, at
+		}
+	}
+	if best == nil {
+		return false
+	}
+	select {
+	case best <- liveEvent{kind, raw}:
+		return true
+	default:
+		return false
+	}
 }
 
 func (h *eventHub) unsubscribe(ch chan liveEvent) {
@@ -103,7 +165,11 @@ func (s *Server) apiEvents(w http.ResponseWriter, r *http.Request) {
 	h.Set("Content-Type", "text/event-stream")
 	h.Set("Cache-Control", "no-store")
 	h.Set("X-Accel-Buffering", "no") // nginx: don't buffer the stream
-	ch := s.events.subscribe()
+	id := r.URL.Query().Get("client")
+	if len(id) > 64 {
+		id = ""
+	}
+	ch := s.events.subscribe(&eventClient{id: id, addr: clientAddr(r)})
 	defer s.events.unsubscribe(ch)
 	fmt.Fprint(w, "retry: 5000\n: hello\n\n")
 	fl.Flush()

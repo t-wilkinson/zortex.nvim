@@ -197,6 +197,7 @@ require("zortex").setup({
 | Command | Keys | Action id | Does |
 |---|---|---|---|
 | `:ZortexLinkOpen` | `<leader>zgx` | `link_open` | Follow the link under the cursor |
+| `:ZortexLinkOpenWeb` | `<leader>zgX` | `link_open_web` | Open the link under the cursor (or this line) in the web app |
 | `:ZortexLinkPreview` | `<leader>zK` | `link_preview` | Preview the link target in a float |
 | `:ZortexBacklinks` | `<leader>zb` | `backlinks` | Links into the section under the cursor (quickfix) |
 | `:ZortexBrokenLinks` | `<leader>zB` | `broken_links` | Links that resolve nowhere (quickfix) |

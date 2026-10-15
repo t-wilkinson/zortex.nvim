@@ -235,7 +235,8 @@ without a search groups the items under it, and its chip searches all of
 them (when they look in the same place). The label's lines end at the
 first blank line; index labels separated only by blank lines share one
 widget. In Neovim the lines are ordinary items: `gx` on one follows its
-search.
+search, and `gx` on the label opens the index in the web app
+(`:ZortexLinkOpenWeb`, `<leader>zgX`, opens any line's link there).
 
 ```zortex
 Topics:

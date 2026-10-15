@@ -5,32 +5,19 @@
 -- Config.server.web_url, or api_endpoint when the web app is the same server.
 local M = {}
 
-local Config = require("zortex.config")
-
-local function escape(segment)
-	return (segment:gsub("[^%w%-%._~]", function(c)
-		return string.format("%%%02X", c:byte())
-	end))
-end
-
 --- The deck's URL for a note file, at the slide holding line lnum.
 ---@return string|nil url, string|nil err
 function M.url(filepath, lnum)
-	local root = vim.fs.normalize(vim.fn.fnamemodify(Config.notes_dir, ":p")):gsub("/+$", "")
-	local path = vim.fs.normalize(vim.fn.fnamemodify(filepath, ":p"))
-	if path:sub(1, #root + 1) ~= root .. "/" then
-		return nil, "Not a note in notes_dir"
+	local web = require("zortex.features.web")
+	local path, err = web.note_path(filepath)
+	if not path then
+		return nil, err
 	end
-	local parts = vim.split(path:sub(#root + 2), "/", { plain = true })
-	for i, p in ipairs(parts) do
-		parts[i] = escape(p)
+	local base, berr = web.base()
+	if not base then
+		return nil, berr
 	end
-	local server = Config.server or {}
-	local web = server.web_url or server.api_endpoint
-	if type(web) ~= "string" or web == "" then
-		return nil, "Set server.web_url to the web app's address"
-	end
-	local url = web:gsub("/+$", "") .. "/n/" .. table.concat(parts, "/") .. "?view=slides"
+	local url = base .. path .. "?view=slides"
 	if lnum and lnum > 0 then
 		url = url .. "#L" .. lnum
 	end

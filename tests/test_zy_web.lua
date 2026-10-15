@@ -108,3 +108,30 @@ T.test("web: an open tab on this device, else a new tab", function()
 	server.request, vim.ui.open = saved_request, saved_open
 	Config.server, Config.features = saved_server, saved_features
 end)
+
+T.test("web: a note opened through a symlink (or notes_dir set through one) is still found", function()
+	local saved = Config.notes_dir
+	local tmp = vim.fn.tempname()
+	vim.fn.mkdir(tmp .. "/real/z", "p")
+	vim.fn.writefile({ "@@T", "", "Topics:", "- @[rl]" }, tmp .. "/real/z/t.zortex")
+	vim.uv.fs_symlink(tmp .. "/real", tmp .. "/link")
+
+	Config.notes_dir = tmp .. "/link/"
+	T.eq(web.rel(tmp .. "/real/z/t.zortex"), "z/t.zortex")
+	T.eq(web.rel(tmp .. "/real/z/new.zortex"), "z/new.zortex") -- not written yet
+	Config.notes_dir = tmp .. "/real/"
+	T.eq(web.rel(tmp .. "/link/z/t.zortex"), "z/t.zortex")
+	local doc = Document.from_lines({ "@@T", "", "Topics:", "- @[rl]" }, tmp .. "/link/z/t.zortex")
+	T.eq(web.index_target(doc, tmp .. "/link/z/t.zortex", 3), { path = "/n/z/t.zortex#L3" })
+
+	-- outside notes_dir: a search in the note it's in can't be opened, and says why
+	local t, err = web.target({ type = "tag_search", display_text = "rl" }, { file = "/elsewhere/x.zortex" })
+	T.eq(t, nil)
+	T.ok(err and err:find("isn't inside notes_dir", 1, true), tostring(err))
+	T.eq(web.target({ type = "tag_search", display_text = "*/rl" }, { file = "/elsewhere/x.zortex" }), { path = "/link?to=%40%5B%2A%2Frl%5D" })
+	local _, ierr = web.index_target(doc, "/elsewhere/x.zortex", 3)
+	T.ok(ierr and ierr:find("isn't inside notes_dir", 1, true), tostring(ierr))
+
+	Config.notes_dir = saved
+	vim.fn.delete(tmp, "rf")
+end)

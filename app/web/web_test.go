@@ -181,6 +181,9 @@ func TestTagSearch(t *testing.T) {
 	// a scope, and tags inherited from a heading
 	expect(t, ts, "/link?to="+url.QueryEscape("@[R/#Rust/embedded]"), 200, "3 tagged lines.", `href="/n/z/resources.zortex#L17"`)
 	expect(t, ts, "/link?to="+url.QueryEscape("@[R/nothing]"), 404, "No matches found for: @[R/nothing]")
+	// a search in the note it's in, from a note the server doesn't have
+	expect(t, ts, "/link?from=z%2Fmissing.zortex&to="+url.QueryEscape("@[rl]"), 404, "This server has no note z/missing.zortex")
+	expect(t, ts, "/link?to="+url.QueryEscape("@[rl]"), 404, "the request didn&#39;t say which")
 }
 
 func TestTagIndex(t *testing.T) {

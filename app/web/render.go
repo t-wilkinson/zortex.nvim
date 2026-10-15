@@ -397,14 +397,16 @@ func externalAttrs(href string) string {
 }
 
 // linkHTML renders a link written on the line being rendered: a
-// parent-relative one ([./-Item]) through its parent line's link.
+// parent-relative one ([./-Item]) through its parent line's link, shown by
+// its text ("Item").
 func (r *noteRenderer) linkHTML(def string) string {
 	if links.IsParentRelative(def) {
+		text := strings.TrimSpace(syntax.Trim(def)[3:])
 		abs, err := links.Absolute(r.doc.Lines, r.lnum, def)
 		if err != nil {
 			return `<a class="zl broken" title="` + esc(err.Error()) + `">` + esc(def) + `</a>`
 		}
-		return r.s.linkHTMLAs(r.doc, abs, def)
+		return r.s.linkHTMLAs(r.doc, abs, text)
 	}
 	return r.s.linkHTML(r.doc, def)
 }

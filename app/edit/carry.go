@@ -2,6 +2,7 @@ package edit
 
 import (
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -19,11 +20,42 @@ type LineEdit struct {
 	Line string `json:"line"`
 }
 
+// Insert puts Lines before line At (1-based; len+1 appends).
+type Insert struct {
+	At    int      `json:"at"`
+	Lines []string `json:"lines"`
+}
+
 // CarryPlan is what carrying open tasks forward changes in a calendar.
 type CarryPlan struct {
-	Edits []LineEdit // the carried tasks, marked [>] (with an @id)
-	At    int        // insert Add before this line (0: nothing to add)
-	Add   []string   // the copies (and a new day heading when today had none)
+	Edits   []LineEdit // the carried tasks, marked [>] (with an @id)
+	Inserts []Insert   // the copies, ascending by At (apply bottom up)
+}
+
+// Added counts the copies (lines with an @id) the plan inserts.
+func (p CarryPlan) Added() int {
+	n := 0
+	for _, ins := range p.Inserts {
+		for _, l := range ins.Lines {
+			if strings.Contains(l, "@id(") {
+				n++
+			}
+		}
+	}
+	return n
+}
+
+// Apply returns lines with the plan applied.
+func (p CarryPlan) Apply(lines []string) []string {
+	out := append([]string(nil), lines...)
+	for _, e := range p.Edits {
+		out[e.Lnum-1] = e.Line
+	}
+	for i := len(p.Inserts) - 1; i >= 0; i-- {
+		at := p.Inserts[i].At - 1
+		out = append(out[:at], append(append([]string(nil), p.Inserts[i].Lines...), out[at:]...)...)
+	}
+	return out
 }
 
 var (
@@ -90,7 +122,8 @@ func dayNumber(date string) int {
 //
 //   - each carried task is marked [>], and gets an @id (newID) if it has none
 //   - its copy, with the same @id, goes at the end of today (a new day is
-//     placed next to its nearest neighbour in time)
+//     placed next to its nearest neighbour in time), or at the end of
+//     today's block for the same link when today has one
 //   - a task under a linked line that isn't a task ("09:00 [P/#1.4 - zortex]")
 //     goes under a copy of that line ("- [P/#1.4 - zortex]"), its [./-Item]
 //     links kept when that line is their parent; other tasks become
@@ -142,8 +175,21 @@ func Carry(lines []string, today, from string, newID func() string) CarryPlan {
 
 	var plan CarryPlan
 	groups := map[string][]string{}
+	headDef := map[string]string{}
 	var order []string
 	carried := map[string]bool{}
+	// a linked line's first link, written out (how blocks are matched)
+	firstDef := func(lnum int) string {
+		spans := links.LinksOn(lines[lnum-1])
+		if len(spans) == 0 {
+			return ""
+		}
+		def, err := links.Absolute(lines, lnum, spans[0].Definition)
+		if err != nil {
+			return ""
+		}
+		return syntax.Lower(strings.TrimSpace(def))
+	}
 	for _, b := range blocks {
 		if b.date < from || b.date >= today {
 			continue
@@ -210,6 +256,9 @@ func Carry(lines []string, today, from string, newID func() string) CarryPlan {
 					hcol = hit.ContentCol
 				}
 				key = "- " + absoluteText(lines, head, hcol)
+				if _, ok := headDef[key]; !ok {
+					headDef[key] = firstDef(head)
+				}
 			} else {
 				copyLine = "- " + absoluteText(lines, l, mc)
 			}
@@ -221,19 +270,73 @@ func Carry(lines []string, today, from string, newID func() string) CarryPlan {
 		}
 	}
 
+	// today's blocks by their first link: carried copies join them
+	type head struct{ lnum, last int }
+	todayHeads := map[string]head{}
+	if todayBlock != nil {
+		for l := todayBlock.heading + 1; l <= todayBlock.last; l++ {
+			upIt := syntax.ItemOf(lines[l-1])
+			if (upIt != nil && upIt.Mark != "") || len(links.LinksOn(lines[l-1])) == 0 {
+				continue
+			}
+			def := firstDef(l)
+			if _, seen := todayHeads[def]; def == "" || seen {
+				continue
+			}
+			last := l
+			for k := l + 1; k <= todayBlock.last; k++ {
+				if !blankLine(lines[k-1]) {
+					if indentOf(lines[k-1]) <= indentOf(lines[l-1]) {
+						break
+					}
+					last = k
+				}
+			}
+			todayHeads[def] = head{l, last}
+		}
+	}
+
+	var inserts []Insert
 	var out []string
 	for _, key := range order {
+		if m, ok := todayHeads[headDef[key]]; key != "" && headDef[key] != "" && ok {
+			pad := strings.Repeat(" ", indentOf(lines[m.lnum-1])+2)
+			var children []string
+			for _, c := range groups[key] {
+				children = append(children, pad+c[2:])
+			}
+			inserts = append(inserts, Insert{At: m.last + 1, Lines: children})
+			continue
+		}
 		if key != "" {
 			out = append(out, key)
 		}
 		out = append(out, groups[key]...)
 	}
-	if len(out) == 0 {
+	finish := func() CarryPlan {
+		var merged []Insert
+		for _, ins := range inserts {
+			found := false
+			for i := range merged {
+				if merged[i].At == ins.At {
+					merged[i].Lines = append(merged[i].Lines, ins.Lines...)
+					found = true
+				}
+			}
+			if !found {
+				merged = append(merged, Insert{At: ins.At, Lines: append([]string(nil), ins.Lines...)})
+			}
+		}
+		sort.SliceStable(merged, func(i, j int) bool { return merged[i].At < merged[j].At })
+		plan.Inserts = merged
 		return plan
 	}
+	if len(out) == 0 {
+		return finish()
+	}
 	if todayBlock != nil {
-		plan.At, plan.Add = todayBlock.last+1, out
-		return plan
+		inserts = append(inserts, Insert{At: todayBlock.last + 1, Lines: out})
+		return finish()
 	}
 	// a new day, next to its nearest neighbour in time
 	target := dayNumber(today)
@@ -268,6 +371,6 @@ func Carry(lines []string, today, from string, newID func() string) CarryPlan {
 	} else if at > 1 && !blankLine(lines[at-2]) {
 		add = append([]string{""}, add...)
 	}
-	plan.At, plan.Add = at, add
-	return plan
+	inserts = append(inserts, Insert{At: at, Lines: add})
+	return finish()
 }

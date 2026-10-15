@@ -16,13 +16,12 @@ func TestCarryConformance(t *testing.T) {
 	}
 	var fx struct {
 		Cases []struct {
-			Name  string     `json:"name"`
-			Today string     `json:"today"`
-			From  string     `json:"from"`
-			Lines []string   `json:"lines"`
-			Edits []LineEdit `json:"edits"`
-			At    int        `json:"at"`
-			Add   []string   `json:"add"`
+			Name    string     `json:"name"`
+			Today   string     `json:"today"`
+			From    string     `json:"from"`
+			Lines   []string   `json:"lines"`
+			Edits   []LineEdit `json:"edits"`
+			Inserts []Insert   `json:"inserts"`
 		} `json:"cases"`
 	}
 	if err := json.Unmarshal(raw, &fx); err != nil {
@@ -37,8 +36,8 @@ func TestCarryConformance(t *testing.T) {
 		if len(plan.Edits) != len(c.Edits) || (len(c.Edits) > 0 && !reflect.DeepEqual(plan.Edits, c.Edits)) {
 			t.Errorf("%s: edits\n got  %v\n want %v", c.Name, plan.Edits, c.Edits)
 		}
-		if plan.At != c.At || len(plan.Add) != len(c.Add) || (len(c.Add) > 0 && !reflect.DeepEqual(plan.Add, c.Add)) {
-			t.Errorf("%s: at %d %q\n want at %d %q", c.Name, plan.At, plan.Add, c.At, c.Add)
+		if len(plan.Inserts) != len(c.Inserts) || (len(c.Inserts) > 0 && !reflect.DeepEqual(plan.Inserts, c.Inserts)) {
+			t.Errorf("%s: inserts\n got  %q\n want %q", c.Name, plan.Inserts, c.Inserts)
 		}
 	}
 }

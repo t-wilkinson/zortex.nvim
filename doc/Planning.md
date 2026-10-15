@@ -39,14 +39,58 @@ objective.
 
 | when | what | command |
 |---|---|---|
-| morning | **Plan the day.** Today's calendar next to ranked candidates: tasks on key results come first, the further their key result is behind schedule the higher; then tasks of projects that only have an area; then the rest. Due dates, priority and the TODO project add on top. Key results are listed most behind first, areas without a current objective first. | `:ZortexPlan` (`<leader>zm`) |
-| during | **Work.** On the web home page the clocks (pomodoro, timer, stopwatch) count against the task you're working on, by default the current calendar entry, and add it to the task's `@spent(...)`. | `zortex serve` |
-| evening | **Daily review.** Since the last daily review (a skipped evening rolls into the next, at most a week): objectives and key results against the time passed, XP earned and how much of it was on key results, time spent per task, what you completed, calendar tasks left (put them on another day with `:ZortexPlan`), overdue, due by tomorrow. | `:ZortexReview day` (`<leader>zW`) |
+| morning | **Plan the day.** Yesterday's open tasks come along ([carried forward](#the-day-on-the-calendar)). Today's calendar next to ranked candidates: tasks on key results come first, the further their key result is behind schedule the higher; then tasks of projects that only have an area; then the rest. Due dates, priority and the TODO project add on top. Key results are listed most behind first, areas without a current objective first. Put projects (`P`, with their open tasks) and tasks (`p`) on the day. | `:ZortexPlan` (`<leader>zm`) |
+| during | **Work.** Tick tasks on the calendar (Neovim or the web); their project tasks are ticked with them. On the web home page the clocks (pomodoro, timer, stopwatch) count against the task you're working on, by default the first open task of the current calendar block, and add it to its `@spent(...)`. | `zortex serve` |
+| evening | **Daily review.** Since the last daily review (a skipped evening rolls into the next, at most a week): objectives and key results against the time passed, XP earned and how much of it was on key results, time spent per task, what you completed, calendar tasks left (tomorrow's plan carries them), overdue, due by tomorrow. | `:ZortexReview day` (`<leader>zW`) |
 | weekly | **Weekly review.** The same plan summary over seven days, then overdue and due tasks, stale and unscheduled projects, projects without a next action, key results without projects, areas without projects or without an objective, projects with neither a key result nor an area, broken links. Every line links to its source. | `:ZortexReview` (`<leader>zw`) |
 
 "Behind schedule" is the share of the objective's window that has passed
 minus the key result's progress: a key result at 20% when half the quarter
 is gone is 30% behind.
+
+## The day on the calendar
+
+A day is a block of `calendar.zortex`. Projects and their tasks go on it
+without duplicating them: a task on the calendar is the project's task.
+
+```
+2026-10-15:
+09:00 [P/#1 Programming/#1.4 - zortex]
+  - [ ] [./-Improve website] @id(aB3x9)
+  - [ ] [./-Change task sizes] @id(Kp2wQ)
+14:00 Call the bank about [P/#2 Home/-Mortgage]
+- [ ] Buy milk
+```
+
+- **Copies.** `- [ ] [./-Improve website] @id(aB3x9)` has the `@id` of the
+  project's `- [ ] Improve website @id(aB3x9)`: lines with the same `@id` in
+  the calendar and the project notes are one task. It is done when any of
+  them is checked (its `@done` the earliest), so the project's progress, the
+  planner and the reviews see it done; it earns its XP once, as a project
+  task (with the project's areas). Toggling one, in Neovim or on the web,
+  toggles the others, so the notes read the same; a hand edit that leaves
+  them apart still counts once. `@spent` adds up over the copies.
+- **Blocks.** `09:00 [P/#1.4 - zortex]` with tasks nested under it: the
+  tasks' `[./-Item]` links continue the block's link
+  ([Syntax](Syntax.md#links)), and while the block runs the web app's clocks
+  count against its first open task, then the next once that one is ticked.
+- **References.** A line without a checkbox whose link points at a task
+  (`14:00 Call the bank about [P/#2 Home/-Mortgage]`) stands for it: it
+  shows the task's state, and toggling it toggles the task. A timed line
+  can't hold a checkbox, so this is how a task gets a time.
+- **Carrying forward.** Planning today (`:ZortexPlan`, or
+  `:ZortexCarryForward` / the web home page's **Carry** button) copies the
+  open tasks of the last 14 days to today with the same `@id`, under their
+  block (today's, when today already has one for the same link, say from the
+  day's template), and marks the old lines `[>]` (carried: neither open nor
+  done, kept as the record of that day). Repeating entries (`@every`) stay.
+
+In the planner, `p` puts a task on the day as a copy (under its project's
+block when the day has one; the task gets an `@id` if it has none), `P` a
+project as a block with all of its open tasks, and `<CR>` / `i` / `o` the
+task's text and link at the cursor (a reference, ready for a time). The
+weekly review lists ids that don't line up (a copied project line, a copy
+whose link points at another task); so does the web app's `/broken`.
 
 ## XP
 
@@ -99,7 +143,7 @@ results. Both are read off the same notes and move the day the work is done.
 | **Project done** | the project heading is marked `@done(...)` | whatever of the pool the curve hasn't paid yet | as above |
 | **Key result** | its linked projects are all done, or it is checked; dated by its `@done` or the last completion | 20% (`completion_bonus`) of its objective's XP, split over the objective's key results | ×1.0, to the objective's areas |
 | **Objective** | marked `@done(...)` | 20% of its XP | ×1.0, to its areas |
-| **Task** | a checked task anywhere else (calendar, any note) | its hours × 10 × priority × importance | ×0.1 (`alignment.task_area`) to its own `@a(...)` |
+| **Task** | a checked task anywhere else (calendar, any note); a calendar copy of a project task (same `@id`) is that project task instead | its hours × 10 × priority × importance | ×0.1 (`alignment.task_area`) to its own `@a(...)` |
 
 An md objective (30 hours, 300 XP) finished through its key results earns
 300 for the work, 60 for its key results and 60 when you mark it done: 420

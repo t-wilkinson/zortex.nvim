@@ -1,13 +1,6 @@
 {
   "cases": [
     {
-      "add": [
-        "- [P/#1.4 - zortex]",
-        "  - [ ] [./-Improve website] @id(web01)",
-        "  - [ ] [./-Change task sizes] @id(C0001)",
-        "- [ ] Call the mechanic @id(C0002)"
-      ],
-      "at": 22,
       "edits": [
         {
           "line": "  - [>] [./-Improve website] @id(web01)",
@@ -31,6 +24,17 @@
         }
       ],
       "from": "2026-09-30",
+      "inserts": [
+        {
+          "at": 22,
+          "lines": [
+            "- [P/#1.4 - zortex]",
+            "  - [ ] [./-Improve website] @id(web01)",
+            "  - [ ] [./-Change task sizes] @id(C0001)",
+            "- [ ] Call the mechanic @id(C0002)"
+          ]
+        }
+      ],
       "lines": [
         "@@Calendar",
         "",
@@ -58,13 +62,6 @@
       "today": "2026-10-14"
     },
     {
-      "add": [
-        "2026-10-14:",
-        "- [ ] Pick up parcel @id(C0001)",
-        "- [ ] Bring ID @id(C0002)",
-        ""
-      ],
-      "at": 7,
       "edits": [
         {
           "line": "- [>] Pick up parcel @id(C0001)",
@@ -76,6 +73,17 @@
         }
       ],
       "from": "2026-09-30",
+      "inserts": [
+        {
+          "at": 7,
+          "lines": [
+            "2026-10-14:",
+            "- [ ] Pick up parcel @id(C0001)",
+            "- [ ] Bring ID @id(C0002)",
+            ""
+          ]
+        }
+      ],
       "lines": [
         "@@Calendar",
         "",
@@ -90,10 +98,9 @@
       "today": "2026-10-14"
     },
     {
-      "add": [],
-      "at": 0,
       "edits": [],
       "from": "2026-10-10",
+      "inserts": [],
       "lines": [
         "@@Calendar",
         "",
@@ -114,12 +121,56 @@
       "today": "2026-10-14"
     },
     {
-      "add": [
-        "- [P/#1.4 - zortex]",
-        "  - [ ] [./#1.4.1 - zortex search] parent task @id(par01)",
-        "  - [ ] [P/#1.4 - zortex/#1.4.1 - zortex search/-Fix project search] child @id(C0001)"
+      "edits": [
+        {
+          "line": "  - [>] [./-Stretch] @id(str01)",
+          "lnum": 5
+        },
+        {
+          "line": "  - [>] [./-Improve website] @id(web01)",
+          "lnum": 7
+        },
+        {
+          "line": "- [>] Call the bank @id(C0001)",
+          "lnum": 8
+        }
       ],
-      "at": 9,
+      "from": "2026-09-30",
+      "inserts": [
+        {
+          "at": 13,
+          "lines": [
+            "  - [ ] [./-Stretch] @id(str01)"
+          ]
+        },
+        {
+          "at": 15,
+          "lines": [
+            "  - [ ] [./-Improve website] @id(web01)",
+            "- [ ] Call the bank @id(C0001)"
+          ]
+        }
+      ],
+      "lines": [
+        "@@Calendar",
+        "",
+        "2026-10-13:",
+        "07:00 Morning routine [P/#1 Personal/#Habits]",
+        "  - [ ] [./-Stretch] @id(str01)",
+        "09:00 [P/#1.4 - zortex]",
+        "  - [ ] [./-Improve website] @id(web01)",
+        "- [ ] Call the bank",
+        "",
+        "2026-10-14:",
+        "07:00 Morning routine [P/#1 Personal/#Habits]",
+        "  - [ ] [./-Meditate] @id(med01)",
+        "12:00 Lunch",
+        "16:00 [p/#1.4 - ZORTEX]"
+      ],
+      "name": "today already has the block (from a template): the copies join it",
+      "today": "2026-10-14"
+    },
+    {
       "edits": [
         {
           "line": "  - [>] [./#1.4.1 - zortex search] parent task @id(par01)",
@@ -131,6 +182,16 @@
         }
       ],
       "from": "2026-09-30",
+      "inserts": [
+        {
+          "at": 9,
+          "lines": [
+            "- [P/#1.4 - zortex]",
+            "  - [ ] [./#1.4.1 - zortex search] parent task @id(par01)",
+            "  - [ ] [P/#1.4 - zortex/#1.4.1 - zortex search/-Fix project search] child @id(C0001)"
+          ]
+        }
+      ],
       "lines": [
         "@@Calendar",
         "",

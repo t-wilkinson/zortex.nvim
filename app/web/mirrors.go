@@ -360,13 +360,7 @@ func (s *Server) carryCount(date string) int {
 	if doc == nil {
 		return 0
 	}
-	n := 0
-	for _, l := range s.carryPlan(doc.Lines, date, func() string { return "x" }).Add {
-		if strings.Contains(l, "@id(") {
-			n++
-		}
-	}
-	return n
+	return s.carryPlan(doc.Lines, date, func() string { return "x" }).Added()
 }
 
 // apiCarry: POST /api/calendar/carry {date?}
@@ -398,19 +392,8 @@ func (s *Server) apiCarry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	plan := s.carryPlan(f.lines, req.Date, s.newID)
-	for _, e := range plan.Edits {
-		f.lines[e.Lnum-1] = e.Line
-	}
-	added := 0
-	if plan.At > 0 {
-		at := plan.At - 1
-		f.lines = append(f.lines[:at], append(append([]string(nil), plan.Add...), f.lines[at:]...)...)
-		for _, l := range plan.Add {
-			if strings.Contains(l, "@id(") {
-				added++
-			}
-		}
-	}
+	f.lines = plan.Apply(f.lines)
+	added := plan.Added()
 	if len(plan.Edits) > 0 {
 		err = f.write()
 	}

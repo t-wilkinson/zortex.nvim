@@ -289,7 +289,7 @@ T.test("carry: the fixture is up to date", function()
 				return string.format("C%04d", n)
 			end,
 		})
-		T.eq(plan.lines, fx.cases[i].add, c.name)
-		T.eq(plan.at or 0, fx.cases[i].at, c.name)
+		T.eq(plan.edits, fx.cases[i].edits, c.name)
+		T.eq(plan.inserts, fx.cases[i].inserts, c.name)
 	end
 end)

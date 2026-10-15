@@ -40,8 +40,7 @@ for _, c in ipairs(require("carry_cases")) do
 		from = c.from,
 		lines = c.lines,
 		edits = plan.edits,
-		at = plan.at or 0,
-		add = plan.lines,
+		inserts = plan.inserts,
 	}
 end
 local carry_path = root .. "/tests/fixtures/carry.json"

@@ -19,6 +19,7 @@ Label:
 ### Tasks
 - [ ] Open task @size(sm) @due(2026-10-12)
 - [x] Done task @done(2026-10-08)
+- [>] Carried task @id(aB3x9)
   - [ ] Nested task
 - plain bullet with [^1]
 + plus bullet

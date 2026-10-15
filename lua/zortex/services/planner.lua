@@ -626,9 +626,11 @@ end
 --- same, checked against tests/fixtures/carry.json):
 ---   edits  { { lnum, line } }: each carried task marked [>] (moved), with an
 ---          @id (opts.new_id() when it had none)
----   at, lines  insert `lines` before line `at` (at = nil: nothing to add):
----          the copies, with the same @id, at the end of today's block, or a
----          new "YYYY-MM-DD:" block for them placed by date
+---   inserts { { at, lines } }, ascending: insert `lines` before line `at`:
+---          the copies, with the same @id, at the end of today's block (or a
+---          new "YYYY-MM-DD:" block for them placed by date); copies whose
+---          block today already has (a line whose first link is the same)
+---          go at the end of that block instead
 --- A task nested under a linked line that isn't a task ("09:00
 --- [P/#1.4 - zortex]") is copied under a copy of that line ("- [P/#1.4 -
 --- zortex]", the time dropped; same lines merge), its [./-Item] links kept
@@ -676,7 +678,13 @@ function M.carry(lines, today, opts)
 		end
 	end
 
-	local edits, groups, order, carried = {}, {}, {}, {}
+	local edits, groups, order, carried, head_def = {}, {}, {}, {}, {}
+	-- a linked line's first link, written out (how blocks are matched)
+	local function first_def(lnum)
+		local first = link_mod().links_on(lines[lnum])[1]
+		local def = first and link_mod().absolute(first.definition, lines, lnum)
+		return def and vim.trim(def):lower() or nil
+	end
 	for _, b in ipairs(blocks) do
 		if b.date >= (opts.from or "") and b.date < today then
 			local in_fence = false
@@ -723,6 +731,7 @@ function M.carry(lines, today, opts)
 								.. (parent == head and line:sub(it.mark_col + 1) or absolute_text(lines, l, it.mark_col))
 							local hit = syntax.item(lines[head])
 							key = "- " .. absolute_text(lines, head, hit and hit.content_col or indent_of(lines[head]))
+							head_def[key] = head_def[key] or first_def(head)
 						else
 							copy = "- " .. absolute_text(lines, l, it.mark_col)
 							key = ""
@@ -739,18 +748,73 @@ function M.carry(lines, today, opts)
 		end
 	end
 
-	local out = {}
-	for _, key in ipairs(order) do
-		if key ~= "" then
-			out[#out + 1] = key
+	-- today's blocks by their first link: carried copies join them
+	local today_heads = {}
+	if today_block then
+		for l = today_block.heading + 1, today_block.last do
+			local up_it = syntax.item(lines[l])
+			if not (up_it and up_it.mark) and #link_mod().links_on(lines[l]) > 0 then
+				local def = first_def(l)
+				if def and not today_heads[def] then
+					local last = l
+					for k = l + 1, today_block.last do
+						if lines[k]:match("%S") then
+							if indent_of(lines[k]) <= indent_of(lines[l]) then
+								break
+							end
+							last = k
+						end
+					end
+					today_heads[def] = { lnum = l, last = last }
+				end
+			end
 		end
-		vim.list_extend(out, groups[key])
+	end
+
+	local inserts, out = {}, {}
+	for _, key in ipairs(order) do
+		local match = key ~= "" and head_def[key] and today_heads[head_def[key]]
+		if match then
+			local pad = string.rep(" ", indent_of(lines[match.lnum]) + 2)
+			local children = {}
+			for _, copy in ipairs(groups[key]) do
+				children[#children + 1] = pad .. copy:sub(3)
+			end
+			inserts[#inserts + 1] = { at = match.last + 1, lines = children }
+		else
+			if key ~= "" then
+				out[#out + 1] = key
+			end
+			vim.list_extend(out, groups[key])
+		end
+	end
+	local function finish()
+		-- ascending, inserts at the same line kept in order
+		local merged = {}
+		for _, ins in ipairs(inserts) do
+			local same
+			for _, m in ipairs(merged) do
+				if m.at == ins.at then
+					same = m
+				end
+			end
+			if same then
+				vim.list_extend(same.lines, ins.lines)
+			else
+				merged[#merged + 1] = { at = ins.at, lines = vim.list_slice(ins.lines) }
+			end
+		end
+		table.sort(merged, function(a, b)
+			return a.at < b.at
+		end)
+		return { edits = edits, inserts = merged }
 	end
 	if #out == 0 then
-		return { edits = edits, lines = {} }
+		return finish()
 	end
 	if today_block then
-		return { edits = edits, at = today_block.last + 1, lines = out }
+		inserts[#inserts + 1] = { at = today_block.last + 1, lines = out }
+		return finish()
 	end
 	-- a new day, next to its nearest neighbour in time (as stores/calendar)
 	local target = day_number(today)
@@ -783,7 +847,8 @@ function M.carry(lines, today, opts)
 	elseif at > 1 and lines[at - 1]:match("%S") then
 		table.insert(new, 1, "")
 	end
-	return { edits = edits, at = at, lines = new }
+	inserts[#inserts + 1] = { at = at, lines = new }
+	return finish()
 end
 
 --- Carry the open tasks of the last `days` days (default 14) to `date`
@@ -802,9 +867,10 @@ function M.carry_forward(date, opts)
 		workspace.set_line(target, e.lnum, e.line)
 	end
 	local added = 0
-	if plan.at then
-		workspace.insert_lines(target, plan.at, plan.lines)
-		for _, l in ipairs(plan.lines) do
+	for i = #plan.inserts, 1, -1 do -- bottom up: earlier line numbers stay valid
+		local ins = plan.inserts[i]
+		workspace.insert_lines(target, ins.at, ins.lines)
+		for _, l in ipairs(ins.lines) do
 			if l:find("@id(", 1, true) then
 				added = added + 1
 			end

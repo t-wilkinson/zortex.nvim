@@ -72,7 +72,7 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 | `/raw/<path>` | the file as is: byte ranges, `?download=1`; HTML/SVG/XML with `Content-Security-Policy: sandbox` (`sandbox allow-scripts` for HTML with `-html-scripts`); nothing outside the folder, no hidden files |
 | `/tags`, `/tag/<name>` | header tags and their notes (the top bar's Graph lists the tags too); an area attribute in a header (`@area(4.1)`, `@a(1.2/Fitness)`) links to its area (`[A/#4.1]`) |
 | `/resources` | PDFs, books, images, media and documents, and which ones nothing links to (all by default; filter by unlinked/linked, type, folder); file pages show their own "Linked from", folder listings count links and unlinked files |
-| `/broken` | links that don't resolve (notes and files) |
+| `/broken` | links that don't resolve (notes and files), and task ids that don't line up (a project task's `@id` on two lines, a calendar copy whose link points at another task) |
 | `/api/search?q=`, `/api/resolve?to=&from=`, `/api/backlinks?rel=`, `/api/resources?show=unlinked&kind=&dir=`, `/api/structure` | JSON |
 | `/healthz` (`/health`) | counts and last index time |
 
@@ -215,8 +215,11 @@ With `-writable` (and `-data`), the clock box on the home page has a
 
 - **Which task.** By default the current calendar entry: the timed entry of
   today that has started (and not ended, for `09:00 - 10:30` ranges). When
-  its first link points at a task (`[P/#1.4 - zortex/-Improve website]`),
-  that task; otherwise the calendar line itself. It changes when the next
+  tasks are nested under it (`09:00 [P/#1.4 - zortex]` with
+  `  - [ ] [./-Improve website] @id(…)` below), the first open one: tick it
+  and the time goes to the next. Otherwise, when its first link points at a
+  task (`[P/#1.4 - zortex/-Improve website]`), that task; otherwise the
+  calendar line itself. It changes when the next
   entry starts. **Change** picks another (search open tasks), as does
   **⏱ Track** in a note's Edit toolbar; then the calendar no longer
   matters until you choose **Follow the calendar** (or **Don't track**).
@@ -290,7 +293,8 @@ the usual systemd hardening.
 | `POST /api/pomodoro/{start,pause,resume,toggle,skip,stop,restart}` | drive the clock |
 | `GET /api/xp` | the XP summary Neovim published (season, daily XP, areas, recent awards), or `{"available": false}` |
 | `POST /api/xp` | Neovim publishes it after every XP change (`X-API-Key` when set); it also writes `.z/xp_summary.json` into the notes folder, and the newer of the two is shown |
-| `POST /api/edit` | `-writable` only: `{rel, lnum, expect, op, text?, kind?}` with `op` `open` / `done` / `toggle` / `text` (task state, exactly as Neovim's toggle: `@done(today)`, an `@id`), `set` (new text after the line's marker; `@id`/`@done` kept), `delete`, `insert` (after `lnum`; `kind` `task` / `note` / `text`), `move` (the line and the lines indented under it go before line `to`, `len+1` for the end, re-indented to fit; `expectTo` is that line's text). `expect` is the line as the page saw it: if the note changed since, nothing is written and the reply is 409 with the current note |
+| `POST /api/edit` | `-writable` only: `{rel, lnum, expect, op, text?, kind?}` with `op` `open` / `done` / `toggle` / `text` (task state, exactly as Neovim's toggle: `@done(today)`, an `@id`), `set` (new text after the line's marker; `@id`/`@done` kept), `delete`, `insert` (after `lnum`; `kind` `task` / `note` / `text`), `move` (the line and the lines indented under it go before line `to`, `len+1` for the end, re-indented to fit; `expectTo` is that line's text). `expect` is the line as the page saw it: if the note changed since, nothing is written and the reply is 409 with the current note Task ops keep copies in step: the other lines with the task's `@id` in the calendar and the project notes get the same state (not `[>]` lines), and on a calendar line without a checkbox whose link points at a task they toggle that task (the reply then carries `task: {rel, lnum, line}`) |
+| `POST /api/calendar/carry` | `-writable` only: `{date?}` (default today): copy the open tasks of the 14 days before to the date with the same `@id` and mark the old lines `[>]`, as Neovim's `:ZortexCarryForward`; `{moved, added}`. `GET /api/calendar` has `carry`, how many there are for today (the home page offers a **Carry** button) |
 | `GET /api/note?rel=` | a rendered note: `{body, mod, src?}` (`src` with `-writable`) |
 | `GET /api/events` | server-sent events for open pages: `notes` (`{rels}` added, changed or removed; seen on the next rescan, `-poll`), `xp` (a new summary), `pomodoro` (the clock changed), `clocks` (timers, alarms, stopwatch), `track` (time tracking). Pages redraw right away; behind nginx the stream needs `proxy_buffering off` (the server also sends `X-Accel-Buffering: no`) |
 | `POST /api/inbox` | `-writable` only: `{text, kind: "task" \| "note"}` appended to `inbox.zortex` (created when missing) |

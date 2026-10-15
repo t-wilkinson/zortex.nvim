@@ -1,20 +1,20 @@
 {
   "blocks": [
     {
-      "finish": 34,
+      "finish": 35,
       "kind": "table",
-      "start": 32
+      "start": 33
     },
     {
-      "finish": 42,
+      "finish": 43,
       "kind": "code",
       "lang": "lua",
-      "start": 39
+      "start": 40
     },
     {
-      "finish": 46,
+      "finish": 47,
       "kind": "math",
-      "start": 44
+      "start": 45
     }
   ],
   "header": {
@@ -327,6 +327,28 @@
       "item": {
         "content_col": 6,
         "mark": "x",
+        "mark_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 6,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 29,
+          "key": "id",
+          "s": 19,
+          "type": "attribute",
+          "value": "aB3x9"
+        }
+      ],
+      "item": {
+        "content_col": 6,
+        "mark": ">",
         "mark_col": 2,
         "marker": "-",
         "marker_col": 0,

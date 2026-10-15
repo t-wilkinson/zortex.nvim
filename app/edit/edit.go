@@ -123,7 +123,7 @@ func ConvertToTask(line, id string) (string, error) {
 	indent := line[:n]
 	content := trimLuaSpace(line[n:])
 	text := content
-	if content != "" && (content[0] == '-' || content[0] == '*' || content[0] == '+') {
+	if content != "" && content[0] == '-' {
 		rest := content[1:]
 		j := 0
 		for j < len(rest) && isLuaSpace(rest[j]) {

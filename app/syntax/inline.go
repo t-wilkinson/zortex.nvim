@@ -6,7 +6,7 @@ import "strings"
 // Which other fields are set depends on Type:
 //
 //	link, live_link   Definition             [Projects/#Heading], ![Article]
-//	tag_search        Content, Terms, QueryType   @[cars & parts], !@[...] (Embed)
+//	tag_search        Content                     @[cars parts], !@[...] (Embed)
 //	markdown          Text, URL              [text](https://...)
 //	footnote_ref      ID                     [^1]
 //	url               URL                    https://...
@@ -25,8 +25,6 @@ type Span struct {
 	Embed      bool // tag_search written !@[...]: shown in place
 	Definition string
 	Content    string
-	Terms      []string
-	QueryType  string
 	Text       string
 	URL        string
 	ID         string
@@ -130,8 +128,7 @@ func scanAt(line string, i int) *Span {
 			return nil
 		}
 		content := line[i+2 : i+2+n]
-		qt, terms := SplitQuery(content)
-		return &Span{Type: "tag_search", S: i, E: i + n + 3, Content: content, Terms: terms, QueryType: qt}
+		return &Span{Type: "tag_search", S: i, E: i + n + 3, Content: content}
 	}
 	if !wordStart(line, i) {
 		return nil
@@ -336,12 +333,6 @@ func Inline(line string, from, to int) []Span {
 	return spans
 }
 
-// linkTypes are spans that lead somewhere (SpanAt).
-var linkTypes = map[string]bool{
-	"link": true, "live_link": true, "tag_search": true, "markdown": true,
-	"footnote_ref": true, "url": true, "filepath": true, "attribute": true,
-}
-
 // Walk calls fn for every span, children after their parent.
 func Walk(spans []Span, fn func(*Span)) {
 	for i := range spans {
@@ -350,17 +341,6 @@ func Walk(spans []Span, fn func(*Span)) {
 			Walk(spans[i].Children, fn)
 		}
 	}
-}
-
-// SpanAt returns the innermost link-like span covering byte column col.
-func SpanAt(spans []Span, col int) *Span {
-	var found *Span
-	Walk(spans, func(s *Span) {
-		if linkTypes[s.Type] && col >= s.S && col < s.E {
-			found = s
-		}
-	})
-	return found
 }
 
 // Links returns every link and live_link span, in order.

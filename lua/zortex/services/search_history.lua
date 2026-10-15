@@ -12,8 +12,9 @@
 --
 -- A score is stored as (value, time) and decayed on read:
 --   value(now) = value * exp(-rate * days_since(time))
--- Recording adds 1 to the decayed value. Search adds boost(file, node) to a
--- result's score, so frequently and recently opened places rank higher.
+-- Recording adds 1 to the decayed value. Search adds file_boost and
+-- section_boost to a result's score, so frequently and recently opened
+-- places rank higher.
 local M = {}
 
 local VERSION = 1
@@ -136,12 +137,6 @@ end
 --- Score points search adds for a section (and, via propagation, its parents).
 function M.section_boost(path, breadcrumb, now)
 	return SECTION_WEIGHT * math.log(1 + M.section_score(path, breadcrumb, now))
-end
-
---- Total boost for a result.
-function M.boost(path, breadcrumb, now)
-	now = now or os.time()
-	return M.file_boost(path, now) + (breadcrumb and M.section_boost(path, breadcrumb, now) or 0)
 end
 
 --- Forget everything (memory and disk).

@@ -6,7 +6,7 @@ Costs $5 and $6, but $x$ is math and $$y$$ too; $ $ is not.
 Shell: echo $HOME and a$b$c inside words.
 Code ``with `ticks` inside`` and `unclosed
 Links [a] [ab] [ ] [x] [X] [-] [.] [^note] [^bad id] [](empty) [text]( ) [nested [x]]
-Live ![] ![L] ![ok] and tag @[a + b] @[c++] @[r&d] @[a & b & c]
+Live ![] ![L] ![ok] and tag @[a, b] @[c++] @[r&d] @[a b c]
 Attrs @p1 @size() @a(4.1) @key(unclosed and me@example.com @_x @-y (@in) "@quote"
 URLs https://a.b/c?d=e;f http://x) https:// http://
 Paths ./a ../b ~/c /etc/d and/or w/o ./ ../ ~/ / .hidden x./y

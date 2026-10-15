@@ -320,7 +320,7 @@ function M.trigger_notification(notification_id)
 	return results
 end
 
--- Send notification immediately (backward compatibility)
+-- Send a notification now
 function M.send_notification(title, message, options)
 	options = options or {}
 
@@ -331,7 +331,7 @@ function M.send_notification(title, message, options)
 		message = message,
 		trigger_time = os.time(), -- Now
 		type = options.type or "default",
-		channels = options.channels or options.providers, -- Support old 'providers' key
+		channels = options.channels,
 		options = options,
 	}
 

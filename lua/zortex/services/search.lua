@@ -43,7 +43,6 @@
 -- No UI here: ui/telescope/search.lua is the picker, zortex.query.search the
 -- plain-data entry point.
 local M = {}
-local fs = require("zortex.utils.filesystem")
 local Config = require("zortex.config")
 
 -- ---------------------------------------------------------------------------
@@ -533,25 +532,9 @@ function M.query_index(index, prompt, opts)
 	return results
 end
 
--- ---------------------------------------------------------------------------
--- Backwards-compatible one-shot API
--- (build a throwaway index, then query — preserves the old signatures)
--- ---------------------------------------------------------------------------
-
-function M.search_sections(files, prompt)
-	local tokens = type(prompt) == "string" and tokenize(prompt) or prompt
-	return match_sections(M.build_index(files), tokens, section_filter(#tokens), true)
-end
-
-function M.search_lines(files, prompt)
-	local tokens = type(prompt) == "string" and tokenize(prompt) or prompt
-	return match_lines(M.build_index(files), tokens)
-end
-
 -- Exposed for tests
 M._tokenize = tokenize
 M._path_match = path_match
-
 
 --- Every note to search, archived ones included, in a stable order (top-level
 --- first, then by path; core/notes), so line results come out the same on any

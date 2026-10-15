@@ -6,7 +6,6 @@
 --   local history = State.open("search_history", {
 --     version = 1,
 --     default = function() return { files = {}, sections = {} } end,
---     migrate = function(data, from_version) ... return data end,  -- optional
 --   })
 --   history:get()        -- the data table (loaded on first use)
 --   history:save()       -- atomic write (temp file + rename)
@@ -15,9 +14,8 @@
 --
 -- Loading never fails: a missing file gives default(); a file that is not
 -- valid JSON is kept as <name>.json.corrupt-<time> and replaced by default();
--- a file with another version goes through migrate(), or is replaced by
--- default() when there is none. Files written before versioning
--- (no "version" key) count as version 1.
+-- a file with another version is replaced by default() (bump the version
+-- when the shape of the data changes).
 --
 -- Files: link_index, search_history, xp_state, notifications_state.
 local M = {}
@@ -86,7 +84,6 @@ function M.open(name, spec)
 		default = spec.default or function()
 			return {}
 		end,
-		migrate = spec.migrate,
 		data = nil,
 	}, State)
 	handles[name] = s
@@ -106,11 +103,8 @@ function State:get()
 	if err == "corrupt" then
 		os.rename(path, path .. ".corrupt-" .. os.time())
 	end
-	if data then
-		local v = data.version or 1
-		if v ~= self.version then
-			data = self.migrate and self.migrate(data, v) or nil
-		end
+	if data and data.version ~= self.version then
+		data = nil
 	end
 	if not data then
 		data = self.default()
@@ -132,13 +126,6 @@ end
 
 function State:reload()
 	self.data = nil
-end
-
---- Drop every in-memory copy (notes_dir changed, tests).
-function M.reload_all()
-	for _, s in pairs(handles) do
-		s.data = nil
-	end
 end
 
 return M

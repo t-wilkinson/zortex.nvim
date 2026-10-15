@@ -280,33 +280,6 @@ T.test("area awards go to the most specific area first (deterministic)", functio
 	T.ok(approx(shares.A + shares.B + shares.C, 30))
 end)
 
-T.test("migration from the transaction log keeps seasons only", function()
-	local State = require("zortex.core.state")
-	local path = State.path("xp_state")
-	vim.fn.mkdir(vim.fn.fnamemodify(path, ":h"), "p")
-	vim.fn.writefile({
-		vim.json.encode({
-			version = 1,
-			season_xp = 99,
-			season_level = 3,
-			area_xp = { x = 5 },
-			xp_transactions = { a = { base_xp = 5 } },
-			current_season = { name = "Q", start_date = "2026-10-01", end_date = "2026-12-31" },
-			season_history = { { name = "P", start_date = "2026-07-01", end_date = "2026-09-30", final_xp = 3, final_level = 1, xp_transactions = { b = {} } } },
-		}),
-	}, path)
-	store.reload()
-	T.eq(store.current_season().name, "Q")
-	T.eq(store.season_history()[1].name, "P")
-	T.eq(store.season_history()[1].xp_transactions, nil)
-	T.eq(store.seen().season_tier, 0)
-	store.save()
-	local raw = vim.json.decode(table.concat(vim.fn.readfile(path), "\n"))
-	T.eq(raw.version, 3)
-	T.eq(raw.area_xp, nil)
-	store.reset_season()
-end)
-
 T.test("query.xp is plain data", function()
 	store.start_season("Q", "2026-12-31", "2026-10-01")
 	local q = require("zortex.query").xp({ days = 3650 })

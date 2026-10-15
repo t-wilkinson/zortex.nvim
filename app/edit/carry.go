@@ -128,7 +128,7 @@ func dayNumber(date string) int {
 //     goes under a copy of that line ("- [P/#1.4 - zortex]"), its [./-Item]
 //     links kept when that line is their parent; other tasks become
 //     "- [ ] ..." with [./-Item] links written out
-//   - repeating entries (@every, @repeat) stay; a task whose @id is already
+//   - repeating entries (@repeat) stay; a task whose @id is already
 //     on today is only marked
 func Carry(lines []string, today, from string, newID func() string) CarryPlan {
 	type block struct {
@@ -206,7 +206,7 @@ func Carry(lines []string, today, from string, newID func() string) CarryPlan {
 			}
 			it := syntax.ItemOf(line)
 			if it == nil || it.Mark != " " || it.MarkCol == nil ||
-				strings.Contains(line, "@every(") || strings.Contains(line, "@repeat(") {
+				strings.Contains(line, "@repeat(") {
 				continue
 			}
 			// the nearest linked line above it that isn't a task (head), and

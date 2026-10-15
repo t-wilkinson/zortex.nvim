@@ -12,8 +12,8 @@ import (
 
 // Tag searches, @[scope/tags] (core/link tag_search): the components before
 // the last "/" are a link giving where to look (none: the current note; "*":
-// every note), the last one the tags, "a + b" either and "a & b" both
-// (spaces and "@" optional). A line matches when it, or a section heading
+// every note), the last one the tags: words are all of them, commas separate
+// alternatives ("rust async, rl": rust and async, or rl; "@" optional). A line matches when it, or a section heading
 // above it, carries the tags as bare @words.
 
 // TagQuery is a parsed tag search.
@@ -33,10 +33,11 @@ func ParseTagSearch(content string) TagQuery {
 		parts = parts[:len(parts)-1]
 	}
 	var q TagQuery
-	for _, group := range strings.Split(query, "+") {
+	for _, group := range strings.Split(query, ",") {
 		var terms []string
-		for _, term := range strings.Split(group, "&") {
-			term = syntax.Lower(strings.TrimPrefix(syntax.Trim(term), "@"))
+		// words split on ASCII white space, like Lua's %S+
+		for _, term := range strings.FieldsFunc(group, isSpaceRune) {
+			term = syntax.Lower(strings.TrimPrefix(term, "@"))
 			if term != "" {
 				terms = append(terms, term)
 			}
@@ -52,6 +53,8 @@ func ParseTagSearch(content string) TagQuery {
 	q.Local = local
 	return q
 }
+
+func isSpaceRune(r rune) bool { return r < 0x80 && isSpace(byte(r)) }
 
 // lineTags are the bare @words on a line, with their 1-based columns.
 func lineTags(d *notes.Document, lnum int) map[string]int {

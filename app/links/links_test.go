@@ -88,17 +88,17 @@ func conform(t *testing.T, ix *notes.Index, cases []resolveCase) {
 }
 
 func TestParse(t *testing.T) {
-	d := Parse("[/#4 Learning & Education/:Fitness @a(1/2)/a + b]")
+	d := Parse("[/#4 Learning & Education/:Fitness @a(1/2)/%a b]")
 	if !d.Local || len(d.Components) != 3 {
 		t.Fatalf("%+v", d)
 	}
 	if c := d.Components[0]; c.Type != "heading" || c.Text != "4 Learning & Education" {
-		t.Errorf("typed components are never queries: %+v", c)
+		t.Errorf("heading keeps its &: %+v", c)
 	}
 	if c := d.Components[1]; c.Type != "label" || c.Text != "Fitness" {
 		t.Errorf("attributes removed, '/' inside parentheses kept: %+v", c)
 	}
-	if c := d.Components[2]; c.Type != "or_query" || len(c.Tags) != 2 {
-		t.Errorf("or query: %+v", c)
+	if c := d.Components[2]; c.Type != "query" || c.Text != "a b" {
+		t.Errorf("query: %+v", c)
 	}
 }

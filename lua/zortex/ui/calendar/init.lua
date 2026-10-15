@@ -4,7 +4,6 @@ local M = {}
 
 local Config = require("zortex.config")
 local datetime = require("zortex.utils.datetime")
-local fs = require("zortex.utils.filesystem")
 local calendar_store = require("zortex.stores.calendar")
 
 -- =============================================================================
@@ -52,7 +51,7 @@ local function calendar_stats()
 		if notify and notify ~= "no" then
 			stats.entries_with_notifications = stats.entries_with_notifications + 1
 		end
-		if entry.attributes["repeat"] or entry.attributes.every then
+		if entry.attributes["repeat"] then
 			stats.recurring_entries = stats.recurring_entries + 1
 		end
 		if entry.type == "task" then
@@ -84,57 +83,6 @@ local function pending_notifications(lookahead_minutes)
 		end
 	end
 	return pending
-end
-
--- =============================================================================
--- Calendar UI Integration
--- =============================================================================
-
--- Add entry with interactive prompt
-function M.add_entry_interactive(date_str)
-	date_str = date_str or datetime.format_datetime(datetime.get_current_date(), "YYYY-MM-DD")
-
-	vim.ui.input({
-		prompt = string.format("Add entry for %s: ", date_str),
-		default = "",
-	}, function(input)
-		if input and input ~= "" then
-			if M.add_entry(date_str, input) then
-				vim.notify(string.format("Added entry for %s", date_str), vim.log.levels.INFO)
-			else
-				vim.notify("Failed to add entry", vim.log.levels.ERROR)
-			end
-		end
-	end)
-end
-
--- Delete entry with confirmation
-function M.delete_entry_interactive(date_str)
-	local entries = require("zortex.stores.calendar").get_entries_for_date(date_str)
-
-	if not entries or #entries == 0 then
-		vim.notify("No entries for " .. date_str, vim.log.levels.WARN)
-		return
-	end
-
-	-- Build selection list
-	local items = {}
-	for i, entry in ipairs(entries) do
-		table.insert(items, string.format("%d. %s", i, entry:format()))
-	end
-
-	vim.ui.select(items, {
-		prompt = "Select entry to delete:",
-	}, function(choice, idx)
-		if choice and idx then
-			local success, err = calendar_store.delete_entry_by_index(date_str, idx)
-			if success then
-				vim.notify("Entry deleted", vim.log.levels.INFO)
-			else
-				vim.notify("Failed to delete entry: " .. (err or "unknown error"), vim.log.levels.ERROR)
-			end
-		end
-	end)
 end
 
 -- =============================================================================
@@ -248,45 +196,6 @@ function M.check_notifications()
 		vim.notify(msg, vim.log.levels.INFO)
 
 	end
-end
-
--- =============================================================================
--- Calendar File Operations
--- =============================================================================
-
--- Open calendar file
-function M.open_file()
-	local calendar_file = fs.get_calendar_file()
-	if calendar_file then
-		vim.cmd("edit " .. calendar_file)
-		return true
-	end
-	return false
-end
-
--- Jump to date in calendar file
-function M.goto_date(date_str)
-	-- Ensure file is open
-	if not M.open_file() then
-		return false
-	end
-
-	-- Format date for search
-	local date = datetime.parse_date(date_str)
-	if not date then
-		return false
-	end
-
-	local search_pattern = string.format("%04d-%02d-%02d:", date.year, date.month, date.day)
-
-	-- Search for date
-	local found = vim.fn.search(search_pattern, "w")
-	if found > 0 then
-		vim.cmd("normal! zz")
-		return true
-	end
-
-	return false
 end
 
 -- =============================================================================

@@ -111,20 +111,6 @@ function M.files(opts)
 	return M.index(opts).files
 end
 
--- Files whose header declares article name `name` (case-insensitive).
--- `within` optionally restricts the search to a list of paths.
-function M.find_by_name(name, within, opts)
-	local idx = M.index(opts)
-	local out = {}
-	for _, path in ipairs(within or idx.files) do
-		local header = idx.headers[path] or read_header(path)
-		if header and syntax.list_has(header.names, name) then
-			out[#out + 1] = path
-		end
-	end
-	return out
-end
-
 -- Files whose header carries tag `tag` (case-insensitive).
 function M.find_by_tag(tag, within, opts)
 	local idx = M.index(opts)

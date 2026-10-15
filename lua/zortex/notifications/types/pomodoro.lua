@@ -535,10 +535,6 @@ function M.status()
 	st.phase_name = NAMES[st.phase] or st.phase
 	st.remaining_formatted = fmt(st.remaining or 0)
 	st.is_active = st.running == true
-	-- backwards compatible: "stopped" when idle
-	if st.phase == PHASE.IDLE then
-		st.phase = "stopped"
-	end
 	return st
 end
 
@@ -548,7 +544,7 @@ function M.describe(st)
 	if st.error then
 		return "Pomodoro server unreachable"
 	end
-	if st.phase == "stopped" then
+	if st.phase == PHASE.IDLE then
 		return string.format("Pomodoro idle · %d session(s) today", st.today or 0)
 	end
 	local n = st.settings and st.settings.long_break_after or 4
@@ -568,7 +564,7 @@ end
 --- For statuslines: "🍅 12:34" while active, "" when idle.
 function M.statusline()
 	local ok, st = pcall(M.status)
-	if not ok or st.error or st.phase == "stopped" then
+	if not ok or st.error or st.phase == PHASE.IDLE then
 		return ""
 	end
 	local icon = st.phase == PHASE.WORK and "🍅" or "☕"

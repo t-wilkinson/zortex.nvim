@@ -15,6 +15,8 @@ The first release for people other than the author.
   with the same `@id` are one task: checked when any copy is, XP paid once
   by the project, toggling one toggles the others, `@spent` adds up. A
   calendar line without a checkbox that links a task stands for it.
+- `@[rust async]` (all of the tags) and `@[rust, rl]` (any); quotes `> `,
+  bullets `-`.
 - `[./-Item]` links continue the link of the line they're nested under
   (`09:00 [P/#1.4 - zortex]` / `  - [ ] [./-Improve website]`).
 - The planner puts tasks on the day as copies (`p`, under their project's
@@ -114,6 +116,22 @@ The first release for people other than the author.
   ```sh
   find . -name '*.zortex' -exec sed -E -i 's/^\*\*([^*]*[^*:])\*\*:?[[:space:]]*$/**\1:**/' {} +
   ```
+- **One way to write each thing.** Tag searches: words are all of them,
+  commas any of them (`@[rust async]`, `@[rust, rl]`); ` + ` and ` & ` are
+  gone, in links too (`[P/a + b]`, `[P/+a+b]`). Quotes are `> ` only (a lone
+  `| line` is text). Bullets are `-` only (`* ` and `+ ` lines are text; the
+  web app still reads them in Markdown files). `@sz(...)` is gone (`@size`
+  and the bare `@sm` stay), so are `.zx` files and `@every` (repeats are
+  `@repeat`). Objectives are `3M-2026-Q1 Title` only and key results
+  `- KR1: ...` only. To find lines to rewrite, in the notes folder:
+
+  ```sh
+  grep -rnE '@\[[^]]*( \+ | & )|\[[^]#]*/([+&]|[^]#/]* [+&] )' --include='*.zortex' .  # tag searches, link queries
+  grep -rnE '^\s*(\| [^|]*$|[*+] )|@sz\(|@every\(' --include='*.zortex' .  # quotes, bullets, attributes
+  grep -rnE '^#+ [0-9A-Z]+ [0-9]{4} [0-9]{1,2} |^\s*- KR[0-9]*(-| [^:])' --include='*.zortex' .  # old OKR forms
+  ```
+- **State files** in `.z` with another version are reset to their defaults
+  (there are no migrations).
 - **ntfy** has no default topic: set `notifications.providers.ntfy.topic`
   (and the server's `NTFY_TOPIC`, `services.zortex.ntfy.topic`) to a private
   one; nothing is sent without it. The default server is `https://ntfy.sh`.

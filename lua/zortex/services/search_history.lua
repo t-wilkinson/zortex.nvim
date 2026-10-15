@@ -13,8 +13,8 @@
 -- A score is stored as (value, time) and decayed on read:
 --   value(now) = value * exp(-rate * days_since(time))
 -- Recording adds 1 to the decayed value. Search adds file_boost and
--- section_boost to a
--- result's score, so frequently and recently opened places rank higher.
+-- section_boost to a result's score, so frequently and recently opened
+-- places rank higher.
 local M = {}
 
 local VERSION = 1

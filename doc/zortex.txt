@@ -311,7 +311,7 @@ SYSTEM ~
 
 setup() merges your options over these defaults: >lua
     {
-      notes_dir = vim.fn.expand("~/.zortex/"),
+      notes_dir = vim.fn.expand("~/zortex/"),
       extension = ".zortex",
       -- A new notes folder gets calendar, projects, areas, okr, structure and
       -- inbox notes from short templates (:ZortexInit adds missing ones later)

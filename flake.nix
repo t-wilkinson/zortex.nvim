@@ -51,7 +51,7 @@
               export ZORTEX_DATA_DIR="$HOME/.local/state/zortex"
               mkdir -p "$ZORTEX_DATA_DIR"
               echo "Zortex dev environment ready."
-              echo "  go -C app run ./cmd/zortex serve -dir ~/.zortex      # http://127.0.0.1:8090/"
+              echo "  go -C app run ./cmd/zortex serve -dir ~/zortex       # http://127.0.0.1:8090/"
               echo "  go -C app test ./...   ·   nvim --headless -u NONE -l tests/run.lua"
             '';
           };

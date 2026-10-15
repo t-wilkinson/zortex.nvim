@@ -5,8 +5,10 @@
 --      (ui.planner.templates: weekday / saturday / sunday / monday ...), and
 --      carries the open tasks of the days before to it (the old lines marked
 --      [>]; ui.planner.carry_forward, :ZortexCarryForward)
---   2. opens zortex://plan beside it: ranked tasks (TODOs, priority, due,
---      OKR), projects, key results and areas.
+--   2. opens zortex://plan beside it: projects, each with its ranked tasks
+--      under a "## <project link>" heading; key results; to-dos (the TODO
+--      project, the Projects note's own tasks, calendar tasks left open);
+--      areas.
 --
 -- Two ways to put a project task on the day (services/mirrors):
 --   a copy      "- [ ] [P/#1.4 - zortex/-Improve website] @id(aB3x9)" (p, P):
@@ -50,27 +52,50 @@ end
 -- Rendering
 -- =============================================================================
 
-local SECTIONS = {
-	{ key = "tasks", title = "Tasks" },
-	{ key = "projects", title = "Projects" },
-	{ key = "key_results", title = "Key results" },
-	{ key = "areas", title = "Areas" },
-}
-
---- Lines, badges and line -> candidate map for a candidates table.
+--- Lines, badges and line -> candidate map for a candidates table:
+---   # Projects     a "## <project link>" heading per project, its ranked
+---                  tasks under it
+---   # Key results
+---   # Tasks        to-dos: the TODO project, the Projects note's own tasks,
+---                  open calendar tasks of earlier days
+---   # Areas
 function M.render(candidates, date)
 	local lines, badges, items = {}, {}, {}
-	lines[#lines + 1] = "@@Plan " .. (date or "")
-	for _, section in ipairs(SECTIONS) do
-		local list = candidates[section.key] or {}
+	local function add(text, c, b)
+		lines[#lines + 1] = text
+		items[#lines] = c
+		badges[#lines] = table.concat(b or (c and c.badges) or {}, " · ")
+	end
+	local function section(title, list)
 		lines[#lines + 1] = ""
-		lines[#lines + 1] = string.format("# %s (%d)", section.title, #list)
+		lines[#lines + 1] = string.format("# %s (%d)", title, #list)
 		for _, c in ipairs(list) do
-			lines[#lines + 1] = c.text
-			items[#lines] = c
-			badges[#lines] = table.concat(c.badges or {}, " · ")
+			add(c.text, c)
 		end
 	end
+	lines[#lines + 1] = "@@Plan " .. (date or "")
+
+	local groups = candidates.groups or {}
+	lines[#lines + 1] = ""
+	lines[#lines + 1] = string.format("# Projects (%d)", #groups)
+	for i, g in ipairs(groups) do
+		if i > 1 then
+			lines[#lines + 1] = ""
+		end
+		-- its tasks are listed: no "next: …" badge
+		add("## " .. g.project.text, g.project, #g.tasks > 0 and vim.tbl_filter(function(b)
+			return not b:find("^next: ")
+		end, g.project.badges or {}) or nil)
+		for _, t in ipairs(g.tasks) do
+			-- the project is the heading: leave its name out of the badges
+			add(t.text, t, vim.tbl_filter(function(b)
+				return b ~= t.project_name
+			end, t.badges or {}))
+		end
+	end
+	section("Key results", candidates.key_results or {})
+	section("Tasks", candidates.todos or {})
+	section("Areas", candidates.areas or {})
 	return lines, badges, items
 end
 

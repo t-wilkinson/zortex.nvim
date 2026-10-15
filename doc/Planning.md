@@ -88,7 +88,10 @@ without duplicating them: a task on the calendar is the project's task.
   day's template), and marks the old lines `[>]` (carried: neither open nor
   done, kept as the record of that day). Repeating entries (`@repeat`) stay.
 
-In the planner, `p` puts a task on the day as a copy (under its project's
+The planner (`<leader>zm`) lists projects first, each under a heading with
+its ranked tasks, then key results, then to-dos (the TODO project,
+`ui.planner.todo_link`, the Projects note's own tasks and calendar tasks
+left open), then areas. In it, `p` puts a task on the day as a copy (under its project's
 block when the day has one; the task gets an `@id` if it has none), `P` a
 project as a block with all of its open tasks, and `<CR>` / `i` / `o` the
 task's text and link at the cursor (a reference, ready for a time). The

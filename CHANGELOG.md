@@ -19,7 +19,8 @@ The first public release.
   bullets `-`.
 - `[./-Item]` links continue the link of the line they're nested under
   (`09:00 [P/#1.4 - zortex]` / `  - [ ] [./-Improve website]`).
-- The planner puts tasks on the day as copies (`p`, under their project's
+- The planner lists projects with their tasks under a heading each, then
+  key results, to-dos and areas, and puts tasks on the day as copies (`p`, under their project's
   block), projects as blocks with their open tasks (`P`), and carries the open
   tasks of the days before to today, marking the old lines `[>]`
   (`:ZortexCarryForward`, `ui.planner.carry_forward`).

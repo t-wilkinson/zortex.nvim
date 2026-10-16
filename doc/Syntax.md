@@ -137,6 +137,7 @@ projects, calendar entries):
 | `@notify(15)`, `@n(0, 30)`, `@n(0, end)` | calendar: notify minutes before the start (several allowed; every timed line notifies at its time by default, `@n(no)` turns it off); `end` also notifies when a range ends |
 | `@event` | calendar: something fixed that you plan around (an appointment, a flight), not a block you planned; the web month grid marks its day |
 | `@repeat(weekly)` | calendar: repetition |
+| `@fold` | on a heading, label or list item with nested lines: the section starts folded in Neovim each time the note is shown (`zo` opens it until then) |
 | `@slides(2)` | in a header: the heading level that starts a slide ([slides](../app/README.md#slides)) |
 | `@step`, `@steps` | slides: reveal a line, or each item of a slide, one at a time |
 | `@rust`, `@home`, `@ai-model` | any other bare `@word`: a tag, found by tag searches (`@[rust]`; see [Tag searches](#tag-searches)) |

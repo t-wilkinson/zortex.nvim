@@ -206,6 +206,9 @@ func Groups(lines []string, first, last int, hours func(size string) (float64, b
 	return tasks
 }
 
+// Ticked: the line is a ticked task ([x] or [X]).
+func Ticked(line string) bool { return isChecked(line) }
+
 func isChecked(line string) bool {
 	_, mark, ok := task(line)
 	return ok && completed(mark)

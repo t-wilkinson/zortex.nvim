@@ -264,11 +264,18 @@ func (s *Server) applyEdit(f *noteFile, req editRequest) (int, error) {
 		default:
 			return 0, errors.New("only list items and text lines can be tasks")
 		}
-		line, err := edit.Line(f.lines[i], req.Op, today(), s.newID)
+		was := f.lines[i]
+		line, err := edit.Line(was, req.Op, today(), s.newID)
 		if err != nil {
 			return 0, err
 		}
 		f.lines[i] = line
+		// the only task of a calendar block, unsized: the block's length
+		if edit.Ticked(line) && !edit.Ticked(was) {
+			if size := edit.CalendarSize(f.lines, req.Lnum, s.calibration().TaskHours); size != "" {
+				f.lines[i] = line + " @" + size
+			}
+		}
 	case "set":
 		line := f.lines[i]
 		col := 0

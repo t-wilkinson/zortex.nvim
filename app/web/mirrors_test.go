@@ -247,3 +247,21 @@ func TestMirrorAdoptsLinkedID(t *testing.T) {
 		t.Fatalf("ids don't line up: %+v", issues)
 	}
 }
+
+// The only task of a calendar block, ticked without a size, gets the size
+// nearest the block's length (edit.CalendarSize).
+func TestCalendarTaskSizedByBlock(t *testing.T) {
+	_, dir, ts := mirrorServer(t, []string{
+		"16:00 Write the report",
+		"  - [ ] Draft @id(rep01)",
+		"17:00 Next",
+	})
+	cal := filepath.Join(dir, "calendar.zortex")
+	n, line := lineWith(t, cal, "@id(rep01)")
+	if code, out := postJSON(t, ts.URL, "/api/edit", map[string]any{"rel": "calendar.zortex", "lnum": n, "expect": line, "op": "toggle"}); code != 200 {
+		t.Fatalf("toggle: %d %v", code, out)
+	}
+	if _, l := lineWith(t, cal, "@id(rep01)"); l != "  - [x] Draft @id(rep01) @done("+today()+") @md" {
+		t.Fatalf("sized: %q", l)
+	}
+}

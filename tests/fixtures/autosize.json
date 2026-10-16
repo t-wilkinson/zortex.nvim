@@ -1,0 +1,168 @@
+{
+  "cases": [
+    {
+      "lines": [
+        "2026-10-16:",
+        "16:00 Report",
+        "  - [x] Task 1",
+        "17:00 Next",
+        "  - [ ] Task 2"
+      ],
+      "lnum": 3,
+      "name": "one task until the next timed line: an hour is md",
+      "size": "md"
+    },
+    {
+      "lines": [
+        "2026-10-16:",
+        "09:00 - 11:00 Deep work",
+        "  - [x] Write",
+        "09:30 Coffee"
+      ],
+      "lnum": 3,
+      "name": "its own range",
+      "size": "lg"
+    },
+    {
+      "lines": [
+        "2026-10-16:",
+        "10:00 A",
+        "  - [x] a",
+        "10:45 B",
+        "  - [x] b",
+        "11:05 C"
+      ],
+      "lnum": 3,
+      "name": "closest by ratio: 45 minutes is md, 20 is sm",
+      "size": "md"
+    },
+    {
+      "lines": [
+        "2026-10-16:",
+        "10:00 A",
+        "  - [x] a",
+        "10:45 B",
+        "  - [x] b",
+        "11:05 C"
+      ],
+      "lnum": 5,
+      "name": "closest by ratio (second block)",
+      "size": "xs"
+    },
+    {
+      "lines": [
+        "2026-10-16:",
+        "08:00 Build",
+        "  - [x] Shelves",
+        "12:00 Lunch"
+      ],
+      "lnum": 3,
+      "name": "a long block: 4 hours",
+      "size": "2xl"
+    },
+    {
+      "lines": [
+        "2026-10-16:",
+        "16:00 Report",
+        "  - [x] Task 1",
+        "  - [ ] Task 2",
+        "17:00 Next"
+      ],
+      "lnum": 3,
+      "name": "two tasks in the block: no size",
+      "size": ""
+    },
+    {
+      "lines": [
+        "2026-10-16:",
+        "16:00 Report",
+        "  - [x] Task 1",
+        "    - [ ] Step",
+        "17:00 Next"
+      ],
+      "lnum": 3,
+      "name": "a nested task is a group: no size",
+      "size": ""
+    },
+    {
+      "lines": [
+        "2026-10-16:",
+        "16:00 Report",
+        "  - [x] Task 1 @lg",
+        "17:00 Next"
+      ],
+      "lnum": 3,
+      "name": "already sized",
+      "size": ""
+    },
+    {
+      "lines": [
+        "2026-10-16:",
+        "16:00 Report",
+        "  - [x] Task 1 @size(xs)",
+        "17:00 Next"
+      ],
+      "lnum": 3,
+      "name": "already sized (@size)",
+      "size": ""
+    },
+    {
+      "lines": [
+        "2026-10-16:",
+        "16:00 Report",
+        "  - [x] Task 1",
+        "",
+        "2026-10-17:",
+        "09:00 Next"
+      ],
+      "lnum": 3,
+      "name": "the day's last block has no end",
+      "size": ""
+    },
+    {
+      "lines": [
+        "2026-10-16:",
+        "16:00 Report",
+        "  - [ ] Task 1",
+        "17:00 Next"
+      ],
+      "lnum": 3,
+      "name": "not done",
+      "size": ""
+    },
+    {
+      "lines": [
+        "2026-10-16:",
+        "- [x] Loose",
+        "17:00 Next"
+      ],
+      "lnum": 2,
+      "name": "not under a timed line",
+      "size": ""
+    },
+    {
+      "lines": [
+        "2026-10-16:",
+        "14:00 Shelves",
+        "  - measure first",
+        "",
+        "  - [x] Buy brackets",
+        "14:30 Next"
+      ],
+      "lnum": 5,
+      "name": "notes and references don't count, blank lines are skipped",
+      "size": "sm"
+    }
+  ],
+  "sizes": {
+    "2xl": 5,
+    "3xl": 8,
+    "4xl": 13,
+    "5xl": 20,
+    "lg": 2,
+    "md": 1,
+    "sm": 0.5,
+    "xl": 3,
+    "xs": 0.25
+  }
+}

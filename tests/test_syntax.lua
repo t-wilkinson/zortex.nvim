@@ -307,6 +307,35 @@ T.test("folds follow sections and indentation", function()
 	vim.cmd("bwipeout!")
 end)
 
+T.test("@fold sections start closed; an opened one stays open", function()
+	local folding = require("zortex.features.folding")
+	vim.cmd("enew!")
+	local buf = vim.api.nvim_get_current_buf()
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+		"@@Note",
+		"# Open",
+		"text",
+		"# Archive @fold",
+		"old",
+		"- list @fold",
+		"  - child",
+		"Some @fold text",
+	})
+	folding.update_folds(buf)
+	T.eq(vim.b[buf].zortex_fold_closed, { 4, 6 })
+	vim.wo.foldmethod = "expr"
+	vim.wo.foldexpr = "v:lua._zortex_foldexpr(v:lnum)"
+	vim.wo.foldlevel = 99
+	folding.close_marked(0, buf)
+	T.eq({ vim.fn.foldclosed(2), vim.fn.foldclosed(4), vim.fn.foldclosed(8) }, { -1, 4, 4 })
+	vim.cmd("4foldopen")
+	T.eq(vim.fn.foldclosed(7), 6) -- the nested @fold item is closed too
+	vim.api.nvim_buf_set_lines(buf, 4, 5, false, { "older" })
+	folding.update_folds(buf)
+	T.eq(vim.fn.foldclosed(4), -1)
+	vim.cmd("bwipeout!")
+end)
+
 T.test("core/syntax runs without Neovim (no vim.* in the grammar)", function()
 	-- Load syntax.lua and constants.lua in an environment that has only the
 	-- Lua standard library, and parse the sample.

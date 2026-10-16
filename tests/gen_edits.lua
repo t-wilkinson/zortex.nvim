@@ -51,6 +51,27 @@ f:write(require("json").encode({ cases = carry }) .. "\n")
 f:close()
 print("wrote " .. carry_path .. " (" .. #carry .. " cases)")
 
+-- Calendar tasks sized by their block (services/tasks.calendar_size;
+-- app/edit autosize.go)
+do
+	local Config = require("zortex.config")
+	local sizes = Config.defaults.xp.sizes.task
+	local out_cases = {}
+	for _, c in ipairs(require("autosize_cases")) do
+		out_cases[#out_cases + 1] = {
+			name = c.name,
+			lines = c.lines,
+			lnum = c.lnum,
+			size = tasks.calendar_size(c.lines, c.lnum, sizes) or "",
+		}
+	end
+	local p = root .. "/tests/fixtures/autosize.json"
+	local fh = assert(io.open(p, "w"))
+	fh:write(require("json").encode({ sizes = sizes, cases = out_cases }) .. "\n")
+	fh:close()
+	print("wrote " .. p .. " (" .. #out_cases .. " cases)")
+end
+
 -- Task groups (services/task_groups; app/edit groups.go)
 local Groups = require("zortex.services.task_groups")
 local Document = require("zortex.core.document")

@@ -118,6 +118,8 @@ function M.complete_task(task, doc_context)
 	if not success then
 		return nil, "Failed to update line"
 	end
+	-- The only task of a calendar block, unsized: the block's length
+	new_line = M.size_from_block(doc_context.bufnr, doc_context.lnum) or new_line
 	-- The same task elsewhere (its project, other calendar days), and the
 	-- tasks of its group
 	M.propagate(doc_context.filepath, doc_context.lnum, new_line)
@@ -243,6 +245,124 @@ function M.edit_line(line, op, opts)
 		return line
 	end
 	return set_done(line, want_done, today)
+end
+
+-- =============================================================================
+-- Sizing a calendar task by its block
+-- =============================================================================
+
+local function indent_width(line)
+	return #line:match("^[ \t]*")
+end
+
+local function minutes(hm)
+	local h, m = (hm or ""):match("^(%d%d?):(%d%d)$")
+	return h and tonumber(h) * 60 + tonumber(m) or nil
+end
+
+--- The size a just-completed calendar task gets from its block, or nil.
+--- The task at `lnum` (no @size of its own) must be the only task nested
+--- under a timed line; the block lasts its own range ("16:00 - 17:30") or
+--- until the next timed line of the day at its indent. The size is the one
+--- whose hours are closest by ratio (45 minutes is md, not sm), the larger
+--- on a tie. `sizes` maps size -> hours (xp.sizes.task). app/edit
+--- CalendarSize is the same, checked by tests/fixtures/autosize.json.
+---@return string? size
+function M.calendar_size(lines, lnum, sizes)
+	local syntax = require("zortex.core.syntax")
+	local line = lines[lnum]
+	local t = line and Item.task(line)
+	if not t or not t.completed or (t.attributes and t.attributes.size) then
+		return nil
+	end
+	-- the timed line it is nested under
+	local own = indent_width(line)
+	local head
+	for l = lnum - 1, 1, -1 do
+		local text = lines[l]
+		if text:match("%S") then
+			if indent_width(text) < own then
+				local d = syntax.classify(text)
+				if d.kind == "item" and d.item and d.item.marker_type == "time" then
+					head = l
+				end
+				break
+			end
+			if text:match("^%d%d%d%d%-%d%d%-%d%d:%s*$") then
+				break
+			end
+		end
+	end
+	if not head then
+		return nil
+	end
+	local base = indent_width(lines[head])
+	local time = syntax.classify(lines[head]).item.time
+	-- exactly one task in the block
+	local count, after = 0, #lines + 1
+	for l = head + 1, #lines do
+		local text = lines[l]
+		if text:match("%S") then
+			if indent_width(text) <= base or text:match("^%d%d%d%d%-%d%d%-%d%d:%s*$") then
+				after = l
+				break
+			end
+			local d = syntax.classify(text)
+			if d.kind == "item" and d.item and d.item.mark then
+				count = count + 1
+			end
+		end
+	end
+	if count ~= 1 then
+		return nil
+	end
+	-- its length in minutes
+	local start = minutes(time.from or time.at)
+	local stop = minutes(time.to)
+	if not stop then
+		for l = after, #lines do
+			local text = lines[l]
+			if text:match("^%d%d%d%d%-%d%d%-%d%d:%s*$") then
+				break
+			end
+			if text:match("%S") and indent_width(text) == base then
+				local d = syntax.classify(text)
+				if d.kind == "item" and d.item and d.item.marker_type == "time" then
+					stop = minutes(d.item.time.from or d.item.time.at)
+					break
+				end
+			end
+		end
+	end
+	if not start or not stop or stop <= start then
+		return nil
+	end
+	local hours = (stop - start) / 60
+	local best, best_d, best_h
+	for name, h in pairs(sizes or {}) do
+		if type(h) == "number" and h > 0 then
+			local d = math.abs(math.log(h / hours))
+			if not best or d < best_d - 1e-9 or (math.abs(d - best_d) <= 1e-9 and h > best_h) then
+				best, best_d, best_h = name, d, h
+			end
+		end
+	end
+	return best
+end
+
+--- Add the block's size to a just-completed calendar task (calendar_size),
+--- in a buffer or file. Returns the new line, or nil.
+function M.size_from_block(path_or_buf, lnum)
+	local lines = workspace.get_lines(path_or_buf)
+	local Config = require("zortex.config")
+	local conf = Config.xp or Config.defaults.xp
+	local size = M.calendar_size(lines, lnum, (conf.sizes or Config.defaults.xp.sizes).task)
+	if not size then
+		return nil
+	end
+	local new_line = lines[lnum] .. " @" .. size
+	workspace.set_line(path_or_buf, lnum, new_line)
+	return new_line
 end
 
 -- =============================================================================

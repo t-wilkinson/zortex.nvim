@@ -55,7 +55,8 @@ templates: calendar, projects, areas, okr, structure and inbox. In a folder
 that has notes it only says what is missing; |:ZortexInit| creates them.
 
 Notes open folded to their headings (`features.folding.level`): |zR| opens
-every fold.
+every fold. A section marked `@fold` starts closed whenever the note is
+shown, whatever its level.
 
 ==============================================================================
 3. NOTES                                                        *zortex-notes*

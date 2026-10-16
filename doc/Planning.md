@@ -194,7 +194,10 @@ for everything:
 | xl | 3h | 40h | 120h |
 | larger | 2xl 5h … 5xl 20h | epic 160h, legendary 480h, mythic 1,000h, ultimate 2,500h | |
 
-An unsized task counts as md; a project without `@size` is the sum of its
+An unsized task counts as md, except the only task under a calendar time:
+ticked without a size, it gets the size nearest the block's length (its own
+`16:00 - 17:30` range, else until the next timed line; by ratio, so 45
+minutes is `@md`), in Neovim and on the web. A project without `@size` is the sum of its
 tasks; an objective without `@size` is the projects its key results link (else
 md). `@xp(n)` sets a project, key result or objective outright. Tracked time
 (`@spent`, from the web clocks) is shown in the reviews but not paid: XP

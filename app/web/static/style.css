@@ -722,3 +722,8 @@ ul.cal-items li.done a { text-decoration: line-through; text-decoration-color: c
 .focus-panel { margin-top: 1rem; }
 .focus-panel ul.prows { border-top: 0; }
 .focus-panel .prow:last-child { border-bottom: 0; }
+
+/* installable app: offline */
+.offline-banner { margin: 0 auto 1rem; max-width: 60rem; padding: 0.5rem 0.8rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); color: var(--dim); font-size: 0.9rem; }
+.offline-list { padding-left: 1.2rem; }
+.offline-list li { margin: 0.2rem 0; }

@@ -6,12 +6,16 @@
 <title>{{if .Title}}{{.Title}} · {{end}}{{.Site}}</title>
 <link rel="stylesheet" href="{{asset "/static/style.css"}}">
 <link rel="icon" href="{{asset "/static/icon.svg"}}" type="image/svg+xml">
+<link rel="manifest" href="{{u "/manifest.webmanifest"}}" crossorigin="use-credentials">
+<link rel="apple-touch-icon" href="{{asset "/static/icons/apple-touch-icon.png"}}">
+<meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#15171a" media="(prefers-color-scheme: dark)">
 <script src="{{asset "/static/app.js"}}" defer></script>
 <script src="{{asset "/static/live.js"}}" defer></script>
 <script src="{{asset "/static/tables.js"}}" defer></script>
 <script src="{{asset "/static/math.js"}}" data-katex="{{asset "/static/katex/katex.min.js"}}" data-katex-css="{{asset "/static/katex/katex.min.css"}}" defer></script>
 </head>
-<body data-base="{{.Base}}">
+<body data-base="{{.Base}}" data-sw="{{asset "/sw.js"}}">
 <header class="top">
   <a class="brand" href="{{u "/"}}">{{.Site}}</a>
   <form class="quick" action="{{u "/search"}}" method="get" role="search">

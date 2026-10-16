@@ -21,7 +21,7 @@ import (
 // Templates
 // =============================================================================
 
-var pageNames = []string{"home", "note", "search", "results", "link", "files", "file", "tags", "tag", "broken", "resources", "structure", "graph", "error", "projects", "project"}
+var pageNames = []string{"home", "note", "search", "results", "link", "files", "file", "tags", "tag", "broken", "resources", "structure", "graph", "error", "projects", "project", "offline"}
 
 func (s *Server) parseTemplates() error {
 	funcs := template.FuncMap{

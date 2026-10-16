@@ -34,6 +34,74 @@
     }
   });
 
+  // The installable app (pwa.go, sw.js): the service worker keeps this
+  // build's files and the pages you opened, for reading offline. Browsers
+  // allow it on HTTPS and localhost only.
+  if ("serviceWorker" in navigator && window.isSecureContext && document.body.dataset.sw) {
+    navigator.serviceWorker.register(document.body.dataset.sw, { scope: base + "/" }).catch(function () {});
+  }
+  // A saved copy (the server or the network was unreachable), or offline:
+  // say so
+  var savedAt = document.body.dataset.saved;
+  var offlineBanner = function () {
+    var bannerEl = document.getElementById("offline-banner");
+    if (navigator.onLine && !savedAt) { if (bannerEl) bannerEl.remove(); return; }
+    if (bannerEl || !document.querySelector("main")) return;
+    bannerEl = document.createElement("p");
+    bannerEl.id = "offline-banner";
+    bannerEl.className = "offline-banner";
+    bannerEl.setAttribute("role", "status");
+    var when = savedAt ? new Date(savedAt) : null;
+    bannerEl.textContent = (navigator.onLine ? "The server can't be reached" : "Offline") +
+      (when && !isNaN(when) ? ": a copy saved " + when.toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : ": a saved copy") +
+      ". Editing works again once it's back.";
+    document.querySelector("main").prepend(bannerEl);
+  };
+  window.addEventListener("online", offlineBanner);
+  window.addEventListener("offline", offlineBanner);
+  offlineBanner();
+  // /offline: the pages saved for reading offline, newest first
+  var savedList = document.getElementById("offline-list");
+  if (savedList && window.caches) {
+    caches.keys().then(function (names) {
+      var name = names.filter(function (n) { return n.indexOf("zortex-pages-") === 0; })[0];
+      return name ? caches.open(name) : null;
+    }).then(function (cache) {
+      if (!cache) return [];
+      return cache.keys().then(function (keys) {
+        return Promise.all(keys.reverse().map(function (k) {
+          return cache.match(k).then(function (res) { return res.text(); }).then(function (html) {
+            var m = /<title>([^<]*)<\/title>/.exec(html);
+            var t = document.createElement("textarea");
+            t.innerHTML = m ? m[1] : "";
+            return { url: k.url, title: t.value };
+          });
+        }));
+      });
+    }).then(function (pages) {
+      pages = pages.filter(function (p) { return new URL(p.url).pathname !== base + "/offline"; });
+      // "Projects · Zortex" -> "Projects"; the home page is "Zortex"
+      var site = document.title.split(" · ").pop();
+      pages.forEach(function (p) {
+        var t = p.title;
+        if (t.slice(-(site.length + 3)) === " · " + site) t = t.slice(0, -(site.length + 3));
+        p.title = new URL(p.url).pathname === base + "/" ? "Home" : t;
+      });
+      savedList.innerHTML = "";
+      if (!pages.length) {
+        savedList.innerHTML = '<li class="dim">None yet: pages are saved as you open them.</li>';
+        return;
+      }
+      pages.forEach(function (p) {
+        var li = document.createElement("li"), a = document.createElement("a");
+        a.href = p.url;
+        a.textContent = p.title || decodeURIComponent(new URL(p.url).pathname.slice(base.length));
+        li.appendChild(a);
+        savedList.appendChild(li);
+      });
+    }).catch(function () { savedList.innerHTML = '<li class="dim">The saved pages can\'t be read here.</li>'; });
+  }
+
   // The header's search box: the notes whose name matches, as you type
   // (article search, /api/search?mode=article). Arrows move, Enter opens the
   // marked note (or, with none marked, the full search page), Escape closes.

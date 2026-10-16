@@ -467,33 +467,33 @@ local function get_buffer()
 	vim.bo[buf].bufhidden = "hide"
 	vim.bo[buf].swapfile = false
 
-	local map = function(lhs, fn, desc)
-		vim.keymap.set("n", lhs, fn, { buffer = buf, nowait = true, silent = true, desc = desc })
-	end
-	map("<CR>", jump, "Zortex review: jump to source")
-	map("f", M.toggle_focus, "Zortex review: add the project to the week's focus (or take it out)")
-	map("m", M.triage, "Zortex review: move the inbox line to its @project (or pick a place)")
-	map("<Tab>", function()
-		local win = note_window()
-		if win then
-			vim.api.nvim_set_current_win(win)
-		end
-	end, "Zortex review: go to the reviews note")
-	map("gx", function()
-		require("zortex.features.links").open_link()
-	end, "Zortex review: follow link")
-	map("K", function()
-		require("zortex.features.preview").preview_link()
-	end, "Zortex review: preview link")
-	map("r", function()
-		M.refresh()
-	end, "Zortex review: refresh")
-	map("q", function()
-		M.close()
-	end, "Zortex review: close")
-	map("?", function()
-		require("zortex.ui.keyhelp").show("Zortex review: ", "Review keys")
-	end, "Zortex review: these keys")
+	-- the keys: zortex.keys ("review")
+	require("zortex.keys").map(buf, "review", {
+		jump = jump,
+		focus = M.toggle_focus,
+		triage = M.triage,
+		note = function()
+			local win = note_window()
+			if win then
+				vim.api.nvim_set_current_win(win)
+			end
+		end,
+		follow = function()
+			require("zortex.features.links").open_link()
+		end,
+		preview = function()
+			require("zortex.features.preview").preview_link()
+		end,
+		refresh = function()
+			M.refresh()
+		end,
+		close = function()
+			M.close()
+		end,
+		help = function()
+			require("zortex.ui.keyhelp").show("review")
+		end,
+	})
 
 	state.bufnr = buf
 	return buf

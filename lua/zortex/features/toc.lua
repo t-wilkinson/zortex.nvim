@@ -92,41 +92,27 @@ local function setup_toc_window(toc_win, toc_buf, orig_win, orig_buf, toc_mappin
 	vim.wo[toc_win].cursorline = true
 	vim.wo[toc_win].conceallevel = 2 -- Ensures the Link bracket conceals trigger correctly
 
-	-- Setup keymaps
-	local map_opts = { buffer = toc_buf, noremap = true, silent = true }
-
-	-- Jump to section on <CR>
-	vim.keymap.set("n", "<CR>", function()
-		local cursor = vim.api.nvim_win_get_cursor(toc_win)
-		local row = cursor[1]
-		local target_lnum = toc_mappings[row]
-
-		if target_lnum and vim.api.nvim_win_is_valid(orig_win) then
-			-- Switch to original window
-			vim.api.nvim_set_current_win(orig_win)
-
-			-- Ensure the target line still exists to avoid out-of-bounds errors
-			local orig_line_count = vim.api.nvim_buf_line_count(orig_buf)
-			local safe_lnum = math.min(target_lnum, orig_line_count)
-
-			-- Move cursor and center screen
-			vim.api.nvim_win_set_cursor(orig_win, { safe_lnum, 0 })
-			vim.cmd("normal! zz")
-
-			-- If the TOC window is a floating popup (has a zindex), close it after jumping
-			local win_config = vim.api.nvim_win_get_config(toc_win)
-			if win_config.zindex then
-				pcall(vim.api.nvim_win_close, toc_win, true)
+	-- the keys: zortex.keys ("toc")
+	require("zortex.keys").map(toc_buf, "toc", {
+		jump = function()
+			local cursor = vim.api.nvim_win_get_cursor(toc_win)
+			local target_lnum = toc_mappings[cursor[1]]
+			if target_lnum and vim.api.nvim_win_is_valid(orig_win) then
+				vim.api.nvim_set_current_win(orig_win)
+				-- the target line may have gone since the TOC was made
+				local safe_lnum = math.min(target_lnum, vim.api.nvim_buf_line_count(orig_buf))
+				vim.api.nvim_win_set_cursor(orig_win, { safe_lnum, 0 })
+				vim.cmd("normal! zz")
+				-- a popup TOC (it has a zindex) closes after the jump
+				if vim.api.nvim_win_get_config(toc_win).zindex then
+					pcall(vim.api.nvim_win_close, toc_win, true)
+				end
 			end
-		end
-	end, vim.tbl_extend("force", map_opts, { desc = "Jump to Zortex Section" }))
-
-	-- Close TOC on 'q' or '<Esc>'
-	local function close_toc()
-		pcall(vim.api.nvim_win_close, toc_win, true)
-	end
-	vim.keymap.set("n", "q", close_toc, vim.tbl_extend("force", map_opts, { desc = "Close Zortex TOC" }))
-	vim.keymap.set("n", "<Esc>", close_toc, vim.tbl_extend("force", map_opts, { desc = "Close Zortex TOC" }))
+		end,
+		close = function()
+			pcall(vim.api.nvim_win_close, toc_win, true)
+		end,
+	})
 end
 
 -- ============================================================================

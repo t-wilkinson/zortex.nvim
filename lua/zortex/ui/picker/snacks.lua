@@ -56,7 +56,7 @@ function M.pick(spec)
 				local c = {
 					prompt = picker.input:get(),
 					refresh = function()
-						picker.title = Picker.title(spec)
+						picker.title = Picker.title(spec, "snacks")
 						picker:refresh()
 						picker:update_titles()
 					end,
@@ -73,7 +73,7 @@ function M.pick(spec)
 
 	return Snacks.picker.pick({
 		source = "zortex",
-		title = Picker.title(spec),
+		title = Picker.title(spec, "snacks"),
 		search = spec.query and spec.prompt or nil,
 		pattern = not spec.query and spec.prompt or nil,
 		live = spec.query ~= nil,

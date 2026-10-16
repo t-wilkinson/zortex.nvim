@@ -223,62 +223,7 @@ function M.toggle_task()
 end
 
 function M.show_help()
-	local help_lines = {
-		"Zortex Calendar - Key Bindings",
-		"",
-		"Navigation:",
-		"  h/← - Previous day",
-		"  l/→ - Next day",
-		"  j/↓ - Previous week",
-		"  k/↑ - Next week",
-		"  J   - Previous month",
-		"  K   - Next month",
-		"  H   - Previous year",
-		"  L   - Next year",
-		"  t/T - Go to today",
-		"",
-		"Actions:",
-		"  a/i     - Add entry",
-		"  <CR>/o  - Open the day in the calendar note",
-		"  x, 2x   - Tick task 2 (the numbers on the day)",
-		"  d/D     - Show digest view",
-		"  v       - Toggle view mode",
-		"  gf      - Go to calendar file",
-		"  n       - Sync notifications",
-		"  r/R     - Refresh",
-		"  /       - Search entries",
-		"  ?       - Show this help",
-		"  q/<Esc> - Close calendar",
-		"",
-		"Mouse:",
-		"  Click        - Select date",
-		"  Double-click - View entries",
-	}
-
-	local width = 40
-	local height = #help_lines + 2
-	local buf = api.nvim_create_buf(false, true)
-	api.nvim_buf_set_lines(buf, 0, -1, false, help_lines)
-	vim.bo[buf].modifiable = false
-	local win = api.nvim_open_win(buf, true, {
-		relative = "editor",
-		width = width,
-		height = height,
-		row = math.floor((vim.o.lines - height) / 2),
-		col = math.floor((vim.o.columns - width) / 2),
-		border = "rounded",
-		title = " Help ",
-		title_pos = "center",
-		style = "minimal",
-	})
-
-	-- Close on any key
-	vim.keymap.set("n", "<Esc>", function()
-		api.nvim_win_close(win, true)
-	end, { buffer = buf })
-	vim.keymap.set("n", "q", function()
-		api.nvim_win_close(win, true)
-	end, { buffer = buf })
+	require("zortex.ui.keyhelp").show("calendar")
 end
 
 -- =============================================================================
@@ -316,11 +261,16 @@ function M.attach(bufnr, cfg)
 		end,
 	}
 
+	-- descriptions from the key table (zortex.keys), keys from the config
+	local desc = {}
+	for _, k in ipairs(require("zortex.keys").def("calendar").keys) do
+		desc[k[2]] = k[3]
+	end
 	for action, func in pairs(keymap_actions) do
 		local keys = cfg.keymaps[action]
 		if keys then
-			for _, key in ipairs(keys) do
-				vim.keymap.set("n", key, func, opts)
+			for _, key in ipairs(type(keys) == "table" and keys or { keys }) do
+				vim.keymap.set("n", key, func, vim.tbl_extend("force", opts, { desc = "Zortex calendar view: " .. (desc[action] or action) }))
 			end
 		end
 	end

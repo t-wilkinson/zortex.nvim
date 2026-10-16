@@ -55,9 +55,8 @@ function M.spec(entries, open, goto_line)
 			local r = e.result
 			return { lines = r.doc.lines, lnum = r.lnum, zortex = true, title = vim.fn.fnamemodify(r.file, ":t") }
 		end,
-		keys = {
-			["<C-l>"] = { desc = "Go to the link's line", close = true, fn = goto_line },
-		},
+		-- the keys: zortex.keys ("follow")
+		keys = require("zortex.keys").picker_keys("follow", { goto_line = { close = true, fn = goto_line } }),
 	}
 end
 

@@ -89,8 +89,30 @@ end
 -- Shared behaviour (every backend calls these)
 -- =============================================================================
 
-function M.title(spec)
+function M.base_title(spec)
 	return type(spec.title) == "function" and spec.title() or spec.title or "Zortex"
+end
+
+--- The title, then the zortex keys (their labels, zortex.keys) and the
+--- backend's own help key: "Projects (score) · <C-l> link · … · <F1> help".
+function M.title(spec, backend)
+	local t = M.base_title(spec)
+	backend = backend or M.backend()
+	if backend == "select" then
+		return t -- vim.ui.select has no keys of its own, nor ours
+	end
+	local hints = {}
+	for lhs, k in pairs(spec.keys or {}) do
+		if k.label then
+			hints[#hints + 1] = lhs .. " " .. k.label
+		end
+	end
+	table.sort(hints)
+	local help = require("zortex.keys").PICKER_HELP[backend]
+	if help then
+		hints[#hints + 1] = help .. " help"
+	end
+	return #hints > 0 and (t .. " · " .. table.concat(hints, " · ")) or t
 end
 
 --- Display segments joined: text, and { {start, end_}, hl } byte ranges.
@@ -123,7 +145,7 @@ function M.quickfix(spec, items)
 		local loc = spec.location(item)
 		qf[#qf + 1] = { filename = loc.file, lnum = loc.lnum or 1, col = loc.col or 1, text = loc.text or M.text(spec, item) }
 	end
-	vim.fn.setqflist({}, " ", { title = M.title(spec), items = qf })
+	vim.fn.setqflist({}, " ", { title = M.base_title(spec), items = qf })
 	vim.cmd("copen")
 end
 

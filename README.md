@@ -353,13 +353,105 @@ require("zortex").setup({
 | `:ZortexHelp` | `<leader>z?` | `help` | List commands and keys |
 <!-- actions:end -->
 
-Inside the calendar view: `h/j/k/l` days and weeks, `H/J/K/L` years and
-months, `t` today, `a` add, `<CR>` entries, `v` toggle month/week, `d`
-digest panel, `/` search the entries, `gf` go to the file, `n` sync
-notifications, `?` help, `q` close (`ui.calendar.keymaps`). In the review
-buffer: `<CR>` jump to the source, `f` add a project to the week's focus,
-`gx`/`K` follow or preview, `r` refresh, `q` close. The plan and review
-buffers list their keys with `?`.
+<!-- keys:start -->
+In zortex's own buffers `?` lists these keys; the pickers name theirs in
+the title, with the picker's own help key: telescope `<C-/>` (insert mode; `?` in normal mode), snacks.picker `?` (normal mode), fzf-lua `<F1>`.
+
+**Plan** (`:ZortexPlan`)
+
+| Key | Does |
+|---|---|
+| `<CR>` | put at the calendar cursor |
+| `i` | put on the current calendar line, then type a time |
+| `o` | put on a new line below, then type a time |
+| `O` | put on a new line above, then type a time |
+| `p` | add to the day (a task as a copy, under its project's block if there is one) |
+| `P` | add the project with its next open tasks (a count: how many) |
+| `<C-n>` | calendar cursor down |
+| `<C-p>` | calendar cursor up |
+| `<Tab>` | go to the calendar |
+| `gx` | follow link |
+| `K` | preview link |
+| `r` | refresh |
+| `q` | close |
+| `?` | these keys |
+
+**Review** (`:ZortexReview`)
+
+| Key | Does |
+|---|---|
+| `<CR>` | jump to source |
+| `f` | add the project to the week's focus (or take it out) |
+| `m` | move the inbox line to its @project (or pick a place) |
+| `<Tab>` | go to the reviews note |
+| `gx` | follow link |
+| `K` | preview link |
+| `r` | refresh |
+| `q` | close |
+| `?` | these keys |
+
+**Calendar view** (`:ZortexCalendar`) · keys in `ui.calendar.keymaps`
+
+| Key | Does |
+|---|---|
+| `h` `<Left>` | previous day |
+| `l` `<Right>` | next day |
+| `k` `<Up>` | previous week |
+| `j` `<Down>` | next week |
+| `K` | previous month |
+| `J` | next month |
+| `H` | previous year |
+| `L` | next year |
+| `t` `T` | today |
+| `a` `i` | add an entry to the day |
+| `<CR>` `o` | open the day in the calendar note |
+| `x` | tick a task of the day (2x: task 2) |
+| `/` | search the entries |
+| `v` | month / week view |
+| `d` `D` | the coming days |
+| `gf` | open the calendar note |
+| `n` | send the notifications to the server |
+| `r` `R` | refresh |
+| `?` | these keys |
+| `q` `<Esc>` `<C-c>` | close |
+
+**Table of contents** (`:ZortexTOC`)
+
+| Key | Does |
+|---|---|
+| `<CR>` | jump to the section |
+| `q` `<Esc>` | close |
+
+**Link preview** (<leader>zK)
+
+| Key | Does |
+|---|---|
+| `<CR>` | open the target |
+| `q` `<Esc>` | close |
+
+**Search** (`:ZortexSearch`) · keys in `ui.search.keys` · picker
+
+| Key | Does |
+|---|---|
+| `<C-o>` | a new note named after the query |
+| `<M-t>` | cycle section / article / text search |
+
+**Projects** (`:ZortexProjects`) · picker
+
+| Key | Does |
+|---|---|
+| `<C-l>` | insert the project's link |
+| `<C-y>` | yank the project's link |
+| `<M-s>` | cycle the sort order |
+| `<M-d>` | show / hide done projects |
+| `<M-e>` | leaf projects only / all |
+
+**Follow link** (gx on a link that finds several) · picker
+
+| Key | Does |
+|---|---|
+| `<C-l>` | go to the link's line |
+<!-- keys:end -->
 
 ### Pickers and completion
 
@@ -374,12 +466,6 @@ keys), select several (`<Tab>`; they go to the quickfix list and the first
 opens) and send rows to the quickfix list (`<C-q>`, fzf-lua `alt-q`). The
 zortex keys are the same everywhere: Ctrl acts on the row, Alt changes the
 list.
-
-| picker   | keys                                                                                                     |
-| -------- | -------------------------------------------------------------------------------------------------------- |
-| search   | `<C-o>` new note named after the query, `<M-t>` cycle section / article / text search (`ui.search.keys`; shown in the title) |
-| projects | `<C-l>` insert the link, `<C-y>` yank it, `<M-s>` cycle the sort, `<M-d>` show done, `<M-e>` leaf only     |
-| follow   | `<C-l>` go to the link's line instead of following it                                                    |
 
 Link completion (`[`, `/`, `#`, `>`, `@a(`, ...) registers itself on the
 first zortex buffer: with blink.cmp as the `zortex` provider, listed for

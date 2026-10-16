@@ -143,7 +143,10 @@ T.test("the search picker's spec: live, in services/search's order", function()
 	local p = spec.preview(first)
 	T.ok(p.zortex and p.lnum and #p.lines > 0)
 	T.ok(spec.title():find("(section)", 1, true))
-	T.ok(spec.title():find("<M-t> mode · <C-o> new note", 1, true), spec.title())
+	-- the keys (zortex.keys) and the backend's help key follow the title
+	local full = Picker.title(spec, "telescope")
+	T.ok(full:find("<C-o> new note · <M-t> mode · <C-/> help", 1, true), full)
+	T.eq(Picker.title(spec, "select"), spec.title()) -- no keys in vim.ui.select
 	spec.keys["<M-t>"].fn()
 	T.ok(spec.title():find("(article)", 1, true), spec.title())
 
@@ -154,7 +157,7 @@ T.test("the search picker's spec: live, in services/search's order", function()
 	local ok, err = pcall(function()
 		local s2 = require("zortex.ui.picker.search").spec({ mode = "section" })
 		T.eq(vim.tbl_keys(s2.keys), { "<C-t>" })
-		T.ok(vim.endswith(s2.title(), "· <C-t> mode"), s2.title())
+		T.ok(vim.endswith(Picker.title(s2, "fzf_lua"), "· <C-t> mode · <F1> help"), Picker.title(s2, "fzf_lua"))
 	end)
 	search.config = saved
 	assert(ok, err)

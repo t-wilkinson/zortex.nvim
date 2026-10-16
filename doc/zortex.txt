@@ -321,6 +321,83 @@ SYSTEM ~
 :ZortexHelp                                                      *:ZortexHelp*
     List commands and keys. Keys: <leader>z?. Id: help.
 
+KEYS IN ZORTEX BUFFERS AND PICKERS                               *zortex-keys*
+
+In these buffers `?` lists their keys; the pickers name theirs in the title,
+with the picker's own help key: telescope <C-/> (insert mode; ? in normal
+mode), snacks.picker ? (normal mode), fzf-lua <F1>.
+
+PLAN (:ZortexPlan) ~
+  <CR>   put at the calendar cursor
+  i      put on the current calendar line, then type a time
+  o      put on a new line below, then type a time
+  O      put on a new line above, then type a time
+  p      add to the day (a task as a copy, under its project's block if there is one)
+  P      add the project with its next open tasks (a count: how many)
+  <C-n>  calendar cursor down
+  <C-p>  calendar cursor up
+  <Tab>  go to the calendar
+  gx     follow link
+  K      preview link
+  r      refresh
+  q      close
+  ?      these keys
+
+REVIEW (:ZortexReview) ~
+  <CR>   jump to source
+  f      add the project to the week's focus (or take it out)
+  m      move the inbox line to its @project (or pick a place)
+  <Tab>  go to the reviews note
+  gx     follow link
+  K      preview link
+  r      refresh
+  q      close
+  ?      these keys
+
+CALENDAR VIEW (:ZortexCalendar, keys in ui.calendar.keymaps) ~
+  h <Left>       previous day
+  l <Right>      next day
+  k <Up>         previous week
+  j <Down>       next week
+  K              previous month
+  J              next month
+  H              previous year
+  L              next year
+  t T            today
+  a i            add an entry to the day
+  <CR> o         open the day in the calendar note
+  x              tick a task of the day (2x: task 2)
+  /              search the entries
+  v              month / week view
+  d D            the coming days
+  gf             open the calendar note
+  n              send the notifications to the server
+  r R            refresh
+  ?              these keys
+  q <Esc> <C-c>  close
+
+TABLE OF CONTENTS (:ZortexTOC) ~
+  <CR>     jump to the section
+  q <Esc>  close
+
+LINK PREVIEW (<leader>zK) ~
+  <CR>     open the target
+  q <Esc>  close
+
+SEARCH (:ZortexSearch, keys in ui.search.keys, picker) ~
+  <C-o>  a new note named after the query
+  <M-t>  cycle section / article / text search
+
+PROJECTS (:ZortexProjects, picker) ~
+  <C-l>  insert the project's link
+  <C-y>  yank the project's link
+  <M-s>  cycle the sort order
+  <M-d>  show / hide done projects
+  <M-e>  leaf projects only / all
+
+FOLLOW LINK (gx on a link that finds several, picker) ~
+  <C-l>  go to the link's line
+
 ==============================================================================
 5. CONFIGURATION                                               *zortex-config*
 

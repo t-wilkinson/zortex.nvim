@@ -122,13 +122,13 @@ local function keys()
 	return cfg().keys or {}
 end
 
-local function title(mode)
+local function title(mode, new_note)
 	local t = mode == "text" and "Zortex Text Search" or ("Zortex Structural Search (" .. mode .. ")")
 	local k, hints = keys(), {}
 	if k.cycle_mode then
 		hints[#hints + 1] = k.cycle_mode .. " mode"
 	end
-	if k.new_note then
+	if k.new_note and new_note ~= false then
 		hints[#hints + 1] = k.new_note .. " new note"
 	end
 	return #hints > 0 and (t .. " · " .. table.concat(hints, " · ")) or t
@@ -144,7 +144,9 @@ local function next_mode(mode)
 	return search.MODES[1]
 end
 
---- The picker spec (ui/picker); opts.mode: "section" | "article" | "text".
+--- The picker spec (ui/picker); opts.mode: "section" | "article" | "text";
+--- opts.all_sections: sections at any depth whatever the number of words;
+--- opts.new_note = false: no key for a new note.
 function M.spec(opts)
 	opts = opts or {}
 	local mode = opts.mode or cfg().default_mode or "section"
@@ -153,10 +155,10 @@ function M.spec(opts)
 	local history = require("zortex.services.search_history")
 	return {
 		title = function()
-			return title(mode)
+			return title(mode, opts.new_note)
 		end,
 		query = function(prompt)
-			return search.query_index(index, prompt, { mode = mode })
+			return search.query_index(index, prompt, { mode = mode, all_sections = opts.all_sections })
 		end,
 		format = M.format,
 		location = M.location,
@@ -167,7 +169,7 @@ function M.spec(opts)
 		prompt = opts.prompt,
 		keys = (function()
 			local k, out = keys(), {}
-			if k.new_note then
+			if k.new_note and opts.new_note ~= false then
 				out[k.new_note] = {
 					desc = "New note named after the query",
 					close = true,

@@ -258,6 +258,7 @@ require("zortex").setup({
 | `:ZortexSectionParent` | `<leader>z^` | `section_parent` | Parent section |
 | `:ZortexFoldsUpdate` | `<leader>zr` | `folds_update` | Recompute folds |
 | `:ZortexArchiveSection` | `<leader>za` | `archive_section` | Move the section under the cursor to the note's z/archive file |
+| `:ZortexMove` | `<leader>zM` | `move` | Move the section or line under the cursor (or the selected lines) to a place picked in the search |
 
 **Tasks**
 

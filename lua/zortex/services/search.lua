@@ -545,7 +545,9 @@ function M.query_index(index, prompt, opts)
 		for _, tok in ipairs(tokens) do
 			typed = typed or tok.type ~= "general"
 		end
-		local allowed = typed and function()
+		-- opts.all_sections: every section at any depth (picking a place to
+		-- move something to, where a deep label is as likely as a note)
+		local allowed = (typed or (opts and opts.all_sections)) and function()
 			return true
 		end or section_filter(#tokens)
 		results = match_sections(index, tokens, allowed, true)

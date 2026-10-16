@@ -13,6 +13,8 @@
 --   run       function(args) where args = { args = string, fargs = {...} },
 --             or call(module, fn, ...) for a plain module function
 --   nargs, complete   passed to nvim_create_user_command
+--   range     true: the command takes a range and the key works on a
+--             visual selection too; run gets { range, line1, line2 }
 local M = {}
 
 local function notify(msg, level)
@@ -310,6 +312,17 @@ M.list = {
 		group = "Structure",
 		desc = "Move the section under the cursor to the note's z/archive file",
 		run = call("zortex.features.archive", "archive_current_section"),
+	},
+	{
+		id = "move",
+		command = "Move",
+		key = "M",
+		group = "Structure",
+		range = true,
+		desc = "Move the section or line under the cursor (or the selected lines) to a place picked in the search",
+		run = function(args)
+			require("zortex.features.move").move_current(args)
+		end,
 	},
 
 	-- Tasks --------------------------------------------------------------------
@@ -731,7 +744,7 @@ function M.create_commands(prefix)
 		if a.command then
 			vim.api.nvim_create_user_command(prefix .. a.command, function(args)
 				a.run(args)
-			end, { desc = a.desc, nargs = a.nargs or 0, complete = a.complete })
+			end, { desc = a.desc, nargs = a.nargs or 0, complete = a.complete, range = a.range })
 		end
 	end
 end
@@ -744,6 +757,13 @@ function M.create_keymaps(prefix, mappings)
 			vim.keymap.set("n", prefix .. key, function()
 				a.run()
 			end, { silent = true, desc = a.desc })
+			if a.range then
+				vim.keymap.set("x", prefix .. key, function()
+					local s, e = vim.fn.line("v"), vim.fn.line(".")
+					vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "nx", false)
+					a.run({ range = 2, line1 = math.min(s, e), line2 = math.max(s, e) })
+				end, { silent = true, desc = a.desc })
+			end
 		end
 	end
 end

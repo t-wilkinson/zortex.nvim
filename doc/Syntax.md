@@ -133,6 +133,7 @@ projects, calendar entries):
 | `@p1` `@p2` `@p3`, `@i1` … `@i3` | priority, importance |
 | `@size(xs)` … `@size(5xl)`, or `@sm`, `@lg`, … | task size (projects also `epic`, `legendary`, `mythic`, `ultimate`); sizes weigh XP |
 | `@a(4.1)`, `@area(1.2/Fitness)` | area link: `4.1` is `[A/#4.1]`, `1.2/Fitness` is `[A/#1.2/:Fitness]`; comma-separated for several |
+| `@project(1.4)`, `@project(1/1.4)`, `@project(P/#Kitchen)` | the project a line belongs to (`1.4` is `[P/#1.4]`): `m` in the daily review moves it there, dropping the attribute |
 | `@progress(3/5)` | a project's progress (written back on request) |
 | `@xp(500)` | a project's XP pool |
 | `@2h`, `@dur(90m)`, `@est(3h)` | duration and estimate |

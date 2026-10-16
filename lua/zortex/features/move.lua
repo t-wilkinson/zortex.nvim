@@ -56,23 +56,19 @@ function M.move_to(file, src, result)
 	return { at = at, file = place.file, where = place.text, links = refs }
 end
 
---- :ZortexMove: what is under the cursor (or lines line1..line2) to a place
---- picked in the structural search.
----@param opts { line1?: integer, line2?: integer, range?: integer }?
-function M.move_current(opts)
-	opts = opts or {}
-	local ctx = workspace.get_doc_context()
-	if not ctx then
-		return notify("Not a note buffer", vim.log.levels.WARN)
+--- Move line `first` of `file` (with what is nested under it; or the lines
+--- first..last) to a place picked in the structural search. `on_done(res)`
+--- runs after a move.
+function M.pick(file, first, last, on_done)
+	local doc = workspace.document(file)
+	if not doc then
+		return notify("Can't read " .. file, vim.log.levels.WARN)
 	end
-	local first = (opts.range or 0) > 0 and opts.line1 or ctx.lnum
-	local last = (opts.range or 0) > 0 and opts.line2 or nil
-	local src, err = Move.source(ctx.doc, first, last)
+	local src, err = Move.source(doc, first, last)
 	if not src then
 		return notify("Can't move: " .. err, vim.log.levels.WARN)
 	end
-	local file = ctx.filepath
-	local what = vim.trim(ctx.doc.lines[src.first])
+	local what = vim.trim(doc.lines[src.first])
 	local n = src.last - src.first + 1
 
 	local search = require("zortex.ui.picker.search")
@@ -93,8 +89,25 @@ function M.move_current(opts)
 			msg = msg .. string.format(" · %d link%s pointed into it: :ZortexBrokenLinks shows any that broke", done.links, done.links == 1 and "" or "s")
 		end
 		notify(msg)
+		if on_done then
+			on_done(done)
+		end
 	end
 	return require("zortex.ui.picker").pick(spec)
+end
+
+--- :ZortexMove: what is under the cursor (or lines line1..line2) to a place
+--- picked in the structural search.
+---@param opts { line1?: integer, line2?: integer, range?: integer }?
+function M.move_current(opts)
+	opts = opts or {}
+	local ctx = workspace.get_doc_context()
+	if not ctx then
+		return notify("Not a note buffer", vim.log.levels.WARN)
+	end
+	local first = (opts.range or 0) > 0 and opts.line1 or ctx.lnum
+	local last = (opts.range or 0) > 0 and opts.line2 or nil
+	return M.pick(ctx.filepath, first, last)
 end
 
 return M

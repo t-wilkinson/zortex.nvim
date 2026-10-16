@@ -308,6 +308,10 @@ local defaults = {
 		-- a new day's lines
 		day = { "Done:", "Blocked:", "First thing tomorrow:" },
 		width = 80, -- findings window width
+		-- where m in the review moves an inbox line without @project(...): a
+		-- link like "P/#Areas" (a heading of the projects note for small
+		-- tasks that aren't projects); nil asks, with :ZortexMove's search
+		inbox_default = nil,
 	},
 
 	-- XP is read off the notes (services/xp/ledger): completed tasks with their

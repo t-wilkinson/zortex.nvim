@@ -410,6 +410,68 @@ local function area_items()
 end
 M._area_items = area_items
 
+-- =============================================================================
+-- Project attributes: @project(...) (services/triage)
+-- =============================================================================
+
+--- The project value being typed inside @project( before `col`:
+--- { typing, typing_col (0-based), project = true } or nil.
+function M.project_context(line, col)
+	local before = line:sub(1, col)
+	local open = before:match(".*()@project%(")
+	if not open or (open > 1 and not before:sub(open - 1, open - 1):match("%s")) then
+		return nil
+	end
+	local inside = before:sub(open + #"@project(")
+	if inside:find(")", 1, true) then
+		return nil
+	end
+	local typing = inside:gsub("^%s+", "")
+	return { typing = typing, typing_col = col - #typing, project = true }
+end
+
+-- Every open project as an item, inserting the shortest @project value that
+-- resolves to it ("1.4", its name, or its link)
+local function project_items()
+	local triage = require("zortex.services.triage")
+	local items = {}
+	local all = require("zortex.services.projects").all({
+		filter = function(p)
+			return not p:is_root() and not p:is_done()
+		end,
+	})
+	for i, p in ipairs(all) do
+		local function resolves(v)
+			local r = link_mod().resolve_first(triage.link(v))
+			return r and vim.fn.fnamemodify(r.file, ":p") == vim.fn.fnamemodify(p.file, ":p") and r.lnum == p.lnum
+		end
+		local candidates = {}
+		local number = p.name:match("^(%d[%d%.]*)%s") or p.name:match("^(%d[%d%.]*)$")
+		if number then
+			candidates[#candidates + 1] = number
+		end
+		candidates[#candidates + 1] = link_mod().component_text(p.name)
+		candidates[#candidates + 1] = p.link and p.link:sub(2, -2)
+		for _, v in ipairs(candidates) do
+			if v and v ~= "" and resolves(v) then
+				items[#items + 1] = {
+					label = string.rep("  ", math.max(0, (p.depth or 1) - 1)) .. p.name,
+					filterText = v .. " " .. p.name,
+					kind = 19, -- Folder
+					detail = v,
+					documentation = p.link,
+					sortText = string.format("%06d", i),
+					area_value = v,
+					data = { zortex_order = i },
+				}
+				break
+			end
+		end
+	end
+	return items
+end
+M._project_items = project_items
+
 --- Completion items for the link at `col` (bytes before the cursor).
 ---@param opts { bufnr?: integer, doc?: table, lnum?: integer }? lnum: the line, for "[./" links
 ---@return table[] items { label, kind, detail, sortText }, table? ctx
@@ -418,6 +480,10 @@ function M.get_completions(line, col, opts)
 	local actx = M.area_context(line, col)
 	if actx then
 		return area_items(), actx
+	end
+	local pctx = M.project_context(line, col)
+	if pctx then
+		return project_items(), pctx
 	end
 	local ctx = M.link_context(line, col)
 	if not ctx then

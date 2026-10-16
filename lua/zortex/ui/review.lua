@@ -10,6 +10,8 @@
 --
 --   <CR>   jump to the finding's source line (task, calendar entry, heading)
 --   f      on a project: add it to (or take it out of) the week's focus
+--   m      on an inbox line: move it to its @project(...), else to
+--          review.inbox_default, else to a place picked in the search
 --   <Tab>  go to the reviews note
 --   gx     follow the link on the line
 --   K      preview the link on the line
@@ -70,10 +72,18 @@ local function item_line(item)
 		}
 end
 
--- An inbox line, as written ("- [ ] Call the plumber"; plain text gets a "- ")
+-- An inbox line, as written ("- [ ] Call the plumber"; plain text gets a
+-- "- "), with where `m` moves it; a line from another note says which
 local function inbox_line(x)
 	local line = x.text:match("^[-*+] ") and x.text or ("- " .. x.text)
-	return line, { file = x.file, lnum = x.lnum }
+	local dest = require("zortex.services.triage").destination(x)
+	if not x.inbox then
+		line = line .. "  (" .. rel(x.file) .. ")"
+	end
+	if dest and not x.project then
+		line = line .. "  → " .. dest
+	end
+	return line, { file = x.file, lnum = x.lnum }, { triage = x }
 end
 
 local function entity_line(e, suffix)
@@ -323,7 +333,7 @@ end
 --- move into projects, the calendar or notes. Nothing when it is empty.
 function M.render_inbox(r, section)
 	if r.inbox and #r.inbox > 0 then
-		section("Inbox (move each into a project, the calendar or a note)", r.inbox, inbox_line)
+		section("Inbox (m moves each to its @project, or picks a place)", r.inbox, inbox_line)
 	end
 end
 
@@ -389,6 +399,35 @@ local function jump()
 	vim.cmd("normal! zv")
 end
 
+--- m: move the inbox line (or @project line) on the cursor line to its
+--- project, review.inbox_default, or a place picked in the search.
+function M.triage()
+	local e = state.entities[vim.api.nvim_win_get_cursor(0)[1]]
+	local item = e and e.triage
+	if not item then
+		vim.api.nvim_echo({ { "Not an inbox line", "WarningMsg" } }, false, {})
+		return
+	end
+	local triage = require("zortex.services.triage")
+	local function done(res, err)
+		if not res then
+			vim.api.nvim_echo({ { "Inbox: " .. tostring(err), "WarningMsg" } }, false, {})
+			return
+		end
+		M.refresh()
+		vim.api.nvim_echo({ { "Moved to " .. res.link, "Comment" } }, false, {})
+	end
+	if triage.destination(item) then
+		return done(triage.move(item))
+	end
+	-- nowhere set: pick a place in the structural search
+	require("zortex.features.move").pick(item.file, item.lnum, nil, function(result)
+		if result then
+			M.refresh()
+		end
+	end)
+end
+
 --- f: add the project on the cursor line to the week's focus, or take it
 --- out.
 function M.toggle_focus()
@@ -433,6 +472,7 @@ local function get_buffer()
 	end
 	map("<CR>", jump, "Zortex review: jump to source")
 	map("f", M.toggle_focus, "Zortex review: add the project to the week's focus (or take it out)")
+	map("m", M.triage, "Zortex review: move the inbox line to its @project (or pick a place)")
 	map("<Tab>", function()
 		local win = note_window()
 		if win then

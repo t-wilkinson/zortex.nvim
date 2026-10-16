@@ -185,7 +185,7 @@ case-insensitive and by prefix: `[P/#1.4]` finds `## 1.4 - zortex`.
   list (Neovim) or the link page (web app) shows them all.
 - Archived notes (tagged `@Archive`, or `z/archive.*.zortex`) are skipped
   unless a component is `@Archive`.
-- Generated links keep only `A-Z a-z 0-9 _ - ( ) .` of a heading
+- Generated links keep only `A-Z a-z 0-9 _ - ( ) . :` of a heading
   (`#4 Learning & Education` is written `#4 Learning`); the prefix match
   still finds it.
 

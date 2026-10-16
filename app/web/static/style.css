@@ -112,6 +112,7 @@ ul.plain li { padding: 0.18rem 0; overflow: hidden; text-overflow: ellipsis; whi
 h1:hover .pin, h2:hover .pin, h3:hover .pin, h4:hover .pin, h5:hover .pin, h6:hover .pin { opacity: 1; }
 .bold-heading { font-weight: 700; margin-top: 0.8rem; }
 .label { font-weight: 600; margin-top: 0.35rem; }
+.label > em:only-child, .label > .marker + em:last-child { font-style: normal; } /* "*A longer label:*" */
 .item { display: flex; gap: 0.45rem; align-items: baseline; }
 .item .body, .label { min-width: 0; }
 .marker.bullet { flex: none; width: 0.35rem; height: 0.35rem; border-radius: 50%; background: var(--dim); transform: translateY(-0.18rem); margin: 0 0.15rem 0 0.25rem; }

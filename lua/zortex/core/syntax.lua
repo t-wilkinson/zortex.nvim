@@ -226,9 +226,46 @@ end
 -- Single lines
 -- =============================================================================
 
-local function is_label(line)
+-- Labels are short: a plain "Text:" line is a label up to this many words
+-- (attributes not counted); a longer one is written "*A longer label:*"
+M.MAX_LABEL_WORDS = 3
+
+local function word_count(s)
+	local n = 0
+	for _ in s:gmatch("%S+") do
+		n = n + 1
+	end
+	return n
+end
+
+-- "*A longer label like this one:*" (after the indent or "- "): its text
+local function star_label(body)
+	return body:match("^%*([^*%s][^*]*):%*$")
+end
+
+-- The old rule: any "Text:" line (no other colon, no ". "), whatever its length
+local function colon_line(line)
 	local text = line:match("^([^:]+):$")
 	return text ~= nil and not text:find("%.%s")
+end
+
+-- `body`: the line after its indent (and "- " for "- Label:")
+local function is_label(line, body)
+	if star_label(body) then
+		return true
+	end
+	return colon_line(line) and word_count(M.strip_attributes(body:sub(1, -2))) <= M.MAX_LABEL_WORDS
+end
+
+--- A "Text:" line that is not a label because it has more than
+--- MAX_LABEL_WORDS words (it would have been one before labels were
+--- limited): :ZortexLongLabels lists them.
+function M.is_long_label(line)
+	if not colon_line(line) then
+		return false
+	end
+	local d = M.classify(line)
+	return d.kind == "text" or (d.kind == "item" and not d.item.mark)
 end
 
 local function count(s, ch)
@@ -250,7 +287,8 @@ local function section_text(line, kind)
 	elseif kind == T.BOLD_HEADING then
 		return M.strip_attributes(line:match("^%*%*([^*]+):%*%*") or line)
 	elseif kind == T.LABEL then
-		return M.strip_attributes(line:match("^%s*(.-):$") or line)
+		local body = line:match("^%s*(.-)$")
+		return M.strip_attributes(star_label(body) or line:match("^%s*(.-):$") or line)
 	end
 	return trim(line)
 end
@@ -304,7 +342,7 @@ function M.classify(line)
 	end
 
 	local item = M.item(line)
-	if is_label(line) and not (item and item.mark) then
+	if is_label(line, item and line:sub(item.content_col + 1) or line:sub(indent + 1)) and not (item and item.mark) then
 		return {
 			kind = T.LABEL,
 			section = true,

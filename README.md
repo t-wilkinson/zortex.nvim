@@ -267,6 +267,7 @@ require("zortex").setup({
 | `:ZortexSectionPrev` | `<leader>z[` | `section_prev` | Previous section at the same or higher level |
 | `:ZortexSectionParent` | `<leader>z^` | `section_parent` | Parent section |
 | `:ZortexFoldsUpdate` | `<leader>zr` | `folds_update` | Recompute folds |
+| `:ZortexLongLabels` |  | `long_labels` | Lines ending in a colon that are too long to be labels (quickfix) |
 | `:ZortexRename …` | `<leader>zR` | `rename` | Rename the heading or label under the cursor and rewrite every link to it |
 | `:ZortexArchiveSection` | `<leader>za` | `archive_section` | Move the section under the cursor to the note's z/archive file |
 | `:ZortexMove` | `<leader>zM` | `move` | Move the section or line under the cursor (or the selected lines) to a place picked in the search |

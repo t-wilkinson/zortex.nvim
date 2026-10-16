@@ -37,6 +37,29 @@ end
 -- Implementations that are more than one call
 -- =============================================================================
 
+-- "Text:" lines of more than three words: labels before labels were
+-- limited, text now -> quickfix (wrap one in *…:* to keep it a label)
+local function long_labels()
+	local syntax = require("zortex.core.syntax")
+	local Document = require("zortex.core.document")
+	local items = {}
+	for _, path in ipairs(require("zortex.core.notes").files({ include_archived = true })) do
+		local doc = Document.get(path)
+		for lnum, line in ipairs(doc and doc.lines or {}) do
+			if line:sub(-1) == ":" and not doc:in_code(lnum) and syntax.is_long_label(line) then
+				items[#items + 1] = { filename = path, lnum = lnum, col = 1, text = vim.trim(line) }
+			end
+		end
+	end
+	vim.fn.setqflist({}, "r", { title = "Lines that are no longer labels (more than 3 words)", items = items })
+	if #items == 0 then
+		return notify("Every label is three words or fewer")
+	end
+	notify(#items .. " long label" .. (#items == 1 and "" or "s") .. ": write *…:* to keep one a label")
+	vim.cmd("copen")
+	return items
+end
+
 -- Links into the section under the cursor -> quickfix
 local function backlinks()
 	local doc = require("zortex.core.document").from_buffer(0)
@@ -304,6 +327,13 @@ M.list = {
 		run = function()
 			require("zortex.features.folding").update_folds(0)
 		end,
+	},
+	{
+		id = "long_labels",
+		command = "LongLabels",
+		group = "Structure",
+		desc = "Lines ending in a colon that are too long to be labels (quickfix)",
+		run = long_labels,
 	},
 	{
 		id = "rename",

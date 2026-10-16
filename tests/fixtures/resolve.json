@@ -420,6 +420,16 @@
     ]
   },
   {
+    "link": "[Garden/:What to plant next spring]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 6,
+        "rel": "z/garden.zortex"
+      }
+    ]
+  },
+  {
     "link": "[Resources]",
     "results": [
       {
@@ -1481,6 +1491,41 @@
   {
     "error": "Invalid link",
     "link": "[]",
+    "results": []
+  },
+  {
+    "link": "[Garden/:What to plant]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 6,
+        "rel": "z/garden.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Garden/:What to plant/-beans]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 7,
+        "rel": "z/garden.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Garden/:Things that grew]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 9,
+        "rel": "z/garden.zortex"
+      }
+    ]
+  },
+  {
+    "error": "No matches found for: -mint",
+    "link": "[Garden/:Things that grew/-mint]",
     "results": []
   },
   {

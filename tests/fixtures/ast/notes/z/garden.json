@@ -51,6 +51,66 @@
         "marker_type": "bullet"
       },
       "kind": "item"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [
+        {
+          "children": [],
+          "e": 28,
+          "inner_e": 27,
+          "inner_s": 1,
+          "s": 0,
+          "type": "italic"
+        }
+      ],
+      "kind": "label",
+      "level": 8,
+      "section": true,
+      "text": "What to plant next spring"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "text"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
     }
   ],
   "sections": [
@@ -62,6 +122,12 @@
       ],
       "text": "Garden",
       "type": "article"
+    },
+    {
+      "level": 8,
+      "lnum": 6,
+      "text": "What to plant next spring",
+      "type": "label"
     }
   ],
   "version": 1

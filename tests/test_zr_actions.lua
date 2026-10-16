@@ -133,3 +133,21 @@ T.test(":help zortex is up to date and its tags are valid", function()
 		T.ok(tags:find(tag .. "\t", 1, true), tag)
 	end
 end)
+
+T.test(":ZortexLongLabels lists the lines too long to be labels", function()
+	local action
+	for _, a in ipairs(require("zortex.actions").list) do
+		if a.id == "long_labels" then
+			action = a
+		end
+	end
+	T.ok(action, "long_labels action")
+	local items = action.run()
+	vim.cmd("cclose")
+	local texts = {}
+	for _, it in ipairs(items or {}) do
+		texts[#texts + 1] = it.text
+	end
+	T.ok(vim.tbl_contains(texts, "Things that grew too well:"), vim.inspect(texts))
+	T.ok(not vim.tbl_contains(texts, "*What to plant next spring:*"), vim.inspect(texts))
+end)

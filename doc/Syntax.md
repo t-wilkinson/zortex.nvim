@@ -63,6 +63,9 @@ Nothing inside a code or math block is structure.
 | `**Not a heading**` | `text` | no colon: just bold text |
 | `**Old style**:` | `label` | the colon outside: a label whose text is bold |
 | `Label:` | `label` | text ending in `:` |
+| `Three word label:` | `label` | up to three words (`@attributes` don't count) |
+| `A line of four words:` | `text` | longer, it is a sentence ending in a colon, not a label |
+| `*A longer label like this one:*` | `label` | a longer label: between stars, colon inside |
 | `  Indented label:` | `label` | indentation nests labels |
 | `- Bulleted label:` | `label` | a bullet item ending in `:` is a label too |
 | `Label: text after colon` | `text` | nothing may follow the colon |

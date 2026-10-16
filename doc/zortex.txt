@@ -144,6 +144,10 @@ STRUCTURE ~
 :ZortexFoldsUpdate                                        *:ZortexFoldsUpdate*
     Recompute folds. Keys: <leader>zr. Id: folds_update.
 
+:ZortexLongLabels                                          *:ZortexLongLabels*
+    Lines ending in a colon that are too long to be labels (quickfix). Id:
+    long_labels.
+
 :ZortexRename                                                  *:ZortexRename*
     Rename the heading or label under the cursor and rewrite every link to it.
     Keys: <leader>zR. Id: rename.

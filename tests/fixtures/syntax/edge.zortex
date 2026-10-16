@@ -30,6 +30,14 @@ Sentence. Then label:
 Two:colons:
 	Tabbed label:
   - Bulleted label:
+Three word label:
+A line of four words:
+Done @fold @p1 here:
+*A longer label like this one:*
+  - *Also a longer bulleted label:*
+*Not a label:* text after
+* spaced:*
+*Two *stars:*
 - [ ] Task ending with colon:
 - KR-legacy text
 - KR3 also legacy

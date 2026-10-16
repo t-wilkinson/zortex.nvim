@@ -99,6 +99,11 @@ M.EXTRA_LINKS = {
 	{ link = "@[/#AI/rl]", from = "z/resources.zortex" },
 	{ link = "P/#1.4" },
 	{ link = "[]" },
+	-- a longer label is written between stars; a long plain one is text
+	{ link = "[Garden/:What to plant]" },
+	{ link = "[Garden/:What to plant/-beans]" },
+	{ link = "[Garden/:Things that grew]" },
+	{ link = "[Garden/:Things that grew/-mint]" },
 	-- parent-relative: on a line with no linked parent, and on deeper lines
 	{ link = "[./-Item]", from = "z/day-plan.zortex", lnum = 1 },
 	{ link = "[./-Fix project search]", from = "z/day-plan.zortex", lnum = 4 },

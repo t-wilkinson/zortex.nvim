@@ -290,7 +290,8 @@ local function search_pattern(component)
 	elseif component.type == "heading" then
 		return "^#+%s*" .. text .. ".*$"
 	elseif component.type == "label" then
-		return "^" .. text .. ".*:"
+		-- "Label:", or a longer label written "*A longer label:*"
+		return "^%*?" .. text .. ".*:"
 	elseif component.type == "listitem" then
 		return "^%s*- " .. text .. "$"
 	elseif component.type == "highlight" then

@@ -385,7 +385,9 @@ func SearchLines(lines []string, c Component, start, end int) []Match {
 				col = 1
 			}
 		case "label":
-			if strings.HasPrefix(line, text) && strings.IndexByte(line[len(text):], ':') >= 0 {
+			// "Label:", or a longer label written "*A longer label:*"
+			l := strings.TrimPrefix(line, "*")
+			if strings.HasPrefix(l, text) && strings.IndexByte(l[len(text):], ':') >= 0 {
 				col = 1
 			}
 		case "highlight":

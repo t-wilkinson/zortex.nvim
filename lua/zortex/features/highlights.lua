@@ -406,7 +406,8 @@ local function paint_line(buf, row, line, d, spans)
 		conceal(buf, row, 0, 2)
 		conceal(buf, row, d.content_end + 1, d.content_end + 3)
 	elseif kind == "label" then
-		local colon = #line - 1
+		-- "Label:", or "*A longer label:*" (its stars hidden by the italic span)
+		local colon = (line:find(":%*?$") or #line) - 1
 		if d.item then
 			paint_item(buf, row, line, d, d.item)
 			paint(buf, row, "ZortexLabelList", 0, colon + 1)

@@ -17,6 +17,11 @@ The first public release.
 - Links keep a colon inside a component: completion offers
   `[/#6.3: Homelab]` and `[/#6.3: Zortex]` instead of one `#6.3`, and
   generated links to such headings no longer resolve to the parent.
+- Task groups: tasks nested under a task share its `@size` (in proportion
+  to their own sizes; the group's size wins). Progress, pools and XP count
+  the tasks, not the group; checking the group checks its tasks, the last
+  task checks the group, reopening a task reopens the groups above it. The
+  planner offers the group as one task.
 - A heading's `@attributes` are highlighted like attributes on any line
   (`ZortexAttribute`), not in the heading's colours; the band behind a
   heading is its background only (`ZortexHeading1Line`..`3Line`). Folded
@@ -141,6 +146,10 @@ The first public release.
 
 ### Server (`zortex serve`)
 
+- Task groups as in Neovim (`app/edit` Groups and Cascade, checked against
+  `tests/fixtures/groups.json`): project pages list a group's tasks with
+  their share and the group's name, ticking cascades (through calendar
+  copies too), and a task ticked on the web is estimated at its share.
 - The web app installs as an app (a PWA: home screen on a phone, its own
   window on the desktop), and the last 60 pages you opened read offline as
   saved copies ([doc/Server.md](doc/Server.md#installing-it-as-an-app)).

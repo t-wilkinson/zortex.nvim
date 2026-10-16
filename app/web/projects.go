@@ -46,7 +46,8 @@ type webTask struct {
 	OnCal    bool // done through a calendar copy
 	ID       string
 	Size     string
-	Hours    float64
+	Hours    float64 // its hours, or its share of its group's (edit.Groups)
+	Group    string  // the group it is in: the task it is nested under
 	Due      string
 	DoneDate string
 	Spent    int // minutes: its @spent and its calendar copies'
@@ -236,6 +237,9 @@ func (s *Server) buildProjects(d *notes.Document, cal calibration, hist *calenda
 				p.Areas = append(p.Areas, m[1])
 			}
 		}
+		// tasks nested under a task: the group shares its size, and counts
+		// through its tasks (edit.Groups; services/task_groups)
+		groups := cal.groups(d.Lines, p.Lnum+1, p.OwnEnd)
 		for l := p.Lnum + 1; l <= p.OwnEnd; l++ {
 			if d.InCode(l) {
 				continue
@@ -245,13 +249,29 @@ func (s *Server) buildProjects(d *notes.Document, cal calibration, hist *calenda
 			if it == nil || it.Mark == "" || it.Mark == edit.Moved {
 				continue
 			}
+			g := groups[l]
+			if g != nil && !g.Leaf {
+				continue // a group: its tasks are listed
+			}
 			t := &webTask{Lnum: l, Line: text, Done: isDone(text), URL: s.noteURL(d.Rel, l)}
 			t.HTML = template.HTML(strings.TrimSpace(r.entryHTML(text, l, it.ContentCol)))
 			t.ID = edit.ID(text)
 			t.Size = attrOrBare(text, "size")
 			t.Hours = cal.hours(t.Size)
+			if g != nil {
+				t.Hours = g.Hours
+				if g.Parent != 0 {
+					t.Group = groupTitle(d.Lines[g.Parent-1])
+				}
+				if g.DoneEffective && !t.Done { // under a checked group
+					t.Done = true
+				}
+			}
 			t.Due, _ = edit.Attribute(text, "due")
 			t.DoneDate, _ = edit.Attribute(text, "done")
+			if t.DoneDate == "" && g != nil {
+				t.DoneDate = g.DoneDate
+			}
 			if v, ok := edit.Attribute(text, "spent"); ok {
 				if m, ok := parseMinutes(v); ok {
 					t.Spent = int(m)
@@ -1163,4 +1183,12 @@ func (s *Server) apiProjectLog(w http.ResponseWriter, r *http.Request) {
 	s.afterWrite()
 	s.log.Printf("project log %s:%d", rel, req.Lnum)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "line": entry})
+}
+
+// groupTitle: a group's text, for its tasks' "in <group>" note.
+func groupTitle(line string) string {
+	if it := syntax.ItemOf(line); it != nil {
+		return strings.TrimSpace(syntax.StripAttributes(line[it.ContentCol:]))
+	}
+	return strings.TrimSpace(syntax.StripAttributes(line))
 }

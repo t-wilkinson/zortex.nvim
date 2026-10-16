@@ -242,6 +242,30 @@ harmonic weights (1, ½, ⅓, …), first listed first:
   project's own (or inherited) `@a`, then the task's;
 - other work: the task's own `@a`, then the project's.
 
+**Task groups.** Tasks nested under a task make it a group, and the group's
+`@size` is shared by them:
+
+```
+- [ ] Security audit @md                 the group: 1h in all
+    - [./z/generated/audit.md]           not a task: doesn't count
+    - [ ] Cloudflare tunnel              15m (an equal share: all unsized)
+    - [ ] Cloudflare cert                15m
+    - [ ] Wi-Fi password @lg             or, sized: in proportion to the sizes,
+    - [ ] SSH host key                   the group's size still the total
+```
+
+Sized tasks share in proportion to their sizes (unsized ones count as md, a
+sub-group as its own total), so the group's size wins either way; a group
+without `@size` is the sum of its tasks. The group adds nothing of its own:
+progress, project pools and XP count its tasks, each paid its share (with the
+group's priority and importance when it has none of its own). Checking the
+group checks its open tasks, checking its last open task checks it, and
+reopening a task reopens the groups above it; reopening the group leaves its
+tasks as they are. The planner offers the group, not its tasks ("4 of 6 tasks
+open"), and its calendar copy weighs what is left of it: tick the tasks in
+the note (follow the copy's link). Indentation makes the group, through other
+lines (a label or a link between them is fine); a heading ends it.
+
 A project's **pool** is `@xp(n)` when given, else its `@size` in hours × 10
 (× priority × importance), else the sum of its tasks' XP. Tasks
 moved to `z/archive.*` still count under the same project, so archiving never
@@ -257,7 +281,10 @@ pays steadily through the middle and rewards finishing:
 | 16+ tasks | first 15%: 20% | middle 70%: 50% | the rest 30% |
 
 Every pool pays out exactly 100% once all its tasks are done. Adding tasks to
-a project re-spreads the same pool over more tasks.
+a project re-spreads the same pool over more tasks. A task group's tasks are
+tasks of the project here: the group's size is what they add to the pool, and
+the curve pays them in the order they are done (outside a project, each task
+is paid its share).
 
 **Dates.** Toggling a task adds `@done(today)`. A task checked by hand gets
 `@done(today)` when the note is saved, if it was newly checked in that edit

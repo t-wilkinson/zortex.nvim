@@ -122,6 +122,7 @@ Things that break or embarrass a first-time user. Do these before telling anyone
 - [x] A heading's `@attributes` look like attributes (Neovim and web), not like the title @p2 @size(xs) @done(2026-10-16)
 - [x] `:ZortexMove`: a section or a line with its nested lines to a place picked in the structural search (any note; headings re-levelled, lines re-indented) @p2 @size(md) @done(2026-10-16)
 - [x] Link completion and generated links keep a colon inside a component (`[/#6.3: Homelab]`) @p1 @size(xs) @done(2026-10-16)
+- [x] Task groups: tasks nested under a task share its `@size`; progress and XP count them; checking cascades; the planner offers the group (Neovim and web, `tests/fixtures/groups.json`) @p2 @size(lg) @done(2026-10-16)
 
 ## 3.10 Syntax to settle before the first tag
 Grammar changes are cheap now and costly once other people have notes.

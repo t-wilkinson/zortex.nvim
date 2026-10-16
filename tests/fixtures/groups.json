@@ -1,0 +1,402 @@
+{
+  "cascade": [
+    {
+      "edits": [
+        {
+          "line": "  - [x] One @done(2026-10-16)",
+          "lnum": 2
+        },
+        {
+          "line": "  - [x] Three @done(2026-10-16)",
+          "lnum": 4
+        },
+        {
+          "line": "    - [x] Three a @done(2026-10-16)",
+          "lnum": 5
+        }
+      ],
+      "lines": [
+        "- [x] Audit @md @done(2026-10-16)",
+        "  - [ ] One",
+        "  - [x] Two @done(2026-10-01)",
+        "  - [ ] Three",
+        "    - [ ] Three a"
+      ],
+      "lnum": 1,
+      "name": "checking a group checks its open tasks, deep ones too"
+    },
+    {
+      "edits": [
+        {
+          "line": "- [x] Outer @done(2026-10-16)",
+          "lnum": 1
+        },
+        {
+          "line": "  - [x] Inner @done(2026-10-16)",
+          "lnum": 2
+        }
+      ],
+      "lines": [
+        "- [ ] Outer",
+        "  - [ ] Inner",
+        "    - [x] A @done(2026-10-02)",
+        "    - [x] B @done(2026-10-16)",
+        "  - [x] Other @done(2026-10-03)"
+      ],
+      "lnum": 4,
+      "name": "checking the last open task checks the groups above"
+    },
+    {
+      "edits": [],
+      "lines": [
+        "- [ ] Audit",
+        "  - [x] One @done(2026-10-16)",
+        "  - [ ] Two"
+      ],
+      "lnum": 2,
+      "name": "checking one of several open tasks changes nothing else"
+    },
+    {
+      "edits": [
+        {
+          "line": "- [ ] Outer",
+          "lnum": 1
+        },
+        {
+          "line": "  - [ ] Inner",
+          "lnum": 2
+        }
+      ],
+      "lines": [
+        "- [x] Outer @done(2026-10-05)",
+        "  - [x] Inner @done(2026-10-05)",
+        "    - [ ] A",
+        "    - [x] B @done(2026-10-05)"
+      ],
+      "lnum": 3,
+      "name": "reopening a task reopens the groups above"
+    },
+    {
+      "edits": [],
+      "lines": [
+        "- [ ] Audit",
+        "  - [x] One @done(2026-10-01)"
+      ],
+      "lnum": 1,
+      "name": "reopening a group leaves its tasks"
+    },
+    {
+      "edits": [],
+      "lines": [
+        "- [x] Alone @done(2026-10-16)",
+        "- [ ] Next"
+      ],
+      "lnum": 1,
+      "name": "a task in no group"
+    }
+  ],
+  "default": 1,
+  "groups": [
+    {
+      "lines": [
+        "- [ ] Security audit @id(DxqoT) @md",
+        "    - [./z/generated/nixos-config-security-audit.md]",
+        "    - [ ] Cloudflare tunnel @id(HQUY1)",
+        "    - [x] Cloudflare cert @done(2026-10-11)",
+        "    - [ ] Google app password",
+        "    - [ ] Wi-Fi password"
+      ],
+      "name": "the audit: a sized group, unsized tasks, a link line between",
+      "tasks": [
+        {
+          "done": false,
+          "done_date": "",
+          "hours": 1,
+          "i": "",
+          "leaf": false,
+          "lnum": 1,
+          "open_hours": 0.75,
+          "open_leaves": 3,
+          "p": "",
+          "parent": 0
+        },
+        {
+          "done": false,
+          "done_date": "",
+          "hours": 0.25,
+          "i": "",
+          "leaf": true,
+          "lnum": 3,
+          "open_hours": 0.25,
+          "open_leaves": 1,
+          "p": "",
+          "parent": 1
+        },
+        {
+          "done": true,
+          "done_date": "2026-10-11",
+          "hours": 0.25,
+          "i": "",
+          "leaf": true,
+          "lnum": 4,
+          "open_hours": 0,
+          "open_leaves": 0,
+          "p": "",
+          "parent": 1
+        },
+        {
+          "done": false,
+          "done_date": "",
+          "hours": 0.25,
+          "i": "",
+          "leaf": true,
+          "lnum": 5,
+          "open_hours": 0.25,
+          "open_leaves": 1,
+          "p": "",
+          "parent": 1
+        },
+        {
+          "done": false,
+          "done_date": "",
+          "hours": 0.25,
+          "i": "",
+          "leaf": true,
+          "lnum": 6,
+          "open_hours": 0.25,
+          "open_leaves": 1,
+          "p": "",
+          "parent": 1
+        }
+      ]
+    },
+    {
+      "lines": [
+        "# Home",
+        "- [ ] Move @lg @p1",
+        "  - [ ] Pack @xl",
+        "  - [ ] Clean @md @p3",
+        "  Notes:",
+        "    - [ ] Keys",
+        "- [ ] Garden",
+        "  - [ ] Weed @size(sm)",
+        "  - [ ] Plant",
+        "    - [ ] Buy seeds @xs",
+        "## Next",
+        "  - [ ] Not nested",
+        "- [ ] Alone @xl"
+      ],
+      "name": "sizes share in proportion; a label between; unsized groups add up; a heading ends it",
+      "tasks": [
+        {
+          "done": false,
+          "done_date": "",
+          "hours": 2,
+          "i": "",
+          "leaf": false,
+          "lnum": 2,
+          "open_hours": 2,
+          "open_leaves": 3,
+          "p": "1",
+          "parent": 0
+        },
+        {
+          "done": false,
+          "done_date": "",
+          "hours": 1.2,
+          "i": "",
+          "leaf": true,
+          "lnum": 3,
+          "open_hours": 1.2,
+          "open_leaves": 1,
+          "p": "1",
+          "parent": 2
+        },
+        {
+          "done": false,
+          "done_date": "",
+          "hours": 0.4,
+          "i": "",
+          "leaf": true,
+          "lnum": 4,
+          "open_hours": 0.4,
+          "open_leaves": 1,
+          "p": "3",
+          "parent": 2
+        },
+        {
+          "done": false,
+          "done_date": "",
+          "hours": 0.4,
+          "i": "",
+          "leaf": true,
+          "lnum": 6,
+          "open_hours": 0.4,
+          "open_leaves": 1,
+          "p": "1",
+          "parent": 2
+        },
+        {
+          "done": false,
+          "done_date": "",
+          "hours": 0.75,
+          "i": "",
+          "leaf": false,
+          "lnum": 7,
+          "open_hours": 0.75,
+          "open_leaves": 2,
+          "p": "",
+          "parent": 0
+        },
+        {
+          "done": false,
+          "done_date": "",
+          "hours": 0.5,
+          "i": "",
+          "leaf": true,
+          "lnum": 8,
+          "open_hours": 0.5,
+          "open_leaves": 1,
+          "p": "",
+          "parent": 7
+        },
+        {
+          "done": false,
+          "done_date": "",
+          "hours": 0.25,
+          "i": "",
+          "leaf": false,
+          "lnum": 9,
+          "open_hours": 0.25,
+          "open_leaves": 1,
+          "p": "",
+          "parent": 7
+        },
+        {
+          "done": false,
+          "done_date": "",
+          "hours": 0.25,
+          "i": "",
+          "leaf": true,
+          "lnum": 10,
+          "open_hours": 0.25,
+          "open_leaves": 1,
+          "p": "",
+          "parent": 9
+        },
+        {
+          "done": false,
+          "done_date": "",
+          "hours": 1,
+          "i": "",
+          "leaf": true,
+          "lnum": 12,
+          "open_hours": 1,
+          "open_leaves": 1,
+          "p": "",
+          "parent": 0
+        },
+        {
+          "done": false,
+          "done_date": "",
+          "hours": 3,
+          "i": "",
+          "leaf": true,
+          "lnum": 13,
+          "open_hours": 3,
+          "open_leaves": 1,
+          "p": "",
+          "parent": 0
+        }
+      ]
+    },
+    {
+      "lines": [
+        "- [x] Trip @done(2026-10-01) @md",
+        "  - [ ] Book",
+        "  - [x] Pack @done(2026-09-30)",
+        "    - [ ] Socks",
+        "- [>] Carried",
+        "  - [ ] Under a carried task",
+        "```",
+        "- [ ] In code",
+        "```"
+      ],
+      "name": "a checked group: its tasks done, dated by it",
+      "tasks": [
+        {
+          "done": false,
+          "done_date": "2026-10-01",
+          "hours": 1,
+          "i": "",
+          "leaf": false,
+          "lnum": 1,
+          "open_hours": 0,
+          "open_leaves": 0,
+          "p": "",
+          "parent": 0
+        },
+        {
+          "done": true,
+          "done_date": "2026-10-01",
+          "hours": 0.5,
+          "i": "",
+          "leaf": true,
+          "lnum": 2,
+          "open_hours": 0,
+          "open_leaves": 0,
+          "p": "",
+          "parent": 1
+        },
+        {
+          "done": false,
+          "done_date": "2026-09-30",
+          "hours": 0.5,
+          "i": "",
+          "leaf": false,
+          "lnum": 3,
+          "open_hours": 0,
+          "open_leaves": 0,
+          "p": "",
+          "parent": 1
+        },
+        {
+          "done": true,
+          "done_date": "2026-09-30",
+          "hours": 0.5,
+          "i": "",
+          "leaf": true,
+          "lnum": 4,
+          "open_hours": 0,
+          "open_leaves": 0,
+          "p": "",
+          "parent": 3
+        },
+        {
+          "done": false,
+          "done_date": "",
+          "hours": 1,
+          "i": "",
+          "leaf": true,
+          "lnum": 6,
+          "open_hours": 1,
+          "open_leaves": 1,
+          "p": "",
+          "parent": 0
+        }
+      ]
+    }
+  ],
+  "sizes": {
+    "2xl": 5,
+    "3xl": 8,
+    "4xl": 13,
+    "5xl": 20,
+    "lg": 2,
+    "md": 1,
+    "sm": 0.5,
+    "xl": 3,
+    "xs": 0.25
+  },
+  "today": "2026-10-16"
+}

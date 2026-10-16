@@ -219,12 +219,12 @@ func (s *Server) adoptID(cal *notes.Document, lnum int) (string, error) {
 // syncMirrors gives every other line with line's @id (in the calendar and
 // the project notes) line's state: checked with the same @done, or open.
 // Moved copies ([>]) are left alone. Call with editMu held. Returns the
-// notes it changed.
-func (s *Server) syncMirrors(rel string, lnum int, line string) ([]string, error) {
+// notes it changed and the lines.
+func (s *Server) syncMirrors(rel string, lnum int, line string) ([]string, []lineChange, error) {
 	id := edit.ID(line)
 	it := syntax.ItemOf(line)
 	if id == "" || it == nil || it.Mark == "" || it.Mark == edit.Moved {
-		return nil, nil
+		return nil, nil, nil
 	}
 	done := isDone(line)
 	op, date := edit.Open, today()
@@ -236,6 +236,7 @@ func (s *Server) syncMirrors(rel string, lnum int, line string) ([]string, error
 	}
 	needle := "@id(" + id + ")"
 	var changed []string
+	var lines []lineChange
 	var errs []error
 	for _, r := range s.mirrorRels() {
 		f, err := readNoteFile(s.ix.Path(r))
@@ -244,6 +245,7 @@ func (s *Server) syncMirrors(rel string, lnum int, line string) ([]string, error
 			continue
 		}
 		n := 0
+		var mine []lineChange
 		for i, l := range f.lines {
 			if (r == rel && i+1 == lnum) || !strings.Contains(l, needle) {
 				continue
@@ -257,6 +259,7 @@ func (s *Server) syncMirrors(rel string, lnum int, line string) ([]string, error
 				continue
 			}
 			f.lines[i] = next
+			mine = append(mine, lineChange{Rel: r, Lnum: i + 1, Line: next})
 			n++
 		}
 		if n > 0 {
@@ -265,9 +268,10 @@ func (s *Server) syncMirrors(rel string, lnum int, line string) ([]string, error
 				continue
 			}
 			changed = append(changed, r)
+			lines = append(lines, mine...)
 		}
 	}
-	return changed, errors.Join(errs...)
+	return changed, lines, errors.Join(errs...)
 }
 
 // ---------------------------------------------------------------------------

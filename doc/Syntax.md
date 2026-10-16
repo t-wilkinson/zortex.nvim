@@ -77,7 +77,7 @@ Nothing inside a code or math block is structure.
 | `- [ ] Open task @size(sm) @due(2026-10-12)` | `item` | a task: `[ ]` open, `[x]` done; text must follow |
 | `- [x] Done task @done(2026-10-08)` | `item` | `@done(date)` dates the completion (XP counts it then) |
 | `- [>] Carried task @id(aB3x9)` | `item` | carried to a later day: neither open nor done ([Planning](Planning.md#the-day-on-the-calendar)) |
-| `  - [ ] Nested task` | `item` | indented items nest |
+| `  - [ ] Nested task` | `item` | indented items nest (tasks under a task share its `@size`: [task groups](Planning.md#xp)) |
 | `- KR1: [ ] Key result [P/#1 Programming]` | `item` | a keyed item: `Key:` then an optional checkbox (key results) |
 | `14:00 Timed entry [Flipping]` | `item` | a time item (calendar events) |
 | `16:00 - 17:00 Ranged entry` | `item` | a time range |

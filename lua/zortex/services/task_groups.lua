@@ -18,7 +18,8 @@
 --             without one: the sum of its children. A group adds nothing of
 --             its own: progress and XP count the leaves.
 --   done      a leaf is done when it is checked, or when a group above it is
---             (then dated by that group's @done when it has none itself).
+--             (then dated by the nearest checked group's @done when it has
+--             none itself).
 --   cascade   checking a group checks its open tasks; checking the last open
 --             child checks the group; reopening a child reopens the groups
 --             above it. Reopening a group leaves its children as they are.
@@ -132,7 +133,8 @@ function M.annotate(tasks, opts)
 		t.xp_attrs = { p = a.p or attrs_above.p, i = a.i or attrs_above.i }
 		t.leaf = #t.children_tasks == 0
 		t.hours = budget
-		local done = done_above or (t.completed and { date = a.done } or nil)
+		-- what its tasks inherit: the nearest checked group's date
+		local done = t.completed and { date = a.done or (done_above and done_above.date) } or done_above
 		if t.leaf then
 			t.done_effective = t.completed or done_above ~= nil
 			t.done_date = a.done or (done_above and done_above.date)
@@ -149,7 +151,7 @@ function M.annotate(tasks, opts)
 		t.open_hours, t.open_leaves = 0, 0
 		for _, c in ipairs(t.children_tasks) do
 			local share = total > 0 and budget * natural(c) / total or budget / #t.children_tasks
-			assign(c, share, done and { date = (done_above and done_above.date) or a.done } or nil, t.xp_attrs)
+			assign(c, share, done, t.xp_attrs)
 			t.open_hours = t.open_hours + c.open_hours
 			t.open_leaves = t.open_leaves + c.open_leaves
 		end

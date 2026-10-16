@@ -88,3 +88,26 @@ own keys), `<C-o>` creates a note named after the query
 (`2026-10-15.042.zortex`; the web file browser hides these generated names
 until "show all"), and `<M-t>` changes mode. The preview shows the note with
 the section or line marked.
+
+## Moving things with it
+
+`:ZortexMove` (`<leader>zM`) opens the same picker to choose where the
+section under the cursor (a heading, bold heading or label and everything
+in it), or the line with the lines nested under it, goes. A range or a
+visual selection moves exactly those lines. Here every section is offered
+whatever the number of words (a one-word search finds `### 6.3: Homelab`
+too), and there is no new-note key.
+
+| Picked | It lands |
+|---|---|
+| a heading or note, moving a heading section | last among its sub-sections, one level below it (`#` under a note); a blank line around it |
+| a section, moving anything else | at the end of the section's own lines, before its first sub-section, indented like them (a label's lines start at the label's indent) |
+| a line (a list item) | after the lines nested under it, one step (2 spaces) deeper |
+
+A heading can't go under a label or a line (it would end that label's
+section instead of joining it), nor a section into itself, nor anything
+into a code block. The order of a section's lines stays yours: things always
+land at the end, so move a line within the section by hand afterwards. Links
+into what moved keep working when they name it by a path that still leads
+there; the message counts them, and `:ZortexBrokenLinks` lists any that
+broke.

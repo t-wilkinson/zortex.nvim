@@ -161,7 +161,7 @@ Special notes:
   and what you open often ranks higher. A note's file name is one more
   alias of its articles (`okr` finds `@@Objectives` in `okr.zortex`). `<leader>z/` searches plain text in
   every line instead; `<M-t>` in the picker cycles section, article and text
-  search (`ui.search.keys.cycle_mode` changes the key, e.g. `<C-t>` when a
+  search (`ui.search.keys.cycle_mode` changes the key, e.g. `<M-m>` when a
   terminal or zellij takes `<M-t>`).
 - **which-key**: when [which-key.nvim](https://github.com/folke/which-key.nvim)
   is installed, `<leader>z` shows as "Zortex" and its sub-prefixes by name

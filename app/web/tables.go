@@ -15,12 +15,16 @@ import (
 // in place, and the /link page of an @[...] search shows the same table.
 // Every column is read off the lines: the item, the link it holds (and what
 // kind of thing that is), its other tags, one column per @key(value)
-// attribute the rows use, where it is, and its notes: the lines nested
-// under it (labels too), or a resource heading's section. Up to
-// shortNotes lines show under the item; longer notes open in a panel,
-// rendered like the note, with the first note they link to below them.
+// attribute the rows use, and where it is. Its notes (the lines nested
+// under it, labels too, or a resource heading's section) show under the
+// item: all of them up to shortNotes lines, else the first previewNotes and
+// a button that opens them all in a panel, rendered like the note, with the
+// first note they link to below them.
 
-const shortNotes = 3
+const (
+	shortNotes   = 3
+	previewNotes = 2
+)
 
 type tagRow struct {
 	doc        *notes.Document
@@ -90,11 +94,6 @@ func (s *Server) tagTableHTML(from *notes.Document, content string) string {
 		rows = append(rows, row)
 	}
 
-	anyLong := false
-	for _, row := range rows {
-		anyLong = anyLong || len(row.nested) > shortNotes
-	}
-
 	var b strings.Builder
 	w := func(parts ...string) {
 		for _, p := range parts {
@@ -144,9 +143,6 @@ func (s *Server) tagTableHTML(from *notes.Document, content string) string {
 		th("@"+esc(k), "value")
 	}
 	th("Where", "text")
-	if anyLong {
-		th("Notes", "value")
-	}
 	w(`</tr></thead><tbody>`)
 
 	asts := map[*notes.Document]*syntax.AST{}
@@ -165,12 +161,16 @@ func (s *Server) tagTableHTML(from *notes.Document, content string) string {
 		} else {
 			from = len(line) - len(strings.TrimLeft(line, " \t"))
 		}
-		notesHTML := ""
-		if len(row.nested) > 0 {
+		notesHTML, previewHTML := "", ""
+		if n := len(row.nested); n > 0 {
 			if asts[d] == nil {
 				asts[d] = d.Parse()
 			}
 			notesHTML = s.notesHTML(d, asts[d], row.lnum+1, row.notesTo, row.notesBase)
+			previewHTML = notesHTML
+			if n > shortNotes {
+				previewHTML = s.notesHTML(d, asts[d], row.lnum+1, row.nested[previewNotes-1], row.notesBase)
+			}
 		}
 		w(`<tr data-kind="`, esc(row.kind), `" data-tags="`, esc(strings.Join(row.tags, " ")), `">`)
 		if anyTask {
@@ -184,8 +184,21 @@ func (s *Server) tagTableHTML(from *notes.Document, content string) string {
 			}
 		}
 		w(`<td class="tt-item">`, r.inline(line, d.Spans(row.lnum), from, to))
-		if n := len(row.nested); n > 0 && n <= shortNotes {
-			w(`<div class="tt-notes">`, notesHTML, `</div>`)
+		if previewHTML != "" {
+			w(`<div class="tt-notes">`, previewHTML, `</div>`)
+		}
+		if n := len(row.nested); n > shortNotes {
+			// the panel (tables.js): the notes, then the note they link to
+			title := plainText(line, d.Spans(row.lnum), from, to)
+			w(`<div class="tt-more"><button type="button" class="tt-notes-btn" aria-haspopup="dialog" data-title="`, esc(title), `"`)
+			if row.notesRel != "" {
+				title := row.notesRel
+				if nd := s.ix.Doc(row.notesRel); nd != nil {
+					title = nd.Title()
+				}
+				w(` data-note="`, esc(row.notesRel), `" data-note-href="`, esc(s.noteURL(row.notesRel, 0)), `" data-note-title="`, esc(title), `"`)
+			}
+			w(`>All notes <span class="dim">`, itoa(n), `</span></button><template>`, notesHTML, `</template></div>`)
 		}
 		w(`</td>`)
 		if anyLink {
@@ -224,23 +237,6 @@ func (s *Server) tagTableHTML(from *notes.Document, content string) string {
 			}
 		}
 		w(`<td class="tt-where"><a href="`, esc(s.noteURL(d.Rel, row.lnum)), `">`, esc(where), `</a></td>`)
-		if anyLong {
-			if n := len(row.nested); n <= shortNotes {
-				w(`<td data-v="`, itoa(n), `"></td>`)
-			} else {
-				// the panel (tables.js): the notes, then the note they link to
-				title := plainText(line, d.Spans(row.lnum), from, to)
-				w(`<td data-v="`, itoa(n), `"><button type="button" class="tt-notes-btn" aria-haspopup="dialog" data-title="`, esc(title), `"`)
-				if row.notesRel != "" {
-					title := row.notesRel
-					if nd := s.ix.Doc(row.notesRel); nd != nil {
-						title = nd.Title()
-					}
-					w(` data-note="`, esc(row.notesRel), `" data-note-href="`, esc(s.noteURL(row.notesRel, 0)), `" data-note-title="`, esc(title), `"`)
-				}
-				w(`>Notes <span class="dim">`, itoa(n), `</span></button><template>`, notesHTML, `</template></td>`)
-			}
-		}
 		w(`</tr>`)
 	}
 	w(`</tbody></table></div></div>`)

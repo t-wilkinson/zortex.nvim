@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -21,6 +22,14 @@ import (
 var esc = template.HTMLEscapeString
 
 func itoa(n int) string { return strconv.Itoa(n) }
+
+// bareAttribute: bare @words that are attributes rather than tags (doc/Syntax.md
+// Attributes): priority and importance, sizes, durations, slide steps.
+var bareAttribute = regexp.MustCompile(`^(?i:[pi][1-3]|xs|sm|md|lg|xl|[2-5]xl|epic|legendary|mythic|ultimate|\d+(?:\.\d+)?(?:h|m|min|d|w)(?:\d+m)?|steps?)$`)
+
+// isTagWord: a bare @word that a tag search is for (@rust, @event), not an
+// attribute written bare (@p1, @sm, @2h).
+func isTagWord(key string) bool { return key != "" && !bareAttribute.MatchString(key) }
 
 // escapePath escapes each segment of a rel path for a URL.
 func escapePath(rel string) string {
@@ -406,6 +415,11 @@ func (r *noteRenderer) span(line string, sp *syntax.Span) string {
 	case "attribute":
 		if r.slides {
 			return ""
+		}
+		// a bare @word is a tag: it links to the lines tagged so, in every
+		// note (the tag search @[*/word], shown as a table)
+		if !sp.HasValue && isTagWord(sp.Key) {
+			return `<a class="attr tag" href="` + esc(r.s.linkURL("@[*/"+syntax.Lower(sp.Key)+"]", r.doc.Rel)) + `" title="lines tagged ` + esc(raw) + `">` + esc(raw) + `</a>`
 		}
 		return `<span class="attr">` + esc(raw) + `</span>`
 	case "hidden":

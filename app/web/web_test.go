@@ -509,3 +509,21 @@ func TestExampleNotes(t *testing.T) {
 		t.Errorf("broken link in doc/example: %+v", b)
 	}
 }
+
+func TestBareTagsLinkToTheirTable(t *testing.T) {
+	s, dir, ts := newTestServer(t, "")
+	note := "@@Tagged\n\n- [The Rust Book](https://doc.rust-lang.org/book) @rust @p1 @sm @2h @status(reading)\n"
+	if err := os.WriteFile(filepath.Join(dir, "tagged.zortex"), []byte(note), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s.Refresh()
+	page := expect(t, ts, "/n/tagged.zortex", 200,
+		`<a class="attr tag" href="/link?from=tagged.zortex&amp;to=%40%5B%2A%2Frust%5D"`,
+		`<span class="attr">@p1</span>`, `<span class="attr">@sm</span>`, `<span class="attr">@2h</span>`,
+		`<span class="attr">@status(reading)</span>`)
+	if strings.Count(page, `class="attr tag"`) != 1 {
+		t.Errorf("only @rust is a tag link")
+	}
+	// the link opens the table of lines tagged @rust
+	expect(t, ts, "/link?from=tagged.zortex&to=%40%5B%2A%2Frust%5D", 200, "The Rust Book")
+}

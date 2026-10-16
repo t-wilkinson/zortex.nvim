@@ -156,6 +156,13 @@ function M.setup_highlights()
 		end
 		vim.api.nvim_set_hl(0, name, opts)
 	end
+	-- The band behind a heading line: only its background, so what isn't
+	-- the title (its @attributes) keeps its own look rather than turning
+	-- bold and heading-coloured
+	for n = 1, 3 do
+		local ok, hl = pcall(vim.api.nvim_get_hl, 0, { name = "ZortexHeading" .. n, link = false })
+		vim.api.nvim_set_hl(0, "ZortexHeading" .. n .. "Line", { bg = ok and hl.bg or nil, default = true })
+	end
 end
 
 -- =============================================================================
@@ -354,9 +361,24 @@ local function paint_line(buf, row, line, d, spans)
 	elseif kind == "tag" then
 		paint(buf, row, "ZortexTag", 0, #line)
 	elseif kind == "heading" then
-		local group = "ZortexHeading" .. math.min(d.heading, 3)
-		paint(buf, row, group, 0, #line)
-		vim.api.nvim_buf_set_extmark(buf, NS, row, 0, { line_hl_group = group })
+		-- the title in the heading's colours; its @attributes like those on
+		-- any line (ZortexAttribute, from paint_spans)
+		local level = math.min(d.heading, 3)
+		local group = "ZortexHeading" .. level
+		local from = 0
+		local function title(s, e) -- the text between attributes, not the spaces
+			if line:sub(s + 1, e):find("%S") then
+				paint(buf, row, group, s, e)
+			end
+		end
+		for _, span in ipairs(spans) do
+			if span.type == "attribute" then
+				title(from, span.s)
+				from = span.e
+			end
+		end
+		title(from, #line)
+		vim.api.nvim_buf_set_extmark(buf, NS, row, 0, { line_hl_group = group .. "Line" })
 		-- Objective ids: "## 3M-2026-Q1 Title"
 		local caps = { line:match("^##%s+()(%d+[MY])()%-()(%d+)()%-()(%w%d)()") }
 		for i = 1, #caps, 3 do
@@ -423,7 +445,8 @@ function M.zortex_fold_text()
 	local start_line = vim.fn.getline(vim.v.foldstart)
 	local fold_count = " ⋯ (" .. (vim.v.foldend - vim.v.foldstart + 1) .. " lines)"
 
-	local d = Document.from_buffer(0):info(vim.v.foldstart) or {}
+	local doc = Document.from_buffer(0)
+	local d = doc:info(vim.v.foldstart) or {}
 	local hl_group = "Normal"
 	if d.kind == "heading" then
 		hl_group = "ZortexHeading" .. math.min(d.heading, 3)
@@ -443,11 +466,23 @@ function M.zortex_fold_text()
 		end
 	end
 
-	return {
-		{ start_line, hl_group },
-		{ preview_text, "Comment" },
-		{ fold_count, "NonText" },
-	}
+	-- a heading's @attributes as on any line, not in the heading's colours
+	local chunks, from = {}, 1
+	if d.kind == "heading" then
+		for _, span in ipairs(doc:inline(vim.v.foldstart) or {}) do
+			if span.type == "attribute" then
+				chunks[#chunks + 1] = { start_line:sub(from, span.s), hl_group }
+				chunks[#chunks + 1] = { start_line:sub(span.s + 1, span.e), "ZortexAttribute" }
+				from = span.e + 1
+			end
+		end
+	end
+	chunks[#chunks + 1] = { start_line:sub(from), hl_group }
+	chunks[#chunks + 1] = { preview_text, "Comment" }
+	chunks[#chunks + 1] = { fold_count, "NonText" }
+	return vim.tbl_filter(function(c)
+		return c[1] ~= ""
+	end, chunks)
 end
 
 -- =============================================================================

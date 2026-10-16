@@ -185,6 +185,37 @@ T.test("tags are painted on any line; the @ of @[tags] is dimmed", function()
 	vim.cmd("bwipeout!")
 end)
 
+T.test("a heading's @attributes look like attributes, not like the heading", function()
+	local hl = require("zortex.features.highlights")
+	hl.setup_highlights()
+	vim.cmd("enew!")
+	local buf = vim.api.nvim_get_current_buf()
+	local line = "## 1.4 - zortex @size(lg) @a(4.1) @p1"
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, { line })
+	hl.highlight_buffer(buf)
+	local ns = vim.api.nvim_create_namespace("zortex_highlights")
+	local painted, line_group = {}, nil
+	for _, m in ipairs(vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, { details = true })) do
+		local g = m[4].hl_group
+		if g == "ZortexHeading2" or g == "ZortexAttribute" then
+			painted[#painted + 1] = g .. " " .. vim.trim(line:sub(m[3] + 1, m[4].end_col))
+		end
+		line_group = m[4].line_hl_group or line_group
+	end
+	table.sort(painted)
+	T.eq(painted, {
+		"ZortexAttribute @a(4.1)",
+		"ZortexAttribute @p1",
+		"ZortexAttribute @size(lg)",
+		"ZortexHeading2 ## 1.4 - zortex",
+	})
+	-- the line's band is only the heading's background: nothing bold under the attributes
+	T.eq(line_group, "ZortexHeading2Line")
+	local band = vim.api.nvim_get_hl(0, { name = "ZortexHeading2Line" })
+	T.ok(not band.bold and not band.fg, vim.inspect(band))
+	vim.cmd("bwipeout!")
+end)
+
 T.test("highlights paint from the syntax", function()
 	local hl = require("zortex.features.highlights")
 	vim.cmd("enew!")

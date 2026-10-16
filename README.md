@@ -203,7 +203,9 @@ Special notes:
   panel, iCal import/export, notifications (synced to `zortex serve` and sent
   through ntfy; unchanged calendars aren't re-sent).
 - **Pomodoro** (`<leader>zoo`): one clock shared with the web app's home page,
-  with ntfy alerts and a different sound for work, breaks and a new cycle.
+  with ntfy alerts and a different sound for work, breaks and a new cycle
+  (played with `paplay`, `afplay` on macOS; `sounds` and `sound_command` under
+  `notifications.types.pomodoro` change them).
   Timers, alarms and a stopwatch are on the home page too, and their time
   goes to the task you're working on (`@spent(1h25m)`; by default the
   current calendar entry).

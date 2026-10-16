@@ -15,7 +15,8 @@
 #
 # Sounds are looked up next to this script, then in the freedesktop theme.
 # Override any of them with ZORTEX_SOUND_WORK, _BREAK, _RESTART, _READY,
-# _TIMER, _ALARM, _DEFAULT.
+# _TIMER, _ALARM, _DEFAULT. ZORTEX_SOUND_PLAYER is the player, with its
+# arguments ("pw-play --volume 0.5"; default paplay, afplay on macOS).
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 TITLE="${1:-${NTFY_TITLE:-}}"
@@ -60,5 +61,9 @@ else
   fi
 fi
 
-[ -n "$SOUND" ] && paplay "$SOUND"
+if [ -z "${ZORTEX_SOUND_PLAYER:-}" ]; then
+  if [ "$(uname)" = Darwin ]; then ZORTEX_SOUND_PLAYER=afplay; else ZORTEX_SOUND_PLAYER=paplay; fi
+fi
+# shellcheck disable=SC2086 # the player's arguments split on spaces
+[ -n "$SOUND" ] && $ZORTEX_SOUND_PLAYER "$SOUND"
 exit 0

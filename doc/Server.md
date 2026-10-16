@@ -172,7 +172,8 @@ zortex serve ... -ntfy-url https://ntfy.sh -ntfy-topic my-zortex-topic
 Subscribe in the ntfy phone app. On the desktop,
 [`contrib/ntfy`](../contrib/ntfy) has a `client.yml` and `notify.sh` for
 `ntfy subscribe`, which plays a different sound for starting work, starting
-a break, a timer and an alarm.
+a break, a timer and an alarm (`ZORTEX_SOUND_*` pick the files and
+`ZORTEX_SOUND_PLAYER` the player; see the script's header).
 
 ## 5. Connect Neovim
 

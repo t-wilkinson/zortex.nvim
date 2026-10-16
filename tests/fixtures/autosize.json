@@ -30,10 +30,10 @@
         "  - [x] a",
         "10:45 B",
         "  - [x] b",
-        "11:05 C"
+        "11:10 C"
       ],
       "lnum": 3,
-      "name": "closest by ratio: 45 minutes is md, 20 is sm",
+      "name": "closest by ratio: 45 minutes is md, 25 is sm",
       "size": "md"
     },
     {
@@ -43,11 +43,11 @@
         "  - [x] a",
         "10:45 B",
         "  - [x] b",
-        "11:05 C"
+        "11:10 C"
       ],
       "lnum": 5,
       "name": "closest by ratio (second block)",
-      "size": "xs"
+      "size": "sm"
     },
     {
       "lines": [
@@ -57,7 +57,7 @@
         "12:00 Lunch"
       ],
       "lnum": 3,
-      "name": "a long block: 4 hours",
+      "name": "a long block: 4 hours, as near 3 as 5: the larger",
       "size": "2xl"
     },
     {

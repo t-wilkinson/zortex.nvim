@@ -15,7 +15,6 @@ import (
 
 	"github.com/t-wilkinson/zortex.nvim/app/alerts"
 	"github.com/t-wilkinson/zortex.nvim/app/clocks"
-	"github.com/t-wilkinson/zortex.nvim/app/edit"
 	"github.com/t-wilkinson/zortex.nvim/app/notes"
 	"github.com/t-wilkinson/zortex.nvim/app/pomodoro"
 	"github.com/t-wilkinson/zortex.nvim/app/syntax"
@@ -100,6 +99,8 @@ type calEntry struct {
 	URL    string `json:"url"`
 	Src    string `json:"src,omitempty"` // the line as written (-writable: for edits)
 	Rel    string `json:"rel,omitempty"`
+
+	textCol int // where the text starts (after the marker and a time)
 }
 
 func (s *Server) calendarDoc() *notes.Document {
@@ -114,60 +115,31 @@ func (s *Server) calendarDoc() *notes.Document {
 	return nil
 }
 
-// calendarDays: entries by date ("YYYY-MM-DD") for dates in [from, to].
+// calendarDays: entries by date ("YYYY-MM-DD") for dates in [from, to]
+// (calendarEntries), with their links rendered and the task a reference
+// line stands for.
 func (s *Server) calendarDays(from, to string) map[string][]calEntry {
-	days := map[string][]calEntry{}
 	doc := s.calendarDoc()
 	if doc == nil {
-		return days
+		return map[string][]calEntry{}
 	}
 	r := &noteRenderer{s: s, doc: doc}
-	date := ""
-	baseIndent := -1
-	for i, line := range doc.Lines {
-		lnum := i + 1
-		if m := dateLabel.FindStringSubmatch(line); m != nil {
-			date, baseIndent = m[1]+"-"+m[2]+"-"+m[3], -1
-			continue
-		}
-		if date == "" || date < from || date > to || doc.InCode(lnum) {
-			continue
-		}
-		it := syntax.ItemOf(line)
-		if it == nil {
-			continue
-		}
-		if baseIndent < 0 || it.MarkerCol < baseIndent {
-			baseIndent = it.MarkerCol
-		}
-		e := calEntry{
-			Lnum:  lnum,
-			Text:  strings.TrimSpace(syntax.StripAttributes(line[it.ContentCol:])),
-			HTML:  strings.TrimSpace(r.entryHTML(line, lnum, it.ContentCol)),
-			Task:  it.Mark != "",
-			Done:  it.Mark == "x" || it.Mark == "X",
-			Depth: (it.MarkerCol - baseIndent + 1) / 2,
-			URL:   s.noteURL(doc.Rel, lnum),
-		}
-		if it.Mark == edit.Moved {
-			e.Moved = true
-		}
-		e.Notify, e.Event = entryFlags(doc.Spans(lnum))
-		if !e.Task {
-			if ref := s.referenceOf(doc, lnum); ref != nil {
-				e.Task, e.Done, e.Ref = true, ref.Done, fmt.Sprintf("%s:%d", ref.Rel, ref.Lnum)
+	days := calendarEntries(doc, from, to)
+	for _, entries := range days {
+		for i := range entries {
+			e := &entries[i]
+			line := doc.Lines[e.Lnum-1]
+			e.HTML = strings.TrimSpace(r.entryHTML(line, e.Lnum, e.textCol))
+			e.URL = s.noteURL(doc.Rel, e.Lnum)
+			if !e.Task {
+				if ref := s.referenceOf(doc, e.Lnum); ref != nil {
+					e.Task, e.Done, e.Ref = true, ref.Done, fmt.Sprintf("%s:%d", ref.Rel, ref.Lnum)
+				}
+			}
+			if s.cfg.Writable {
+				e.Src, e.Rel = line, doc.Rel
 			}
 		}
-		if s.cfg.Writable {
-			e.Src, e.Rel = line, doc.Rel
-		}
-		if it.Time != nil {
-			e.Time, e.End = it.Time.At, it.Time.To
-			if e.Time == "" {
-				e.Time = it.Time.From
-			}
-		}
-		days[date] = append(days[date], e)
 	}
 	return days
 }

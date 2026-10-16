@@ -119,15 +119,19 @@ local defaults = {
 				use_server = true, -- false: always run the clock in Neovim
 				ntfy_only = true, -- ntfy enabled: alerts go only through ntfy
 				-- Played locally when alerts don't go through ntfy (paths, or false
-				-- for silence). Unset: freedesktop sounds when present. With ntfy,
-				-- contrib/ntfy/notify.sh picks the sound from the message tags.
+				-- for silence). Unset: freedesktop sounds (macOS: system sounds)
+				-- when present. With ntfy, contrib/ntfy/notify.sh picks the sound
+				-- from the message tags.
 				sounds = {
 					-- work_start = "~/sounds/work.oga",
 					-- break_start = "~/sounds/break.oga",
 					-- restart = "~/sounds/restart.oga",
 					-- work_end = ..., break_end = ...,
 				},
-				sound_command = nil, -- default: paplay (afplay on macOS)
+				-- The player: a program, a string with arguments ("pw-play --volume
+				-- 0.5") or a list ({ "mpv", "--no-video", "%s" }); "%s" is the file,
+				-- else it goes last. Default: paplay (afplay on macOS)
+				sound_command = nil,
 			},
 
 			calendar = {

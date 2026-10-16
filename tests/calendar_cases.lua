@@ -1,0 +1,36 @@
+-- tests/calendar_cases.lua - one calendar both views read: Neovim's calendar
+-- (stores/calendar, services/calendar_entry) and the web app's
+-- (app/web calendarDays). tests/gen_edits.lua writes what Neovim sees to
+-- tests/fixtures/calendar.json; the Go side is tested against it.
+return {
+	"@@Calendar",
+	"",
+	"2026-10-12:",
+	"09:00 - 10:30 Deep work on [P/#2.1] @n(10)",
+	"  - [x] Outline @done(2026-10-12)",
+	"  - [ ] Draft @id(drf01)",
+	"  - a note under the block",
+	"- [x] Call the hardware store @done(2026-10-12)",
+	"- [>] Carried @id(car01)",
+	"12:30 Lunch with Sam @event",
+	"- 14:00 Dentist @event @n(no)",
+	"- 15:00 - 15:30 Standup",
+	"16:00 Report @2h",
+	"    - [ ] Four-space task",
+	"        - [ ] Its step",
+	"- plain note @rust",
+	"",
+	"```",
+	"- [ ] not an entry, in code",
+	"```",
+	"",
+	"2026-10-13:",
+	"7:05 Run",
+	"- [ ] Feed the starter @p1 @sm",
+	"",
+	"Not a date:",
+	"- [ ] under a label that isn't a date",
+	"",
+	"2026-10-12:",
+	"- [ ] The same day again",
+}

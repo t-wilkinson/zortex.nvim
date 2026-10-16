@@ -30,8 +30,10 @@ text you own and sync however you like.
 **Planning and doing**
 
 - **Projects, areas and OKRs** (PARA plus objectives and key results) with
-  progress, due dates and daily and weekly reviews; a **day planner** that
-  fills the calendar, key-result work first.
+  progress, due dates and daily and weekly reviews written in one
+  `reviews.zortex`; each week's **focus projects**; a **day planner** that
+  fills the calendar, focus and key-result work first, ranks up tasks put
+  off again and again, and says when the day is full.
 - **XP that follows the plan**: finished tasks pay XP by their estimated
   hours, work on a project a key result links counts toward that
   objective's areas, and the season is progress on this quarter's
@@ -47,6 +49,9 @@ text you own and sync however you like.
 - Your notes rendered and searchable, with the calendar, the pomodoro and
   XP on the home page, light editing from your phone, and ntfy
   notifications.
+- **Project pages**: progress, next tasks, the key results they move, a log
+  of where you left off, the days they were on the calendar, and the notes
+  and files they link.
 - A **note graph**: the Structure note as cards, the notes each one links
   with marked on hover, and the notes it doesn't reach.
 - A **personal file viewer**: PDFs, images, video, Markdown with math
@@ -170,18 +175,24 @@ Special notes:
 - **Projects**: picker with progress, points, due dates, areas and key
   results; `@progress` written back on request.
 - **Day planner** (`<leader>zm`): opens today's calendar day (created from
-  your weekday/Saturday/Sunday template) next to ranked candidates: tasks on
-  key results first (the further a key result is behind schedule, the
-  higher), then work with only an area, then the rest; due dates and
-  priority add on top. `p` adds an item (with a link to it) to the day and
-  stays in the list; `i`/`o`/`O` put it on the current/next/previous line
-  and let you type its time.
+  your weekday/Saturday/Sunday template) next to ranked candidates: the
+  week's focus projects first, then tasks on key results (the further a key
+  result is behind schedule, the higher), then work with only an area, then
+  the rest; due dates, priority and how often a task was put off add on
+  top. A capacity line weighs the day's tasks against its free time. `p`
+  adds an item (with a link to it) to the day and stays in the list; `P` a
+  project with its next three tasks; `i`/`o`/`O` put it on the
+  current/next/previous line and let you type its time.
 - **Reviews**: daily (`<leader>zW`, since the last one) and weekly
-  (`<leader>zw`). Both open with what is left in the inbox, then your objectives and key results against the
-  time passed, the XP earned and how much of it was on key results, and the
-  time spent per task; then what you completed, what's overdue or due, and
-  (weekly) stale and unscheduled projects, key results without projects,
-  areas without an objective, broken links. Every line links to its source.
+  (`<leader>zw`), written in `reviews.zortex` (a week's entry with its days
+  inside) with the findings beside it. Both open with what is left in the
+  inbox, the week's focus and tasks put off again and again, then your
+  objectives and key results against the time passed, the XP earned and how
+  much of it was on key results, and the time spent per task; then what you
+  completed, what's overdue or due, and (weekly) the projects to pick the
+  week's focus from (`f`), stale and unscheduled projects, key results
+  without projects, areas without an objective, broken links. Every line
+  links to its source.
 - **Calendar**: month/week views with project tasks and due dates, a digest
   panel, iCal import/export, notifications (synced to `zortex serve` and sent
   through ntfy; unchanged calendars aren't re-sent).
@@ -191,7 +202,8 @@ Special notes:
   goes to the task you're working on (`@spent(1h25m)`; by default the
   current calendar entry).
 - **Planning and XP**: areas → objectives → key results → projects → tasks,
-  a day planner that puts key-result work first, daily and weekly reviews,
+  a week's focus projects, a day planner that puts focus and key-result
+  work first, daily and weekly reviews,
   and XP that mirrors it (seasons for this quarter's objectives, Mastery for
   areas). See
   [doc/Planning.md](doc/Planning.md).

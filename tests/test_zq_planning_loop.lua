@@ -307,6 +307,9 @@ T.test(":ZortexReview opens the week's entry beside the findings; f picks the fo
 		T.ok(at("## Focus (f on a project adds or removes it) (1)"), vim.inspect(lines()))
 		local note = vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(st.note_win), 0, -1, false)
 		T.ok(vim.tbl_contains(note, "- [P/#1 Programming/#1.4 - esp32]"), vim.inspect(note))
+		-- and saved, for the web app
+		T.ok(vim.tbl_contains(vim.fn.readfile(fs.get_reviews_file()), "- [P/#1 Programming/#1.4 - esp32]"), "written")
+		T.eq(vim.bo[vim.api.nvim_win_get_buf(st.note_win)].modified, false)
 		-- the daily review: the day's entry inside the week
 		ui.open({ scope = "day", today = "2026-10-16" })
 		T.eq(vim.api.nvim_get_current_line ~= nil, true)

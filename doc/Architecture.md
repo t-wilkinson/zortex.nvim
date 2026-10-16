@@ -487,9 +487,22 @@ One query over calendar entries, project tasks with `@due`, and projects with
 `review()` returns `overdue`, `due_soon`, `completed` (by `@done` date),
 `unscheduled` (open work, no calendar time ahead), `stale` (also none in the
 last `days`), `no_next_action` (leaf projects without tasks),
-`krs_without_projects`, `objectives_without_krs`, `areas_without_projects`
-and `broken_links`. The calendar view's digest panel and `services/digest`
-use the agenda.
+`krs_without_projects`, `objectives_without_krs`, `areas_without_projects`,
+`broken_links` and `put_off` (open tasks planned on two or more earlier days
+and not done, from `services/mirrors.copies`). The calendar view's digest
+panel and `services/digest` use the agenda.
+
+### Reviews — `services/review.lua`
+
+The reviews note, `reviews.zortex`: one `# 2026-W43` entry per week, its
+days (`## 2026-10-21`) inside, newest first. `ensure_week` / `ensure_day`
+make an entry from `review.week` / `review.day` when it is missing;
+`review_week(today)` is the week a weekly review plans (the next one from
+`review.next_week_from`). The week's **focus** is the projects linked under
+its `Focus:` label (`focus(date)`, falling back to the latest earlier week;
+`toggle_focus(week, project)`). `ui/review` opens the entry with the
+findings beside it, and `services/planner` ranks the focus first. The
+server reads the same label (`app/web/projects.go`).
 
 ### Digest — `services/digest.lua`
 
@@ -717,10 +730,19 @@ ranked tasks under it; `planner.group`), **Key results**, **Tasks** (to-dos:
 the TODO project, the Projects note's own tasks, open calendar tasks of
 earlier days) and **Areas**.
 
-- **Tasks** score by adding signals (`planner.weights`): in the TODO project
+- **Tasks** of the week's focus projects come first (`services/review`),
+  then by adding signals (`planner.weights`): in the TODO project
   (`ui.planner.todo_link`, default `P/#TODOs`) 3, `@p1/2/3` 3/2/1, `@i1/2`
   2/1, overdue 4, due today 3, within 3 days 2, within a week 1, project
-  linked from an open KR 2; overdue calendar tasks are included.
+  linked from an open KR 2 (up to 4 more when it is behind), put off 1 per
+  earlier day it was on the calendar and not done (up to 5); overdue
+  calendar tasks are included, except copies of project tasks (the task is
+  listed).
+- **Capacity** (`planner.capacity(date)`, the plan buffer's second line):
+  the open tasks' `@size` minutes against the free time left in
+  `ui.planner.capacity.day` after timed entries that aren't project work.
+- `P` (`planner.add_project`) copies the project's next
+  `ui.planner.project_tasks` open tasks (or a count) under its block.
 - **Projects** that are OKR-linked or high priority/importance, **key
   results** of current objectives (least progress first) and **areas** (two
   levels, fewest active projects first).

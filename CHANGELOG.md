@@ -10,6 +10,28 @@ The first public release.
 
 ### Neovim plugin
 
+- Reviews are written in `reviews.zortex`, one `# 2026-W43` entry per week
+  with its days (`## 2026-10-21`) inside, newest first. `:ZortexReview`
+  opens the week's entry (`:ZortexReview day` the day's), made from
+  `review.week` / `review.day` when missing, beside the generated findings;
+  nothing in the note is regenerated. A weekly review on Saturday or Sunday
+  plans the coming week (`review.next_week_from`).
+- The week's focus: the projects linked under `Focus:` in its entry. `f` on
+  a project in the weekly review adds or removes it; the planner lists the
+  focus projects and their tasks first, and a week without focus keeps the
+  latest earlier week's.
+- Put off: a task that was on the calendar and not done (carried on `[>]`
+  or left open) ranks higher in the planner each day that happened
+  (`weights.put_off`, up to `weights.put_off_max`), with a `put off ×n`
+  badge; the reviews list tasks put off on two or more days.
+- The plan buffer's second line is the day's capacity: the open tasks'
+  `@size` hours against the free time left in `ui.planner.capacity.day`
+  after timed entries that aren't project work (an entry without an end
+  counts `event_minutes`). It follows edits to the day.
+- `P` puts a project's next three open tasks on the day
+  (`ui.planner.project_tasks`; `5P` for five), not all of them.
+- The planner lists an open calendar copy of a project task as that task,
+  not twice.
 - Task copies: a project task put on the calendar keeps its `@id`, and lines
   with the same `@id` are one task: checked when any copy is, XP paid once
   by the project, toggling one toggles the others, `@spent` adds up. A
@@ -91,6 +113,18 @@ The first public release.
 
 ### Server (`zortex serve`)
 
+- Project pages: `/projects` lists the week's focus projects, then every
+  project with open work, with progress (task `@size` hours) and the next
+  task; `/project?rel=&lnum=` shows one: progress and time tracked, its
+  next tasks (put off how often, planned when), sub-projects, the key
+  results it moves and how far behind they are, its `Log:`, the days it was
+  on the calendar, and the notes and files it links and that link it. With
+  `-writable` its tasks can be ticked and `POST /api/project/log` adds a
+  dated line to its log. The home page shows the week's focus.
+- Tasks completed on the web count once per `@id` (a calendar copy and its
+  project task are one) and are estimated in XP until Neovim counts them:
+  `/api/xp` has `pending_xp` and `pending_tasks`, from the calibration
+  Neovim now publishes with the XP summary.
 - Tag indexes: a label whose lines are all `@[...]` searches (or items
   grouping them) shows as rows of chips with counts over one shared table;
   the chosen chip is in the address (`#tags=R/rl`). `@[...]` shows like a

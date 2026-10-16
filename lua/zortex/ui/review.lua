@@ -398,7 +398,16 @@ function M.toggle_focus()
 	end
 	local review = require("zortex.services.review")
 	local week = state.week or review.review_week(state.today)
+	-- the note open without unsaved changes: save the change too, so the
+	-- web app and other devices see the focus
+	local nb = vim.fn.bufnr(vim.fn.fnamemodify(review.path(), ":p"))
+	local clean = nb > 0 and vim.api.nvim_buf_is_loaded(nb) and not vim.bo[nb].modified
 	local added = review.toggle_focus(week, e)
+	if clean then
+		pcall(vim.api.nvim_buf_call, nb, function()
+			vim.cmd("silent write")
+		end)
+	end
 	M.refresh()
 	vim.api.nvim_echo({
 		{ string.format("%s %s %s's focus", e.link, added and "added to" or "taken out of", week), "Comment" },

@@ -555,8 +555,17 @@ function M.resolve(link, opts)
 		end
 		idx = notes().index({ include_archived = include_archived })
 		cands = {}
+		-- An article first ([P/...], the usual case): only the notes with that
+		-- name or tag can match, so skip the rest now (the article step below
+		-- keeps exactly these)
+		local first = parsed.components[1]
+		local sets = first.type == "article" and header_sets(idx)
+		local named = sets and sets.names[first.text:lower()]
+		local tagged = sets and sets.tags[first.text:lower()]
 		for _, path in ipairs(idx.files) do
-			cands[#cands + 1] = { path = path }
+			if not sets or not idx.headers[path] or (named and named[path]) or (tagged and tagged[path]) then
+				cands[#cands + 1] = { path = path }
+			end
 		end
 	end
 

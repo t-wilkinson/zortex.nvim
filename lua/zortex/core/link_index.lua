@@ -93,9 +93,9 @@ end
 
 -- Change stamp for a note: a modified buffer is tracked by changedtick,
 -- otherwise by mtime + size.
-local function stamp(path)
-	local bufnr = vim.fn.bufnr(path)
-	if bufnr > 0 and vim.api.nvim_buf_is_loaded(bufnr) and vim.bo[bufnr].modified then
+local function stamp(path, modified)
+	local bufnr = require("zortex.utils.buffer").modified_buf(path, modified)
+	if bufnr then
 		return "buf:" .. vim.api.nvim_buf_get_changedtick(bufnr)
 	end
 	local st = vim.uv.fs_stat(path)
@@ -174,15 +174,24 @@ local function extract_links(doc)
 	return links
 end
 
-local function resolve(link, source_path)
+-- `memo`: targets of the links already resolved in this refresh, by
+-- definition. A link that doesn't depend on where it is written (not local,
+-- not parent-relative) means the same everywhere, and most notes link the
+-- same few places ([P/#2], [Areas]) many times.
+local function resolve(link, source_path, memo)
 	if link.first.kind == "path" then
 		link.target = nil
 		return
 	end
 	local opts = {}
-	if link.first.kind == "local" or link_mod.is_parent_relative(link.definition) then
+	local placed = link.first.kind == "local" or link_mod.is_parent_relative(link.definition)
+	if placed then
 		opts.doc = Document().get(source_path)
 		opts.lnum = link.lnum
+	elseif memo and memo[link.definition] ~= nil then
+		local t = memo[link.definition]
+		link.target = t and { file = t.file, lnum = t.lnum } or nil
+		return
 	end
 	local ok, result = pcall(function()
 		return (link_mod.resolve_first(link.definition, opts))
@@ -191,6 +200,9 @@ local function resolve(link, source_path)
 		link.target = { file = result.file, lnum = result.lnum }
 	else
 		link.target = nil
+	end
+	if memo and not placed then
+		memo[link.definition] = link.target or false
 	end
 end
 
@@ -252,8 +264,9 @@ function M.refresh(force)
 		end
 	end
 
+	local modified = require("zortex.utils.buffer").modified_map()
 	for path in pairs(current) do
-		local s = stamp(path)
+		local s = stamp(path, modified)
 		local entry = state.files[path]
 		if not entry or entry.stamp ~= s then
 			local doc = Document().get(path)
@@ -279,6 +292,7 @@ function M.refresh(force)
 	state.dirty = true
 
 	-- 2. Re-resolve every link whose target could have changed.
+	local memo = {}
 	for path, entry in pairs(state.files) do
 		for _, link in ipairs(entry.links) do
 			local needs = header_changed
@@ -288,7 +302,7 @@ function M.refresh(force)
 				or link.first.kind == "global"
 				or ((link.first.kind == "article" or link.first.kind == "tag") and changed_names[link.first.text])
 			if needs then
-				resolve(link, path)
+				resolve(link, path, memo)
 			end
 		end
 	end

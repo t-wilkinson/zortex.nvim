@@ -141,10 +141,10 @@ end
 -- only lines with a checked box are looked at.
 local light_cache = {} -- path -> { key, tasks }
 
-local function checked_tasks(path)
-	local bufnr = vim.fn.bufnr(path)
+local function checked_tasks(path, modified)
+	local bufnr = require("zortex.utils.buffer").modified_buf(path, modified)
 	local key, lines
-	if bufnr > 0 and vim.api.nvim_buf_is_loaded(bufnr) and vim.bo[bufnr].modified then
+	if bufnr then
 		key = "b" .. vim.api.nvim_buf_get_changedtick(bufnr)
 		if light_cache[path] and light_cache[path].key == key then
 			return light_cache[path].tasks
@@ -381,9 +381,9 @@ local function project_entries(out, group, kr_index)
 	end
 end
 
-local function task_entries(out, path, skip_ids)
+local function task_entries(out, path, skip_ids, modified)
 	local share = calculator.alignment("task_area")
-	for _, t in ipairs(checked_tasks(path)) do
+	for _, t in ipairs(checked_tasks(path, modified)) do
 		local id = t.attributes and t.attributes.id
 		if not (id and skip_ids and skip_ids[id]) then
 			local xp = calculator.calculate_task_xp(t)
@@ -504,8 +504,9 @@ function M.build()
 		end
 	end
 	local calendar = normalize(require("zortex.utils.filesystem").get_calendar_file())
+	local modified = require("zortex.utils.buffer").modified_map()
 	for _, path in ipairs(task_paths) do
-		task_entries(entries, path, path == calendar and project_ids or nil)
+		task_entries(entries, path, path == calendar and project_ids or nil, modified)
 	end
 	key_result_entries(entries)
 	objective_entries(entries)

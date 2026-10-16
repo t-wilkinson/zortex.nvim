@@ -15,9 +15,10 @@ local snapshots = {} -- include_archived -> { time, files, headers }
 local SNAPSHOT_TTL_MS = 1000
 
 -- Read just the header block of a file (stops at the first body line).
-local function read_header(path)
-	local bufnr = vim.fn.bufnr(path)
-	if bufnr > 0 and vim.api.nvim_buf_is_loaded(bufnr) and vim.bo[bufnr].modified then
+-- `modified`: utils/buffer.modified_map(), when reading many.
+local function read_header(path, modified)
+	local bufnr = require("zortex.utils.buffer").modified_buf(path, modified)
+	if bufnr then
 		return syntax.parse_header(vim.api.nvim_buf_get_lines(bufnr, 0, 50, false))
 	end
 
@@ -66,8 +67,13 @@ end
 
 -- Deterministic order: top-level notes first, then deeper ones, alphabetical.
 local function sort_paths(paths)
+	local depths = {}
 	local function depth(p)
-		local _, n = p:gsub("/", "")
+		local n = depths[p]
+		if not n then
+			n = select(2, p:gsub("/", ""))
+			depths[p] = n
+		end
 		return n
 	end
 	table.sort(paths, function(a, b)
@@ -93,8 +99,9 @@ function M.index(opts)
 	end
 
 	local files, headers = {}, {}
+	local modified = require("zortex.utils.buffer").modified_map()
 	for _, path in ipairs(fs.find_all_notes()) do
-		local header = read_header(path)
+		local header = read_header(path, modified)
 		if header and (include_archived or not M.is_archived(path, header)) then
 			files[#files + 1] = path
 			headers[path] = header

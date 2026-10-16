@@ -125,6 +125,11 @@ func TestSearch(t *testing.T) {
 		t.Error("partial results include the layout")
 	}
 	expect(t, ts, "/search?mode=article&q=o", 200, `Objectives`)
+	// text: the prompt as typed, spaces included, in any line
+	text := expect(t, ts, "/search?mode=text&q=1.4+-+zortex", 200, `value="text" checked`, `<mark>1.4 - zortex</mark>`)
+	if strings.Contains(text, `class="hit section`) {
+		t.Error("text mode lists lines only")
+	}
 
 	_, _, body := get(t, ts, "/api/search?q=subaru")
 	var res []map[string]any

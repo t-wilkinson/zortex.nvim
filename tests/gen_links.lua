@@ -141,6 +141,14 @@ M.SEARCHES = {
 	{ prompt = "okr" },
 	{ prompt = "okr", mode = "article" },
 	{ prompt = "day-plan", mode = "article" },
+	-- plain text: one literal string over every line, smart case
+	{ prompt = "zortex", mode = "text" },
+	{ prompt = "Zortex", mode = "text" },
+	{ prompt = "1.4 - zortex", mode = "text" },
+	{ prompt = "[P/#", mode = "text" },
+	{ prompt = "okr", mode = "text" },
+	{ prompt = "", mode = "text" },
+	{ prompt = "nothing-matches-this", mode = "text" },
 }
 
 -- Pretty JSON with sorted keys (same as gen_ast.lua)

@@ -274,3 +274,26 @@ func TestHTMLScripts(t *testing.T) {
 		t.Errorf("POST from the site: %d", code)
 	}
 }
+
+// Results opened from the search page go through /search/open, which keeps
+// them in -data/search_history.json (never the notes' .z/) and ranks them
+// higher next time.
+func TestSearchHistory(t *testing.T) {
+	s, dir, ts, _ := newStateServer(t, "")
+	body := expect(t, ts, "/search?q=zortex", 200, `/search/open?lnum=`)
+	_ = body
+	code, hdr, _ := get(t, ts, "/search/open?rel=projects.zortex&lnum=14&section=1")
+	if code != http.StatusFound || hdr.Get("Location") != "/n/projects.zortex#L14" {
+		t.Fatalf("open: %d %s", code, hdr.Get("Location"))
+	}
+	if s.history.Opened("projects.zortex", time.Now()) < 0.99 {
+		t.Error("not recorded")
+	}
+	if _, err := os.Stat(filepath.Join(s.cfg.DataDir, "search_history.json")); err != nil {
+		t.Errorf("history file: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".z", "search_history.json")); err == nil {
+		t.Error("the web app wrote the notes' search history")
+	}
+	expect(t, ts, "/search/open?rel=nope.zortex&lnum=1", 404)
+}

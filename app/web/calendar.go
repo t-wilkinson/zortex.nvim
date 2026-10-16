@@ -17,6 +17,7 @@ import (
 	"github.com/t-wilkinson/zortex.nvim/app/clocks"
 	"github.com/t-wilkinson/zortex.nvim/app/notes"
 	"github.com/t-wilkinson/zortex.nvim/app/pomodoro"
+	"github.com/t-wilkinson/zortex.nvim/app/search"
 	"github.com/t-wilkinson/zortex.nvim/app/syntax"
 	"github.com/t-wilkinson/zortex.nvim/app/tracker"
 )
@@ -55,6 +56,11 @@ func (s *Server) openState() error {
 	}
 	tr.OnWrite = s.logTrack
 	s.track = tr
+	h, err := search.OpenHistory(filepath.Join(s.cfg.DataDir, "search_history.json"))
+	if err != nil {
+		return fmt.Errorf("search history: %w", err)
+	}
+	s.history = h
 	return nil
 }
 

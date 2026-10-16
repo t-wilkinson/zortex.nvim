@@ -70,6 +70,7 @@ tracking). What lives in `-data`:
 | `track.json`, `track_log.jsonl` | time tracking: the current task, and every time written to a task |
 | `xp_summary.json` | the XP summary when Neovim posts it (step 5) |
 | `web_completions.json` | tasks completed on the web, until Neovim counts their XP |
+| `search_history.json` | what you opened from the search page, which ranks it higher next time |
 
 Add `-writable` to edit from the browser (the notes folder must be writable
 by the server). Edits are line-level and refused when the note changed since

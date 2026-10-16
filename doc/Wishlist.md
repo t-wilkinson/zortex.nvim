@@ -283,8 +283,9 @@ two resolvers in sync becomes the main cost, **D** is the natural next step;
 3. **Links and search — done:** `app/notes`, `app/links` and `app/search`
    agree with the plugin on `tests/fixtures/resolve.json` (73 links) and
    `search.json` (31 prompts); the web app resolves links while rendering,
-   shows backlinks, broken links and tags, and has a live search page.
-   Still to do: search history (kept apart from `.z/search_history.json`).
+   shows backlinks, broken links and tags, and has a live search page with
+   the section, article and text modes and its own search history (in
+   `-data`, apart from `.z/search_history.json`).
 4. **Domain views — partly done:** the home page has the calendar (with
    notifications), the pomodoro, timers, alarms and a stopwatch, time
    tracking, season XP and the Structure check; notes can be edited
@@ -292,11 +293,6 @@ two resolvers in sync becomes the main cost, **D** is the natural next step;
    show progress, the key results a project moves, its log and calendar
    history. Still to do: OKR progress on its own page, the weekly review
    and the area overview.
-
-### Open questions
-
-- Does the app need its own search history? It should be kept separate from
-  `.z/search_history.json` to avoid sync conflicts.
 
 ## 7. Tree-sitter grammar
 

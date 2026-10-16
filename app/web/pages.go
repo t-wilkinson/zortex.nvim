@@ -7,14 +7,17 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/t-wilkinson/zortex.nvim/app/links"
 	"github.com/t-wilkinson/zortex.nvim/app/notes"
 	"github.com/t-wilkinson/zortex.nvim/app/search"
+	"github.com/t-wilkinson/zortex.nvim/app/syntax"
 )
 
 // =============================================================================
@@ -28,6 +31,7 @@ func (s *Server) parseTemplates() error {
 		"u":       s.url,
 		"asset":   s.assetURL,
 		"noteURL": s.noteURL,
+		"openURL": s.searchOpenURL,
 		"fileURL": s.fileURL,
 		"rawURL":  s.rawURL,
 		"linkURL": s.linkURL,
@@ -333,10 +337,14 @@ type resultItem struct {
 const maxShown = 300
 
 func (s *Server) searchResults(q, mode string) ([]resultGroup, int) {
-	results := search.Query(s.current().search, q, mode)
+	results := s.searchConfig().Query(s.current().search, q, mode)
 	var words []string
-	for _, t := range search.Tokenize(q) {
-		words = append(words, t.Text)
+	if mode == "text" {
+		words = []string{syntax.Lower(q)}
+	} else {
+		for _, t := range search.Tokenize(q) {
+			words = append(words, t.Text)
+		}
 	}
 	var groups []resultGroup
 	for i, res := range results {
@@ -360,10 +368,55 @@ func (s *Server) searchResults(q, mode string) ([]resultGroup, int) {
 	return groups, len(results)
 }
 
+// searchConfig: the plugin's defaults, ranked by this server's history.
+func (s *Server) searchConfig() search.Config {
+	c := search.DefaultConfig()
+	c.History = s.history
+	return c
+}
+
+// searchOpenURL: a search result's link, through /search/open so opening
+// it is remembered (the note's URL when there is no history).
+func (s *Server) searchOpenURL(rel string, lnum int, section bool) string {
+	if s.history == nil {
+		return s.noteURL(rel, lnum)
+	}
+	v := url.Values{"rel": {rel}, "lnum": {strconv.Itoa(lnum)}}
+	if section {
+		v.Set("section", "1")
+	}
+	return s.url("/search/open?" + v.Encode())
+}
+
+// handleSearchOpen: GET /search/open?rel=&lnum=&section= records the result
+// in the search history and goes to it.
+func (s *Server) handleSearchOpen(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	rel := q.Get("rel")
+	lnum, _ := strconv.Atoi(q.Get("lnum"))
+	doc := s.ix.Doc(rel)
+	if doc == nil {
+		s.notFound(w, r, "No note "+rel+".")
+		return
+	}
+	if s.history != nil {
+		var crumbs []string
+		if q.Get("section") == "1" {
+			for n := doc.NodeStartingAt(lnum); n != nil && !n.IsRoot(); n = n.Parent {
+				crumbs = append(crumbs, n.Breadcrumb(" › "))
+			}
+		}
+		if err := s.history.Record(rel, crumbs, time.Now()); err != nil {
+			s.log.Printf("search history: %v", err)
+		}
+	}
+	http.Redirect(w, r, s.noteURL(rel, lnum), http.StatusFound)
+}
+
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
 	mode := r.URL.Query().Get("mode")
-	if mode != "article" {
+	if mode != "article" && mode != "text" {
 		mode = "section"
 	}
 	var groups []resultGroup
@@ -523,7 +576,7 @@ func (s *Server) apiSearch(w http.ResponseWriter, r *http.Request) {
 		URL        string `json:"url"`
 	}
 	res := []out{}
-	for i, x := range search.Query(s.current().search, q, r.URL.Query().Get("mode")) {
+	for i, x := range s.searchConfig().Query(s.current().search, q, r.URL.Query().Get("mode")) {
 		if limit > 0 && i >= limit {
 			break
 		}

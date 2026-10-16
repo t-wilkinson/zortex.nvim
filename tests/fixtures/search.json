@@ -3028,5 +3028,190 @@
         "type": "section"
       }
     ]
+  },
+  {
+    "mode": "text",
+    "prompt": "zortex",
+    "results": [
+      {
+        "lnum": 5,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 11,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 13,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 14,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 14,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 24,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 26,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 3,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 5,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 6,
+        "rel": "z/archive.projects.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "text",
+    "prompt": "Zortex",
+    "results": [
+      {
+        "lnum": 11,
+        "rel": "calendar.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "text",
+    "prompt": "1.4 - zortex",
+    "results": [
+      {
+        "lnum": 5,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 11,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 14,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 14,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 3,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 6,
+        "rel": "z/archive.projects.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "text",
+    "prompt": "[P/#",
+    "results": [
+      {
+        "lnum": 18,
+        "rel": "areas.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 5,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 6,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 11,
+        "rel": "calendar.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 10,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 14,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 3,
+        "rel": "z/day-plan.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "text",
+    "prompt": "okr",
+    "results": [
+      {
+        "lnum": 1,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 2,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 18,
+        "rel": "projects.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "text",
+    "prompt": "",
+    "results": []
+  },
+  {
+    "mode": "text",
+    "prompt": "nothing-matches-this",
+    "results": []
   }
 ]

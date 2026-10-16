@@ -21,7 +21,7 @@ import (
 // Templates
 // =============================================================================
 
-var pageNames = []string{"home", "note", "search", "results", "link", "files", "file", "tags", "tag", "broken", "resources", "structure", "graph", "error"}
+var pageNames = []string{"home", "note", "search", "results", "link", "files", "file", "tags", "tag", "broken", "resources", "structure", "graph", "error", "projects", "project"}
 
 func (s *Server) parseTemplates() error {
 	funcs := template.FuncMap{
@@ -49,6 +49,12 @@ func (s *Server) parseTemplates() error {
 		"srcURL":   s.srcURL,
 		"backlinks": func(groups []backGroup, empty string) map[string]any {
 			return map[string]any{"Groups": groups, "Empty": empty}
+		},
+		// project pages
+		"hours":   formatHours,
+		"minutes": formatMinutes,
+		"taskView": func(page map[string]any, t *webTask) map[string]any {
+			return map[string]any{"T": t, "Writable": page["Writable"], "Today": page["Today"]}
 		},
 	}
 	s.pages = map[string]*template.Template{}
@@ -104,7 +110,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, page string, sta
 }
 
 // navOf: which top-bar tab a page belongs to.
-var navOf = map[string]string{"files": "files", "file": "files", "resources": "resources", "tags": "graph", "tag": "graph", "broken": "broken", "structure": "graph", "graph": "graph"}
+var navOf = map[string]string{"files": "files", "file": "files", "resources": "resources", "tags": "graph", "tag": "graph", "broken": "broken", "structure": "graph", "graph": "graph", "projects": "projects", "project": "projects"}
 
 // backGroup is the backlinks from one note or file.
 type backGroup struct {
@@ -205,7 +211,25 @@ func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 	if d := s.calendarDoc(); d != nil {
 		calRel = d.Rel
 	}
+	// this week's focus projects (the weekly review in reviews.zortex)
+	var focusRows []projectRow
+	week, focusEarlier := "", false
+	if s.reviewsDoc() != nil {
+		all := s.allProjects()
+		var focus []*webProject
+		week, focus, focusEarlier = s.focus(all, time.Now())
+		focused := map[*webProject]bool{}
+		for _, p := range focus {
+			focused[p] = true
+		}
+		for _, p := range focus {
+			focusRows = append(focusRows, s.row(p, focused, nil))
+		}
+	}
 	s.render(w, r, "home", http.StatusOK, map[string]any{
+		"Focus":          focusRows,
+		"FocusWeek":      week,
+		"FocusEarlier":   focusEarlier,
 		"Title":          s.cfg.Title,
 		"Home":           true,
 		"HasCalendar":    calRel != "" || s.alerts != nil,

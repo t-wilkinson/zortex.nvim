@@ -163,6 +163,16 @@
   </section>
   {{end}}
 
+  {{if .Focus}}
+  <section class="panel focus-panel" aria-labelledby="focus-title">
+    <div class="xp-head">
+      <h2 id="focus-title">This week</h2>
+      <span class="dim small">focus {{.FocusWeek}}{{if .FocusEarlier}} (no review this week yet){{end}} · <a href="{{u "/projects"}}">all projects</a></span>
+    </div>
+    <ul class="prows">{{range .Focus}}{{template "projectRow" .}}{{end}}</ul>
+  </section>
+  {{end}}
+
   <p class="pending-web" id="web-pending" role="status" hidden></p>
   <section class="panel xp" id="xp" aria-labelledby="xp-title" hidden>
     <div class="xp-head">

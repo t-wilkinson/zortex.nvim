@@ -15,3 +15,19 @@
 <p class="dim">{{.Empty}}</p>
 {{end}}
 {{end}}
+
+{{/* a project in a list: /projects, a project's sub-projects */}}
+{{define "projectRow"}}
+<li class="prow{{if .Focus}} is-focus{{end}}">
+  <div class="prow-main">
+    <a class="prow-name" href="{{.URL}}">{{.P.Name}}</a>
+    {{if .Context}}<span class="dim small">{{.Context}}</span>{{end}}
+    {{range .KRs}}<span class="pill">{{.}}</span>{{end}}
+  </div>
+  <div class="prow-progress" title="{{.Rollup.DoneN}} of {{.Rollup.Total}} tasks · {{hours .Rollup.DoneHours}} of {{hours .Rollup.Hours}}">
+    <span class="bar" aria-hidden="true"><span style="width: {{.Rollup.Percent}}%"></span></span>
+    <span class="small dim nums">{{.Rollup.Percent}}%</span>
+  </div>
+  {{with .Next}}<div class="prow-next small"><span class="dim">next</span> {{.HTML}}{{if .PutOff}} <span class="pill warn">put off ×{{.PutOff}}</span>{{end}}</div>{{end}}
+</li>
+{{end}}

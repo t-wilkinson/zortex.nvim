@@ -18,6 +18,7 @@
     <input type="search" name="q" value="{{.Query}}" placeholder="Search notes  ( / )" aria-label="Search notes" autocomplete="off" id="quick">
   </form>
   <nav class="links">
+    <a href="{{u "/projects"}}"{{if eq .Nav "projects"}} aria-current="page"{{end}}>Projects</a>
     <a href="{{fileURL ""}}"{{if eq .Nav "files"}} aria-current="page"{{end}}>Files</a>
     <a href="{{u "/broken"}}"{{if eq .Nav "broken"}} aria-current="page"{{end}}>Broken</a>
     <a href="{{u "/graph"}}"{{if eq .Nav "graph"}} aria-current="page"{{end}}>Graph</a>

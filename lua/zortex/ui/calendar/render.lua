@@ -267,17 +267,58 @@ function M.month(date, state, cfg, win_width)
 		})
 		table.insert(lines, left_pad_str)
 
+		-- Tasks can be ticked from here (x, 2x): calendar tasks, the task a
+		-- reference line stands for, and the next tasks of a project block
+		state.tasks = {}
+		local mirrors = require("zortex.services.mirrors")
+		local cal_path = require("zortex.utils.filesystem").get_calendar_file()
+		local cal_doc = require("zortex.core.workspace").document(cal_path)
+		local cal_lines = cal_doc and cal_doc.lines or {}
+		local function row(depth, icon, text, target)
+			local num = "   "
+			if target then
+				state.tasks[#state.tasks + 1] = target
+				num = string.format("%2d ", #state.tasks)
+			end
+			local entry_line = string.format("%s%s%s %s", num, string.rep("  ", depth), icon, text)
+			table.insert(lines, left_pad_str .. MARGIN_STR .. entry_line)
+			if target then
+				table.insert(highlights, {
+					line = #lines,
+					col = #left_pad_str + #MARGIN_STR,
+					end_col = #left_pad_str + #MARGIN_STR + 2,
+					hl = cfg.colors.key_hint,
+				})
+			end
+			time_highlight(highlights, #lines, entry_line, #left_pad_str + #MARGIN_STR, cfg)
+		end
+
 		if #entries > 0 then
 			for _, entry in ipairs(entries) do
 				-- notifying entries get a plain bullet here
 				local icon = entry.attributes.notify and "•" or entry_icon(entry, cfg)
+				local own = entry.date_context == date_str and entry.lnum and cal_lines[entry.lnum] == entry.raw_text
+				local target
+				if own and entry.type == "task" and entry.mark ~= mirrors.MOVED then
+					target = { file = cal_path, lnum = entry.lnum, text = entry.text }
+				elseif own then
+					local ref = mirrors.reference(cal_lines, entry.lnum, cal_doc)
+					if ref then
+						target = { file = ref.file, lnum = ref.lnum, text = ref.task.text }
+						icon = ref.task.completed and cfg.icons.task_done or cfg.icons.task
+					end
+				end
+				row(entry.depth or 0, icon, entry:format(), target)
 
-				-- Use the entry's format method to get the properly formatted string
-				local formatted_entry = entry:format()
-				local entry_line = string.format("  %s%s %s", string.rep("  ", entry.depth or 0), icon, formatted_entry)
-				table.insert(lines, left_pad_str .. MARGIN_STR .. entry_line)
-
-				time_highlight(highlights, #lines, entry_line, #left_pad_str + #MARGIN_STR, cfg)
+				-- a project block: the project's next open tasks under it
+				if own and not target then
+					local ok, project, tasks = pcall(mirrors.project_block, cal_lines, entry.lnum, cal_doc)
+					if ok and project then
+						for _, t in ipairs(tasks) do
+							row((entry.depth or 0) + 1, cfg.icons.task, t.text .. "  ↗", { file = t.file, lnum = t.lnum, text = t.text })
+						end
+					end
+				end
 			end
 		else
 			table.insert(lines, left_pad_str .. MARGIN_STR .. "  (no entries)")
@@ -295,7 +336,7 @@ function M.month(date, state, cfg, win_width)
 	table.insert(lines, string.rep("─", win_width))
 	table.insert(lines, "")
 
-	local footer_text = "↵ open • a add‑event • d delete • r rename • ? help"
+	local footer_text = "↵ open • a add • 2x tick task 2 • / search • ? help"
 	local footer_center = center(win_width, footer_text)
 
 	table.insert(lines, footer_center.line)

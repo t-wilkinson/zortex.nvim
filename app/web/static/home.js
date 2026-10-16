@@ -47,11 +47,13 @@
     entries.forEach(function (e, i) {
       var m = minutes(e.time);
       var past = isToday && m !== null && i < current;
-      var cls = "event-item" + (past ? " past" : "") + (e.done ? " done" : "") + (e.moved ? " moved" : "") + (i === current ? " current" : "");
+      var cls = "event-item" + (past ? " past" : "") + (e.done ? " done" : "") + (e.moved ? " moved" : "") + (e.virtual ? " virtual" : "") + (i === current ? " current" : "");
       var time = e.time ? esc(e.time) + (e.end ? '<span class="end">–' + esc(e.end) + "</span>" : "") : "";
       var box = "";
       // a line without a checkbox that stands for a task (e.ref) toggles that task
       var refCls = e.ref ? " ref" : "", refTitle = e.ref ? ' title="the task in ' + esc(e.ref) + '"' : "";
+      // a project block's next tasks: the project's own lines, shown here
+      if (e.virtual) { refCls = " ref"; refTitle = ' title="the project\'s next task (' + esc(e.rel || "") + ')"'; }
       if (e.moved) {
         box = '<span class="box moved" title="carried to a later day" aria-label="carried to a later day">&gt;</span>';
       } else if (e.task && e.src && calWritable) {

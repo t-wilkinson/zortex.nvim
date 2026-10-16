@@ -15,6 +15,8 @@ import (
 
 	"github.com/t-wilkinson/zortex.nvim/app/alerts"
 	"github.com/t-wilkinson/zortex.nvim/app/clocks"
+	"github.com/t-wilkinson/zortex.nvim/app/edit"
+	"github.com/t-wilkinson/zortex.nvim/app/links"
 	"github.com/t-wilkinson/zortex.nvim/app/notes"
 	"github.com/t-wilkinson/zortex.nvim/app/pomodoro"
 	"github.com/t-wilkinson/zortex.nvim/app/search"
@@ -102,9 +104,12 @@ type calEntry struct {
 	Depth  int    `json:"depth,omitempty"`  // nesting under another entry
 	Notify bool   `json:"notify,omitempty"` // written with @n(…) / @notify(…) (not @n(no))
 	Event  bool   `json:"event,omitempty"`  // tagged @event: fixed, planned around (the month grid's dot)
-	URL    string `json:"url"`
-	Src    string `json:"src,omitempty"` // the line as written (-writable: for edits)
-	Rel    string `json:"rel,omitempty"`
+	// a project's next open task, listed under a project block (a line
+	// holding only the project's link): Rel, Lnum and Src are the task's
+	Virtual bool   `json:"virtual,omitempty"`
+	URL     string `json:"url"`
+	Src     string `json:"src,omitempty"` // the line as written (-writable: for edits)
+	Rel     string `json:"rel,omitempty"`
 
 	textCol int // where the text starts (after the marker and a time)
 }
@@ -131,7 +136,9 @@ func (s *Server) calendarDays(from, to string) map[string][]calEntry {
 	}
 	r := &noteRenderer{s: s, doc: doc}
 	days := calendarEntries(doc, from, to)
-	for _, entries := range days {
+	var all []*webProject // loaded when a day has a project block
+	for date, entries := range days {
+		var out []calEntry
 		for i := range entries {
 			e := &entries[i]
 			line := doc.Lines[e.Lnum-1]
@@ -145,9 +152,95 @@ func (s *Server) calendarDays(from, to string) map[string][]calEntry {
 			if s.cfg.Writable {
 				e.Src, e.Rel = line, doc.Rel
 			}
+			out = append(out, *e)
+			// a project block: the project's next open tasks under it
+			if !e.Task && strings.Contains(line, "[") {
+				if all == nil {
+					all = s.allProjects()
+				}
+				for _, t := range s.projectBlock(doc, e.Lnum, all) {
+					p := t.project
+					col := 0
+					if it := syntax.ItemOf(t.task.Line); it != nil {
+						col = it.ContentCol
+					}
+					v := calEntry{Lnum: t.task.Lnum, Text: withoutLinks(t.task.Line, col), HTML: string(t.task.HTML), Task: true,
+						Depth: e.Depth + 1, URL: t.task.URL, Virtual: true, Rel: p.Rel, Src: t.task.Line}
+					if !s.cfg.Writable {
+						v.Rel, v.Src = "", ""
+					}
+					out = append(out, v)
+				}
+			}
 		}
+		days[date] = out
 	}
 	return days
+}
+
+type blockTask struct {
+	project *webProject
+	task    *webTask
+}
+
+// projectBlockTasks is how many open tasks a project block shows, as the
+// plugin's ui.planner.project_tasks default.
+const projectBlockTasks = 3
+
+// projectBlock: for a calendar line holding only a link to a project (and
+// attributes), with nothing nested under it, the project's next open tasks
+// (its own, in note order, a group as one); else nil. As the plugin's
+// services/mirrors.project_block.
+func (s *Server) projectBlock(doc *notes.Document, lnum int, all []*webProject) []blockTask {
+	line := doc.Lines[lnum-1]
+	d := syntax.Classify(line)
+	if d.Kind != syntax.KindItem || d.Item.Mark != "" || d.Item.Key != "" || d.ContentCol == nil {
+		return nil
+	}
+	text := strings.TrimSpace(syntax.StripAttributes(line[*d.ContentCol:]))
+	if len(text) < 3 || text[0] != '[' || text[len(text)-1] != ']' || strings.ContainsAny(text[1:len(text)-1], "[]") {
+		return nil
+	}
+	own := edit.Indent(line)
+	for l := lnum + 1; l <= len(doc.Lines); l++ {
+		if next := doc.Lines[l-1]; strings.TrimSpace(next) != "" {
+			if edit.Indent(next) > own {
+				return nil
+			}
+			break
+		}
+	}
+	def, err := links.Absolute(doc.Lines, lnum, text[1:len(text)-1])
+	if err != nil || s.fileLike(def) {
+		return nil
+	}
+	res, err := links.ResolveFirst(s.ix, "["+def+"]", links.Options{From: doc, Lnum: lnum})
+	if err != nil || res == nil {
+		return nil
+	}
+	var p *webProject
+	if res.Whole {
+		for _, x := range all {
+			if x.Rel == res.Doc.Rel && x.Root {
+				p = x
+			}
+		}
+	} else if x := projectAt(all, res.Doc.Rel, res.Lnum); x != nil && x.Lnum == res.Lnum {
+		p = x
+	}
+	if p == nil {
+		return nil
+	}
+	var out []blockTask
+	for _, t := range p.Tasks {
+		if len(out) >= projectBlockTasks {
+			break
+		}
+		if !t.Done && t.Group == "" && !strings.Contains(t.Line, "[>]") {
+			out = append(out, blockTask{p, t})
+		}
+	}
+	return out
 }
 
 // entryFlags: whether a calendar line asks for a notification itself

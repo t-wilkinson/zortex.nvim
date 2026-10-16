@@ -154,6 +154,12 @@ and `@n(0, end)` also notifies when a range ends.
   tasks' `[./-Item]` links continue the block's link
   ([Syntax](Syntax.md#links)), and while the block runs the web app's clocks
   count against its first open task, then the next once that one is ticked.
+- **Project blocks.** `13:00 [P/#2.2]` alone, with nothing under it: the
+  calendar view and the web app list the project's next open tasks under it
+  (three, `ui.planner.project_tasks`) without writing them into the note;
+  ticking one (`2x` in the calendar view, the box on the web) ticks the
+  project's task, and the next takes its place. While it runs, the clocks
+  count against the first.
 - **References.** A line without a checkbox whose link points at a task
   (`14:00 Call the bank about [P/#2 Home/-Mortgage]`) stands for it: it
   shows the task's state, and toggling it toggles the task. A timed line

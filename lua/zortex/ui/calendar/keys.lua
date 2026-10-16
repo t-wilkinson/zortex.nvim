@@ -184,6 +184,44 @@ function M.sync_notifications()
 	view().refresh()
 end
 
+--- x / 2x: tick (or reopen) task 2 of the listed day (the numbers before
+--- its tasks); x alone picks one when there are several.
+function M.toggle_task()
+	local list = state().tasks or {}
+	if #list == 0 then
+		vim.notify("No tasks on this day", vim.log.levels.INFO)
+		return
+	end
+	local function toggle(t)
+		local res, err = require("zortex.services.tasks").toggle_at(t.file, t.lnum)
+		if not res then
+			vim.notify("Can't toggle: " .. tostring(err), vim.log.levels.WARN)
+		end
+		require("zortex.stores.calendar").load()
+		view().refresh()
+	end
+	local n = vim.v.count
+	if n > 0 then
+		if not list[n] then
+			return vim.notify("No task " .. n .. " on this day", vim.log.levels.WARN)
+		end
+		return toggle(list[n])
+	end
+	if #list == 1 then
+		return toggle(list[1])
+	end
+	vim.ui.select(list, {
+		prompt = "Tick which task?",
+		format_item = function(t)
+			return t.text
+		end,
+	}, function(t)
+		if t then
+			toggle(t)
+		end
+	end)
+end
+
 function M.show_help()
 	local help_lines = {
 		"Zortex Calendar - Key Bindings",
@@ -201,9 +239,8 @@ function M.show_help()
 		"",
 		"Actions:",
 		"  a/i     - Add entry",
-		"  <CR>/o  - View/edit entries",
-		"  e       - Edit selected entry",
-		"  x       - Delete selected entry",
+		"  <CR>/o  - Open the day in the calendar note",
+		"  x, 2x   - Tick task 2 (the numbers on the day)",
 		"  d/D     - Show digest view",
 		"  v       - Toggle view mode",
 		"  gf      - Go to calendar file",
@@ -268,6 +305,7 @@ function M.attach(bufnr, cfg)
 		digest = M.show_digest,
 		toggle_view = M.toggle_view,
 		go_to_file = M.go_to_file,
+		toggle_task = M.toggle_task,
 		sync_notifications = M.sync_notifications,
 		help = M.show_help,
 		refresh = function()

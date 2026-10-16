@@ -285,6 +285,63 @@ function M.reference(lines, lnum, doc)
 	return { file = r.file, lnum = r.lnum, task = task, line = target }
 end
 
+--- A project block: a calendar line holding only a link to a project (and
+--- attributes), with nothing nested under it. The calendar views show the
+--- project's next open tasks under it, as references that toggle the tasks.
+--- Returns the project and those tasks (its own open tasks in note order, a
+--- group as one; at most `count`, default ui.planner.project_tasks), or nil.
+function M.project_block(lines, lnum, doc, count)
+	local line = lines[lnum]
+	if not line or not line:find("[", 1, true) then
+		return nil
+	end
+	local syntax = require("zortex.core.syntax")
+	local d = syntax.classify(line)
+	if d.kind ~= "item" or d.item.mark or d.item.key then
+		return nil
+	end
+	local text = vim.trim(syntax.strip_attributes(line:sub(d.content_col + 1)))
+	local def = text:match("^%[([^%]]+)%]$")
+	if not def then
+		return nil
+	end
+	-- nothing nested under it
+	local own = #line:match("^%s*")
+	for l = lnum + 1, #lines do
+		local next_line = lines[l]
+		if next_line:match("%S") then
+			if #next_line:match("^%s*") > own then
+				return nil
+			end
+			break
+		end
+	end
+	local link = require("zortex.core.link")
+	local abs = link.absolute(def, lines, lnum)
+	if not abs or link.relative_path(abs, (doc and doc.filepath) or "") then
+		return nil
+	end
+	local ok, r = pcall(link.resolve_first, "[" .. abs .. "]", { doc = doc, lnum = lnum })
+	if not ok or not r then
+		return nil
+	end
+	local p = require("zortex.services.projects").at(r.doc, r.whole and 1 or r.lnum)
+	if not p or (not r.whole and p.lnum ~= r.lnum) or (r.whole and p.kind ~= "article") then
+		return nil
+	end
+	count = count or ((require("zortex.config").ui or {}).planner or {}).project_tasks or 3
+	local tasks = {}
+	for _, t in ipairs(p:tasks()) do
+		if #tasks >= count then
+			break
+		end
+		if not t.completed and t.mark ~= M.MOVED and not t.parent_task and (t.leaf ~= false or (t.open_leaves or 0) > 0) then
+			tasks[#tasks + 1] = t
+		end
+	end
+	return p, tasks
+end
+
 -- =============================================================================
 -- Problems worth a look
 -- =============================================================================

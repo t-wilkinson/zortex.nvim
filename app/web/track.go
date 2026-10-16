@@ -170,6 +170,12 @@ func (s *Server) calendarTarget(now time.Time) *tracker.Target {
 	if t := s.blockTask(doc, cur.Lnum); t != nil {
 		return t
 	}
+	// a project block with nothing under it: the project's next open task
+	if bt := s.projectBlock(doc, cur.Lnum, s.allProjects()); len(bt) > 0 {
+		if pd := s.ix.Doc(bt[0].project.Rel); pd != nil {
+			return targetFor(pd, bt[0].task.Lnum)
+		}
+	}
 	if !cur.Task || cur.Ref != "" { // a reference stands for the task it links
 		var target *tracker.Target
 		syntax.Walk(doc.Spans(cur.Lnum), func(sp *syntax.Span) {

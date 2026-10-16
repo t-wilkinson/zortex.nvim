@@ -566,6 +566,31 @@ function M.propagate(path, lnum, line)
 	end
 end
 
+--- Toggle the task on `path`:`lnum` (a buffer when loaded, else the file),
+--- as the toggle key does there: its copies and group follow, and the only
+--- task of a calendar block gets its size. Returns the task.
+function M.toggle_at(path, lnum)
+	local line = workspace.get_lines(path)[lnum]
+	local task = line and Item.task(line)
+	if not task then
+		return nil, "not a task"
+	end
+	local want = not task.completed
+	local new_line, err = M.edit_line(line, want and "done" or "open")
+	if not new_line then
+		return nil, err
+	end
+	workspace.set_line(path, lnum, new_line)
+	if want then
+		new_line = M.size_from_block(path, lnum) or new_line
+	end
+	M.propagate(path, lnum, new_line)
+	local t = Item.task(new_line, { lnum = lnum, file = path })
+	local ctx = { file = path, filepath = path, lnum = lnum, line = new_line }
+	Events.emit(want and "task:completed" or "task:uncompleted", { task = t, doc_context = ctx })
+	return t
+end
+
 --- Toggle the task a calendar reference line points at. Returns the task
 --- (nil, nil when the line is no reference).
 function M.toggle_reference(doc_context, should_complete)

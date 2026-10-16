@@ -289,6 +289,7 @@ local defaults = {
 				digest = { "d", "D" },
 				refresh = { "r", "R" },
 				go_to_file = { "gf" },
+				toggle_task = { "x" }, -- 2x ticks the day's task 2
 				sync_notifications = { "n" },
 				help = { "?" },
 			},

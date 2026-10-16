@@ -694,6 +694,30 @@ ul.prows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--
 .project-page h1 { font-size: 2rem; margin: 0.3rem 0 0.3rem; }
 .progress-block { margin: 0.2rem 0 0.5rem; }
 .progress-block p { margin: 0.35rem 0 0; }
+/* objectives, weekly review */
+.rv-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 1rem; }
+.rv-top h1 { margin-right: auto; }
+.rv-weeks { display: flex; gap: 0.9rem; }
+.rv-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.6rem; margin: 1rem 0 0.4rem; }
+.rv-list { list-style: none; margin: 0; padding: 0; }
+.rv-list > li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.6rem; padding: 0.4rem 0.1rem; border-bottom: 1px solid color-mix(in srgb, var(--rule) 60%, transparent); }
+.rv-text { min-width: 0; overflow-wrap: anywhere; margin-right: auto; }
+.rv-obj .okr-progress { display: inline-flex; align-items: center; gap: 0.4rem; margin-left: auto; }
+.okr-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.9rem; }
+.okr-obj { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 0.8rem 1rem; }
+.okr-obj.behind { border-left: 3px solid var(--broken); }
+.okr-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.6rem; }
+.okr-title { font-weight: 600; font-size: 1.05rem; margin-right: auto; }
+.okr-bar { position: relative; overflow: visible; }
+.okr-bar > i { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--ink); opacity: 0.55; border-radius: 1px; }
+.okr-krs { list-style: none; margin: 0.6rem 0 0; padding: 0; }
+.okr-kr { padding: 0.45rem 0; border-top: 1px solid color-mix(in srgb, var(--rule) 60%, transparent); }
+.okr-kr-head { display: flex; align-items: baseline; gap: 0.5rem; }
+.okr-kr-text { min-width: 0; overflow-wrap: anywhere; margin-right: auto; }
+.okr-kr.done .okr-kr-text { color: var(--dim); }
+.okr-projects { margin: 0.2rem 0 0 1.2rem; }
+.okr-projects .prow { padding: 0.35rem 0.2rem; }
+
 .project-grid { display: grid; grid-template-columns: minmax(0, 1fr) 21rem; gap: 1.5rem; align-items: start; }
 .project-side { display: flex; flex-direction: column; gap: 0.8rem; margin-top: 1.2rem; }
 .project-side ul.plain li { white-space: normal; }

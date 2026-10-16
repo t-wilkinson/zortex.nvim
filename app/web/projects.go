@@ -501,12 +501,71 @@ func (s *Server) okrDocs() []*notes.Document {
 	return out
 }
 
-// keyResults: every key result of an open objective, with the projects it
-// links and its progress (their hours done) against its objective's window.
-func (s *Server) keyResults(all []*webProject, now time.Time) []webKR {
-	var out []webKR
+// webObjective is an objective heading ("## 3M-2026-Q4 Title") and its key
+// results (lua/zortex/services/okr/objective).
+type webObjective struct {
+	Rel        string
+	Lnum       int
+	Title      string
+	Span       string // "3M-2026-Q4"
+	Start, End time.Time
+	Done       string // its @done date
+	Areas      []string
+	P          string
+	KRs        []webKR
+	Progress   float64 // the mean of its key results' (1 when done)
+	Elapsed    float64 // the share of its window passed
+	URL        string
+}
+
+func (o *webObjective) Percent() int        { return int(math.Round(o.Progress * 100)) }
+func (o *webObjective) ElapsedPercent() int { return int(math.Round(o.Elapsed * 100)) }
+
+// Behind: more of its window gone than progress made, by more than a tenth.
+func (o *webObjective) Behind() bool { return o.Done == "" && o.Elapsed-o.Progress > 0.1 }
+
+// Window: "Oct 1 – Dec 31, 2026".
+func (o *webObjective) Window() string {
+	if o.Start.Year() != o.End.Year() {
+		return o.Start.Format("Jan 2, 2006") + " – " + o.End.Format("Jan 2, 2006")
+	}
+	return o.Start.Format("Jan 2") + " – " + o.End.Format("Jan 2, 2006")
+}
+
+// objectives: every objective of the OKR notes, in note order, with its key
+// results (the projects they link, their progress against its window).
+func (s *Server) objectives(all []*webProject, now time.Time) []*webObjective {
+	var out []*webObjective
 	for _, d := range s.okrDocs() {
 		r := &noteRenderer{s: s, doc: d}
+		byStart := map[int]*webObjective{}
+		for _, n := range d.Sections() {
+			if n.Type != syntax.KindHeading {
+				continue
+			}
+			m := objectiveRe.FindStringSubmatch(n.Text)
+			if m == nil {
+				continue
+			}
+			line := d.Lines[n.Start-1]
+			year, _ := strconv.Atoi(m[2])
+			o := &webObjective{Rel: d.Rel, Lnum: n.Start, Title: m[4], Span: m[1] + "-" + m[2] + "-" + m[3], URL: s.noteURL(d.Rel, n.Start)}
+			o.Start, o.End = objectiveWindow(m[1], year, m[3])
+			o.Done, _ = edit.Attribute(line, "done")
+			o.P = attrOrBare(line, "p")
+			for _, key := range []string{"a", "area"} {
+				if v, ok := edit.Attribute(line, key); ok {
+					for _, a := range strings.Split(v, ",") {
+						if a = strings.TrimSpace(a); a != "" {
+							o.Areas = append(o.Areas, a)
+						}
+					}
+				}
+			}
+			o.Elapsed = elapsed(o.Start, o.End, now)
+			byStart[n.Start] = o
+			out = append(out, o)
+		}
 		for i, line := range d.Lines {
 			lnum := i + 1
 			it := syntax.ItemOf(line)
@@ -514,23 +573,14 @@ func (s *Server) keyResults(all []*webProject, now time.Time) []webKR {
 				continue
 			}
 			// the objective heading it is under
-			var obj *notes.Node
-			var info []string
-			for n := d.NodeAt(lnum); n != nil && !n.IsRoot(); n = n.Parent {
-				if n.Type == syntax.KindHeading {
-					if m := objectiveRe.FindStringSubmatch(n.Text); m != nil {
-						obj, info = n, m
-						break
-					}
-				}
+			var o *webObjective
+			for n := d.NodeAt(lnum); n != nil && !n.IsRoot() && o == nil; n = n.Parent {
+				o = byStart[n.Start]
 			}
-			if obj == nil {
+			if o == nil {
 				continue
 			}
-			if _, done := edit.Attribute(d.Lines[obj.Start-1], "done"); done {
-				continue // a finished objective moves nothing
-			}
-			kr := webKR{ID: it.Key, Done: it.Mark == "x" || it.Mark == "X", Objective: info[4], URL: s.noteURL(d.Rel, lnum)}
+			kr := webKR{ID: it.Key, Done: it.Mark == "x" || it.Mark == "X", Objective: o.Title, URL: s.noteURL(d.Rel, lnum)}
 			from := it.ContentCol
 			kr.HTML = template.HTML(strings.TrimSpace(r.entryHTML(line, lnum, from)))
 			kr.Text = withoutLinks(line, from)
@@ -557,11 +607,33 @@ func (s *Server) keyResults(all []*webProject, now time.Time) []webKR {
 				if hours > 0 {
 					kr.Progress = doneH / hours
 				}
-				year, _ := strconv.Atoi(info[2])
-				start, end := objectiveWindow(info[1], year, info[3])
-				kr.Lag = math.Max(0, elapsed(start, end, now)-kr.Progress)
+				kr.Lag = math.Max(0, o.Elapsed-kr.Progress)
 			}
-			out = append(out, kr)
+			o.KRs = append(o.KRs, kr)
+		}
+		for _, o := range byStart {
+			switch {
+			case o.Done != "":
+				o.Progress = 1
+			case len(o.KRs) > 0:
+				sum := 0.0
+				for _, kr := range o.KRs {
+					sum += kr.Progress
+				}
+				o.Progress = sum / float64(len(o.KRs))
+			}
+		}
+	}
+	return out
+}
+
+// keyResults: every key result of an open objective, with the projects it
+// links and its progress (their hours done) against its objective's window.
+func (s *Server) keyResults(all []*webProject, now time.Time) []webKR {
+	var out []webKR
+	for _, o := range s.objectives(all, now) {
+		if o.Done == "" { // a finished objective moves nothing
+			out = append(out, o.KRs...)
 		}
 	}
 	return out

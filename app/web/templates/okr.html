@@ -1,0 +1,56 @@
+{{define "okrObjective"}}
+<li class="okr-obj{{if .Behind}} behind{{end}}">
+  <div class="okr-head">
+    <a class="okr-title" href="{{.URL}}">{{.Title}}</a>
+    {{range .AreaLinks}}<a class="tag" href="{{.URL}}">{{.Title}}</a>{{end}}
+    {{with .P}}<span class="pill">p{{.}}</span>{{end}}
+    {{with .Done}}<span class="pill ok">done {{.}}</span>{{end}}
+  </div>
+  <div class="okr-progress" title="{{.Percent}}% done, {{.ElapsedPercent}}% of {{.Window}} passed">
+    <span class="bar big okr-bar" aria-hidden="true"><span style="width: {{.Percent}}%"></span><i style="left: {{.ElapsedPercent}}%"></i></span>
+    <p class="small"><strong class="nums">{{.Percent}}%</strong> <span class="dim">· {{.ElapsedPercent}}% of the time gone</span>{{if .Behind}} <span class="pill warn">behind</span>{{end}}</p>
+  </div>
+  {{if .KRs}}
+  <ul class="okr-krs">
+    {{range .KRs}}
+    <li class="okr-kr{{if .Done}} done{{end}}">
+      <div class="okr-kr-head">
+        <a class="pill" href="{{.URL}}">{{.ID}}</a>
+        <span class="okr-kr-text">{{.HTML}}</span>
+        <span class="okr-kr-pct small dim nums">{{if .Done}}✓{{else}}{{.Percent}}%{{end}}</span>
+      </div>
+      {{if .Rows}}<ul class="prows okr-projects">{{range .Rows}}{{template "projectRow" .}}{{end}}</ul>
+      {{else if not .Done}}<p class="small dim">No project moves it: link one (<code>[P/#…]</code>) or check it when reached.</p>{{end}}
+    </li>
+    {{end}}
+  </ul>
+  {{else}}<p class="small dim">No key results yet (<code>- KR1: [ ] …</code> under the heading).</p>{{end}}
+</li>
+{{end}}
+
+{{define "content"}}
+<section class="narrow wide okr-page">
+  <h1>Objectives</h1>
+  {{if not .HasOKR}}
+  <p class="dim">No OKR note: objectives are headings like <code>## 3M-2026-Q4 Ship the first release</code> in <code>okr.zortex</code> (<code>@@Objectives</code>), with key results <code>- KR1: [ ] …</code> under them that link the projects doing the work.</p>
+  {{end}}
+  {{range .Periods}}
+  <h2 class="section-title">{{.Span}} · {{.Window}} · {{.Elapsed}}% gone</h2>
+  <ul class="okr-list">{{range .List}}{{template "okrObjective" .}}{{end}}</ul>
+  {{end}}
+  {{if and .HasOKR (not .Periods)}}<p class="dim">No objective is running now.</p>{{end}}
+  {{if .Past}}
+  <h2 class="section-title">Ended, not marked done</h2>
+  <p class="dim small">Their window is over: mark them <code>@done</code>, or move them to a new period.</p>
+  <ul class="okr-list">{{range .Past}}{{template "okrObjective" .}}{{end}}</ul>
+  {{end}}
+  {{if .Later}}
+  <h2 class="section-title">Later</h2>
+  <ul class="okr-list">{{range .Later}}{{template "okrObjective" .}}{{end}}</ul>
+  {{end}}
+  {{if .Done}}
+  <h2 class="section-title">Done</h2>
+  <ul class="plain okr-done">{{range .Done}}<li><a href="{{.URL}}">{{.Title}}</a> <span class="dim small">{{.Span}} · {{.Done}}</span></li>{{end}}</ul>
+  {{end}}
+</section>
+{{end}}

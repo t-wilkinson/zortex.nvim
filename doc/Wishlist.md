@@ -291,8 +291,8 @@ two resolvers in sync becomes the main cost, **D** is the natural next step;
    tracking, season XP and the Structure check; notes can be edited
    (`-writable`) and update live. Project pages (`/projects`, `/project`)
    show progress, the key results a project moves, its log and calendar
-   history. Still to do: OKR progress on its own page, the weekly review
-   and the area overview.
+   history; `/okr` the objectives against their period and `/review` the
+   weekly review. Still to do: the area overview.
 
 ## 7. Tree-sitter grammar
 

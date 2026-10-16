@@ -51,7 +51,8 @@ text you own and sync however you like.
   notifications.
 - **Project pages**: progress, next tasks, the key results they move, a log
   of where you left off, the days they were on the calendar, and the notes
-  and files they link.
+  and files they link; **objectives** against the time passed in their
+  period, and the **weekly review** to read anywhere.
 - A **note graph**: the Structure note as cards, the notes each one links
   with marked on hover, and the notes it doesn't reach.
 - A **personal file viewer**: PDFs, images, video, Markdown with math

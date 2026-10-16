@@ -35,7 +35,8 @@ text you own and sync however you like.
   fills the calendar, focus and key-result work first, ranks up tasks put
   off again and again, and says when the day is full.
 - **XP that follows the plan**: finished tasks pay XP by their estimated
-  hours, work on a project a key result links counts toward that
+  hours (10 XP = 1 hour of estimated work, shown next to every XP), work on
+  a project a key result links counts toward that
   objective's areas, and the season is progress on this quarter's
   objectives. Getting PARA work done shows up as OKR results, with no
   bookkeeping.

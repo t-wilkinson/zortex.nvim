@@ -452,6 +452,14 @@
     tbody.innerHTML = days.map(function (d) { return "<tr><td>" + esc(d.date) + "</td><td>" + esc(num(d.xp)) + "</td></tr>"; }).join("");
   }
 
+  // XP is estimated work: xp_per_hour XP (10 by default) is an hour of it
+  function xpPerHour(x) { return (x && x.calibration && x.calibration.xp_per_hour) || 10; }
+  function hoursText(h) {
+    if (h > 0 && h < 1) return Math.round(h * 60) + "m";
+    return (Math.round(h * 10) / 10) + "h";
+  }
+  function workHours(xp, x) { return hoursText(xp / xpPerHour(x)); }
+
   function renderXP(x) {
     var panel = $("xp");
     if (!panel) return;
@@ -517,11 +525,13 @@
       if (e.rel) title = '<a href="' + esc(noteHref(e.rel, e.lnum)) + '">' + title + "</a>";
       var kind = e.source === "objective" ? " · objective" : e.source === "project_done" ? " · project done" : "";
       var award = e.xp > 0 ? "+" + num(e.xp) : "·";
-      return '<li><span class="award-xp" title="' + esc(num(e.effort != null ? e.effort : e.xp)) + ' XP of estimated work">' + esc(award) + "</span>" +
-        '<span class="award-title">' + title + '<span class="dim small"> ' + esc(e.date ? e.date.slice(5).replace("-", "/") : "") + esc(kind) + "</span></span></li>";
+      var effort = e.effort != null ? e.effort : e.xp;
+      return '<li><span class="award-xp" title="+' + esc(num(e.xp)) + " Mastery XP for " + esc(num(effort)) + " XP (" + esc(workHours(effort, x)) + ') of estimated work">' + esc(award) + "</span>" +
+        '<span class="award-title">' + title + '<span class="dim small"> ' + esc(e.date ? e.date.slice(5).replace("-", "/") : "") + " · " + esc(workHours(effort, x)) + esc(kind) + "</span></span></li>";
     }).join("") : '<li class="dim">Nothing completed in the last 30 days</li>';
 
-    $("xp-updated").textContent = x.generated ? "Updated in Neovim " + ago(x.generated) : "";
+    $("xp-updated").textContent = (x.generated ? "Updated in Neovim " + ago(x.generated) + " · " : "") +
+      num(xpPerHour(x)) + " XP = 1 hour of estimated work";
   }
 
   function renderPending(x) {
@@ -531,9 +541,9 @@
     el.hidden = n === 0;
     if (!n) return;
     var tasks = list(x.pending_tasks);
-    var titles = tasks.length ? tasks.map(function (t) { return esc(t.title) + " ~" + num(t.xp); }).join(", ") :
+    var titles = tasks.length ? tasks.map(function (t) { return esc(t.title) + " ~" + num(t.xp) + " XP (" + (t.hours ? hoursText(t.hours) : workHours(t.xp, x)) + ")"; }).join(", ") :
       list(x.pending_titles).map(esc).join(", ");
-    var xp = x.pending_xp ? " · ~" + num(x.pending_xp) + " XP pending" : "";
+    var xp = x.pending_xp ? " · ~" + num(x.pending_xp) + " XP (" + (x.pending_hours ? hoursText(x.pending_hours) : workHours(x.pending_xp, x)) + " of estimated work) pending" : "";
     el.innerHTML = "<strong>" + n + " task" + (n === 1 ? "" : "s") + " completed here" + esc(xp) + "</strong> " +
       "<span class='dim'>· an estimate from " + (n === 1 ? "its" : "their") + " sizes; Neovim counts the real XP next time it runs" +
       (titles ? " (" + titles + (n > 5 ? ", …" : "") + ")" : "") + "</span>";

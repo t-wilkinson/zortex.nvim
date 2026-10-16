@@ -290,7 +290,7 @@ local function project_areas(project, kr_index)
 	return { objective = objective_list, own = own_list }, via_kr
 end
 
--- Most specific first, harmonic weights (calculator.area_shares):
+-- Most specific first, geometric weights (calculator.area_shares, xp.area_split):
 --   linked from a key result: the objectives' areas, the project's, the task's
 --   otherwise:                the task's own @a, then the project's
 local function award_areas(task, p_areas)
@@ -543,7 +543,7 @@ function M.get(opts)
 	local c = calculator.conf()
 	local sig = signature(files)
 		.. "|"
-		.. vim.inspect({ c.xp_per_hour, c.sizes, c.alignment, c.completion_bonus, c.modifiers })
+		.. vim.inspect({ c.xp_per_hour, c.sizes, c.alignment, c.completion_bonus, c.modifiers, c.area_split })
 	if (opts and opts.force) or cache.signature ~= sig or not cache.ledger then
 		cache.ledger = M.build()
 		cache.signature = sig

@@ -323,8 +323,8 @@ local defaults = {
 		notify_min = 5, -- announce awards of at least this much XP
 		publish = true, -- write .z/xp_summary.json (and POST it to server) for the web app's home page
 
-		-- One unit for everything: XP is estimated effort. :ZortexXPGuide shows
-		-- the whole table with your settings.
+		-- One unit for everything: XP is estimated work, 10 XP = 1 hour of it.
+		-- :ZortexXPGuide shows the whole table with your settings.
 		xp_per_hour = 10,
 
 		-- @size -> estimated hours. Tasks without a size count as md. A project
@@ -369,6 +369,11 @@ local defaults = {
 			project_area = 0.2, -- a project with its own @a(...), no key result
 			task_area = 0.1, -- a task outside projects with @a(...)
 		},
+
+		-- An award's Mastery share split over its areas, most specific first:
+		-- each area gets this ratio of the one before (1: even, 0.5: half,
+		-- 0.7: gently decaying)
+		area_split = 0.5,
 
 		-- Reaching a key result pays this share of its objective's XP (split
 		-- over its key results); completing the objective (@done) pays it again

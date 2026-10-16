@@ -254,20 +254,21 @@ local function pct(x)
 	return string.format("%d%%", math.floor((x or 0) * 100 + 0.5))
 end
 
--- "+60 Mastery XP · 12h of estimated work: 70% on key results, 20% areas only, 10% neither"
+-- "+120 XP, 12h of estimated work: 70% on key results, 20% areas only, 10% neither · +60 Mastery XP"
 local function xp_line(xp)
 	if not xp or xp.xp <= 0 then
 		return "  no XP in this window"
 	end
 	local a = xp.by_alignment
-	local hours = xp.xp / require("zortex.services.xp.calculator").xp_per_hour()
+	local calc = require("zortex.services.xp.calculator")
 	return string.format(
-		"  +%d Mastery XP · %sh of estimated work: %s on key results, %s areas only, %s neither",
-		math.floor(xp.mastery + 0.5),
-		(string.format("%.1f", hours):gsub("%.0$", "")),
+		"  +%d XP, %s of estimated work: %s on key results, %s areas only, %s neither · +%d Mastery XP",
+		math.floor(xp.xp + 0.5),
+		calc.hours_text(xp.xp),
 		pct(a.kr / xp.xp),
 		pct(a.area / xp.xp),
-		pct(a.none / xp.xp)
+		pct(a.none / xp.xp),
+		math.floor(xp.mastery + 0.5)
 	)
 end
 
@@ -292,7 +293,7 @@ function M.render_plan(r, add, section, opts)
 	add("")
 	add("# Plan")
 	add("")
-	add("## XP")
+	add("## XP (" .. require("zortex.services.xp.calculator").unit_text() .. ")")
 	local sl = season_line(r.season)
 	if sl then
 		add(sl)

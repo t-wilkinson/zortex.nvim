@@ -186,8 +186,9 @@ whose link points at another task); so does the web app's `/broken`.
 
 ## XP
 
-XP is **estimated work**: `@size` says how long something takes, in hours
-(`xp.sizes`), and an hour is worth 10 XP (`xp.xp_per_hour`). Priority
+XP is **estimated work**: **10 XP = 1 hour of estimated work**
+(`xp.xp_per_hour`). `@size` says how long something takes, in hours
+(`xp.sizes`); wherever XP is shown, its hours are next to it. Priority
 (`@p1` ×1.5, `@p2` ×1.2) and importance (`@i1`, `@i2`) multiply it. One scale
 for everything:
 
@@ -244,8 +245,9 @@ An md objective (30 hours, 300 XP) finished through its key results earns
 300 for the work, 60 for its key results and 60 when you mark it done: 420
 Mastery XP. The same 30 hours on projects with only an `@a` earn 60.
 
-**Which areas.** An award's Mastery share is split over its areas on
-harmonic weights (1, ½, ⅓, …), first listed first:
+**Which areas.** An award's Mastery share is split over its areas, first
+listed first, each getting `xp.area_split` of the one before (0.5 by
+default: ½, ¼, …; 1 splits evenly, 0.7 decays gently):
 
 - work on a project a key result links: the objectives' areas, then the
   project's own (or inherited) `@a`, then the task's;

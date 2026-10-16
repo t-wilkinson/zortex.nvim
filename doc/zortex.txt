@@ -150,8 +150,8 @@ STRUCTURE ~
 TASKS ~
 
 :ZortexTaskToggle                                          *:ZortexTaskToggle*
-    Toggle the task on this line (makes one if needed). Keys: <leader>zT. Id:
-    task_toggle.
+    Toggle the task on this line (makes one if needed); on a project heading,
+    mark the project done. Keys: <leader>zT. Id: task_toggle.
 
 :ZortexTaskComplete                                      *:ZortexTaskComplete*
     Complete the task on this line. Keys: <leader>ztc. Id: task_complete.

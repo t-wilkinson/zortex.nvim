@@ -32,7 +32,7 @@ T.test("commands and keymaps come from the list, with overrides", function()
 	local desc = (cmd.desc and cmd.desc ~= "") and cmd.desc or cmd.definition
 	T.eq(desc, "Links into the section under the cursor (quickfix)")
 	actions.create_keymaps("<leader>q", { task_toggle = "t", search = false, review = { "w", "R" } })
-	T.eq(vim.fn.maparg("<leader>qt", "n", false, true).desc, "Toggle the task on this line (makes one if needed)")
+	T.eq(vim.fn.maparg("<leader>qt", "n", false, true).desc, "Toggle the task on this line (makes one if needed); on a project heading, mark the project done")
 	T.eq(vim.fn.maparg("<leader>qz", "n"), "")
 	T.ok(vim.fn.maparg("<leader>qR", "n", false, true).callback, "list override")
 	local help = table.concat(actions.help_lines(), "\n")

@@ -280,6 +280,14 @@ function M.change_task_completion(doc_context, should_complete)
 		end
 	end
 
+	-- A project heading: mark the project done (or reopen it)
+	if not task then
+		local project, perr = M.toggle_project(doc_context, should_complete)
+		if project or perr then
+			return project, perr
+		end
+	end
+
 	-- If there's still no task object, it means the line is not a task. Convert it.
 	if not task then
 		-- Structure isn't a task: toggling with the cursor on a (folded)
@@ -347,6 +355,65 @@ function M.linked_id(doc_context)
 		return nil
 	end
 	return (mirrors.ensure_id(target.file, target.lnum))
+end
+
+--- On a project's heading: add @done(today) to it, or take it off. A
+--- project with open tasks asks first (vim.ui.select). Returns the project
+--- (nil, nil when the line is no project heading); with opts.on_done, it is
+--- called once the edit is made (or not, when the question is declined).
+---@param opts { today?: string, on_done?: fun(done: boolean?) }?
+function M.toggle_project(doc_context, should_complete, opts)
+	opts = opts or {}
+	local kind = require("zortex.core.syntax").classify(doc_context.line).kind
+	if kind ~= "heading" then
+		return nil
+	end
+	local ok, project = pcall(require("zortex.services.projects").at, doc_context.bufnr, doc_context.lnum)
+	if not ok or not project or project.lnum ~= doc_context.lnum or project:is_root() then
+		return nil
+	end
+	local done = project.attributes.done ~= nil
+	local want = should_complete
+	if want == nil then
+		want = not done
+	end
+	local function finish(result)
+		if opts.on_done then
+			opts.on_done(result)
+		end
+	end
+	if want == done then
+		finish(want)
+		return project
+	end
+	local function apply()
+		local line = vim.api.nvim_buf_get_lines(doc_context.bufnr, doc_context.lnum - 1, doc_context.lnum, false)[1]
+		local new_line = want and attributes.update_attribute(line, "done", opts.today or os.date("%Y-%m-%d"))
+			or attributes.remove_attribute(line, "done")
+		workspace.set_line(doc_context.bufnr, doc_context.lnum, new_line)
+		Events.emit(want and "project:completed" or "project:uncompleted", { project = project, doc_context = doc_context })
+		vim.notify(
+			string.format("%s project %s", want and "Done:" or "Reopened:", project.name),
+			vim.log.levels.INFO,
+			{ title = "Zortex" }
+		)
+		finish(want)
+	end
+	local open = want and project:rollup().open or 0
+	if open == 0 then
+		apply()
+		return project
+	end
+	vim.ui.select({ "Mark it done", "Cancel" }, {
+		prompt = string.format("%s has %d open task%s:", project.name, open, open == 1 and "" or "s"),
+	}, function(choice)
+		if choice == "Mark it done" then
+			apply()
+		else
+			finish(nil)
+		end
+	end)
+	return project
 end
 
 --- Toggle the task a calendar reference line points at. Returns the task

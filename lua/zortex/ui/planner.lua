@@ -8,7 +8,7 @@
 --   2. opens zortex://plan beside it: projects, each with its ranked tasks
 --      under a "## <project link>" heading; key results; to-dos (the TODO
 --      project, the Projects note's own tasks, calendar tasks left open);
---      areas.
+--      areas; what is left in the inbox.
 --
 -- Two ways to put a project task on the day (services/mirrors):
 --   a copy      "- [ ] [P/#1.4 - zortex/-Improve website] @id(aB3x9)" (p, P):
@@ -60,6 +60,7 @@ end
 ---   # Tasks        to-dos: the TODO project, the Projects note's own tasks,
 ---                  open calendar tasks of earlier days
 ---   # Areas
+---   # Inbox        what is left in inbox.zortex (when anything is)
 function M.render(candidates, date)
 	local lines, badges, items = {}, {}, {}
 	local function add(text, c, b)
@@ -103,6 +104,9 @@ function M.render(candidates, date)
 	section("Key results", candidates.key_results or {})
 	section("Tasks", candidates.todos or {})
 	section("Areas", candidates.areas or {})
+	if candidates.inbox and #candidates.inbox > 0 then
+		section("Inbox", candidates.inbox)
+	end
 	return lines, badges, items
 end
 

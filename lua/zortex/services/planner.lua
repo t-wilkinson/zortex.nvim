@@ -3,7 +3,7 @@
 -- The data behind :ZortexPlan (ui/planner.lua). Everything here is plain
 -- data, so the web app can show the same lists.
 --
---   candidates({ today })  -> { tasks, projects, key_results, areas }
+--   candidates({ today })  -> { tasks, projects, key_results, areas, todos, groups, inbox }
 --       each candidate: { kind, text, badges, score, file, lnum }
 --       `text` is what gets written into the calendar: the item's text and
 --       an explicit link to it ("Improve website [P/#1 Programming/#1.4 - zortex/-Improve website]")
@@ -438,6 +438,13 @@ function M.candidates(opts)
 		local p = projects.get(key)
 		return p and project_candidate(p)
 	end)
+	-- What is left in the inbox, as written: p puts a line on the day
+	-- ("- [ ] Call the plumber"); the reviews are where it is cleared
+	local inbox = {}
+	local inbox_ok, left = pcall(require("zortex.services.agenda").inbox)
+	for _, x in ipairs(inbox_ok and left or {}) do
+		inbox[#inbox + 1] = { kind = "inbox", text = (x.text:gsub("^[-*+]%s+", "")), file = x.file, lnum = x.lnum }
+	end
 	return {
 		tasks = tasks,
 		projects = plist,
@@ -445,6 +452,7 @@ function M.candidates(opts)
 		areas = areas,
 		todos = todos,
 		groups = groups,
+		inbox = inbox,
 		focus_week = ctx.focus_week,
 	}
 end

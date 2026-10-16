@@ -263,7 +263,7 @@ require("zortex").setup({
 
 | Command | Keys | Action id | Does |
 |---|---|---|---|
-| `:ZortexTaskToggle` | `<leader>zT` | `task_toggle` | Toggle the task on this line (makes one if needed) |
+| `:ZortexTaskToggle` | `<leader>zT` | `task_toggle` | Toggle the task on this line (makes one if needed); on a project heading, mark the project done |
 | `:ZortexTaskComplete` | `<leader>ztc` | `task_complete` | Complete the task on this line |
 | `:ZortexTaskUncomplete` | `<leader>ztu` | `task_uncomplete` | Reopen the task on this line |
 | `:ZortexTaskConvert` | `<leader>ztt` | `task_convert` | Turn this line into a task |

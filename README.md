@@ -257,7 +257,7 @@ require("zortex").setup({
 | `:ZortexLinkOpenWeb` | `<leader>zgX` | `link_open_web` | Open the link under the cursor (or this line) in the web app |
 | `:ZortexLinkPreview` | `<leader>zK` | `link_preview` | Preview the link target in a float |
 | `:ZortexBacklinks` | `<leader>zb` | `backlinks` | Links into the section under the cursor (quickfix) |
-| `:ZortexBrokenLinks` | `<leader>zB` | `broken_links` | Links that resolve nowhere (quickfix) |
+| `:ZortexBrokenLinks` | `<leader>zB` | `broken_links` | Links that resolve nowhere, then tags that go nowhere (quickfix) |
 | `:ZortexLinkIndexRebuild` |  | `link_index_rebuild` | Rebuild the link index from scratch |
 
 **Structure**

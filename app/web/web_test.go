@@ -532,3 +532,23 @@ func TestBareTagsLinkToTheirTable(t *testing.T) {
 	// the link opens the table of lines tagged @rust
 	expect(t, ts, "/link?from=tagged.zortex&to=%40%5B%2A%2Frust%5D", 200, "The Rust Book")
 }
+
+// /broken lists the tags that go nowhere apart from the broken links.
+func TestBrokenTags(t *testing.T) {
+	s, dir, ts := newTestServer(t, "")
+	if err := os.WriteFile(filepath.Join(dir, "tagcheck.zortex"), []byte("@@Tag check\n\n- a @[nosuchtag]\n- see [@NoSuchHeaderTag]\n- a line with @lonelytag and @p1 @2h @event @rust\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s.Refresh()
+	body := expect(t, ts, "/broken", 200, `Tags that go nowhere`, `@[nosuchtag]`, `[@NoSuchHeaderTag]`, `no note has this tag`, `@lonelytag`)
+	tags := body[strings.Index(body, "Tags that go nowhere"):]
+	for _, attr := range []string{">@p1<", ">@2h<", ">@event<", ">@rust<"} {
+		if strings.Contains(tags, attr) {
+			t.Errorf("%s listed as an orphan tag", attr)
+		}
+	}
+	links := body[:strings.Index(body, "Tags that go nowhere")]
+	if strings.Contains(links, "NoSuchHeaderTag") {
+		t.Error("a [@Tag] link listed with the broken links")
+	}
+}

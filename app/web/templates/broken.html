@@ -11,5 +11,24 @@
     </tbody>
   </table>
   {{else}}<p>Every link resolves.</p>{{end}}
+
+  <h2 class="section-title">Tags that go nowhere</h2>
+  {{with .Tags}}
+  {{if or .Searches .Links}}
+  <table class="listing">
+    <thead><tr><th>Search or link</th><th>In</th><th>Why</th></tr></thead>
+    <tbody>
+    {{range .Searches}}<tr><td><code>{{.Text}}</code></td><td><a href="{{noteURL .From .Lnum}}">{{.From}}:{{.Lnum}}</a></td><td class="dim">{{.Why}}</td></tr>{{end}}
+    {{range .Links}}<tr><td><code>[{{.Def}}]</code></td><td><a href="{{srcURL .From .FromNote .Lnum}}">{{.From}}:{{.Lnum}}</a></td><td class="dim">no note has this tag</td></tr>{{end}}
+    </tbody>
+  </table>
+  {{else}}<p class="dim">Every tag search finds something, and every <code>[@Tag]</code> link a note.</p>{{end}}
+  {{if .Orphans}}
+  <p class="dim small">Tags on lines that no tag search asks for (<code>@[tag]</code>): fine on their own, but nothing gathers them yet.</p>
+  <ul class="tag-cloud">
+    {{range .Orphans}}<li><a href="{{noteURL .From .Lnum}}">@{{.Tag}}</a> <span class="dim small">{{.Count}}</span></li>{{end}}
+  </ul>
+  {{end}}
+  {{end}}
 </section>
 {{end}}

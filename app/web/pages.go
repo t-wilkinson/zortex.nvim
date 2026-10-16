@@ -545,9 +545,15 @@ func (s *Server) handleTag(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleBroken(w http.ResponseWriter, r *http.Request) {
-	broken := append([]Broken(nil), s.current().broken...)
+	all := s.current().broken
+	var broken []Broken
+	for _, b := range all {
+		if !isTagLink(b) { // [@Tag] links: with the tags
+			broken = append(broken, b)
+		}
+	}
 	sort.SliceStable(broken, func(i, j int) bool { return broken[i].From < broken[j].From })
-	s.render(w, r, "broken", http.StatusOK, map[string]any{"Title": "Broken links", "Broken": broken})
+	s.render(w, r, "broken", http.StatusOK, map[string]any{"Title": "Broken links", "Broken": broken, "Tags": s.tagProblems(all)})
 }
 
 // =============================================================================

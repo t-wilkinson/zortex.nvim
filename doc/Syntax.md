@@ -219,6 +219,10 @@ in; `*` is every note:
 | `@[rl is:open, rl is:label]` | open tasks tagged `@rl`, or labels tagged `@rl` |
 | `@[P/is:open]` | every open task in Projects (no tag needed) |
 
+`:ZortexBrokenLinks` and the web app's `/broken` list, apart from broken
+links, the tags that go nowhere: tag searches that find nothing, `[@Tag]`
+links to a tag no note has, and bare tags no tag search asks for.
+
 `is:` words narrow a group to a kind of line: `heading`, `label`, `item`
 (a list item, tasks included), `task`, `open` and `done` (tasks), and
 `resource` (a list item or heading that holds a link, below). A colon can't

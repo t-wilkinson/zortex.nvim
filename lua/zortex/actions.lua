@@ -282,7 +282,7 @@ M.list = {
 		command = "BrokenLinks",
 		key = "B",
 		group = "Links",
-		desc = "Links that resolve nowhere (quickfix)",
+		desc = "Links that resolve nowhere, then tags that go nowhere (quickfix)",
 		run = call("zortex.core.link_index", "broken_links_quickfix"),
 	},
 	{

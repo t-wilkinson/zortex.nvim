@@ -129,9 +129,16 @@ local function first_component(def)
 end
 
 -- Bare @words that are attributes, not tags (utils/attributes shortcuts)
+-- Bare @words that are attributes, not tags: @2h, @p1, @sm, @step, @event,
+-- @fold (app/links IsAttributeWord is the same)
+local ATTRIBUTE_WORDS = { step = true, steps = true, event = true, fold = true }
+
 local function shortcut(key)
-	return key:match("^%d+%.?%d*[hdmw]$") or key:match("^[pi][123]$") or key == "step" or key == "steps"
+	return key:match("^%d+%.?%d*[hdmw]$") or key:match("^[pi][123]$") or ATTRIBUTE_WORDS[key]
 		or require("zortex.utils.attributes").is_size(key)
+end
+M.is_attribute_word = function(key)
+	return shortcut(key:lower()) and true or false
 end
 
 -- The tags used on a note's lines: { tag = number of lines }
@@ -464,11 +471,109 @@ function M.unresolved()
 	return out
 end
 
---- Put unresolved links in the quickfix list.
+--- Tags that go nowhere, computed on request (every note is read):
+---   searches  tag searches (@[...]) that find nothing, with why
+---   links     [@Tag] links to a header tag no note has
+---   orphans   bare tags on lines that no tag search asks for, most used
+---             first ({ tag, count, file, lnum } of its first use); bare
+---             attributes (@p1, @sm, @2h, @event) are not tags
+function M.tag_problems()
+	M.refresh()
+	local syntax = require("zortex.core.syntax")
+	local Document = Document()
+	local out = { searches = {}, links = {}, orphans = {} }
+	local asked, used = {}, {}
+	for _, path in ipairs(notes().index().files) do
+		local doc = Document.get(path)
+		for lnum, line in ipairs(doc and doc.lines or {}) do
+			if line:find("@", 1, true) and not doc:in_code(lnum) then
+				syntax.walk_spans(doc:inline(lnum), function(span)
+					if span.type == "tag_search" then
+						local q = link_mod.parse_tag_search(span.content)
+						for _, group in ipairs(q.groups) do
+							for _, term in ipairs(group) do
+								if not term:match("^is:") then
+									asked[term] = true
+								end
+							end
+						end
+						local ok, results, err = pcall(link_mod.tag_search, span.content, { doc = doc, lnum = lnum })
+						if not ok or #results == 0 then
+							out.searches[#out.searches + 1] = {
+								file = path,
+								lnum = lnum,
+								col = span.s + 1,
+								text = "@[" .. span.content .. "]",
+								why = ok and err or tostring(results),
+							}
+						end
+					elseif span.type == "attribute" and span.value == nil then
+						local key = span.key:lower()
+						if not shortcut(key) then
+							local u = used[key]
+							if not u then
+								u = { tag = key, count = 0, file = path, lnum = lnum, col = span.s + 1 }
+								used[key] = u
+							end
+							u.count = u.count + 1
+						end
+					end
+				end)
+			end
+		end
+	end
+	for path, entry in pairs(state.files) do
+		for _, link in ipairs(entry.links) do
+			if link.first.kind == "tag" and not link.target then
+				out.links[#out.links + 1] = as_ref(path, link)
+			end
+		end
+	end
+	for key, u in pairs(used) do
+		if not asked[key] then
+			out.orphans[#out.orphans + 1] = u
+		end
+	end
+	local function by_place(a, b)
+		if a.file ~= b.file then
+			return a.file < b.file
+		end
+		return a.lnum < b.lnum
+	end
+	table.sort(out.searches, by_place)
+	table.sort(out.links, by_place)
+	table.sort(out.orphans, function(a, b)
+		if a.count ~= b.count then
+			return a.count > b.count
+		end
+		return a.tag < b.tag
+	end)
+	return out
+end
+
+--- Put unresolved links in the quickfix list, then the tags that go nowhere
+--- (M.tag_problems): broken links first, apart from the tags.
 function M.broken_links_quickfix()
 	local items = {}
 	for _, ref in ipairs(M.unresolved()) do
-		items[#items + 1] = { filename = ref.file, lnum = ref.lnum, col = ref.col, text = "Unresolved: " .. ref.text }
+		if not (ref.definition or ""):match("^%s*@") then
+			items[#items + 1] = { filename = ref.file, lnum = ref.lnum, col = ref.col, text = "Unresolved: " .. ref.text }
+		end
+	end
+	local tags = M.tag_problems()
+	for _, ref in ipairs(tags.links) do
+		items[#items + 1] = { filename = ref.file, lnum = ref.lnum, col = ref.col, text = "No note has this tag: " .. ref.text }
+	end
+	for _, x in ipairs(tags.searches) do
+		items[#items + 1] = { filename = x.file, lnum = x.lnum, col = x.col, text = "Tag search finds nothing: " .. x.text }
+	end
+	for _, x in ipairs(tags.orphans) do
+		items[#items + 1] = {
+			filename = x.file,
+			lnum = x.lnum,
+			col = x.col,
+			text = string.format("No tag search asks for @%s (%d line%s)", x.tag, x.count, x.count == 1 and "" or "s"),
+		}
 	end
 	vim.fn.setqflist(items, "r")
 	if #items > 0 then

@@ -133,3 +133,35 @@ T.test("broken links are diagnostics on their spans", function()
 	vim.cmd("bwipeout!")
 	os.remove(path)
 end)
+
+T.test("tags that go nowhere: empty tag searches, [@Tag] links to no tag, tags no search asks for", function()
+	local Config = require("zortex.config")
+	local path = Config.notes_dir .. "tagcheck.zortex"
+	vim.fn.writefile({ "@@Tag check", "", "- a @[nosuchtag]", "- see [@NoSuchHeaderTag]", "- a line with @lonelytag and @p1 @2h @event @rust" }, path)
+	require("zortex.core.notes").invalidate()
+	local li = require("zortex.core.link_index")
+	li.refresh(true)
+	local p = li.tag_problems()
+	local texts = vim.tbl_map(function(x)
+		return x.text
+	end, p.searches)
+	T.ok(vim.tbl_contains(texts, "@[nosuchtag]"), vim.inspect(texts))
+	T.ok(vim.tbl_contains(vim.tbl_map(function(x)
+		return x.text
+	end, p.links), "[@NoSuchHeaderTag]"))
+	local orphans = {}
+	for _, o in ipairs(p.orphans) do
+		orphans[o.tag] = o.count
+	end
+	T.eq(orphans.lonelytag, 1)
+	T.eq({ orphans.p1, orphans["2h"], orphans.event, orphans.rust }, {})
+	-- :ZortexBrokenLinks: broken links first, then the tags
+	local items = li.broken_links_quickfix()
+	vim.cmd("cclose")
+	local kinds = vim.tbl_map(function(it)
+		return it.text:match("^[^:]+")
+	end, items)
+	T.ok(vim.tbl_contains(kinds, "No note has this tag"), vim.inspect(kinds))
+	os.remove(path)
+	li.refresh(true)
+end)

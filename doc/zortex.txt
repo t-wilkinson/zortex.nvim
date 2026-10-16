@@ -123,7 +123,8 @@ LINKS ~
     backlinks.
 
 :ZortexBrokenLinks                                        *:ZortexBrokenLinks*
-    Links that resolve nowhere (quickfix). Keys: <leader>zB. Id: broken_links.
+    Links that resolve nowhere, then tags that go nowhere (quickfix). Keys:
+    <leader>zB. Id: broken_links.
 
 :ZortexLinkIndexRebuild                              *:ZortexLinkIndexRebuild*
     Rebuild the link index from scratch. Id: link_index_rebuild.

@@ -2,8 +2,9 @@
 -- the matching and ranking; this lists its results, live, in its order).
 --
 --   <CR>   open (split / vsplit / tab: the picker's own keys)
---   <C-o>  new note named after the query
---   <M-t>  cycle section / article / text search
+--   <C-o>  new note named after the query          (ui.search.keys.new_note)
+--   <M-t>  cycle section / article / text search   (ui.search.keys.cycle_mode)
+-- The title shows the keys.
 local search = require("zortex.services.search")
 local Picker = require("zortex.ui.picker")
 local fs = require("zortex.utils.filesystem")
@@ -116,11 +117,21 @@ function M.new_note(name)
 	vim.notify("Failed to create unique filename", vim.log.levels.ERROR)
 end
 
+-- The search picker's keys (ui.search.keys): { key = lhs or false }
+local function keys()
+	return cfg().keys or {}
+end
+
 local function title(mode)
-	if mode == "text" then
-		return "Zortex Text Search"
+	local t = mode == "text" and "Zortex Text Search" or ("Zortex Structural Search (" .. mode .. ")")
+	local k, hints = keys(), {}
+	if k.cycle_mode then
+		hints[#hints + 1] = k.cycle_mode .. " mode"
 	end
-	return "Zortex Structural Search (" .. mode .. ")"
+	if k.new_note then
+		hints[#hints + 1] = k.new_note .. " new note"
+	end
+	return #hints > 0 and (t .. " · " .. table.concat(hints, " · ")) or t
 end
 
 -- section -> article -> text -> section
@@ -154,22 +165,28 @@ function M.spec(opts)
 			history.record(r)
 		end,
 		prompt = opts.prompt,
-		keys = {
-			["<C-o>"] = {
-				desc = "New note named after the query",
-				close = true,
-				fn = function(_, ctx)
-					M.new_note(ctx.prompt)
-				end,
-			},
-			["<M-t>"] = {
-				desc = "Cycle section / article / text search",
-				refresh = true,
-				fn = function()
-					mode = next_mode(mode)
-				end,
-			},
-		},
+		keys = (function()
+			local k, out = keys(), {}
+			if k.new_note then
+				out[k.new_note] = {
+					desc = "New note named after the query",
+					close = true,
+					fn = function(_, ctx)
+						M.new_note(ctx.prompt)
+					end,
+				}
+			end
+			if k.cycle_mode then
+				out[k.cycle_mode] = {
+					desc = "Cycle section / article / text search",
+					refresh = true,
+					fn = function()
+						mode = next_mode(mode)
+					end,
+				}
+			end
+			return out
+		end)(),
 	}
 end
 

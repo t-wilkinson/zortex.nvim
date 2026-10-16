@@ -9,7 +9,11 @@ search history are in [Architecture.md](Architecture.md#ui-layer)
 ## Modes
 
 `<M-t>` in the picker cycles the three modes; `ui.search.default_mode` picks
-the one `:ZortexSearch` opens in.
+the one `:ZortexSearch` opens in. The picker's title shows its keys;
+`ui.search.keys` changes them (`keys = { cycle_mode = "<M-m>" }` when your
+terminal or zellij takes `<M-t>`; `false` turns one off). Pick a key the
+picker leaves free: `<C-t>` opens the result in a tab in telescope, snacks
+and fzf-lua.
 
 | Mode      | Opens with                            | Finds                                                                   |
 | --------- | ------------------------------------- | ----------------------------------------------------------------------- |

@@ -99,7 +99,7 @@ func TestNotifyAPI(t *testing.T) {
 func TestCalendarFromNote(t *testing.T) {
 	s, dir, ts, _ := newStateServer(t, "")
 	day := time.Now().Format("2006-01-02")
-	cal := "@@Calendar\n@@C\n\n" + day + ":\n09:00 - 10:00 Standup [P/#1.4 - zortex] @notify(no)\n- [x] Water plants @done(" + day + ")\n  - nested note\n"
+	cal := "@@Calendar\n@@C\n\n" + day + ":\n09:00 - 10:00 Standup [P/#1.4 - zortex] @notify(no)\n- [x] Water plants @done(" + day + ")\n  - nested note\n12:00 Dentist @event @n(30)\n14:00 Gym\n"
 	if err := os.WriteFile(filepath.Join(dir, "calendar.zortex"), []byte(cal), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +112,7 @@ func TestCalendarFromNote(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := out.Days[day]
-	if len(got) != 3 {
+	if len(got) != 5 {
 		t.Fatalf("entries: %+v", got)
 	}
 	if got[0].Time != "09:00" || got[0].End != "10:00" || got[0].Text != "Standup [P/#1.4 - zortex]" || strings.Contains(got[0].HTML, "notify") || !strings.Contains(got[0].HTML, `href="/n/projects.zortex`) {
@@ -123,6 +123,11 @@ func TestCalendarFromNote(t *testing.T) {
 	}
 	if got[2].Depth != 1 {
 		t.Errorf("nested entry: %+v", got[2])
+	}
+	// the bell: only a written @n (every timed line notifies by default);
+	// the month grid's dot: only @event
+	if got[0].Notify || got[0].Event || !got[3].Notify || !got[3].Event || got[4].Notify || got[4].Event {
+		t.Errorf("notify / event: %+v %+v %+v", got[0], got[3], got[4])
 	}
 }
 

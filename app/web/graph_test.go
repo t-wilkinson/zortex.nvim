@@ -74,8 +74,11 @@ func TestTagTableNotes(t *testing.T) {
 	table := body[strings.Index(body, `class="tag-table"`):]
 	table = table[:strings.Index(table, `</table>`)]
 	for _, want := range []string{
-		// an indented label stays in the item's notes; the panel has them all
-		`<button type="button" class="tt-notes-btn" aria-haspopup="dialog" data-title="The Rust Book" data-note="rust-book-notes.zortex" data-note-href="/n/rust-book-notes.zortex" data-note-title="Rust book notes">Notes <span class="dim">5</span></button><template>`,
+		// more than three lines of notes: the first two under the item, and
+		// a button for the panel with all of them (an indented label stays in
+		// the item's notes)
+		`<td class="tt-item"><a class="md" href="https://doc.rust-lang.org/book" target="_blank" rel="noopener noreferrer">The Rust Book</a> <div class="tt-notes"><div class="ln item" data-id="L7">`,
+		`<div class="tt-more"><button type="button" class="tt-notes-btn" aria-haspopup="dialog" data-title="The Rust Book" data-note="rust-book-notes.zortex" data-note-href="/n/rust-book-notes.zortex" data-note-title="Rust book notes">All notes <span class="dim">5</span></button><template>`,
 		`<div class="ln label" data-id="L8">Ownership:</div>`,
 		`<div class="ln item" data-id="L9" style="--ind:2">`,
 		// a resource heading: a row named by its link, its section its notes
@@ -91,6 +94,14 @@ func TestTagTableNotes(t *testing.T) {
 	// resource heading is in the section above it
 	if !strings.Contains(table, `placeholder="Filter 3 rows"`) || !strings.Contains(table, `<a href="/n/books.zortex#L12">Books › Reading</a>`) {
 		t.Errorf("rows: %s", table)
+	}
+	// no Notes column; the preview stops after two lines
+	if strings.Contains(table, `data-sort="value">Notes`) {
+		t.Errorf("a Notes column: %s", table)
+	}
+	preview := table[strings.Index(table, `<div class="tt-notes"><div class="ln item" data-id="L7">`):strings.Index(table, `<div class="tt-more">`)]
+	if !strings.Contains(preview, `data-id="L8"`) || strings.Contains(preview, `data-id="L9"`) {
+		t.Errorf("preview: %s", preview)
 	}
 	// a keyed item shows its key once
 	if strings.Count(table, "Full notes:") != 1 {

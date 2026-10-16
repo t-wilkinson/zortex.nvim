@@ -58,12 +58,12 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 
 | page | what |
 |---|---|
-| `/` | search box, the **calendar** (days of `calendar.zortex`, a month grid, scheduled notifications), the **pomodoro** clock with **timer**, **alarm** and **stopwatch** tabs, **this week's focus projects**, **season and XP** (level and tier, progress to the next level, XP per day for two weeks, top areas, recent awards; tasks completed on the web with their estimated XP until Neovim counts them), recently changed notes, notes not yet in the structure, counts |
+| `/` | search box, the **calendar** (days of `calendar.zortex`, a month grid whose dot marks days with an `@event`, scheduled notifications; 🔔 on lines with a written `@n`), the **pomodoro** clock with **timer**, **alarm** and **stopwatch** tabs, **this week's focus projects**, **season and XP** (level and tier, progress to the next level, XP per day for two weeks, top areas, recent awards; tasks completed on the web with their estimated XP until Neovim counts them), recently changed notes, notes not yet in the structure, counts |
 | `/structure` | notes that neither the Structure note (`@@Structure`), any `@Structure` note, nor any note's `# Structure` section links to (archived notes left out); not in the top bar, since `/graph` lists the same notes |
 | `/graph` | the whole structure as cards side by side, one per section of the Structure note, each note with a `# Structure` section opened in place; hover a note to mark the notes it links with, click a tag to mark its notes, filter notes and tags as you type (`@word` for tags); the notes not in it |
 | `/n/<path>` | a rendered note: outline, every line anchored (`#L12`), links resolved with the plugin's rules (to the canonical target; `⁺` when there are more), broken links in red, file paths and markdown links to the file viewer, [tag tables](#tag-tables) and [indexes](#tag-indexes), its [connections](#connections-and-the-graph), "Linked from" (backlinks) |
 | `/n/<path>?view=slides` | the note as a slide deck ([Slides](#slides)) |
-| `/search?q=` | structural search, the plugin's ranking: sections whose path matches the words in order, then lines with every word; results update as you type, `↑`/`↓` + Enter, `/` focuses search anywhere |
+| `/search?q=` | structural search, the plugin's ranking: sections whose path matches the words in order, then lines with every word; results update as you type, `↑`/`↓` + Enter, `/` focuses search anywhere. The header's box lists the notes whose name matches as you type; Enter without picking one opens this page |
 | `/link?to=&from=` | resolve a link: one target redirects, several are listed (a tag search as a [table](#tag-tables)), failures say why |
 | `/f/<path>` | file browser (sort by name (notes by article name) or modified time, either direction: `?sort=modified&order=desc`, kept in folder links; notes with a generated name, like `2026-10-15.042.zortex` from "create note" in search, only with "show all"; hidden folders and Syncthing artefacts never) and viewer: PDF, image, video, audio (with seeking), text, sandboxed HTML/SVG (HTML runs script with `-html-scripts`), [Markdown](#markdown-files) rendered like a note; HTML and Markdown have a "source" link (`?source=1`) to their text |
 | `/raw/<path>` | the file as is: byte ranges, `?download=1`; HTML/SVG/XML with `Content-Security-Policy: sandbox` (`sandbox allow-scripts` for HTML with `-html-scripts`); nothing outside the folder, no hidden files |
@@ -156,10 +156,11 @@ thing it is (web, pdf, book, image, video, audio, document, note), its tags
 besides the searched ones (its own and its sections'), one column per
 `@key(value)` any row has (not `@id`), the note and section it is in, and
 its notes: the lines nested under it (labels too), or the section of a
-heading that is only a link (`### [Book](https://…) @rust`). Up to three
-lines of notes show under the item; longer ones open in a panel (a bottom
-sheet on a phone), rendered like the note, with the first note they link
-to below them. Click a header to sort; type to filter, or click a kind or
+heading that is only a link (`### [Book](https://…) @rust`), shown under
+the item: all of them up to three lines, else the first two and an "All
+notes" button that opens them in a panel (a bottom sheet on a phone),
+rendered like the note, with the first note they link to below them. A
+bare `@tag` in a note links to its table (`@[*/tag]`). Click a header to sort; type to filter, or click a kind or
 tag to keep only those rows. Empty columns are left out.
 
 ### Tag indexes

@@ -92,10 +92,11 @@ type calEntry struct {
 	HTML   string `json:"html"`           // text with links rendered
 	Task   bool   `json:"task,omitempty"`
 	Done   bool   `json:"done,omitempty"`
-	Moved  bool   `json:"moved,omitempty"` // [>]: carried to a later day
-	Ref    string `json:"ref,omitempty"`   // no checkbox: the task it links ("rel:lnum"), whose state Done is
-	Depth  int    `json:"depth,omitempty"` // nesting under another entry
-	Notify bool   `json:"notify,omitempty"`
+	Moved  bool   `json:"moved,omitempty"`  // [>]: carried to a later day
+	Ref    string `json:"ref,omitempty"`    // no checkbox: the task it links ("rel:lnum"), whose state Done is
+	Depth  int    `json:"depth,omitempty"`  // nesting under another entry
+	Notify bool   `json:"notify,omitempty"` // written with @n(…) / @notify(…) (not @n(no))
+	Event  bool   `json:"event,omitempty"`  // tagged @event: fixed, planned around (the month grid's dot)
 	URL    string `json:"url"`
 	Src    string `json:"src,omitempty"` // the line as written (-writable: for edits)
 	Rel    string `json:"rel,omitempty"`
@@ -151,6 +152,7 @@ func (s *Server) calendarDays(from, to string) map[string][]calEntry {
 		if it.Mark == edit.Moved {
 			e.Moved = true
 		}
+		e.Notify, e.Event = entryFlags(doc.Spans(lnum))
 		if !e.Task {
 			if ref := s.referenceOf(doc, lnum); ref != nil {
 				e.Task, e.Done, e.Ref = true, ref.Done, fmt.Sprintf("%s:%d", ref.Rel, ref.Lnum)
@@ -168,6 +170,24 @@ func (s *Server) calendarDays(from, to string) map[string][]calEntry {
 		days[date] = append(days[date], e)
 	}
 	return days
+}
+
+// entryFlags: whether a calendar line asks for a notification itself
+// (@n(…), @notify(…); every timed line notifies by default, so only a
+// written one is marked) and whether it is tagged @event.
+func entryFlags(spans []syntax.Span) (notify, event bool) {
+	for _, sp := range spans {
+		if sp.Type != "attribute" {
+			continue
+		}
+		switch syntax.Lower(sp.Key) {
+		case "n", "notify":
+			notify = !strings.EqualFold(strings.TrimSpace(sp.Value), "no")
+		case "event":
+			event = true
+		}
+	}
+	return notify, event
 }
 
 // entryHTML renders line[from:] like a note line, without attributes.
@@ -206,12 +226,6 @@ func (s *Server) apiCalendar(w http.ResponseWriter, r *http.Request) {
 	carry := 0 // open tasks of the days before that could come to today
 	if s.cfg.Writable {
 		carry = s.carryCount(now.Format("2006-01-02"))
-	}
-	// mark entries that have a notification on their day
-	for date, list := range days {
-		for i := range list {
-			list[i].Notify = view.notified[date+"\x00"+list[i].Text]
-		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"from":          from,
@@ -252,12 +266,11 @@ type notifView struct {
 	next     string
 	nextTime int64
 	text     string
-	notified map[string]bool // date + "\x00" + entry text
 }
 
 // notificationView: the scheduled notifications as the calendar shows them.
 func (s *Server) notificationView(now time.Time) notifView {
-	v := notifView{events: []notifEvent{}, next: "No events", notified: map[string]bool{}}
+	v := notifView{events: []notifEvent{}, next: "No events"}
 	if s.alerts == nil {
 		return v
 	}
@@ -279,9 +292,6 @@ func (s *Server) notificationView(now time.Time) notifView {
 			IsCurrent: n.ID == current, IsPast: n.ScheduledTime < now.Unix() && n.ID != current, Sent: !n.Pending(),
 		}
 		v.events = append(v.events, ev)
-		if n.EntryID != "" {
-			v.notified[ev.DateStr+"\x00"+n.EntryID] = true
-		}
 		if n.Pending() {
 			v.pending++
 		}

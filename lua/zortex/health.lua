@@ -13,6 +13,13 @@ function M.check()
 	else
 		health.error(string.format("Neovim %d.%d.%d: zortex needs 0.10 or newer", v.major, v.minor, v.patch))
 	end
+	if #vim.fn.getcompletion("zortex", "help") > 0 then
+		health.ok(":help zortex")
+	else
+		health.warn(":help zortex is missing: doc/tags was not generated", {
+			"Run :helptags ALL, or :helptags <plugin folder>/doc",
+		})
+	end
 	local dir = Config.notes_dir
 	if dir and vim.fn.isdirectory(dir) == 1 then
 		health.ok("notes_dir: " .. dir)

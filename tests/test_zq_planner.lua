@@ -194,6 +194,98 @@ T.test("plan buffer puts items into the calendar day", function()
 	require("zortex.stores.calendar").load()
 end)
 
+T.test("plan buffer: what is left in the inbox, last; p puts it on the day as written", function()
+	local fs = require("zortex.utils.filesystem")
+	local inbox, cal = fs.get_inbox_file(), fs.get_calendar_file()
+	local cal0 = vim.fn.readfile(cal)
+	vim.fn.writefile({ "@@Inbox", "", "- [ ] Call the plumber", "- [x] Done already", "Idea: a shelf for the hall" }, inbox)
+	require("zortex.core.document").invalidate()
+	with_config({ templates = {} }, function()
+		local ui = require("zortex.ui.planner")
+		local buf = ui.open({ date = "2026-11-15" })
+		local st = ui._state()
+		local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+		local at = {}
+		for i, l in ipairs(lines) do
+			at[l] = i
+		end
+		T.ok(at["# Inbox (2)"] and at["# Areas (" .. #(planner.candidates({ today = "2026-11-15" }).areas) .. ")"] < at["# Inbox (2)"], vim.inspect(lines))
+		T.eq(lines[at["# Inbox (2)"] + 1], "[ ] Call the plumber")
+		T.eq(lines[at["# Inbox (2)"] + 2], "Idea: a shelf for the hall")
+		vim.api.nvim_set_current_win(st.win)
+		vim.api.nvim_win_set_cursor(st.win, { at["# Inbox (2)"] + 1, 0 })
+		vim.fn.maparg("p", "n", false, true).callback()
+		local block = require("zortex.stores.calendar").date_block("2026-11-15", vim.api.nvim_buf_get_lines(st.cal_buf, 0, -1, false))
+		T.eq(vim.api.nvim_buf_get_lines(st.cal_buf, block.last_lnum - 1, block.last_lnum, false)[1], "- [ ] Call the plumber")
+		ui.close()
+		vim.cmd("silent! bwipeout! " .. st.cal_buf)
+	end)
+	vim.fn.delete(inbox)
+	vim.fn.writefile(cal0, cal)
+	require("zortex.core.document").invalidate()
+	require("zortex.stores.calendar").load()
+end)
+
+T.test(":ZortexPlan again from the plan window, or over an unsaved calendar", function()
+	local fs = require("zortex.utils.filesystem")
+	local cal, proj = fs.get_calendar_file(), fs.get_projects_file()
+	local original, original_proj = vim.fn.readfile(cal), vim.fn.readfile(proj)
+	local confirm = vim.o.confirm
+	vim.o.confirm = false -- E37 instead of a dialog
+	with_config({ templates = { sunday = { "09:00" } } }, function()
+		local ui = require("zortex.ui.planner")
+		vim.cmd("only")
+		-- the calendar is open with changes the planner made (a new day)
+		vim.cmd("edit " .. vim.fn.fnameescape(cal))
+		require("zortex.stores.calendar").ensure_date("2026-11-01", { "08:00" })
+		T.ok(vim.bo.modified, "calendar buffer modified")
+		local ok, err = pcall(ui.open, { date = "2026-11-08" })
+		T.ok(ok, err)
+		local st = ui._state()
+		T.ok(st.cal_win ~= st.win, "two windows")
+		-- again, from the plan window
+		vim.api.nvim_set_current_win(st.win)
+		ok, err = pcall(ui.open, { date = "2026-11-08" })
+		T.ok(ok, err)
+		T.ok(st.cal_win ~= st.win, "still two windows")
+		T.eq(vim.api.nvim_win_get_buf(st.cal_win), st.cal_buf)
+		T.eq(vim.api.nvim_win_get_buf(st.win), st.buf)
+		T.eq(#vim.api.nvim_tabpage_list_wins(0), 2)
+
+		-- <CR> and p reach the calendar
+		local first
+		for l, it in pairs(st.items) do
+			if it.kind == "task" and (not first or l < first) then
+				first = l
+			end
+		end
+		local h = require("zortex.stores.calendar").date_block("2026-11-08", vim.api.nvim_buf_get_lines(st.cal_buf, 0, -1, false)).heading_lnum
+		vim.api.nvim_win_set_cursor(st.cal_win, { h + 1, 0 })
+		vim.api.nvim_win_set_cursor(st.win, { first, 0 })
+		ok, err = pcall(vim.fn.maparg("<CR>", "n", false, true).callback)
+		T.ok(ok, err)
+		T.ok(vim.api.nvim_buf_get_lines(st.cal_buf, h, h + 1, false)[1]:match("^09:00 %S"), "put on the 09:00 line")
+		ok, err = pcall(vim.fn.maparg("p", "n", false, true).callback)
+		T.ok(ok, err)
+
+		-- ? lists the buffer's keys from their descriptions
+		local help = table.concat(require("zortex.ui.keyhelp").lines(st.buf, "Zortex plan: "), "\n")
+		T.ok(help:find("  P  ", 1, true) and help:find("add the project with its next open tasks", 1, true), help)
+		vim.api.nvim_set_current_win(st.win)
+		local hwin = require("zortex.ui.keyhelp").show("Zortex plan: ", "Plan keys")
+		T.ok(hwin and vim.api.nvim_win_get_config(hwin).relative == "editor", "help float")
+		vim.api.nvim_win_close(hwin, true)
+
+		ui.close()
+		vim.cmd("silent! bwipeout! " .. st.cal_buf)
+	end)
+	vim.o.confirm = confirm
+	vim.fn.writefile(original, cal)
+	vim.fn.writefile(original_proj, proj)
+	require("zortex.core.document").invalidate()
+	require("zortex.stores.calendar").load()
+end)
+
 T.test("new days go after the closest earlier day, not before a stray later one", function()
 	local calendar = require("zortex.stores.calendar")
 	local cal = require("zortex.utils.filesystem").get_calendar_file()

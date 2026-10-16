@@ -27,7 +27,9 @@ task        the next step                         anywhere           - [ ] Feed 
   progress is its projects' effort points done (`@size` weighs tasks); a key
   result without projects counts its checkbox.
 - **Projects** are headings in `projects.zortex` (or any note tagged `@P`),
-  **tasks** the checkbox items under them.
+  **tasks** the checkbox items under them. A project is done when its tasks
+  are, or when its heading has `@done(...)`: `<leader>zT` on the heading
+  adds it (asking first while tasks are open) or takes it off.
 
 **The canonical path** is task → project → key result → objective → area:
 the objective decides which area the work serves. A project can also carry
@@ -39,7 +41,7 @@ objective.
 
 | when | what | command |
 |---|---|---|
-| weekly | **Weekly review.** Opens the week's entry in `reviews.zortex` (made when missing; on a weekend, the coming week's) beside the findings: the inbox; [the week](#the-week): its focus projects, tasks put off again and again, and the active projects to pick the focus from (`f`); the plan summary over seven days; overdue and due tasks, stale and unscheduled projects, projects without a next action, key results without projects, areas without projects or without an objective, projects with neither a key result nor an area, broken links. Every line links to its source; what you write goes in the note. | `:ZortexReview` (`<leader>zw`) |
+| weekly | **Weekly review.** Opens the week's entry in `reviews.zortex` (made when missing; on a weekend, the coming week's) beside the findings: the inbox; [the week](#the-week): its focus projects, tasks put off again and again, and the active projects to pick the focus from (`f`); the plan summary over seven days; overdue and due tasks, stale and unscheduled projects, projects without a next action, key results without projects, areas without projects or without an objective, projects with neither a key result nor an area, broken links. Every line links to its source; what you write goes in the note; `?` lists the keys. | `:ZortexReview` (`<leader>zw`) |
 | morning | **Plan the day.** Yesterday's open tasks come along ([carried forward](#the-day-on-the-calendar)). Today's calendar next to ranked candidates: the week's focus projects and their tasks first; then tasks on key results, the further their key result is behind schedule the higher; then tasks of projects that only have an area; then the rest. Due dates, priority, the TODO project and how often a task was put off add on top. Key results are listed most behind first, areas without a current objective first. Put tasks (`p`) and projects (`P`, with their next three tasks) on the day, until the [capacity line](#capacity) says the day is full. | `:ZortexPlan` (`<leader>zm`) |
 | during | **Work.** Tick tasks on the calendar or a project's page (Neovim or the web); their copies are ticked with them. On the web home page the clocks (pomodoro, timer, stopwatch) count against the task you're working on, by default the first open task of the current calendar block, and add it to its `@spent(...)`. Before you stop, a line in the project's log (its web page, or a `Log:` label in the note) says where you left off. | `zortex serve` |
 | evening | **Daily review.** Opens the day's entry in `reviews.zortex` (inside its week) beside the findings since the last daily review (a skipped evening rolls into the next, at most a week): what is left in the inbox (from Neovim or the web app's "Add to inbox"), the week's focus, tasks put off, objectives and key results against the time passed, XP earned and how much of it was on key results, time spent per task, what you completed, calendar tasks left (tomorrow's plan carries them), overdue, due by tomorrow. | `:ZortexReview day` (`<leader>zW`) |
@@ -123,9 +125,19 @@ without duplicating them: a task on the calendar is the project's task.
 09:00 [P/#1 Programming/#1.4 - zortex]
   - [ ] [./-Improve website] @id(aB3x9)
   - [ ] [./-Change task sizes] @id(Kp2wQ)
+11:00 - 11:45 Dentist @event @n(30)
 14:00 Call the bank about [P/#2 Home/-Mortgage]
 - [ ] Buy milk
 ```
+
+A day reads top to bottom as you'll live it: blocks of planned work with
+their tasks under them, the **events** you plan around (`@event`: an
+appointment, a flight, something that happens whether or not you planned
+it; the web month grid's dot marks days that have one), and loose to-dos
+last. Every timed line notifies at its time, events and planned blocks
+alike: a nudge to move on to the next thing, and out of deep focus.
+`@n(30)` adds a notification 30 minutes before, `@n(no)` silences a line,
+and `@n(0, end)` also notifies when a range ends.
 
 - **Copies.** `- [ ] [./-Improve website] @id(aB3x9)` has the `@id` of the
   project's `- [ ] Improve website @id(aB3x9)`: lines with the same `@id` in
@@ -156,7 +168,8 @@ without duplicating them: a task on the calendar is the project's task.
 The planner (`<leader>zm`) lists projects first, each under a heading with
 its ranked tasks, then key results, then to-dos (the TODO project,
 `ui.planner.todo_link`, the Projects note's own tasks and calendar tasks
-left open), then areas; the week's focus projects come first. In it, `p`
+left open), then areas, then what is left in the inbox; the week's focus projects come
+first. `?` lists its keys. In it, `p`
 puts a task on the day as a copy (under its project's block when the day
 has one; the task gets an `@id` if it has none), `P` a project as a block
 with its next open tasks (`ui.planner.project_tasks`, three; `5P` for five;

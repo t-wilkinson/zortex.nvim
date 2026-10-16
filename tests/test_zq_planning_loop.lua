@@ -351,3 +351,48 @@ T.test("plan buffer: the capacity line follows what goes on the day", function()
 		vim.cmd("silent! %bwipeout!")
 	end)
 end)
+
+T.test("calendar view: the day as written, tasks under their project's block", function()
+	local DAY = {
+		"",
+		"2026-10-27:",
+		"09:00 [P/#1 Programming/#1.4 - zortex]",
+		"  - [ ] [./-Improve website]",
+		"  - [ ] Write the docs",
+		"12:00 Lunch",
+		"- [ ] Buy milk",
+	}
+	with_notes(DAY, {}, function()
+		local calendar = require("zortex.stores.calendar")
+		local got = vim.tbl_map(function(e)
+			return string.rep("  ", e.depth) .. vim.trim(e.raw_text)
+		end, calendar.get_day_entries("2026-10-27"))
+		T.eq(got, {
+			"09:00 [P/#1 Programming/#1.4 - zortex]",
+			"  - [ ] [./-Improve website]",
+			"  - [ ] Write the docs",
+			"12:00 Lunch",
+			"- [ ] Buy milk",
+		})
+		-- the calendar view lists them in that order, indented
+		local render = require("zortex.ui.calendar.render")
+		local Config = require("zortex.config")
+		local saved_ui = Config.ui
+		-- setup() hasn't run in these tests: the defaults under what is set
+		Config.ui = vim.tbl_deep_extend("keep", vim.deepcopy(saved_ui or {}), vim.deepcopy(Config.defaults.ui))
+		local cfg = vim.deepcopy(Config.ui.calendar)
+		local state = { current_date = require("zortex.utils.datetime").parse_date("2026-10-27") }
+		local ok, lines = pcall(render.month, state.current_date, state, cfg, 80)
+		Config.ui = saved_ui
+		assert(ok, lines)
+		local order = {}
+		for _, l in ipairs(lines) do
+			for _, want in ipairs({ "1.4 - zortex", "Improve website", "Write the docs", "Lunch", "Buy milk" }) do
+				if l:find(want, 1, true) then
+					order[#order + 1] = want
+				end
+			end
+		end
+		T.eq(order, { "1.4 - zortex", "Improve website", "Write the docs", "Lunch", "Buy milk" })
+	end)
+end)

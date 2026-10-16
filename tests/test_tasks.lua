@@ -62,3 +62,37 @@ T.test("toggling never turns structure into a task", function()
 		T.ok(err and err:find("not a task"), tostring(err))
 	end
 end)
+
+T.test("toggle on a project heading marks the project done; open tasks ask first", function()
+	vim.cmd("edit! " .. vim.fn.fnameescape(T.fixture("projects.zortex")))
+	local bufnr = vim.api.nvim_get_current_buf()
+	local today = os.date("%Y-%m-%d")
+	local select, asked = vim.ui.select, nil
+	local answer = "Cancel"
+	vim.ui.select = function(items, opts, on_choice)
+		asked = opts.prompt
+		on_choice(answer)
+	end
+	local ok, err = pcall(function()
+		vim.api.nvim_win_set_cursor(0, { 14, 0 }) -- "## 1.4 - zortex @size(lg) @a(4.1)", open tasks
+		local p = tasks.toggle_current_task()
+		T.ok(p and p.name == "1.4 - zortex", "the project")
+		T.ok(asked and asked:find("open task"), asked)
+		T.eq(vim.api.nvim_buf_get_lines(bufnr, 13, 14, false)[1], "## 1.4 - zortex @size(lg) @a(4.1)") -- declined
+		answer = "Mark it done"
+		tasks.toggle_current_task()
+		T.eq(vim.api.nvim_buf_get_lines(bufnr, 13, 14, false)[1], "## 1.4 - zortex @size(lg) @a(4.1) @done(" .. today .. ")")
+		-- again: reopened, no question
+		asked = nil
+		tasks.toggle_current_task()
+		T.eq(asked, nil)
+		T.eq(vim.api.nvim_buf_get_lines(bufnr, 13, 14, false)[1], "## 1.4 - zortex @size(lg) @a(4.1)")
+		-- a heading that isn't a project (the note's own title) is still refused
+		vim.api.nvim_win_set_cursor(0, { 1, 0 })
+		local t, e = tasks.toggle_current_task()
+		T.ok(t == nil and e, "not a task")
+	end)
+	vim.ui.select = select
+	vim.cmd("silent! bwipeout! " .. bufnr)
+	assert(ok, err)
+end)

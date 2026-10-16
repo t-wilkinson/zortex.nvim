@@ -318,7 +318,7 @@ M.list = {
 		command = "TaskToggle",
 		key = "T",
 		group = "Tasks",
-		desc = "Toggle the task on this line (makes one if needed)",
+		desc = "Toggle the task on this line (makes one if needed); on a project heading, mark the project done",
 		run = call("zortex.services.tasks", "toggle_current_task"),
 	},
 	{

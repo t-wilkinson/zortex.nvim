@@ -161,7 +161,8 @@ Special notes:
   and what you open often ranks higher. A note's file name is one more
   alias of its articles (`okr` finds `@@Objectives` in `okr.zortex`). `<leader>z/` searches plain text in
   every line instead; `<M-t>` in the picker cycles section, article and text
-  search.
+  search (`ui.search.keys.cycle_mode` changes the key, e.g. `<M-m>` when a
+  terminal or zellij takes `<M-t>`).
 - **which-key**: when [which-key.nvim](https://github.com/folke/which-key.nvim)
   is installed, `<leader>z` shows as "Zortex" and its sub-prefixes by name
   (`<leader>zC` "Calendar & digest", `<leader>zx` "XP", ...); rename them
@@ -262,7 +263,7 @@ require("zortex").setup({
 
 | Command | Keys | Action id | Does |
 |---|---|---|---|
-| `:ZortexTaskToggle` | `<leader>zT` | `task_toggle` | Toggle the task on this line (makes one if needed) |
+| `:ZortexTaskToggle` | `<leader>zT` | `task_toggle` | Toggle the task on this line (makes one if needed); on a project heading, mark the project done |
 | `:ZortexTaskComplete` | `<leader>ztc` | `task_complete` | Complete the task on this line |
 | `:ZortexTaskUncomplete` | `<leader>ztu` | `task_uncomplete` | Reopen the task on this line |
 | `:ZortexTaskConvert` | `<leader>ztt` | `task_convert` | Turn this line into a task |
@@ -342,8 +343,9 @@ Inside the calendar view: `h/j/k/l` days and weeks, `H/J/K/L` years and
 months, `t` today, `a` add, `<CR>` entries, `v` toggle month/week, `d`
 digest panel, `/` search the entries, `gf` go to the file, `n` sync
 notifications, `?` help, `q` close (`ui.calendar.keymaps`). In the review
-buffer: `<CR>` jump to the source, `gx`/`K` follow or preview, `r` refresh,
-`q` close.
+buffer: `<CR>` jump to the source, `f` add a project to the week's focus,
+`gx`/`K` follow or preview, `r` refresh, `q` close. The plan and review
+buffers list their keys with `?`.
 
 ### Pickers and completion
 
@@ -361,7 +363,7 @@ list.
 
 | picker   | keys                                                                                                     |
 | -------- | -------------------------------------------------------------------------------------------------------- |
-| search   | `<C-o>` new note named after the query, `<M-t>` cycle section / article / text search                     |
+| search   | `<C-o>` new note named after the query, `<M-t>` cycle section / article / text search (`ui.search.keys`; shown in the title) |
 | projects | `<C-l>` insert the link, `<C-y>` yank it, `<M-s>` cycle the sort, `<M-d>` show done, `<M-e>` leaf only     |
 | follow   | `<C-l>` go to the link's line instead of following it                                                    |
 

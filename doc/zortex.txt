@@ -470,6 +470,14 @@ setup() merges your options over these defaults: >lua
         planner = {
           todo_link = "P/#TODOs", -- tasks under this project rank higher
           max_tasks = 30,
+          project_tasks = 3, -- P puts a project's next this many open tasks on the day (5P: five)
+          -- The capacity line: open tasks on the day (their @size hours) against
+          -- the free time left in `day`, after timed entries that aren't project
+          -- work (lectures, appointments; one without an end counts event_minutes)
+          capacity = {
+            day = { "08:00", "22:00" },
+            event_minutes = 30,
+          },
           width = 70, -- plan window width
           advance = false, -- after a put, move the calendar cursor to the next line
           -- :ZortexPlan for today copies the open tasks of the days before
@@ -579,6 +587,21 @@ setup() merges your options over these defaults: >lua
             help = { "?" },
           },
         },
+      },
+
+      -- Reviews are written in reviews.zortex, one "# 2026-W43" entry per week
+      -- with its days ("## 2026-10-21") inside, newest first. :ZortexReview opens
+      -- the entry next to the generated findings (services/review, ui/review).
+      review = {
+        -- a weekly review from this day on plans the next week ("saturday":
+        -- Saturday and Sunday reviews pick the coming week's focus)
+        next_week_from = "saturday",
+        -- a new week's lines; the projects linked under "Focus:" are the week's
+        -- focus, ranked first by the planner
+        week = { "Focus:", "", "Wins:", "", "Lessons:" },
+        -- a new day's lines
+        day = { "Done:", "Blocked:", "First thing tomorrow:" },
+        width = 80, -- findings window width
       },
 
       -- XP is read off the notes (services/xp/ledger): completed tasks with their

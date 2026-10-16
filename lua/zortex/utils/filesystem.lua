@@ -146,4 +146,8 @@ function M.get_inbox_file()
 	return M.get_file_path(constants.FILES.INBOX)
 end
 
+function M.get_reviews_file()
+	return M.get_file_path(constants.FILES.REVIEWS)
+end
+
 return M

@@ -11,6 +11,7 @@ M.FILES = {
 	DIGEST = "digest.zortex",
 	STRUCTURE = "structure.zortex",
 	INBOX = "inbox.zortex",
+	REVIEWS = "reviews.zortex",
 	PROJECTS_ARCHIVE = "z/archive.projects.zortex",
 
 	-- User library

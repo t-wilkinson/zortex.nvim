@@ -255,6 +255,8 @@ end
 ---   objectives_without_krs  open objectives without key results
 ---   areas_without_projects  areas with no active project (sub-areas count)
 ---   broken_links            links that resolve nowhere
+---   put_off                 open tasks planned on 2+ earlier days and not
+---                           done (M.put_off), most often first
 --- and, for the plan behind the work:
 ---   objectives              current objectives: { objective, progress,
 ---                           expected (share of its window passed), krs =
@@ -389,8 +391,54 @@ function M.review(opts)
 
 	r.broken_links = require("zortex.core.link_index").unresolved()
 	r.mirror_issues = require("zortex.services.mirrors").issues()
+	r.put_off = M.put_off(today)
 	M.plan_findings(r, today)
 	return r
+end
+
+--- Open tasks that were on the calendar and not done on at least `min`
+--- earlier days (default 2), most often first: { id, count, text, task?,
+--- project?, file, lnum } (the project task when it is one, else the
+--- latest open calendar line).
+function M.put_off(today, min)
+	local mirrors = require("zortex.services.mirrors")
+	local ids = mirrors.project_ids()
+	local out = {}
+	for id, c in pairs(mirrors.copies(today)) do
+		if c.put_off >= (min or 2) and not c.done then
+			local pt = ids[id]
+			if pt then
+				if not pt.task.completed then
+					out[#out + 1] = {
+						id = id,
+						count = c.put_off,
+						text = pt.task.text,
+						task = pt.task,
+						project = pt.project,
+						file = pt.file,
+						lnum = pt.lnum,
+					}
+				end
+			else
+				local last
+				for _, t in ipairs(c.lines) do
+					if t.mark == " " then
+						last = t
+					end
+				end
+				if last then
+					out[#out + 1] = { id = id, count = c.put_off, text = last.text, file = last.file, lnum = last.lnum }
+				end
+			end
+		end
+	end
+	table.sort(out, function(a, b)
+		if a.count ~= b.count then
+			return a.count > b.count
+		end
+		return (a.text or "") < (b.text or "")
+	end)
+	return out
 end
 
 -- =============================================================================

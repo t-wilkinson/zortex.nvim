@@ -391,13 +391,21 @@ function M.search_lines(lines, component, start_line, end_line)
 		-- starts with the component text (case-insensitive); a markdown
 		-- link counts as its text ("- [The Rust Book](…)")
 		local want = vim.trim(component.text):lower()
+		-- "-aB3x9": a task's @id too (exactly), so a link survives renames
+		local id = vim.trim(component.text)
+		local id_attr = id:match("^[%w_%-]+$") and ("@id(" .. id .. ")") or nil
 		for lnum = start_line or 1, math.min(end_line or #lines, #lines) do
 			local line = lines[lnum]
 			local it = line:find("%S") and syntax.item(line)
 			if it then
 				local key = it.key and it.key:lower()
 				local body = syntax.strip_attributes(M.link_text(line, it.content_col)):lower()
-				if key == want or body:sub(1, #want) == want or (key and key:sub(1, #want) == want) then
+				if
+					key == want
+					or body:sub(1, #want) == want
+					or (key and key:sub(1, #want) == want)
+					or (id_attr and line:find(id_attr, 1, true))
+				then
 					out[#out + 1] = { lnum = lnum, col = (it.marker_col or 0) + 1 }
 				end
 			end

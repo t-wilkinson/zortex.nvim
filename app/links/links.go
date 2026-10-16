@@ -293,7 +293,9 @@ func highlightCol(line, text string) int {
 	return 0
 }
 
-func listItemMatch(line, want string) (int, bool) {
+// listItemMatch: want is the component lower-cased; idAttr "@id(aB3x9)" (or
+// "") matches a task's @id exactly, so a link survives renames.
+func listItemMatch(line, want, idAttr string) (int, bool) {
 	if syntax.Trim(line) == "" {
 		return 0, false
 	}
@@ -303,10 +305,26 @@ func listItemMatch(line, want string) (int, bool) {
 	}
 	key := syntax.Lower(it.Key)
 	body := syntax.Lower(syntax.StripAttributes(LinkText(line, it.ContentCol)))
-	if (it.Key != "" && key == want) || strings.HasPrefix(body, want) || (it.Key != "" && strings.HasPrefix(key, want)) {
+	if (it.Key != "" && key == want) || strings.HasPrefix(body, want) || (it.Key != "" && strings.HasPrefix(key, want)) ||
+		(idAttr != "" && strings.Contains(line, idAttr)) {
 		return it.MarkerCol + 1, true
 	}
 	return 0, false
+}
+
+// idAttrOf: "@id(text)" when text could be a task id (word characters and
+// dashes), else "".
+func idAttrOf(text string) string {
+	if text == "" {
+		return ""
+	}
+	for i := 0; i < len(text); i++ {
+		c := text[i]
+		if !(isAlnum(c) || c == '_' || c == '-') {
+			return ""
+		}
+	}
+	return "@id(" + text + ")"
 }
 
 func hasUpper(s string) bool {
@@ -331,8 +349,9 @@ func SearchLines(lines []string, c Component, start, end int) []Match {
 	var out []Match
 	if c.Type == "listitem" {
 		want := syntax.Lower(syntax.Trim(c.Text))
+		idAttr := idAttrOf(syntax.Trim(c.Text))
 		for lnum := start; lnum <= end; lnum++ {
-			if col, ok := listItemMatch(lines[lnum-1], want); ok {
+			if col, ok := listItemMatch(lines[lnum-1], want, idAttr); ok {
 				out = append(out, Match{Lnum: lnum, Col: col})
 			}
 		}

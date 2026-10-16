@@ -41,7 +41,15 @@
     {
       "content_col": 6,
       "indent": 0,
-      "inline": [],
+      "inline": [
+        {
+          "e": 31,
+          "key": "id",
+          "s": 21,
+          "type": "attribute",
+          "value": "tom01"
+        }
+      ],
       "item": {
         "content_col": 6,
         "mark": " ",

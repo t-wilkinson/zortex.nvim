@@ -1789,6 +1789,31 @@
     "results": []
   },
   {
+    "link": "[Garden/-tom01]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 4,
+        "rel": "z/garden.zortex"
+      }
+    ]
+  },
+  {
+    "error": "No matches found for: -TOM01",
+    "link": "[Garden/-TOM01]",
+    "results": []
+  },
+  {
+    "link": "[@P/-tom01]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 4,
+        "rel": "z/garden.zortex"
+      }
+    ]
+  },
+  {
     "link": "[Garden/:What to plant]",
     "results": [
       {

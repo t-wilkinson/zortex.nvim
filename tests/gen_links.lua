@@ -111,6 +111,10 @@ M.EXTRA_LINKS = {
 	{ link = "@[/#AI/rl]", from = "z/resources.zortex" },
 	{ link = "P/#1.4" },
 	{ link = "[]" },
+	-- a "-" component finds a task by its @id too, exactly
+	{ link = "[Garden/-tom01]" },
+	{ link = "[Garden/-TOM01]" },
+	{ link = "[@P/-tom01]" },
 	-- a longer label is written between stars; a long plain one is text
 	{ link = "[Garden/:What to plant]" },
 	{ link = "[Garden/:What to plant/-beans]" },

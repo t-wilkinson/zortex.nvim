@@ -1,0 +1,24 @@
+{{define "content"}}
+<section class="narrow wide projects-page">
+  <h1>Projects</h1>
+
+  <h2 class="section-title">{{if .Week}}Focus · {{.Week}}{{else}}Focus{{end}}</h2>
+  {{if .Focus}}
+  {{if .Earlier}}<p class="dim small">No focus picked this week yet; {{.Week}}'s carries on until the weekly review picks new ones (<code>:ZortexReview</code>, <kbd>f</kbd>).</p>{{end}}
+  <ul class="prows">{{range .Focus}}{{template "projectRow" .}}{{end}}</ul>
+  {{else}}
+  <p class="dim">None picked. In Neovim, <code>:ZortexReview</code> opens the week; <kbd>f</kbd> on a project makes it a focus project, and the day planner ranks its tasks first.</p>
+  {{end}}
+
+  <h2 class="section-title">With open tasks</h2>
+  {{if .Active}}<ul class="prows">{{range .Active}}{{template "projectRow" .}}{{end}}</ul>{{else}}<p class="dim">Nothing open.</p>{{end}}
+
+  {{if .Quiet}}
+  <h2 class="section-title">No next action</h2>
+  <p class="dim small">Projects without an open task: add the next step, or mark them done.</p>
+  <ul class="prows">{{range .Quiet}}{{template "projectRow" .}}{{end}}</ul>
+  {{end}}
+
+  {{if .Done}}<p class="dim small">{{.Done}} done.</p>{{end}}
+</section>
+{{end}}

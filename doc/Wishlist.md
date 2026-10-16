@@ -40,10 +40,11 @@ edit through `core/workspace`, then `r` refresh):
 | area without projects | `p` create a project heading with `@a(…)` for the area |
 | broken link | `f` fix: structural search with the link text as the prompt, replace the link with the chosen result's canonical link |
 
-**Plan the week.** A second pass after the findings: list open tasks of
-active projects (sorted by `projects/score`), pick some with `<Tab>`, choose
-days, and write them as calendar entries linked to their project. This is
-where the calendar becomes the plan, not just a log.
+**Plan the week.** Partly done: the weekly review opens the week's entry
+in `reviews.zortex`, and `f` picks its focus projects, which the planner
+ranks first ([Planning](Planning.md#the-week)). Still to do: a second pass
+that lists the focus projects' open tasks, picks some with `<Tab>`, chooses
+days, and writes them as calendar entries linked to their project.
 
 **Review history.** On closing a review, save a snapshot to
 `.z/reviews.json` (`core/state`): date, counts per finding, points completed
@@ -286,8 +287,10 @@ two resolvers in sync becomes the main cost, **D** is the natural next step;
 4. **Domain views — partly done:** the home page has the calendar (with
    notifications), the pomodoro, timers, alarms and a stopwatch, time
    tracking, season XP and the Structure check; notes can be edited
-   (`-writable`) and update live. Still to do: projects, OKR progress, the
-   weekly review and the area overview, using the `zortex.query` shapes.
+   (`-writable`) and update live. Project pages (`/projects`, `/project`)
+   show progress, the key results a project moves, its log and calendar
+   history. Still to do: OKR progress on its own page, the weekly review
+   and the area overview.
 
 ### Open questions
 

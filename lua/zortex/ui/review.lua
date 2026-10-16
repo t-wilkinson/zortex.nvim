@@ -1,22 +1,29 @@
--- ui/review.lua - The daily and weekly review buffers
+-- ui/review.lua - The daily and weekly review: your notes and the findings
 --
--- :ZortexReview [day|week|N] renders services/agenda.review() into a read-only,
--- Zortex-highlighted scratch buffer (zortex://review). Every finding links to
--- its project, area or objective, so gx / K (preview) work as in any note.
+-- :ZortexReview [day|week|N] opens the review's entry in reviews.zortex (made
+-- when missing, services/review) with the findings of
+-- services/agenda.review() beside it in a read-only, Zortex-highlighted
+-- scratch buffer (zortex://review). What you write goes in the note; the
+-- findings are regenerated each time and never written anywhere. Every
+-- finding links to its project, area or objective, so gx / K (preview) work
+-- as in any note.
 --
 --   <CR>   jump to the finding's source line (task, calendar entry, heading)
+--   f      on a project: add it to (or take it out of) the week's focus
+--   <Tab>  go to the reviews note
 --   gx     follow the link on the line
 --   K      preview the link on the line
 --   r      refresh (re-reads the notes)
 --   q      close
 --
--- render(review) is pure: it returns the lines and a line -> location map,
--- so other front ends (the digest, an app) can reuse the same layout.
+-- render(review) is pure: it returns the lines, a line -> location map and a
+-- line -> entity map, so other front ends (the digest, an app) can reuse the
+-- same layout.
 local M = {}
 
 local BUF_NAME = "zortex://review"
 
-local state = { bufnr = nil, days = 7, scope = "week", locations = {} }
+local state = { bufnr = nil, win = nil, note_win = nil, days = 7, scope = "week", locations = {}, entities = {} }
 
 local function rel(path)
 	local dir = require("zortex.config").notes_dir or ""
@@ -69,21 +76,42 @@ local function inbox_line(x)
 end
 
 local function entity_line(e, suffix)
-	return "- " .. (e.link or e.name) .. (suffix and (" " .. vim.trim(suffix)) or ""), { file = e.file, lnum = e.lnum }
+	return "- " .. (e.link or e.name) .. (suffix and (" " .. vim.trim(suffix)) or ""), { file = e.file, lnum = e.lnum }, e
 end
 
---- Lines and line -> { file, lnum } locations for a review.
+local function is_project(e)
+	return type(e) == "table" and type(e.link) == "string" and e.link:sub(1, 3) == "[P/" and e.rollup ~= nil
+end
+
+-- "- ×4 Lap the valves [P/#3.1 Rebuild the engine]"
+local function put_off_line(x)
+	local line = string.format("- ×%d %s", x.count, x.text or "")
+	if x.project and x.project.link then
+		line = line .. " " .. x.project.link
+	elseif x.file then
+		line = line .. " (calendar)"
+	end
+	return line, { file = x.file, lnum = x.lnum }
+end
+
+--- Lines, line -> { file, lnum } locations and line -> entity (projects,
+--- areas, objectives) for a review. r.week, r.focus (that week's focus
+--- projects) and r.active (active projects, best first) add the week's
+--- section.
 ---@param r table result of agenda.review()
 ---@param opts { days?: integer }?
----@return string[] lines, table<integer, { file: string, lnum: integer }> locations
+---@return string[] lines, table<integer, { file: string, lnum: integer }> locations, table<integer, table> entities
 function M.render(r, opts)
 	opts = opts or {}
-	local lines, locations = {}, {}
+	local lines, locations, entities = {}, {}, {}
 
-	local function add(line, loc)
+	local function add(line, loc, entity)
 		lines[#lines + 1] = line
 		if loc and loc.file and loc.lnum then
 			locations[#lines] = loc
+		end
+		if entity then
+			entities[#lines] = entity
 		end
 	end
 
@@ -109,7 +137,7 @@ function M.render(r, opts)
 
 	if r.scope == "day" then
 		M.render_day(r, add, section)
-		return lines, locations
+		return lines, locations, entities
 	end
 
 	add("@@Weekly Review")
@@ -126,6 +154,7 @@ function M.render(r, opts)
 		)
 	)
 	M.render_inbox(r, section)
+	M.render_week(r, add, section)
 
 	M.render_plan(r, add, section)
 
@@ -183,7 +212,31 @@ function M.render(r, opts)
 		end)
 	end
 
-	return lines, locations
+	return lines, locations, entities
+end
+
+--- The week being planned: its focus projects, tasks put off again and
+--- again, and the active projects to pick the focus from (f).
+function M.render_week(r, add, section)
+	if not r.week then
+		return
+	end
+	local focused = {}
+	for _, p in ipairs(r.focus or {}) do
+		focused[p.key] = true
+	end
+	add("")
+	add("# Week " .. r.week)
+	section("Focus (f on a project adds or removes it)", r.focus or {}, function(p)
+		return entity_line(p, project_summary(p))
+	end, "  none yet: press f on a project below")
+	section("Put off on 2+ days: do it, shrink it, or drop it", r.put_off or {}, put_off_line)
+	local active = vim.tbl_filter(function(p)
+		return not focused[p.key]
+	end, r.active or {})
+	section("Active projects", active, function(p)
+		return entity_line(p, project_summary(p))
+	end)
 end
 
 local function pct(x)
@@ -291,6 +344,14 @@ function M.render_day(r, add, section)
 		)
 	)
 	M.render_inbox(r, section)
+	if r.week then
+		section("Focus " .. r.week, r.focus or {}, function(p)
+			return entity_line(p, project_summary(p))
+		end, "  none: pick some in the weekly review (:ZortexReview)")
+	end
+	if r.put_off and #r.put_off > 0 then
+		section("Put off on 2+ days: do it, shrink it, or drop it", r.put_off, put_off_line)
+	end
 	M.render_plan(r, add, section, { brief = false })
 	add("")
 	add("# Day")
@@ -304,15 +365,53 @@ end
 -- Buffer
 -- =============================================================================
 
+local function note_window()
+	if state.note_win and vim.api.nvim_win_is_valid(state.note_win) then
+		return state.note_win
+	end
+	return nil
+end
+
 local function jump()
 	local loc = state.locations[vim.api.nvim_win_get_cursor(0)[1]]
 	if not loc then
 		return
 	end
+	-- open it where the reviews note is, keeping the findings
+	local win = note_window()
+	if win then
+		vim.api.nvim_set_current_win(win)
+	end
 	vim.cmd("edit " .. vim.fn.fnameescape(loc.file))
 	local last = vim.api.nvim_buf_line_count(0)
 	vim.api.nvim_win_set_cursor(0, { math.max(1, math.min(loc.lnum, last)), 0 })
 	vim.cmd("normal! zv")
+end
+
+--- f: add the project on the cursor line to the week's focus, or take it
+--- out.
+function M.toggle_focus()
+	local e = state.entities[vim.api.nvim_win_get_cursor(0)[1]]
+	if not is_project(e) then
+		vim.api.nvim_echo({ { "Not a project line", "WarningMsg" } }, false, {})
+		return
+	end
+	local review = require("zortex.services.review")
+	local week = state.week or review.review_week(state.today)
+	-- the note open without unsaved changes: save the change too, so the
+	-- web app and other devices see the focus
+	local nb = vim.fn.bufnr(vim.fn.fnamemodify(review.path(), ":p"))
+	local clean = nb > 0 and vim.api.nvim_buf_is_loaded(nb) and not vim.bo[nb].modified
+	local added = review.toggle_focus(week, e)
+	if clean then
+		pcall(vim.api.nvim_buf_call, nb, function()
+			vim.cmd("silent write")
+		end)
+	end
+	M.refresh()
+	vim.api.nvim_echo({
+		{ string.format("%s %s %s's focus", e.link, added and "added to" or "taken out of", week), "Comment" },
+	}, false, {})
 end
 
 local function get_buffer()
@@ -332,6 +431,13 @@ local function get_buffer()
 		vim.keymap.set("n", lhs, fn, { buffer = buf, nowait = true, silent = true, desc = desc })
 	end
 	map("<CR>", jump, "Zortex review: jump to source")
+	map("f", M.toggle_focus, "Zortex review: add the project to the week's focus (or take it out)")
+	map("<Tab>", function()
+		local win = note_window()
+		if win then
+			vim.api.nvim_set_current_win(win)
+		end
+	end, "Zortex review: go to the reviews note")
 	map("gx", function()
 		require("zortex.features.links").open_link()
 	end, "Zortex review: follow link")
@@ -342,47 +448,120 @@ local function get_buffer()
 		M.refresh()
 	end, "Zortex review: refresh")
 	map("q", function()
-		vim.cmd("bdelete")
+		M.close()
 	end, "Zortex review: close")
 
 	state.bufnr = buf
 	return buf
 end
 
---- Re-render the review buffer (if open).
+-- Active projects for picking the week's focus: open work, best first
+local function active_projects()
+	local projects = require("zortex.services.projects")
+	local list = projects.all({
+		filter = function(p)
+			return not p:is_root() and not p:is_done() and p:rollup().open > 0
+		end,
+	})
+	require("zortex.services.projects.score").sort(list, "score")
+	return vim.list_slice(list, 1, 20)
+end
+
+--- Re-render the findings (if open).
 function M.refresh()
 	local buf = state.bufnr
 	if not (buf and vim.api.nvim_buf_is_valid(buf)) then
 		return
 	end
 	local agenda = require("zortex.services.agenda")
+	local review = require("zortex.services.review")
 	local r = agenda.review({ days = state.days, today = state.today, scope = state.scope, from = state.from })
 	if state.scope == "day" then
 		-- refreshing keeps the window; the next day's review starts after it
 		state.from = r.from
 		agenda.mark_day_reviewed(r.today, r.from)
+		r.week = review.week_of(r.today)
+		local f = review.focus(r.today)
+		r.focus = f and f.projects or {}
+		if f and f.from_earlier then
+			r.week = f.week
+		end
+	else
+		r.week = state.week
+		r.focus = review.week_focus(state.week)
+		r.active = active_projects()
 	end
-	local lines, locations = M.render(r)
-	state.locations = locations
+	local lines, locations, entities = M.render(r)
+	state.locations, state.entities = locations, entities
+	local view = state.win and vim.api.nvim_win_is_valid(state.win) and vim.api.nvim_win_get_buf(state.win) == buf
+		and vim.api.nvim_win_get_cursor(state.win)
 	vim.bo[buf].modifiable = true
 	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
 	vim.bo[buf].modifiable = false
 	vim.bo[buf].modified = false
+	if view then
+		pcall(vim.api.nvim_win_set_cursor, state.win, { math.min(view[1], #lines), 0 })
+	end
 	pcall(require("zortex.features.highlights").highlight_buffer, buf)
 end
 
+function M.close()
+	if state.win and vim.api.nvim_win_is_valid(state.win) and #vim.api.nvim_list_wins() > 1 then
+		vim.api.nvim_win_close(state.win, true)
+	elseif state.bufnr and vim.api.nvim_buf_is_valid(state.bufnr) then
+		vim.api.nvim_buf_delete(state.bufnr, { force = true })
+		state.bufnr = nil
+	end
+	state.win = nil
+end
+
 --- Open a review: scope "day" (since the last daily review) or "week"
---- (default: last and next `days`, 7).
----@param opts { days?: integer, today?: string, scope?: "day"|"week" }?
----@return integer bufnr
+--- (default: last and next `days`, 7). The reviews note opens at the
+--- entry (made when missing), the findings beside it.
+---@param opts { days?: integer, today?: string, scope?: "day"|"week", note?: boolean }?
+---@return integer bufnr the findings buffer
 function M.open(opts)
 	opts = opts or {}
+	local review = require("zortex.services.review")
 	state.days = opts.days or 7
 	state.today = opts.today
 	state.scope = opts.scope or "week"
 	state.from = nil
+	local today = opts.today or os.date("%Y-%m-%d")
+	state.week = state.scope == "week" and review.review_week(today) or review.week_of(today)
+
+	-- the reviews note at the entry
+	if opts.note ~= false then
+		local lnum = state.scope == "day" and review.ensure_day(today) or review.ensure_week(state.week)
+		local path = review.path()
+		local win = note_window()
+		if win then
+			vim.api.nvim_set_current_win(win)
+		end
+		-- the note may be open with unsaved changes: show its buffer as is
+		local nb = vim.fn.bufadd(vim.fn.fnamemodify(path, ":p"))
+		vim.fn.bufload(nb)
+		vim.bo[nb].buflisted = true
+		vim.api.nvim_win_set_buf(0, nb)
+		state.note_win = vim.api.nvim_get_current_win()
+		local last = vim.api.nvim_buf_line_count(0)
+		vim.api.nvim_win_set_cursor(0, { math.min(lnum, last), 0 })
+		vim.cmd("normal! zvzt")
+	end
+
+	-- the findings beside it
 	local buf = get_buffer()
-	vim.api.nvim_set_current_buf(buf)
+	if opts.note == false then
+		state.win = vim.api.nvim_get_current_win()
+	elseif not (state.win and vim.api.nvim_win_is_valid(state.win)) or state.win == state.note_win then
+		vim.cmd("rightbelow vsplit")
+		state.win = vim.api.nvim_get_current_win()
+		local width = (require("zortex.config").review or {}).width or 80
+		vim.api.nvim_win_set_width(state.win, math.min(width, math.floor(vim.o.columns / 2)))
+		vim.wo[state.win].wrap = false
+	end
+	vim.api.nvim_win_set_buf(state.win, buf)
+	vim.api.nvim_set_current_win(state.win)
 	M.refresh()
 	return buf
 end

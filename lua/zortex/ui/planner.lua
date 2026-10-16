@@ -24,8 +24,9 @@
 --   p          add it to the day: a task as a copy (under its project's block
 --              when the day has one), anything else as "- text"; stay here
 --              (walk the list adding what you want)
---   P          on a project (or a task): a block for the project with all of
---              its open tasks copied under it
+--   P          on a project (or a task): a block for the project with its
+--              next open tasks copied under it (ui.planner.project_tasks,
+--              default 3; 5P for five)
 --   i / o / O  put the text on the current / next / previous calendar line
 --              (no marker added) and jump there in insert mode at the start of
 --              the line, ready to type a time ("09:00 ")
@@ -73,7 +74,12 @@ function M.render(candidates, date)
 			add(c.text, c)
 		end
 	end
-	lines[#lines + 1] = "@@Plan " .. (date or "")
+	add("@@Plan " .. (date or ""), nil, {
+		candidates.focus_week and ("focus: " .. candidates.focus_week) or "no focus projects picked (:ZortexReview week)",
+	})
+	if candidates.capacity_line then
+		add(candidates.capacity_line, nil, candidates.capacity_badges)
+	end
 
 	local groups = candidates.groups or {}
 	lines[#lines + 1] = ""
@@ -143,6 +149,7 @@ function M.put()
 	local new, end_col = planner.put(line, col, item.text)
 	require("zortex.core.workspace").set_line(buf, row, new)
 	vim.api.nvim_win_set_cursor(win, { row, math.max(0, end_col) })
+	M.update_capacity()
 	if cfg().advance then
 		local last = vim.api.nvim_buf_line_count(buf)
 		vim.api.nvim_win_set_cursor(win, { math.min(row + 1, last), 0 })
@@ -191,6 +198,7 @@ function M.append()
 		if at and win then
 			vim.api.nvim_win_set_cursor(win, { at, 0 })
 		end
+		M.update_capacity()
 		vim.api.nvim_echo({ { (added and "Added to " or "Already on ") .. state.date .. ": " .. item.text, "Comment" } }, false, {})
 		return
 	end
@@ -209,21 +217,25 @@ function M.append()
 	if win then
 		vim.api.nvim_win_set_cursor(win, { at, 0 })
 	end
+	M.update_capacity()
 	vim.api.nvim_echo({ { "Added to " .. state.date .. ": " .. item.text, "Comment" } }, false, {})
 end
 
 --- Add the project of the candidate (a project, or a task's project) to the
---- planned day as a block with all of its open tasks copied under it.
+--- planned day as a block with its next open tasks copied under it
+--- (ui.planner.project_tasks, or a count: 5P).
 function M.append_project()
 	local item = current_item()
 	if not item or not state.date or not item.project_key then
 		return M.append()
 	end
-	local at, added = planner.add_project(state.date, item)
+	local count = vim.v.count > 0 and vim.v.count or nil
+	local at, added = planner.add_project(state.date, item, { count = count })
 	local win = calendar_window()
 	if at and win then
 		vim.api.nvim_win_set_cursor(win, { at, 0 })
 	end
+	M.update_capacity()
 	vim.api.nvim_echo({
 		{ string.format("%s on %s: %d task%s added", item.project_link or item.text, state.date, added, added == 1 and "" or "s"), "Comment" },
 	}, false, {})
@@ -269,7 +281,7 @@ local function plan_buffer()
 		M.place("previous")
 	end, "put on a new line above, then type a time")
 	map("p", M.append, "add to the day (a task as a copy, under its project's block if there is one)")
-	map("P", M.append_project, "add the project with its open tasks")
+	map("P", M.append_project, "add the project with its next open tasks (a count: how many)")
 	map("<C-n>", function()
 		move_calendar(1)
 	end, "calendar cursor down")
@@ -298,13 +310,48 @@ local function plan_buffer()
 	return buf
 end
 
+local CAPACITY_LNUM = 2
+
+local function capacity_line()
+	local ok, c = pcall(planner.capacity, state.date)
+	if not ok or not c then
+		return nil, nil
+	end
+	local badges = {}
+	if c.over > 0 then
+		badges[1] = "more than fits: move some to another day"
+	end
+	return planner.capacity_line(c), badges
+end
+
+--- Redraw the capacity line only (after putting something on the day, or
+--- an edit in the calendar).
+function M.update_capacity()
+	local buf = state.buf
+	if not (buf and vim.api.nvim_buf_is_valid(buf) and state.date) then
+		return
+	end
+	local text, b = capacity_line()
+	if not text or vim.api.nvim_buf_line_count(buf) < CAPACITY_LNUM then
+		return
+	end
+	vim.bo[buf].modifiable = true
+	vim.api.nvim_buf_set_lines(buf, CAPACITY_LNUM - 1, CAPACITY_LNUM, false, { text })
+	vim.bo[buf].modifiable = false
+	state.badges = state.badges or {}
+	state.badges[CAPACITY_LNUM] = table.concat(b or {}, " · ")
+	paint(buf, state.badges)
+end
+
 function M.refresh()
 	local buf = state.buf
 	if not (buf and vim.api.nvim_buf_is_valid(buf)) then
 		return
 	end
-	local lines, badges, items = M.render(planner.candidates({ today = state.date }), state.date)
-	state.items = items
+	local candidates = planner.candidates({ today = state.date })
+	candidates.capacity_line, candidates.capacity_badges = capacity_line()
+	local lines, badges, items = M.render(candidates, state.date)
+	state.items, state.badges = items, badges
 	vim.bo[buf].modifiable = true
 	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
 	vim.bo[buf].modifiable = false
@@ -346,6 +393,17 @@ function M.open(opts)
 	local last = vim.api.nvim_buf_line_count(state.cal_buf)
 	vim.api.nvim_win_set_cursor(state.cal_win, { math.min(heading + 1, last), 0 })
 	vim.cmd("normal! zvzt")
+	-- editing the day by hand keeps the capacity line current
+	local group = vim.api.nvim_create_augroup("ZortexPlanCapacity", { clear = true })
+	vim.api.nvim_create_autocmd({ "TextChanged", "InsertLeave" }, {
+		group = group,
+		buffer = state.cal_buf,
+		callback = function()
+			if state.buf and vim.api.nvim_buf_is_valid(state.buf) and vim.fn.bufwinid(state.buf) ~= -1 then
+				M.update_capacity()
+			end
+		end,
+	})
 
 	-- Candidates on the right
 	local buf = plan_buffer()

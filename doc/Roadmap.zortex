@@ -72,7 +72,8 @@ Things that break or embarrass a first-time user. Do these before telling anyone
 
 ## 3.4 Web app
 - [x] No login by design; add an optional `-basic-auth-file` for people without a proxy, or make the warning impossible to miss (-auth-file / ZORTEX_AUTH, and a warning) @p2 @size(sm) @done(2026-10-13)
-- [ ] Domain views (Wishlist # 6 phase 4): projects, OKR progress, weekly review @p3 @size(lg)
+- [x] Project pages: progress, next tasks, key results, log, calendar history @p3 @size(md) @done(2026-10-16)
+- [ ] Domain views (Wishlist # 6 phase 4): OKR progress, weekly review @p3 @size(lg)
 - [ ] Search history on the web, kept apart from `.z/search_history.json` (open question in the wishlist) @p3 @size(sm)
 
 ## 3.5 Syntax: one way to write each thing

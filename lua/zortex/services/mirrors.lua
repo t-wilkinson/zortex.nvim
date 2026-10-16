@@ -78,54 +78,75 @@ function M.calendar_doc()
 	return Document().get(path)
 end
 
+local DATE_LINE = "^(%d%d%d%d%-%d%d%-%d%d):%s*$"
+
 --- Calendar tasks with an @id: id -> { lines = { Item }, done, date (the
---- earliest @done value of a checked copy), spent (minutes) }. Cached on the
---- calendar snapshot.
-function M.copies()
+--- earliest @done value of a checked copy), spent (minutes), put_off }.
+--- put_off is how many earlier days (before `today`) had the task planned
+--- and not done: a copy there carried on ([>]) or left open. Cached on the
+--- calendar snapshot (per day).
+---@param today string? "YYYY-MM-DD" (default today)
+function M.copies(today)
 	local doc = M.calendar_doc()
 	if not doc then
 		return {}
 	end
-	if doc._mirror_copies then
+	today = today or os.date("%Y-%m-%d")
+	if doc._mirror_copies and doc._mirror_copies_day == today then
 		return doc._mirror_copies
 	end
 	local out = {}
+	local day
 	for lnum, line in ipairs(doc.lines) do
-		if line:find("@id(", 1, true) and not doc:in_code(lnum) then
+		local d = line:match(DATE_LINE)
+		if d and not doc:in_code(lnum) then
+			day = d
+		elseif line:find("@id(", 1, true) and not doc:in_code(lnum) then
 			local t = Item.task(line, { lnum = lnum, file = doc.filepath })
 			local id = t and t.attributes.id
 			if id then
-				local c = out[id] or { lines = {}, done = false, spent = 0 }
+				local c = out[id] or { lines = {}, done = false, spent = 0, put_off = 0, put_off_days = {} }
 				out[id] = c
 				c.lines[#c.lines + 1] = t
 				c.spent = c.spent + minutes(t.attributes.spent)
 				if t.completed then
 					c.done = true
-					local d = date_string(t.attributes.done)
-					if d and (not c.date_str or d < c.date_str) then
-						c.date_str, c.date = d, t.attributes.done
+					local ds = date_string(t.attributes.done)
+					if ds and (not c.date_str or ds < c.date_str) then
+						c.date_str, c.date = ds, t.attributes.done
 					end
+				elseif day and day < today and (t.mark == M.MOVED or t.mark == " ") and not c.put_off_days[day] then
+					c.put_off_days[day] = true
+					c.put_off = c.put_off + 1
 				end
 			end
 		end
 	end
-	doc._mirror_copies = out
+	doc._mirror_copies, doc._mirror_copies_day = out, today
 	return out
+end
+
+--- How many earlier days a task (by @id) was on the calendar and not done.
+function M.put_off(id, today)
+	local c = id and M.copies(today)[id]
+	return c and c.put_off or 0
 end
 
 --- Apply the calendar copies to a project's tasks (in place): a task with a
 --- checked copy is completed (task.done_on_calendar, its @done the copy's
 --- when it has none); task.copies are its copies, task.spent_total its
---- @spent plus theirs.
+--- @spent plus theirs, task.put_off the days it was planned and not done.
 function M.apply(tasks)
 	local copies = M.copies()
 	for _, task in ipairs(tasks) do
 		local id = task.attributes and task.attributes.id
 		local c = id and copies[id]
 		task.spent_total = minutes(task.attributes and task.attributes.spent)
+		task.put_off = 0
 		if c then
 			task.copies = c.lines
 			task.spent_total = task.spent_total + c.spent
+			task.put_off = c.put_off
 			if c.done and not task.completed then
 				task.completed = true
 				task.done_on_calendar = true

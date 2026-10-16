@@ -39,14 +39,79 @@ objective.
 
 | when | what | command |
 |---|---|---|
-| morning | **Plan the day.** Yesterday's open tasks come along ([carried forward](#the-day-on-the-calendar)). Today's calendar next to ranked candidates: tasks on key results come first, the further their key result is behind schedule the higher; then tasks of projects that only have an area; then the rest. Due dates, priority and the TODO project add on top. Key results are listed most behind first, areas without a current objective first. Put projects (`P`, with their open tasks) and tasks (`p`) on the day. | `:ZortexPlan` (`<leader>zm`) |
-| during | **Work.** Tick tasks on the calendar (Neovim or the web); their project tasks are ticked with them. On the web home page the clocks (pomodoro, timer, stopwatch) count against the task you're working on, by default the first open task of the current calendar block, and add it to its `@spent(...)`. | `zortex serve` |
-| evening | **Daily review.** Since the last daily review (a skipped evening rolls into the next, at most a week): what is left in the inbox (from Neovim or the web app's "Add to inbox"), objectives and key results against the time passed, XP earned and how much of it was on key results, time spent per task, what you completed, calendar tasks left (tomorrow's plan carries them), overdue, due by tomorrow. | `:ZortexReview day` (`<leader>zW`) |
-| weekly | **Weekly review.** The inbox and the same plan summary over seven days, then overdue and due tasks, stale and unscheduled projects, projects without a next action, key results without projects, areas without projects or without an objective, projects with neither a key result nor an area, broken links. Every line links to its source. | `:ZortexReview` (`<leader>zw`) |
+| weekly | **Weekly review.** Opens the week's entry in `reviews.zortex` (made when missing; on a weekend, the coming week's) beside the findings: the inbox; [the week](#the-week): its focus projects, tasks put off again and again, and the active projects to pick the focus from (`f`); the plan summary over seven days; overdue and due tasks, stale and unscheduled projects, projects without a next action, key results without projects, areas without projects or without an objective, projects with neither a key result nor an area, broken links. Every line links to its source; what you write goes in the note. | `:ZortexReview` (`<leader>zw`) |
+| morning | **Plan the day.** Yesterday's open tasks come along ([carried forward](#the-day-on-the-calendar)). Today's calendar next to ranked candidates: the week's focus projects and their tasks first; then tasks on key results, the further their key result is behind schedule the higher; then tasks of projects that only have an area; then the rest. Due dates, priority, the TODO project and how often a task was put off add on top. Key results are listed most behind first, areas without a current objective first. Put tasks (`p`) and projects (`P`, with their next three tasks) on the day, until the [capacity line](#capacity) says the day is full. | `:ZortexPlan` (`<leader>zm`) |
+| during | **Work.** Tick tasks on the calendar or a project's page (Neovim or the web); their copies are ticked with them. On the web home page the clocks (pomodoro, timer, stopwatch) count against the task you're working on, by default the first open task of the current calendar block, and add it to its `@spent(...)`. Before you stop, a line in the project's log (its web page, or a `Log:` label in the note) says where you left off. | `zortex serve` |
+| evening | **Daily review.** Opens the day's entry in `reviews.zortex` (inside its week) beside the findings since the last daily review (a skipped evening rolls into the next, at most a week): what is left in the inbox (from Neovim or the web app's "Add to inbox"), the week's focus, tasks put off, objectives and key results against the time passed, XP earned and how much of it was on key results, time spent per task, what you completed, calendar tasks left (tomorrow's plan carries them), overdue, due by tomorrow. | `:ZortexReview day` (`<leader>zW`) |
 
 "Behind schedule" is the share of the objective's window that has passed
 minus the key result's progress: a key result at 20% when half the quarter
 is gone is 30% behind.
+
+## The week
+
+Between the quarter's objectives and the day sits the week. Each weekly
+review picks a few **focus projects**: the work this week is for. They live
+in the week's entry of `reviews.zortex`, one note for every review, newest
+first:
+
+```
+@@Reviews
+
+# 2026-W43
+Focus:
+- [P/#3 Car/#3.1 Rebuild the engine]
+- [P/#2 School/#2.1 Signals and systems]
+Wins:
+- Head is back from the machine shop
+Lessons:
+- Order gaskets before tearing down
+
+## 2026-10-21
+Done:
+- Lapped the valves
+Blocked:
+First thing tomorrow:
+- Torque the head bolts in sequence
+```
+
+- `:ZortexReview` opens the week's entry and the findings beside it; on
+  Saturday and Sunday it is the coming week's (`review.next_week_from`).
+  `:ZortexReview day` opens the day's entry inside its week. New entries
+  come from `review.week` and `review.day`; nothing in the note is
+  regenerated, so it is yours to write in, and it syncs like any note.
+- **Focus.** `f` on a project in the weekly review's findings adds it under
+  the week's `Focus:` label, or takes it out; you can also write the links
+  by hand. The planner ranks the focus projects (and their sub-projects)
+  and their tasks above everything else; a week without focus keeps the
+  latest earlier week's until the next weekly review. The web app lists them
+  first on `/projects` and on the home page.
+- **Put off.** A task on the calendar that wasn't done that day (carried on
+  with `[>]`, or left open) has been put off once for each such day. The
+  planner ranks it higher each time (`weights.put_off` per day, up to
+  `weights.put_off_max`) with a `put off ×3` badge, and the reviews list
+  every task put off on two or more days: do it, make it smaller, or drop
+  it.
+
+## Capacity
+
+The plan buffer's second line weighs the day:
+
+```
+Capacity: 5h30m planned (4 tasks, 1 unsized) · 4h free (13:20-22:00, 1h30m busy) · 1h30m over
+```
+
+- **planned**: the day's open tasks, by their `@size` hours (a copy weighs
+  its project task; `@dur` or `@est` on the line win; unsized counts md);
+- **free**: what is left of `ui.planner.capacity.day` (from now, when
+  planning today) after the timed entries that aren't project work: a
+  lecture, an appointment (`09:00 - 10:30 Lecture`; one without an end
+  counts `event_minutes`). Blocks for a project (`14:00 [P/#3.1]`) are where
+  the planned tasks happen, so they don't count as busy.
+
+It follows every `p`, `P` and edit to the day. Estimates run short (most
+people plan for more than fits), so leave room: a day "to spare" by a couple
+of hours is a day that holds.
 
 ## The day on the calendar
 
@@ -91,9 +156,11 @@ without duplicating them: a task on the calendar is the project's task.
 The planner (`<leader>zm`) lists projects first, each under a heading with
 its ranked tasks, then key results, then to-dos (the TODO project,
 `ui.planner.todo_link`, the Projects note's own tasks and calendar tasks
-left open), then areas. In it, `p` puts a task on the day as a copy (under its project's
-block when the day has one; the task gets an `@id` if it has none), `P` a
-project as a block with all of its open tasks, and `<CR>` / `i` / `o` the
+left open), then areas; the week's focus projects come first. In it, `p`
+puts a task on the day as a copy (under its project's block when the day
+has one; the task gets an `@id` if it has none), `P` a project as a block
+with its next open tasks (`ui.planner.project_tasks`, three; `5P` for five;
+tasks already on the day count), and `<CR>` / `i` / `o` the
 task's text and link at the cursor (a reference, ready for a time). The
 weekly review lists ids that don't line up (a copied project line, a copy
 whose link points at another task); so does the web app's `/broken`.
@@ -210,7 +277,9 @@ removes that whole class of problems.
 
 On the web, the home page of `zortex serve` shows the season (progress,
 tier, its objectives), Mastery XP per day for two weeks, top areas and recent
-awards. Neovim
+awards. Tasks completed on the web are listed as pending, with the XP they
+are estimated to earn (hours × XP per hour × priority × importance, from
+the calibration in the summary), until Neovim counts them. Neovim
 publishes that summary after every change (`.z/xp_summary.json`, and
 `POST /api/xp` when `server.enabled`; `xp.publish = false` turns it off). The
 server writes time tracked per day to `.z/time_spent.json`, which the daily

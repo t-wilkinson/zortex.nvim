@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -642,20 +643,23 @@ type webCompletion struct {
 	Rel   string    `json:"rel"`
 	Title string    `json:"title"`
 	At    time.Time `json:"at"`
+	// what its XP is estimated from (the project task's, for a calendar copy)
+	Size string `json:"size,omitempty"`
+	P    string `json:"p,omitempty"`
+	I    string `json:"i,omitempty"`
 }
 
 type completionLog struct {
 	mu   sync.Mutex
 	path string
-	done map[string]webCompletion // rel#id -> completion
+	done map[string]webCompletion // @id -> completion
 }
 
-func taskKey(rel, line string) string {
+// taskKey: a completion is its task's @id, so a calendar copy and its
+// project task (the same @id) count once.
+func taskKey(line string) string {
 	id, _ := edit.Attribute(line, "id")
-	if id == "" {
-		return ""
-	}
-	return rel + "#" + id
+	return id
 }
 
 func (c *completionLog) load() {
@@ -677,6 +681,31 @@ func (c *completionLog) save() {
 	}
 }
 
+// projectTaskLine: the project task (not a calendar copy) with this @id, or "".
+func (s *Server) projectTaskLine(id string) string {
+	if id == "" {
+		return ""
+	}
+	needle := "@id(" + id + ")"
+	for _, rel := range s.ix.All() {
+		if s.ix.IsArchived(rel) {
+			continue
+		}
+		d := s.ix.Doc(rel)
+		if d == nil || !s.isProjectDoc(d) {
+			continue
+		}
+		for i, l := range d.Lines {
+			if strings.Contains(l, needle) && !d.InCode(i+1) {
+				if it := syntax.ItemOf(l); it != nil && it.Mark != "" {
+					return l
+				}
+			}
+		}
+	}
+	return ""
+}
+
 // recordCompletion notes a task completed (or un-completed) on the web.
 func (s *Server) recordCompletion(rel, before, after string) {
 	if s.cfg.DataDir == "" {
@@ -690,21 +719,68 @@ func (s *Server) recordCompletion(rel, before, after string) {
 	}
 	c.load()
 	changed := false
-	if k := taskKey(rel, before); k != "" && isDone(before) && !isDone(after) {
+	if k := taskKey(before); k != "" && isDone(before) && !isDone(after) {
 		delete(c.done, k)
 		changed = true
 	}
-	if k := taskKey(rel, after); k != "" && isDone(after) && !isDone(before) {
+	if k := taskKey(after); k != "" && isDone(after) && !isDone(before) {
 		title := syntax.StripAttributes(after)
 		if it := syntax.ItemOf(after); it != nil {
 			title = strings.TrimSpace(syntax.StripAttributes(after[it.ContentCol:]))
 		}
-		c.done[k] = webCompletion{Rel: rel, Title: title, At: time.Now().UTC()}
+		// a calendar copy weighs what its project task does
+		src := after
+		if pt := s.projectTaskLine(k); pt != "" {
+			src = pt
+			if it := syntax.ItemOf(pt); it != nil {
+				title = strings.TrimSpace(syntax.StripAttributes(pt[it.ContentCol:]))
+			}
+		}
+		wc := webCompletion{Rel: rel, Title: title, At: time.Now().UTC()}
+		wc.Size, _ = edit.Attribute(src, "size")
+		if wc.Size == "" {
+			wc.Size = bareSize(src)
+		}
+		wc.P, _ = edit.Attribute(src, "p")
+		if wc.P == "" {
+			wc.P = bareFlag(src, "p")
+		}
+		wc.I, _ = edit.Attribute(src, "i")
+		if wc.I == "" {
+			wc.I = bareFlag(src, "i")
+		}
+		c.done[k] = wc
 		changed = true
 	}
 	if changed {
 		c.save()
 	}
+}
+
+var (
+	bareSizeRe = regexp.MustCompile(`(?:^|\s)@(xs|sm|md|lg|xl|[2-5]xl)(?:\s|$)`)
+	bareP      = regexp.MustCompile(`(?:^|\s)@p([1-3])(?:\s|$)`)
+	bareI      = regexp.MustCompile(`(?:^|\s)@i([1-3])(?:\s|$)`)
+)
+
+// bareSize: "@lg" written without @size(...).
+func bareSize(line string) string {
+	if m := bareSizeRe.FindStringSubmatch(line); m != nil {
+		return m[1]
+	}
+	return ""
+}
+
+// bareFlag: "@p1" / "@i2".
+func bareFlag(line, key string) string {
+	re := bareP
+	if key == "i" {
+		re = bareI
+	}
+	if m := re.FindStringSubmatch(line); m != nil {
+		return m[1]
+	}
+	return ""
 }
 
 // pendingCompletions: web completions newer than Neovim's last XP summary

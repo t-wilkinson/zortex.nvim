@@ -1,0 +1,122 @@
+{{define "task"}}
+<li class="ptask{{if .T.Done}} done{{end}}">
+  {{if $.Writable}}
+  <button type="button" class="pcheck" data-lnum="{{.T.Lnum}}" data-expect="{{.T.Line}}" aria-pressed="{{if .T.Done}}true{{else}}false{{end}}" aria-label="{{if .T.Done}}Reopen{{else}}Done{{end}}">{{if .T.Done}}✓{{end}}</button>
+  {{else}}
+  <span class="pcheck" aria-hidden="true">{{if .T.Done}}✓{{end}}</span>
+  {{end}}
+  <span class="ptask-text">{{.T.HTML}}</span>
+  <span class="ptask-meta small">
+    {{if .T.PutOff}}<span class="pill warn" title="planned on {{.T.PutOff}} earlier days and not done">put off ×{{.T.PutOff}}</span>{{end}}
+    {{with .T.Planned}}<span class="pill" title="on the calendar">{{.}}</span>{{end}}
+    {{with .T.Due}}<span class="pill{{if lt . $.Today}} warn{{end}}">due {{.}}</span>{{end}}
+    {{if .T.Done}}{{with .T.DoneDate}}<span class="dim">{{.}}</span>{{end}}{{end}}
+    <span class="dim">{{hours .T.Hours}}{{if .T.Spent}} · {{minutes .T.Spent}} spent{{end}}</span>
+    <a class="dim" href="{{.T.URL}}" title="the line in the note">↗</a>
+  </span>
+</li>
+{{end}}
+
+{{define "content"}}
+<section class="narrow wide project-page" data-rel="{{.P.Rel}}" data-lnum="{{.P.Lnum}}" data-expect="{{.Heading}}">
+  <p class="crumbs"><a href="{{u "/projects"}}">Projects</a>{{range .Crumbs}}<span>›</span><a href="{{.URL}}">{{.P.Name}}</a>{{end}}</p>
+  <h1>{{.P.Name}}</h1>
+  <div class="meta">
+    {{if .Row.Focus}}<span class="pill focus">focus · {{.Week}}</span>{{end}}
+    {{range .KRs}}<span class="pill">{{.ID}}</span>{{end}}
+    {{range .Areas}}<a class="tag" href="{{.URL}}">{{.Title}}</a>{{end}}
+    {{with .P.Due}}<span class="pill{{if lt . $.Today}} warn{{end}}">due {{.}}</span>{{end}}
+    {{with .P.Done}}<span class="pill ok">done {{.}}</span>{{end}}
+    {{with .P.Size}}<span class="dim">@size({{.}})</span>{{end}}
+    <a class="dim" href="{{.SourceURL}}">{{.P.Rel}}:{{.P.Lnum}}</a>
+  </div>
+
+  <div class="progress-block" aria-label="Progress">
+    <span class="bar big" aria-hidden="true"><span style="width: {{.Row.Rollup.Percent}}%"></span></span>
+    <p class="small"><strong class="nums">{{.Row.Rollup.Percent}}%</strong>
+      <span class="dim">· {{.Row.Rollup.DoneN}} of {{.Row.Rollup.Total}} tasks · {{hours .Row.Rollup.DoneHours}} of {{hours .Row.Rollup.Hours}} estimated{{if .SpentAny}} · {{.Spent}} tracked{{if .Week7Any}}, {{.Week7}} this week{{end}}{{end}}{{if .DayCount}} · on the calendar {{.DayCount}} day{{if ne .DayCount 1}}s{{end}}{{end}}</span></p>
+  </div>
+
+  <div class="project-grid">
+    <div class="project-main">
+      <h2 class="section-title">Next</h2>
+      {{if .Open}}
+      <ul class="ptasks">{{range .Open}}{{template "task" (taskView $ .)}}{{end}}</ul>
+      {{else}}<p class="dim">No open task of its own{{if .Children}}: see its sub-projects{{else}}: what's the next step?{{end}}</p>{{end}}
+
+      {{if .Children}}
+      <h2 class="section-title">Sub-projects</h2>
+      <ul class="prows">{{range .Children}}{{template "projectRow" .}}{{end}}</ul>
+      {{end}}
+
+      {{if .Closed}}
+      <details class="done-tasks">
+        <summary>{{len .Closed}} done</summary>
+        <ul class="ptasks">{{range .Closed}}{{template "task" (taskView $ .)}}{{end}}</ul>
+      </details>
+      {{end}}
+    </div>
+
+    <aside class="project-side">
+      <section class="panel">
+        <h2 class="section-title">Log</h2>
+        {{if .Writable}}
+        <form class="log-add" id="log-form" autocomplete="off">
+          <label class="sr-only" for="log-text">Where you stopped, what's next</label>
+          <input type="text" id="log-text" name="text" placeholder="Where you stopped, what's next…" required>
+          <button type="submit">Add</button>
+          <span class="small" id="log-status" role="status" aria-live="polite"></span>
+        </form>
+        {{end}}
+        {{if .Log}}
+        <ul class="plain log">{{range .Log}}<li>{{.}}</li>{{end}}</ul>
+        {{else}}<p class="dim small">Nothing yet. Lines under a <code>Log:</code> label in the project show here{{if .Writable}}; the first one added here makes it{{end}}.</p>{{end}}
+      </section>
+
+      {{if .KRs}}
+      <section class="panel">
+        <h2 class="section-title">Key results</h2>
+        <ul class="plain krs">
+        {{range .KRs}}
+          <li><a href="{{.URL}}">{{.ID}}</a> {{.Text}}
+            <div class="kr-progress"><span class="bar" aria-hidden="true"><span style="width: {{.Percent}}%"></span></span>
+            <span class="small dim nums">{{.Percent}}%</span>
+            <span class="small">{{if .Done}}<span class="dim">done</span>{{else if ge .LagPercent 5}}<span class="warn-text">{{.LagPercent}}% behind</span>{{else}}<span class="dim">on track</span>{{end}}</span></div>
+            <div class="small dim">{{.Objective}}</div></li>
+        {{end}}
+        </ul>
+      </section>
+      {{end}}
+
+      {{if .Days}}
+      <section class="panel">
+        <h2 class="section-title">On the calendar</h2>
+        <ul class="plain cal-history">
+        {{range .Days}}<li><span class="dim small nums">{{.Date}}</span>
+          <ul class="cal-items">{{range .Items}}<li class="{{if .Done}}done{{end}}{{if .Moved}} moved{{end}}"><a href="{{.URL}}">{{if .Task}}<span class="cal-box" aria-hidden="true">{{if .Done}}✓{{else if .Moved}}›{{end}}</span>{{end}}{{with .Time}}<span class="nums dim">{{.}}</span> {{end}}{{.Text}}</a>{{if .Moved}} <span class="dim small">carried on</span>{{end}}</li>{{end}}</ul>
+        </li>{{end}}
+        </ul>
+      </section>
+      {{end}}
+
+      {{if or .LinksTo .FilesTo}}
+      <section class="panel">
+        <h2 class="section-title">Notes and files</h2>
+        <ul class="plain">
+          {{range .LinksTo}}<li><a href="{{.URL}}">{{.Title}}</a></li>{{end}}
+          {{range .FilesTo}}<li><a href="{{.URL}}" class="file-link">{{.Title}}</a></li>{{end}}
+        </ul>
+      </section>
+      {{end}}
+
+      {{if .LinkedFrom}}
+      <section class="panel">
+        <h2 class="section-title">Linked from</h2>
+        <ul class="plain">{{range .LinkedFrom}}<li><a href="{{.URL}}">{{.Title}}</a> <span class="dim small">{{.Line}}</span></li>{{end}}</ul>
+      </section>
+      {{end}}
+    </aside>
+  </div>
+</section>
+{{if .Writable}}<script src="{{asset "/static/project.js"}}" defer></script>{{end}}
+{{end}}

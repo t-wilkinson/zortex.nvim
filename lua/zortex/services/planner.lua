@@ -17,12 +17,15 @@
 --                           -> open tasks of earlier days copied to the day
 --                              (same @id), the old lines marked [>]
 --
--- Ranking: signals add up, so a TODO with a high priority that is also due
--- beats any one of those alone (weights in M.weights). Alignment counts
--- most: work on a key result ranks above work that only has an area, which
--- ranks above work with neither, and a key result that is behind schedule
--- (its objective's time passing faster than its progress) pushes its
--- projects' tasks up further.
+-- Ranking: the week's focus projects (services/review: the projects linked
+-- under "Focus:" in the week's entry of reviews.zortex) come first, their
+-- tasks too. Then signals add up, so a TODO with a high priority that is
+-- also due beats any one of those alone (weights in M.weights). Alignment
+-- counts most: work on a key result ranks above work that only has an area,
+-- which ranks above work with neither, and a key result that is behind
+-- schedule (its objective's time passing faster than its progress) pushes
+-- its projects' tasks up further. A task that was on the calendar and not
+-- done (put off, services/mirrors) ranks higher each day that happened.
 local M = {}
 
 local function Config()
@@ -49,6 +52,8 @@ M.weights = {
 	kr_behind_full = 0.25, -- ... reached at 25% behind schedule
 	area = 1, -- project (or task) with an area but no key result
 	project_priority = { ["1"] = 1 }, -- the project's own @p
+	put_off = 1, -- per earlier day the task was on the calendar and not done ...
+	put_off_max = 5, -- ... up to this
 }
 
 -- =============================================================================
@@ -155,6 +160,21 @@ local function alignment(project, task, ctx)
 end
 M._alignment = alignment
 
+-- The project, or one of its ancestors, is a focus project of the week
+local function focus_of(project, ctx)
+	if not ctx.focus or next(ctx.focus) == nil then
+		return false
+	end
+	local p = project
+	while p do
+		if ctx.focus[p.key] then
+			return true
+		end
+		p = p.parent
+	end
+	return false
+end
+
 local function score_task(task, project, ctx)
 	local w, attrs = M.weights, task.attributes or {}
 	local score, badges = 0, {}
@@ -189,6 +209,16 @@ local function score_task(task, project, ctx)
 	local a, a_badges = alignment(project, task, ctx)
 	score = score + a
 	vim.list_extend(badges, a_badges)
+	-- planned before and not done: the more often, the higher
+	local id = task.attributes and task.attributes.id
+	local n = id and require("zortex.services.mirrors").put_off(id, ctx.today_str) or 0
+	if n > 0 then
+		score = score + math.min(n * w.put_off, w.put_off_max)
+		badges[#badges + 1] = "put off ×" .. n
+	end
+	if focus_of(project, ctx) then
+		table.insert(badges, 1, "focus")
+	end
 	local pp = w.project_priority[project.attributes.p]
 	if pp and score > 0 then
 		score = score + pp
@@ -196,8 +226,13 @@ local function score_task(task, project, ctx)
 	return score, badges
 end
 
+-- Focus projects' work first (this week's focus, services/review), then by
+-- score
 local function sort_by_score(list)
 	table.sort(list, function(a, b)
+		if (a.focus or false) ~= (b.focus or false) then
+			return a.focus == true
+		end
 		if a.score ~= b.score then
 			return a.score > b.score
 		end
@@ -214,6 +249,13 @@ function M.candidates(opts)
 	local score = require("zortex.services.projects.score")
 	local ctx = { today = today(opts), todo = todo_project(), krs = {}, kr_of = {} }
 	ctx.today_str = datetime.format_datetime(ctx.today, "YYYY-MM-DD")
+	-- this week's focus projects (the weekly review in the reviews note)
+	local focus_ok, focus = pcall(require("zortex.services.review").focus, ctx.today_str)
+	ctx.focus = {}
+	ctx.focus_week = focus_ok and focus and focus.week or nil
+	for _, p in ipairs(focus_ok and focus and focus.projects or {}) do
+		ctx.focus[p.key] = true
+	end
 	-- open key results by the project keys they link
 	local okr_ok, open_krs = pcall(require("zortex.services.okr").key_results, { open = true })
 	for _, kr in ipairs(okr_ok and open_krs or {}) do
@@ -231,7 +273,8 @@ function M.candidates(opts)
 		for _, task in ipairs(p:tasks()) do
 			if not task.completed then
 				local s, badges = score_task(task, p, ctx)
-				if s > 0 then
+				local focused = focus_of(p, ctx)
+				if s > 0 or focused then
 					badges[#badges + 1] = p.name
 					tasks[#tasks + 1] = {
 						-- a to-do rather than project work: in the TODO project
@@ -246,6 +289,7 @@ function M.candidates(opts)
 						project_link = p.link,
 						badges = badges,
 						score = s,
+						focus = focused or nil,
 						file = task.file,
 						lnum = task.lnum,
 					}
@@ -260,8 +304,11 @@ function M.candidates(opts)
 		days = 14,
 	})
 	if ok then
+		local project_ids = require("zortex.services.mirrors").project_ids()
 		for _, item in ipairs(review.overdue) do
-			if item.entry and item.entry.type == "task" then
+			local id = item.entry and item.entry.attributes.id
+			-- a copy of a project task is listed as that task (above)
+			if item.entry and item.entry.type == "task" and not (id and project_ids[id]) then
 				local doc = require("zortex.core.document").get(item.file)
 				local node = doc and doc:node_at(item.lnum)
 				local base = node and require("zortex.core.link").link_for_node(doc, node)
@@ -292,6 +339,10 @@ function M.candidates(opts)
 				badges[#badges + 1] = b
 			end
 		end
+		local focused = focus_of(p, ctx)
+		if focused then
+			table.insert(badges, 1, "focus")
+		end
 		badges[#badges + 1] = string.format("%d/%d", r.done, r.total)
 		for _, t in ipairs(p:tasks()) do
 			if not t.completed then
@@ -306,6 +357,7 @@ function M.candidates(opts)
 			project_link = p.link,
 			badges = badges,
 			score = score.project_score(p) + a,
+			focus = focused or nil,
 			file = p.file,
 			lnum = p.lnum,
 		}
@@ -315,7 +367,7 @@ function M.candidates(opts)
 		local attrs = p.attributes
 		local high = (tonumber(attrs.p) or 9) <= 2 or (tonumber(attrs.i) or 9) <= 2
 		local _ = alignment(p, nil, ctx) -- fills ctx.kr_of[p]
-		if not p:is_root() and not p:is_done() and p:rollup().open > 0 and (ctx.kr_of[p] or high) then
+		if not p:is_root() and not p:is_done() and p:rollup().open > 0 and (ctx.kr_of[p] or high or focus_of(p, ctx)) then
 			plist[#plist + 1] = project_candidate(p)
 		end
 	end
@@ -386,7 +438,15 @@ function M.candidates(opts)
 		local p = projects.get(key)
 		return p and project_candidate(p)
 	end)
-	return { tasks = tasks, projects = plist, key_results = krs, areas = areas, todos = todos, groups = groups }
+	return {
+		tasks = tasks,
+		projects = plist,
+		key_results = krs,
+		areas = areas,
+		todos = todos,
+		groups = groups,
+		focus_week = ctx.focus_week,
+	}
 end
 
 --- Split ranked tasks into to-dos (the TODO project, the Projects note's own
@@ -424,6 +484,144 @@ function M.group(tasks, plist, make_project)
 		end
 	end
 	return todos, groups
+end
+
+-- =============================================================================
+-- Capacity: the day's planned work against the time it has
+-- =============================================================================
+
+local function clock_minutes(t)
+	if type(t) == "table" and t.hour then
+		return t.hour * 60 + (t.min or 0)
+	elseif type(t) == "string" then
+		local h, m = t:match("^(%d%d?):(%d%d)")
+		if h then
+			return tonumber(h) * 60 + tonumber(m)
+		end
+	end
+	return nil
+end
+
+-- Minutes of work in a task: @dur / @est on its line, else its @size
+-- (xp.sizes.task hours; unsized = md)
+local function task_minutes(attrs, fallback)
+	attrs = attrs or {}
+	local explicit = attrs.dur or attrs.est
+	if type(explicit) == "number" and explicit > 0 then
+		return explicit, false
+	end
+	local size = attrs.size or (fallback and fallback.size)
+	local calc = require("zortex.services.xp.calculator")
+	return calc.task_points(size) * 60, size == nil
+end
+
+--- How the work planned on `date` compares with the free time it has.
+---   planned  minutes of open tasks on the day (copies of project tasks
+---            weigh the project task's @size; @dur / @est win)
+---   done     minutes of the day's tasks already checked
+---   busy     minutes of timed entries that aren't work on a project or task
+---            (a lecture, a meeting) within the window still ahead; one
+---            without an end counts ui.planner.capacity.event_minutes
+---   free     the window (ui.planner.capacity.day, from now when `date` is
+---            today) minus busy
+---   over     planned - free (negative: time to spare)
+---   tasks, unsized   how many open tasks, and how many without a size
+---@param opts { now?: string, today?: string }?  "HH:MM" and "YYYY-MM-DD" (tests)
+function M.capacity(date, opts)
+	opts = opts or {}
+	local conf = cfg().capacity or {}
+	local window = conf.day or { "08:00", "22:00" }
+	local w_from, w_to = clock_minutes(window[1]) or 480, clock_minutes(window[2]) or 1320
+	local today_str = opts.today or os.date("%Y-%m-%d")
+	if date == today_str then
+		local now = clock_minutes(opts.now or os.date("%H:%M"))
+		if now and now > w_from then
+			w_from = math.min(now, w_to)
+		end
+	elseif date < today_str then
+		w_from = w_to -- nothing left of a past day
+	end
+	local event_default = conf.event_minutes or 30
+
+	local project_ids = require("zortex.services.mirrors").project_ids()
+	local out = { planned = 0, done = 0, busy = 0, tasks = 0, unsized = 0, from = w_from, to = w_to }
+	for _, item in ipairs(require("zortex.services.agenda").day(date)) do
+		local entry = item.entry
+		if entry and not item.moved then
+			local task_attrs, linked
+			if entry.type == "task" then
+				task_attrs = entry.attributes
+				local id = entry.attributes.id
+				linked = id and project_ids[id] and project_ids[id].task.attributes
+			elseif item.ref then
+				task_attrs = item.ref.task.attributes
+			end
+			if task_attrs then
+				local mins, unsized = task_minutes(task_attrs, linked)
+				if item.done then
+					out.done = out.done + mins
+				else
+					out.planned = out.planned + mins
+					out.tasks = out.tasks + 1
+					if unsized then
+						out.unsized = out.unsized + 1
+					end
+				end
+			elseif entry.type == "event" and not item.project then
+				-- a commitment: the part of it inside what is left of the window
+				local s = clock_minutes(entry.timing and entry.timing.start)
+				if s then
+					local len = entry:get_duration() or event_default
+					local e = s + len
+					local overlap = math.min(e, w_to) - math.max(s, w_from)
+					if overlap > 0 then
+						out.busy = out.busy + overlap
+					end
+				end
+			end
+		end
+	end
+	out.free = math.max(0, (w_to - w_from) - out.busy)
+	out.over = out.planned - out.free
+	return out
+end
+
+local function hm(minutes)
+	minutes = math.floor((minutes or 0) + 0.5)
+	if minutes <= 0 then
+		return "0h"
+	end
+	return require("zortex.utils.attributes").format_duration(minutes)
+end
+M.format_minutes = hm
+
+local function clock(minutes)
+	return string.format("%02d:%02d", math.floor(minutes / 60), minutes % 60)
+end
+
+--- One line for the planner: "Capacity: 5h30m planned (4 tasks) · 4h free
+--- (13:20-22:00, 1h busy) · 1h30m over".
+function M.capacity_line(c)
+	local parts = {}
+	local planned = hm(c.planned) .. " planned"
+	if c.tasks > 0 then
+		planned = planned .. string.format(" (%d task%s%s)", c.tasks, c.tasks == 1 and "" or "s", c.unsized > 0 and string.format(", %d unsized", c.unsized) or "")
+	end
+	parts[#parts + 1] = planned
+	local free = hm(c.free) .. " free"
+	if c.to > c.from then
+		free = free .. " (" .. clock(c.from) .. "-" .. clock(c.to) .. (c.busy > 0 and (", " .. hm(c.busy) .. " busy") or "") .. ")"
+	end
+	parts[#parts + 1] = free
+	if c.over > 0 then
+		parts[#parts + 1] = hm(c.over) .. " over"
+	else
+		parts[#parts + 1] = hm(-c.over) .. " to spare"
+	end
+	if c.done > 0 then
+		parts[#parts + 1] = hm(c.done) .. " done"
+	end
+	return "Capacity: " .. table.concat(parts, " · ")
 end
 
 -- =============================================================================
@@ -599,14 +797,18 @@ function M.add_task(date, c)
 end
 
 --- Put a project on `date`: a block "- [P/...]" (unless the day has one)
---- with every open task of its own copied under it. c: a candidate with
+--- with its next open tasks copied under it: the first `opts.count` open
+--- tasks of its own, in note order (ui.planner.project_tasks, default 3;
+--- tasks already on the day count toward them). c: a candidate with
 --- project_key. Returns the block's line and how many tasks were added.
-function M.add_project(date, c)
+---@param opts { count?: integer }?
+function M.add_project(date, c, opts)
 	local projects = require("zortex.services.projects")
 	local p = c.project_key and projects.get(c.project_key)
 	if not p then
 		return nil, 0
 	end
+	local count = (opts and opts.count) or cfg().project_tasks or 3
 	local workspace = require("zortex.core.workspace")
 	local block, lines = day_block(date)
 	if not block then
@@ -617,9 +819,13 @@ function M.add_project(date, c)
 		head = block.last_lnum + 1
 		workspace.insert_lines(calendar_target(), head, { "- " .. p.link })
 	end
-	local added = 0
+	local added, taken = 0, 0
 	for _, t in ipairs(p:tasks()) do
+		if taken >= count then
+			break
+		end
 		if not t.completed then
+			taken = taken + 1
 			local _, ok = M.add_task(date, {
 				file = t.file,
 				lnum = t.lnum,

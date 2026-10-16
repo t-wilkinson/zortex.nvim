@@ -17,7 +17,8 @@ local function round(x)
 end
 
 --- The summary: the season (progress on its objectives), Mastery XP per day
---- (14 days), top areas, recent awards.
+--- (14 days), top areas, recent awards, and the calibration (XP per hour,
+--- hours per task @size, priority and importance multipliers).
 function M.summary()
 	local q = require("zortex.query").xp({ days = 30, limit = 8 })
 	local today, week = 0, 0
@@ -66,8 +67,27 @@ function M.summary()
 			end_date = h.end_date,
 		}
 	end
+	-- how the server estimates XP for tasks completed on the web before
+	-- Neovim counts them, and weighs project progress (task @size hours)
+	local calc = require("zortex.services.xp.calculator")
+	local task_hours = {}
+	for _, size in ipairs({ "xs", "sm", "md", "lg", "xl", "2xl", "3xl", "4xl", "5xl" }) do
+		task_hours[size] = calc.hours("task", size)
+	end
+	local calibration = {
+		xp_per_hour = calc.xp_per_hour(),
+		task_hours = task_hours,
+		default_size = require("zortex.constants").DEFAULT_TASK_SIZE,
+		priority = {},
+		importance = {},
+	}
+	for _, n in ipairs({ "1", "2", "3" }) do
+		calibration.priority[n] = calc.get_priority_multiplier(n)
+		calibration.importance[n] = calc.get_importance_multiplier(n)
+	end
 	return {
 		version = 2, -- 2: the season is progress on its objectives (no levels)
+		calibration = calibration,
 		season = q.season,
 		today = today,
 		week = week,

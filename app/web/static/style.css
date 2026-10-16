@@ -660,6 +660,10 @@ ul.gt li { margin: 0.1rem 0; overflow-wrap: anywhere; }
 ul.gt summary { cursor: pointer; }
 ul.gt .gt-sec > details > summary { font-weight: 600; color: var(--dim); font-size: 0.92rem; }
 .gt-count { font-size: 0.78rem; }
+ul.gt-heads { list-style: none; margin: 0.1rem 0 0.25rem 0.9rem; padding: 0 0 0 0.5rem; border-left: 2px solid color-mix(in srgb, var(--accent) 35%, var(--rule)); font-size: 0.82rem; }
+ul.gt-heads li { padding: 0.05rem 0; }
+ul.gt-heads a { color: var(--ink); opacity: 0.85; }
+ul.gt-heads a::before { content: "# "; color: var(--dim); }
 .graph-page .gt-note { border-radius: 4px; padding: 0 0.15rem; }
 .graph-page.focus .gt-note { opacity: 0.45; }
 .graph-page.focus .gt-note.self, .graph-page.focus .gt-note.hit { opacity: 1; }

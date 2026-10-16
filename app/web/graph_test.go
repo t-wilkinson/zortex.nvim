@@ -2,6 +2,8 @@ package web
 
 import (
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -234,5 +236,22 @@ func TestGraphBulletGroups(t *testing.T) {
 	}
 	if strings.Contains(page, "Plain leaf") {
 		t.Error("a bullet with nothing under it is shown")
+	}
+}
+
+// Under each note in /graph, the headings other notes link to.
+func TestGraphLinkedHeadings(t *testing.T) {
+	s, dir, ts := newTestServer(t, "")
+	if err := os.WriteFile(filepath.Join(dir, "structure.zortex"), []byte("@@Structure\n\n# Life\n- [Projects]\n- [Calendar]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s.Refresh()
+	body := expect(t, ts, "/graph", 200, `class="gt-heads"`)
+	i := strings.Index(body, `class="gt-heads"`)
+	if i < 0 {
+		return
+	}
+	if !strings.Contains(body[i:], `1.4 - zortex</a>`) {
+		t.Error("projects.zortex's heading 1.4 - zortex, linked from the calendar, not listed")
 	}
 }

@@ -60,6 +60,9 @@ T.test("opened places rank higher in search", function()
 	local garden = Document.get(T.fixture("z/garden.zortex"))
 	H.record({ filepath = garden.filepath, node = garden:article() })
 	local after = garden_score()
-	T.ok(approx(after - before, 50 * math.log(2) + 30 * math.log(2)), string.format("%s -> %s", before, after))
+	-- recorded and scored at the current time: a second ticking in between
+	-- decays the boost by ~1e-5, so compare loosely
+	local expected = 50 * math.log(2) + 30 * math.log(2)
+	T.ok(math.abs((after - before) - expected) < 1e-3, string.format("%s -> %s", before, after))
 	H.clear()
 end)

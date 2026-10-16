@@ -106,3 +106,30 @@ T.test("nothing is re-resolved when no note changed (loaded from disk)", functio
 	T.eq(calls, 0)
 	T.ok(#link_index.unresolved() == 1, "state restored from disk")
 end)
+
+T.test("broken links are diagnostics on their spans", function()
+	local Config = require("zortex.config")
+	local path = Config.notes_dir .. "diag.zortex"
+	vim.fn.writefile({ "@@Diag", "", "- ok [P/#1.4 - zortex] and [Nope/#nothing]", "- file [./z/missing.pdf]", "- [/#Here]", "# Here" }, path)
+	vim.cmd("edit! " .. vim.fn.fnameescape(path))
+	local buf = vim.api.nvim_get_current_buf()
+	local diag = require("zortex.features.diagnostics")
+	diag.update(buf)
+	local got = {}
+	for _, d in ipairs(vim.diagnostic.get(buf, { namespace = diag.namespace })) do
+		got[#got + 1] = { d.lnum, d.col, d.end_col, d.message }
+	end
+	table.sort(got, function(a, b)
+		return a[1] < b[1]
+	end)
+	T.eq(got, {
+		{ 2, 27, 42, "Link resolves nowhere: [Nope/#nothing]" },
+		{ 3, 7, 24, "No such file: ./z/missing.pdf" },
+	})
+	-- fixed: the diagnostic goes
+	vim.api.nvim_buf_set_lines(buf, 2, 4, false, { "- ok [P/#1.4 - zortex]" })
+	diag.update(buf)
+	T.eq(#vim.diagnostic.get(buf, { namespace = diag.namespace }), 0)
+	vim.cmd("bwipeout!")
+	os.remove(path)
+end)

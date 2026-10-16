@@ -144,6 +144,10 @@ STRUCTURE ~
 :ZortexFoldsUpdate                                        *:ZortexFoldsUpdate*
     Recompute folds. Keys: <leader>zr. Id: folds_update.
 
+:ZortexRename                                                  *:ZortexRename*
+    Rename the heading or label under the cursor and rewrite every link to it.
+    Keys: <leader>zR. Id: rename.
+
 :ZortexArchiveSection                                  *:ZortexArchiveSection*
     Move the section under the cursor to the note's z/archive file. Keys:
     <leader>za. Id: archive_section.
@@ -373,6 +377,10 @@ setup() merges your options over these defaults: >lua
           level = 1,
           include_empty_lines = true,
         },
+        -- Links that resolve nowhere (and paths to missing files) as
+        -- vim.diagnostic on their notes (]d / [d); severity "ERROR" | "WARN" |
+        -- "INFO" | "HINT"
+        diagnostics = { enabled = true, severity = "WARN" },
         -- <prefix>gX: links in the web app (server.web_url)
         web = {
           -- show them in the tab on this computer you focused last, when

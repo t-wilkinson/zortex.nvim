@@ -58,6 +58,10 @@ local defaults = {
 			level = 1,
 			include_empty_lines = true,
 		},
+		-- Links that resolve nowhere (and paths to missing files) as
+		-- vim.diagnostic on their notes (]d / [d); severity "ERROR" | "WARN" |
+		-- "INFO" | "HINT"
+		diagnostics = { enabled = true, severity = "WARN" },
 		-- <prefix>gX: links in the web app (server.web_url)
 		web = {
 			-- show them in the tab on this computer you focused last, when

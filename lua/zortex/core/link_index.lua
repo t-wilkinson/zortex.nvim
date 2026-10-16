@@ -420,19 +420,37 @@ function M.backlinks(item, opts)
 	return M.references(file, s, e)
 end
 
+local function missing(link, path)
+	if link.first.kind == "path" then
+		return not vim.uv.fs_stat(link_mod.relative_path(link.definition, path))
+	end
+	return not link.target
+end
+
+--- Links of one note that resolve nowhere (each with `path = true` for a
+--- file that isn't there), brought up to date first.
+function M.unresolved_in(path)
+	M.refresh(true)
+	path = vim.fn.fnamemodify(path, ":p")
+	local out = {}
+	local entry = state.files[path]
+	for _, link in ipairs(entry and entry.links or {}) do
+		if missing(link, path) then
+			local ref = as_ref(path, link)
+			ref.path = link.first.kind == "path" or nil
+			out[#out + 1] = ref
+		end
+	end
+	return out
+end
+
 --- Links that resolve nowhere.
 function M.unresolved()
 	M.refresh()
 	local out = {}
 	for path, entry in pairs(state.files) do
 		for _, link in ipairs(entry.links) do
-			local missing
-			if link.first.kind == "path" then
-				missing = not vim.uv.fs_stat(link_mod.relative_path(link.definition, path))
-			else
-				missing = not link.target
-			end
-			if missing then
+			if missing(link, path) then
 				out[#out + 1] = as_ref(path, link)
 			end
 		end

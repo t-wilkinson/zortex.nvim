@@ -306,6 +306,17 @@ M.list = {
 		end,
 	},
 	{
+		id = "rename",
+		command = "Rename",
+		key = "R",
+		group = "Structure",
+		nargs = "?",
+		desc = "Rename the heading or label under the cursor and rewrite every link to it",
+		run = function(args)
+			require("zortex.features.rename").rename_current(args)
+		end,
+	},
+	{
 		id = "archive_section",
 		command = "ArchiveSection",
 		key = "a",

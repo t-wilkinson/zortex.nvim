@@ -121,9 +121,12 @@ end
 -- Putting items into the calendar
 -- =============================================================================
 
+--- The window showing the calendar beside the plan, or nil (closed, or now
+--- showing something else).
 local function calendar_window()
-	if state.cal_win and vim.api.nvim_win_is_valid(state.cal_win) then
-		return state.cal_win
+	local win = state.cal_win
+	if win and vim.api.nvim_win_is_valid(win) and win ~= state.win and vim.api.nvim_win_get_buf(win) == state.cal_buf then
+		return win
 	end
 	return nil
 end
@@ -387,9 +390,30 @@ function M.open(opts)
 		end
 	end
 
-	-- Calendar on the left, at the day
-	vim.cmd("edit " .. vim.fn.fnameescape(require("zortex.utils.filesystem").get_calendar_file()))
-	state.cal_win, state.cal_buf, state.date = vim.api.nvim_get_current_win(), vim.api.nvim_get_current_buf(), date
+	-- Calendar on the left, at the day. Its buffer is shown as is: the day
+	-- and the carried tasks were just written into it when it is loaded, so
+	-- ":edit" would stop at the unsaved changes (E37, or a "Save changes?"
+	-- dialog with 'confirm'). The plan window never shows it.
+	local path = vim.fn.fnamemodify(require("zortex.utils.filesystem").get_calendar_file(), ":p")
+	local cal_buf = vim.fn.bufadd(path)
+	vim.fn.bufload(cal_buf)
+	vim.bo[cal_buf].buflisted = true
+	local cal_win = calendar_window()
+	if not cal_win or cal_win == state.win then
+		local shown = vim.fn.bufwinid(cal_buf)
+		cal_win = (shown ~= -1 and shown ~= state.win) and shown or nil
+	end
+	if cal_win then
+		vim.api.nvim_set_current_win(cal_win)
+	elseif state.win and vim.api.nvim_win_is_valid(state.win) and vim.api.nvim_get_current_win() == state.win then
+		-- run from the plan window: the calendar goes beside it, on the left
+		vim.cmd("leftabove vsplit")
+	end
+	vim.api.nvim_win_set_buf(0, cal_buf)
+	if vim.bo[cal_buf].filetype == "" then
+		vim.bo[cal_buf].filetype = "zortex"
+	end
+	state.cal_win, state.cal_buf, state.date = vim.api.nvim_get_current_win(), cal_buf, date
 	local last = vim.api.nvim_buf_line_count(state.cal_buf)
 	vim.api.nvim_win_set_cursor(state.cal_win, { math.min(heading + 1, last), 0 })
 	vim.cmd("normal! zvzt")

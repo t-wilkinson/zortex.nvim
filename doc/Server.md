@@ -206,6 +206,44 @@ browser reaches the web app at another address than `api_endpoint`.
 Set `-api-key` (or `ZORTEX_API_KEY`) on the server so only Neovim can post
 to `/notify`, `/pending` and `/api/xp`; the browser pages don't need it.
 
+## Installing it as an app
+
+The web app is installable (a PWA): on a phone, open it in the browser and
+choose **Add to Home Screen** (Safari) or **Install app** (Chrome); on the
+desktop, the install button in Chrome's or Edge's address bar. It opens in
+its own window, without the browser's bars, at the home page; long-pressing
+the icon offers Search and Projects. Browsers allow this over HTTPS only
+(and on `localhost`), so serve it as in [section 3](#3-put-it-behind-a-login).
+
+Recent pages read offline. The app keeps the last 60 pages you opened on
+the device, so when the phone is offline or the server can't be reached, a
+page you read lately opens as a saved copy (it says when it was saved), and
+any other page shows the list of saved ones. Editing, the clocks and live
+updates need the server. The copies live in the browser's storage on that
+device, behind the device's own lock; clearing the site's data removes
+them, and each new version of the server starts afresh.
+
+Behind a login: the manifest (`/manifest.webmanifest`) and the icons
+(`/static/icons/`) hold the site's title and nothing from your notes, and a
+phone's installer may fetch them without your credentials. `-auth-file`
+serves them without a login; with a proxy's login, let those two paths
+through too (with `-base`, below the prefix):
+
+```
+notes.example.com {
+  @app path /manifest.webmanifest /static/icons/*
+  handle @app {
+    reverse_proxy 127.0.0.1:8090
+  }
+  handle {
+    basic_auth {
+      me $2a$14$...
+    }
+    reverse_proxy 127.0.0.1:8090
+  }
+}
+```
+
 ## Checking it works
 
 - `http://127.0.0.1:8090/healthz`: note and link counts, last index time.

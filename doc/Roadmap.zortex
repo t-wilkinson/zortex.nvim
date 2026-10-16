@@ -119,6 +119,7 @@ Things that break or embarrass a first-time user. Do these before telling anyone
 - [x] Tag tables: no Notes column; the first lines of notes under the item, "All notes" for the panel @p3 @size(xs) @done(2026-10-16)
 - [x] Planner: what is left in the inbox, last @p3 @size(xs) @done(2026-10-16)
 - [x] `<leader>zT` on a project heading marks the project done (asks while tasks are open) @p3 @size(xs) @done(2026-10-16)
+- [x] A heading's `@attributes` look like attributes (Neovim and web), not like the title @p2 @size(xs) @done(2026-10-16)
 
 ## 3.10 Syntax to settle before the first tag
 Grammar changes are cheap now and costly once other people have notes.
@@ -151,7 +152,7 @@ Dropped: a raw-text section, uploading a file to render it, tags generated from 
 # 4 After v0.1.0
 - [ ] Tree-sitter grammar with the AST fixtures as acceptance tests (Wishlist # 7) @size(xl)
 - [x] LazyVim defaults: blink.cmp source next to the nvim-cmp one; pickers behind one interface with snacks.picker and fzf-lua backends next to telescope (`ui.picker = "auto"`) @size(lg) @done(2026-10-15)
-- [ ] Web app as an installable PWA (phone + Syncthing): the first thing after v0.1.0 @p1 @size(md)
+- [x] Web app as an installable PWA: manifest, icons, a service worker that keeps the last 60 pages for reading offline (doc/Server.md, Installing it as an app) @p1 @size(md) @done(2026-10-16)
 - [x] Pomodoro sessions into the calendar / XP (log what a session was spent on): time tracking writes @spent @size(md) @done(2026-10-12)
 - [ ] Import from Markdown / Obsidian vaults @size(lg)
 

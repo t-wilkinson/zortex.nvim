@@ -10,6 +10,10 @@ The first public release.
 
 ### Neovim plugin
 
+- A heading's `@attributes` are highlighted like attributes on any line
+  (`ZortexAttribute`), not in the heading's colours; the band behind a
+  heading is its background only (`ZortexHeading1Line`..`3Line`). Folded
+  headings show them the same way.
 - `:ZortexPlan` run from the plan window, or over a calendar buffer the
   planner had just added the day to, works: before, `<CR>` and `p` wrote
   into the plan buffer (not modifiable / out of range), and opening the
@@ -130,6 +134,11 @@ The first public release.
 
 ### Server (`zortex serve`)
 
+- The web app installs as an app (a PWA: home screen on a phone, its own
+  window on the desktop), and the last 60 pages you opened read offline as
+  saved copies ([doc/Server.md](doc/Server.md#installing-it-as-an-app)).
+- An attribute in a heading looks like one on a text line (not bold, not
+  heading-sized).
 - The header's search box lists the notes whose name matches as you type.
 - A bare `@tag` links to the lines tagged so in every note (`@[*/tag]`).
 - Tag tables: no Notes column; an item's notes show under it (all of them

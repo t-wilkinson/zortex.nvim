@@ -111,6 +111,8 @@ M.EXTRA_LINKS = {
 	{ link = "@[/#AI/rl]", from = "z/resources.zortex" },
 	{ link = "P/#1.4" },
 	{ link = "[]" },
+	-- ~/ is the notes folder (for notes outside it); here it changes nothing
+	{ link = "[~/P/#1.4 - zortex]" },
 	-- a "-" component finds a task by its @id too, exactly
 	{ link = "[Garden/-tom01]" },
 	{ link = "[Garden/-TOM01]" },

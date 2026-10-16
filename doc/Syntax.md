@@ -173,6 +173,10 @@ case-insensitive and by prefix: `[P/#1.4]` finds `## 1.4 - zortex`.
 | `>` follow | `[R/#Rust/>The Rust Book]` | a link in the range, by its text or its line's text; following it opens what that link points to (last component only) |
 
 - `[/#Local heading]` (leading `/`) resolves in the current note.
+- A note outside `notes_dir` (a repository's `doc/Roadmap.zortex`) resolves
+  its links among the notes of its own folder: the nearest folder above it
+  with a `.z/`, else the folder it is in. `[~/P/#Subaru]` (leading `~/`)
+  reaches `notes_dir` from there; inside `notes_dir` it changes nothing.
 - `[./-Item]` (`./` and a typed component: `-`, `#`, `:`, `*`, `>`) continues
   the link of the line it's nested under: below `09:00 [P/#1.4 - zortex]`,
   `  - [ ] [./-Improve website]` is `[P/#1.4 - zortex/-Improve website]`. The
@@ -190,8 +194,8 @@ case-insensitive and by prefix: `[P/#1.4]` finds `## 1.4 - zortex`.
   list (Neovim) or the link page (web app) shows them all.
 - Archived notes (tagged `@Archive`, or `z/archive.*.zortex`) are skipped
   unless a component is `@Archive`.
-- Generated links keep only `A-Z a-z 0-9 _ - ( ) . :` of a heading
-  (`#4 Learning & Education` is written `#4 Learning`); the prefix match
+- Generated links keep a heading's text up to link syntax (`[ ] /`), an `@`
+  or a `|` (`#Talk to Sam @p1` is written `#Talk to Sam`); the prefix match
   still finds it.
 
 `doc/Architecture.md` (Links) has the exact resolution rules.

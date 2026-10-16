@@ -86,8 +86,13 @@ end
 
 local reachable_sections -- defined below
 
-local function article_items(paths)
-	local idx = notes().index()
+-- the notes a link written in `doc` can reach (notes.root_of)
+local function index_for(doc)
+	return notes().index({ root = doc and doc.filepath and notes().root_of(doc.filepath) or nil })
+end
+
+local function article_items(paths, doc)
+	local idx = index_for(doc)
 	local items = {}
 	for _, path in ipairs(paths or idx.files) do
 		local header = idx.headers[path]
@@ -103,8 +108,8 @@ local function article_items(paths)
 	return items
 end
 
-local function tag_items()
-	local idx = notes().index()
+local function tag_items(doc)
+	local idx = index_for(doc)
 	local seen, items = {}, {}
 	for _, path in ipairs(idx.files) do
 		for _, tag in ipairs(idx.headers[path].tags or {}) do
@@ -525,12 +530,12 @@ function M.get_completions(line, col, opts)
 				vim.list_extend(items, item_items(opts.doc, opts.doc.tree))
 			end
 		elseif first_char == "@" then
-			items = tag_items()
+			items = tag_items(opts.doc)
 		elseif FILTER[first_char] then
 			-- "[#..." searches every note; suggest sections of the current one
 			items = opts.doc and section_items(opts.doc, opts.doc.tree) or {}
 		else
-			items = article_items()
+			items = article_items(nil, opts.doc)
 		end
 	else
 		items = after_parts(ctx, opts)

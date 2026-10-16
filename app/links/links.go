@@ -54,6 +54,9 @@ func SplitLink(def string) ([]string, bool) {
 	if strings.HasPrefix(def, "/") {
 		local = true
 		def = def[1:]
+	} else if strings.HasPrefix(def, "~/") {
+		// the notes folder, from a note outside it: here, every note is in it
+		def = def[2:]
 	}
 	var parts []string
 	depth, start := 0, 0

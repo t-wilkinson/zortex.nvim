@@ -111,7 +111,7 @@ end
 
 --- Split a link definition into raw component strings, ignoring "/" inside
 --- parentheses (attribute values). Strips outer brackets.
----@return string[] components, "global"|"local" scope
+---@return string[] components, "global"|"local"|"home" scope
 function M.split(definition)
 	definition = syntax.trim(definition or "")
 	if definition:sub(1, 1) == "[" and definition:sub(-1) == "]" then
@@ -121,6 +121,10 @@ function M.split(definition)
 	if definition:sub(1, 1) == "/" then
 		scope = "local"
 		definition = definition:sub(2)
+	elseif definition:sub(1, 2) == "~/" then
+		-- the notes folder, from a note outside it (a repository's docs)
+		scope = "home"
+		definition = definition:sub(3)
 	end
 
 	local components, current, depth = {}, "", 0
@@ -550,6 +554,18 @@ function M.resolve(link, opts)
 	local is_local = parsed.scope == "local"
 	local idx
 	local cands -- { path, doc?, start_line?, end_line? }
+	-- Where global links look: the notes folder, or for a note outside it
+	-- the folder it lives in (notes.root_of); "~/" is the notes folder
+	local root = opts.root
+	if parsed.scope == "home" then
+		root = nil
+	elseif root == nil then
+		local from = opts.doc and opts.doc.filepath
+		if not from and opts.bufnr then
+			from = vim.api.nvim_buf_get_name(opts.bufnr == 0 and vim.api.nvim_get_current_buf() or opts.bufnr)
+		end
+		root = from and from ~= "" and notes().root_of(from) or nil
+	end
 
 	if is_local then
 		local doc = opts.doc or Document().from_buffer(opts.bufnr or 0)
@@ -562,7 +578,7 @@ function M.resolve(link, opts)
 		if include_archived == nil then
 			include_archived = mentions_archive(parsed)
 		end
-		idx = notes().index({ include_archived = include_archived })
+		idx = notes().index({ include_archived = include_archived, root = root })
 		cands = {}
 		-- An article first ([P/...], the usual case): only the notes with that
 		-- name or tag can match, so skip the rest now (the article step below
@@ -720,6 +736,7 @@ function M.parse_tag_search(content)
 	return {
 		scope = (#parts > 0 and not all) and parts or nil,
 		is_local = scope == "local",
+		home = scope == "home",
 		all = all,
 		groups = groups,
 	}
@@ -857,7 +874,8 @@ function M.tag_search(content, opts)
 			end
 		end
 	elseif q.scope then
-		local results, err = M.resolve((q.is_local and "/" or "") .. table.concat(q.scope, "/"), opts)
+		local prefix = q.is_local and "/" or (q.home and "~/" or "")
+		local results, err = M.resolve(prefix .. table.concat(q.scope, "/"), opts)
 		if #results == 0 then
 			return {}, err
 		end

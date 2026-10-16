@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -545,11 +546,24 @@ func (s *Server) apiEdit(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		err = f.write()
 	}
+	// what a task checked here is estimated to earn: its share of its group,
+	// or what was left of a group (edit.Groups; 0: from its @size)
+	hours := 0.0
+	if err == nil && taskOp && lnum >= 1 && lnum <= len(f.lines) {
+		was := append([]string(nil), f.lines...)
+		was[lnum-1] = before
+		if g := s.calibration().groups(was, 0, 0)[lnum]; g != nil && (g.Parent != 0 || !g.Leaf) {
+			hours = g.Hours
+			if !g.Leaf {
+				hours = g.OpenHours
+			}
+		}
+	}
 	var synced []string
 	if err == nil && taskOp && lnum >= 1 && lnum <= len(f.lines) {
 		var serr error
-		if synced, serr = s.syncMirrors(rel, lnum, f.lines[lnum-1]); serr != nil {
-			s.log.Printf("edit: keeping copies in step: %v", serr)
+		if synced, serr = s.propagate(rel, lnum, f.lines[lnum-1]); serr != nil {
+			s.log.Printf("edit: keeping copies and groups in step: %v", serr)
 		}
 	}
 	s.editMu.Unlock()
@@ -568,7 +582,7 @@ func (s *Server) apiEdit(w http.ResponseWriter, r *http.Request) {
 	if req.Op != "delete" && lnum >= 1 && lnum <= len(f.lines) {
 		after = f.lines[lnum-1]
 	}
-	s.recordCompletion(rel, before, after)
+	s.recordCompletion(rel, before, after, hours)
 	s.afterWrite()
 	s.log.Printf("edit %s:%d %s", rel, req.Lnum, req.Op)
 	if len(synced) > 0 {
@@ -644,9 +658,10 @@ type webCompletion struct {
 	Title string    `json:"title"`
 	At    time.Time `json:"at"`
 	// what its XP is estimated from (the project task's, for a calendar copy)
-	Size string `json:"size,omitempty"`
-	P    string `json:"p,omitempty"`
-	I    string `json:"i,omitempty"`
+	Size  string  `json:"size,omitempty"`
+	P     string  `json:"p,omitempty"`
+	I     string  `json:"i,omitempty"`
+	Hours float64 `json:"hours,omitempty"` // its share of a task group (else from Size)
 }
 
 type completionLog struct {
@@ -706,8 +721,78 @@ func (s *Server) projectTaskLine(id string) string {
 	return ""
 }
 
+// lineChange: a line a task edit changed besides its own.
+type lineChange struct {
+	Rel  string
+	Lnum int
+	Line string
+}
+
+// propagate: after rel:lnum became line (checked or reopened), its copies
+// follow (syncMirrors), and so do the tasks of its group (edit.Cascade:
+// checking a group checks its tasks, the last task checked checks the group,
+// a task reopened reopens the groups above it), then their copies, and so
+// on. Returns the other notes it changed. Call with editMu held.
+func (s *Server) propagate(rel string, lnum int, line string) ([]string, error) {
+	queue := []lineChange{{rel, lnum, line}}
+	seen := map[string]bool{}
+	notes := map[string]bool{}
+	var errs []error
+	for i := 0; i < len(queue); i++ {
+		q := queue[i]
+		key := q.Rel + "\x00" + strconv.Itoa(q.Lnum)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		rels, copies, err := s.syncMirrors(q.Rel, q.Lnum, q.Line)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		for _, r := range rels {
+			notes[r] = true
+		}
+		queue = append(queue, copies...)
+		f, err := readNoteFile(s.ix.Path(q.Rel))
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		if q.Lnum > len(f.lines) || f.lines[q.Lnum-1] != q.Line {
+			continue // changed since: leave it
+		}
+		edits := edit.Cascade(f.lines, q.Lnum, today())
+		if len(edits) == 0 {
+			continue
+		}
+		for _, e := range edits {
+			f.lines[e.Lnum-1] = e.Line
+		}
+		if err := f.write(); err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		if q.Rel != rel {
+			notes[q.Rel] = true
+		}
+		for _, e := range edits {
+			queue = append(queue, lineChange{q.Rel, e.Lnum, e.Line})
+		}
+	}
+	var out []string
+	for r := range notes {
+		if r != rel {
+			out = append(out, r)
+		}
+	}
+	sort.Strings(out)
+	return out, errors.Join(errs...)
+}
+
 // recordCompletion notes a task completed (or un-completed) on the web.
-func (s *Server) recordCompletion(rel, before, after string) {
+// hours: what it is estimated to earn when it is in a task group (0: its
+// @size, or its project task's).
+func (s *Server) recordCompletion(rel, before, after string, hours float64) {
 	if s.cfg.DataDir == "" {
 		return
 	}
@@ -736,7 +821,7 @@ func (s *Server) recordCompletion(rel, before, after string) {
 				title = strings.TrimSpace(syntax.StripAttributes(pt[it.ContentCol:]))
 			}
 		}
-		wc := webCompletion{Rel: rel, Title: title, At: time.Now().UTC()}
+		wc := webCompletion{Rel: rel, Title: title, At: time.Now().UTC(), Hours: hours}
 		wc.Size, _ = edit.Attribute(src, "size")
 		if wc.Size == "" {
 			wc.Size = bareSize(src)

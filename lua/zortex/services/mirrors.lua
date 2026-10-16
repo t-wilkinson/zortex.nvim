@@ -214,20 +214,22 @@ function M.sync(path, lnum, line)
 	local workspace = require("zortex.core.workspace")
 	path = path and normalize(path)
 	local needle = "@id(" .. id .. ")"
-	local changed = 0
+	local changed, edits = 0, {}
 	for _, p in ipairs(M.paths()) do
 		local lines = workspace.get_lines(p)
 		for l, text in ipairs(lines) do
 			if not (p == path and l == lnum) and text:find(needle, 1, true) then
 				local other = Item.task(text)
 				if other and other.mark ~= M.MOVED and other.completed ~= done then
-					workspace.set_line(p, l, M.set_done(text, done, date))
+					local new = M.set_done(text, done, date)
+					workspace.set_line(p, l, new)
 					changed = changed + 1
+					edits[#edits + 1] = { path = p, lnum = l, line = new }
 				end
 			end
 		end
 	end
-	return changed
+	return changed, edits
 end
 
 --- The id of the task on `path`:`lnum`, adding a new @id to it when it has

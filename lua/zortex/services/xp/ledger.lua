@@ -162,16 +162,31 @@ local function checked_tasks(path)
 		lines = require("zortex.utils.filesystem").read_lines(path) or {}
 	end
 	local tasks = {}
+	local nested = false
 	local in_fence = false
 	for lnum, line in ipairs(lines) do
 		if line:match("^%s*```") then
 			in_fence = not in_fence
-		elseif not in_fence and line:find("[xX]%]") then
-			local task = Item.task(line, { lnum = lnum, file = path })
-			if task and task.completed then
-				tasks[#tasks + 1] = task
+		elseif not in_fence then
+			nested = nested or line:match("^%s+[-*+]%s+%[.%]") ~= nil
+			if line:find("[xX]%]") then
+				local task = Item.task(line, { lnum = lnum, file = path })
+				if task and task.completed then
+					tasks[#tasks + 1] = task
+				end
 			end
 		end
+	end
+	-- tasks nested under tasks: the checked leaves pay their share of their
+	-- group, and a checked group pays through its tasks (services/task_groups)
+	if nested then
+		local doc = require("zortex.core.document").from_lines(lines, path)
+		local all = doc:items(1, #lines, { tasks = true })
+		local groups = require("zortex.services.task_groups")
+		groups.annotate(all, require("zortex.services.projects.project").group_opts(doc))
+		tasks = vim.tbl_filter(function(t)
+			return t.leaf and t.done_effective
+		end, all)
 	end
 	light_cache[path] = { key = key, tasks = tasks }
 	return tasks
@@ -211,13 +226,18 @@ local function project_groups(project_paths)
 			root:walk(function(p)
 				local g = groups[p.key]
 				if not g then
-					g = { project = p, tasks = {}, live = not archived }
+					g = { project = p, tasks = {}, ids = {}, live = not archived }
 					groups[p.key] = g
 					order[#order + 1] = p.key
 				elseif not archived and not g.live then
 					g.project, g.live = p, true
 				end
-				vim.list_extend(g.tasks, p:tasks())
+				vim.list_extend(g.tasks, p:leaf_tasks()) -- a group pays through its tasks
+				for _, t in ipairs(p:tasks()) do -- every task, groups too: their copies don't pay
+					if t.attributes and t.attributes.id then
+						g.ids[t.attributes.id] = true
+					end
+				end
 			end)
 		end
 	end
@@ -305,13 +325,17 @@ local function project_entries(out, group, kr_index)
 	local pool = calculator.calculate_project_total_xp(project, tasks)
 	local done = {}
 	for _, t in ipairs(tasks) do
-		if t.completed then
+		-- checked, or under a checked group (services/task_groups)
+		if t.done_effective or (t.done_effective == nil and t.completed) then
 			done[#done + 1] = t
 		end
 	end
+	local function done_date(t)
+		return t.done_date or t.attributes.done
+	end
 	-- undated completions first (they are the oldest), then by date, then by line
 	table.sort(done, function(a, b)
-		local da, db = date_string(a.attributes.done) or "", date_string(b.attributes.done) or ""
+		local da, db = date_string(done_date(a)) or "", date_string(done_date(b)) or ""
 		if da ~= db then
 			return da < db
 		end
@@ -334,7 +358,7 @@ local function project_entries(out, group, kr_index)
 			project = project.key,
 			file = t.file,
 			lnum = t.lnum,
-			date = date_string(t.attributes.done),
+			date = date_string(done_date(t)),
 			xp = xp,
 			areas = calculator.area_shares(xp, areas, share),
 		})
@@ -369,7 +393,7 @@ local function task_entries(out, path, skip_ids)
 				title = t.text,
 				file = path,
 				lnum = t.lnum,
-				date = date_string(t.attributes.done),
+				date = date_string(t.done_date or t.attributes.done),
 				xp = xp,
 				areas = calculator.area_shares(xp, areas, share),
 			})
@@ -475,10 +499,8 @@ function M.build()
 	-- calendar copies of project tasks are paid by their project
 	local project_ids = {}
 	for _, g in pairs(groups) do
-		for _, t in ipairs(g.tasks) do
-			if t.attributes and t.attributes.id then
-				project_ids[t.attributes.id] = true
-			end
+		for id in pairs(g.ids) do
+			project_ids[id] = true
 		end
 	end
 	local calendar = normalize(require("zortex.utils.filesystem").get_calendar_file())

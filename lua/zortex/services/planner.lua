@@ -271,8 +271,21 @@ function M.candidates(opts)
 	local tasks = {}
 	for _, p in ipairs(projects.all()) do
 		for _, task in ipairs(p:tasks()) do
-			if not task.completed then
+			-- a group is one candidate (its tasks are ticked in the note);
+			-- one whose tasks are all done is done
+			local open = not task.completed and not task.parent_task and (task.leaf ~= false or (task.open_leaves or 0) > 0)
+			if open then
 				local s, badges = score_task(task, p, ctx)
+				if task.leaf == false then
+					local leaves = #require("zortex.services.task_groups").leaves(vim.tbl_filter(function(t)
+						local up = t.parent_task
+						while up and up ~= task do
+							up = up.parent_task
+						end
+						return up == task
+					end, p:tasks()))
+					badges[#badges + 1] = string.format("%d of %d tasks open", task.open_leaves, leaves)
+				end
 				local focused = focus_of(p, ctx)
 				if s > 0 or focused then
 					badges[#badges + 1] = p.name
@@ -345,7 +358,7 @@ function M.candidates(opts)
 		end
 		badges[#badges + 1] = string.format("%d/%d", r.done, r.total)
 		for _, t in ipairs(p:tasks()) do
-			if not t.completed then
+			if not t.completed and not t.parent_task then
 				badges[#badges + 1] = "next: " .. t.text
 				break
 			end
@@ -511,14 +524,22 @@ local function clock_minutes(t)
 end
 
 -- Minutes of work in a task: @dur / @est on its line, else its @size
--- (xp.sizes.task hours; unsized = md)
-local function task_minutes(attrs, fallback)
+-- (xp.sizes.task hours; unsized = md). `project_task`: the project's task
+-- it is a copy of; a group (services/task_groups) weighs its open work.
+local function task_minutes(attrs, project_task)
 	attrs = attrs or {}
 	local explicit = attrs.dur or attrs.est
 	if type(explicit) == "number" and explicit > 0 then
 		return explicit, false
 	end
+	local fallback = project_task and project_task.attributes
 	local size = attrs.size or (fallback and fallback.size)
+	if project_task and project_task.leaf == false then
+		return (project_task.open_hours or 0) * 60, false
+	end
+	if not attrs.size and project_task and project_task.hours then
+		return project_task.hours * 60, size == nil
+	end
 	local calc = require("zortex.services.xp.calculator")
 	return calc.task_points(size) * 60, size == nil
 end
@@ -560,7 +581,7 @@ function M.capacity(date, opts)
 			if entry.type == "task" then
 				task_attrs = entry.attributes
 				local id = entry.attributes.id
-				linked = id and project_ids[id] and project_ids[id].task.attributes
+				linked = id and project_ids[id] and project_ids[id].task
 			elseif item.ref then
 				task_attrs = item.ref.task.attributes
 			end
@@ -832,7 +853,8 @@ function M.add_project(date, c, opts)
 		if taken >= count then
 			break
 		end
-		if not t.completed then
+		-- a group goes as one task; its tasks stay in the note
+		if not t.completed and not t.parent_task and (t.leaf ~= false or (t.open_leaves or 0) > 0) then
 			taken = taken + 1
 			local _, ok = M.add_task(date, {
 				file = t.file,

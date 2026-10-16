@@ -259,15 +259,45 @@ function M.context(bufnr, lnum)
 	if task and require("zortex.services.okr.objective").parse_key_result(line) then
 		task = nil -- a key result, described with its objective
 	end
-	if task then
+	-- the project's view of the task: a group, or a share of one
+	local grouped
+	if task and project then
+		for _, t in ipairs(project:tasks()) do
+			if t.lnum == lnum then
+				grouped = t
+			end
+		end
+	end
+	if task and grouped and grouped.leaf == false then
+		local leaves = 0
+		local function count(t)
+			if #t.children_tasks == 0 then
+				leaves = leaves + 1
+			end
+			for _, c in ipairs(t.children_tasks) do
+				count(c)
+			end
+		end
+		count(grouped)
+		out[#out + 1] = string.format(
+			"Group (%s): %s over its %d tasks, %d open; it is paid through them",
+			task.attributes.size and ("@" .. task.attributes.size) or "no @size: the sum of its tasks",
+			M.format_hours(grouped.hours),
+			leaves,
+			grouped.open_leaves
+		)
+	elseif task then
 		local size = task.attributes.size
-		local h = C.task_points(size)
+		local h = (grouped and grouped.hours) or C.task_points(size)
 		local label = size and ("@" .. size) or ("no @size: " .. constants.DEFAULT_TASK_SIZE)
+		if grouped and grouped.parent_task then
+			label = "a share of " .. grouped.parent_task.text
+		end
 		out[#out + 1] = string.format(
 			"Task (%s): %s → %s",
 			label,
 			M.format_hours(h),
-			with_mods(h * xph, task.attributes)
+			with_mods(h * xph, (grouped and grouped.xp_attrs) or task.attributes)
 		)
 		if project then
 			out[#out + 1] = "  as a project task it is paid from the project's pool, on its curve"
@@ -276,7 +306,7 @@ function M.context(bufnr, lnum)
 
 	if project then
 		local attrs = project.attributes or {}
-		local pool = C.calculate_project_total_xp(project, project:tasks())
+		local pool = C.calculate_project_total_xp(project, project:leaf_tasks())
 		local how
 		if tonumber(attrs.xp) then
 			how = "@xp"

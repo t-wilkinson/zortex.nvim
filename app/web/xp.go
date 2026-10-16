@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/t-wilkinson/zortex.nvim/app/edit"
 )
 
 // XP lives in Neovim (lua/zortex/services/xp/ledger: it is read off the
@@ -92,11 +94,15 @@ func (s *Server) apiXP(w http.ResponseWriter, r *http.Request) {
 	tasks := []pendingTask{}
 	total := 0.0
 	for i, p := range pending {
-		xp := cal.taskXP(p.Size, p.P, p.I)
+		h := cal.hours(p.Size)
+		if p.Hours > 0 {
+			h = p.Hours // a share of a task group
+		}
+		xp := cal.taskHoursXP(h, p.P, p.I)
 		total += xp
 		if i < 5 {
 			titles = append(titles, p.Title)
-			tasks = append(tasks, pendingTask{Title: p.Title, XP: math.Round(xp*10) / 10, Hours: cal.hours(p.Size)})
+			tasks = append(tasks, pendingTask{Title: p.Title, XP: math.Round(xp*10) / 10, Hours: h})
 		}
 	}
 	out["pending_web"], _ = json.Marshal(len(pending))
@@ -175,9 +181,23 @@ func (c calibration) hours(size string) float64 {
 	return 1
 }
 
+// groups: the task groups of lines[first..last] with this calibration's
+// sizes (edit.Groups).
+func (c calibration) groups(lines []string, first, last int) map[int]*edit.GroupTask {
+	return edit.Groups(lines, first, last, func(size string) (float64, bool) {
+		h, ok := c.TaskHours[strings.ToLower(size)]
+		return h, ok
+	}, c.hours(""))
+}
+
 // taskXP: hours x XP per hour x priority x importance.
 func (c calibration) taskXP(size, p, i string) float64 {
-	xp := c.hours(size) * c.XPPerHour
+	return c.taskHoursXP(c.hours(size), p, i)
+}
+
+// taskHoursXP: taskXP for a number of hours (a share of a task group).
+func (c calibration) taskHoursXP(hours float64, p, i string) float64 {
+	xp := hours * c.XPPerHour
 	if m, ok := c.Priority[p]; ok && p != "" {
 		xp *= m
 	}

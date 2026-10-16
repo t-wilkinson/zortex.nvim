@@ -5,7 +5,7 @@
   {{else}}
   <span class="pcheck" aria-hidden="true">{{if .T.Done}}✓{{end}}</span>
   {{end}}
-  <span class="ptask-text">{{.T.HTML}}</span>
+  <span class="ptask-text">{{with .T.Group}}<span class="dim small" title="a task of this group">{{.}} › </span>{{end}}{{.T.HTML}}</span>
   <span class="ptask-meta small">
     {{if .T.PutOff}}<span class="pill warn" title="planned on {{.T.PutOff}} earlier days and not done">put off ×{{.T.PutOff}}</span>{{end}}
     {{with .T.Planned}}<span class="pill" title="on the calendar">{{.}}</span>{{end}}

@@ -25,7 +25,7 @@ After changing the grammar, the link resolver, task edits or the actions:
 nvim --headless -u NONE -l tests/gen_docs.lua    # README command table, doc/zortex.txt
 nvim --headless -u NONE -l tests/gen_ast.lua     # tests/fixtures/ast: the parser's output
 nvim --headless -u NONE -l tests/gen_links.lua   # tests/fixtures/{resolve,search}.json
-nvim --headless -u NONE -l tests/gen_edits.lua   # tests/fixtures/edits.json
+nvim --headless -u NONE -l tests/gen_edits.lua   # tests/fixtures/{edits,carry,groups}.json
 ```
 
 The fixtures are the contract between the two sides: the Lua parser,

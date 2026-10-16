@@ -73,7 +73,7 @@ function M.project_stats()
 				project = project,
 				key = project.key,
 				earned_xp = math.floor(earned + 0.5),
-				total_xp = calculator.calculate_project_total_xp(project, project:tasks()),
+				total_xp = calculator.calculate_project_total_xp(project, project:leaf_tasks()),
 				done = own.done,
 				total = own.total,
 				completion = own.completion,
@@ -223,12 +223,12 @@ function M.explain_project(project)
 	local calculator = require("zortex.services.xp.calculator")
 	local l = ledger().get()
 	local group = l.projects[project.key]
-	local tasks = group and group.tasks or project:tasks()
+	local tasks = group and group.tasks or project:leaf_tasks()
 	local done = 0
 	for _, t in ipairs(tasks) do
-		done = done + (t.completed and 1 or 0)
+		done = done + ((t.done_effective or (t.done_effective == nil and t.completed)) and 1 or 0)
 	end
-	local archived = #tasks - #project:tasks()
+	local archived = #tasks - #project:leaf_tasks()
 	local pool = calculator.calculate_project_total_xp(project, tasks)
 	local entries, earned = ledger().for_project(project.key, l)
 	local how = tonumber(project.attributes.xp) and "@xp" or project.attributes.size and ("@size(" .. project.attributes.size .. ")") or "sum of its tasks"

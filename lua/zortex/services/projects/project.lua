@@ -72,8 +72,16 @@ function Project:tasks()
 			task.project = self
 		end
 		require("zortex.services.mirrors").apply(self._tasks)
+		-- tasks nested under a task: hours shared, leaves counted
+		require("zortex.services.task_groups").annotate(self._tasks, M.group_opts(self.doc))
 	end
 	return self._tasks
+end
+
+--- The tasks progress and XP count: leaves (a task with tasks nested under
+--- it is a group, services/task_groups).
+function Project:leaf_tasks()
+	return require("zortex.services.task_groups").leaves(self:tasks())
 end
 
 -- Own tasks plus the tasks of every sub-project.
@@ -102,11 +110,24 @@ end
 -- Stats
 -- =============================================================================
 
--- Effort points: the task's estimated hours (xp.sizes.task); unsized = md
+-- Effort points: the task's estimated hours (xp.sizes.task; unsized = md),
+-- or its share of a group's (services/task_groups)
 local function task_points(task)
-	return require("zortex.services.xp.calculator").task_points(task.attributes and task.attributes.size)
+	return task.hours or require("zortex.services.xp.calculator").task_points(task.attributes and task.attributes.size)
 end
 M.task_points = task_points
+
+--- Options for task_groups.annotate: sizes in hours, unsized = md.
+function M.group_opts(doc)
+	local calc = require("zortex.services.xp.calculator")
+	return {
+		doc = doc,
+		hours = function(size)
+			return size and calc.hours("task", size) or nil
+		end,
+		default = calc.task_points(nil),
+	}
+end
 
 local function empty_stats()
 	return { total = 0, done = 0, open = 0, points = 0, points_done = 0, points_open = 0, sizes = {} }
@@ -133,13 +154,13 @@ function Project:stats()
 	fresh(self)
 	if not self._stats then
 		local s = empty_stats()
-		for _, task in ipairs(self:tasks()) do
+		for _, task in ipairs(self:leaf_tasks()) do
 			local pts = task_points(task)
 			local size = task.attributes and task.attributes.size or "unsized"
 			s.total = s.total + 1
 			s.points = s.points + pts
 			s.sizes[size] = (s.sizes[size] or 0) + 1
-			if task.completed then
+			if task.done_effective or (task.done_effective == nil and task.completed) then
 				s.done = s.done + 1
 				s.points_done = s.points_done + pts
 			else

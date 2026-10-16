@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -77,19 +79,116 @@ func (s *Server) apiXP(w http.ResponseWriter, r *http.Request) {
 	if raw == nil || json.Unmarshal(raw, &out) != nil {
 		out = map[string]json.RawMessage{"available": json.RawMessage("false")}
 	}
-	// tasks completed on the web since Neovim last counted XP
+	// tasks completed on the web since Neovim last counted XP, with the XP
+	// they are estimated to earn (Neovim's calibration)
 	pending := s.pendingCompletions(generated(raw))
+	cal := calibrationOf(raw)
 	titles := []string{}
+	type pendingTask struct {
+		Title string  `json:"title"`
+		XP    float64 `json:"xp"`
+		Hours float64 `json:"hours"`
+	}
+	tasks := []pendingTask{}
+	total := 0.0
 	for i, p := range pending {
-		if i == 5 {
-			break
+		xp := cal.taskXP(p.Size, p.P, p.I)
+		total += xp
+		if i < 5 {
+			titles = append(titles, p.Title)
+			tasks = append(tasks, pendingTask{Title: p.Title, XP: math.Round(xp*10) / 10, Hours: cal.hours(p.Size)})
 		}
-		titles = append(titles, p.Title)
 	}
 	out["pending_web"], _ = json.Marshal(len(pending))
 	out["pending_titles"], _ = json.Marshal(titles)
+	out["pending_tasks"], _ = json.Marshal(tasks)
+	out["pending_xp"], _ = json.Marshal(math.Round(total))
 	writeJSON(w, http.StatusOK, out)
 }
+
+// =============================================================================
+// Estimating XP the way Neovim does (services/xp/calculator)
+// =============================================================================
+
+// calibration is how Neovim turns a task into XP: @size -> hours, XP per
+// hour, priority and importance multipliers. The XP summary carries it;
+// without one the plugin's defaults apply.
+type calibration struct {
+	XPPerHour   float64            `json:"xp_per_hour"`
+	TaskHours   map[string]float64 `json:"task_hours"`
+	DefaultSize string             `json:"default_size"`
+	Priority    map[string]float64 `json:"priority"`
+	Importance  map[string]float64 `json:"importance"`
+}
+
+func defaultCalibration() calibration {
+	return calibration{
+		XPPerHour: 10,
+		TaskHours: map[string]float64{
+			"xs": 0.25, "sm": 0.5, "md": 1, "lg": 2, "xl": 3,
+			"2xl": 5, "3xl": 8, "4xl": 13, "5xl": 20,
+		},
+		DefaultSize: "md",
+		Priority:    map[string]float64{"1": 1.5, "2": 1.2, "3": 1},
+		Importance:  map[string]float64{"1": 1.5, "2": 1.2, "3": 1},
+	}
+}
+
+// calibrationOf: the summary's calibration over the defaults.
+func calibrationOf(raw []byte) calibration {
+	c := defaultCalibration()
+	var head struct {
+		Calibration *calibration `json:"calibration"`
+	}
+	if raw == nil || json.Unmarshal(raw, &head) != nil || head.Calibration == nil {
+		return c
+	}
+	got := head.Calibration
+	if got.XPPerHour > 0 {
+		c.XPPerHour = got.XPPerHour
+	}
+	if got.DefaultSize != "" {
+		c.DefaultSize = got.DefaultSize
+	}
+	for k, v := range got.TaskHours {
+		if v > 0 {
+			c.TaskHours[k] = v
+		}
+	}
+	for k, v := range got.Priority {
+		c.Priority[k] = v
+	}
+	for k, v := range got.Importance {
+		c.Importance[k] = v
+	}
+	return c
+}
+
+// hours of a task @size (unsized or unknown: the default size)
+func (c calibration) hours(size string) float64 {
+	if h, ok := c.TaskHours[strings.ToLower(size)]; ok {
+		return h
+	}
+	if h, ok := c.TaskHours[c.DefaultSize]; ok {
+		return h
+	}
+	return 1
+}
+
+// taskXP: hours x XP per hour x priority x importance.
+func (c calibration) taskXP(size, p, i string) float64 {
+	xp := c.hours(size) * c.XPPerHour
+	if m, ok := c.Priority[p]; ok && p != "" {
+		xp *= m
+	}
+	if m, ok := c.Importance[i]; ok && i != "" {
+		xp *= m
+	}
+	return xp
+}
+
+// calibration: the current summary's (for project progress).
+func (s *Server) calibration() calibration { return calibrationOf(s.xpSummary()) }
 
 func (s *Server) apiXPPost(w http.ResponseWriter, r *http.Request) {
 	if !s.keyOK(r) {

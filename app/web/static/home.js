@@ -527,9 +527,12 @@
     var n = (x && x.pending_web) || 0;
     el.hidden = n === 0;
     if (!n) return;
-    var titles = list(x.pending_titles).map(esc).join(", ");
-    el.innerHTML = "<strong>" + n + " task" + (n === 1 ? "" : "s") + " completed here</strong> " +
-      "<span class='dim'>· not counted for XP yet; Neovim counts " + (n === 1 ? "it" : "them") + " next time it runs" +
+    var tasks = list(x.pending_tasks);
+    var titles = tasks.length ? tasks.map(function (t) { return esc(t.title) + " ~" + num(t.xp); }).join(", ") :
+      list(x.pending_titles).map(esc).join(", ");
+    var xp = x.pending_xp ? " · ~" + num(x.pending_xp) + " XP pending" : "";
+    el.innerHTML = "<strong>" + n + " task" + (n === 1 ? "" : "s") + " completed here" + esc(xp) + "</strong> " +
+      "<span class='dim'>· an estimate from " + (n === 1 ? "its" : "their") + " sizes; Neovim counts the real XP next time it runs" +
       (titles ? " (" + titles + (n > 5 ? ", …" : "") + ")" : "") + "</span>";
   }
 

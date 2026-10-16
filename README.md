@@ -161,7 +161,8 @@ Special notes:
   and what you open often ranks higher. A note's file name is one more
   alias of its articles (`okr` finds `@@Objectives` in `okr.zortex`). `<leader>z/` searches plain text in
   every line instead; `<M-t>` in the picker cycles section, article and text
-  search.
+  search (`ui.search.keys.cycle_mode` changes the key, e.g. `<C-t>` when a
+  terminal or zellij takes `<M-t>`).
 - **which-key**: when [which-key.nvim](https://github.com/folke/which-key.nvim)
   is installed, `<leader>z` shows as "Zortex" and its sub-prefixes by name
   (`<leader>zC` "Calendar & digest", `<leader>zx` "XP", ...); rename them
@@ -361,7 +362,7 @@ list.
 
 | picker   | keys                                                                                                     |
 | -------- | -------------------------------------------------------------------------------------------------------- |
-| search   | `<C-o>` new note named after the query, `<M-t>` cycle section / article / text search                     |
+| search   | `<C-o>` new note named after the query, `<M-t>` cycle section / article / text search (`ui.search.keys`; shown in the title) |
 | projects | `<C-l>` insert the link, `<C-y>` yank it, `<M-s>` cycle the sort, `<M-d>` show done, `<M-e>` leaf only     |
 | follow   | `<C-l>` go to the link's line instead of following it                                                    |
 

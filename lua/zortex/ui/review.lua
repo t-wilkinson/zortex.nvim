@@ -15,6 +15,7 @@
 --   K      preview the link on the line
 --   r      refresh (re-reads the notes)
 --   q      close
+--   ?      these keys (ui/keyhelp)
 --
 -- render(review) is pure: it returns the lines, a line -> location map and a
 -- line -> entity map, so other front ends (the digest, an app) can reuse the
@@ -450,6 +451,9 @@ local function get_buffer()
 	map("q", function()
 		M.close()
 	end, "Zortex review: close")
+	map("?", function()
+		require("zortex.ui.keyhelp").show("Zortex review: ", "Review keys")
+	end, "Zortex review: these keys")
 
 	state.bufnr = buf
 	return buf
@@ -503,6 +507,12 @@ function M.refresh()
 		pcall(vim.api.nvim_win_set_cursor, state.win, { math.min(view[1], #lines), 0 })
 	end
 	pcall(require("zortex.features.highlights").highlight_buffer, buf)
+	-- the keys are one "?" away
+	local ns = vim.api.nvim_create_namespace("zortex_review_hint")
+	vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
+	if #lines > 0 then
+		vim.api.nvim_buf_set_extmark(buf, ns, 0, 0, { virt_text = { { "  ? keys", "Comment" } }, virt_text_pos = "eol" })
+	end
 end
 
 function M.close()

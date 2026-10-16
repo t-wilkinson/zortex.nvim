@@ -143,8 +143,21 @@ T.test("the search picker's spec: live, in services/search's order", function()
 	local p = spec.preview(first)
 	T.ok(p.zortex and p.lnum and #p.lines > 0)
 	T.ok(spec.title():find("(section)", 1, true))
+	T.ok(spec.title():find("<M-t> mode · <C-o> new note", 1, true), spec.title())
 	spec.keys["<M-t>"].fn()
 	T.ok(spec.title():find("(article)", 1, true), spec.title())
+
+	-- other keys (ui.search.keys): mapped and named in the title; false: off
+	local search = require("zortex.services.search")
+	local saved = search.config
+	search.setup({ keys = { cycle_mode = "<C-t>", new_note = false } })
+	local ok, err = pcall(function()
+		local s2 = require("zortex.ui.picker.search").spec({ mode = "section" })
+		T.eq(vim.tbl_keys(s2.keys), { "<C-t>" })
+		T.ok(vim.endswith(s2.title(), "· <C-t> mode"), s2.title())
+	end)
+	search.config = saved
+	assert(ok, err)
 end)
 
 T.test("blink.cmp registration: one provider, listed for zortex buffers, yours kept", function()

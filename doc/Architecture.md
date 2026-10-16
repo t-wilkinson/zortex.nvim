@@ -672,7 +672,7 @@ calling `search.setup()` with no arguments resets to the defaults):
 
 | option               | effect                                                                                                                                                                                 |
 | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `default_mode`       | `"section"`: sections, then lines. `"article"`: article names only. `<M-t>` toggles in the picker.                                                                                     |
+| `default_mode`       | `"section"`: sections, then lines. `"article"`: article names only. `ui.search.keys.cycle_mode` (`<M-t>`) cycles in the picker.                                                                                     |
 | `max_results`        | caps the results of each query                                                                                                                                                         |
 | `token_filters[n]`   | section types that may be a result when the prompt has `n` words (the last entry applies beyond). Bold headings and labels above the first heading count as H1. Typed words bypass it. |
 | `access_decay_rate`  | per-day decay of a note's "opened from search" score (see history below)                                                                                                               |

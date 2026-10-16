@@ -1,6 +1,23 @@
 -- init.lua - require("zortex"): setup() plus the public API (zortex.api)
 local api = require("zortex.api")
 
+-- :help zortex needs doc/tags. Plugin managers make it on install, but not
+-- for a plugin loaded from a local folder (lazy.nvim's dir = / dev = true),
+-- so make it here when it is missing or older than doc/zortex.txt and the
+-- folder is writable (not, say, the Nix store).
+function api.helptags()
+	local root = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p:h:h:h")
+	local doc = root .. "/doc"
+	local txt, tags = doc .. "/zortex.txt", doc .. "/tags"
+	if vim.fn.filereadable(txt) == 0 or vim.fn.filewritable(doc) ~= 2 then
+		return false
+	end
+	if vim.fn.getftime(tags) >= vim.fn.getftime(txt) then
+		return true
+	end
+	return (pcall(vim.cmd.helptags, vim.fn.fnameescape(doc)))
+end
+
 function api.setup(opts)
 	if vim.fn.has("nvim-0.10") == 0 then
 		vim.notify("zortex.nvim needs Neovim 0.10 or newer", vim.log.levels.ERROR)
@@ -8,6 +25,8 @@ function api.setup(opts)
 	end
 	local Config = require("zortex.config")
 	Config.setup(opts)
+
+	api.helptags()
 
 	-- A new notes folder gets the key notes (calendar, projects, ...)
 	require("zortex.core.starter").setup(Config.init_files)

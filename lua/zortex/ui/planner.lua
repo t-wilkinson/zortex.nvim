@@ -35,7 +35,7 @@
 --   <C-n> <C-p> move the calendar cursor down / up
 --   <Tab>      go to the calendar window
 --   gx / K     follow / preview the link on the line
---   r          refresh   q  close
+--   r          refresh   q  close   ?  these keys
 local M = {}
 
 local planner = require("zortex.services.planner")
@@ -76,6 +76,7 @@ function M.render(candidates, date)
 	end
 	add("@@Plan " .. (date or ""), nil, {
 		candidates.focus_week and ("focus: " .. candidates.focus_week) or "no focus projects picked (:ZortexReview week)",
+		"? keys",
 	})
 	if candidates.capacity_line then
 		add(candidates.capacity_line, nil, candidates.capacity_badges)
@@ -309,6 +310,9 @@ local function plan_buffer()
 	map("q", function()
 		M.close()
 	end, "close")
+	map("?", function()
+		require("zortex.ui.keyhelp").show("Zortex plan: ", "Plan keys")
+	end, "these keys")
 	state.buf = buf
 	return buf
 end

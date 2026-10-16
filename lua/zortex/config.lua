@@ -182,8 +182,15 @@ local defaults = {
 		},
 
 		search = {
-			default_mode = "section", -- or "article", "text" (plain text); <C-t> cycles them
+			default_mode = "section", -- or "article", "text" (plain text); keys.cycle_mode cycles them
 			max_results = 500,
+			-- Keys in the search picker (any backend), shown in its title;
+			-- false turns one off. <M-t> is taken by some terminals and
+			-- multiplexers (zellij): e.g. cycle_mode = "<C-t>".
+			keys = {
+				cycle_mode = "<M-t>", -- section / article / text search
+				new_note = "<C-o>", -- a new note named after the query
+			},
 			access_decay_rate = 0.1, -- per day
 			breadcrumb_display = {
 				one_token = { "article" },

@@ -378,7 +378,8 @@ T.test("calendar view: the day as written, tasks under their project's block", f
 		local render = require("zortex.ui.calendar.render")
 		local Config = require("zortex.config")
 		local saved_ui = Config.ui
-		Config.ui = saved_ui or vim.deepcopy(Config.defaults.ui) -- setup() hasn't run in these tests
+		-- setup() hasn't run in these tests: the defaults under what is set
+		Config.ui = vim.tbl_deep_extend("keep", vim.deepcopy(saved_ui or {}), vim.deepcopy(Config.defaults.ui))
 		local cfg = vim.deepcopy(Config.ui.calendar)
 		local state = { current_date = require("zortex.utils.datetime").parse_date("2026-10-27") }
 		local ok, lines = pcall(render.month, state.current_date, state, cfg, 80)

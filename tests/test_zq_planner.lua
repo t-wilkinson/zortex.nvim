@@ -236,6 +236,14 @@ T.test(":ZortexPlan again from the plan window, or over an unsaved calendar", fu
 		ok, err = pcall(vim.fn.maparg("p", "n", false, true).callback)
 		T.ok(ok, err)
 
+		-- ? lists the buffer's keys from their descriptions
+		local help = table.concat(require("zortex.ui.keyhelp").lines(st.buf, "Zortex plan: "), "\n")
+		T.ok(help:find("  P  ", 1, true) and help:find("add the project with its next open tasks", 1, true), help)
+		vim.api.nvim_set_current_win(st.win)
+		local hwin = require("zortex.ui.keyhelp").show("Zortex plan: ", "Plan keys")
+		T.ok(hwin and vim.api.nvim_win_get_config(hwin).relative == "editor", "help float")
+		vim.api.nvim_win_close(hwin, true)
+
 		ui.close()
 		vim.cmd("silent! bwipeout! " .. st.cal_buf)
 	end)

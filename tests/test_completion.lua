@@ -193,7 +193,7 @@ end)
 T.test("'>' offers the links in range", function()
 	T.eq(labels("[R/#Rust/#Embedded/>"), { ">The Embedded Rust Book", ">Pinout" })
 	local l = labels("[R/#AI/>")
-	T.ok(has(l, ">Sutton  Barto") or has(l, ">Sutton"), vim.inspect(l))
+	T.ok(has(l, ">Sutton & Barto"), vim.inspect(l))
 	T.ok(has(l, ">lecture notes") and has(l, ">Spinning Up"), vim.inspect(l))
 	for _, label in ipairs(labels("[R/#Rust/>")) do
 		T.ok(#require("zortex.core.link").resolve("[R/#Rust/" .. label .. "]") > 0, label)
@@ -245,7 +245,7 @@ T.test("'[./' completes from the parent line's link: items, sections, links", fu
 	-- "-" lists the section's items, its own first
 	local items = rel_labels(cal, "    - [ ] [./-")
 	T.eq(items[1], "-Add research-ready references")
-	T.ok(has(items, "-Improve website") and has(items, "-Calendar doesn"), vim.inspect(items))
+	T.ok(has(items, "-Improve website") and has(items, "-Calendar doesn't work"), vim.inspect(items))
 	T.ok(not has(items, "#1.4.1 - zortex search"), "only items after -")
 	T.ok(has(items, "-Fix project search"), "items of sub-sections come after")
 	-- "#", ":" and "*" narrow to that kind of section

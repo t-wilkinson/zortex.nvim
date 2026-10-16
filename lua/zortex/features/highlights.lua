@@ -178,20 +178,38 @@ local function paint(buf, row, group, s, e)
 	end
 end
 
+-- Every mark covers the text it decorates and is invalidated with it: a
+-- deleted or moved line takes its marks along instead of leaving them piled
+-- on the next line until the next repaint
+local function mark(buf, row, col, opts)
+	opts.invalidate = true
+	opts.undo_restore = false
+	if not opts.end_col then
+		-- a point mark (an overlay, a line highlight): give it the character
+		-- under it, so it has a range to lose; its conceal stays a no-op
+		opts.end_col = math.min(col + 1, #(vim.api.nvim_buf_get_lines(buf, row, row + 1, false)[1] or ""))
+		opts.conceal = nil
+	end
+	vim.api.nvim_buf_set_extmark(buf, NS, row, col, opts)
+end
+
 local function conceal(buf, row, s, e)
-	vim.api.nvim_buf_set_extmark(buf, NS, row, s, { end_col = e, conceal = "" })
+	mark(buf, row, s, { end_col = e, conceal = "" })
 end
 
 local function overlay(buf, row, col, text, group, conceal_char)
-	vim.api.nvim_buf_set_extmark(buf, NS, row, col, {
+	mark(buf, row, col, {
 		virt_text = { { text, group } },
 		virt_text_pos = "overlay",
 		conceal = conceal_char,
 	})
 end
 
+-- the link icon replaces the opening "[" (concealed with it)
 local function icon(buf, row, col)
-	vim.api.nvim_buf_set_extmark(buf, NS, row, col, {
+	mark(buf, row, col, {
+		end_col = col + 1,
+		conceal = "",
 		virt_text = { { LINK_ICON, "ZortexLinkDelimiter" } },
 		virt_text_pos = "inline",
 	})
@@ -211,12 +229,10 @@ local function paint_spans(buf, row, spans, kind)
 				paint(buf, row, "ZortexTagSearchAt", s, s + 1)
 			end
 			paint(buf, row, "ZortexLink", open + 1, e - 1)
-			conceal(buf, row, open, open + 1)
 			icon(buf, row, open)
 			conceal(buf, row, e - 1, e)
 		elseif t == "markdown" then
 			paint(buf, row, "ZortexMarkdownLink", s + 1, s + 1 + #span.text)
-			conceal(buf, row, s, s + 1)
 			icon(buf, row, s)
 			conceal(buf, row, s + 1 + #span.text, e)
 		elseif t == "footnote_ref" then
@@ -331,7 +347,7 @@ local function paint_item(buf, row, line, d, it)
 		local prefix = is_kr and "ZortexKeyResult" or "ZortexTask"
 		paint(buf, row, prefix .. "Checkbox", it.mark_col, it.mark_col + 3)
 		if it.mark == " " then
-			vim.api.nvim_buf_set_extmark(buf, NS, row, it.mark_col + 1, {
+			mark(buf, row, it.mark_col + 1, {
 				virt_text = { { " ", "ZortexTaskCheckbox" } },
 				virt_text_pos = "overlay",
 				conceal = " ",
@@ -378,7 +394,7 @@ local function paint_line(buf, row, line, d, spans)
 			end
 		end
 		title(from, #line)
-		vim.api.nvim_buf_set_extmark(buf, NS, row, 0, { line_hl_group = group .. "Line" })
+		mark(buf, row, 0, { line_hl_group = group .. "Line" })
 		-- Objective ids: "## 3M-2026-Q1 Title"
 		local caps = { line:match("^##%s+()(%d+[MY])()%-()(%d+)()%-()(%w%d)()") }
 		for i = 1, #caps, 3 do
@@ -435,6 +451,39 @@ function M.highlight_buffer(bufnr)
 			require("zortex.core.logger").debug("highlights", "line failed", { lnum = lnum, err = err })
 		end
 	end
+end
+
+-- Buffers changed while not current (a :ZortexMove target, a calendar
+-- toggle, an edit through the API) get no TextChanged: repaint them shortly
+-- after any change. The current buffer in insert mode waits for InsertLeave.
+local watched, pending = {}, {}
+
+function M.watch(bufnr)
+	if watched[bufnr] or not vim.api.nvim_buf_is_valid(bufnr) then
+		return
+	end
+	watched[bufnr] = true
+	vim.api.nvim_buf_attach(bufnr, false, {
+		on_lines = function(_, buf)
+			if pending[buf] then
+				return
+			end
+			pending[buf] = true
+			vim.defer_fn(function()
+				pending[buf] = nil
+				if not vim.api.nvim_buf_is_valid(buf) then
+					return
+				end
+				if buf == vim.api.nvim_get_current_buf() and vim.fn.mode():match("^[iR]") then
+					return
+				end
+				M.highlight_buffer(buf)
+			end, 30)
+		end,
+		on_detach = function(_, buf)
+			watched[buf], pending[buf] = nil, nil
+		end,
+	})
 end
 
 -- =============================================================================
@@ -520,6 +569,7 @@ function M.setup_autocmd()
 		pattern = "*.zortex",
 		callback = function(args)
 			M.highlight_buffer(args.buf)
+			M.watch(args.buf)
 		end,
 	})
 end

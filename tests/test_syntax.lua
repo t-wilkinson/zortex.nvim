@@ -185,6 +185,29 @@ T.test("tags are painted on any line; the @ of @[tags] is dimmed", function()
 	vim.cmd("bwipeout!")
 end)
 
+T.test("link icons leave with their lines, not piled on the next one", function()
+	local hl = require("zortex.features.highlights")
+	vim.cmd("enew!")
+	local buf = vim.api.nvim_get_current_buf()
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "top", "See [A]", "- [Bee] and [C]", "See [D](x.md)", "end" })
+	hl.highlight_buffer(buf)
+	local ns = vim.api.nvim_create_namespace("zortex_highlights")
+	local function icons()
+		local rows = {}
+		for _, m in ipairs(vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, { details = true })) do
+			if m[4].virt_text and m[4].virt_text[1][1] == "🔗" and not m[4].invalid then
+				rows[#rows + 1] = m[2]
+			end
+		end
+		return rows
+	end
+	T.eq(icons(), { 1, 2, 2, 3 })
+	-- the lines leave without a repaint (as when they move to another note)
+	vim.api.nvim_buf_set_lines(buf, 1, 4, false, {})
+	T.eq(icons(), {})
+	vim.cmd("bwipeout!")
+end)
+
 T.test("a heading's @attributes look like attributes, not like the heading", function()
 	local hl = require("zortex.features.highlights")
 	hl.setup_highlights()

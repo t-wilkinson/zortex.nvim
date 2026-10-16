@@ -50,7 +50,7 @@
     ]
   },
   {
-    "link": "[Areas/#4 Learning]",
+    "link": "[Areas/#4 Learning & Education]",
     "results": [
       {
         "col": 1,
@@ -60,7 +60,7 @@
     ]
   },
   {
-    "link": "[Areas/#4 Learning/#4.1 Education]",
+    "link": "[Areas/#4 Learning & Education/#4.1 Education & Skills]",
     "results": [
       {
         "col": 1,
@@ -70,7 +70,7 @@
     ]
   },
   {
-    "link": "[Areas/#4 Learning/#4.2 Personal Interests]",
+    "link": "[Areas/#4 Learning & Education/#4.2 Personal Interests]",
     "results": [
       {
         "col": 1,
@@ -822,6 +822,16 @@
       {
         "col": 1,
         "lnum": 9,
+        "rel": "areas.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Areas/#4 Learning]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 12,
         "rel": "areas.zortex"
       }
     ]

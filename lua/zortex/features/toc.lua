@@ -133,7 +133,7 @@ end
 -- Public API
 -- ============================================================================
 
--- Shows the Table of Contents in a vertical split on the right
+-- Shows the Table of Contents in a vertical split on the left
 function M.show_toc()
 	local orig_win = vim.api.nvim_get_current_win()
 	local orig_buf = vim.api.nvim_get_current_buf()
@@ -146,8 +146,8 @@ function M.show_toc()
 
 	local toc_buf = setup_toc_buffer(orig_buf, toc_lines)
 
-	-- Open window (vertical split on the right side)
-	vim.cmd("botright 40vsplit")
+	-- Open window (vertical split on the left side)
+	vim.cmd("topleft 40vsplit")
 	local toc_win = vim.api.nvim_get_current_win()
 	vim.api.nvim_win_set_buf(toc_win, toc_buf)
 

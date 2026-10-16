@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{if .Title}}{{.Title}} · {{end}}{{.Site}}</title>
+<title>{{if and .Title (ne .Title .Site)}}{{.Title}} · {{end}}{{.Site}}</title>
 <link rel="stylesheet" href="{{asset "/static/style.css"}}">
 <link rel="icon" href="{{asset "/static/icon.svg"}}" type="image/svg+xml">
 <link rel="manifest" href="{{u "/manifest.webmanifest"}}" crossorigin="use-credentials">

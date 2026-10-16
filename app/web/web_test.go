@@ -287,8 +287,8 @@ func TestRangeRequest(t *testing.T) {
 
 func TestOtherPages(t *testing.T) {
 	_, _, ts := newTestServer(t, "")
-	expect(t, ts, "/", 200, `Recently changed`, `Graph`, `id="calendar-days"`)
-	expect(t, ts, "/tags", 200, `@P`, `@Cars`)
+	expect(t, ts, "/", 200, `Recently changed`, `Graph`, `id="calendar-days"`, `<title>Zortex</title>`)
+	expect(t, ts, "/tags", 200, `@P`, `@Cars`, `<title>Tags · Zortex</title>`)
 	expect(t, ts, "/tag/p", 200, `flipping.zortex`)
 	expect(t, ts, "/tag/nope", 404)
 	expect(t, ts, "/broken", 200, `[Nope/#x]`, `links.zortex:3`)

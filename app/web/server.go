@@ -469,6 +469,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/open", s.apiOpen)
 	mux.HandleFunc("POST /api/open/ack", s.apiOpenAck)
 	mux.Handle("GET /static/", s.cacheStatic(s.static))
+	// installable app (pwa.go)
+	mux.HandleFunc("GET /manifest.webmanifest", s.handleManifest)
+	mux.HandleFunc("GET /sw.js", s.handleServiceWorker)
+	mux.HandleFunc("GET /offline", s.handleOffline)
 	var h http.Handler = mux
 	if base := s.cfg.Base; base != "" {
 		strip := http.StripPrefix(base, mux)

@@ -130,6 +130,8 @@ blockquote.ln { border-left: 3px solid var(--rule); padding-left: 0.8rem; color:
 .tagline { font-family: var(--mono); color: var(--dim); }
 .attr { font-family: var(--mono); font-size: 0.78em; color: var(--dim); background: var(--code-bg); border-radius: 4px; padding: 0 0.25rem; }
 a.attr.tag:hover { color: var(--accent); text-decoration: none; }
+/* in a heading, as on any line: not bold, not heading-sized */
+:is(h1, h2, h3, h4, h5, h6) .attr { font-family: var(--mono); font-weight: 400; font-size: 0.78rem; vertical-align: 0.1em; letter-spacing: 0; }
 .body code { background: var(--code-bg); border-radius: 4px; padding: 0.05rem 0.3rem; }
 .math { font-family: var(--serif); font-style: italic; }
 .math.display { display: block; text-align: center; margin: 0.4rem 0; }
@@ -720,3 +722,8 @@ ul.cal-items li.done a { text-decoration: line-through; text-decoration-color: c
 .focus-panel { margin-top: 1rem; }
 .focus-panel ul.prows { border-top: 0; }
 .focus-panel .prow:last-child { border-bottom: 0; }
+
+/* installable app: offline */
+.offline-banner { margin: 0 auto 1rem; max-width: 60rem; padding: 0.5rem 0.8rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); color: var(--dim); font-size: 0.9rem; }
+.offline-list { padding-left: 1.2rem; }
+.offline-list li { margin: 0.2rem 0; }

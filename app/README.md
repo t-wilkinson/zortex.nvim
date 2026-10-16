@@ -75,6 +75,7 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 | `/api/search?q=`, `/api/resolve?to=&from=`, `/api/backlinks?rel=`, `/api/resources?show=unlinked&kind=&dir=`, `/api/structure` | JSON |
 | `/api/tagtable?q=&from=` | a tag search's table, as HTML ([tag indexes](#tag-indexes)) |
 | `POST /api/open`, `/api/presence`, `/api/open/ack` | show a page in an open tab ([from Neovim](#opening-pages-from-neovim)) |
+| `/manifest.webmanifest`, `/sw.js`, `/offline` | the installable app: its manifest (no login needed, nor for `/static/icons/`), the service worker (recent pages kept for reading offline), and the page shown offline for a page never opened ([Installing it as an app](../doc/Server.md#installing-it-as-an-app)) |
 | `/healthz` (`/health`) | counts and last index time |
 
 Flags (each also an environment variable): `-dir` (`ZORTEX_NOTES_DIR`),

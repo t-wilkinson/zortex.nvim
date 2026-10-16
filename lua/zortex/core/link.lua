@@ -1016,18 +1016,22 @@ function M.build_link(components)
 end
 
 --- Text usable inside a link component. Link text is limited to
---- [A-Za-z0-9 _-().]: the longest prefix made of those characters (with
+--- [A-Za-z0-9 _-().:]: the longest prefix made of those characters (with
 --- balanced parentheses), trimmed. Section and item matches are prefix
---- matches, so the shortened text still finds the same section.
+--- matches, so the shortened text still finds the same section. A colon
+--- only means "label" at the start of a component, so "6.3: Homelab" keeps
+--- it (and stays apart from "6.3: Zortex" and "6.3"); trailing colons go.
 function M.component_text(text)
 	text = text or ""
-	local prefix = text:match("^[%w _%-%(%)%.]*")
+	local prefix = text:match("^[%w _%-%(%)%.:]*")
 	local _, opens = prefix:gsub("%(", "")
 	local _, closes = prefix:gsub("%)", "")
 	if opens ~= closes then
 		prefix = prefix:match("^[^%(]*")
 	end
-	prefix = vim.trim(prefix)
+	-- a colon inside stays ("6.3: Homelab"); one at the end ("Async book:"
+	-- before a URL) is punctuation
+	prefix = vim.trim((vim.trim(prefix):gsub(":+$", "")))
 	if prefix == "" then
 		-- Nothing usable at the start: keep the text minus link syntax
 		prefix = vim.trim((text:gsub("[%[%]/]", "")))

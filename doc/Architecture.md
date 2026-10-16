@@ -225,7 +225,7 @@ following, preview, the web renderer) pass them. Other `./` links are file
 paths (`relative_path`). app/links `Absolute` is the same, checked by the
 `lnum` cases of `tests/fixtures/resolve.json`.
 
-**Generated link text** keeps only `[A-Za-z0-9 _-().]`: `component_text`
+**Generated link text** keeps only `[A-Za-z0-9 _-().:]`: `component_text`
 takes the longest such prefix (with balanced parentheses), so
 `#4 Learning & Education` is written `#4 Learning` and still resolves by
 prefix. `item_component(line)` gives `-KR1` for keyed items and `-<text>`

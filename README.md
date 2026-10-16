@@ -163,6 +163,11 @@ Special notes:
   every line instead; `<M-t>` in the picker cycles section, article and text
   search (`ui.search.keys.cycle_mode` changes the key, e.g. `<M-m>` when a
   terminal or zellij takes `<M-t>`).
+- **Moving things** (`<leader>zM`, `:ZortexMove`, or a visual selection):
+  the section under the cursor, or a line with what is nested under it,
+  goes to a section or line you pick in the structural search, in the same
+  note or another one. Headings are re-levelled and lines re-indented to
+  fit where they land.
 - **which-key**: when [which-key.nvim](https://github.com/folke/which-key.nvim)
   is installed, `<leader>z` shows as "Zortex" and its sub-prefixes by name
   (`<leader>zC` "Calendar & digest", `<leader>zx` "XP", ...); rename them
@@ -258,6 +263,7 @@ require("zortex").setup({
 | `:ZortexSectionParent` | `<leader>z^` | `section_parent` | Parent section |
 | `:ZortexFoldsUpdate` | `<leader>zr` | `folds_update` | Recompute folds |
 | `:ZortexArchiveSection` | `<leader>za` | `archive_section` | Move the section under the cursor to the note's z/archive file |
+| `:ZortexMove` | `<leader>zM` | `move` | Move the section or line under the cursor (or the selected lines) to a place picked in the search |
 
 **Tasks**
 

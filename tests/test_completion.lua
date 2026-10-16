@@ -267,3 +267,23 @@ T.test("'-' after a section lists its items anywhere in a link", function()
 	T.ok(has(l, "-Improve website"), vim.inspect(l))
 	T.ok(not has(l, "#1.4.1 - zortex search"), vim.inspect(l))
 end)
+
+T.test("headings with a colon in their name complete in full ([/#6.3: …)", function()
+	local d = Document.from_lines({
+		"@@Areas",
+		"",
+		"# 6 Programming",
+		"## 6.3 Tools",
+		"### 6.3: Homelab",
+		"### 6.3: Zortex",
+	})
+	local l = vim.tbl_map(function(i)
+		return i.label
+	end, (C.get_completions("- [/#6.3:", #"- [/#6.3:", { doc = d })))
+	T.ok(has(l, "#6.3: Homelab") and has(l, "#6.3: Zortex") and has(l, "#6.3 Tools"), vim.inspect(l))
+	-- and what they insert resolves to each heading, not to "## 6.3 Tools"
+	for _, want in ipairs({ "Homelab", "Zortex" }) do
+		local r = require("zortex.core.link").resolve("[/#6.3: " .. want .. "]", { doc = d })
+		T.eq(r[1] and d.lines[r[1].lnum], "### 6.3: " .. want)
+	end
+end)

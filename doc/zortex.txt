@@ -147,6 +147,10 @@ STRUCTURE ~
     Move the section under the cursor to the note's z/archive file. Keys:
     <leader>za. Id: archive_section.
 
+:ZortexMove                                                      *:ZortexMove*
+    Move the section or line under the cursor (or the selected lines) to a
+    place picked in the search. Keys: <leader>zM. Id: move.
+
 TASKS ~
 
 :ZortexTaskToggle                                          *:ZortexTaskToggle*

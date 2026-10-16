@@ -10,6 +10,13 @@ The first public release.
 
 ### Neovim plugin
 
+- `:ZortexMove` (`<leader>zM`, or a visual selection): move the section or
+  the line (with its nested lines) under the cursor to a section or line
+  picked in the structural search, in any note; headings re-levelled, lines
+  re-indented.
+- Links keep a colon inside a component: completion offers
+  `[/#6.3: Homelab]` and `[/#6.3: Zortex]` instead of one `#6.3`, and
+  generated links to such headings no longer resolve to the parent.
 - A heading's `@attributes` are highlighted like attributes on any line
   (`ZortexAttribute`), not in the heading's colours; the band behind a
   heading is its background only (`ZortexHeading1Line`..`3Line`). Folded

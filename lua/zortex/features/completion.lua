@@ -292,6 +292,19 @@ end
 
 local function line_tag_items(ctx)
 	local items = {}
+	-- in a tag search, "is:" words narrow it to a kind of line
+	if ctx.tag == "search" and ctx.typing:sub(1, 2) == "is" then
+		for i, kind in ipairs(link_mod().IS_KINDS) do
+			items[#items + 1] = {
+				label = "is:" .. kind,
+				kind = KIND.line_tag,
+				detail = "kind of line",
+				sortText = string.format("%06d", i),
+				data = { zortex_order = i },
+			}
+		end
+		return items
+	end
 	for i, t in ipairs(require("zortex.core.link_index").line_tags()) do
 		local text = ctx.tag == "bare" and ("@" .. t.tag) or t.tag
 		items[#items + 1] = {

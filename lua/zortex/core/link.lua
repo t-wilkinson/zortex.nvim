@@ -793,8 +793,33 @@ function M.is_resource_note(doc, lnum)
 	return false
 end
 
+-- `is:` words in a tag search say what kind of line may match (a colon
+-- can't be part of a tag, so they never clash with one): @[rust is:heading]
+M.IS_KINDS = { "heading", "label", "item", "task", "open", "done", "resource" }
+
+local function is_kind(doc, lnum, info, kind)
+	local item = info.kind == "item" and info.item or nil
+	if kind == "heading" then
+		return info.kind == "heading" or info.kind == "bold_heading"
+	elseif kind == "label" then
+		return info.kind == "label"
+	elseif kind == "item" then
+		return item ~= nil
+	elseif kind == "task" then
+		return item ~= nil and item.mark ~= nil
+	elseif kind == "open" then
+		return item ~= nil and item.mark == " "
+	elseif kind == "done" then
+		return item ~= nil and (item.mark == "x" or item.mark == "X")
+	elseif kind == "resource" then
+		return M.is_resource_heading(doc, lnum) or (item ~= nil and holds_link(doc, lnum))
+	end
+	return false
+end
+
 --- Lines tagged as a tag search asks, in the notes or sections its scope
 --- resolves to (see the module header). Same results shape as resolve().
+--- `is:kind` words narrow a group to lines of that kind (M.IS_KINDS).
 ---@param content string what is inside @[...]
 ---@param opts { bufnr?: integer, doc?: table }?
 ---@return SearchResult[] results, string? err
@@ -804,6 +829,14 @@ function M.tag_search(content, opts)
 	local component = { type = "tag_search", text = content, original = "@[" .. content .. "]" }
 	if #q.groups == 0 then
 		return {}, "No tags in " .. component.original
+	end
+	for _, group in ipairs(q.groups) do
+		for _, term in ipairs(group) do
+			local kind = term:match("^is:(.*)$")
+			if kind and not vim.tbl_contains(M.IS_KINDS, kind) then
+				return {}, "Unknown is:" .. kind .. " (is: " .. table.concat(M.IS_KINDS, ", ") .. ")"
+			end
+		end
 	end
 
 	-- Ranges to look in: { doc, s, e }
@@ -872,7 +905,13 @@ function M.tag_search(content, opts)
 				for _, group in ipairs(q.groups) do
 					match = true
 					for _, tag in ipairs(group) do
-						if not (own[tag] or above[tag]) then
+						local kind = tag:match("^is:(.*)$")
+						if kind then
+							if not is_kind(doc, lnum, info, kind) then
+								match = false
+								break
+							end
+						elseif not (own[tag] or above[tag]) then
 							match = false
 							break
 						end

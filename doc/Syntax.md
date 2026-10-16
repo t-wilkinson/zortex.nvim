@@ -210,6 +210,14 @@ in; `*` is every note:
 | `@[R/#Rust/async]` | lines tagged `@async` in the Rust section of Resources |
 | `@[@Library/rl]` | lines tagged `@rl` in every note tagged `@Library` |
 | `@[*/rust]` | lines tagged `@rust` in every note |
+| `@[rust is:heading]` | headings (and bold headings) tagged `@rust` |
+| `@[rl is:open, rl is:label]` | open tasks tagged `@rl`, or labels tagged `@rl` |
+| `@[P/is:open]` | every open task in Projects (no tag needed) |
+
+`is:` words narrow a group to a kind of line: `heading`, `label`, `item`
+(a list item, tasks included), `task`, `open` and `done` (tasks), and
+`resource` (a list item or heading that holds a link, below). A colon can't
+be part of a tag, so they never clash with one.
 
 A tag on a heading, bold heading or label tags every line in its section:
 under `## Embedded @embedded`, `- [The Embedded Rust Book](…) @rust` matches

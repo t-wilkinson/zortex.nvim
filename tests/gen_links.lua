@@ -94,6 +94,18 @@ M.EXTRA_LINKS = {
 	{ link = "@[R/#Later/book]" }, -- the item, not its notes
 	{ link = "@[R/#Later/status]" },
 	{ link = "@[Nope/rl]" },
+	-- is: words narrow to a kind of line
+	{ link = "@[R/rust is:heading]" },
+	{ link = "@[R/book is:heading]" },
+	{ link = "@[R/rust is:item]" },
+	{ link = "@[R/rust is:resource]" },
+	{ link = "@[R/rust is:resource is:heading, rl is:item]" },
+	{ link = "@[R/rust is:label]" },
+	{ link = "@[R/is:label]" },
+	{ link = "@[R/rust is:nope]" },
+	{ link = "@[P/is:open]" },
+	{ link = "@[P/#1 Programming/is:done]" },
+	{ link = "@[P/is:task]" },
 	{ link = "@[R/#Rust/ , ]" },
 	{ link = "@[rl]", from = "z/resources.zortex" },
 	{ link = "@[/#AI/rl]", from = "z/resources.zortex" },

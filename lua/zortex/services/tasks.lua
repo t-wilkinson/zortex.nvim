@@ -118,8 +118,9 @@ function M.complete_task(task, doc_context)
 	if not success then
 		return nil, "Failed to update line"
 	end
-	-- The same task elsewhere (its project, other calendar days)
-	require("zortex.services.mirrors").sync(doc_context.filepath, doc_context.lnum, new_line)
+	-- The same task elsewhere (its project, other calendar days), and the
+	-- tasks of its group
+	M.propagate(doc_context.filepath, doc_context.lnum, new_line)
 
 	-- Emit event
 	Events.emit("task:completed", { task = task, doc_context = doc_context })
@@ -144,7 +145,7 @@ function M.uncomplete_task(task, doc_context)
 	if not success then
 		return nil, "Failed to update line"
 	end
-	require("zortex.services.mirrors").sync(doc_context.filepath, doc_context.lnum, new_line)
+	M.propagate(doc_context.filepath, doc_context.lnum, new_line)
 
 	-- Emit event
 	Events.emit("task:uncompleted", { task = task, doc_context = doc_context })
@@ -416,6 +417,35 @@ function M.toggle_project(doc_context, should_complete, opts)
 	return project
 end
 
+--- After the task on `path`:`lnum` was checked or reopened (`line`, as it
+--- now reads): its copies follow (services/mirrors), and so do the tasks of
+--- its group (services/task_groups: checking a group checks its tasks, the
+--- last task checked checks the group, a task reopened reopens the groups
+--- above it), then their copies, and so on.
+function M.propagate(path, lnum, line)
+	if not path then
+		return
+	end
+	local mirrors = require("zortex.services.mirrors")
+	local groups = require("zortex.services.task_groups")
+	local today = os.date("%Y-%m-%d")
+	local queue, seen, i = { { path = path, lnum = lnum, line = line } }, {}, 1
+	while i <= #queue do
+		local q = queue[i]
+		i = i + 1
+		local key = vim.fn.fnamemodify(q.path, ":p") .. ":" .. q.lnum
+		if not seen[key] then
+			seen[key] = true
+			local _, copies = mirrors.sync(q.path, q.lnum, q.line)
+			vim.list_extend(queue, copies or {})
+			for _, e in ipairs(groups.cascade(workspace.get_lines(q.path), q.lnum, today, mirrors.set_done)) do
+				workspace.set_line(q.path, e.lnum, e.line)
+				queue[#queue + 1] = { path = q.path, lnum = e.lnum, line = e.line }
+			end
+		end
+	end
+end
+
 --- Toggle the task a calendar reference line points at. Returns the task
 --- (nil, nil when the line is no reference).
 function M.toggle_reference(doc_context, should_complete)
@@ -441,7 +471,7 @@ function M.toggle_reference(doc_context, should_complete)
 		return nil, err
 	end
 	workspace.set_line(ref.file, ref.lnum, new_line)
-	mirrors.sync(ref.file, ref.lnum, new_line)
+	M.propagate(ref.file, ref.lnum, new_line)
 	local task = Item.task(new_line, { lnum = ref.lnum, file = ref.file })
 	local ctx = { file = ref.file, filepath = ref.file, lnum = ref.lnum, line = new_line }
 	Events.emit(want and "task:completed" or "task:uncompleted", { task = task, doc_context = ctx })

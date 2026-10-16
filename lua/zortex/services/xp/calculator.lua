@@ -118,16 +118,19 @@ end
 -- Tasks, projects, objectives
 -- =============================================================================
 
---- XP of a task: its hours x XP per hour x priority x importance.
+--- XP of a task: its hours x XP per hour x priority x importance. A task in
+--- a group (services/task_groups) has its share of the group's hours, and
+--- the group's priority and importance when it has none of its own.
 function M.calculate_task_xp(task)
 	local attrs = task.attributes or {}
-	return apply_modifiers(M.task_points(attrs.size) * M.xp_per_hour(), attrs)
+	local hours = task.hours or M.task_points(attrs.size)
+	return apply_modifiers(hours * M.xp_per_hour(), task.xp_attrs or attrs)
 end
 
 --- A project's whole pool: @xp(n) if given; else its @size in hours x XP
 --- per hour x priority x importance; else the sum of its tasks' XP.
 ---@param project table { attributes = {...} }
----@param tasks table[] the project's tasks
+---@param tasks table[] the project's tasks (leaves: a group is its tasks)
 function M.calculate_project_total_xp(project, tasks)
 	local attrs = project.attributes or {}
 	if tonumber(attrs.xp) then
@@ -138,7 +141,7 @@ function M.calculate_project_total_xp(project, tasks)
 		return apply_modifiers(h * M.xp_per_hour(), attrs)
 	end
 	local total = 0
-	for _, task in ipairs(tasks or (project.tasks and project:tasks()) or {}) do
+	for _, task in ipairs(tasks or (project.leaf_tasks and project:leaf_tasks()) or {}) do
 		total = total + M.calculate_task_xp(task)
 	end
 	return total

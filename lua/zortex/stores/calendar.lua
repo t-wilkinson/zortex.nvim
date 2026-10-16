@@ -367,6 +367,52 @@ function M.get_entries_for_date(date_str)
 	return active_entries
 end
 
+--- The entries shown on `date_str` in the calendar's own layout: entries
+--- from other days that reach it (repeats, ranges over several days) first,
+--- by time, then the day's lines in file order. Each gets `depth`: its
+--- nesting under the day (0 for the day's top-level lines), so a task under
+--- its project's block stays under it.
+function M.get_day_entries(date_str)
+	local own, other = {}, {}
+	for _, entry in ipairs(M.get_entries_for_date(date_str)) do
+		if entry.date_context == date_str and entry.lnum then
+			own[#own + 1] = entry
+		else
+			other[#other + 1] = entry
+		end
+	end
+	table.sort(own, function(a, b)
+		return a.lnum < b.lnum
+	end)
+	table.sort(other, function(a, b)
+		return a:get_sort_priority() > b:get_sort_priority()
+	end)
+	-- depth: the rank of the line's indent among the day's indents
+	local levels, seen = {}, {}
+	for _, e in ipairs(own) do
+		local w = e.indent or 0
+		if not seen[w] then
+			seen[w] = true
+			levels[#levels + 1] = w
+		end
+	end
+	table.sort(levels)
+	local rank = {}
+	for i, w in ipairs(levels) do
+		rank[w] = i - 1
+	end
+	local out = {}
+	for _, e in ipairs(other) do
+		e.depth = 0
+		out[#out + 1] = e
+	end
+	for _, e in ipairs(own) do
+		e.depth = rank[e.indent or 0] or 0
+		out[#out + 1] = e
+	end
+	return out
+end
+
 -- Get all entries (for search/telescope)
 function M.get_all_entries()
 	M.ensure_loaded()

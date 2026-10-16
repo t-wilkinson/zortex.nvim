@@ -249,7 +249,8 @@ function M.month(date, state, cfg, win_width)
 	-- Show entries for selected date
 	if state.current_date then
 		local date_str = datetime.format_datetime(state.current_date, "YYYY-MM-DD")
-		local entries = calendar_store.get_entries_for_date(date_str)
+		-- the day as written: file order, tasks nested under their block
+		local entries = calendar_store.get_day_entries(date_str)
 
 		local summary_header = string.format(
 			"%s - %s",
@@ -273,7 +274,7 @@ function M.month(date, state, cfg, win_width)
 
 				-- Use the entry's format method to get the properly formatted string
 				local formatted_entry = entry:format()
-				local entry_line = string.format("  %s %s", icon, formatted_entry)
+				local entry_line = string.format("  %s%s %s", string.rep("  ", entry.depth or 0), icon, formatted_entry)
 				table.insert(lines, left_pad_str .. MARGIN_STR .. entry_line)
 
 				time_highlight(highlights, #lines, entry_line, #left_pad_str + #MARGIN_STR, cfg)

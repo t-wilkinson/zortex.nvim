@@ -60,7 +60,7 @@
       } else if (e.task) {
         box = '<span class="box ' + (e.done ? "done" : "open") + '" aria-label="' + (e.done ? "done" : "open task") + '"></span>';
       }
-      var bell = e.notify ? '<span class="bell" title="notification scheduled" aria-label="notification">🔔</span>' : "";
+      var bell = e.notify ? '<span class="bell" title="notifies (@n)" aria-label="notifies">🔔</span>' : "";
       html += '<div class="' + cls + '" style="--depth:' + (e.depth || 0) + '">' +
         '<a class="event-time" href="' + esc(e.url) + '">' + time + "</a>" +
         '<span class="event-title">' + box + e.html + bell + "</span></div>";
@@ -86,9 +86,10 @@
     var sel = dayKey(selected), today = dayKey(new Date(now()));
     var html = '<span class="day-cell blank"></span>'.repeat(first);
     for (var d = 1; d <= count; d++) {
-      var key = dayKey(new Date(y, m, d)), busy = (cal.days[key] || []).length > 0;
+      // the dot: the day has an @event (something fixed to plan around)
+      var key = dayKey(new Date(y, m, d)), busy = (cal.days[key] || []).some(function (e) { return e.event; });
       var cls = ["day-cell", busy && "has-events", key === sel && "active", key === today && "today"].filter(Boolean).join(" ");
-      html += '<button type="button" class="' + cls + '" data-day="' + d + '" aria-label="' + key + (busy ? ", has entries" : "") + '">' + d + "</button>";
+      html += '<button type="button" class="' + cls + '" data-day="' + d + '" aria-label="' + key + (busy ? ", has events" : "") + '">' + d + "</button>";
     }
     grid.innerHTML = html;
   }

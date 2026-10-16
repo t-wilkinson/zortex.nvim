@@ -98,6 +98,32 @@ T.test("calendar sync: unchanged calendars are not re-sent", function()
 	require("zortex.core.document").invalidate(path)
 end)
 
+T.test("calendar: a time range notifies at its start; @n(…, end) also when it ends", function()
+	local cal = require("zortex.notifications.types.calendar")
+	local path = require("zortex.utils.filesystem").get_calendar_file()
+	local original = vim.fn.readfile(path)
+	local day = os.date("%Y-%m-%d", os.time() + 86400)
+	vim.fn.writefile({
+		"@@Calendar",
+		"",
+		day .. ":",
+		"09:00-10:30 Dentist @n(0, 30)",
+		"13:00-14:00 Meeting @n(10, end)",
+	}, path)
+	require("zortex.core.document").invalidate(path)
+	local got = vim.tbl_map(function(n)
+		return os.date("%H:%M", n.trigger_time) .. " " .. n.tags[2] .. " " .. n.title
+	end, cal.collect())
+	vim.fn.writefile(original, path)
+	require("zortex.core.document").invalidate(path)
+	T.eq(got, {
+		"08:30 start Dentist",
+		"09:00 start Dentist",
+		"12:50 start Meeting",
+		"14:00 end Meeting",
+	})
+end)
+
 -- End to end against `zortex serve` when Go is available
 local go = vim.fn.exepath("go")
 if go ~= "" then

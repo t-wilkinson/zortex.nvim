@@ -12,25 +12,25 @@ local cfg = {}
 
 -- Minutes before the entry to notify: @notify(10, 60) -> { 10, 60 };
 -- @notify(no) -> nil; none -> the configured default (0: at the time).
+-- "end" among the values (@n(0, 30, end)) also notifies when a time range
+-- ends; without it only the start notifies. Returns minutes, at_end.
 local function parse_notify_value(notify_attr)
 	if notify_attr == "no" or notify_attr == false then
 		return nil
 	end
-	local out = {}
-	if type(notify_attr) == "table" then
-		for _, v in ipairs(notify_attr) do
-			local n = tonumber(v)
-			if n then
-				out[#out + 1] = n
-			end
+	local out, at_end = {}, false
+	local values = type(notify_attr) == "table" and notify_attr or { notify_attr }
+	for _, v in ipairs(values) do
+		if type(v) == "string" and vim.trim(v):lower() == "end" then
+			at_end = true
+		elseif tonumber(v) then
+			out[#out + 1] = tonumber(v)
 		end
-	elseif tonumber(notify_attr) then
-		out[1] = tonumber(notify_attr)
 	end
 	if #out == 0 then
 		out[1] = tonumber(cfg.default_advance_minutes) or 0
 	end
-	return out
+	return out, at_end
 end
 
 -- Create a deduplication key for a calendar notification
@@ -119,14 +119,18 @@ function M.collect(now)
 	for day_offset = 0, cfg.sync_days or 30 do
 		local date_str = datetime.format_datetime(datetime.add_days(today, day_offset), "YYYY-MM-DD")
 		for _, entry in ipairs(calendar_store.get_entries_for_date(date_str)) do
-			local notify_values = parse_notify_value(entry.attributes.notify)
+			local notify_values, at_end = parse_notify_value(entry.attributes.notify)
 			if notify_values then
 				local start_time, end_time = entry:get_start_time(), entry:get_end_time()
 				if start_time then
 					add(entry, notify_values, date_str, start_time, "start")
 				end
-				if end_time and (not start_time or os.time(end_time) ~= os.time(start_time)) then
+				-- the end: when asked for (@n(…, end)), at the time it ends;
+				-- an entry with only an end time notifies there as usual
+				if end_time and not start_time then
 					add(entry, notify_values, date_str, end_time, "end")
+				elseif end_time and at_end and os.time(end_time) ~= os.time(start_time) then
+					add(entry, { 0 }, date_str, end_time, "end")
 				end
 			end
 		end

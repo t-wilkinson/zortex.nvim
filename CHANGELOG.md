@@ -10,6 +10,23 @@ The first public release.
 
 ### Neovim plugin
 
+- `:ZortexPlan` run from the plan window, or over a calendar buffer the
+  planner had just added the day to, works: before, `<CR>` and `p` wrote
+  into the plan buffer (not modifiable / out of range), and opening the
+  calendar asked to save changes you hadn't made.
+- The calendar view lists the selected day as written: file order, tasks
+  nested under their project's block (it sorted timed lines first).
+- A time range notifies at its start only; `@n(…, end)` also notifies when
+  it ends.
+- `?` in the plan and review buffers lists their keys; line 1 says so.
+- The search picker's keys are in `ui.search.keys` (`cycle_mode`, default
+  `<M-t>`, which zellij and some terminals take; `new_note`, `<C-o>`) and
+  in its title.
+- `:help zortex` works for a plugin loaded from a local folder (lazy.nvim
+  `dir =` / `dev = true`): `setup()` writes `doc/tags` when it is missing.
+- The plan buffer lists what is left in the inbox, last.
+- `<leader>zT` on a project heading marks the project done
+  (`@done(today)`), asking first when it has open tasks; again reopens it.
 - Reviews are written in `reviews.zortex`, one `# 2026-W43` entry per week
   with its days (`## 2026-10-21`) inside, newest first. `:ZortexReview`
   opens the week's entry (`:ZortexReview day` the day's), made from
@@ -113,6 +130,13 @@ The first public release.
 
 ### Server (`zortex serve`)
 
+- The header's search box lists the notes whose name matches as you type.
+- A bare `@tag` links to the lines tagged so in every note (`@[*/tag]`).
+- Tag tables: no Notes column; an item's notes show under it (all of them
+  up to three lines, else the first two and an "All notes" button).
+- Calendar: the 🔔 marks lines with a written `@n(…)` (every timed line
+  notifies by default), and the month grid's dot marks days with an
+  `@event`.
 - Project pages: `/projects` lists the week's focus projects, then every
   project with open work, with progress (task `@size` hours) and the next
   task; `/project?rel=&lnum=` shows one: progress and time tracked, its

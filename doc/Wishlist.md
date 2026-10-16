@@ -14,6 +14,7 @@ Contents:
 5. [Editing and maintenance](#5-editing-and-maintenance)
 6. [The web app](#6-the-web-app)
 7. [Tree-sitter grammar](#7-tree-sitter-grammar)
+8. [Agreed on 2026-10-16](#8-agreed-on-2026-10-16)
 
 ---
 
@@ -106,10 +107,10 @@ points done per week: 3 · 0 · 5 · 2
 
 Deferred for now; listed so the pieces fit together later.
 
-- **Calendar entries that point at tasks**, not just projects. A task with
-  `@id(abc12)` gets a link form (for example `[T/abc12]`); a calendar entry
-  containing it is that task's time block. Completing either side completes
-  both (`task:completed` handler using `tasks.find_task_by_id`).
+- **Calendar entries that point at tasks**: done with task copies and
+  references ([Planning](Planning.md#the-day-on-the-calendar)). No `[T/…]`
+  component: a `-` component matching an `@id` covers stable task links
+  (section 8).
 - **Inbox capture.** `inbox.zortex` (or `@Inbox` notes) plus a quick-capture
   command; the review gets an "Inbox (n)" section with `m` to move an item
   into a project or onto the calendar.
@@ -316,3 +317,95 @@ fixtures have settled the grammar's details.
   queries mirroring `features/highlights.lua` groups, injections for fenced
   code. Section levels, the link resolver and search stay in Lua/Go.
 
+## 8. Agreed on 2026-10-16
+
+From a review of open ideas; the roadmap (`doc/Roadmap.zortex`, # 3.10 and
+# 5) tracks them. The notes say what was decided and why.
+
+### Events and notifications
+
+Notifications stay on for every timed line: they keep the day on track
+and pull you out of deep focus at the end of a block. `@n(no)` opts a line
+out. `@event` marks what you plan *around* rather than what you planned (an
+appointment, a flight); today it decides the web month grid's dot, and it is
+the hook for anything that should treat fixed time differently later (the
+capacity line counting it as busy, a different icon).
+
+### Inbox triage
+
+- `@project(1.4)` on an inbox item or a loose task says where it belongs
+  (a project link, as `@a(…)` is an area link).
+- The daily review lists inbox items and tasks carrying `@project` with `m`:
+  move the line under that project, and drop the attribute.
+- `review.inbox_default` (config) is where `m` puts an item without
+  `@project`: for example a heading under `[P/#Areas]`, a copy of the area
+  tree in the projects note that holds maintenance tasks and notes too small
+  to be projects.
+- The planner lists the inbox last (done); `p` puts a line on the day.
+
+### Links
+
+- A `-` component also matches a task's `@id`: `[P/-aB3x9]`. Task links
+  then survive renames without a new component.
+- A note outside `notes_dir` (a repository's `doc/Roadmap.zortex`) resolves
+  its links in its own folder (the folder, or the nearest one above with a
+  `.z/`), and `[~/P/#Subaru]` reaches `notes_dir`, the way `/` reaches the
+  note itself and `./` the parent line. A sigil rather than a word like
+  `ZORTEX/` can't clash with an article name.
+
+### Tags
+
+- **`is:` filters** in tag searches: a colon can't be part of a tag, so
+  `is:` words are unambiguous, and they compose with the all-of words and
+  any-of commas already there: `@[rust is:heading]`, `@[rl is:open]`,
+  `@[rust is:task, rust is:label]`. Kinds: `heading`, `label`, `item`,
+  `task`, `open`, `done`, `resource`. The `@[#-:/tags]` form considered
+  first collides with the scope, which is written as a link
+  (`@[R/#Rust/async]`).
+- **Broken and orphan tags**, computed on request (the web app's `/broken`,
+  `:ZortexBrokenLinks` in Neovim), listed apart from broken links:
+  tag searches that find nothing, `[@Tag]` links to a header tag no note
+  has, and bare tags no tag search uses. Bare attributes (`@p1`, `@sm`,
+  `@2h`) are not tags.
+- Kept as they are: the rows of a tagged heading that isn't a resource, and
+  Structure and tags as separate things.
+
+### Labels
+
+Most labels are one to three words, and a sentence that happens to end in a
+colon shouldn't open a section. So a plain `Text:` is a label only up to
+three words; a longer one opts in with `*A longer label like this one:*`,
+parsed at the same level as plain labels. Both parsers (Lua `core/syntax`,
+Go `app/syntax`) and `tests/fixtures/ast` change together. Before the
+switch: a command that lists the lines whose kind would change (they stop
+being `[:Label]` link targets), and a check that `*…:*` doesn't collide with
+an emphasis span.
+
+### Web
+
+- **Hover cards** on links: for a note, its title, path, header tags, first
+  lines and backlink count; for an image, a thumbnail; for an external link,
+  its domain and URL only (the server fetches nothing).
+- **Graph:** under each note, the headings of it that other notes link to.
+  The structure the notes actually grow, rather than every heading.
+
+### XP
+
+Behaviour stays. Two additions: `xp.area_split` sets a geometric ratio for
+splitting an award between areas (1 even, 0.7 gently decaying; the harmonic
+split stays the default), and the wording: XP is estimated work, so say
+"1 XP = 6 minutes of estimated work" wherever XP is shown or documented,
+with hours next to XP.
+
+### Help
+
+`?` lists the keys of the plan and review buffers (from their mappings), the
+search picker names its keys in its title, and `:help zortex` works for
+local installs. Next: one table of every zortex buffer's and picker's keys,
+read by `?`, the README, a `:help zortex-keys` section and the picker
+titles, plus a pointer to each picker backend's own help key.
+
+### Dropped
+
+A raw-text section, uploading a file to render it, generating tags from
+Structure, XP "overlap", and changes to the calendar picker.

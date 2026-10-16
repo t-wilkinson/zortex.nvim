@@ -134,7 +134,8 @@ projects, calendar entries):
 | `@xp(500)` | a project's XP pool |
 | `@2h`, `@dur(90m)`, `@est(3h)` | duration and estimate |
 | `@spent(1h25m)` | time worked on it, added by the web app's clocks ([time tracking](../app/README.md#time-tracking)) |
-| `@notify(15)`, `@n(0, 30)` | calendar: notify minutes before (several allowed) |
+| `@notify(15)`, `@n(0, 30)`, `@n(0, end)` | calendar: notify minutes before the start (several allowed; every timed line notifies at its time by default, `@n(no)` turns it off); `end` also notifies when a range ends |
+| `@event` | calendar: something fixed that you plan around (an appointment, a flight), not a block you planned; the web month grid marks its day |
 | `@repeat(weekly)` | calendar: repetition |
 | `@slides(2)` | in a header: the heading level that starts a slide ([slides](../app/README.md#slides)) |
 | `@step`, `@steps` | slides: reveal a line, or each item of a slide, one at a time |
@@ -236,11 +237,13 @@ Read after the book.
 **Tag tables.** `!@[…]` on a line of its own shows the search in place: on
 the web, a table of the lines it finds, with a column for the item, the link
 it holds and its kind (web, pdf, book, note…), its other tags, each
-`@key(value)` attribute the rows use (`@status(reading)`, `@rating(4)`),
-where it is, and its notes: up to three lines under the item, longer ones
-in a panel, followed by the first note they link to. Sort by any column; filter by
+`@key(value)` attribute the rows use (`@status(reading)`, `@rating(4)`) and
+where it is. An item's notes show under it: all of them up to three lines,
+else the first two and an "All notes" button that opens them in a panel,
+followed by the first note they link to. Sort by any column; filter by
 text, kind or tag. An `@[…]` link that finds several lines opens the same
-table. In Neovim `!@[…]` follows like `@[…]`.
+table, and so does a bare tag on the web: `@rust` links to `@[*/rust]`. In
+Neovim `!@[…]` follows like `@[…]`.
 
 ```zortex
 # Reading

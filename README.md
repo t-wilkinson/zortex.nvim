@@ -343,8 +343,9 @@ Inside the calendar view: `h/j/k/l` days and weeks, `H/J/K/L` years and
 months, `t` today, `a` add, `<CR>` entries, `v` toggle month/week, `d`
 digest panel, `/` search the entries, `gf` go to the file, `n` sync
 notifications, `?` help, `q` close (`ui.calendar.keymaps`). In the review
-buffer: `<CR>` jump to the source, `gx`/`K` follow or preview, `r` refresh,
-`q` close.
+buffer: `<CR>` jump to the source, `f` add a project to the week's focus,
+`gx`/`K` follow or preview, `r` refresh, `q` close. The plan and review
+buffers list their keys with `?`.
 
 ### Pickers and completion
 

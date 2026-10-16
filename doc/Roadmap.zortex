@@ -106,14 +106,57 @@ Things that break or embarrass a first-time user. Do these before telling anyone
 - [ ] Retake `doc/images/web-home.png` (the Notes panel is gone) @p3 @size(xs)
 - [ ] Web search: plain text mode, as in Neovim @p3 @size(sm)
 
+## 3.9 Fixes and quick wins (review of 2026-10-16)
+- [x] `:ZortexPlan` from the plan window: `<CR>` / `p` wrote into the plan buffer; opening the calendar asked to save changes the planner had made @p1 @size(sm) @done(2026-10-16)
+- [x] Calendar view: the selected day as written (file order, tasks under their project's block) @p1 @size(xs) @done(2026-10-16)
+- [x] A time range notifies at its start only; `@n(…, end)` also at its end @p2 @size(xs) @done(2026-10-16)
+- [x] Web calendar: the bell only on lines with a written `@n`; the month grid's dot only on days with an `@event` @p2 @size(xs) @done(2026-10-16)
+- [x] `?` in the plan and review buffers lists their keys (ui/keyhelp, from the mappings' descriptions) @p2 @size(xs) @done(2026-10-16)
+- [x] Search picker keys in `ui.search.keys` (`<M-t>` is taken by zellij), shown in the picker's title @p2 @size(xs) @done(2026-10-16)
+- [x] `:help zortex` for a plugin loaded from a local folder: `setup()` writes `doc/tags`; `:checkhealth` warns when it is missing @p2 @size(xs) @done(2026-10-16)
+- [x] Web header search: notes whose name matches, as you type @p3 @size(xs) @done(2026-10-16)
+- [x] Web: a bare `@tag` links to its tag table (`@[*/tag]`) @p3 @size(xs) @done(2026-10-16)
+- [x] Tag tables: no Notes column; the first lines of notes under the item, "All notes" for the panel @p3 @size(xs) @done(2026-10-16)
+- [x] Planner: what is left in the inbox, last @p3 @size(xs) @done(2026-10-16)
+- [x] `<leader>zT` on a project heading marks the project done (asks while tasks are open) @p3 @size(xs) @done(2026-10-16)
+
+## 3.10 Syntax to settle before the first tag
+Grammar changes are cheap now and costly once other people have notes.
+- [ ] Labels: a plain `Text:` is a label only up to 3 words (almost every label is 1-3); longer labels opt in with `*A longer label like this one:*`, parsed at the same level as plain labels. Lua and Go parsers, `tests/fixtures/ast`, Syntax.md; first a command that lists the lines whose kind would change, and check `*…:*` against emphasis spans (Wishlist # 8) @p2 @size(md)
+- [ ] Tag search filters with `is:` words (a colon can't be in a tag, so they can't clash): `@[rust is:heading]`, `@[rl is:open]`, `@[rust is:task, rust is:label]`; kinds `heading label item task open done resource`. `@[#-:/tags]` would collide with the scope, which is a link (Wishlist # 8) @p2 @size(md)
+
+# 5 Next (agreed 2026-10-16)
+Details in Wishlist # 8.
+
+## 5.1 Calendar and planning
+- [ ] Inbox triage: `@project(1.4)` on an inbox item or loose task; the daily review lists them with `m` to move each to its project, and items without one to `review.inbox_default` (a place in the projects note, e.g. a heading of `[P/#Areas]`, the area tree for maintenance tasks that aren't projects) @p2 @size(md)
+- [ ] Project blocks: a calendar line holding only a project link, with nothing under it, shows the project's next open tasks (`ui.planner.project_tasks`) as references, toggling the tasks (Neovim calendar view and web) @p3 @size(md)
+- [ ] Help: one table of the keys of each zortex buffer and picker, so `?`, README, `:help zortex-keys` and the picker titles come from it; mention each picker backend's own help key @p3 @size(sm)
+
+## 5.2 Links and tags
+- [ ] A `-` component matches a task's `@id` too: `[P/-aB3x9]` keeps pointing at a task through renames (no new link component for tasks) @p3 @size(sm)
+- [ ] Notes outside `notes_dir` (a repo's `doc/Roadmap.zortex`): their links resolve in their own folder; `[~/P/#Subaru]` reaches `notes_dir` @p3 @size(md)
+- [ ] Broken and orphan tags, computed on request: tag searches that find nothing, `[@Tag]` links to a tag no note has, and bare tags no search uses (bare attributes like `@p1` left out); `/broken` lists them apart from broken links, Neovim through `:ZortexBrokenLinks` @p3 @size(md)
+
+## 5.3 Web
+- [ ] Hover cards on links: a note's title, path, tags, first lines and backlink count; an image's thumbnail; an external link's domain and URL (nothing fetched from the server) @p3 @size(md)
+- [ ] Graph: a note's headings that other notes link to, under the note: the structure as it actually grows @p3 @size(md)
+
+## 5.4 XP
+- [ ] Area split: keep the harmonic default; `xp.area_split` sets a geometric ratio instead (1: even, 0.7: gently decaying) @p3 @size(sm)
+- [ ] Wording: "1 XP = 6 minutes of estimated work" wherever XP is shown or documented, and hours next to XP @p3 @size(sm)
+
+Dropped: a raw-text section, uploading a file to render it, tags generated from Structure, other rules for a tagged heading's rows, XP "overlap", the calendar picker.
+
 # 4 After v0.1.0
 - [ ] Tree-sitter grammar with the AST fixtures as acceptance tests (Wishlist # 7) @size(xl)
 - [x] LazyVim defaults: blink.cmp source next to the nvim-cmp one; pickers behind one interface with snacks.picker and fzf-lua backends next to telescope (`ui.picker = "auto"`) @size(lg) @done(2026-10-15)
-- [ ] Web app as an installable PWA (phone + Syncthing) @size(md)
+- [ ] Web app as an installable PWA (phone + Syncthing): the first thing after v0.1.0 @p1 @size(md)
 - [x] Pomodoro sessions into the calendar / XP (log what a session was spent on): time tracking writes @spent @size(md) @done(2026-10-12)
 - [ ] Import from Markdown / Obsidian vaults @size(lg)
 
 Decisions:
-- One repo, one version for the plugin and `zortex serve`? (Simplest: yes, tag both together.)
+- One repo, one version: the plugin and `zortex serve` are tagged together (decided 2026-10-16).
 - Platforms promised: Linux and macOS; Windows untested (README, decided 2026-10-14).
-- Name on the plugin registries and the container image.
+- Names: `zortex.nvim` for the plugin, `zortex` for the binary and the image on ghcr.io (`ghcr.io/t-wilkinson/zortex`, decided 2026-10-16).
+- Notifications: every timed calendar line notifies (keeps you on track, pulls you out of deep focus); `@n(no)` opts a line out, `@event` marks the fixed things you plan around (decided 2026-10-16).

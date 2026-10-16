@@ -20,7 +20,7 @@ var OFFLINE = BASE + "/offline";
 var NETWORK_ONLY = /^\/(api|f|raw|notify|pending|test|sw\.js|manifest\.webmanifest)(\/|$)/;
 
 self.addEventListener("install", function (event) {
-  var core = ["style.css", "app.js", "live.js", "tables.js", "math.js", "icon.svg"].map(function (f) {
+  var core = ["style.css", "app.js", "hover.js", "live.js", "tables.js", "math.js", "icon.svg"].map(function (f) {
     return BASE + "/static/" + f + "?v=" + VERSION;
   });
   event.waitUntil(

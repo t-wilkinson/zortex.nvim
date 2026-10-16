@@ -433,6 +433,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/search", s.apiSearch)
 	mux.HandleFunc("GET /api/resolve", s.apiResolve)
 	mux.HandleFunc("GET /api/backlinks", s.apiBacklinks)
+	mux.HandleFunc("GET /api/hover", s.apiHover)
 	mux.HandleFunc("GET /healthz", s.handleHealth)
 	mux.HandleFunc("GET /health", s.handleHealth)
 	mux.HandleFunc("GET /structure", s.handleStructure)

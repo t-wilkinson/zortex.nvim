@@ -47,8 +47,8 @@ text you own and sync however you like.
 **On the web** (`zortex serve`, optional: one Go binary)
 
 - Your notes rendered and searchable, with the calendar, the pomodoro and
-  XP on the home page, light editing from your phone, and ntfy
-  notifications.
+  XP on the home page, light editing from your phone, ntfy notifications,
+  and a card on every link that shows where it goes before you follow it.
 - **Project pages**: progress, next tasks, the key results they move, a log
   of where you left off, the days they were on the calendar, and the notes
   and files they link; **objectives** against the time passed in their

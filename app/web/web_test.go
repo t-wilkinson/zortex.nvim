@@ -552,3 +552,25 @@ func TestBrokenTags(t *testing.T) {
 		t.Error("a [@Tag] link listed with the broken links")
 	}
 }
+
+// Hover cards: a note's title, path, tags, first lines and backlinks; a
+// heading's own lines.
+func TestHoverCard(t *testing.T) {
+	_, _, ts := newTestServer(t, "")
+	_, _, body := get(t, ts, "/api/hover?rel=projects.zortex&lnum=0")
+	var card hoverCard
+	if err := json.Unmarshal([]byte(body), &card); err != nil {
+		t.Fatal(err, body)
+	}
+	if card.Title == "" || card.Rel != "projects.zortex" || len(card.Lines) == 0 || card.Backlinks == 0 {
+		t.Errorf("note card: %+v", card)
+	}
+	_, _, body = get(t, ts, "/api/hover?rel=projects.zortex&lnum=14")
+	card = hoverCard{}
+	_ = json.Unmarshal([]byte(body), &card)
+	if !strings.Contains(card.Section, "1.4 - zortex") || len(card.Lines) == 0 || !strings.Contains(card.Lines[0], "Add research-ready references") {
+		t.Errorf("heading card: %+v", card)
+	}
+	expect(t, ts, "/api/hover?rel=nope.zortex", 404)
+	expect(t, ts, "/n/projects.zortex", 200, `/static/hover.js`)
+}

@@ -160,10 +160,16 @@ and `@n(0, end)` also notifies when a range ends.
   ticking one (`2x` in the calendar view, the box on the web) ticks the
   project's task, and the next takes its place. While it runs, the clocks
   count against the first.
+- **Timed tasks.** `16:00 [ ] Write the report` (also `16:00 - 17:00 [ ]`,
+  or `16:00 - [ ]`) is a task with a time: it notifies at its time like any
+  timed line, and not once it's done. Toggling a plain timed line
+  (`16:00 Report`) makes it one, keeping the time in front. Carried forward,
+  it goes to today without its old time (the old line keeps it, marked
+  `[>]`).
 - **References.** A line without a checkbox whose link points at a task
   (`14:00 Call the bank about [P/#2 Home/-Mortgage]`) stands for it: it
-  shows the task's state, and toggling it toggles the task. A timed line
-  can't hold a checkbox, so this is how a task gets a time.
+  shows the task's state, and toggling it toggles the task, so a project
+  task can have a time without a copy.
 - **Carrying forward.** Planning today (`:ZortexPlan`, or
   `:ZortexCarryForward` / the web home page's **Carry** button) copies the
   open tasks of the last 14 days to today with the same `@id`, under their
@@ -201,10 +207,10 @@ for everything:
 | xl | 3h | 40h | 120h |
 | larger | 2xl 5h … 5xl 20h | epic 160h, legendary 480h, mythic 1,000h, ultimate 2,500h | |
 
-An unsized task counts as md, except the only task under a calendar time:
-ticked without a size, it gets the size nearest the block's length (its own
-`16:00 - 17:30` range, else until the next timed line; by ratio, so 45
-minutes is `@md`), in Neovim and on the web. A project without `@size` is the sum of its
+An unsized task counts as md, except a timed task (`16:00 [ ] Task`) or the
+only task under a calendar time: ticked without a size, it gets the size
+nearest its block's length (its own `16:00 - 17:30` range, else until the
+next timed line; by ratio, so 45 minutes is `@md`), in Neovim and on the web. A project without `@size` is the sum of its
 tasks; an objective without `@size` is the projects its key results link (else
 md). `@xp(n)` sets a project, key result or objective outright. Tracked time
 (`@spent`, from the web clocks) is shown in the reviews but not paid: XP

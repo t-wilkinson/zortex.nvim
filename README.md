@@ -150,7 +150,7 @@ Special notes:
   `- KRn:` items are key results, and project links on a KR drive its
   progress.
 - **`calendar.zortex`**: `YYYY-MM-DD:` labels with entries under them
-  (`- [ ] task`, `14:00 event`, `- note`).
+  (`- [ ] task`, `14:00 event`, `16:00 [ ] timed task`, `- note`).
 - Notes tagged `@Archive` (or named `z/archive.*`) are left out of links,
   projects and search ranking.
 

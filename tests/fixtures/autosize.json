@@ -152,6 +152,47 @@
       "lnum": 5,
       "name": "notes and references don't count, blank lines are skipped",
       "size": "sm"
+    },
+    {
+      "lines": [
+        "2026-10-16:",
+        "16:00 [x] Task 1",
+        "17:00 Next"
+      ],
+      "lnum": 2,
+      "name": "a timed task sizes itself: until the next timed line",
+      "size": "md"
+    },
+    {
+      "lines": [
+        "2026-10-16:",
+        "09:00 - 11:00 [x] Deep work",
+        "09:30 Coffee"
+      ],
+      "lnum": 2,
+      "name": "a timed task with its own range",
+      "size": "lg"
+    },
+    {
+      "lines": [
+        "2026-10-16:",
+        "16:00 - [x] Task 1",
+        "16:30 Next"
+      ],
+      "lnum": 2,
+      "name": "the dashed form",
+      "size": "sm"
+    },
+    {
+      "lines": [
+        "2026-10-16:",
+        "16:00 [x] Report",
+        "  - [x] Draft",
+        "17:00 Next"
+      ],
+      "lnum": 2,
+      "name": "a timed task with tasks under it is a group: no size",
+      "size": ""
     }
   ],
   "sizes": {

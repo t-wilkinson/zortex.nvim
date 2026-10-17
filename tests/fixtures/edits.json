@@ -303,17 +303,17 @@
     {
       "line": "14:00 Calendar entry",
       "op": "open",
-      "result": "- [ ] 14:00 Calendar entry @id(Tst01)"
+      "result": "14:00 [ ] Calendar entry @id(Tst01)"
     },
     {
       "line": "14:00 Calendar entry",
       "op": "done",
-      "result": "- [x] 14:00 Calendar entry @id(Tst01) @done(2026-10-12)"
+      "result": "14:00 [x] Calendar entry @id(Tst01) @done(2026-10-12)"
     },
     {
       "line": "14:00 Calendar entry",
       "op": "toggle",
-      "result": "- [ ] 14:00 Calendar entry @id(Tst01)"
+      "result": "14:00 [ ] Calendar entry @id(Tst01)"
     },
     {
       "line": "14:00 Calendar entry",
@@ -323,22 +323,102 @@
     {
       "line": "09:00 - 10:30 Deep work [P/#1.4 - zortex]",
       "op": "open",
-      "result": "- [ ] 09:00 - 10:30 Deep work [P/#1.4 - zortex] @id(Tst01)"
+      "result": "09:00 - 10:30 [ ] Deep work [P/#1.4 - zortex] @id(Tst01)"
     },
     {
       "line": "09:00 - 10:30 Deep work [P/#1.4 - zortex]",
       "op": "done",
-      "result": "- [x] 09:00 - 10:30 Deep work [P/#1.4 - zortex] @id(Tst01) @done(2026-10-12)"
+      "result": "09:00 - 10:30 [x] Deep work [P/#1.4 - zortex] @id(Tst01) @done(2026-10-12)"
     },
     {
       "line": "09:00 - 10:30 Deep work [P/#1.4 - zortex]",
       "op": "toggle",
-      "result": "- [ ] 09:00 - 10:30 Deep work [P/#1.4 - zortex] @id(Tst01)"
+      "result": "09:00 - 10:30 [ ] Deep work [P/#1.4 - zortex] @id(Tst01)"
     },
     {
       "line": "09:00 - 10:30 Deep work [P/#1.4 - zortex]",
       "op": "text",
       "result": "09:00 - 10:30 Deep work [P/#1.4 - zortex]"
+    },
+    {
+      "line": "16:00 [ ] Timed task",
+      "op": "open",
+      "result": "16:00 [ ] Timed task @id(Tst01)"
+    },
+    {
+      "line": "16:00 [ ] Timed task",
+      "op": "done",
+      "result": "16:00 [x] Timed task @id(Tst01) @done(2026-10-12)"
+    },
+    {
+      "line": "16:00 [ ] Timed task",
+      "op": "toggle",
+      "result": "16:00 [x] Timed task @id(Tst01) @done(2026-10-12)"
+    },
+    {
+      "line": "16:00 [ ] Timed task",
+      "op": "text",
+      "result": "16:00 Timed task"
+    },
+    {
+      "line": "16:00 - 17:00 [x] Timed range @done(2026-10-01)",
+      "op": "open",
+      "result": "16:00 - 17:00 [ ] Timed range @id(Tst01)"
+    },
+    {
+      "line": "16:00 - 17:00 [x] Timed range @done(2026-10-01)",
+      "op": "done",
+      "result": "16:00 - 17:00 [x] Timed range @done(2026-10-01) @id(Tst01)"
+    },
+    {
+      "line": "16:00 - 17:00 [x] Timed range @done(2026-10-01)",
+      "op": "toggle",
+      "result": "16:00 - 17:00 [ ] Timed range @id(Tst01)"
+    },
+    {
+      "line": "16:00 - 17:00 [x] Timed range @done(2026-10-01)",
+      "op": "text",
+      "result": "16:00 - 17:00 Timed range"
+    },
+    {
+      "line": "16:00 - [ ] Dashed timed task",
+      "op": "open",
+      "result": "16:00 - [ ] Dashed timed task @id(Tst01)"
+    },
+    {
+      "line": "16:00 - [ ] Dashed timed task",
+      "op": "done",
+      "result": "16:00 - [x] Dashed timed task @id(Tst01) @done(2026-10-12)"
+    },
+    {
+      "line": "16:00 - [ ] Dashed timed task",
+      "op": "toggle",
+      "result": "16:00 - [x] Dashed timed task @id(Tst01) @done(2026-10-12)"
+    },
+    {
+      "line": "16:00 - [ ] Dashed timed task",
+      "op": "text",
+      "result": "16:00 Dashed timed task"
+    },
+    {
+      "line": "  7:05   Indented entry  ",
+      "op": "open",
+      "result": "  7:05   [ ] Indented entry @id(Tst01)"
+    },
+    {
+      "line": "  7:05   Indented entry  ",
+      "op": "done",
+      "result": "  7:05   [x] Indented entry @id(Tst01) @done(2026-10-12)"
+    },
+    {
+      "line": "  7:05   Indented entry  ",
+      "op": "toggle",
+      "result": "  7:05   [ ] Indented entry @id(Tst01)"
+    },
+    {
+      "line": "  7:05   Indented entry  ",
+      "op": "text",
+      "result": "  7:05   Indented entry  "
     },
     {
       "line": "- [ ] Done but empty @done()",

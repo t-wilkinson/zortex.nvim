@@ -54,12 +54,20 @@ function M.from_text(line, date_str)
 	setmetatable(entry, Entry)
 	entry.date_context = date_str
 
-	if entry.mark then
-		entry.type = "task"
-	else
-		-- Time prefix: on the item itself ("14:00 text") or after a bullet
-		-- ("- 14:00 text"); it becomes @at / @from @to
-		local text = entry.marker_type == "time" and vim.trim(line) or entry.body
+	-- Time prefix: on the item itself ("14:00 text", "16:00 [ ] task") or,
+	-- for a line without a checkbox, after a bullet ("- 14:00 text"); it
+	-- becomes @at / @from @to
+	local text
+	if entry.marker_type == "time" then
+		local t = entry.time or {}
+		local rest = entry.body
+		if t.from then
+			text = attributes.update_attribute(attributes.update_attribute(rest, "from", t.from), "to", t.to)
+		else
+			text = attributes.update_attribute(rest, "at", t.at)
+		end
+	elseif not entry.mark then
+		text = entry.body
 		local from_time, to_time, rest = text:match("^(%d%d?:%d%d)%s*%-%s*(%d%d?:%d%d)%s+(.*)$")
 		if from_time then
 			text = attributes.update_attribute(rest, "from", from_time)
@@ -70,14 +78,32 @@ function M.from_text(line, date_str)
 				text = attributes.update_attribute(after, "at", at_time)
 			end
 		end
+	end
+	if text then
 		local attrs, remaining = attributes.parse_calendar_attributes(text, context)
-		entry.attributes, entry.text = attrs or {}, remaining
+		-- a task keeps its own attributes (id, done, size, ...) and takes the time
+		if entry.mark then
+			entry.attributes = entry.attributes or {}
+			for _, k in ipairs({ "at", "from", "to" }) do
+				entry.attributes[k] = attrs and attrs[k]
+			end
+		else
+			entry.attributes, entry.text = attrs or {}, remaining
+		end
+	end
+	if entry.mark then
+		entry.type = "task"
+	else
 		entry.type = "note"
 		if entry.attributes.from or entry.attributes.to or entry.attributes.at then
 			entry.type = "event"
-			if entry.attributes.notify == nil then
-				entry.attributes.notify = true
-			end
+		end
+	end
+	if entry.attributes.from or entry.attributes.to or entry.attributes.at then
+		-- every timed line notifies at its time unless @n(no); a done task
+		-- doesn't (nothing left to remind you of)
+		if entry.attributes.notify == nil then
+			entry.attributes.notify = not entry.completed
 		end
 	end
 	entry.timing = compute_timing(entry.attributes)

@@ -217,6 +217,16 @@ function M.item(line)
 				end
 			end
 		end
+	elseif item.marker_type == "time" then
+		-- a timed task: "16:00 [ ] Task", "16:00 - 17:00 [ ] Task", also
+		-- "16:00 - [ ] Task"
+		local text = line:sub(col + 1)
+		local dash = text:match("^%-%s+%[") and #text:match("^%-%s+") or 0
+		local mark, n = match_checkbox(text:sub(dash + 1))
+		if mark then
+			item.mark, item.mark_col = mark, col + dash
+			col = col + dash + n
+		end
 	end
 	item.content_col = col
 	return item

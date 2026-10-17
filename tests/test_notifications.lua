@@ -124,6 +124,31 @@ T.test("calendar: a time range notifies at its start; @n(…, end) also when it 
 	})
 end)
 
+T.test("calendar: a timed task notifies until it is done; carried and done ones don't", function()
+	local cal = require("zortex.notifications.types.calendar")
+	local path = require("zortex.utils.filesystem").get_calendar_file()
+	local original = vim.fn.readfile(path)
+	local day = os.date("%Y-%m-%d", os.time() + 86400)
+	vim.fn.writefile({
+		"@@Calendar",
+		"",
+		day .. ":",
+		"09:00 [ ] Write the report",
+		"10:00 - 11:00 [x] Done already @n(5) @done(" .. day .. ")",
+		"11:00 [>] Carried",
+		"12:00 - [ ] Dashed form",
+	}, path)
+	require("zortex.core.document").invalidate(path)
+	local got = vim.tbl_map(function(n)
+		return os.date("%H:%M", n.trigger_time) .. " " .. n.title
+	end, cal.collect())
+	vim.fn.writefile(original, path)
+	require("zortex.core.document").invalidate(path)
+	T.eq(#got, 2, vim.inspect(got))
+	T.ok(got[1]:match("^09:00 .*Write the report"), got[1])
+	T.ok(got[2]:match("^12:00 .*Dashed form"), got[2])
+end)
+
 -- End to end against `zortex serve` when Go is available
 local go = vim.fn.exepath("go")
 if go ~= "" then

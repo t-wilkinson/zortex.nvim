@@ -136,7 +136,7 @@ Grammar changes are cheap now and costly once other people have notes.
 - [x] Moving lines no longer leaves their link icons piled on the next line (marks invalidate with their text; buffers changed while not current repaint) @p2 @size(xs) @done(2026-10-16)
 - [x] `:ZortexTOC` opens on the left @p3 @size(xs) @done(2026-10-16)
 - [x] `@fold` keeps a section folded each time the note is shown @p3 @size(xs) @done(2026-10-16)
-- [ ] A timed line holding a checkbox (`16:00 - [ ] Task`) as a task: a grammar change (both parsers, AST fixtures, the calendar views), undecided @p3 @size(md)
+- [x] Timed tasks: `16:00 [ ] Task`, `16:00 - 17:00 [ ] Task` and `16:00 - [ ] Task` are tasks with a time (both parsers, AST and edit fixtures, the calendar views); they notify until done, size themselves from their slot, and carry forward without their old time @p2 @size(md) @done(2026-10-16)
 
 # 5 Next (agreed 2026-10-16)
 Details in Wishlist # 8.

@@ -111,10 +111,15 @@ func setDone(line string, done bool, today string) string {
 	return RemoveAttribute(withMark(line, col, " "), "done")
 }
 
-// ConvertToTask: "- text" -> "- [ ] text @id(id)" (as convert_line_to_task).
+// ConvertToTask: "- text" -> "- [ ] text @id(id)", and a timed line keeps
+// its time in front: "16:00 Report" -> "16:00 [ ] Report @id(id)" (as
+// convert_line_to_task).
 func ConvertToTask(line, id string) (string, error) {
 	if strings.TrimLeft(line, " \t\n\v\f\r") == "" {
 		return "", ErrEmpty
+	}
+	if it := syntax.ItemOf(line); it != nil && it.MarkerType == "time" && it.Mark == "" {
+		return AddAttribute(line[:it.ContentCol]+"[ ] "+trimLuaSpace(line[it.ContentCol:]), "id", id), nil
 	}
 	n := 0
 	for n < len(line) && isLuaSpace(line[n]) {
@@ -146,6 +151,12 @@ func Line(line, op, today string, newID func() string) (string, error) {
 		}
 		before, after := line[:col], line[col+3:]
 		after = strings.TrimPrefix(after, " ")
+		// "16:00 - [ ] Task" -> "16:00 Task": the dash goes with the box
+		if it := syntax.ItemOf(line); it != nil && it.MarkerType == "time" {
+			if t := strings.TrimRight(before, " \t"); strings.HasSuffix(t, "-") && len(t) > it.MarkerCol+len(it.Marker) {
+				before = strings.TrimRight(t[:len(t)-1], " \t") + " "
+			}
+		}
 		return RemoveAttribute(before+after, "done"), nil
 	}
 	if op != Open && op != Done && op != Toggle {

@@ -165,6 +165,14 @@ function M.convert_line_to_task(line, id)
 		return nil, "Empty line"
 	end
 
+	-- A timed line keeps its time in front: "16:00 Report" -> "16:00 [ ] Report"
+	local timed = require("zortex.core.syntax").item(line)
+	if timed and timed.marker_type == "time" and not timed.mark then
+		local rest = line:sub(timed.content_col + 1):match("^%s*(.-)%s*$")
+		local task_line = attributes.add_attribute(line:sub(1, timed.content_col) .. "[ ] " .. rest, "id", id or generate_task_id())
+		return Item.task(task_line), task_line
+	end
+
 	-- Parse the line structure
 	local indent, content = line:match("^(%s*)(.-)%s*$")
 
@@ -215,6 +223,14 @@ function M.edit_line(line, op, opts)
 		end
 		local before, after = line:sub(1, task.mark_col), line:sub(task.mark_col + 4)
 		after = after:gsub("^ ", "", 1)
+		-- "16:00 - [ ] Task" -> "16:00 Task": the dash goes with the box
+		local it = require("zortex.core.syntax").item(line)
+		if it and it.marker_type == "time" then
+			local t = before:gsub("[ \t]+$", "")
+			if t:sub(-1) == "-" and #t > it.marker_col + #it.marker then
+				before = t:sub(1, -2):gsub("[ \t]+$", "") .. " "
+			end
+		end
 		return attributes.remove_attribute(before .. after, "done")
 	end
 	if op ~= "open" and op ~= "done" and op ~= "toggle" then
@@ -261,8 +277,9 @@ local function minutes(hm)
 end
 
 --- The size a just-completed calendar task gets from its block, or nil.
---- The task at `lnum` (no @size of its own) must be the only task nested
---- under a timed line; the block lasts its own range ("16:00 - 17:30") or
+--- The task at `lnum` (no @size of its own) must be a timed task with no
+--- tasks under it ("16:00 [ ] Task"), or the only task nested under a timed
+--- line; the block lasts its own range ("16:00 - 17:30") or
 --- until the next timed line of the day at its indent. The size is the one
 --- whose hours are closest by ratio (45 minutes is md, not sm), the larger
 --- on a tie. `sizes` maps size -> hours (xp.sizes.task). app/edit
@@ -275,10 +292,14 @@ function M.calendar_size(lines, lnum, sizes)
 	if not t or not t.completed or (t.attributes and t.attributes.size) then
 		return nil
 	end
-	-- the timed line it is nested under
+	-- the timed line it is, or is nested under
 	local own = indent_width(line)
 	local head
-	for l = lnum - 1, 1, -1 do
+	local d0 = syntax.classify(line)
+	if d0.item and d0.item.marker_type == "time" then
+		head = lnum -- "16:00 [ ] Task": its own block
+	end
+	for l = head and 0 or lnum - 1, 1, -1 do
 		local text = lines[l]
 		if text:match("%S") then
 			if indent_width(text) < own then
@@ -313,7 +334,8 @@ function M.calendar_size(lines, lnum, sizes)
 			end
 		end
 	end
-	if count ~= 1 then
+	-- exactly one task: itself (a timed task with tasks under it is a group)
+	if count ~= (head == lnum and 0 or 1) then
 		return nil
 	end
 	-- its length in minutes

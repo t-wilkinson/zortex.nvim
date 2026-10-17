@@ -204,6 +204,41 @@
       ],
       "name": "a [./-Item] task under a task is written out in full",
       "today": "2026-10-14"
+    },
+    {
+      "edits": [
+        {
+          "line": "16:00 [>] Write the report @sm @id(C0001)",
+          "lnum": 4
+        },
+        {
+          "line": "17:00 - [>] Call the bank @id(bank1)",
+          "lnum": 5
+        }
+      ],
+      "from": "2026-09-30",
+      "inserts": [
+        {
+          "at": 10,
+          "lines": [
+            "- [ ] Write the report @sm @id(C0001)",
+            "- [ ] Call the bank @id(bank1)"
+          ]
+        }
+      ],
+      "lines": [
+        "@@Calendar",
+        "",
+        "2026-10-13:",
+        "16:00 [ ] Write the report @sm",
+        "17:00 - [ ] Call the bank @id(bank1)",
+        "18:00 [x] Done already",
+        "",
+        "2026-10-14:",
+        "09:00 Standup"
+      ],
+      "name": "timed tasks carry without their old time; the old line keeps it",
+      "today": "2026-10-14"
     }
   ]
 }

@@ -56,6 +56,12 @@ Done @fold @p1 here:
 Z. lettered
 ab. not lettered
 9:00 single digit hour
+16:00 [ ] timed task
+16:00 - 17:00 [x] timed range task
+16:00 - [ ] dashed timed task
+16:00 - not a [ ] task
+16:00 [ ]
+16:00 [link] not a task
 09:00   -   10:30 spaced range
 09:00-10:30x not a range
 | a | b |

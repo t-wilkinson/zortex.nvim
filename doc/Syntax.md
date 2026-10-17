@@ -84,6 +84,9 @@ Nothing inside a code or math block is structure.
 | `- KR1: [ ] Key result [P/#1 Programming]` | `item` | a keyed item: `Key:` then an optional checkbox (key results) |
 | `14:00 Timed entry [Flipping]` | `item` | a time item (calendar events) |
 | `16:00 - 17:00 Ranged entry` | `item` | a time range |
+| `16:00 [ ] timed task` | `item` | a timed task: a checkbox after the time (or the range, `16:00 - 17:00 [x] timed range task`) |
+| `16:00 - [ ] dashed timed task` | `item` | a timed task written with a dash; toggling keeps the form, making it text drops the dash too |
+| `16:00 - not a [ ] task` | `item` | a time item whose text has brackets later on, not a task |
 | `- 09:00 Bulleted time` | `item` | a bullet whose text starts with a time (not a time item) |
 | `09:00-10:30x not a range` | `text` | |
 | `\| col a \| col b \|` | `table` | rows start and end with `\|` |

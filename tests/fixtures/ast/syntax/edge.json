@@ -1,32 +1,32 @@
 {
   "blocks": [
     {
-      "finish": 63,
+      "finish": 69,
       "kind": "table",
-      "start": 61
+      "start": 67
     },
     {
-      "finish": 73,
+      "finish": 79,
       "kind": "code",
       "lang": "",
-      "start": 69
+      "start": 75
     },
     {
-      "finish": 77,
+      "finish": 83,
       "kind": "code",
       "lang": "python",
-      "start": 74
+      "start": 80
     },
     {
-      "finish": 80,
+      "finish": 86,
       "kind": "math",
-      "start": 78
+      "start": 84
     },
     {
-      "finish": 87,
+      "finish": 93,
       "kind": "code",
       "lang": "js",
-      "start": 86
+      "start": 92
     }
   ],
   "header": {
@@ -947,6 +947,110 @@
         "marker_type": "time",
         "time": {
           "at": "9:00"
+        }
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 10,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 10,
+        "mark": " ",
+        "mark_col": 6,
+        "marker": "16:00",
+        "marker_col": 0,
+        "marker_type": "time",
+        "time": {
+          "at": "16:00"
+        }
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 18,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 18,
+        "mark": "x",
+        "mark_col": 14,
+        "marker": "16:00 - 17:00",
+        "marker_col": 0,
+        "marker_type": "time",
+        "time": {
+          "from": "16:00",
+          "to": "17:00"
+        }
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 12,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 12,
+        "mark": " ",
+        "mark_col": 8,
+        "marker": "16:00",
+        "marker_col": 0,
+        "marker_type": "time",
+        "time": {
+          "at": "16:00"
+        }
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 6,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 6,
+        "marker": "16:00",
+        "marker_col": 0,
+        "marker_type": "time",
+        "time": {
+          "at": "16:00"
+        }
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 6,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 6,
+        "marker": "16:00",
+        "marker_col": 0,
+        "marker_type": "time",
+        "time": {
+          "at": "16:00"
+        }
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 6,
+      "indent": 0,
+      "inline": [
+        {
+          "definition": "link",
+          "e": 12,
+          "s": 6,
+          "type": "link"
+        }
+      ],
+      "item": {
+        "content_col": 6,
+        "marker": "16:00",
+        "marker_col": 0,
+        "marker_type": "time",
+        "time": {
+          "at": "16:00"
         }
       },
       "kind": "item"

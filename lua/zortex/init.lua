@@ -39,6 +39,7 @@ function api.setup(opts)
 	require("zortex.features.folding").setup()
 	require("zortex.features.preview").setup(Config.ui.preview)
 	require("zortex.features.completion").setup()
+	require("zortex.features.diagnostics").setup((Config.features or {}).diagnostics)
 
 	-- Services with configuration
 	require("zortex.services.search").setup(Config.ui.search)

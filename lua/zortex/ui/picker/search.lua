@@ -117,21 +117,9 @@ function M.new_note(name)
 	vim.notify("Failed to create unique filename", vim.log.levels.ERROR)
 end
 
--- The search picker's keys (ui.search.keys): { key = lhs or false }
-local function keys()
-	return cfg().keys or {}
-end
-
-local function title(mode, new_note)
-	local t = mode == "text" and "Zortex Text Search" or ("Zortex Structural Search (" .. mode .. ")")
-	local k, hints = keys(), {}
-	if k.cycle_mode then
-		hints[#hints + 1] = k.cycle_mode .. " mode"
-	end
-	if k.new_note and new_note ~= false then
-		hints[#hints + 1] = k.new_note .. " new note"
-	end
-	return #hints > 0 and (t .. " · " .. table.concat(hints, " · ")) or t
+-- the keys go after it (ui/picker title, from zortex.keys)
+local function title(mode)
+	return mode == "text" and "Zortex Text Search" or ("Zortex Structural Search (" .. mode .. ")")
 end
 
 -- section -> article -> text -> section
@@ -155,7 +143,7 @@ function M.spec(opts)
 	local history = require("zortex.services.search_history")
 	return {
 		title = function()
-			return title(mode, opts.new_note)
+			return title(mode)
 		end,
 		query = function(prompt)
 			return search.query_index(index, prompt, { mode = mode, all_sections = opts.all_sections })
@@ -167,28 +155,21 @@ function M.spec(opts)
 			history.record(r)
 		end,
 		prompt = opts.prompt,
-		keys = (function()
-			local k, out = keys(), {}
-			if k.new_note and opts.new_note ~= false then
-				out[k.new_note] = {
-					desc = "New note named after the query",
-					close = true,
-					fn = function(_, ctx)
-						M.new_note(ctx.prompt)
-					end,
-				}
-			end
-			if k.cycle_mode then
-				out[k.cycle_mode] = {
-					desc = "Cycle section / article / text search",
-					refresh = true,
-					fn = function()
-						mode = next_mode(mode)
-					end,
-				}
-			end
-			return out
-		end)(),
+		-- the keys: zortex.keys ("search"; ui.search.keys sets them)
+		keys = require("zortex.keys").picker_keys("search", {
+			new_note = opts.new_note ~= false and {
+				close = true,
+				fn = function(_, ctx)
+					M.new_note(ctx.prompt)
+				end,
+			} or nil,
+			cycle_mode = {
+				refresh = true,
+				fn = function()
+					mode = next_mode(mode)
+				end,
+			},
+		}),
 	}
 end
 

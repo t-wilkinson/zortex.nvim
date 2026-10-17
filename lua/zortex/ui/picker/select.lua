@@ -13,7 +13,7 @@ function M.pick(spec)
 			return
 		end
 		vim.ui.select(list, {
-			prompt = Picker.title(spec),
+			prompt = Picker.title(spec, "select"),
 			format_item = function(item)
 				-- columns padded for the other pickers don't line up here
 				return (Picker.render(spec, item):gsub("%s%s+", "  "))
@@ -25,7 +25,7 @@ function M.pick(spec)
 		end)
 	end
 	if spec.query then
-		vim.ui.input({ prompt = Picker.title(spec) .. ": ", default = spec.prompt }, function(q)
+		vim.ui.input({ prompt = Picker.title(spec, "select") .. ": ", default = spec.prompt }, function(q)
 			if q then
 				choose(spec.query(q))
 			end

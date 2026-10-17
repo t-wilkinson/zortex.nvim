@@ -50,7 +50,7 @@
     ]
   },
   {
-    "link": "[Areas/#4 Learning]",
+    "link": "[Areas/#4 Learning & Education]",
     "results": [
       {
         "col": 1,
@@ -60,7 +60,7 @@
     ]
   },
   {
-    "link": "[Areas/#4 Learning/#4.1 Education]",
+    "link": "[Areas/#4 Learning & Education/#4.1 Education & Skills]",
     "results": [
       {
         "col": 1,
@@ -70,7 +70,7 @@
     ]
   },
   {
-    "link": "[Areas/#4 Learning/#4.2 Personal Interests]",
+    "link": "[Areas/#4 Learning & Education/#4.2 Personal Interests]",
     "results": [
       {
         "col": 1,
@@ -415,6 +415,16 @@
       {
         "col": 1,
         "lnum": 1,
+        "rel": "z/garden.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Garden/:What to plant next spring]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 6,
         "rel": "z/garden.zortex"
       }
     ]
@@ -822,6 +832,16 @@
       {
         "col": 1,
         "lnum": 9,
+        "rel": "areas.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Areas/#4 Learning]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 12,
         "rel": "areas.zortex"
       }
     ]
@@ -1412,6 +1432,301 @@
     "results": []
   },
   {
+    "link": "@[R/rust is:heading]",
+    "results": [
+      {
+        "col": 60,
+        "lnum": 25,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "@[R/book is:heading]",
+    "results": [
+      {
+        "col": 9,
+        "lnum": 24,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 25,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 29,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 9,
+        "lnum": 30,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "@[R/rust is:item]",
+    "results": [
+      {
+        "col": 51,
+        "lnum": 9,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 64,
+        "lnum": 12,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 54,
+        "lnum": 13,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 65,
+        "lnum": 16,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "@[R/rust is:resource]",
+    "results": [
+      {
+        "col": 51,
+        "lnum": 9,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 64,
+        "lnum": 12,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 54,
+        "lnum": 13,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 65,
+        "lnum": 16,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 60,
+        "lnum": 25,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "@[R/rust is:resource is:heading, rl is:item]",
+    "results": [
+      {
+        "col": 48,
+        "lnum": 20,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 104,
+        "lnum": 21,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 60,
+        "lnum": 25,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "error": "No matches found for: @[R/rust is:label]",
+    "link": "@[R/rust is:label]",
+    "results": []
+  },
+  {
+    "link": "@[R/is:label]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 33,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "error": "Unknown is:nope (is: heading, label, item, task, open, done, resource)",
+    "link": "@[R/rust is:nope]",
+    "results": []
+  },
+  {
+    "link": "@[P/is:open]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 5,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 8,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 9,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 12,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 15,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 16,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 17,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 27,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 31,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 9,
+        "rel": "flipping.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 12,
+        "rel": "flipping.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 4,
+        "rel": "z/garden.zortex"
+      }
+    ]
+  },
+  {
+    "link": "@[P/#1 Programming/is:done]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 18,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 19,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "link": "@[P/is:task]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 5,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 8,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 9,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 12,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 15,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 16,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 17,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 18,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 19,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 27,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 31,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 32,
+        "rel": "projects.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 9,
+        "rel": "flipping.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 12,
+        "rel": "flipping.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 13,
+        "rel": "flipping.zortex"
+      },
+      {
+        "col": 1,
+        "lnum": 4,
+        "rel": "z/garden.zortex"
+      }
+    ]
+  },
+  {
     "error": "No tags in @[R/#Rust/ , ]",
     "link": "@[R/#Rust/ , ]",
     "results": []
@@ -1471,6 +1786,76 @@
   {
     "error": "Invalid link",
     "link": "[]",
+    "results": []
+  },
+  {
+    "link": "[~/P/#1.4 - zortex]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 14,
+        "rel": "projects.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Garden/-tom01]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 4,
+        "rel": "z/garden.zortex"
+      }
+    ]
+  },
+  {
+    "error": "No matches found for: -TOM01",
+    "link": "[Garden/-TOM01]",
+    "results": []
+  },
+  {
+    "link": "[@P/-tom01]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 4,
+        "rel": "z/garden.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Garden/:What to plant]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 6,
+        "rel": "z/garden.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Garden/:What to plant/-beans]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 7,
+        "rel": "z/garden.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[Garden/:Things that grew]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 9,
+        "rel": "z/garden.zortex"
+      }
+    ]
+  },
+  {
+    "error": "No matches found for: -mint",
+    "link": "[Garden/:Things that grew/-mint]",
     "results": []
   },
   {

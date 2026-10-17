@@ -1,28 +1,55 @@
 # Philosophy
 
-Why zortex is a personal wiki rather than a Zettelkasten, in the author's words.
+Why zortex is a personal wiki rather than a Zettelkasten, in the author's
+words.
 
 ## Why it looks like this
 
-Originally I had set to replicate the zettelkasten technique more closely, where each line was a different thought with a unique id and various tags. You could then query thoughts with certain tags. Although conceptually very interesting, I didn't actually find it useful. It allowed a purely flat layout of all my thoughts. However it had a few flaws:
+Zortex started as an attempt at a Zettelkasten: every line a separate
+thought with its own id and a few tags, and notes found by querying tags. It
+was interesting, but it didn't help much in practice. The flat pile of
+thoughts had real costs:
 
 - It was complicated.
-- I was never encouraged to actually think and integrate my thoughts into something more meaningful as I would rely on the tag system to organize my notes.
-- It discouraged thinking deeply about concepts.
-- By design, it lacks a single source of truth for concepts.
+- Tags did the organizing, so I never had to think about how ideas fit
+  together, and I rarely thought about anything deeply.
+- Nothing was the one place a concept lived: there was no single source of
+  truth.
 
-I found this new system better:
+What I actually wanted turned out to be a personal Wikipedia: tens to
+hundreds of articles, each the place for one subject, that I can search in a
+few keystrokes and that link to each other. Zortex is built around that:
 
-- Have a couple _core_ files:
-  - **Structure:** is the most important. It is a single file that links to all my other notes. Using Vim's folding, you can get an overview of the main domains of your Wikipedia, or dive down. You can put the same article in multiple locations. This allows you to continue a graph-like knowledge base, while attaching a lot of information, depth, and thought into each thought.
-  - **Storage:** this is a collection of all my old files/thoughts that it will not search through. Good for stuff I will probably never need again, but keep there just in case.
-  - **Inbox:** a file that somewhat matches the original zettelkasten. Each 'unique' id is the line number. You can add tags to each line.
-- Prefix lines with tags such as `- #one#two# This is my line text.` Provides a natural, intuitive way to organize thoughts that can still be easily searched.
-- To still express the graph knowledge that the zettelkasten provides, I've found a hybrid approach of within your articles, add subheadings that refer to or connect ideas to other articles. Which is exactly what Wikipedia does.
+- **Articles, not fragments.** A note is an article (`@@Sourdough`) with
+  headings, labels and lists. Links name places by structure,
+  `[Sourdough/#Method]`, so they read like what they point at and survive
+  being typed from memory.
+- **A Structure note** links to every other note: the map of the whole
+  wiki. Folded, it shows the main domains; opened, it goes as deep as you
+  like. A note can appear in several places, so the map is a graph where
+  it needs to be, while the depth lives in the articles themselves. Notes
+  nothing in Structure links to are listed, so nothing gets lost.
+- **Connections inside the articles.** Where a Zettelkasten keeps the
+  links between ideas in tags and ids, here a section of an article says
+  how it relates to another one, with a link: what Wikipedia does.
+- **Tags where they help.** A bare `@word` on a line (`@rust`, `@home`) is
+  a tag, and a tag search (`@[rust async]`) gathers every line or section
+  carrying it, in place. They cut across articles without replacing them.
+- **An inbox** for what has no home yet: a line added from Neovim or the
+  web app's "Add to inbox", sorted into an article or a project later in
+  the daily review.
+- **Archives** for what you're done with but want to keep: `z/archive.*`
+  notes (or notes tagged `@Archive`) are kept but left out of links,
+  project lists and search ranking.
 
-However this is not how I think. Over time, I found my use case of a note system closely mirrored a personal Wikipedia. I would have 10s-100s of articles that I could quickly search.
+The same notes hold the rest of life too: projects, areas, objectives and
+the calendar are articles with a few conventions ([Planning](Planning.md)),
+so a project, its tasks and the notes about it are all one link apart.
 
 ## The name
 
-- Zettelkasten (german for note "zettel" desk "kasten") was a note taking system popularized by Niklas Luhmann, a very prolific sociologist.
-- Cortex, latin for bark. It's found in the word "neocortex" and "cerebral cortex". The neocortex is a key component in cognition. The Zortex is meant to be a sort of second brain.
+- Zettelkasten (German for "slip box": *Zettel*, a slip of paper, and
+  *Kasten*, a box) is the note-taking system made famous by Niklas Luhmann,
+  a very prolific sociologist.
+- Cortex, Latin for bark, as in "cerebral cortex" and "neocortex", the part
+  of the brain central to thinking. Zortex is meant to be a second brain.

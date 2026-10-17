@@ -193,7 +193,7 @@ end)
 T.test("'>' offers the links in range", function()
 	T.eq(labels("[R/#Rust/#Embedded/>"), { ">The Embedded Rust Book", ">Pinout" })
 	local l = labels("[R/#AI/>")
-	T.ok(has(l, ">Sutton  Barto") or has(l, ">Sutton"), vim.inspect(l))
+	T.ok(has(l, ">Sutton & Barto"), vim.inspect(l))
 	T.ok(has(l, ">lecture notes") and has(l, ">Spinning Up"), vim.inspect(l))
 	for _, label in ipairs(labels("[R/#Rust/>")) do
 		T.ok(#require("zortex.core.link").resolve("[R/#Rust/" .. label .. "]") > 0, label)
@@ -205,6 +205,12 @@ T.test("tags: after a bare @ and inside @[...], most used first", function()
 	T.eq(C.tag_context("see @[R/rust as", 15), { typing = "as", typing_col = 13, tag = "search" })
 	T.eq(C.tag_context("mail me@ex", 10), nil) -- not a word start
 	T.eq(C.tag_context("@[rust] done", 12), nil) -- a closed search
+	-- "is" in a search offers the kinds of line
+	local kinds = {}
+	for _, i in ipairs(C.get_completions("@[R/rust is", #"@[R/rust is", { doc = doc })) do
+		kinds[#kinds + 1] = i.label
+	end
+	T.eq(kinds, { "is:heading", "is:label", "is:item", "is:task", "is:open", "is:done", "is:resource" })
 
 	local items = C.get_completions("- [x](https://x.org) @", #"- [x](https://x.org) @", { doc = doc })
 	local by = {}
@@ -245,7 +251,7 @@ T.test("'[./' completes from the parent line's link: items, sections, links", fu
 	-- "-" lists the section's items, its own first
 	local items = rel_labels(cal, "    - [ ] [./-")
 	T.eq(items[1], "-Add research-ready references")
-	T.ok(has(items, "-Improve website") and has(items, "-Calendar doesn"), vim.inspect(items))
+	T.ok(has(items, "-Improve website") and has(items, "-Calendar doesn't work"), vim.inspect(items))
 	T.ok(not has(items, "#1.4.1 - zortex search"), "only items after -")
 	T.ok(has(items, "-Fix project search"), "items of sub-sections come after")
 	-- "#", ":" and "*" narrow to that kind of section

@@ -69,6 +69,19 @@ function M.xp_per_hour()
 	return conf().xp_per_hour or 10
 end
 
+--- Hours of estimated work `xp` stands for ("1h 30m", "45m", "12h"), for
+--- showing next to XP.
+function M.hours_text(xp)
+	return require("zortex.ui.xp_guide").format_hours((xp or 0) / M.xp_per_hour())
+end
+
+--- "10 XP = 1 hour of estimated work": what XP measures, said the same way
+--- wherever XP is shown.
+function M.unit_text()
+	local n = M.xp_per_hour()
+	return string.format("%s XP = 1 hour of estimated work", n == math.floor(n) and string.format("%d", n) or tostring(n))
+end
+
 -- =============================================================================
 -- Effort: @size -> estimated hours
 -- =============================================================================
@@ -309,16 +322,22 @@ end
 -- Sharing an award between areas
 -- =============================================================================
 
---- Split `amount` over an ordered list of areas: the first area gets the
---- largest part (harmonic weights 1, 1/2, 1/3, ...). Returns amounts by index.
-function M._distribute_on_curve(total_value, num_values)
+--- Split `total_value` into `num_values` parts, the first the largest: each
+--- part `ratio` times the one before (xp.area_split; 1 even, 0.5 halving,
+--- 0.7 gently decaying). Returns amounts by index; they add up exactly.
+function M._distribute_on_curve(total_value, num_values, ratio)
 	if num_values <= 0 then
 		return {}
 	end
-	local weights, total_weight = {}, 0
+	ratio = ratio or conf().area_split or 0.5
+	if type(ratio) ~= "number" or ratio <= 0 then
+		ratio = 0.5
+	end
+	local weights, total_weight, w = {}, 0, 1
 	for i = 1, num_values do
-		weights[i] = 1 / i
-		total_weight = total_weight + weights[i]
+		weights[i] = w
+		total_weight = total_weight + w
+		w = w * ratio
 	end
 	local results, sum = {}, 0
 	for i = 1, num_values - 1 do
@@ -330,8 +349,8 @@ function M._distribute_on_curve(total_value, num_values)
 end
 
 --- Area shares of an award: `share` of xp goes to the areas (ordered, most
---- relevant first) and is split between them on the harmonic curve.
---- Returns { [area_key] = amount }.
+--- relevant first) and is split between them geometrically
+--- (xp.area_split). Returns { [area_key] = amount }.
 function M.area_shares(xp, area_keys, share)
 	local out = {}
 	local parts = M._distribute_on_curve(xp * (share or 0), #area_keys)

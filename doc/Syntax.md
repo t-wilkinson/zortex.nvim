@@ -63,6 +63,9 @@ Nothing inside a code or math block is structure.
 | `**Not a heading**` | `text` | no colon: just bold text |
 | `**Old style**:` | `label` | the colon outside: a label whose text is bold |
 | `Label:` | `label` | text ending in `:` |
+| `Three word label:` | `label` | up to three words (`@attributes` don't count) |
+| `A line of four words:` | `text` | longer, it is a sentence ending in a colon, not a label |
+| `*A longer label like this one:*` | `label` | a longer label: between stars, colon inside |
 | `  Indented label:` | `label` | indentation nests labels |
 | `- Bulleted label:` | `label` | a bullet item ending in `:` is a label too |
 | `Label: text after colon` | `text` | nothing may follow the colon |
@@ -130,6 +133,7 @@ projects, calendar entries):
 | `@p1` `@p2` `@p3`, `@i1` … `@i3` | priority, importance |
 | `@size(xs)` … `@size(5xl)`, or `@sm`, `@lg`, … | task size (projects also `epic`, `legendary`, `mythic`, `ultimate`); sizes weigh XP |
 | `@a(4.1)`, `@area(1.2/Fitness)` | area link: `4.1` is `[A/#4.1]`, `1.2/Fitness` is `[A/#1.2/:Fitness]`; comma-separated for several |
+| `@project(1.4)`, `@project(1/1.4)`, `@project(P/#Kitchen)` | the project a line belongs to (`1.4` is `[P/#1.4]`): `m` in the daily review moves it there, dropping the attribute |
 | `@progress(3/5)` | a project's progress (written back on request) |
 | `@xp(500)` | a project's XP pool |
 | `@2h`, `@dur(90m)`, `@est(3h)` | duration and estimate |
@@ -137,6 +141,7 @@ projects, calendar entries):
 | `@notify(15)`, `@n(0, 30)`, `@n(0, end)` | calendar: notify minutes before the start (several allowed; every timed line notifies at its time by default, `@n(no)` turns it off); `end` also notifies when a range ends |
 | `@event` | calendar: something fixed that you plan around (an appointment, a flight), not a block you planned; the web month grid marks its day |
 | `@repeat(weekly)` | calendar: repetition |
+| `@fold` | on a heading, label or list item with nested lines: the section starts folded in Neovim each time the note is shown (`zo` opens it until then) |
 | `@slides(2)` | in a header: the heading level that starts a slide ([slides](../app/README.md#slides)) |
 | `@step`, `@steps` | slides: reveal a line, or each item of a slide, one at a time |
 | `@rust`, `@home`, `@ai-model` | any other bare `@word`: a tag, found by tag searches (`@[rust]`; see [Tag searches](#tag-searches)) |
@@ -163,11 +168,15 @@ case-insensitive and by prefix: `[P/#1.4]` finds `## 1.4 - zortex`.
 | `#` heading | `[P/#1.4 - zortex]` | a heading at any depth in the range |
 | `:` label | `[A/#1.2/:Fitness]` | a label |
 | `*` bold | `[Note/*Next steps]` | a bold heading or bold text |
-| `-` item | `[O/#Current/-KR1]` | a list item by its key or text (a markdown link counts as its text: `-The Rust Book`) |
+| `-` item | `[O/#Current/-KR1]`, `[P/-aB3x9]` | a list item by its key or text (a markdown link counts as its text: `-The Rust Book`), or a task by its `@id` (exactly), which survives renaming the task |
 | `%` query | `[Note/%sparkplug]` | any line containing the text |
 | `>` follow | `[R/#Rust/>The Rust Book]` | a link in the range, by its text or its line's text; following it opens what that link points to (last component only) |
 
 - `[/#Local heading]` (leading `/`) resolves in the current note.
+- A note outside `notes_dir` (a repository's `doc/Roadmap.zortex`) resolves
+  its links among the notes of its own folder: the nearest folder above it
+  with a `.z/`, else the folder it is in. `[~/P/#Subaru]` (leading `~/`)
+  reaches `notes_dir` from there; inside `notes_dir` it changes nothing.
 - `[./-Item]` (`./` and a typed component: `-`, `#`, `:`, `*`, `>`) continues
   the link of the line it's nested under: below `09:00 [P/#1.4 - zortex]`,
   `  - [ ] [./-Improve website]` is `[P/#1.4 - zortex/-Improve website]`. The
@@ -185,8 +194,8 @@ case-insensitive and by prefix: `[P/#1.4]` finds `## 1.4 - zortex`.
   list (Neovim) or the link page (web app) shows them all.
 - Archived notes (tagged `@Archive`, or `z/archive.*.zortex`) are skipped
   unless a component is `@Archive`.
-- Generated links keep only `A-Z a-z 0-9 _ - ( ) . :` of a heading
-  (`#4 Learning & Education` is written `#4 Learning`); the prefix match
+- Generated links keep a heading's text up to link syntax (`[ ] /`), an `@`
+  or a `|` (`#Talk to Sam @p1` is written `#Talk to Sam`); the prefix match
   still finds it.
 
 `doc/Architecture.md` (Links) has the exact resolution rules.
@@ -206,6 +215,18 @@ in; `*` is every note:
 | `@[R/#Rust/async]` | lines tagged `@async` in the Rust section of Resources |
 | `@[@Library/rl]` | lines tagged `@rl` in every note tagged `@Library` |
 | `@[*/rust]` | lines tagged `@rust` in every note |
+| `@[rust is:heading]` | headings (and bold headings) tagged `@rust` |
+| `@[rl is:open, rl is:label]` | open tasks tagged `@rl`, or labels tagged `@rl` |
+| `@[P/is:open]` | every open task in Projects (no tag needed) |
+
+`:ZortexBrokenLinks` and the web app's `/broken` list, apart from broken
+links, the tags that go nowhere: tag searches that find nothing, `[@Tag]`
+links to a tag no note has, and bare tags no tag search asks for.
+
+`is:` words narrow a group to a kind of line: `heading`, `label`, `item`
+(a list item, tasks included), `task`, `open` and `done` (tasks), and
+`resource` (a list item or heading that holds a link, below). A colon can't
+be part of a tag, so they never clash with one.
 
 A tag on a heading, bold heading or label tags every line in its section:
 under `## Embedded @embedded`, `- [The Embedded Rust Book](…) @rust` matches

@@ -1,0 +1,92 @@
+{{define "reviewTask"}}
+<li class="rv-task">
+  <span class="rv-text">{{.HTML}}</span>
+  <span class="small">
+    {{if .PutOff}}<span class="pill warn">put off ×{{.PutOff}}</span>{{end}}
+    {{with .Due}}<span class="pill">due {{.}}</span>{{end}}
+    {{with .Done}}<span class="dim">{{.}}</span>{{end}}
+    <a class="dim" href="{{.PURL}}">{{.Project}}</a>
+    <a class="dim" href="{{.URL}}" title="the line in the note">↗</a>
+  </span>
+</li>
+{{end}}
+
+{{define "content"}}
+<section class="narrow wide review-page">
+  <p class="crumbs"><a href="{{u "/projects"}}">Projects</a><span>›</span>Weekly review</p>
+  <div class="rv-top">
+    <h1>{{.Week}}</h1>
+    <span class="dim">{{.Range}}</span>
+    <nav class="rv-weeks small" aria-label="Other weeks">
+      <a href="{{u "/review"}}?week={{.Prev}}">‹ {{.Prev}}</a>
+      {{if not .ThisWeek}}<a href="{{u "/review"}}">this week</a>{{end}}
+      <a href="{{u "/review"}}?week={{.Next}}">{{.Next}} ›</a>
+    </nav>
+  </div>
+  <p class="dim small">What Neovim's <code>:ZortexReview</code> finds, to read anywhere; the review itself (focus, wins, lessons) is written in <code>reviews.zortex</code>.</p>
+
+  <div class="rv-stats">
+    <div class="tile"><span class="tile-label">Done</span><span class="tile-value nums">{{len .Completed}}</span><span class="tile-label">project tasks{{if .CalDone}} · {{.CalDone}} on the calendar{{end}}</span></div>
+    <div class="tile"><span class="tile-label">Tracked</span><span class="tile-value nums">{{if .SpentTotal}}{{minutes .SpentTotal}}{{else}}0{{end}}</span><span class="tile-label">on the clocks</span></div>
+    {{if .HasXP}}<div class="tile"><span class="tile-label">XP</span><span class="tile-value nums">{{.XP}}</span><span class="tile-label">{{hours .XPHours}} of estimated work</span></div>{{end}}
+    <div class="tile"><span class="tile-label">Inbox</span><span class="tile-value nums">{{len .Inbox}}</span><span class="tile-label">to sort</span></div>
+  </div>
+
+  {{if .Inbox}}
+  <h2 class="section-title">Inbox: move each into a project, the calendar or a note</h2>
+  <ul class="rv-list">{{range .Inbox}}<li><span class="rv-text">{{.HTML}}</span> <a class="dim small" href="{{.URL}}">↗</a></li>{{end}}</ul>
+  {{end}}
+
+  <h2 class="section-title">Focus</h2>
+  {{if .Focus}}
+  {{if .Earlier}}<p class="dim small">None picked for {{.Week}}: an earlier week's carries on.</p>{{end}}
+  <ul class="prows">{{range .Focus}}{{template "projectRow" .}}{{end}}</ul>
+  {{else}}<p class="dim small">None picked (<kbd>f</kbd> on a project in <code>:ZortexReview</code>).</p>{{end}}
+
+  {{if .Objectives}}
+  <h2 class="section-title">Objectives against the time passed</h2>
+  <ul class="rv-list">
+    {{range .Objectives}}
+    <li class="rv-obj">
+      <a href="{{.URL}}">{{.Title}}</a> <span class="dim small">{{.Span}}</span>
+      <span class="okr-progress small"><span class="bar okr-bar" aria-hidden="true"><span style="width: {{.Percent}}%"></span><i style="left: {{.ElapsedPercent}}%"></i></span> <span class="nums">{{.Percent}}%</span> <span class="dim">· {{.ElapsedPercent}}% gone</span>{{if .Behind}} <span class="pill warn">behind</span>{{end}}</span>
+    </li>
+    {{end}}
+  </ul>
+  <p class="small"><a href="{{u "/okr"}}">All objectives ›</a></p>
+  {{end}}
+
+  {{if .PutOff}}
+  <h2 class="section-title">Put off on 2+ days: do it, shrink it, or drop it</h2>
+  <ul class="rv-list">{{range .PutOff}}{{template "reviewTask" .}}{{end}}</ul>
+  {{end}}
+
+  {{if .Overdue}}
+  <h2 class="section-title">Overdue</h2>
+  <ul class="rv-list">{{range .Overdue}}{{template "reviewTask" .}}{{end}}</ul>
+  {{end}}
+  {{if .DueSoon}}
+  <h2 class="section-title">Due in the next 7 days</h2>
+  <ul class="rv-list">{{range .DueSoon}}{{template "reviewTask" .}}{{end}}</ul>
+  {{end}}
+
+  {{if .Quiet}}
+  <h2 class="section-title">No next action</h2>
+  <ul class="prows">{{range .Quiet}}{{template "projectRow" .}}{{end}}</ul>
+  {{end}}
+  {{if .NoProjects}}
+  <h2 class="section-title">Key results no project moves</h2>
+  <ul class="rv-list">{{range .NoProjects}}<li><a class="pill" href="{{.URL}}">{{.ID}}</a> <span class="rv-text">{{.HTML}}</span> <span class="dim small">{{.Objective}}</span></li>{{end}}</ul>
+  {{end}}
+
+  {{if .Spent}}
+  <h2 class="section-title">Time tracked: {{minutes .SpentTotal}}</h2>
+  <ul class="rv-list">{{range .Spent}}<li><a href="{{.URL}}">{{.Text}}</a> <span class="dim small nums">{{minutes .Minutes}}</span></li>{{end}}</ul>
+  {{end}}
+
+  <h2 class="section-title">Completed</h2>
+  {{if .Completed}}<ul class="rv-list">{{range .Completed}}{{template "reviewTask" .}}{{end}}</ul>{{else}}<p class="dim small">No project task done this week.</p>{{end}}
+
+  {{if .BrokenLinks}}<p class="small"><a href="{{u "/broken"}}">{{.BrokenLinks}} broken link{{if ne .BrokenLinks 1}}s{{end}} ›</a></p>{{end}}
+</section>
+{{end}}

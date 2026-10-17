@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/t-wilkinson/zortex.nvim/app/notes"
 )
@@ -81,5 +83,62 @@ func BenchmarkQuery(b *testing.B) {
 	idx := BuildAll(ix)
 	for i := 0; i < b.N; i++ {
 		Query(idx, "zortex search", "")
+	}
+}
+
+// The web app's own history (search_history.json in -data, never the
+// notes' .z/): opening a place from search ranks it higher, never above a
+// better word match.
+func TestHistoryRanks(t *testing.T) {
+	dir := t.TempDir()
+	for name, text := range map[string]string{"a.zortex": "@@Alpha\n\n# Kitchen\n", "b.zortex": "@@Beta\n\n# Kitchen\n"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ix, err := notes.Open(dir, ".zortex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ix.Scan()
+	idx := BuildAll(ix)
+	path := filepath.Join(t.TempDir(), "search_history.json")
+	h, err := OpenHistory(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := DefaultConfig()
+	cfg.History = h
+	first := func(prompt string) string {
+		r := cfg.Query(idx, prompt, "")
+		if len(r) == 0 {
+			return ""
+		}
+		return r[0].Rel
+	}
+	if got := first("kitchen"); got != "a.zortex" {
+		t.Fatalf("tie: %s first", got)
+	}
+	now := time.Now()
+	if err := h.Record("b.zortex", []string{"Beta › Kitchen", "Beta"}, now); err != nil {
+		t.Fatal(err)
+	}
+	if got := first("kitchen"); got != "b.zortex" {
+		t.Errorf("after opening b, %s comes first", got)
+	}
+	// a better word match still wins: "alpha kitchen" only matches a
+	if got := first("alpha kitchen"); got != "a.zortex" {
+		t.Errorf("alpha kitchen: %s", got)
+	}
+	// kept on disk, and decayed: two months later it's forgotten
+	h2, err := OpenHistory(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v := h2.Opened("b.zortex", now); v < 0.99 {
+		t.Errorf("reloaded score %.2f", v)
+	}
+	if v := h2.Opened("b.zortex", now.AddDate(0, 2, 0)); v > 0.01 {
+		t.Errorf("score after two months %.3f", v)
 	}
 }

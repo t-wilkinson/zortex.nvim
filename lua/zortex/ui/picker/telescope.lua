@@ -85,7 +85,7 @@ function M.pick(spec)
 
 	pickers
 		.new({}, {
-			prompt_title = Picker.title(spec),
+			prompt_title = Picker.title(spec, "telescope"),
 			default_text = spec.prompt,
 			debounce = spec.query and 80 or nil,
 			finder = make_finder(),
@@ -116,7 +116,7 @@ function M.pick(spec)
 					return {
 						prompt = picker:_get_prompt(),
 						refresh = function()
-							picker.prompt_border:change_title(Picker.title(spec))
+							picker.prompt_border:change_title(Picker.title(spec, "telescope"))
 							picker:refresh(make_finder(), { reset_prompt = false })
 						end,
 					}

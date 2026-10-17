@@ -125,6 +125,11 @@ func TestSearch(t *testing.T) {
 		t.Error("partial results include the layout")
 	}
 	expect(t, ts, "/search?mode=article&q=o", 200, `Objectives`)
+	// text: the prompt as typed, spaces included, in any line
+	text := expect(t, ts, "/search?mode=text&q=1.4+-+zortex", 200, `value="text" checked`, `<mark>1.4 - zortex</mark>`)
+	if strings.Contains(text, `class="hit section`) {
+		t.Error("text mode lists lines only")
+	}
 
 	_, _, body := get(t, ts, "/api/search?q=subaru")
 	var res []map[string]any
@@ -287,8 +292,8 @@ func TestRangeRequest(t *testing.T) {
 
 func TestOtherPages(t *testing.T) {
 	_, _, ts := newTestServer(t, "")
-	expect(t, ts, "/", 200, `Recently changed`, `Graph`, `id="calendar-days"`)
-	expect(t, ts, "/tags", 200, `@P`, `@Cars`)
+	expect(t, ts, "/", 200, `Recently changed`, `Graph`, `id="calendar-days"`, `<title>Zortex</title>`)
+	expect(t, ts, "/tags", 200, `@P`, `@Cars`, `<title>Tags · Zortex</title>`)
 	expect(t, ts, "/tag/p", 200, `flipping.zortex`)
 	expect(t, ts, "/tag/nope", 404)
 	expect(t, ts, "/broken", 200, `[Nope/#x]`, `links.zortex:3`)
@@ -526,4 +531,46 @@ func TestBareTagsLinkToTheirTable(t *testing.T) {
 	}
 	// the link opens the table of lines tagged @rust
 	expect(t, ts, "/link?from=tagged.zortex&to=%40%5B%2A%2Frust%5D", 200, "The Rust Book")
+}
+
+// /broken lists the tags that go nowhere apart from the broken links.
+func TestBrokenTags(t *testing.T) {
+	s, dir, ts := newTestServer(t, "")
+	if err := os.WriteFile(filepath.Join(dir, "tagcheck.zortex"), []byte("@@Tag check\n\n- a @[nosuchtag]\n- see [@NoSuchHeaderTag]\n- a line with @lonelytag and @p1 @2h @event @rust\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s.Refresh()
+	body := expect(t, ts, "/broken", 200, `Tags that go nowhere`, `@[nosuchtag]`, `[@NoSuchHeaderTag]`, `no note has this tag`, `@lonelytag`)
+	tags := body[strings.Index(body, "Tags that go nowhere"):]
+	for _, attr := range []string{">@p1<", ">@2h<", ">@event<", ">@rust<"} {
+		if strings.Contains(tags, attr) {
+			t.Errorf("%s listed as an orphan tag", attr)
+		}
+	}
+	links := body[:strings.Index(body, "Tags that go nowhere")]
+	if strings.Contains(links, "NoSuchHeaderTag") {
+		t.Error("a [@Tag] link listed with the broken links")
+	}
+}
+
+// Hover cards: a note's title, path, tags, first lines and backlinks; a
+// heading's own lines.
+func TestHoverCard(t *testing.T) {
+	_, _, ts := newTestServer(t, "")
+	_, _, body := get(t, ts, "/api/hover?rel=projects.zortex&lnum=0")
+	var card hoverCard
+	if err := json.Unmarshal([]byte(body), &card); err != nil {
+		t.Fatal(err, body)
+	}
+	if card.Title == "" || card.Rel != "projects.zortex" || len(card.Lines) == 0 || card.Backlinks == 0 {
+		t.Errorf("note card: %+v", card)
+	}
+	_, _, body = get(t, ts, "/api/hover?rel=projects.zortex&lnum=14")
+	card = hoverCard{}
+	_ = json.Unmarshal([]byte(body), &card)
+	if !strings.Contains(card.Section, "1.4 - zortex") || len(card.Lines) == 0 || !strings.Contains(card.Lines[0], "Add research-ready references") {
+		t.Errorf("heading card: %+v", card)
+	}
+	expect(t, ts, "/api/hover?rel=nope.zortex", 404)
+	expect(t, ts, "/n/projects.zortex", 200, `/static/hover.js`)
 }

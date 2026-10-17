@@ -44,7 +44,7 @@ objective.
 | weekly | **Weekly review.** Opens the week's entry in `reviews.zortex` (made when missing; on a weekend, the coming week's) beside the findings: the inbox; [the week](#the-week): its focus projects, tasks put off again and again, and the active projects to pick the focus from (`f`); the plan summary over seven days; overdue and due tasks, stale and unscheduled projects, projects without a next action, key results without projects, areas without projects or without an objective, projects with neither a key result nor an area, broken links. Every line links to its source; what you write goes in the note; `?` lists the keys. | `:ZortexReview` (`<leader>zw`) |
 | morning | **Plan the day.** Yesterday's open tasks come along ([carried forward](#the-day-on-the-calendar)). Today's calendar next to ranked candidates: the week's focus projects and their tasks first; then tasks on key results, the further their key result is behind schedule the higher; then tasks of projects that only have an area; then the rest. Due dates, priority, the TODO project and how often a task was put off add on top. Key results are listed most behind first, areas without a current objective first. Put tasks (`p`) and projects (`P`, with their next three tasks) on the day, until the [capacity line](#capacity) says the day is full. | `:ZortexPlan` (`<leader>zm`) |
 | during | **Work.** Tick tasks on the calendar or a project's page (Neovim or the web); their copies are ticked with them. On the web home page the clocks (pomodoro, timer, stopwatch) count against the task you're working on, by default the first open task of the current calendar block, and add it to its `@spent(...)`. Before you stop, a line in the project's log (its web page, or a `Log:` label in the note) says where you left off. | `zortex serve` |
-| evening | **Daily review.** Opens the day's entry in `reviews.zortex` (inside its week) beside the findings since the last daily review (a skipped evening rolls into the next, at most a week): what is left in the inbox (from Neovim or the web app's "Add to inbox"), the week's focus, tasks put off, objectives and key results against the time passed, XP earned and how much of it was on key results, time spent per task, what you completed, calendar tasks left (tomorrow's plan carries them), overdue, due by tomorrow. | `:ZortexReview day` (`<leader>zW`) |
+| evening | **Daily review.** Opens the day's entry in `reviews.zortex` (inside its week) beside the findings since the last daily review (a skipped evening rolls into the next, at most a week): what is left in the inbox (from Neovim or the web app's "Add to inbox"), with `m` to move each line to its project (an inbox line or any task marked `@project(1.4)`; without one, to `review.inbox_default` or a place you pick), the week's focus, tasks put off, objectives and key results against the time passed, XP earned and how much of it was on key results, time spent per task, what you completed, calendar tasks left (tomorrow's plan carries them), overdue, due by tomorrow. | `:ZortexReview day` (`<leader>zW`) |
 
 "Behind schedule" is the share of the objective's window that has passed
 minus the key result's progress: a key result at 20% when half the quarter
@@ -154,6 +154,12 @@ and `@n(0, end)` also notifies when a range ends.
   tasks' `[./-Item]` links continue the block's link
   ([Syntax](Syntax.md#links)), and while the block runs the web app's clocks
   count against its first open task, then the next once that one is ticked.
+- **Project blocks.** `13:00 [P/#2.2]` alone, with nothing under it: the
+  calendar view and the web app list the project's next open tasks under it
+  (three, `ui.planner.project_tasks`) without writing them into the note;
+  ticking one (`2x` in the calendar view, the box on the web) ticks the
+  project's task, and the next takes its place. While it runs, the clocks
+  count against the first.
 - **References.** A line without a checkbox whose link points at a task
   (`14:00 Call the bank about [P/#2 Home/-Mortgage]`) stands for it: it
   shows the task's state, and toggling it toggles the task. A timed line
@@ -180,8 +186,9 @@ whose link points at another task); so does the web app's `/broken`.
 
 ## XP
 
-XP is **estimated work**: `@size` says how long something takes, in hours
-(`xp.sizes`), and an hour is worth 10 XP (`xp.xp_per_hour`). Priority
+XP is **estimated work**: **10 XP = 1 hour of estimated work**
+(`xp.xp_per_hour`). `@size` says how long something takes, in hours
+(`xp.sizes`); wherever XP is shown, its hours are next to it. Priority
 (`@p1` ×1.5, `@p2` ×1.2) and importance (`@i1`, `@i2`) multiply it. One scale
 for everything:
 
@@ -194,7 +201,10 @@ for everything:
 | xl | 3h | 40h | 120h |
 | larger | 2xl 5h … 5xl 20h | epic 160h, legendary 480h, mythic 1,000h, ultimate 2,500h | |
 
-An unsized task counts as md; a project without `@size` is the sum of its
+An unsized task counts as md, except the only task under a calendar time:
+ticked without a size, it gets the size nearest the block's length (its own
+`16:00 - 17:30` range, else until the next timed line; by ratio, so 45
+minutes is `@md`), in Neovim and on the web. A project without `@size` is the sum of its
 tasks; an objective without `@size` is the projects its key results link (else
 md). `@xp(n)` sets a project, key result or objective outright. Tracked time
 (`@spent`, from the web clocks) is shown in the reviews but not paid: XP
@@ -235,8 +245,9 @@ An md objective (30 hours, 300 XP) finished through its key results earns
 300 for the work, 60 for its key results and 60 when you mark it done: 420
 Mastery XP. The same 30 hours on projects with only an `@a` earn 60.
 
-**Which areas.** An award's Mastery share is split over its areas on
-harmonic weights (1, ½, ⅓, …), first listed first:
+**Which areas.** An award's Mastery share is split over its areas, first
+listed first, each getting `xp.area_split` of the one before (0.5 by
+default: ½, ¼, …; 1 splits evenly, 0.7 decays gently):
 
 - work on a project a key result links: the objectives' areas, then the
   project's own (or inherited) `@a`, then the task's;

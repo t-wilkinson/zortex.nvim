@@ -194,7 +194,13 @@
     clearTimeout(timer);
     timer = setTimeout(update, 120);
   });
-  form.addEventListener("change", update);
+  form.addEventListener("change", function () {
+    var text = (form.querySelector("input[name=mode]:checked") || {}).value === "text";
+    document.querySelectorAll(".search-page .help[data-for]").forEach(function (p) {
+      p.hidden = (p.getAttribute("data-for") === "text") !== text;
+    });
+    update();
+  });
   form.addEventListener("submit", function (e) {
     var hits = results.querySelectorAll(".hit a");
     if (hits.length) { e.preventDefault(); location.href = (hits[sel >= 0 ? sel : 0]).href; }

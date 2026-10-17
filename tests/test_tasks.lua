@@ -96,3 +96,26 @@ T.test("toggle on a project heading marks the project done; open tasks ask first
 	vim.cmd("silent! bwipeout! " .. bufnr)
 	assert(ok, err)
 end)
+
+T.test("the only task of a calendar block gets the block's size when ticked", function()
+	package.path = vim.fn.getcwd() .. "/tests/?.lua;" .. package.path
+	local sizes = require("zortex.config").defaults.xp.sizes.task
+	for _, c in ipairs(require("autosize_cases")) do
+		T.eq(tasks.calendar_size(c.lines, c.lnum, sizes), c.size, c.name)
+	end
+	local fixture = vim.json.decode(table.concat(vim.fn.readfile(T.root .. "/tests/fixtures/autosize.json"), "\n"))
+	T.eq(#fixture.cases, #require("autosize_cases"), "regenerate with tests/gen_edits.lua")
+
+	-- ticking it in a buffer writes the size
+	local path = vim.fn.tempname() .. ".zortex"
+	vim.fn.writefile({ "@@Day", "", "2026-10-16:", "16:00 Report", "  - [ ] Task 1 @id(aut01)", "17:00 Next" }, path)
+	vim.cmd("edit! " .. vim.fn.fnameescape(path))
+	local bufnr = vim.api.nvim_get_current_buf()
+	vim.api.nvim_win_set_cursor(0, { 5, 0 })
+	T.ok(tasks.toggle_current_task())
+	T.eq(vim.api.nvim_buf_get_lines(bufnr, 4, 5, false)[1], "  - [x] Task 1 @id(aut01) @done(" .. os.date("%Y-%m-%d") .. ") @md")
+	-- reopening keeps it (a size written by hand looks the same)
+	T.ok(tasks.toggle_current_task())
+	T.eq(vim.api.nvim_buf_get_lines(bufnr, 4, 5, false)[1], "  - [ ] Task 1 @id(aut01) @md")
+	vim.cmd("bwipeout!")
+end)

@@ -12,6 +12,7 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/t-wilkinson/zortex.nvim/app/notes"
 	"github.com/t-wilkinson/zortex.nvim/app/syntax"
@@ -27,6 +28,8 @@ type Rule struct {
 type Config struct {
 	DefaultMode string
 	MaxResults  int
+	// History, when set, ranks often and recently opened places higher
+	History *History
 	// TokenFilters[n-1]: section types that may be results when the prompt
 	// has n words (the last entry applies beyond). Typed words bypass it.
 	TokenFilters [][]Rule
@@ -72,6 +75,8 @@ type line struct {
 
 type file struct {
 	rel      string
+	stem     string // file name without folder and extension
+	article  int    // line of the first article (its name), 0 for none
 	archived bool
 	text     []string // the note's lines (shared with the Document)
 	sections []section
@@ -91,11 +96,14 @@ func Build(ix *notes.Index, rels []string) *Index {
 		if doc == nil || doc.HasTag("Ignore") {
 			continue
 		}
-		f := file{rel: rel, archived: ix.IsArchived(rel), text: doc.Lines}
+		f := file{rel: rel, stem: fileStem(rel), archived: ix.IsArchived(rel), text: doc.Lines}
 		stem := syntax.Lower(fileStem(rel))
 		structural := map[int]bool{}
 		for _, n := range doc.Sections() {
 			structural[n.Start] = true
+			if n.Type == "article" && f.article == 0 {
+				f.article = n.Start
+			}
 			rootLevel := true
 			for p := n.Parent; p != nil && !p.IsRoot(); p = p.Parent {
 				if p.Type == "heading" {
@@ -323,8 +331,9 @@ type group struct {
 	results  []Result
 }
 
-func matchSections(idx *Index, tokens []Token, allowed func(*section) bool, withChildren bool) []Result {
+func matchSections(idx *Index, tokens []Token, allowed func(*section) bool, withChildren bool, h *History) []Result {
 	var groups []group
+	now := time.Now()
 	for _, f := range idx.files {
 		g := group{archived: f.archived}
 		haveBest := false
@@ -342,6 +351,8 @@ func matchSections(idx *Index, tokens []Token, allowed func(*section) bool, with
 				}
 			}
 			if ok {
+				// often and recently opened notes and sections rank higher
+				score += h.boost(s.rel, s.breadcrumb, now)
 				matched[s.node] = score
 				g.results = append(g.results, Result{Type: "section", Rel: s.rel, Lnum: s.node.Start, Node: s.node, Breadcrumb: s.breadcrumb, Score: score, Archived: f.archived})
 				if !haveBest || score > g.best {
@@ -398,14 +409,17 @@ func matchLines(idx *Index, tokens []Token) []Result {
 
 // Query searches the index. mode "section" (default): sections (with their
 // direct sub-sections), then lines with every word. "article": articles only.
+// "text": lines holding the prompt as typed (matchText).
 func (c Config) Query(idx *Index, prompt, mode string) []Result {
 	if mode == "" {
 		mode = c.DefaultMode
 	}
 	tokens := Tokenize(prompt)
 	var results []Result
-	if mode == "article" {
-		results = matchSections(idx, tokens, func(s *section) bool { return s.node.Type == "article" }, false)
+	if mode == "text" {
+		results = matchText(idx, prompt)
+	} else if mode == "article" {
+		results = matchSections(idx, tokens, func(s *section) bool { return s.node.Type == "article" }, false, c.History)
 	} else {
 		typed := false
 		for _, t := range tokens {
@@ -415,7 +429,7 @@ func (c Config) Query(idx *Index, prompt, mode string) []Result {
 		if typed {
 			allowed = func(*section) bool { return true }
 		}
-		results = matchSections(idx, tokens, allowed, true)
+		results = matchSections(idx, tokens, allowed, true, c.History)
 		results = append(results, matchLines(idx, tokens)...)
 	}
 	if c.MaxResults > 0 && len(results) > c.MaxResults {
@@ -425,6 +439,50 @@ func (c Config) Query(idx *Index, prompt, mode string) []Result {
 		results[i].Rank = i + 1
 	}
 	return results
+}
+
+// matchText: the prompt as one literal string (spaces and all) in every
+// line, headings too; case-insensitive unless it has a capital. A note
+// whose file name holds it comes first, at its name. Live notes before
+// archived ones, then in line order. As the plugin's text mode.
+func matchText(idx *Index, prompt string) []Result {
+	var out []Result
+	if prompt == "" {
+		return out
+	}
+	ignoreCase := syntax.Lower(prompt) == prompt
+	for pass := 0; pass < 2; pass++ {
+		for _, f := range idx.files {
+			if f.archived != (pass == 1) {
+				continue
+			}
+			stem := f.stem
+			if ignoreCase {
+				stem = syntax.Lower(stem)
+			}
+			named := 0
+			if strings.Contains(stem, prompt) && len(f.text) > 0 {
+				named = f.article
+				if named == 0 {
+					named = 1
+				}
+				out = append(out, Result{Type: "line", Rel: f.rel, Lnum: named, Line: f.text[named-1], Archived: f.archived})
+			}
+			for i, text := range f.text {
+				if i+1 == named {
+					continue
+				}
+				hay := text
+				if ignoreCase {
+					hay = syntax.Lower(text)
+				}
+				if strings.Contains(hay, prompt) {
+					out = append(out, Result{Type: "line", Rel: f.rel, Lnum: i + 1, Line: text, Archived: f.archived})
+				}
+			}
+		}
+	}
+	return out
 }
 
 // Query searches with the default configuration.

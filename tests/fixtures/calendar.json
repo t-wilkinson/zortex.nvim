@@ -1,0 +1,210 @@
+{
+  "days": {
+    "2026-10-12": [
+      {
+        "depth": 0,
+        "done": false,
+        "end": "10:30",
+        "lnum": 4,
+        "moved": false,
+        "task": false,
+        "text": "Deep work on [P/#2.1]",
+        "time": "09:00"
+      },
+      {
+        "depth": 1,
+        "done": true,
+        "end": "",
+        "lnum": 5,
+        "moved": false,
+        "task": true,
+        "text": "Outline",
+        "time": ""
+      },
+      {
+        "depth": 1,
+        "done": false,
+        "end": "",
+        "lnum": 6,
+        "moved": false,
+        "task": true,
+        "text": "Draft",
+        "time": ""
+      },
+      {
+        "depth": 1,
+        "done": false,
+        "end": "",
+        "lnum": 7,
+        "moved": false,
+        "task": false,
+        "text": "a note under the block",
+        "time": ""
+      },
+      {
+        "depth": 0,
+        "done": true,
+        "end": "",
+        "lnum": 8,
+        "moved": false,
+        "task": true,
+        "text": "Call the hardware store",
+        "time": ""
+      },
+      {
+        "depth": 0,
+        "done": false,
+        "end": "",
+        "lnum": 9,
+        "moved": true,
+        "task": true,
+        "text": "Carried",
+        "time": ""
+      },
+      {
+        "depth": 0,
+        "done": false,
+        "end": "",
+        "lnum": 10,
+        "moved": false,
+        "task": false,
+        "text": "Lunch with Sam",
+        "time": "12:30"
+      },
+      {
+        "depth": 0,
+        "done": false,
+        "end": "",
+        "lnum": 11,
+        "moved": false,
+        "task": false,
+        "text": "Dentist",
+        "time": "14:00"
+      },
+      {
+        "depth": 0,
+        "done": false,
+        "end": "15:30",
+        "lnum": 12,
+        "moved": false,
+        "task": false,
+        "text": "Standup",
+        "time": "15:00"
+      },
+      {
+        "depth": 0,
+        "done": false,
+        "end": "18:00",
+        "lnum": 13,
+        "moved": false,
+        "task": false,
+        "text": "Report",
+        "time": "16:00"
+      },
+      {
+        "depth": 2,
+        "done": false,
+        "end": "",
+        "lnum": 14,
+        "moved": false,
+        "task": true,
+        "text": "Four-space task",
+        "time": ""
+      },
+      {
+        "depth": 3,
+        "done": false,
+        "end": "",
+        "lnum": 15,
+        "moved": false,
+        "task": true,
+        "text": "Its step",
+        "time": ""
+      },
+      {
+        "depth": 0,
+        "done": false,
+        "end": "",
+        "lnum": 16,
+        "moved": false,
+        "task": false,
+        "text": "plain note",
+        "time": ""
+      },
+      {
+        "depth": 0,
+        "done": false,
+        "end": "",
+        "lnum": 30,
+        "moved": false,
+        "task": true,
+        "text": "The same day again",
+        "time": ""
+      }
+    ],
+    "2026-10-13": [
+      {
+        "depth": 0,
+        "done": false,
+        "end": "",
+        "lnum": 23,
+        "moved": false,
+        "task": false,
+        "text": "Run",
+        "time": "07:05"
+      },
+      {
+        "depth": 0,
+        "done": false,
+        "end": "",
+        "lnum": 24,
+        "moved": false,
+        "task": true,
+        "text": "Feed the starter",
+        "time": ""
+      },
+      {
+        "depth": 0,
+        "done": false,
+        "end": "",
+        "lnum": 27,
+        "moved": false,
+        "task": true,
+        "text": "under a label that isn't a date",
+        "time": ""
+      }
+    ]
+  },
+  "lines": [
+    "@@Calendar",
+    "",
+    "2026-10-12:",
+    "09:00 - 10:30 Deep work on [P/#2.1] @n(10)",
+    "  - [x] Outline @done(2026-10-12)",
+    "  - [ ] Draft @id(drf01)",
+    "  - a note under the block",
+    "- [x] Call the hardware store @done(2026-10-12)",
+    "- [>] Carried @id(car01)",
+    "12:30 Lunch with Sam @event",
+    "- 14:00 Dentist @event @n(no)",
+    "- 15:00 - 15:30 Standup",
+    "16:00 Report @2h",
+    "    - [ ] Four-space task",
+    "        - [ ] Its step",
+    "- plain note @rust",
+    "",
+    "```",
+    "- [ ] not an entry, in code",
+    "```",
+    "",
+    "2026-10-13:",
+    "7:05 Run",
+    "- [ ] Feed the starter @p1 @sm",
+    "",
+    "Not a date:",
+    "- [ ] under a label that isn't a date",
+    "",
+    "2026-10-12:",
+    "- [ ] The same day again"
+  ]
+}

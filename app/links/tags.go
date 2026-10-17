@@ -2,6 +2,7 @@ package links
 
 import (
 	"errors"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -176,6 +177,36 @@ func TagsAt(d *notes.Document, lnum int) []string {
 	return out
 }
 
+// IsKinds are the kinds an "is:" word in a tag search may name; a colon
+// can't be part of a tag, so they never clash with one (@[rust is:heading]).
+var IsKinds = []string{"heading", "label", "item", "task", "open", "done", "resource"}
+
+// isKind: line lnum is of the kind an "is:" word names.
+func isKind(d *notes.Document, lnum int, kind string) bool {
+	k := d.Kind(lnum)
+	var it *syntax.Item
+	if k == syntax.KindItem {
+		it = syntax.ItemOf(d.Lines[lnum-1])
+	}
+	switch kind {
+	case "heading":
+		return k == syntax.KindHeading || k == syntax.KindBoldHeading
+	case "label":
+		return k == syntax.KindLabel
+	case "item":
+		return it != nil
+	case "task":
+		return it != nil && it.Mark != ""
+	case "open":
+		return it != nil && it.Mark == " "
+	case "done":
+		return it != nil && (it.Mark == "x" || it.Mark == "X")
+	case "resource":
+		return IsResourceHeading(d, lnum) || (it != nil && holdsLink(d, lnum))
+	}
+	return false
+}
+
 // TagSearch returns the lines a tag search matches, in the notes or
 // sections its scope resolves to; Resolve calls it for "@[...]".
 func TagSearch(ix *notes.Index, content string, opts Options) ([]Result, error) {
@@ -183,6 +214,13 @@ func TagSearch(ix *notes.Index, content string, opts Options) ([]Result, error) 
 	comp := Component{Type: "tag_search", Text: content, Original: "@[" + content + "]"}
 	if len(q.Groups) == 0 {
 		return nil, errors.New("No tags in " + comp.Original)
+	}
+	for _, g := range q.Groups {
+		for _, t := range g {
+			if kind, ok := strings.CutPrefix(t, "is:"); ok && !slices.Contains(IsKinds, kind) {
+				return nil, errors.New("Unknown is:" + kind + " (is: " + strings.Join(IsKinds, ", ") + ")")
+			}
+		}
 	}
 
 	type span struct {
@@ -273,7 +311,12 @@ func TagSearch(ix *notes.Index, content string, opts Options) ([]Result, error) 
 			for _, group := range q.Groups {
 				match = true
 				for _, t := range group {
-					if _, ok := own[t]; !ok && !above[t] {
+					if kind, ok := strings.CutPrefix(t, "is:"); ok {
+						if !isKind(d, lnum, kind) {
+							match = false
+							break
+						}
+					} else if _, ok := own[t]; !ok && !above[t] {
 						match = false
 						break
 					}

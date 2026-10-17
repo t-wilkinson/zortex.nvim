@@ -130,7 +130,7 @@ function M.pick(spec)
 	local opts = {
 		prompt = "> ",
 		query = spec.prompt,
-		winopts = { title = " " .. Picker.title(spec) .. " " },
+		winopts = { title = " " .. Picker.title(spec, "fzf_lua") .. " " },
 		fzf_opts = {
 			["--delimiter"] = "\t",
 			["--with-nth"] = "2..",

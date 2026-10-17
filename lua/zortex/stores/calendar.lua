@@ -387,7 +387,24 @@ function M.get_day_entries(date_str)
 	table.sort(other, function(a, b)
 		return a:get_sort_priority() > b:get_sort_priority()
 	end)
-	-- depth: the rank of the line's indent among the day's indents
+	local out = {}
+	for _, e in ipairs(other) do
+		e.depth = 0
+		out[#out + 1] = e
+	end
+	return vim.list_extend(out, M.day_layout(own))
+end
+
+--- A day's own entries in file order, each with `depth`: the rank of its
+--- indent among the day's indents (0 for the day's top-level lines), so a
+--- task under its project's block stays under it. The web calendar
+--- (app/web calendarDays) lays days out the same way
+--- (tests/fixtures/calendar.json).
+function M.day_layout(own)
+	own = vim.list_slice(own)
+	table.sort(own, function(a, b)
+		return a.lnum < b.lnum
+	end)
 	local levels, seen = {}, {}
 	for _, e in ipairs(own) do
 		local w = e.indent or 0
@@ -401,16 +418,10 @@ function M.get_day_entries(date_str)
 	for i, w in ipairs(levels) do
 		rank[w] = i - 1
 	end
-	local out = {}
-	for _, e in ipairs(other) do
-		e.depth = 0
-		out[#out + 1] = e
-	end
 	for _, e in ipairs(own) do
 		e.depth = rank[e.indent or 0] or 0
-		out[#out + 1] = e
 	end
-	return out
+	return own
 end
 
 -- Get all entries (for search/telescope)

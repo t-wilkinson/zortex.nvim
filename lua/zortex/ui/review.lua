@@ -10,6 +10,8 @@
 --
 --   <CR>   jump to the finding's source line (task, calendar entry, heading)
 --   f      on a project: add it to (or take it out of) the week's focus
+--   m      on an inbox line: move it to its @project(...), else to
+--          review.inbox_default, else to a place picked in the search
 --   <Tab>  go to the reviews note
 --   gx     follow the link on the line
 --   K      preview the link on the line
@@ -70,10 +72,18 @@ local function item_line(item)
 		}
 end
 
--- An inbox line, as written ("- [ ] Call the plumber"; plain text gets a "- ")
+-- An inbox line, as written ("- [ ] Call the plumber"; plain text gets a
+-- "- "), with where `m` moves it; a line from another note says which
 local function inbox_line(x)
 	local line = x.text:match("^[-*+] ") and x.text or ("- " .. x.text)
-	return line, { file = x.file, lnum = x.lnum }
+	local dest = require("zortex.services.triage").destination(x)
+	if not x.inbox then
+		line = line .. "  (" .. rel(x.file) .. ")"
+	end
+	if dest and not x.project then
+		line = line .. "  → " .. dest
+	end
+	return line, { file = x.file, lnum = x.lnum }, { triage = x }
 end
 
 local function entity_line(e, suffix)
@@ -244,20 +254,21 @@ local function pct(x)
 	return string.format("%d%%", math.floor((x or 0) * 100 + 0.5))
 end
 
--- "+60 Mastery XP · 12h of estimated work: 70% on key results, 20% areas only, 10% neither"
+-- "+120 XP, 12h of estimated work: 70% on key results, 20% areas only, 10% neither · +60 Mastery XP"
 local function xp_line(xp)
 	if not xp or xp.xp <= 0 then
 		return "  no XP in this window"
 	end
 	local a = xp.by_alignment
-	local hours = xp.xp / require("zortex.services.xp.calculator").xp_per_hour()
+	local calc = require("zortex.services.xp.calculator")
 	return string.format(
-		"  +%d Mastery XP · %sh of estimated work: %s on key results, %s areas only, %s neither",
-		math.floor(xp.mastery + 0.5),
-		(string.format("%.1f", hours):gsub("%.0$", "")),
+		"  +%d XP, %s of estimated work: %s on key results, %s areas only, %s neither · +%d Mastery XP",
+		math.floor(xp.xp + 0.5),
+		calc.hours_text(xp.xp),
 		pct(a.kr / xp.xp),
 		pct(a.area / xp.xp),
-		pct(a.none / xp.xp)
+		pct(a.none / xp.xp),
+		math.floor(xp.mastery + 0.5)
 	)
 end
 
@@ -282,7 +293,7 @@ function M.render_plan(r, add, section, opts)
 	add("")
 	add("# Plan")
 	add("")
-	add("## XP")
+	add("## XP (" .. require("zortex.services.xp.calculator").unit_text() .. ")")
 	local sl = season_line(r.season)
 	if sl then
 		add(sl)
@@ -323,7 +334,7 @@ end
 --- move into projects, the calendar or notes. Nothing when it is empty.
 function M.render_inbox(r, section)
 	if r.inbox and #r.inbox > 0 then
-		section("Inbox (move each into a project, the calendar or a note)", r.inbox, inbox_line)
+		section("Inbox (m moves each to its @project, or picks a place)", r.inbox, inbox_line)
 	end
 end
 
@@ -389,6 +400,35 @@ local function jump()
 	vim.cmd("normal! zv")
 end
 
+--- m: move the inbox line (or @project line) on the cursor line to its
+--- project, review.inbox_default, or a place picked in the search.
+function M.triage()
+	local e = state.entities[vim.api.nvim_win_get_cursor(0)[1]]
+	local item = e and e.triage
+	if not item then
+		vim.api.nvim_echo({ { "Not an inbox line", "WarningMsg" } }, false, {})
+		return
+	end
+	local triage = require("zortex.services.triage")
+	local function done(res, err)
+		if not res then
+			vim.api.nvim_echo({ { "Inbox: " .. tostring(err), "WarningMsg" } }, false, {})
+			return
+		end
+		M.refresh()
+		vim.api.nvim_echo({ { "Moved to " .. res.link, "Comment" } }, false, {})
+	end
+	if triage.destination(item) then
+		return done(triage.move(item))
+	end
+	-- nowhere set: pick a place in the structural search
+	require("zortex.features.move").pick(item.file, item.lnum, nil, function(result)
+		if result then
+			M.refresh()
+		end
+	end)
+end
+
 --- f: add the project on the cursor line to the week's focus, or take it
 --- out.
 function M.toggle_focus()
@@ -428,32 +468,33 @@ local function get_buffer()
 	vim.bo[buf].bufhidden = "hide"
 	vim.bo[buf].swapfile = false
 
-	local map = function(lhs, fn, desc)
-		vim.keymap.set("n", lhs, fn, { buffer = buf, nowait = true, silent = true, desc = desc })
-	end
-	map("<CR>", jump, "Zortex review: jump to source")
-	map("f", M.toggle_focus, "Zortex review: add the project to the week's focus (or take it out)")
-	map("<Tab>", function()
-		local win = note_window()
-		if win then
-			vim.api.nvim_set_current_win(win)
-		end
-	end, "Zortex review: go to the reviews note")
-	map("gx", function()
-		require("zortex.features.links").open_link()
-	end, "Zortex review: follow link")
-	map("K", function()
-		require("zortex.features.preview").preview_link()
-	end, "Zortex review: preview link")
-	map("r", function()
-		M.refresh()
-	end, "Zortex review: refresh")
-	map("q", function()
-		M.close()
-	end, "Zortex review: close")
-	map("?", function()
-		require("zortex.ui.keyhelp").show("Zortex review: ", "Review keys")
-	end, "Zortex review: these keys")
+	-- the keys: zortex.keys ("review")
+	require("zortex.keys").map(buf, "review", {
+		jump = jump,
+		focus = M.toggle_focus,
+		triage = M.triage,
+		note = function()
+			local win = note_window()
+			if win then
+				vim.api.nvim_set_current_win(win)
+			end
+		end,
+		follow = function()
+			require("zortex.features.links").open_link()
+		end,
+		preview = function()
+			require("zortex.features.preview").preview_link()
+		end,
+		refresh = function()
+			M.refresh()
+		end,
+		close = function()
+			M.close()
+		end,
+		help = function()
+			require("zortex.ui.keyhelp").show("review")
+		end,
+	})
 
 	state.bufnr = buf
 	return buf

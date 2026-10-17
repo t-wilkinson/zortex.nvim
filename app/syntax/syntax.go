@@ -359,7 +359,12 @@ type Line struct {
 	Inline     []Span // nil unless parsed with inline spans (and the line has content)
 }
 
-func isLabel(line string) bool {
+// MaxLabelWords: a plain "Text:" line is a label up to this many words
+// (attributes not counted); a longer one is written "*A longer label:*".
+const MaxLabelWords = 3
+
+// colonLine: the old label rule, any "Text:" line (no other colon, no ". ").
+func colonLine(line string) bool {
 	n := len(line)
 	if n < 2 || line[n-1] != ':' {
 		return false
@@ -371,6 +376,54 @@ func isLabel(line string) bool {
 		}
 	}
 	return !hasPeriodSpace(prefix)
+}
+
+// starLabel: the text of "*A longer label like this one:*"
+// (^%*([^*%s][^*]*):%*$), ok.
+func starLabel(body string) (string, bool) {
+	n := len(body)
+	if n < 4 || body[0] != '*' || body[n-1] != '*' || body[n-2] != ':' || isSpace(body[1]) || body[1] == '*' {
+		return "", false
+	}
+	inner := body[1 : n-2]
+	for i := 0; i < len(inner); i++ {
+		if inner[i] == '*' {
+			return "", false
+		}
+	}
+	return inner, true
+}
+
+// wordCount: runs of non-space bytes (Lua's %S+).
+func wordCount(s string) int {
+	n, in := 0, false
+	for i := 0; i < len(s); i++ {
+		if isSpace(s[i]) {
+			in = false
+		} else if !in {
+			in = true
+			n++
+		}
+	}
+	return n
+}
+
+// isLabel: body is the line after its indent (and "- " for "- Label:").
+func isLabel(line, body string) bool {
+	if _, ok := starLabel(body); ok {
+		return true
+	}
+	return colonLine(line) && wordCount(StripAttributes(body[:len(body)-1])) <= MaxLabelWords
+}
+
+// IsLongLabel: a "Text:" line that is not a label because it has more than
+// MaxLabelWords words (before labels were limited it would have been one).
+func IsLongLabel(line string) bool {
+	if !colonLine(line) {
+		return false
+	}
+	d := Classify(line)
+	return d.Kind == KindText || (d.Kind == KindItem && d.Item.Mark == "")
 }
 
 // SectionText is the display text of a section line, attributes stripped.
@@ -394,6 +447,9 @@ func SectionText(line, kind string) string {
 		}
 		return StripAttributes(line)
 	case KindLabel:
+		if t, ok := starLabel(line[spaceRun(line, 0):]); ok {
+			return StripAttributes(t)
+		}
 		if len(line) > 0 && line[len(line)-1] == ':' {
 			start := spaceRun(line, 0)
 			if start <= len(line)-1 {
@@ -528,7 +584,11 @@ func Classify(line string) *Line {
 	}
 
 	item := ItemOf(line)
-	if isLabel(line) && !(item != nil && item.Mark != "") {
+	body := line[indent:]
+	if item != nil {
+		body = line[item.ContentCol:]
+	}
+	if isLabel(line, body) && !(item != nil && item.Mark != "") {
 		src := line
 		col := indent
 		if item != nil {

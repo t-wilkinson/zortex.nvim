@@ -1,32 +1,32 @@
 {
   "blocks": [
     {
-      "finish": 55,
+      "finish": 63,
       "kind": "table",
-      "start": 53
-    },
-    {
-      "finish": 65,
-      "kind": "code",
-      "lang": "",
       "start": 61
     },
     {
-      "finish": 69,
+      "finish": 73,
+      "kind": "code",
+      "lang": "",
+      "start": 69
+    },
+    {
+      "finish": 77,
       "kind": "code",
       "lang": "python",
-      "start": 66
+      "start": 74
     },
     {
-      "finish": 72,
+      "finish": 80,
       "kind": "math",
-      "start": 70
+      "start": 78
     },
     {
-      "finish": 79,
+      "finish": 87,
       "kind": "code",
       "lang": "js",
-      "start": 78
+      "start": 86
     }
   ],
   "header": {
@@ -635,6 +635,121 @@
       "text": "Bulleted label"
     },
     {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "label",
+      "level": 8,
+      "section": true,
+      "text": "Three word label"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "text"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 10,
+          "key": "fold",
+          "s": 5,
+          "type": "attribute"
+        },
+        {
+          "e": 14,
+          "key": "p1",
+          "s": 11,
+          "type": "attribute"
+        }
+      ],
+      "kind": "label",
+      "level": 8,
+      "section": true,
+      "text": "Done here"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [
+        {
+          "children": [],
+          "e": 31,
+          "inner_e": 30,
+          "inner_s": 1,
+          "s": 0,
+          "type": "italic"
+        }
+      ],
+      "kind": "label",
+      "level": 8,
+      "section": true,
+      "text": "A longer label like this one"
+    },
+    {
+      "content_col": 4,
+      "indent": 2,
+      "inline": [
+        {
+          "children": [],
+          "e": 35,
+          "inner_e": 34,
+          "inner_s": 5,
+          "s": 4,
+          "type": "italic"
+        }
+      ],
+      "item": {
+        "content_col": 4,
+        "marker": "-",
+        "marker_col": 2,
+        "marker_type": "bullet"
+      },
+      "kind": "label",
+      "level": 10,
+      "section": true,
+      "text": "Also a longer bulleted label"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [
+        {
+          "children": [],
+          "e": 14,
+          "inner_e": 13,
+          "inner_s": 1,
+          "s": 0,
+          "type": "italic"
+        }
+      ],
+      "kind": "text"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "text"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [
+        {
+          "children": [],
+          "e": 13,
+          "inner_e": 12,
+          "inner_s": 1,
+          "s": 0,
+          "type": "italic"
+        }
+      ],
+      "kind": "text"
+    },
+    {
       "content_col": 6,
       "indent": 0,
       "inline": [],
@@ -1080,6 +1195,30 @@
       "level": 10,
       "lnum": 32,
       "text": "Bulleted label",
+      "type": "label"
+    },
+    {
+      "level": 8,
+      "lnum": 33,
+      "text": "Three word label",
+      "type": "label"
+    },
+    {
+      "level": 8,
+      "lnum": 35,
+      "text": "Done here",
+      "type": "label"
+    },
+    {
+      "level": 8,
+      "lnum": 36,
+      "text": "A longer label like this one",
+      "type": "label"
+    },
+    {
+      "level": 10,
+      "lnum": 37,
+      "text": "Also a longer bulleted label",
       "type": "label"
     }
   ],

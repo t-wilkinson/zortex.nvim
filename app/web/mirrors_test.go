@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -245,5 +246,55 @@ func TestMirrorAdoptsLinkedID(t *testing.T) {
 	}
 	if issues := s.mirrorIssues(); len(issues) != 0 {
 		t.Fatalf("ids don't line up: %+v", issues)
+	}
+}
+
+// The only task of a calendar block, ticked without a size, gets the size
+// nearest the block's length (edit.CalendarSize).
+func TestCalendarTaskSizedByBlock(t *testing.T) {
+	_, dir, ts := mirrorServer(t, []string{
+		"16:00 Write the report",
+		"  - [ ] Draft @id(rep01)",
+		"17:00 Next",
+	})
+	cal := filepath.Join(dir, "calendar.zortex")
+	n, line := lineWith(t, cal, "@id(rep01)")
+	if code, out := postJSON(t, ts.URL, "/api/edit", map[string]any{"rel": "calendar.zortex", "lnum": n, "expect": line, "op": "toggle"}); code != 200 {
+		t.Fatalf("toggle: %d %v", code, out)
+	}
+	if _, l := lineWith(t, cal, "@id(rep01)"); l != "  - [x] Draft @id(rep01) @done("+today()+") @md" {
+		t.Fatalf("sized: %q", l)
+	}
+}
+
+// A calendar line holding only a project link, with nothing under it, lists
+// the project's next open tasks; ticking one ticks the project task.
+func TestProjectBlockTasks(t *testing.T) {
+	_, dir, ts := mirrorServer(t, []string{
+		"16:00 [P/#1.4 - zortex]",
+		"17:00 Reflect on [P/#1.4 - zortex]",
+	})
+	var cal struct {
+		Days map[string][]calEntry `json:"days"`
+	}
+	_, _, body := get(t, ts, "/api/calendar?from="+today()+"&to="+today())
+	if err := json.Unmarshal([]byte(body), &cal); err != nil {
+		t.Fatal(err)
+	}
+	var virtual []calEntry
+	for _, e := range cal.Days[today()] {
+		if e.Virtual {
+			virtual = append(virtual, e)
+		}
+	}
+	if len(virtual) != 3 || virtual[0].Text != "Add research-ready references" || virtual[0].Depth != 1 || virtual[0].Rel != "projects.zortex" {
+		t.Fatalf("block tasks: %+v", virtual)
+	}
+	v := virtual[1]
+	if code, out := postJSON(t, ts.URL, "/api/edit", map[string]any{"rel": v.Rel, "lnum": v.Lnum, "expect": v.Src, "op": "toggle"}); code != 200 {
+		t.Fatalf("toggle: %d %v", code, out)
+	}
+	if _, l := lineWith(t, filepath.Join(dir, "projects.zortex"), "Improve website"); !strings.HasPrefix(l, "- [x] Improve website") {
+		t.Fatalf("project task: %q", l)
 	}
 }

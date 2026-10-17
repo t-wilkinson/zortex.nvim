@@ -236,10 +236,8 @@ function M.preview_link(opts)
 		M.close()
 		require("zortex.features.links").jump_to_location(location)
 	end
-	for _, key in ipairs({ "q", "<Esc>" }) do
-		vim.keymap.set("n", key, M.close, { buffer = buf, nowait = true, silent = true })
-	end
-	vim.keymap.set("n", "<CR>", open_target, { buffer = buf, nowait = true, silent = true })
+	-- the keys: zortex.keys ("preview")
+	require("zortex.keys").map(buf, "preview", { open = open_target, close = M.close })
 
 	-- Close when the cursor leaves the link (only while not inside the preview)
 	local origin = vim.api.nvim_get_current_buf()

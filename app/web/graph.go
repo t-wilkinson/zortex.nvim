@@ -456,6 +456,64 @@ func (s *Server) gtNote(rel, text string, count bool) string {
 	return a
 }
 
+// gtHeadingsMax: at most this many linked headings under a note in /graph.
+const gtHeadingsMax = 6
+
+// gtHeadings: the headings of a note that other notes link to, in note
+// order, each with how many notes link to it: the structure the notes
+// actually grow, under the note in /graph. "" for none.
+func (s *Server) gtHeadings(rel string) string {
+	snap := s.current()
+	d := s.ix.Doc(rel)
+	if d == nil {
+		return ""
+	}
+	type head struct {
+		n    int
+		node string
+		from map[string]bool
+	}
+	by := map[int]*head{}
+	for _, bl := range snap.backlinks[rel] {
+		if !bl.FromNote || bl.From == rel || bl.ToLnum < 1 {
+			continue
+		}
+		// the innermost heading at or above the target line
+		n := d.NodeAt(bl.ToLnum)
+		for n != nil && !n.IsRoot() && n.Type != syntax.KindHeading {
+			n = n.Parent
+		}
+		if n == nil || n.IsRoot() || n.Type != syntax.KindHeading {
+			continue
+		}
+		h := by[n.Start]
+		if h == nil {
+			h = &head{n: n.Start, node: n.Text, from: map[string]bool{}}
+			by[n.Start] = h
+		}
+		h.from[bl.From] = true
+	}
+	if len(by) == 0 {
+		return ""
+	}
+	list := make([]*head, 0, len(by))
+	for _, h := range by {
+		list = append(list, h)
+	}
+	sort.Slice(list, func(i, j int) bool { return list[i].n < list[j].n })
+	var b strings.Builder
+	b.WriteString(`<ul class="gt-heads" aria-label="Headings other notes link to">`)
+	for i, h := range list {
+		if i == gtHeadingsMax {
+			b.WriteString(`<li class="dim">+` + strconv.Itoa(len(list)-i) + ` more</li>`)
+			break
+		}
+		b.WriteString(`<li><a href="` + esc(s.noteURL(rel, h.n)) + `">` + esc(h.node) + `</a> <span class="dim" title="Notes linking to it">` + strconv.Itoa(len(h.from)) + `</span></li>`)
+	}
+	b.WriteString(`</ul>`)
+	return b.String()
+}
+
 // openDepth: lists this deep in a card start open; deeper ones are closed,
 // showing how many notes they hold.
 const openDepth = 2
@@ -487,25 +545,29 @@ func (s *Server) graphHTML(roots []*treeNode) template.HTML {
 			if n.Again {
 				a += ` <span class="dim" title="Listed in another place too; its notes are shown there">(above)</span>`
 			}
+			heads := ""
+			if !n.Again {
+				heads = s.gtHeadings(n.Rel)
+			}
 			if len(n.Children) == 0 {
-				b.WriteString(`<li>` + a + `</li>`)
+				b.WriteString(`<li>` + a + heads + `</li>`)
 				continue
 			}
-			b.WriteString(`<li><details` + open + `><summary>` + a + more + `</summary>`)
+			b.WriteString(`<li><details` + open + `><summary>` + a + more + `</summary>` + heads)
 			write(n.Children, depth+1)
 			b.WriteString(`</details></li>`)
 		}
 		b.WriteString(`</ul>`)
 	}
-	card := func(title string, list []*treeNode) {
-		b.WriteString(`<section class="gt-card"><h2>` + title + ` <span class="gt-n dim" title="Notes in it">` + strconv.Itoa(countNotes(list)) + `</span></h2>`)
+	card := func(title string, list []*treeNode, heads string) {
+		b.WriteString(`<section class="gt-card"><h2>` + title + ` <span class="gt-n dim" title="Notes in it">` + strconv.Itoa(countNotes(list)) + `</span></h2>` + heads)
 		write(list, 0)
 		b.WriteString(`</section>`)
 	}
 	b.WriteString(`<div class="gt-cols">`)
 	for _, root := range roots {
 		if !root.Root {
-			card(s.gtNote(root.Rel, root.Text, false), root.Children)
+			card(s.gtNote(root.Rel, root.Text, false), root.Children, s.gtHeadings(root.Rel))
 			continue
 		}
 		var loose []*treeNode
@@ -515,14 +577,14 @@ func (s *Server) graphHTML(roots []*treeNode) template.HTML {
 			}
 		}
 		if len(loose) > 0 {
-			card(s.gtNote(root.Rel, root.Text, false), loose)
+			card(s.gtNote(root.Rel, root.Text, false), loose, "")
 		}
 		for _, c := range root.Children {
 			switch {
 			case c.Rel == "":
-				card(esc(c.Text), c.Children)
+				card(esc(c.Text), c.Children, "")
 			case len(c.Children) > 0:
-				card(s.gtNote(c.Rel, c.Text, false), c.Children)
+				card(s.gtNote(c.Rel, c.Text, false), c.Children, s.gtHeadings(c.Rel))
 			}
 		}
 	}

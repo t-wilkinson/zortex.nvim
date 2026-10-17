@@ -15,9 +15,10 @@ local snapshots = {} -- include_archived -> { time, files, headers }
 local SNAPSHOT_TTL_MS = 1000
 
 -- Read just the header block of a file (stops at the first body line).
-local function read_header(path)
-	local bufnr = vim.fn.bufnr(path)
-	if bufnr > 0 and vim.api.nvim_buf_is_loaded(bufnr) and vim.bo[bufnr].modified then
+-- `modified`: utils/buffer.modified_map(), when reading many.
+local function read_header(path, modified)
+	local bufnr = require("zortex.utils.buffer").modified_buf(path, modified)
+	if bufnr then
 		return syntax.parse_header(vim.api.nvim_buf_get_lines(bufnr, 0, 50, false))
 	end
 
@@ -66,8 +67,13 @@ end
 
 -- Deterministic order: top-level notes first, then deeper ones, alphabetical.
 local function sort_paths(paths)
+	local depths = {}
 	local function depth(p)
-		local _, n = p:gsub("/", "")
+		local n = depths[p]
+		if not n then
+			n = select(2, p:gsub("/", ""))
+			depths[p] = n
+		end
 		return n
 	end
 	table.sort(paths, function(a, b)
@@ -80,21 +86,58 @@ local function sort_paths(paths)
 	return paths
 end
 
--- Snapshot of every note and its header.
----@param opts { include_archived?: boolean, fresh?: boolean }?
+--- The folder a note's links resolve in, when it isn't notes_dir: for a
+--- note outside notes_dir (a repository's doc/Roadmap.zortex), the nearest
+--- folder above it with a .z/, else its own folder. nil for a note in
+--- notes_dir (or no note): links there resolve in notes_dir.
+function M.root_of(path)
+	if not path or path == "" then
+		return nil
+	end
+	path = vim.fn.fnamemodify(path, ":p")
+	local real = vim.uv.fs_realpath(path) or path
+	local dir = (require("zortex.config").notes_dir or ""):gsub("/$", "")
+	local real_dir = vim.uv.fs_realpath(dir) or dir
+	for _, p in ipairs({ path, real }) do
+		for _, d in ipairs({ dir, real_dir }) do
+			if d ~= "" and p:sub(1, #d + 1) == d .. "/" then
+				return nil
+			end
+		end
+	end
+	local own = vim.fn.fnamemodify(path, ":h")
+	local d = own
+	while true do
+		if vim.fn.isdirectory(d .. "/.z") == 1 then
+			return d
+		end
+		local parent = vim.fn.fnamemodify(d, ":h")
+		if parent == d then
+			break
+		end
+		d = parent
+	end
+	return own
+end
+
+-- Snapshot of every note and its header (opts.root: the notes of another
+-- folder, M.root_of).
+---@param opts { include_archived?: boolean, fresh?: boolean, root?: string }?
 ---@return { files: string[], headers: table<string, table> }
 function M.index(opts)
 	opts = opts or {}
 	local include_archived = opts.include_archived or false
+	local key = (opts.root or "") .. "\n" .. tostring(include_archived)
 	local now = vim.uv.now()
-	local snapshot = snapshots[include_archived]
+	local snapshot = snapshots[key]
 	if not opts.fresh and snapshot and now - snapshot.time < SNAPSHOT_TTL_MS then
 		return snapshot
 	end
 
 	local files, headers = {}, {}
-	for _, path in ipairs(fs.find_all_notes()) do
-		local header = read_header(path)
+	local modified = require("zortex.utils.buffer").modified_map()
+	for _, path in ipairs(fs.find_all_notes(nil, { dir = opts.root })) do
+		local header = read_header(path, modified)
 		if header and (include_archived or not M.is_archived(path, header)) then
 			files[#files + 1] = path
 			headers[path] = header
@@ -102,8 +145,8 @@ function M.index(opts)
 	end
 	sort_paths(files)
 
-	snapshot = { time = now, include_archived = include_archived, files = files, headers = headers }
-	snapshots[include_archived] = snapshot
+	snapshot = { time = now, include_archived = include_archived, root = opts.root, files = files, headers = headers }
+	snapshots[key] = snapshot
 	return snapshot
 end
 

@@ -94,11 +94,34 @@ M.EXTRA_LINKS = {
 	{ link = "@[R/#Later/book]" }, -- the item, not its notes
 	{ link = "@[R/#Later/status]" },
 	{ link = "@[Nope/rl]" },
+	-- is: words narrow to a kind of line
+	{ link = "@[R/rust is:heading]" },
+	{ link = "@[R/book is:heading]" },
+	{ link = "@[R/rust is:item]" },
+	{ link = "@[R/rust is:resource]" },
+	{ link = "@[R/rust is:resource is:heading, rl is:item]" },
+	{ link = "@[R/rust is:label]" },
+	{ link = "@[R/is:label]" },
+	{ link = "@[R/rust is:nope]" },
+	{ link = "@[P/is:open]" },
+	{ link = "@[P/#1 Programming/is:done]" },
+	{ link = "@[P/is:task]" },
 	{ link = "@[R/#Rust/ , ]" },
 	{ link = "@[rl]", from = "z/resources.zortex" },
 	{ link = "@[/#AI/rl]", from = "z/resources.zortex" },
 	{ link = "P/#1.4" },
 	{ link = "[]" },
+	-- ~/ is the notes folder (for notes outside it); here it changes nothing
+	{ link = "[~/P/#1.4 - zortex]" },
+	-- a "-" component finds a task by its @id too, exactly
+	{ link = "[Garden/-tom01]" },
+	{ link = "[Garden/-TOM01]" },
+	{ link = "[@P/-tom01]" },
+	-- a longer label is written between stars; a long plain one is text
+	{ link = "[Garden/:What to plant]" },
+	{ link = "[Garden/:What to plant/-beans]" },
+	{ link = "[Garden/:Things that grew]" },
+	{ link = "[Garden/:Things that grew/-mint]" },
 	-- parent-relative: on a line with no linked parent, and on deeper lines
 	{ link = "[./-Item]", from = "z/day-plan.zortex", lnum = 1 },
 	{ link = "[./-Fix project search]", from = "z/day-plan.zortex", lnum = 4 },
@@ -141,6 +164,14 @@ M.SEARCHES = {
 	{ prompt = "okr" },
 	{ prompt = "okr", mode = "article" },
 	{ prompt = "day-plan", mode = "article" },
+	-- plain text: one literal string over every line, smart case
+	{ prompt = "zortex", mode = "text" },
+	{ prompt = "Zortex", mode = "text" },
+	{ prompt = "1.4 - zortex", mode = "text" },
+	{ prompt = "[P/#", mode = "text" },
+	{ prompt = "okr", mode = "text" },
+	{ prompt = "", mode = "text" },
+	{ prompt = "nothing-matches-this", mode = "text" },
 }
 
 -- Pretty JSON with sorted keys (same as gen_ast.lua)

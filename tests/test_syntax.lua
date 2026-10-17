@@ -185,6 +185,29 @@ T.test("tags are painted on any line; the @ of @[tags] is dimmed", function()
 	vim.cmd("bwipeout!")
 end)
 
+T.test("link icons leave with their lines, not piled on the next one", function()
+	local hl = require("zortex.features.highlights")
+	vim.cmd("enew!")
+	local buf = vim.api.nvim_get_current_buf()
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "top", "See [A]", "- [Bee] and [C]", "See [D](x.md)", "end" })
+	hl.highlight_buffer(buf)
+	local ns = vim.api.nvim_create_namespace("zortex_highlights")
+	local function icons()
+		local rows = {}
+		for _, m in ipairs(vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, { details = true })) do
+			if m[4].virt_text and m[4].virt_text[1][1] == "🔗" and not m[4].invalid then
+				rows[#rows + 1] = m[2]
+			end
+		end
+		return rows
+	end
+	T.eq(icons(), { 1, 2, 2, 3 })
+	-- the lines leave without a repaint (as when they move to another note)
+	vim.api.nvim_buf_set_lines(buf, 1, 4, false, {})
+	T.eq(icons(), {})
+	vim.cmd("bwipeout!")
+end)
+
 T.test("a heading's @attributes look like attributes, not like the heading", function()
 	local hl = require("zortex.features.highlights")
 	hl.setup_highlights()
@@ -284,6 +307,35 @@ T.test("folds follow sections and indentation", function()
 	vim.cmd("bwipeout!")
 end)
 
+T.test("@fold sections start closed; an opened one stays open", function()
+	local folding = require("zortex.features.folding")
+	vim.cmd("enew!")
+	local buf = vim.api.nvim_get_current_buf()
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+		"@@Note",
+		"# Open",
+		"text",
+		"# Archive @fold",
+		"old",
+		"- list @fold",
+		"  - child",
+		"Some @fold text",
+	})
+	folding.update_folds(buf)
+	T.eq(vim.b[buf].zortex_fold_closed, { 4, 6 })
+	vim.wo.foldmethod = "expr"
+	vim.wo.foldexpr = "v:lua._zortex_foldexpr(v:lnum)"
+	vim.wo.foldlevel = 99
+	folding.close_marked(0, buf)
+	T.eq({ vim.fn.foldclosed(2), vim.fn.foldclosed(4), vim.fn.foldclosed(8) }, { -1, 4, 4 })
+	vim.cmd("4foldopen")
+	T.eq(vim.fn.foldclosed(7), 6) -- the nested @fold item is closed too
+	vim.api.nvim_buf_set_lines(buf, 4, 5, false, { "older" })
+	folding.update_folds(buf)
+	T.eq(vim.fn.foldclosed(4), -1)
+	vim.cmd("bwipeout!")
+end)
+
 T.test("core/syntax runs without Neovim (no vim.* in the grammar)", function()
 	-- Load syntax.lua and constants.lua in an environment that has only the
 	-- Lua standard library, and parse the sample.
@@ -357,4 +409,22 @@ T.test("[*Text] reaches a bold heading", function()
 	local r = link.resolve("/*Warmup", { doc = doc })
 	T.eq(r[1] and r[1].lnum, 3)
 	T.eq(link.resolve("/*plain", { doc = doc })[1].lnum, 6)
+end)
+
+T.test("labels: three words at most, or *a longer label:*; :ZortexLongLabels lists the rest", function()
+	local syntax = require("zortex.core.syntax")
+	local kind = function(l)
+		return syntax.classify(l).kind
+	end
+	T.eq(kind("First thing tomorrow:"), "label")
+	T.eq(kind("Archive @fold @p1:"), "label")
+	T.eq(kind("Things that grew too well:"), "text")
+	T.eq(kind("*Things that grew too well:*"), "label")
+	T.eq(syntax.classify("*Things that grew too well:*").text, "Things that grew too well")
+	T.eq(kind("- Four words in item:"), "item")
+	T.eq(syntax.is_long_label("Things that grew too well:"), true)
+	T.eq(syntax.is_long_label("- Four words in item:"), true)
+	T.eq(syntax.is_long_label("Short label:"), false)
+	T.eq(syntax.is_long_label("- [ ] A task that ends with colon:"), false)
+	T.eq(syntax.is_long_label("Not a label: one"), false)
 end)

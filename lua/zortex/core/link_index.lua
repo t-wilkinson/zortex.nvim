@@ -93,9 +93,9 @@ end
 
 -- Change stamp for a note: a modified buffer is tracked by changedtick,
 -- otherwise by mtime + size.
-local function stamp(path)
-	local bufnr = vim.fn.bufnr(path)
-	if bufnr > 0 and vim.api.nvim_buf_is_loaded(bufnr) and vim.bo[bufnr].modified then
+local function stamp(path, modified)
+	local bufnr = require("zortex.utils.buffer").modified_buf(path, modified)
+	if bufnr then
 		return "buf:" .. vim.api.nvim_buf_get_changedtick(bufnr)
 	end
 	local st = vim.uv.fs_stat(path)
@@ -129,9 +129,16 @@ local function first_component(def)
 end
 
 -- Bare @words that are attributes, not tags (utils/attributes shortcuts)
+-- Bare @words that are attributes, not tags: @2h, @p1, @sm, @step, @event,
+-- @fold (app/links IsAttributeWord is the same)
+local ATTRIBUTE_WORDS = { step = true, steps = true, event = true, fold = true }
+
 local function shortcut(key)
-	return key:match("^%d+%.?%d*[hdmw]$") or key:match("^[pi][123]$") or key == "step" or key == "steps"
+	return key:match("^%d+%.?%d*[hdmw]$") or key:match("^[pi][123]$") or ATTRIBUTE_WORDS[key]
 		or require("zortex.utils.attributes").is_size(key)
+end
+M.is_attribute_word = function(key)
+	return shortcut(key:lower()) and true or false
 end
 
 -- The tags used on a note's lines: { tag = number of lines }
@@ -174,15 +181,24 @@ local function extract_links(doc)
 	return links
 end
 
-local function resolve(link, source_path)
+-- `memo`: targets of the links already resolved in this refresh, by
+-- definition. A link that doesn't depend on where it is written (not local,
+-- not parent-relative) means the same everywhere, and most notes link the
+-- same few places ([P/#2], [Areas]) many times.
+local function resolve(link, source_path, memo)
 	if link.first.kind == "path" then
 		link.target = nil
 		return
 	end
 	local opts = {}
-	if link.first.kind == "local" or link_mod.is_parent_relative(link.definition) then
+	local placed = link.first.kind == "local" or link_mod.is_parent_relative(link.definition)
+	if placed then
 		opts.doc = Document().get(source_path)
 		opts.lnum = link.lnum
+	elseif memo and memo[link.definition] ~= nil then
+		local t = memo[link.definition]
+		link.target = t and { file = t.file, lnum = t.lnum } or nil
+		return
 	end
 	local ok, result = pcall(function()
 		return (link_mod.resolve_first(link.definition, opts))
@@ -191,6 +207,9 @@ local function resolve(link, source_path)
 		link.target = { file = result.file, lnum = result.lnum }
 	else
 		link.target = nil
+	end
+	if memo and not placed then
+		memo[link.definition] = link.target or false
 	end
 end
 
@@ -252,8 +271,9 @@ function M.refresh(force)
 		end
 	end
 
+	local modified = require("zortex.utils.buffer").modified_map()
 	for path in pairs(current) do
-		local s = stamp(path)
+		local s = stamp(path, modified)
 		local entry = state.files[path]
 		if not entry or entry.stamp ~= s then
 			local doc = Document().get(path)
@@ -279,6 +299,7 @@ function M.refresh(force)
 	state.dirty = true
 
 	-- 2. Re-resolve every link whose target could have changed.
+	local memo = {}
 	for path, entry in pairs(state.files) do
 		for _, link in ipairs(entry.links) do
 			local needs = header_changed
@@ -288,7 +309,7 @@ function M.refresh(force)
 				or link.first.kind == "global"
 				or ((link.first.kind == "article" or link.first.kind == "tag") and changed_names[link.first.text])
 			if needs then
-				resolve(link, path)
+				resolve(link, path, memo)
 			end
 		end
 	end
@@ -406,19 +427,37 @@ function M.backlinks(item, opts)
 	return M.references(file, s, e)
 end
 
+local function missing(link, path)
+	if link.first.kind == "path" then
+		return not vim.uv.fs_stat(link_mod.relative_path(link.definition, path))
+	end
+	return not link.target
+end
+
+--- Links of one note that resolve nowhere (each with `path = true` for a
+--- file that isn't there), brought up to date first.
+function M.unresolved_in(path)
+	M.refresh(true)
+	path = vim.fn.fnamemodify(path, ":p")
+	local out = {}
+	local entry = state.files[path]
+	for _, link in ipairs(entry and entry.links or {}) do
+		if missing(link, path) then
+			local ref = as_ref(path, link)
+			ref.path = link.first.kind == "path" or nil
+			out[#out + 1] = ref
+		end
+	end
+	return out
+end
+
 --- Links that resolve nowhere.
 function M.unresolved()
 	M.refresh()
 	local out = {}
 	for path, entry in pairs(state.files) do
 		for _, link in ipairs(entry.links) do
-			local missing
-			if link.first.kind == "path" then
-				missing = not vim.uv.fs_stat(link_mod.relative_path(link.definition, path))
-			else
-				missing = not link.target
-			end
-			if missing then
+			if missing(link, path) then
 				out[#out + 1] = as_ref(path, link)
 			end
 		end
@@ -432,11 +471,109 @@ function M.unresolved()
 	return out
 end
 
---- Put unresolved links in the quickfix list.
+--- Tags that go nowhere, computed on request (every note is read):
+---   searches  tag searches (@[...]) that find nothing, with why
+---   links     [@Tag] links to a header tag no note has
+---   orphans   bare tags on lines that no tag search asks for, most used
+---             first ({ tag, count, file, lnum } of its first use); bare
+---             attributes (@p1, @sm, @2h, @event) are not tags
+function M.tag_problems()
+	M.refresh()
+	local syntax = require("zortex.core.syntax")
+	local Document = Document()
+	local out = { searches = {}, links = {}, orphans = {} }
+	local asked, used = {}, {}
+	for _, path in ipairs(notes().index().files) do
+		local doc = Document.get(path)
+		for lnum, line in ipairs(doc and doc.lines or {}) do
+			if line:find("@", 1, true) and not doc:in_code(lnum) then
+				syntax.walk_spans(doc:inline(lnum), function(span)
+					if span.type == "tag_search" then
+						local q = link_mod.parse_tag_search(span.content)
+						for _, group in ipairs(q.groups) do
+							for _, term in ipairs(group) do
+								if not term:match("^is:") then
+									asked[term] = true
+								end
+							end
+						end
+						local ok, results, err = pcall(link_mod.tag_search, span.content, { doc = doc, lnum = lnum })
+						if not ok or #results == 0 then
+							out.searches[#out.searches + 1] = {
+								file = path,
+								lnum = lnum,
+								col = span.s + 1,
+								text = "@[" .. span.content .. "]",
+								why = ok and err or tostring(results),
+							}
+						end
+					elseif span.type == "attribute" and span.value == nil then
+						local key = span.key:lower()
+						if not shortcut(key) then
+							local u = used[key]
+							if not u then
+								u = { tag = key, count = 0, file = path, lnum = lnum, col = span.s + 1 }
+								used[key] = u
+							end
+							u.count = u.count + 1
+						end
+					end
+				end)
+			end
+		end
+	end
+	for path, entry in pairs(state.files) do
+		for _, link in ipairs(entry.links) do
+			if link.first.kind == "tag" and not link.target then
+				out.links[#out.links + 1] = as_ref(path, link)
+			end
+		end
+	end
+	for key, u in pairs(used) do
+		if not asked[key] then
+			out.orphans[#out.orphans + 1] = u
+		end
+	end
+	local function by_place(a, b)
+		if a.file ~= b.file then
+			return a.file < b.file
+		end
+		return a.lnum < b.lnum
+	end
+	table.sort(out.searches, by_place)
+	table.sort(out.links, by_place)
+	table.sort(out.orphans, function(a, b)
+		if a.count ~= b.count then
+			return a.count > b.count
+		end
+		return a.tag < b.tag
+	end)
+	return out
+end
+
+--- Put unresolved links in the quickfix list, then the tags that go nowhere
+--- (M.tag_problems): broken links first, apart from the tags.
 function M.broken_links_quickfix()
 	local items = {}
 	for _, ref in ipairs(M.unresolved()) do
-		items[#items + 1] = { filename = ref.file, lnum = ref.lnum, col = ref.col, text = "Unresolved: " .. ref.text }
+		if not (ref.definition or ""):match("^%s*@") then
+			items[#items + 1] = { filename = ref.file, lnum = ref.lnum, col = ref.col, text = "Unresolved: " .. ref.text }
+		end
+	end
+	local tags = M.tag_problems()
+	for _, ref in ipairs(tags.links) do
+		items[#items + 1] = { filename = ref.file, lnum = ref.lnum, col = ref.col, text = "No note has this tag: " .. ref.text }
+	end
+	for _, x in ipairs(tags.searches) do
+		items[#items + 1] = { filename = x.file, lnum = x.lnum, col = x.col, text = "Tag search finds nothing: " .. x.text }
+	end
+	for _, x in ipairs(tags.orphans) do
+		items[#items + 1] = {
+			filename = x.file,
+			lnum = x.lnum,
+			col = x.col,
+			text = string.format("No tag search asks for @%s (%d line%s)", x.tag, x.count, x.count == 1 and "" or "s"),
+		}
 	end
 	vim.fn.setqflist(items, "r")
 	if #items > 0 then

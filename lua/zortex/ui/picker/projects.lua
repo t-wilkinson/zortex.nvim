@@ -226,10 +226,10 @@ function M.spec(opts)
 		preview = function(project)
 			return { lines = preview_lines(project), title = "Project" }
 		end,
-		keys = {
-			["<C-l>"] = { desc = "Insert the project's link", close = true, fn = insert_link },
-			["<C-y>"] = {
-				desc = "Yank the project's link",
+		-- the keys: zortex.keys ("projects")
+		keys = require("zortex.keys").picker_keys("projects", {
+			insert_link = { close = true, fn = insert_link },
+			yank_link = {
 				fn = function(project)
 					if project and project.link then
 						vim.fn.setreg('"', project.link)
@@ -238,8 +238,7 @@ function M.spec(opts)
 					end
 				end,
 			},
-			["<M-s>"] = {
-				desc = "Cycle the sort order",
+			sort = {
 				refresh = true,
 				fn = function()
 					local idx = 1
@@ -251,21 +250,19 @@ function M.spec(opts)
 					opts.sort = SORTS[idx % #SORTS + 1]
 				end,
 			},
-			["<M-d>"] = {
-				desc = "Show / hide done projects",
+			done = {
 				refresh = true,
 				fn = function()
 					opts.include_done = not opts.include_done
 				end,
 			},
-			["<M-e>"] = {
-				desc = "Leaf projects only / all",
+			leaf = {
 				refresh = true,
 				fn = function()
 					opts.leaf = not opts.leaf
 				end,
 			},
-		},
+		}),
 	}
 end
 

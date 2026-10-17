@@ -92,7 +92,7 @@ func (s *Server) apiXP(w http.ResponseWriter, r *http.Request) {
 		Hours float64 `json:"hours"`
 	}
 	tasks := []pendingTask{}
-	total := 0.0
+	total, totalHours := 0.0, 0.0
 	for i, p := range pending {
 		h := cal.hours(p.Size)
 		if p.Hours > 0 {
@@ -100,6 +100,7 @@ func (s *Server) apiXP(w http.ResponseWriter, r *http.Request) {
 		}
 		xp := cal.taskHoursXP(h, p.P, p.I)
 		total += xp
+		totalHours += h
 		if i < 5 {
 			titles = append(titles, p.Title)
 			tasks = append(tasks, pendingTask{Title: p.Title, XP: math.Round(xp*10) / 10, Hours: h})
@@ -109,6 +110,7 @@ func (s *Server) apiXP(w http.ResponseWriter, r *http.Request) {
 	out["pending_titles"], _ = json.Marshal(titles)
 	out["pending_tasks"], _ = json.Marshal(tasks)
 	out["pending_xp"], _ = json.Marshal(math.Round(total))
+	out["pending_hours"], _ = json.Marshal(math.Round(totalHours*100) / 100)
 	writeJSON(w, http.StatusOK, out)
 }
 

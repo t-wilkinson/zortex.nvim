@@ -9,9 +9,9 @@
     <ul>
       {{range .Items}}
       {{if .Line}}
-      <li class="hit line"><a href="{{noteURL $rel .Lnum}}"><span class="lnum">{{.Lnum}}</span><span class="text">{{.Text}}</span></a></li>
+      <li class="hit line"><a href="{{openURL $rel .Lnum false}}"><span class="lnum">{{.Lnum}}</span><span class="text">{{.Text}}</span></a></li>
       {{else}}
-      <li class="hit section{{if .Child}} child{{end}}"><a href="{{noteURL $rel .Lnum}}">{{range .Crumbs}}<span class="crumb">{{.}}</span>{{end}}<span class="name">{{.Name}}</span></a></li>
+      <li class="hit section{{if .Child}} child{{end}}"><a href="{{openURL $rel .Lnum true}}">{{range .Crumbs}}<span class="crumb">{{.}}</span>{{end}}<span class="name">{{.Name}}</span></a></li>
       {{end}}
       {{end}}
     </ul>

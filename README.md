@@ -35,7 +35,8 @@ text you own and sync however you like.
   fills the calendar, focus and key-result work first, ranks up tasks put
   off again and again, and says when the day is full.
 - **XP that follows the plan**: finished tasks pay XP by their estimated
-  hours, work on a project a key result links counts toward that
+  hours (10 XP = 1 hour of estimated work, shown next to every XP), work on
+  a project a key result links counts toward that
   objective's areas, and the season is progress on this quarter's
   objectives. Getting PARA work done shows up as OKR results, with no
   bookkeeping.
@@ -47,11 +48,12 @@ text you own and sync however you like.
 **On the web** (`zortex serve`, optional: one Go binary)
 
 - Your notes rendered and searchable, with the calendar, the pomodoro and
-  XP on the home page, light editing from your phone, and ntfy
-  notifications.
+  XP on the home page, light editing from your phone, ntfy notifications,
+  and a card on every link that shows where it goes before you follow it.
 - **Project pages**: progress, next tasks, the key results they move, a log
   of where you left off, the days they were on the calendar, and the notes
-  and files they link.
+  and files they link; **objectives** against the time passed in their
+  period, and the **weekly review** to read anywhere.
 - A **note graph**: the Structure note as cards, the notes each one links
   with marked on hover, and the notes it doesn't reach.
 - A **personal file viewer**: PDFs, images, video, Markdown with math
@@ -176,8 +178,11 @@ Special notes:
   preview in a float (`<leader>zK`, or on hover with
   `ui = { preview = { on_hover = true } }`), complete while typing (tags
   too, after `@` and in `@[...]`), backlinks and broken links in the
-  quickfix list. A persistent link index keeps this fast.
-- **Highlighting and folding** for the whole format, with concealed markers.
+  quickfix list, broken links as diagnostics where they are, and
+  `:ZortexRename` to rename a heading and rewrite the links to it. A
+  persistent link index keeps this fast.
+- **Highlighting and folding** for the whole format, with concealed markers;
+  `@fold` keeps a section folded.
 - **Projects**: picker with progress, points, due dates, areas and key
   results; `@progress` written back on request.
 - **Day planner** (`<leader>zm`): opens today's calendar day (created from
@@ -203,7 +208,9 @@ Special notes:
   panel, iCal import/export, notifications (synced to `zortex serve` and sent
   through ntfy; unchanged calendars aren't re-sent).
 - **Pomodoro** (`<leader>zoo`): one clock shared with the web app's home page,
-  with ntfy alerts and a different sound for work, breaks and a new cycle.
+  with ntfy alerts and a different sound for work, breaks and a new cycle
+  (played with `paplay`, `afplay` on macOS; `sounds` and `sound_command` under
+  `notifications.types.pomodoro` change them).
   Timers, alarms and a stopwatch are on the home page too, and their time
   goes to the task you're working on (`@spent(1h25m)`; by default the
   current calendar entry).
@@ -251,7 +258,7 @@ require("zortex").setup({
 | `:ZortexLinkOpenWeb` | `<leader>zgX` | `link_open_web` | Open the link under the cursor (or this line) in the web app |
 | `:ZortexLinkPreview` | `<leader>zK` | `link_preview` | Preview the link target in a float |
 | `:ZortexBacklinks` | `<leader>zb` | `backlinks` | Links into the section under the cursor (quickfix) |
-| `:ZortexBrokenLinks` | `<leader>zB` | `broken_links` | Links that resolve nowhere (quickfix) |
+| `:ZortexBrokenLinks` | `<leader>zB` | `broken_links` | Links that resolve nowhere, then tags that go nowhere (quickfix) |
 | `:ZortexLinkIndexRebuild` |  | `link_index_rebuild` | Rebuild the link index from scratch |
 
 **Structure**
@@ -262,6 +269,8 @@ require("zortex").setup({
 | `:ZortexSectionPrev` | `<leader>z[` | `section_prev` | Previous section at the same or higher level |
 | `:ZortexSectionParent` | `<leader>z^` | `section_parent` | Parent section |
 | `:ZortexFoldsUpdate` | `<leader>zr` | `folds_update` | Recompute folds |
+| `:ZortexLongLabels` |  | `long_labels` | Lines ending in a colon that are too long to be labels (quickfix) |
+| `:ZortexRename …` | `<leader>zR` | `rename` | Rename the heading or label under the cursor and rewrite every link to it |
 | `:ZortexArchiveSection` | `<leader>za` | `archive_section` | Move the section under the cursor to the note's z/archive file |
 | `:ZortexMove` | `<leader>zM` | `move` | Move the section or line under the cursor (or the selected lines) to a place picked in the search |
 
@@ -345,13 +354,105 @@ require("zortex").setup({
 | `:ZortexHelp` | `<leader>z?` | `help` | List commands and keys |
 <!-- actions:end -->
 
-Inside the calendar view: `h/j/k/l` days and weeks, `H/J/K/L` years and
-months, `t` today, `a` add, `<CR>` entries, `v` toggle month/week, `d`
-digest panel, `/` search the entries, `gf` go to the file, `n` sync
-notifications, `?` help, `q` close (`ui.calendar.keymaps`). In the review
-buffer: `<CR>` jump to the source, `f` add a project to the week's focus,
-`gx`/`K` follow or preview, `r` refresh, `q` close. The plan and review
-buffers list their keys with `?`.
+<!-- keys:start -->
+In zortex's own buffers `?` lists these keys; the pickers name theirs in
+the title, with the picker's own help key: telescope `<C-/>` (insert mode; `?` in normal mode), snacks.picker `?` (normal mode), fzf-lua `<F1>`.
+
+**Plan** (`:ZortexPlan`)
+
+| Key | Does |
+|---|---|
+| `<CR>` | put at the calendar cursor |
+| `i` | put on the current calendar line, then type a time |
+| `o` | put on a new line below, then type a time |
+| `O` | put on a new line above, then type a time |
+| `p` | add to the day (a task as a copy, under its project's block if there is one) |
+| `P` | add the project with its next open tasks (a count: how many) |
+| `<C-n>` | calendar cursor down |
+| `<C-p>` | calendar cursor up |
+| `<Tab>` | go to the calendar |
+| `gx` | follow link |
+| `K` | preview link |
+| `r` | refresh |
+| `q` | close |
+| `?` | these keys |
+
+**Review** (`:ZortexReview`)
+
+| Key | Does |
+|---|---|
+| `<CR>` | jump to source |
+| `f` | add the project to the week's focus (or take it out) |
+| `m` | move the inbox line to its @project (or pick a place) |
+| `<Tab>` | go to the reviews note |
+| `gx` | follow link |
+| `K` | preview link |
+| `r` | refresh |
+| `q` | close |
+| `?` | these keys |
+
+**Calendar view** (`:ZortexCalendar`) · keys in `ui.calendar.keymaps`
+
+| Key | Does |
+|---|---|
+| `h` `<Left>` | previous day |
+| `l` `<Right>` | next day |
+| `k` `<Up>` | previous week |
+| `j` `<Down>` | next week |
+| `K` | previous month |
+| `J` | next month |
+| `H` | previous year |
+| `L` | next year |
+| `t` `T` | today |
+| `a` `i` | add an entry to the day |
+| `<CR>` `o` | open the day in the calendar note |
+| `x` | tick a task of the day (2x: task 2) |
+| `/` | search the entries |
+| `v` | month / week view |
+| `d` `D` | the coming days |
+| `gf` | open the calendar note |
+| `n` | send the notifications to the server |
+| `r` `R` | refresh |
+| `?` | these keys |
+| `q` `<Esc>` `<C-c>` | close |
+
+**Table of contents** (`:ZortexTOC`)
+
+| Key | Does |
+|---|---|
+| `<CR>` | jump to the section |
+| `q` `<Esc>` | close |
+
+**Link preview** (<leader>zK)
+
+| Key | Does |
+|---|---|
+| `<CR>` | open the target |
+| `q` `<Esc>` | close |
+
+**Search** (`:ZortexSearch`) · keys in `ui.search.keys` · picker
+
+| Key | Does |
+|---|---|
+| `<C-o>` | a new note named after the query |
+| `<M-t>` | cycle section / article / text search |
+
+**Projects** (`:ZortexProjects`) · picker
+
+| Key | Does |
+|---|---|
+| `<C-l>` | insert the project's link |
+| `<C-y>` | yank the project's link |
+| `<M-s>` | cycle the sort order |
+| `<M-d>` | show / hide done projects |
+| `<M-e>` | leaf projects only / all |
+
+**Follow link** (gx on a link that finds several) · picker
+
+| Key | Does |
+|---|---|
+| `<C-l>` | go to the link's line |
+<!-- keys:end -->
 
 ### Pickers and completion
 
@@ -366,12 +467,6 @@ keys), select several (`<Tab>`; they go to the quickfix list and the first
 opens) and send rows to the quickfix list (`<C-q>`, fzf-lua `alt-q`). The
 zortex keys are the same everywhere: Ctrl acts on the row, Alt changes the
 list.
-
-| picker   | keys                                                                                                     |
-| -------- | -------------------------------------------------------------------------------------------------------- |
-| search   | `<C-o>` new note named after the query, `<M-t>` cycle section / article / text search (`ui.search.keys`; shown in the title) |
-| projects | `<C-l>` insert the link, `<C-y>` yank it, `<M-s>` cycle the sort, `<M-d>` show done, `<M-e>` leaf only     |
-| follow   | `<C-l>` go to the link's line instead of following it                                                    |
 
 Link completion (`[`, `/`, `#`, `>`, `@a(`, ...) registers itself on the
 first zortex buffer: with blink.cmp as the `zortex` provider, listed for

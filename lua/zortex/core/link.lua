@@ -111,7 +111,7 @@ end
 
 --- Split a link definition into raw component strings, ignoring "/" inside
 --- parentheses (attribute values). Strips outer brackets.
----@return string[] components, "global"|"local" scope
+---@return string[] components, "global"|"local"|"home" scope
 function M.split(definition)
 	definition = syntax.trim(definition or "")
 	if definition:sub(1, 1) == "[" and definition:sub(-1) == "]" then
@@ -121,6 +121,10 @@ function M.split(definition)
 	if definition:sub(1, 1) == "/" then
 		scope = "local"
 		definition = definition:sub(2)
+	elseif definition:sub(1, 2) == "~/" then
+		-- the notes folder, from a note outside it (a repository's docs)
+		scope = "home"
+		definition = definition:sub(3)
 	end
 
 	local components, current, depth = {}, "", 0
@@ -290,7 +294,8 @@ local function search_pattern(component)
 	elseif component.type == "heading" then
 		return "^#+%s*" .. text .. ".*$"
 	elseif component.type == "label" then
-		return "^" .. text .. ".*:"
+		-- "Label:", or a longer label written "*A longer label:*"
+		return "^%*?" .. text .. ".*:"
 	elseif component.type == "listitem" then
 		return "^%s*- " .. text .. "$"
 	elseif component.type == "highlight" then
@@ -390,13 +395,21 @@ function M.search_lines(lines, component, start_line, end_line)
 		-- starts with the component text (case-insensitive); a markdown
 		-- link counts as its text ("- [The Rust Book](…)")
 		local want = vim.trim(component.text):lower()
+		-- "-aB3x9": a task's @id too (exactly), so a link survives renames
+		local id = vim.trim(component.text)
+		local id_attr = id:match("^[%w_%-]+$") and ("@id(" .. id .. ")") or nil
 		for lnum = start_line or 1, math.min(end_line or #lines, #lines) do
 			local line = lines[lnum]
 			local it = line:find("%S") and syntax.item(line)
 			if it then
 				local key = it.key and it.key:lower()
 				local body = syntax.strip_attributes(M.link_text(line, it.content_col)):lower()
-				if key == want or body:sub(1, #want) == want or (key and key:sub(1, #want) == want) then
+				if
+					key == want
+					or body:sub(1, #want) == want
+					or (key and key:sub(1, #want) == want)
+					or (id_attr and line:find(id_attr, 1, true))
+				then
 					out[#out + 1] = { lnum = lnum, col = (it.marker_col or 0) + 1 }
 				end
 			end
@@ -541,6 +554,18 @@ function M.resolve(link, opts)
 	local is_local = parsed.scope == "local"
 	local idx
 	local cands -- { path, doc?, start_line?, end_line? }
+	-- Where global links look: the notes folder, or for a note outside it
+	-- the folder it lives in (notes.root_of); "~/" is the notes folder
+	local root = opts.root
+	if parsed.scope == "home" then
+		root = nil
+	elseif root == nil then
+		local from = opts.doc and opts.doc.filepath
+		if not from and opts.bufnr then
+			from = vim.api.nvim_buf_get_name(opts.bufnr == 0 and vim.api.nvim_get_current_buf() or opts.bufnr)
+		end
+		root = from and from ~= "" and notes().root_of(from) or nil
+	end
 
 	if is_local then
 		local doc = opts.doc or Document().from_buffer(opts.bufnr or 0)
@@ -553,10 +578,19 @@ function M.resolve(link, opts)
 		if include_archived == nil then
 			include_archived = mentions_archive(parsed)
 		end
-		idx = notes().index({ include_archived = include_archived })
+		idx = notes().index({ include_archived = include_archived, root = root })
 		cands = {}
+		-- An article first ([P/...], the usual case): only the notes with that
+		-- name or tag can match, so skip the rest now (the article step below
+		-- keeps exactly these)
+		local first = parsed.components[1]
+		local sets = first.type == "article" and header_sets(idx)
+		local named = sets and sets.names[first.text:lower()]
+		local tagged = sets and sets.tags[first.text:lower()]
 		for _, path in ipairs(idx.files) do
-			cands[#cands + 1] = { path = path }
+			if not sets or not idx.headers[path] or (named and named[path]) or (tagged and tagged[path]) then
+				cands[#cands + 1] = { path = path }
+			end
 		end
 	end
 
@@ -702,6 +736,7 @@ function M.parse_tag_search(content)
 	return {
 		scope = (#parts > 0 and not all) and parts or nil,
 		is_local = scope == "local",
+		home = scope == "home",
 		all = all,
 		groups = groups,
 	}
@@ -783,8 +818,33 @@ function M.is_resource_note(doc, lnum)
 	return false
 end
 
+-- `is:` words in a tag search say what kind of line may match (a colon
+-- can't be part of a tag, so they never clash with one): @[rust is:heading]
+M.IS_KINDS = { "heading", "label", "item", "task", "open", "done", "resource" }
+
+local function is_kind(doc, lnum, info, kind)
+	local item = info.kind == "item" and info.item or nil
+	if kind == "heading" then
+		return info.kind == "heading" or info.kind == "bold_heading"
+	elseif kind == "label" then
+		return info.kind == "label"
+	elseif kind == "item" then
+		return item ~= nil
+	elseif kind == "task" then
+		return item ~= nil and item.mark ~= nil
+	elseif kind == "open" then
+		return item ~= nil and item.mark == " "
+	elseif kind == "done" then
+		return item ~= nil and (item.mark == "x" or item.mark == "X")
+	elseif kind == "resource" then
+		return M.is_resource_heading(doc, lnum) or (item ~= nil and holds_link(doc, lnum))
+	end
+	return false
+end
+
 --- Lines tagged as a tag search asks, in the notes or sections its scope
 --- resolves to (see the module header). Same results shape as resolve().
+--- `is:kind` words narrow a group to lines of that kind (M.IS_KINDS).
 ---@param content string what is inside @[...]
 ---@param opts { bufnr?: integer, doc?: table }?
 ---@return SearchResult[] results, string? err
@@ -794,6 +854,14 @@ function M.tag_search(content, opts)
 	local component = { type = "tag_search", text = content, original = "@[" .. content .. "]" }
 	if #q.groups == 0 then
 		return {}, "No tags in " .. component.original
+	end
+	for _, group in ipairs(q.groups) do
+		for _, term in ipairs(group) do
+			local kind = term:match("^is:(.*)$")
+			if kind and not vim.tbl_contains(M.IS_KINDS, kind) then
+				return {}, "Unknown is:" .. kind .. " (is: " .. table.concat(M.IS_KINDS, ", ") .. ")"
+			end
+		end
 	end
 
 	-- Ranges to look in: { doc, s, e }
@@ -806,7 +874,8 @@ function M.tag_search(content, opts)
 			end
 		end
 	elseif q.scope then
-		local results, err = M.resolve((q.is_local and "/" or "") .. table.concat(q.scope, "/"), opts)
+		local prefix = q.is_local and "/" or (q.home and "~/" or "")
+		local results, err = M.resolve(prefix .. table.concat(q.scope, "/"), opts)
 		if #results == 0 then
 			return {}, err
 		end
@@ -862,7 +931,13 @@ function M.tag_search(content, opts)
 				for _, group in ipairs(q.groups) do
 					match = true
 					for _, tag in ipairs(group) do
-						if not (own[tag] or above[tag]) then
+						local kind = tag:match("^is:(.*)$")
+						if kind then
+							if not is_kind(doc, lnum, info, kind) then
+								match = false
+								break
+							end
+						elseif not (own[tag] or above[tag]) then
 							match = false
 							break
 						end
@@ -1015,15 +1090,17 @@ function M.build_link(components)
 	return "[" .. table.concat(components, "/") .. "]"
 end
 
---- Text usable inside a link component. Link text is limited to
---- [A-Za-z0-9 _-().:]: the longest prefix made of those characters (with
---- balanced parentheses), trimmed. Section and item matches are prefix
---- matches, so the shortened text still finds the same section. A colon
---- only means "label" at the start of a component, so "6.3: Homelab" keeps
---- it (and stays apart from "6.3: Zortex" and "6.3"); trailing colons go.
+--- Text usable inside a link component: the longest prefix without link
+--- syntax ("[", "]", "/"), an "@" (it would read as an attribute) or a "|"
+--- (it would split a table cell), with balanced parentheses, trimmed.
+--- Everything else is kept: "&", "'", ",", "?", non-ASCII letters. Section
+--- and item matches are prefix matches, so the shortened text still finds
+--- the same section. A colon only means "label" at the start of a
+--- component, so "6.3: Homelab" keeps it (and stays apart from "6.3:
+--- Zortex" and "6.3"); trailing colons, commas and semicolons go.
 function M.component_text(text)
 	text = text or ""
-	local prefix = text:match("^[%w _%-%(%)%.:]*")
+	local prefix = text:match("^[^%[%]/@|]*")
 	local _, opens = prefix:gsub("%(", "")
 	local _, closes = prefix:gsub("%)", "")
 	if opens ~= closes then
@@ -1031,10 +1108,10 @@ function M.component_text(text)
 	end
 	-- a colon inside stays ("6.3: Homelab"); one at the end ("Async book:"
 	-- before a URL) is punctuation
-	prefix = vim.trim((vim.trim(prefix):gsub(":+$", "")))
+	prefix = vim.trim((vim.trim(prefix):gsub("[:,;]+$", "")))
 	if prefix == "" then
 		-- Nothing usable at the start: keep the text minus link syntax
-		prefix = vim.trim((text:gsub("[%[%]/]", "")))
+		prefix = vim.trim((text:gsub("[%[%]/|]", "")))
 	end
 	return prefix
 end

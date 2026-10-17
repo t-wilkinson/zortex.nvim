@@ -180,7 +180,20 @@ function M.show_stats()
 			if i > 8 then
 				break
 			end
-			table.insert(lines, string.format("   %s: %d/%d XP (%d/%d tasks)", p.key, p.earned_xp, p.total_xp, p.done, p.total))
+			local calc = require("zortex.services.xp.calculator")
+			table.insert(
+				lines,
+				string.format(
+					"   %s: %d/%d XP, %s of %s (%d/%d tasks)",
+					p.key,
+					p.earned_xp,
+					p.total_xp,
+					calc.hours_text(p.earned_xp),
+					calc.hours_text(p.total_xp),
+					p.done,
+					p.total
+				)
+			)
 		end
 		table.insert(lines, "")
 	end

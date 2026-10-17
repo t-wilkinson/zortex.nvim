@@ -275,48 +275,48 @@ local function plan_buffer()
 	vim.bo[buf].buftype = "nofile"
 	vim.bo[buf].bufhidden = "hide"
 	vim.bo[buf].swapfile = false
-	local map = function(lhs, fn, desc)
-		vim.keymap.set("n", lhs, fn, { buffer = buf, nowait = true, silent = true, desc = "Zortex plan: " .. desc })
-	end
-	map("<CR>", M.put, "put at the calendar cursor")
-	map("i", function()
-		M.place("current")
-	end, "put on the current calendar line, then type a time")
-	map("o", function()
-		M.place("next")
-	end, "put on a new line below, then type a time")
-	map("O", function()
-		M.place("previous")
-	end, "put on a new line above, then type a time")
-	map("p", M.append, "add to the day (a task as a copy, under its project's block if there is one)")
-	map("P", M.append_project, "add the project with its next open tasks (a count: how many)")
-	map("<C-n>", function()
-		move_calendar(1)
-	end, "calendar cursor down")
-	map("<C-p>", function()
-		move_calendar(-1)
-	end, "calendar cursor up")
-	map("<Tab>", function()
-		local win = calendar_window()
-		if win then
-			vim.api.nvim_set_current_win(win)
-		end
-	end, "go to the calendar")
-	map("gx", function()
-		require("zortex.features.links").open_link()
-	end, "follow link")
-	map("K", function()
-		require("zortex.features.preview").preview_link()
-	end, "preview link")
-	map("r", function()
-		M.refresh()
-	end, "refresh")
-	map("q", function()
-		M.close()
-	end, "close")
-	map("?", function()
-		require("zortex.ui.keyhelp").show("Zortex plan: ", "Plan keys")
-	end, "these keys")
+	-- the keys: zortex.keys ("plan")
+	require("zortex.keys").map(buf, "plan", {
+		put = M.put,
+		place_current = function()
+			M.place("current")
+		end,
+		place_next = function()
+			M.place("next")
+		end,
+		place_previous = function()
+			M.place("previous")
+		end,
+		append = M.append,
+		append_project = M.append_project,
+		calendar_down = function()
+			move_calendar(1)
+		end,
+		calendar_up = function()
+			move_calendar(-1)
+		end,
+		calendar = function()
+			local win = calendar_window()
+			if win then
+				vim.api.nvim_set_current_win(win)
+			end
+		end,
+		follow = function()
+			require("zortex.features.links").open_link()
+		end,
+		preview = function()
+			require("zortex.features.preview").preview_link()
+		end,
+		refresh = function()
+			M.refresh()
+		end,
+		close = function()
+			M.close()
+		end,
+		help = function()
+			require("zortex.ui.keyhelp").show("plan")
+		end,
+	})
 	state.buf = buf
 	return buf
 end

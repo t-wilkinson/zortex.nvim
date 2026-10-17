@@ -10,6 +10,49 @@ The first public release.
 
 ### Neovim plugin
 
+- **Labels are short now (a change to how notes parse):** a plain `Text:`
+  line is a label only up to three words; a longer one is written
+  `*A longer label like this one:*`. `:ZortexLongLabels` lists the lines
+  that stopped being labels (and `[:Label]` link targets), to wrap the ones
+  worth keeping.
+- Tag searches take `is:` words: `@[rust is:heading]`, `@[rl is:open, rl
+  is:label]`, `@[P/is:open]` (heading, label, item, task, open, done,
+  resource).
+- Inbox triage: `@project(1.4)` on an inbox line or any task says where it
+  belongs; `m` in the daily review moves it there (with its nested lines),
+  else to `review.inbox_default`, else to a place picked in the search.
+  `@project(` completes the projects.
+- Project blocks: a calendar line holding only a project link, with nothing
+  under it, lists the project's next open tasks in the calendar view; `x`
+  / `2x` ticks one.
+- The only task under a calendar time, ticked without a `@size`, gets the
+  size nearest the block's length (by ratio: 45 minutes is `@md`).
+- `:ZortexRename` (`<leader>zR`) renames the heading or label under the
+  cursor and rewrites every link through it.
+- Broken links show as diagnostics where they are (`features.diagnostics`).
+- `:ZortexBrokenLinks` also lists the tags that go nowhere: tag searches
+  that find nothing, `[@Tag]` links to a tag no note has, bare tags no tag
+  search asks for.
+- `[P/-aB3x9]` finds a task by its `@id`, so links survive renaming it.
+- A note outside `notes_dir` (a repository's `doc/Roadmap.zortex`) resolves
+  its links in its own folder; `[~/P/#…]` reaches `notes_dir`.
+- `@fold` keeps a section folded each time the note is shown.
+- One key table (`lua/zortex/keys.lua`) for the plan, review, calendar
+  view, TOC and preview buffers and the pickers: `?` lists it, the pickers
+  name their keys and the backend's help key in the title, and the README
+  and `:help zortex-keys` are generated from it.
+- XP is said one way, "10 XP = 1 hour of estimated work", with hours next
+  to XP; `xp.area_split` (default 0.5) replaces the harmonic split between
+  areas with a geometric one.
+- Generated links keep `&`, `'`, `,`, `?` and non-ASCII letters; only link
+  syntax, `@` and `|` end them.
+- Moving lines no longer leaves their link icons piled on the next line.
+- `:ZortexTOC` opens on the left.
+- `notifications.types.pomodoro.sound_command` takes arguments (a string or
+  a list, `%s` for the file); macOS plays system sounds by default.
+- The link index builds about 20× faster on a large vault (44 s to 2 s on
+  1,340 notes and 28,000 links).
+
 - `:ZortexMove` (`<leader>zM`, or a visual selection): move the section or
   the line (with its nested lines) under the cursor to a section or line
   picked in the structural search, in any note; headings re-levelled, lines
@@ -145,6 +188,22 @@ The first public release.
   (`features.web.reuse_tab`). `gx` on a tag index's label opens the index.
 
 ### Server (`zortex serve`)
+
+- `/okr` (Objectives in the top bar): objectives against the time passed in
+  their period, their key results and the projects behind them. `/review`:
+  the weekly review's findings, for any week.
+- Hover cards on links: a note's title, path, tags, first lines and
+  backlinks; an image; a website's domain and URL (nothing is fetched).
+- `/graph` lists, under each note, the headings other notes link to.
+- The search page has a Text mode, and with `-data` its own search history
+  (`search_history.json`, never in the notes' `.z/`).
+- `/broken` lists the tags that go nowhere, apart from broken links.
+- The labels rule, `is:` tag searches, `[P/-id]` links and the calendar
+  auto-size are the same as in Neovim (shared fixtures:
+  `autosize.json`, `calendar.json`, `resolve.json`, `search.json`).
+- The web calendar reads entries like Neovim's (`- 14:00 x`, `7:05`, an
+  `@2h` end, four-space nesting), and lists a project block's next tasks.
+- The home page's title is "Zortex"; XP shows its hours of work.
 
 - Task groups as in Neovim (`app/edit` Groups and Cascade, checked against
   `tests/fixtures/groups.json`): project pages list a group's tasks with

@@ -225,10 +225,12 @@ following, preview, the web renderer) pass them. Other `./` links are file
 paths (`relative_path`). app/links `Absolute` is the same, checked by the
 `lnum` cases of `tests/fixtures/resolve.json`.
 
-**Generated link text** keeps only `[A-Za-z0-9 _-().:]`: `component_text`
-takes the longest such prefix (with balanced parentheses), so
-`#4 Learning & Education` is written `#4 Learning` and still resolves by
-prefix. `item_component(line)` gives `-KR1` for keyed items and `-<text>`
+**Generated link text** stops at link syntax (`[ ] /`), an `@` (it would
+read as an attribute) and a `|` (it would split a table cell):
+`component_text` takes the longest prefix without them (with balanced
+parentheses, trailing `: , ;` trimmed), so `#Talk to Sam @p1` is written
+`#Talk to Sam` and still resolves by prefix; `&`, `'`, `?` and non-ASCII
+letters are kept. `item_component(line)` gives `-KR1` for keyed items and `-<text>`
 otherwise; key results link as `[O/#Current/#3M-2026-Q1 …/-KR1]` and planner
 tasks as `[P/#…/-Improve website]`.
 

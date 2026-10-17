@@ -2,9 +2,14 @@
 <section class="search-page">
   <form class="big-search" action="{{u "/search"}}" method="get" role="search" id="search-form">
     <input type="search" name="q" value="{{.Query}}" placeholder="Words match a section path in order: proj zortex search" aria-label="Search notes" autofocus autocomplete="off" id="search-input">
-    <label class="mode"><input type="checkbox" name="mode" value="article" {{if eq .Mode "article"}}checked{{end}}> articles only</label>
+    <fieldset class="modes" aria-label="Search mode">
+      <label><input type="radio" name="mode" value="section" {{if eq .Mode "section"}}checked{{end}}> Sections</label>
+      <label><input type="radio" name="mode" value="article" {{if eq .Mode "article"}}checked{{end}}> Articles</label>
+      <label><input type="radio" name="mode" value="text" {{if eq .Mode "text"}}checked{{end}}> Text</label>
+    </fieldset>
   </form>
-  <p class="help dim">Earlier words match parent sections, the last word the section itself. Prefixes: <code>@@</code> article, <code>#</code> heading, <code>:</code> label, <code>*</code> bold. <code>_</code> or <code>\ </code> joins words. Lines containing every word come after the sections.</p>
+  <p class="help dim" data-for="text"{{if ne .Mode "text"}} hidden{{end}}>Text: lines holding exactly what you typed, spaces and all, in every note; a capital letter makes it case-sensitive.</p>
+  <p class="help dim" data-for="words"{{if eq .Mode "text"}} hidden{{end}}>Earlier words match parent sections, the last word the section itself. Prefixes: <code>@@</code> article, <code>#</code> heading, <code>:</code> label, <code>*</code> bold. <code>_</code> or <code>\ </code> joins words. Lines containing every word come after the sections.</p>
   <div id="results">{{template "results" .}}</div>
 </section>
 {{end}}

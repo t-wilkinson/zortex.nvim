@@ -200,3 +200,12 @@ if go ~= "" then
 end
 
 manager.send_notification = real_send
+
+T.test("pomodoro sound_command: a program, a string with arguments, or a list", function()
+	local argv = require("zortex.notifications.types.pomodoro").sound_argv
+	T.eq(argv("paplay", "/s/a.oga"), { "paplay", "/s/a.oga" })
+	T.eq(argv("pw-play --volume 0.5", "/s/a.oga"), { "pw-play", "--volume", "0.5", "/s/a.oga" })
+	T.eq(argv({ "mpv", "--no-video", "%s", "--volume=60" }, "/s/a b.oga"), { "mpv", "--no-video", "/s/a b.oga", "--volume=60" })
+	T.eq(argv({ "play", "--file=%s" }, "/s/a%.oga"), { "play", "--file=/s/a%.oga" })
+	T.eq(argv(nil, "/s/a.oga")[2], "/s/a.oga")
+end)

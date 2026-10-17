@@ -72,3 +72,46 @@ T.test("calendar / picks an entry and jumps to its line", function()
 	T.eq(vim.api.nvim_buf_get_name(0), vim.fn.fnamemodify(cal, ":p"))
 	T.ok(vim.api.nvim_get_current_line():match("%S"))
 end)
+
+T.test("a project block lists the project's next tasks in the calendar view, and x ticks them", function()
+	local mirrors = require("zortex.services.mirrors")
+	local workspace = require("zortex.core.workspace")
+	local cal = require("zortex.utils.filesystem").get_calendar_file()
+	local doc = workspace.document(cal)
+	local lnum
+	for l, line in ipairs(doc.lines) do
+		if line == "14:00 [P/#1.4 - zortex]" then
+			lnum = l
+		end
+	end
+	T.ok(lnum, "fixture block")
+	local p, tasks = mirrors.project_block(doc.lines, lnum, doc)
+	T.ok(p and p.name == "1.4 - zortex", p and p.name)
+	T.eq(vim.tbl_map(function(t)
+		return t.text
+	end, tasks), { "Add research-ready references", "Improve website", "Change task sizes" })
+	-- a line with words besides the link, or with lines under it, is no block
+	T.eq(mirrors.project_block({ "15:00 Reflect on [P/#1 Programming]" }, 1, doc), nil)
+	T.eq(mirrors.project_block({ "14:00 [P/#1.4 - zortex]", "  - [ ] a task" }, 1, doc), nil)
+
+	local view = require("zortex.ui.calendar.view")
+	view.open()
+	local keys = require("zortex.ui.calendar.keys")
+	keys.move_to_date({ year = 2026, month = 10, day = 9 })
+	local text = table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), "\n")
+	T.ok(text:find("Improve website", 1, true), text)
+	-- 2x ticks "Improve website" in the projects note
+	local proj = require("zortex.utils.filesystem").get_projects_file()
+	vim.cmd("normal 2x")
+	local line = workspace.get_lines(proj)[vim.fn.match(workspace.get_lines(proj), "Improve website") + 1]
+	T.ok(line:match("^%- %[x%] Improve website"), line)
+	vim.cmd("normal 2x") -- the list moved on: task 2 is now the next open one
+	pcall(view.close)
+	-- reopen what was ticked
+	local lines = workspace.get_lines(proj)
+	for l, t in ipairs(lines) do
+		if t:match("^%- %[x%] Improve website") or t:match("^%- %[x%] Change task sizes") then
+			require("zortex.services.tasks").toggle_at(proj, l)
+		end
+	end
+end)

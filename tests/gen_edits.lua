@@ -3,8 +3,12 @@
 -- tested against it, so the web app edits lines exactly like Neovim. Also
 -- tests/fixtures/carry.json: carrying open tasks forward
 -- (services/planner.carry, cases in tests/carry_cases.lua; app/edit Carry),
--- and tests/fixtures/groups.json: task groups (services/task_groups, cases
--- in tests/group_cases.lua; app/edit Groups, Cascade).
+-- tests/fixtures/groups.json: task groups (services/task_groups, cases
+-- in tests/group_cases.lua; app/edit Groups, Cascade),
+-- tests/fixtures/autosize.json: calendar tasks sized by their block
+-- (services/tasks.calendar_size; app/edit CalendarSize), and
+-- tests/fixtures/calendar.json: the calendar's entries as Neovim's calendar
+-- reads them (stores/calendar; app/web calendarEntries).
 --
 --   nvim --headless -u NONE -l tests/gen_edits.lua
 local root = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p:h:h")
@@ -50,6 +54,57 @@ f = assert(io.open(carry_path, "w"))
 f:write(require("json").encode({ cases = carry }) .. "\n")
 f:close()
 print("wrote " .. carry_path .. " (" .. #carry .. " cases)")
+
+-- Calendar tasks sized by their block (services/tasks.calendar_size;
+-- app/edit autosize.go)
+do
+	local Config = require("zortex.config")
+	local sizes = Config.defaults.xp.sizes.task
+	local out_cases = {}
+	for _, c in ipairs(require("autosize_cases")) do
+		out_cases[#out_cases + 1] = {
+			name = c.name,
+			lines = c.lines,
+			lnum = c.lnum,
+			size = tasks.calendar_size(c.lines, c.lnum, sizes) or "",
+		}
+	end
+	local p = root .. "/tests/fixtures/autosize.json"
+	local fh = assert(io.open(p, "w"))
+	fh:write(require("json").encode({ sizes = sizes, cases = out_cases }) .. "\n")
+	fh:close()
+	print("wrote " .. p .. " (" .. #out_cases .. " cases)")
+end
+
+-- The calendar as Neovim's calendar sees it (stores/calendar), for the web
+-- app's calendarDays (app/web calendar_test.go)
+do
+	local lines = require("calendar_cases")
+	local store = require("zortex.stores.calendar")
+	local days = {}
+	for date, entries in pairs(store.parse_lines(lines)) do
+		local rows = {}
+		for _, e in ipairs(store.day_layout(entries)) do
+			local stop = e:get_end_time()
+			rows[#rows + 1] = {
+				lnum = e.lnum,
+				time = e:get_time_string() or "",
+				["end"] = stop and stop.hour and string.format("%02d:%02d", stop.hour, stop.min) or "",
+				text = e.text or "",
+				task = e.type == "task",
+				done = e.completed and true or false,
+				moved = e.mark == ">",
+				depth = e.depth,
+			}
+		end
+		days[date] = rows
+	end
+	local p = root .. "/tests/fixtures/calendar.json"
+	local fh = assert(io.open(p, "w"))
+	fh:write(require("json").encode({ lines = lines, days = days }) .. "\n")
+	fh:close()
+	print("wrote " .. p)
+end
 
 -- Task groups (services/task_groups; app/edit groups.go)
 local Groups = require("zortex.services.task_groups")

@@ -55,7 +55,8 @@ templates: calendar, projects, areas, okr, structure and inbox. In a folder
 that has notes it only says what is missing; |:ZortexInit| creates them.
 
 Notes open folded to their headings (`features.folding.level`): |zR| opens
-every fold.
+every fold. A section marked `@fold` starts closed whenever the note is
+shown, whatever its level.
 
 ==============================================================================
 3. NOTES                                                        *zortex-notes*
@@ -122,7 +123,8 @@ LINKS ~
     backlinks.
 
 :ZortexBrokenLinks                                        *:ZortexBrokenLinks*
-    Links that resolve nowhere (quickfix). Keys: <leader>zB. Id: broken_links.
+    Links that resolve nowhere, then tags that go nowhere (quickfix). Keys:
+    <leader>zB. Id: broken_links.
 
 :ZortexLinkIndexRebuild                              *:ZortexLinkIndexRebuild*
     Rebuild the link index from scratch. Id: link_index_rebuild.
@@ -142,6 +144,14 @@ STRUCTURE ~
 
 :ZortexFoldsUpdate                                        *:ZortexFoldsUpdate*
     Recompute folds. Keys: <leader>zr. Id: folds_update.
+
+:ZortexLongLabels                                          *:ZortexLongLabels*
+    Lines ending in a colon that are too long to be labels (quickfix). Id:
+    long_labels.
+
+:ZortexRename                                                  *:ZortexRename*
+    Rename the heading or label under the cursor and rewrite every link to it.
+    Keys: <leader>zR. Id: rename.
 
 :ZortexArchiveSection                                  *:ZortexArchiveSection*
     Move the section under the cursor to the note's z/archive file. Keys:
@@ -312,6 +322,83 @@ SYSTEM ~
 :ZortexHelp                                                      *:ZortexHelp*
     List commands and keys. Keys: <leader>z?. Id: help.
 
+KEYS IN ZORTEX BUFFERS AND PICKERS                               *zortex-keys*
+
+In these buffers `?` lists their keys; the pickers name theirs in the title,
+with the picker's own help key: telescope <C-/> (insert mode; ? in normal
+mode), snacks.picker ? (normal mode), fzf-lua <F1>.
+
+PLAN (:ZortexPlan) ~
+  <CR>   put at the calendar cursor
+  i      put on the current calendar line, then type a time
+  o      put on a new line below, then type a time
+  O      put on a new line above, then type a time
+  p      add to the day (a task as a copy, under its project's block if there is one)
+  P      add the project with its next open tasks (a count: how many)
+  <C-n>  calendar cursor down
+  <C-p>  calendar cursor up
+  <Tab>  go to the calendar
+  gx     follow link
+  K      preview link
+  r      refresh
+  q      close
+  ?      these keys
+
+REVIEW (:ZortexReview) ~
+  <CR>   jump to source
+  f      add the project to the week's focus (or take it out)
+  m      move the inbox line to its @project (or pick a place)
+  <Tab>  go to the reviews note
+  gx     follow link
+  K      preview link
+  r      refresh
+  q      close
+  ?      these keys
+
+CALENDAR VIEW (:ZortexCalendar, keys in ui.calendar.keymaps) ~
+  h <Left>       previous day
+  l <Right>      next day
+  k <Up>         previous week
+  j <Down>       next week
+  K              previous month
+  J              next month
+  H              previous year
+  L              next year
+  t T            today
+  a i            add an entry to the day
+  <CR> o         open the day in the calendar note
+  x              tick a task of the day (2x: task 2)
+  /              search the entries
+  v              month / week view
+  d D            the coming days
+  gf             open the calendar note
+  n              send the notifications to the server
+  r R            refresh
+  ?              these keys
+  q <Esc> <C-c>  close
+
+TABLE OF CONTENTS (:ZortexTOC) ~
+  <CR>     jump to the section
+  q <Esc>  close
+
+LINK PREVIEW (<leader>zK) ~
+  <CR>     open the target
+  q <Esc>  close
+
+SEARCH (:ZortexSearch, keys in ui.search.keys, picker) ~
+  <C-o>  a new note named after the query
+  <M-t>  cycle section / article / text search
+
+PROJECTS (:ZortexProjects, picker) ~
+  <C-l>  insert the project's link
+  <C-y>  yank the project's link
+  <M-s>  cycle the sort order
+  <M-d>  show / hide done projects
+  <M-e>  leaf projects only / all
+
+FOLLOW LINK (gx on a link that finds several, picker) ~
+  <C-l>  go to the link's line
+
 ==============================================================================
 5. CONFIGURATION                                               *zortex-config*
 
@@ -372,6 +459,10 @@ setup() merges your options over these defaults: >lua
           level = 1,
           include_empty_lines = true,
         },
+        -- Links that resolve nowhere (and paths to missing files) as
+        -- vim.diagnostic on their notes (]d / [d); severity "ERROR" | "WARN" |
+        -- "INFO" | "HINT"
+        diagnostics = { enabled = true, severity = "WARN" },
         -- <prefix>gX: links in the web app (server.web_url)
         web = {
           -- show them in the tab on this computer you focused last, when
@@ -433,15 +524,19 @@ setup() merges your options over these defaults: >lua
             use_server = true, -- false: always run the clock in Neovim
             ntfy_only = true, -- ntfy enabled: alerts go only through ntfy
             -- Played locally when alerts don't go through ntfy (paths, or false
-            -- for silence). Unset: freedesktop sounds when present. With ntfy,
-            -- contrib/ntfy/notify.sh picks the sound from the message tags.
+            -- for silence). Unset: freedesktop sounds (macOS: system sounds)
+            -- when present. With ntfy, contrib/ntfy/notify.sh picks the sound
+            -- from the message tags.
             sounds = {
               -- work_start = "~/sounds/work.oga",
               -- break_start = "~/sounds/break.oga",
               -- restart = "~/sounds/restart.oga",
               -- work_end = ..., break_end = ...,
             },
-            sound_command = nil, -- default: paplay (afplay on macOS)
+            -- The player: a program, a string with arguments ("pw-play --volume
+            -- 0.5") or a list ({ "mpv", "--no-video", "%s" }); "%s" is the file,
+            -- else it goes last. Default: paplay (afplay on macOS)
+            sound_command = nil,
           },
 
           calendar = {
@@ -595,6 +690,7 @@ setup() merges your options over these defaults: >lua
             digest = { "d", "D" },
             refresh = { "r", "R" },
             go_to_file = { "gf" },
+            toggle_task = { "x" }, -- 2x ticks the day's task 2
             sync_notifications = { "n" },
             help = { "?" },
           },
@@ -614,6 +710,10 @@ setup() merges your options over these defaults: >lua
         -- a new day's lines
         day = { "Done:", "Blocked:", "First thing tomorrow:" },
         width = 80, -- findings window width
+        -- where m in the review moves an inbox line without @project(...): a
+        -- link like "P/#Areas" (a heading of the projects note for small
+        -- tasks that aren't projects); nil asks, with :ZortexMove's search
+        inbox_default = nil,
       },
 
       -- XP is read off the notes (services/xp/ledger): completed tasks with their
@@ -624,8 +724,8 @@ setup() merges your options over these defaults: >lua
         notify_min = 5, -- announce awards of at least this much XP
         publish = true, -- write .z/xp_summary.json (and POST it to server) for the web app's home page
 
-        -- One unit for everything: XP is estimated effort. :ZortexXPGuide shows
-        -- the whole table with your settings.
+        -- One unit for everything: XP is estimated work, 10 XP = 1 hour of it.
+        -- :ZortexXPGuide shows the whole table with your settings.
         xp_per_hour = 10,
 
         -- @size -> estimated hours. Tasks without a size count as md. A project
@@ -670,6 +770,11 @@ setup() merges your options over these defaults: >lua
           project_area = 0.2, -- a project with its own @a(...), no key result
           task_area = 0.1, -- a task outside projects with @a(...)
         },
+
+        -- An award's Mastery share split over its areas, most specific first:
+        -- each area gets this ratio of the one before (1: even, 0.5: half,
+        -- 0.7: gently decaying)
+        area_split = 0.5,
 
         -- Reaching a key result pays this share of its objective's XP (split
         -- over its key results); completing the objective (@done) pays it again

@@ -146,7 +146,7 @@ function M.lines(context)
 	end
 
 	heading("How XP is calibrated")
-	add(string.format("  XP is estimated work: 1 hour = %s XP (xp.xp_per_hour).", M.format_number(xph)))
+	add(string.format("  XP is estimated work: %s XP = 1 hour (xp.xp_per_hour).", M.format_number(xph)))
 	add("  @size says how long something takes (xp.sizes); priority and importance")
 	add("  multiply it. Time you track (@spent) is shown next to it, not paid.")
 	add("")
@@ -315,7 +315,13 @@ function M.context(bufnr, lnum)
 		else
 			how = "sum of its tasks"
 		end
-		out[#out + 1] = string.format("Project %s: %s XP (%s)", project.name or project.key, M.format_number(pool), how)
+		out[#out + 1] = string.format(
+			"Project %s: %s XP, %s of estimated work (%s)",
+			project.name or project.key,
+			M.format_number(pool),
+			M.format_hours(pool / xph),
+			how
+		)
 		local ok_k, krs = pcall(function()
 			return require("zortex.services.projects.relations").key_results(project, { inherit = true })
 		end)

@@ -235,7 +235,7 @@ function M.inbox(path)
 		local d = doc.syntax.lines[lnum]
 		local mark = d and d.item and d.item.mark
 		if text ~= "" and (mark == nil or mark == " ") then
-			out[#out + 1] = { text = text, file = path, lnum = lnum }
+			out[#out + 1] = { text = text, file = path, lnum = lnum, inbox = true }
 		end
 	end
 	return out
@@ -271,7 +271,9 @@ end
 ---                           an area
 ---   calendar                calendar entries in the window: { entries,
 ---                           tasks, done, open = { items } }
----   inbox                   what is left in inbox.zortex (M.inbox)
+---   inbox                   what is left in inbox.zortex (M.inbox), then
+---                           lines elsewhere marked @project(...)
+---                           (services/triage.items)
 ---
 --- opts.scope "day" (the daily review) looks back to the day after the last
 --- daily review (at most 7 days; M.day_window) and ahead one day; "week"
@@ -305,7 +307,8 @@ function M.review(opts)
 		objectives_without_krs = {},
 		areas_without_projects = {},
 		broken_links = {},
-		inbox = M.inbox(),
+		-- the inbox, and lines elsewhere marked @project (services/triage)
+		inbox = require("zortex.services.triage").items(),
 	}
 
 	-- Project tasks

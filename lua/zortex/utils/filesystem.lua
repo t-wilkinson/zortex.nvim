@@ -80,7 +80,7 @@ end
 --- out), optionally filtered by filter_fn(path).
 --- opts.conflicts: list the conflict copies instead.
 function M.find_all_notes(filter_fn, opts)
-	local dir = Config.notes_dir
+	local dir = (opts and opts.dir) or Config.notes_dir
 	local pattern = "%" .. Config.extension .. "$"
 	local want_conflicts = opts and opts.conflicts or false
 	local files = {}

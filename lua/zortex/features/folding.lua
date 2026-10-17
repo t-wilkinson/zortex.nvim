@@ -134,6 +134,42 @@ function M.update_folds(bufnr)
 
 	-- Cache the calculated fold expressions to the buffer
 	vim.b[bufnr].zortex_folds = levels
+
+	-- Lines marked @fold that start a fold (a section, a list item with
+	-- children): they start closed
+	local marked = {}
+	for i = 1, #lines do
+		if levels[i]:sub(1, 1) == ">" and lines[i]:find("@fold", 1, true) then
+			for _, span in ipairs(doc:inline(i) or {}) do
+				if span.type == "attribute" and span.key == "fold" then
+					marked[#marked + 1] = i
+					break
+				end
+			end
+		end
+	end
+	vim.b[bufnr].zortex_fold_closed = marked
+end
+
+--- Close the @fold sections of the buffer in `win` (each time the note is
+--- shown in a window). A section opened by hand stays open while the window
+--- shows the note.
+function M.close_marked(win, bufnr)
+	win = (win == nil or win == 0) and vim.api.nvim_get_current_win() or win
+	bufnr = bufnr or vim.api.nvim_win_get_buf(win)
+	local marked = vim.b[bufnr].zortex_fold_closed or {}
+	if #marked == 0 or not vim.api.nvim_win_is_valid(win) or vim.api.nvim_win_get_buf(win) ~= bufnr then
+		return
+	end
+	vim.api.nvim_win_call(win, function()
+		-- innermost first, so closing a section doesn't hide a nested one
+		for k = #marked, 1, -1 do
+			local lnum = marked[k]
+			if vim.fn.foldlevel(lnum) > 0 and vim.fn.foldclosed(lnum) ~= lnum then
+				pcall(vim.cmd, lnum .. "foldclose")
+			end
+		end
+	end)
 end
 
 function M.setup()
@@ -164,6 +200,18 @@ function M.setup()
 			if has_highlights and highlights.zortex_fold_text then
 				vim.wo.foldtext = "v:lua.require('zortex.features.highlights').zortex_fold_text()"
 			end
+		end,
+	})
+
+	-- @fold sections start closed whenever the note is shown
+	vim.api.nvim_create_autocmd("BufWinEnter", {
+		group = group,
+		pattern = "*.zortex",
+		callback = function(args)
+			local win = vim.api.nvim_get_current_win()
+			vim.schedule(function()
+				M.close_marked(win, args.buf)
+			end)
 		end,
 	})
 end

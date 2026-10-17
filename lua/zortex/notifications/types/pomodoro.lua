@@ -42,14 +42,48 @@ local EVENT_TAGS = {
 	stop = { "stop_sign", "pomodoro", "pomodoro-stop" },
 }
 
--- Freedesktop sounds used when types.pomodoro.sounds doesn't name one
-local DEFAULT_SOUNDS = {
-	work_start = "/usr/share/sounds/freedesktop/stereo/bell.oga",
-	break_start = "/usr/share/sounds/freedesktop/stereo/complete.oga",
-	restart = "/usr/share/sounds/freedesktop/stereo/service-login.oga",
-	work_end = "/usr/share/sounds/freedesktop/stereo/message.oga",
-	break_end = "/usr/share/sounds/freedesktop/stereo/message.oga",
-}
+-- Sounds used when types.pomodoro.sounds doesn't name one: freedesktop's
+-- on Linux, the system sounds on macOS
+local DEFAULT_SOUNDS = vim.fn.has("mac") == 1
+		and {
+			work_start = "/System/Library/Sounds/Glass.aiff",
+			break_start = "/System/Library/Sounds/Hero.aiff",
+			restart = "/System/Library/Sounds/Purr.aiff",
+			work_end = "/System/Library/Sounds/Ping.aiff",
+			break_end = "/System/Library/Sounds/Ping.aiff",
+		}
+	or {
+		work_start = "/usr/share/sounds/freedesktop/stereo/bell.oga",
+		break_start = "/usr/share/sounds/freedesktop/stereo/complete.oga",
+		restart = "/usr/share/sounds/freedesktop/stereo/service-login.oga",
+		work_end = "/usr/share/sounds/freedesktop/stereo/message.oga",
+		break_end = "/usr/share/sounds/freedesktop/stereo/message.oga",
+	}
+
+--- The command that plays `file`: sound_command as a list
+--- ({ "mpv", "--no-video", "--volume=60" }) or a string split on spaces
+--- ("pw-play --volume 0.5"). "%s" in an argument stands for the file;
+--- without one the file goes last. Default: paplay (afplay on macOS).
+local function sound_argv(command, file)
+	if command == nil or command == "" then
+		command = vim.fn.has("mac") == 1 and "afplay" or "paplay"
+	end
+	local argv = type(command) == "table" and vim.deepcopy(command) or vim.split(vim.trim(command), "%s+")
+	local placed = false
+	for i, a in ipairs(argv) do
+		if i > 1 and a:find("%s", 1, true) then
+			argv[i] = a:gsub("%%s", function()
+				return file
+			end)
+			placed = true
+		end
+	end
+	if not placed then
+		argv[#argv + 1] = file
+	end
+	return argv
+end
+M.sound_argv = sound_argv
 
 local function settings_from_cfg()
 	return {
@@ -96,9 +130,9 @@ local function play(event)
 	if not file or vim.fn.filereadable(file) == 0 then
 		return
 	end
-	local player = cfg.sound_command or (vim.fn.has("mac") == 1 and "afplay" or "paplay")
-	if vim.fn.executable(player) == 1 then
-		vim.fn.jobstart({ player, file }, { detach = true })
+	local argv = sound_argv(cfg.sound_command, file)
+	if vim.fn.executable(argv[1]) == 1 then
+		vim.fn.jobstart(argv, { detach = true })
 	end
 end
 

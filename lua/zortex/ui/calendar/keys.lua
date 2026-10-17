@@ -184,64 +184,46 @@ function M.sync_notifications()
 	view().refresh()
 end
 
+--- x / 2x: tick (or reopen) task 2 of the listed day (the numbers before
+--- its tasks); x alone picks one when there are several.
+function M.toggle_task()
+	local list = state().tasks or {}
+	if #list == 0 then
+		vim.notify("No tasks on this day", vim.log.levels.INFO)
+		return
+	end
+	local function toggle(t)
+		local res, err = require("zortex.services.tasks").toggle_at(t.file, t.lnum)
+		if not res then
+			vim.notify("Can't toggle: " .. tostring(err), vim.log.levels.WARN)
+		end
+		require("zortex.stores.calendar").load()
+		view().refresh()
+	end
+	local n = vim.v.count
+	if n > 0 then
+		if not list[n] then
+			return vim.notify("No task " .. n .. " on this day", vim.log.levels.WARN)
+		end
+		return toggle(list[n])
+	end
+	if #list == 1 then
+		return toggle(list[1])
+	end
+	vim.ui.select(list, {
+		prompt = "Tick which task?",
+		format_item = function(t)
+			return t.text
+		end,
+	}, function(t)
+		if t then
+			toggle(t)
+		end
+	end)
+end
+
 function M.show_help()
-	local help_lines = {
-		"Zortex Calendar - Key Bindings",
-		"",
-		"Navigation:",
-		"  h/← - Previous day",
-		"  l/→ - Next day",
-		"  j/↓ - Previous week",
-		"  k/↑ - Next week",
-		"  J   - Previous month",
-		"  K   - Next month",
-		"  H   - Previous year",
-		"  L   - Next year",
-		"  t/T - Go to today",
-		"",
-		"Actions:",
-		"  a/i     - Add entry",
-		"  <CR>/o  - View/edit entries",
-		"  e       - Edit selected entry",
-		"  x       - Delete selected entry",
-		"  d/D     - Show digest view",
-		"  v       - Toggle view mode",
-		"  gf      - Go to calendar file",
-		"  n       - Sync notifications",
-		"  r/R     - Refresh",
-		"  /       - Search entries",
-		"  ?       - Show this help",
-		"  q/<Esc> - Close calendar",
-		"",
-		"Mouse:",
-		"  Click        - Select date",
-		"  Double-click - View entries",
-	}
-
-	local width = 40
-	local height = #help_lines + 2
-	local buf = api.nvim_create_buf(false, true)
-	api.nvim_buf_set_lines(buf, 0, -1, false, help_lines)
-	vim.bo[buf].modifiable = false
-	local win = api.nvim_open_win(buf, true, {
-		relative = "editor",
-		width = width,
-		height = height,
-		row = math.floor((vim.o.lines - height) / 2),
-		col = math.floor((vim.o.columns - width) / 2),
-		border = "rounded",
-		title = " Help ",
-		title_pos = "center",
-		style = "minimal",
-	})
-
-	-- Close on any key
-	vim.keymap.set("n", "<Esc>", function()
-		api.nvim_win_close(win, true)
-	end, { buffer = buf })
-	vim.keymap.set("n", "q", function()
-		api.nvim_win_close(win, true)
-	end, { buffer = buf })
+	require("zortex.ui.keyhelp").show("calendar")
 end
 
 -- =============================================================================
@@ -268,6 +250,7 @@ function M.attach(bufnr, cfg)
 		digest = M.show_digest,
 		toggle_view = M.toggle_view,
 		go_to_file = M.go_to_file,
+		toggle_task = M.toggle_task,
 		sync_notifications = M.sync_notifications,
 		help = M.show_help,
 		refresh = function()
@@ -278,11 +261,16 @@ function M.attach(bufnr, cfg)
 		end,
 	}
 
+	-- descriptions from the key table (zortex.keys), keys from the config
+	local desc = {}
+	for _, k in ipairs(require("zortex.keys").def("calendar").keys) do
+		desc[k[2]] = k[3]
+	end
 	for action, func in pairs(keymap_actions) do
 		local keys = cfg.keymaps[action]
 		if keys then
-			for _, key in ipairs(keys) do
-				vim.keymap.set("n", key, func, opts)
+			for _, key in ipairs(type(keys) == "table" and keys or { keys }) do
+				vim.keymap.set("n", key, func, vim.tbl_extend("force", opts, { desc = "Zortex calendar view: " .. (desc[action] or action) }))
 			end
 		end
 	end

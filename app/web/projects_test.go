@@ -153,3 +153,17 @@ func TestProjectPages(t *testing.T) {
 		t.Fatalf("stale: %d", code)
 	}
 }
+
+// The domain views: objectives against their window, the weekly review.
+func TestObjectivesAndReviewPages(t *testing.T) {
+	_, _, ts := newTestServer(t, "")
+	okr := expect(t, ts, "/okr", 200, `<h1>Objectives</h1>`, `Ship zortex projects`, `KR1`, `aria-current="page">Objectives`)
+	if !strings.Contains(okr, `class="prow-name"`) {
+		t.Error("key results list the projects they link")
+	}
+	expect(t, ts, "/review", 200, `Weekly review`, `class="tile"`, `Inbox`)
+	week := expect(t, ts, "/review?week=2026-W02", 200, `<h1>2026-W02</h1>`, `Jan 5 – Jan 11, 2026`, `2026-W01`, `2026-W03`)
+	_ = week
+	expect(t, ts, "/review?week=nonsense", 200, `Weekly review`)
+	expect(t, ts, "/projects", 200, `href="/review"`)
+}

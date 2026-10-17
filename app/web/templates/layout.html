@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{if .Title}}{{.Title}} · {{end}}{{.Site}}</title>
+<title>{{if and .Title (ne .Title .Site)}}{{.Title}} · {{end}}{{.Site}}</title>
 <link rel="stylesheet" href="{{asset "/static/style.css"}}">
 <link rel="icon" href="{{asset "/static/icon.svg"}}" type="image/svg+xml">
 <link rel="manifest" href="{{u "/manifest.webmanifest"}}" crossorigin="use-credentials">
@@ -11,6 +11,7 @@
 <meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#15171a" media="(prefers-color-scheme: dark)">
 <script src="{{asset "/static/app.js"}}" defer></script>
+<script src="{{asset "/static/hover.js"}}" defer></script>
 <script src="{{asset "/static/live.js"}}" defer></script>
 <script src="{{asset "/static/tables.js"}}" defer></script>
 <script src="{{asset "/static/math.js"}}" data-katex="{{asset "/static/katex/katex.min.js"}}" data-katex-css="{{asset "/static/katex/katex.min.css"}}" defer></script>
@@ -23,6 +24,7 @@
   </form>
   <nav class="links">
     <a href="{{u "/projects"}}"{{if eq .Nav "projects"}} aria-current="page"{{end}}>Projects</a>
+    <a href="{{u "/okr"}}"{{if eq .Nav "okr"}} aria-current="page"{{end}}>Objectives</a>
     <a href="{{fileURL ""}}"{{if eq .Nav "files"}} aria-current="page"{{end}}>Files</a>
     <a href="{{u "/broken"}}"{{if eq .Nav "broken"}} aria-current="page"{{end}}>Broken</a>
     <a href="{{u "/graph"}}"{{if eq .Nav "graph"}} aria-current="page"{{end}}>Graph</a>

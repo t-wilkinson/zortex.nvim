@@ -44,15 +44,58 @@ function M.actions_markdown()
 	return out
 end
 
---- The README with the generated block replaced.
+M.KEYS_START, M.KEYS_STOP = "<!-- keys:start -->", "<!-- keys:end -->"
+
+-- The keys of zortex's buffers and pickers (zortex.keys), with the defaults
+local function key_rows(id)
+	local rows, by = {}, {}
+	for _, k in ipairs(require("zortex.keys").of(id, true)) do
+		local r = by[k.action]
+		if r then
+			r[1] = r[1] .. " `" .. k.lhs .. "`"
+		else
+			r = { "`" .. k.lhs .. "`", k.desc }
+			by[k.action] = r
+			rows[#rows + 1] = r
+		end
+	end
+	return rows
+end
+
+--- Markdown for the keys of zortex's buffers and pickers.
+function M.keys_markdown()
+	local keys = require("zortex.keys")
+	local out = {}
+	local function block(def, note)
+		out[#out + 1] = ""
+		out[#out + 1] = string.format("**%s** (%s)%s", def.name, def.where:match("^:") and ("`" .. def.where .. "`") or def.where, note or "")
+		out[#out + 1] = ""
+		out[#out + 1] = "| Key | Does |"
+		out[#out + 1] = "|---|---|"
+		for _, r in ipairs(key_rows(def.id)) do
+			out[#out + 1] = string.format("| %s | %s |", r[1]:gsub("|", "\\|"), (r[2]:gsub("|", "\\|")))
+		end
+	end
+	out[#out + 1] = "In zortex's own buffers `?` lists these keys; the pickers name theirs in"
+	out[#out + 1] = "the title, with the picker's own help key: " .. keys.PICKER_HELP_TEXT .. "."
+	for _, def in ipairs(keys.BUFFERS) do
+		block(def, def.config and (" · keys in `" .. def.config .. "`") or nil)
+	end
+	for _, def in ipairs(keys.PICKERS) do
+		block(def, (def.config and (" · keys in `" .. def.config .. "`") or "") .. " · picker")
+	end
+	return out
+end
+
+--- The README with the generated blocks replaced.
 function M.render_readme(lines)
 	local out, skipping = {}, false
 	for _, line in ipairs(lines) do
-		if line == M.START then
+		if line == M.START or line == M.KEYS_START then
 			out[#out + 1] = line
-			vim.list_extend(out, M.actions_markdown())
+			vim.list_extend(out, line == M.START and M.actions_markdown() or M.keys_markdown())
 			skipping = true
-		elseif line == M.STOP then
+		elseif line == M.STOP or line == M.KEYS_STOP then
 			skipping = false
 			out[#out + 1] = line
 		elseif not skipping then
@@ -133,7 +176,8 @@ local SETUP = {
 	"that has notes it only says what is missing; |:ZortexInit| creates them.",
 	"",
 	"Notes open folded to their headings (`features.folding.level`): |zR| opens",
-	"every fold.",
+	"every fold. A section marked `@fold` starts closed whenever the note is",
+	"shown, whatever its level.",
 }
 
 local NOTES = {
@@ -267,6 +311,34 @@ function M.vimdoc_lines()
 			desc = desc .. "."
 		end
 		vim.list_extend(cmds, wrap(desc .. (key_text and (" Keys: " .. key_text .. ".") or "") .. " Id: " .. a.id .. ".", "    "))
+	end
+
+	-- the keys of zortex's own buffers and pickers (zortex.keys)
+	local keys = require("zortex.keys")
+	cmds[#cmds + 1] = ""
+	local kt = "*zortex-keys*"
+	cmds[#cmds + 1] = "KEYS IN ZORTEX BUFFERS AND PICKERS" .. string.rep(" ", W - 34 - #kt) .. kt
+	cmds[#cmds + 1] = ""
+	vim.list_extend(cmds, wrap("In these buffers `?` lists their keys; the pickers name theirs in the title, with the picker's own help key: " .. keys.PICKER_HELP_TEXT:gsub("`", "") .. ".", ""))
+	local function kblock(def, picker)
+		cmds[#cmds + 1] = ""
+		local where = def.where .. (def.config and (", keys in " .. def.config) or "") .. (picker and ", picker" or "")
+		cmds[#cmds + 1] = def.name:upper() .. " (" .. where .. ") ~"
+		local width = 0
+		local rows = key_rows(def.id)
+		for _, r in ipairs(rows) do
+			r[1] = r[1]:gsub("`", "")
+			width = math.max(width, #r[1])
+		end
+		for _, r in ipairs(rows) do
+			cmds[#cmds + 1] = "  " .. r[1] .. string.rep(" ", width - #r[1] + 2) .. r[2]
+		end
+	end
+	for _, def in ipairs(keys.BUFFERS) do
+		kblock(def)
+	end
+	for _, def in ipairs(keys.PICKERS) do
+		kblock(def, true)
 	end
 	section(4, cmds)
 

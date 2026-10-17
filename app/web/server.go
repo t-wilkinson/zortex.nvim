@@ -98,7 +98,10 @@ type Server struct {
 	pomo   *pomodoro.Clock  // nil without DataDir
 	clocks *clocks.Clocks   // timers, alarms, stopwatch; nil without DataDir
 	track  *tracker.Tracker // time on tasks; nil without DataDir (used with Writable)
-	xp     xpCache          // XP summary published by Neovim
+	// what is opened from search (DataDir/search_history.json, never the
+	// notes' .z/); nil without DataDir
+	history *search.History
+	xp      xpCache // XP summary published by Neovim
 
 	editMu      sync.Mutex    // one edit at a time
 	completions completionLog // tasks completed on the web, until Neovim counts them
@@ -421,6 +424,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /broken", s.handleBroken)
 	mux.HandleFunc("GET /projects", s.handleProjects)
 	mux.HandleFunc("GET /project", s.handleProject)
+	mux.HandleFunc("GET /okr", s.handleOKR)
+	mux.HandleFunc("GET /review", s.handleReview)
 	mux.HandleFunc("POST /api/project/log", s.apiProjectLog)
 	mux.HandleFunc("GET /resources", s.handleResources)
 	mux.HandleFunc("GET /api/resources", s.apiResources)
@@ -428,6 +433,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/search", s.apiSearch)
 	mux.HandleFunc("GET /api/resolve", s.apiResolve)
 	mux.HandleFunc("GET /api/backlinks", s.apiBacklinks)
+	mux.HandleFunc("GET /api/hover", s.apiHover)
 	mux.HandleFunc("GET /healthz", s.handleHealth)
 	mux.HandleFunc("GET /health", s.handleHealth)
 	mux.HandleFunc("GET /structure", s.handleStructure)
@@ -442,6 +448,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /pending", s.handlePending)
 	mux.HandleFunc("POST /test", s.handleTestNotification)
 	// pomodoro, shared by Neovim and the home page
+	mux.HandleFunc("GET /search/open", s.handleSearchOpen)
 	mux.HandleFunc("GET /api/pomodoro", s.apiPomodoro)
 	mux.HandleFunc("POST /api/pomodoro/{action}", s.apiPomodoroAction)
 	// timers, alarms and the stopwatch (home page)

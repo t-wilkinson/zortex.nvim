@@ -60,21 +60,21 @@ Things that break or embarrass a first-time user. Do these before telling anyone
 - [x] Decide what ships: system, ntfy and the server provider; AWS/SES and the digest email are gone (`GET /api/digest` gives the content to any mail service) @p2 @size(sm) @done(2026-10-12)
 - [x] `providers/ntfy.lua` shells out with `io.popen` and hand-quoted headers: blocks the editor and breaks on quotes in titles; use `vim.system` with an argument list (or JSON publishing like the server) @p2 @size(sm) @done(2026-10-13)
 - [x] `alarm` and `timer` notification types have no tests; test or cut them: cut from Neovim, rebuilt in the web app with tests @p3 @size(sm) @done(2026-10-12)
-- [ ] Sounds: `paplay` / `afplay` only; document, and let `sound_command` take arguments @p3 @size(xs)
+- [x] Sounds: `paplay` / `afplay` only; document, and let `sound_command` take arguments (a string with arguments or a list, `%s` the file; macOS system sounds by default; `ZORTEX_SOUND_PLAYER` for contrib/ntfy) @p3 @size(xs) @done(2026-10-16)
 
 ## 3.2 Calendar
 - [x] `ui/calendar/render.lua` adjusts icon widths by hand (`shift_hl`, `icon_width`); use display width @p3 @size(sm) @done(2026-10-13)
-- [ ] Two calendar views (Neovim and web) must agree on what an entry is; share one fixture @p3 @size(xs)
+- [x] Two calendar views (Neovim and web) must agree on what an entry is; share one fixture (`tests/fixtures/calendar.json`; the web now reads `- 14:00 x`, `7:05`, `@2h` ends and 4-space nesting like Neovim) @p3 @size(xs) @done(2026-10-16)
 
 ## 3.3 XP
-- [ ] Measure the ledger on a real vault (cold build waits for the link index); persist a cache if startup suffers @p2 @size(sm)
+- [x] Measure the ledger on a real vault (cold build waits for the link index); persist a cache if startup suffers: on a generated vault (1,340 notes, 3,600 project tasks, 28,000 links) the cold link index took 44 s, now 2.1 s (memoized resolution, article-first candidates, one modified-buffer map); the ledger rebuilds in 0.25-0.3 s after a change, so no cache @p2 @size(sm) @done(2026-10-16)
 - [x] The web panel depends on Neovim publishing `.z/xp_summary.json`; say so in the server guide, note `.stignore` @p3 @size(xs) @done(2026-10-13)
 
 ## 3.4 Web app
 - [x] No login by design; add an optional `-basic-auth-file` for people without a proxy, or make the warning impossible to miss (-auth-file / ZORTEX_AUTH, and a warning) @p2 @size(sm) @done(2026-10-13)
 - [x] Project pages: progress, next tasks, key results, log, calendar history @p3 @size(md) @done(2026-10-16)
-- [ ] Domain views (Wishlist # 6 phase 4): OKR progress, weekly review @p3 @size(lg)
-- [ ] Search history on the web, kept apart from `.z/search_history.json` (open question in the wishlist) @p3 @size(sm)
+- [x] Domain views (Wishlist # 6 phase 4): OKR progress (`/okr`), weekly review (`/review`) @p3 @size(lg) @done(2026-10-16)
+- [x] Search history on the web, kept apart from `.z/search_history.json`: `-data/search_history.json`, the plugin's frecency in Go, results opened through `/search/open` @p3 @size(sm) @done(2026-10-16)
 
 ## 3.5 Syntax: one way to write each thing
 - [x] Tag searches: words are all-of, commas any-of (`@[rust async]`, `@[rust, rl]`), like the search box; ` + ` / ` & ` and the `+a+b` / `&a&b` link queries are gone @p2 @size(md) @done(2026-10-15)
@@ -91,8 +91,8 @@ Things that break or embarrass a first-time user. Do these before telling anyone
 - [x] Markdown files render in the web file viewer (math included); source links for HTML and Markdown @p3 @size(md) @done(2026-10-14)
 
 ## 3.7 Editing
-- [ ] `:ZortexProjectRename`: rename a heading and rewrite every link (`link_index.references`) @p3 @size(md)
-- [ ] Broken links as `vim.diagnostic` from `link_index.unresolved()` @p3 @size(sm)
+- [x] `:ZortexRename` (`<leader>zR`): rename a heading, bold heading or label and rewrite every link through it (`link_index.references`); links whose component is still a prefix stay @p3 @size(md) @done(2026-10-16)
+- [x] Broken links as `vim.diagnostic` (`link_index.unresolved_in`, `features.diagnostics`) @p3 @size(sm) @done(2026-10-16)
 
 ## 3.8 Before publishing
 - [x] Web: a "- Key: text" item wraps under its key, not in a column after it @p3 @size(xs) @done(2026-10-15)
@@ -102,9 +102,9 @@ Things that break or embarrass a first-time user. Do these before telling anyone
 - [x] ntfy `zortex-notify` warning only on the public ntfy.sh; `/api/calendar` `events` / `text_view` and the sync reply's `upserted` removed @p3 @size(xs) @done(2026-10-15)
 - [x] Docs: default `notes_dir` `~/zortex`; notes in `notes_dir`, `z/` for resources and archives; keeping notes in sync with a server; README introduction; Search.md as a guide; no Upgrading section; no comments about earlier versions @p2 @size(md) @done(2026-10-15)
 - [x] Leave Syncthing conflict copies (`*.sync-conflict-*.zortex`) out of the note index in Neovim and Go: today they are notes, so a conflicted `projects.zortex` doubles every project and makes links ambiguous @p1 @size(xs) @done(2026-10-15)
-- [ ] doc/Philosophy.md for strangers: it describes `- #one#two#` tags and a "Storage" file that don't exist, and has typos @p2 @size(xs)
-- [ ] Retake `doc/images/web-home.png` (the Notes panel is gone) @p3 @size(xs)
-- [ ] Web search: plain text mode, as in Neovim @p3 @size(sm)
+- [x] doc/Philosophy.md for strangers: it describes `- #one#two#` tags and a "Storage" file that don't exist, and has typos @p2 @size(xs) @done(2026-10-16)
+- [x] Retake `doc/images/web-home.png` (the Notes panel is gone; headless Chromium on the example vault) @p3 @size(xs) @done(2026-10-16)
+- [x] Web search: plain text mode, as in Neovim (Sections / Articles / Text; `search.json` has text cases) @p3 @size(sm) @done(2026-10-16)
 
 ## 3.9 Fixes and quick wins (review of 2026-10-16)
 - [x] `:ZortexPlan` from the plan window: `<CR>` / `p` wrote into the plan buffer; opening the calendar asked to save changes the planner had made @p1 @size(sm) @done(2026-10-16)
@@ -126,29 +126,38 @@ Things that break or embarrass a first-time user. Do these before telling anyone
 
 ## 3.10 Syntax to settle before the first tag
 Grammar changes are cheap now and costly once other people have notes.
-- [ ] Labels: a plain `Text:` is a label only up to 3 words (almost every label is 1-3); longer labels opt in with `*A longer label like this one:*`, parsed at the same level as plain labels. Lua and Go parsers, `tests/fixtures/ast`, Syntax.md; first a command that lists the lines whose kind would change, and check `*…:*` against emphasis spans (Wishlist # 8) @p2 @size(md)
-- [ ] Tag search filters with `is:` words (a colon can't be in a tag, so they can't clash): `@[rust is:heading]`, `@[rl is:open]`, `@[rust is:task, rust is:label]`; kinds `heading label item task open done resource`. `@[#-:/tags]` would collide with the scope, which is a link (Wishlist # 8) @p2 @size(md)
+- [x] Labels: a plain `Text:` is a label only up to 3 words (almost every label is 1-3); longer labels opt in with `*A longer label like this one:*`, parsed at the same level as plain labels. Lua and Go parsers, `tests/fixtures/ast`, Syntax.md; first a command that lists the lines whose kind would change, and check `*…:*` against emphasis spans (Wishlist # 8) @p2 @size(md) (`:ZortexLongLabels` lists the lines that stopped being labels) @done(2026-10-16)
+- [x] Tag search filters with `is:` words (a colon can't be in a tag, so they can't clash): `@[rust is:heading]`, `@[rl is:open]`, `@[rust is:task, rust is:label]`; kinds `heading label item task open done resource`. `@[#-:/tags]` would collide with the scope, which is a link (Wishlist # 8) @p2 @size(md) @done(2026-10-16)
+
+## 3.11 Before publishing, second pass (2026-10-16)
+- [x] The only task under a calendar time, ticked without a size, gets the size nearest the block's length (its range, else until the next timed line; by ratio) (Neovim and web, `tests/fixtures/autosize.json`) @p2 @size(sm) @done(2026-10-16)
+- [x] Generated link text keeps everything but link syntax, `@` and `|`: `&`, `'`, `,`, `?` and non-ASCII letters are no longer cut @p2 @size(xs) @done(2026-10-16)
+- [x] The home page's title is "Zortex", not "Zortex · Zortex" @p3 @size(xs) @done(2026-10-16)
+- [x] Moving lines no longer leaves their link icons piled on the next line (marks invalidate with their text; buffers changed while not current repaint) @p2 @size(xs) @done(2026-10-16)
+- [x] `:ZortexTOC` opens on the left @p3 @size(xs) @done(2026-10-16)
+- [x] `@fold` keeps a section folded each time the note is shown @p3 @size(xs) @done(2026-10-16)
+- [ ] A timed line holding a checkbox (`16:00 - [ ] Task`) as a task: a grammar change (both parsers, AST fixtures, the calendar views), undecided @p3 @size(md)
 
 # 5 Next (agreed 2026-10-16)
 Details in Wishlist # 8.
 
 ## 5.1 Calendar and planning
-- [ ] Inbox triage: `@project(1.4)` on an inbox item or loose task; the daily review lists them with `m` to move each to its project, and items without one to `review.inbox_default` (a place in the projects note, e.g. a heading of `[P/#Areas]`, the area tree for maintenance tasks that aren't projects) @p2 @size(md)
-- [ ] Project blocks: a calendar line holding only a project link, with nothing under it, shows the project's next open tasks (`ui.planner.project_tasks`) as references, toggling the tasks (Neovim calendar view and web) @p3 @size(md)
-- [ ] Help: one table of the keys of each zortex buffer and picker, so `?`, README, `:help zortex-keys` and the picker titles come from it; mention each picker backend's own help key @p3 @size(sm)
+- [x] Inbox triage: `@project(1.4)` on an inbox item or loose task; the daily review lists them with `m` to move each to its project, and items without one to `review.inbox_default` (a place in the projects note, e.g. a heading of `[P/#Areas]`, the area tree for maintenance tasks that aren't projects) @p2 @size(md) (`@project(` completes; no `@project` and no default: `m` asks with :ZortexMove's search) @done(2026-10-16)
+- [x] Project blocks: a calendar line holding only a project link, with nothing under it, shows the project's next open tasks (`ui.planner.project_tasks`) as references, toggling the tasks (Neovim calendar view and web) @p3 @size(md) @done(2026-10-16)
+- [x] Help: one table of the keys of each zortex buffer and picker, so `?`, README, `:help zortex-keys` and the picker titles come from it; mention each picker backend's own help key @p3 @size(sm) @done(2026-10-16)
 
 ## 5.2 Links and tags
-- [ ] A `-` component matches a task's `@id` too: `[P/-aB3x9]` keeps pointing at a task through renames (no new link component for tasks) @p3 @size(sm)
-- [ ] Notes outside `notes_dir` (a repo's `doc/Roadmap.zortex`): their links resolve in their own folder; `[~/P/#Subaru]` reaches `notes_dir` @p3 @size(md)
-- [ ] Broken and orphan tags, computed on request: tag searches that find nothing, `[@Tag]` links to a tag no note has, and bare tags no search uses (bare attributes like `@p1` left out); `/broken` lists them apart from broken links, Neovim through `:ZortexBrokenLinks` @p3 @size(md)
+- [x] A `-` component matches a task's `@id` too: `[P/-aB3x9]` keeps pointing at a task through renames (no new link component for tasks) @p3 @size(sm) @done(2026-10-16)
+- [x] Notes outside `notes_dir` (a repo's `doc/Roadmap.zortex`): their links resolve in their own folder; `[~/P/#Subaru]` reaches `notes_dir` @p3 @size(md) @done(2026-10-16)
+- [x] Broken and orphan tags, computed on request: tag searches that find nothing, `[@Tag]` links to a tag no note has, and bare tags no search uses (bare attributes like `@p1` left out); `/broken` lists them apart from broken links, Neovim through `:ZortexBrokenLinks` @p3 @size(md) @done(2026-10-16)
 
 ## 5.3 Web
-- [ ] Hover cards on links: a note's title, path, tags, first lines and backlink count; an image's thumbnail; an external link's domain and URL (nothing fetched from the server) @p3 @size(md)
-- [ ] Graph: a note's headings that other notes link to, under the note: the structure as it actually grows @p3 @size(md)
+- [x] Hover cards on links: a note's title, path, tags, first lines and backlink count; an image's thumbnail; an external link's domain and URL (nothing fetched from the server) @p3 @size(md) @done(2026-10-16)
+- [x] Graph: a note's headings that other notes link to, under the note: the structure as it actually grows @p3 @size(md) @done(2026-10-16)
 
 ## 5.4 XP
-- [ ] Area split: keep the harmonic default; `xp.area_split` sets a geometric ratio instead (1: even, 0.7: gently decaying) @p3 @size(sm)
-- [ ] Wording: "1 XP = 6 minutes of estimated work" wherever XP is shown or documented, and hours next to XP @p3 @size(sm)
+- [x] Area split: the harmonic default is gone; `xp.area_split` is a geometric ratio (default 0.5; 1: even, 0.7: gently decaying) @p3 @size(sm) @done(2026-10-16)
+- [x] Wording: "10 XP = 1 hour of estimated work" wherever XP is shown or documented, and hours next to XP @p3 @size(sm) @done(2026-10-16)
 
 Dropped: a raw-text section, uploading a file to render it, tags generated from Structure, other rules for a tagged heading's rows, XP "overlap", the calendar picker.
 

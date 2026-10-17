@@ -8,8 +8,9 @@ import (
 )
 
 // CalendarSize is the size a just-completed calendar task gets from its
-// block, or "": the task at lnum (1-based, no size of its own) must be the
-// only task nested under a timed line, and the block lasts its own range
+// block, or "": the task at lnum (1-based, no size of its own) must be a
+// timed task with no tasks under it ("16:00 [ ] Task"), or the only task
+// nested under a timed line, and the block lasts its own range
 // ("16:00 - 17:30") or until the next timed line of the day at its indent.
 // The size is the one whose hours are closest by ratio, the larger on a
 // tie. As the plugin's services/tasks.calendar_size, checked by
@@ -31,9 +32,12 @@ func CalendarSize(lines []string, lnum int, sizes map[string]float64) string {
 		}
 		return nil
 	}
-	// the timed line it is nested under
+	// the timed line it is, or is nested under
 	own, head := indentOf(line), 0
-	for l := lnum - 1; l >= 1; l-- {
+	if timed(line) != nil {
+		head = lnum // "16:00 [ ] Task": its own block
+	}
+	for l := lnum - 1; l >= 1 && head == 0; l-- {
 		text := lines[l-1]
 		if blankLine(text) {
 			continue
@@ -70,7 +74,12 @@ func CalendarSize(lines []string, lnum int, sizes map[string]float64) string {
 			}
 		}
 	}
-	if count != 1 {
+	// exactly one task: itself (a timed task with tasks under it is a group)
+	want := 1
+	if head == lnum {
+		want = 0
+	}
+	if count != want {
 		return ""
 	}
 	// its length

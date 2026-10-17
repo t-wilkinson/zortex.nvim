@@ -102,4 +102,20 @@ return {
 			"2026-10-14:",
 		},
 	},
+	{
+		name = "timed tasks carry without their old time; the old line keeps it",
+		today = "2026-10-14",
+		from = "2026-09-30",
+		lines = {
+			"@@Calendar",
+			"",
+			"2026-10-13:",
+			"16:00 [ ] Write the report @sm",
+			"17:00 - [ ] Call the bank @id(bank1)",
+			"18:00 [x] Done already",
+			"",
+			"2026-10-14:",
+			"09:00 Standup",
+		},
+	},
 }

@@ -10,6 +10,11 @@ The first public release.
 
 ### Neovim plugin
 
+- Timed tasks: `16:00 [ ] Task` (or `16:00 - 17:00 [ ]`, `16:00 - [ ]`) is
+  a task with a time. It notifies until it's done, sizes itself from its
+  slot when ticked, and carries to today without its old time. Toggling
+  `16:00 Report` makes it `16:00 [ ] Report` (it used to become
+  `- [ ] 16:00 Report`). The same in `zortex serve`.
 - **Labels are short now (a change to how notes parse):** a plain `Text:`
   line is a label only up to three words; a longer one is written
   `*A longer label like this one:*`. `:ZortexLongLabels` lists the lines

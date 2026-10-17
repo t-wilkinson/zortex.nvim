@@ -327,6 +327,20 @@ func ItemOf(line string) *Item {
 				col = after + n2
 			}
 		}
+	} else if it.MarkerType == "time" {
+		// a timed task: "16:00 [ ] Task", "16:00 - 17:00 [ ] Task", also
+		// "16:00 - [ ] Task"
+		text := line[col:]
+		dash := 0
+		if len(text) >= 2 && text[0] == '-' && isSpace(text[1]) {
+			if d := 1 + spaceRun(text, 1); at(text, d) == '[' {
+				dash = d
+			}
+		}
+		if mark, n, ok := matchCheckbox(text[dash:]); ok {
+			it.Mark, it.MarkCol = mark, intp(col+dash)
+			col += dash + n
+		}
 	}
 	it.ContentCol = col
 	return it

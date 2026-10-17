@@ -136,7 +136,7 @@ Grammar changes are cheap now and costly once other people have notes.
 - [x] Moving lines no longer leaves their link icons piled on the next line (marks invalidate with their text; buffers changed while not current repaint) @p2 @size(xs) @done(2026-10-16)
 - [x] `:ZortexTOC` opens on the left @p3 @size(xs) @done(2026-10-16)
 - [x] `@fold` keeps a section folded each time the note is shown @p3 @size(xs) @done(2026-10-16)
-- [ ] A timed line holding a checkbox (`16:00 - [ ] Task`) as a task: a grammar change (both parsers, AST fixtures, the calendar views), undecided @p3 @size(md)
+- [x] Timed tasks: `16:00 [ ] Task`, `16:00 - 17:00 [ ] Task` and `16:00 - [ ] Task` are tasks with a time (both parsers, AST and edit fixtures, the calendar views); they notify until done, size themselves from their slot, and carry forward without their old time @p2 @size(md) @done(2026-10-16)
 
 # 5 Next (agreed 2026-10-16)
 Details in Wishlist # 8.
@@ -161,12 +161,33 @@ Details in Wishlist # 8.
 
 Dropped: a raw-text section, uploading a file to render it, tags generated from Structure, other rules for a tagged heading's rows, XP "overlap", the calendar picker.
 
+# 6 Proposed (review of 2026-10-16)
+From a review of what a new user meets first. Not agreed item by item yet.
+
+## 6.1 Before the tag
+- [ ] Use `release-prep` on a real vault for about a week before tagging v0.1.0: many features landed on 2026-10-16 without real notes behind them @p1 @size(sm)
+- [ ] `:ZortexRename` shows what it will change (the notes and links) and asks first; its edits to notes that aren't open can't be undone today. The same question for `m` (inbox triage) and `:ZortexMove`, which also write notes that aren't open @p1 @size(sm)
+- [ ] One command that checks a vault: long labels, broken links, tags that go nowhere, task ids that don't line up, and later the syntax a release deprecates (the checks exist as separate commands) @p2 @size(sm)
+- [ ] A shorter README: the pitch, the screenshot, the quickstart and a feature list; the generated command and key tables live in `:help` and the docs @p2 @size(sm)
+
+## 6.2 Workflow
+- [ ] A calendar feed from the server (`/calendar.ics`): timed lines and `@event`s in the phone's calendar app, next to the other calendars (today: iCal files in and out only) @p1 @size(sm)
+- [ ] Import from Markdown / Obsidian vaults (moved up from # 4): `[[wikilinks]]` to zortex links, `#tags` to `@tags`, `.md` to `.zortex`; and a docs page on moving over @p1 @size(lg)
+- [ ] Capture from the phone's share menu: the installed web app as a share target (a link or text lands in the inbox), and inbox adds kept offline until the server is back @p2 @size(md)
+- [ ] Undo on the web: a "ticked · undo" toast for a few seconds after ticking or deleting a line @p2 @size(sm)
+
+## 6.3 Later
+- [ ] Backups: a suggested git setup in the docs, or an optional commit on save (a mistake syncs to every device) @p2 @size(sm)
+- [ ] Neovim and the web app editing one note at once: Neovim writes notes that aren't open without checking the line it replaces (the web app checks); test both together @p2 @size(md)
+- [ ] A promise about the note format in the README: what may change before 1.0 and how a change is announced (the changelog, the vault check) @p2 @size(xs)
+- [ ] The web area overview (Wishlist # 2) @p3 @size(md)
+- [ ] Windows: try it, and say what works @p3 @size(md)
+
 # 4 After v0.1.0
 - [ ] Tree-sitter grammar with the AST fixtures as acceptance tests (Wishlist # 7) @size(xl)
 - [x] LazyVim defaults: blink.cmp source next to the nvim-cmp one; pickers behind one interface with snacks.picker and fzf-lua backends next to telescope (`ui.picker = "auto"`) @size(lg) @done(2026-10-15)
 - [x] Web app as an installable PWA: manifest, icons, a service worker that keeps the last 60 pages for reading offline (doc/Server.md, Installing it as an app) @p1 @size(md) @done(2026-10-16)
 - [x] Pomodoro sessions into the calendar / XP (log what a session was spent on): time tracking writes @spent @size(md) @done(2026-10-12)
-- [ ] Import from Markdown / Obsidian vaults @size(lg)
 
 Decisions:
 - One repo, one version: the plugin and `zortex serve` are tagged together (decided 2026-10-16).

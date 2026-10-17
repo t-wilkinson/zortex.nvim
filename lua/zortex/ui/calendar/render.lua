@@ -295,8 +295,8 @@ function M.month(date, state, cfg, win_width)
 
 		if #entries > 0 then
 			for _, entry in ipairs(entries) do
-				-- notifying entries get a plain bullet here
-				local icon = entry.attributes.notify and "•" or entry_icon(entry, cfg)
+				-- notifying entries get a plain bullet here; a task its box
+				local icon = (entry.attributes.notify and entry.type ~= "task") and "•" or entry_icon(entry, cfg)
 				local own = entry.date_context == date_str and entry.lnum and cal_lines[entry.lnum] == entry.raw_text
 				local target
 				if own and entry.type == "task" and entry.mark ~= mirrors.MOVED then

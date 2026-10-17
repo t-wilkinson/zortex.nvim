@@ -120,6 +120,10 @@ function M.collect(now)
 		local date_str = datetime.format_datetime(datetime.add_days(today, day_offset), "YYYY-MM-DD")
 		for _, entry in ipairs(calendar_store.get_entries_for_date(date_str)) do
 			local notify_values, at_end = parse_notify_value(entry.attributes.notify)
+			-- a task done (or carried to another day, [>]) has nothing to remind you of
+			if entry.completed or entry.mark == ">" then
+				notify_values = nil
+			end
 			if notify_values then
 				local start_time, end_time = entry:get_start_time(), entry:get_end_time()
 				if start_time then

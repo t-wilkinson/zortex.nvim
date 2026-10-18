@@ -10,6 +10,84 @@ The first public release.
 
 ### Neovim plugin
 
+- `J` in a note joins lines the way they read: the joined line's `#`s,
+  `-` (with its `[ ]`), `1.` or `> ` go, and so does the `:` of a label or
+  bold heading it is joined onto (`Fitness:` + `- run 5k` is
+  `Fitness run 5k`). Counts, visual mode, `.` and undo work as with Vim's
+  `J`; code blocks and `gJ` join as written (`features.join`).
+- Edits across notes can be taken back: a rename, `:ZortexMove` and an
+  inbox move (`m`) load the notes that aren't open, change and save them,
+  and `:ZortexUndo` (`<leader>zU`, or `u` in the review) undoes the whole
+  thing in every note. A rename that changes other notes says what it will
+  change and asks first (Rename / List / Cancel).
+- Neovim no longer edits a note blind when it changed on disk (the web app,
+  a phone): an edit is checked against what was read, and refused when the
+  lines around it differ; an open, unsaved buffer is reloaded first.
+- `:ZortexToday [date]` (`<leader>zd`) goes to today in the calendar,
+  adding the day from its template (`ui.planner.templates`) when it isn't
+  there yet.
+- **A day of the calendar is a bold label**, `**2026-10-21:**`: new days
+  get it (the planner, carrying tasks, `add_entry`, the web app's Carry),
+  and a plain `2026-10-21:` still reads the same, in Neovim and on the web.
+  So an `Outcomes:` label nests under the day: the two or three results
+  that would make it a success. Change existing days by hand if you like:
+  `:%s/^\(\d\{4}-\d\d-\d\d\):$/**\1:**/` in `calendar.zortex`.
+- **The weekly review reads top down**: the vision (a `Vision:` line in
+  `areas.zortex`, and one per area), each area's objectives this period
+  against the time passed, their key results and the projects those link,
+  and the area's projects no key result covers, with gaps marked where
+  they are. Then the week's focus (no limit on how many), the rest of the
+  findings, and done projects to archive.
+- **One-key fixes in the reviews**: `x` ticks a task, `d` sets its
+  `@due`, `s` puts a task or a block of a project on a day, `n` adds a
+  next action, `z` parks a project (`@someday`: never stale), `a`
+  archives a done project or a finished task that served nothing (to
+  `z/archive.tasks.zortex`), `l` links a project to a key result, `k` adds
+  a key result, `p` starts a project for an area, `F` fixes a broken link
+  from the search; `u` takes the last one back.
+- The daily review opens with how the work done served the plan
+  (`Work done: 3h30m · 60% on key results · 25% on areas only · 15% on
+  neither`), lists what wasn't done with `t` to put it on the next day at
+  the same time, and lists finished tasks that served neither a key result
+  nor an area.
+- The planner keeps the rest of a key result's project under it, folded:
+  its other open tasks and each sub-project with its own (`zo` opens). The
+  capacity line says how much of the day is on key results.
+- The planner and the calendar view list what's **coming up**: the events
+  of the next seven days (`@event` lines, and timed lines and calendar
+  notes that don't link a project), to plan around
+  (`ui.planner.upcoming_days`; 0 hides it).
+- One XP view, `:ZortexXP` (`<leader>zxx`): the season's objectives and
+  tier, XP per day for two weeks with how much of that work went to key
+  results, areas only or neither, projects in progress, recent awards and
+  the area tree. `:ZortexSeason start|end|status` handles seasons;
+  `:ZortexXPExplain` and `:ZortexXPGuide` stay.
+- Every command is listed in `:help zortex` and the README, the
+  notification and pomodoro ones too: `:ZortexPomodoro` (start, pause or
+  resume), `:ZortexPomodoroSkip` / `Restart` / `Stop` / `Status`,
+  `:ZortexPomodoroSettings work=50 short=10 …`, `:ZortexNotify`,
+  `:ZortexNotificationList`, `:ZortexNotificationsSync [force]`.
+  Tools for finding problems are under one `:ZortexDebug` (`status`,
+  `logs`, `level`, `timers`, `clear`, `notifications`).
+- Needs Neovim 0.10 or newer (`:checkhealth zortex` says so); no deprecated
+  calls are left.
+- Works with nothing else installed: no picker plugin is required, the
+  `vim` notification channel shows its messages, and highlights and icons
+  fall back to standard groups and plain characters (no Nerd Font or
+  mini.hipatterns needed).
+- No personal defaults: ntfy has no default topic (nothing is sent until
+  you choose a private one) and defaults to `https://ntfy.sh`;
+  `:checkhealth` warns about a missing topic, and about a missing
+  `zortex-notify` tag only on the public ntfy.sh.
+- Notifications ship as `vim`, `system`, `ntfy` and the server; the ntfy
+  provider publishes with `vim.system` and an argument list, so it no
+  longer blocks the editor or breaks on quotes. Timers and alarms live in
+  the web app.
+- Bold headings are `**Text:**` only (the colon inside the stars).
+- One way to write each thing: `.zortex` is the only extension, `@size`
+  the only size spelling besides the bare `@sm`, `@lg`, … (`@sz` and
+  `@every` are gone).
+- The calendar view lines up icons by display width.
 - Timed tasks: `16:00 [ ] Task` (or `16:00 - 17:00 [ ]`, `16:00 - [ ]`) is
   a task with a time. It notifies until it's done, sizes itself from its
   slot when ticked, and carries to today without its old time. Toggling
@@ -138,7 +216,7 @@ The first public release.
 - Plain text search (`:ZortexSearchText`, `<leader>z/`): the prompt as typed,
   smart case, over every line; `<M-t>` cycles section, article and text mode.
 - Key prefixes are named in which-key when it is installed (`<leader>z`
-  "Zortex", `<leader>zC` "Calendar & digest", ...; `keymaps.groups`).
+  "Zortex", `<leader>zC` "Calendar", ...; `keymaps.groups`).
 - Projects, areas, objectives and key results as entities with progress,
   a weekly review, a day planner, a calendar view with iCal import/export.
 - XP read off completed tasks, calibrated in hours: `@size` is estimated
@@ -148,7 +226,7 @@ The first public release.
   `:ZortexXPGuide` shows the calibration from your config.
 - Seasons are progress on their objectives (weighted by objective XP), with
   tiers at 25/50/70/85/100%; with no season started by hand, the season is
-  the calendar quarter. A mastery tree shows both.
+  the calendar quarter. The XP view shows both.
 - The day planner ranks key-result work first, the further behind schedule
   the higher; a daily review (`:ZortexReview day`) next to the weekly one,
   both opening with what is left in the inbox, then objectives, XP on key
@@ -194,6 +272,18 @@ The first public release.
 
 ### Server (`zortex serve`)
 
+- The inbox box works offline in the installed app: what you add without a
+  connection (or while the server is down) is kept in the browser and
+  appended to the bottom of `inbox.zortex`, in order, when it's back. A
+  capture whose answer was lost is added once. The `/offline` page has the
+  box too, and the installed app has an "Add to inbox" shortcut.
+- The home page has one search box, the header's (it lists matching notes
+  as you type); the second box above the inbox is gone.
+- `/api/calendar` no longer returns `events` / `text_view`, and the
+  notification sync's reply no longer has `upserted`.
+- A `- Key: text` item wraps under its key, not in a column after it.
+- No personal time zone: the NixOS module follows `time.timeZone`, and
+  docker-compose sets no `TZ`.
 - `/okr` (Objectives in the top bar): objectives against the time passed in
   their period, their key results and the projects behind them. `/review`:
   the weekly review's findings, for any week.
@@ -262,7 +352,6 @@ The first public release.
   inbox, from any browser.
 - `-html-scripts`: HTML files in the notes may run JavaScript, sandboxed in
   an opaque origin (off by default).
-- `GET /api/digest`: the coming days of the calendar for any mail service.
 - Slides: any note as a slide deck (`?view=slides`, `:ZortexPresent`), cut at
   its headings (`@slides(n)` to choose the level), with speaker notes
   (`Notes:`), step-by-step reveal (`@step`, `@steps`), a presenter window,
@@ -291,3 +380,21 @@ The first public release.
   that has one; a warning when listening beyond localhost without a login.
 - Released as binaries for Linux and macOS and as
   `ghcr.io/t-wilkinson/zortex`; a NixOS module.
+
+### Project
+
+- MIT license; the old Node app (`legacy/`), its VimL bridge (`autoload/`),
+  the old test harness, dead code and compatibility shims for earlier names
+  and note forms are gone.
+- CI on every push: the Lua tests on Neovim 0.10, stable and nightly (and
+  against snacks.nvim, telescope, fzf-lua and blink.cmp), `go test -race`,
+  `gofmt`, and a check that generated docs and fixtures are up to date.
+  Tags build the release binaries and the container image; the Nix package
+  takes its version from the tag and runs the Go tests in its build.
+- Documentation for someone new: a README with a quickstart, `:help
+  zortex` (commands, keys and every configuration default, generated),
+  one syntax reference checked against the parser
+  ([doc/Syntax.md](doc/Syntax.md)), an example vault
+  ([doc/example](doc/example)), a server guide
+  ([doc/Server.md](doc/Server.md)) and the ideas behind it
+  ([doc/Philosophy.md](doc/Philosophy.md)).

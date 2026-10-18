@@ -66,7 +66,8 @@ T.test("templates use the syntax and link to each other", function()
 	T.ok(has("areas.zortex", "## 1.1 Health"), "@a(1.1) resolves")
 	T.ok(all["okr.zortex"][5]:match("^## 3M%-%d%d%d%d%-Q[1-4] "), "OKR heading format")
 	local cal = all["calendar.zortex"]
-	T.eq(syntax.classify(cal[4]).kind, "label", "date label")
+	T.eq(syntax.classify(cal[4]).kind, "bold_heading", "a day is a bold label")
+	T.eq(syntax.classify(cal[5]).kind, "label", "Outcomes: nests under it")
 	T.eq(syntax.classify(cal[6]).kind, "item")
 	for _, link in ipairs({ "Projects", "Areas", "Objectives", "Calendar", "Inbox" }) do
 		T.ok(has("structure.zortex", "- [" .. link .. "]"), link)

@@ -185,8 +185,26 @@ local function link_index_rebuild()
 	notify("Link index rebuilt")
 end
 
-local function log_level(args)
-	require("zortex.core.logger").set_level((args and args.args or "INFO"):upper())
+-- :ZortexDebug [status|logs [n]|level LEVEL|timers|clear|notifications [provider]]
+local function debug_cmd(args)
+	local words = vim.split(vim.trim(args and args.args or ""), "%s+", { trimempty = true })
+	local sub, rest = words[1] or "status", words[2]
+	local logger = require("zortex.core.logger")
+	if sub == "status" then
+		status()
+	elseif sub == "logs" then
+		logger.show_logs(tonumber(rest) or 50)
+	elseif sub == "level" then
+		logger.set_level((rest or "INFO"):upper())
+	elseif sub == "timers" then
+		logger.show_performance_report()
+	elseif sub == "clear" then
+		logger.clear_logs()
+	elseif sub == "notifications" then
+		require("zortex.notifications").commands.TestNotifications({ args = rest or "" })
+	else
+		notify("ZortexDebug: status, logs [n], level LEVEL, timers, clear or notifications [provider]", vim.log.levels.WARN)
+	end
 end
 
 -- =============================================================================
@@ -365,6 +383,20 @@ M.list = {
 			require("zortex.features.move").move_current(args)
 		end,
 	},
+	{
+		id = "undo",
+		command = "Undo",
+		key = "U",
+		group = "Structure",
+		desc = "Take back the last rename, move or inbox move in every note it changed",
+		run = function()
+			local label, err = require("zortex.core.workspace").undo_last()
+			if not label then
+				return notify("Nothing to undo: " .. err, vim.log.levels.WARN)
+			end
+			notify("Undone: " .. label)
+		end,
+	},
 
 	-- Tasks --------------------------------------------------------------------
 	{
@@ -450,6 +482,17 @@ M.list = {
 		end,
 	},
 	{
+		id = "today",
+		command = "Today",
+		key = "d",
+		group = "Plan",
+		desc = "Go to today in the calendar (or a date), adding the day from its template when it isn't there",
+		nargs = "?",
+		run = function(args)
+			require("zortex.ui.planner").open_day(args and args.args or nil)
+		end,
+	},
+	{
 		id = "carry_forward",
 		command = "CarryForward",
 		key = "Cf",
@@ -474,33 +517,10 @@ M.list = {
 		desc = "Calendar view",
 		run = call("zortex.ui.calendar.view", "open"),
 	},
-	{
-		id = "calendar_digest",
-		command = "CalendarDigest",
-		key = "Cc",
-		group = "Plan",
-		desc = "Calendar view with the digest panel",
-		run = call("zortex.ui.calendar.view", "open_digest"),
-	},
-	{
-		id = "digest",
-		command = "Digest",
-		key = "Cd",
-		group = "Plan",
-		desc = "Open the digest note",
-		run = call("zortex.services.digest", "open_digest"),
-	},
-	{
-		id = "digest_update",
-		command = "DigestUpdate",
-		key = "CD",
-		group = "Plan",
-		desc = "Regenerate the digest note",
-		run = call("zortex.services.digest", "force_update"),
-	},
 	-- Pomodoro (the clock is shared with `zortex serve` when server.enabled) --
 	{
 		id = "pomodoro_toggle",
+		command = "Pomodoro",
 		key = "oo",
 		group = "Pomodoro",
 		desc = "Start, pause or resume the pomodoro",
@@ -508,6 +528,7 @@ M.list = {
 	},
 	{
 		id = "pomodoro_skip",
+		command = "PomodoroSkip",
 		key = "os",
 		group = "Pomodoro",
 		desc = "End the current pomodoro phase now",
@@ -515,6 +536,7 @@ M.list = {
 	},
 	{
 		id = "pomodoro_restart",
+		command = "PomodoroRestart",
 		key = "or",
 		group = "Pomodoro",
 		desc = "Begin a new pomodoro cycle",
@@ -522,6 +544,7 @@ M.list = {
 	},
 	{
 		id = "pomodoro_stop",
+		command = "PomodoroStop",
 		key = "ox",
 		group = "Pomodoro",
 		desc = "Stop the pomodoro",
@@ -529,11 +552,48 @@ M.list = {
 	},
 	{
 		id = "pomodoro_status",
+		command = "PomodoroStatus",
 		key = "oi",
 		group = "Pomodoro",
 		desc = "Show the pomodoro status",
-		run = function()
-			notify(require("zortex.notifications.types.pomodoro").describe())
+		run = function(args)
+			require("zortex.notifications").commands.PomodoroStatus(args)
+		end,
+	},
+	{
+		id = "pomodoro_settings",
+		command = "PomodoroSettings",
+		group = "Pomodoro",
+		desc = "Show or change the pomodoro's settings (work=25 short=5 long=15 every=4 auto_break=yes auto_work=no)",
+		run = function(args)
+			require("zortex.notifications").commands.PomodoroSettings(args or { fargs = {} })
+		end,
+		nargs = "*",
+		complete = function()
+			return { "work=", "short=", "long=", "every=", "auto_break=", "auto_work=" }
+		end,
+	},
+	{
+		id = "notify",
+		command = "Notify",
+		group = "Calendar",
+		desc = "Send a notification now through the configured channels: `:ZortexNotify <title> <message>`",
+		run = function(args)
+			require("zortex.notifications").commands.Notify(args or { args = "" })
+		end,
+		nargs = "*",
+	},
+	{
+		id = "notification_list",
+		command = "NotificationList",
+		group = "Calendar",
+		desc = "List the scheduled notifications (`calendar` or `pomodoro` only)",
+		run = function(args)
+			require("zortex.notifications").commands.NotificationList(args or { args = "" })
+		end,
+		nargs = "?",
+		complete = function()
+			return { "calendar", "pomodoro" }
 		end,
 	},
 	{
@@ -629,28 +689,12 @@ M.list = {
 
 	-- XP -----------------------------------------------------------------------
 	{
-		id = "mastery_tree",
-		command = "MasteryTree",
-		key = "k",
+		id = "xp",
+		command = "XP",
+		key = "xx",
 		group = "XP",
-		desc = "Mastery tree and season progress",
-		run = call("zortex.ui.mastery_tree", "show"),
-	},
-	{
-		id = "xp_stats",
-		command = "XPStats",
-		key = "xs",
-		group = "XP",
-		desc = "XP statistics",
-		run = call("zortex.services.xp.stats", "show_stats"),
-	},
-	{
-		id = "xp_areas",
-		command = "XPAreas",
-		key = "xa",
-		group = "XP",
-		desc = "Top areas by XP",
-		run = call("zortex.services.xp.stats", "show_area_xp"),
+		desc = "Season, the last two weeks, projects in progress, recent awards and the area tree in one view",
+		run = call("zortex.ui.xp", "show"),
 	},
 	{
 		id = "xp_explain",
@@ -668,16 +712,29 @@ M.list = {
 		desc = "How XP is calibrated: hours per @size, Mastery, tiers",
 		run = call("zortex.ui.xp_guide", "show"),
 	},
-	{ id = "season_status", command = "SeasonStatus", group = "XP", desc = "Current season", run = season_status },
 	{
-		id = "season_start",
-		command = "SeasonStart",
+		id = "season",
+		command = "Season",
 		group = "XP",
-		desc = "Start a season: [name] [end YYYY-MM-DD] [start YYYY-MM-DD] (prompts without args)",
+		desc = "The season: `status` (default), `start [name] [end YYYY-MM-DD] [start YYYY-MM-DD]` (prompts without a name), `end`",
 		nargs = "*",
-		run = season_start,
+		complete = function(lead)
+			return vim.tbl_filter(function(c)
+				return c:sub(1, #lead) == lead
+			end, { "status", "start", "end" })
+		end,
+		run = function(args)
+			local fargs = vim.deepcopy(args and args.fargs or {})
+			local sub = table.remove(fargs, 1) or "status"
+			if sub == "start" then
+				season_start({ fargs = fargs })
+			elseif sub == "end" then
+				season_end()
+			else
+				season_status()
+			end
+		end,
 	},
-	{ id = "season_end", command = "SeasonEnd", group = "XP", desc = "End the current season", run = season_end },
 
 	-- System -------------------------------------------------------------------
 	{
@@ -690,46 +747,26 @@ M.list = {
 		run = export,
 	},
 	{
-		id = "status",
-		command = "Status",
+		id = "debug",
+		command = "Debug",
 		group = "System",
-		desc = "Counts, state directory and event timings",
-		run = status,
-	},
-	{
-		id = "logs",
-		command = "Logs",
-		group = "System",
-		desc = "Recent log entries (optional count)",
-		nargs = "?",
-		run = function(args)
-			require("zortex.core.logger").show_logs(tonumber(args and args.args) or 50)
+		desc = "For finding problems: `status` (default; counts, state directory, timings), `logs [n]`, `level <LEVEL>`, `timers`, `clear` (logs and timers), `notifications [provider]` (a test through each)",
+		nargs = "*",
+		complete = function(lead, cmdline)
+			local words = vim.split(vim.trim(cmdline), "%s+")
+			if (#words == 2 and lead == "") or #words >= 3 then
+				if words[2] == "level" then
+					return { "TRACE", "DEBUG", "INFO", "WARN", "ERROR" }
+				elseif words[2] == "notifications" then
+					return vim.tbl_keys(require("zortex.notifications").test)
+				end
+				return {}
+			end
+			return vim.tbl_filter(function(c)
+				return c:sub(1, #lead) == lead
+			end, { "status", "logs", "level", "timers", "clear", "notifications" })
 		end,
-	},
-	{
-		id = "log_level",
-		command = "LogLevel",
-		group = "System",
-		desc = "Set the log level",
-		nargs = 1,
-		complete = function()
-			return { "TRACE", "DEBUG", "INFO", "WARN", "ERROR" }
-		end,
-		run = log_level,
-	},
-	{
-		id = "performance",
-		command = "Performance",
-		group = "System",
-		desc = "Timer statistics",
-		run = call("zortex.core.logger", "show_performance_report"),
-	},
-	{
-		id = "clear_logs",
-		command = "ClearLogs",
-		group = "System",
-		desc = "Clear logs and timers",
-		run = call("zortex.core.logger", "clear_logs"),
+		run = debug_cmd,
 	},
 	{
 		id = "help",
@@ -849,7 +886,7 @@ function M.key_groups(prefix, mappings, names)
 end
 
 --- Name the key prefixes in which-key (v3 `add`, or v2 `register`), so
---- <prefix> shows "Zortex" and <prefix>C shows "Calendar & digest". Does
+--- <prefix> shows "Zortex" and <prefix>C shows "Calendar". Does
 --- nothing when which-key isn't installed. Returns true when registered.
 function M.register_which_key(prefix, mappings, names)
 	local ok, wk = pcall(require, "which-key")

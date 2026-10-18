@@ -79,8 +79,8 @@ func calendarEntries(doc *notes.Document, from, to string) map[string][]calEntry
 	date := ""
 	for i, line := range doc.Lines {
 		lnum := i + 1
-		if m := dateLabel.FindStringSubmatch(line); m != nil {
-			date = m[1] + "-" + m[2] + "-" + m[3]
+		if d, ok := edit.DateHeading(line); ok {
+			date = d
 			continue
 		}
 		if date == "" || (from != "" && date < from) || (to != "" && date > to) || doc.InCode(lnum) {

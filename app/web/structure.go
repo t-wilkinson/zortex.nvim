@@ -157,17 +157,6 @@ func (s *Server) structureSide(rel string) map[string]any {
 	return map[string]any{"Rows": rows, "Unlinked": len(info.Unlinked), "Total": info.Total, "Sources": info.Sources}
 }
 
-// handleStructure: the Structure note, rendered like any note (its sidebar
-// lists the notes it doesn't reach), or how to create one.
-func (s *Server) handleStructure(w http.ResponseWriter, r *http.Request) {
-	info := s.current().structure
-	if len(info.Roots) > 0 {
-		s.renderNotePage(w, r, info.Roots[0], "graph")
-		return
-	}
-	s.render(w, r, "structure", http.StatusOK, map[string]any{"Title": "Structure"})
-}
-
 // apiStructure: GET /api/structure -> {sources, linked, total, unlinked: [{rel, title, url}]}
 func (s *Server) apiStructure(w http.ResponseWriter, r *http.Request) {
 	info := s.current().structure

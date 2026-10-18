@@ -28,7 +28,10 @@ M.templates = {
 			"@@Calendar",
 			"@@C",
 			"",
-			today() .. ":",
+			"**" .. today() .. ":**",
+			"Outcomes:",
+			"- [ ] The one thing that makes today a success",
+			"",
 			"09:00 - 10:00 Work on [P/#1 Example project]",
 			"- [ ] A task for today",
 		}

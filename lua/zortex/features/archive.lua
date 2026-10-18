@@ -152,4 +152,105 @@ function M.archive_current_section()
 	vim.notify(string.format("Archived section to %s\nLink: %s", archive_path, link), vim.log.levels.INFO)
 end
 
+
+--- Archive the section starting on `lnum` of `file` (a done project, from
+--- the weekly review) into its note's z/archive file, as one batch
+--- (core/workspace): :ZortexUndo takes it back. Returns the archive's path,
+--- or nil and why not.
+function M.archive_section_at(file, lnum)
+	local workspace = require("zortex.core.workspace")
+	local doc = workspace.document(file)
+	local node = doc and doc:node_starting_at(lnum)
+	if not node or node:is_root() or node.type == constants.SECTION_TYPE.ARTICLE then
+		return nil, "no section starts there"
+	end
+	local archive_path = get_archive_path(file)
+	ensure_archive_file(archive_path, doc.lines)
+	Document.invalidate(archive_path)
+	return workspace.batch("archive a section", { file, archive_path }, function()
+		doc = workspace.document(file)
+		node = doc:node_starting_at(lnum)
+		if not node then
+			return nil, "the note changed: refresh and try again"
+		end
+		local content = doc:get_lines(node.start_line, node.end_line)
+		local old = workspace.get_lines(archive_path)
+		local merged = merge_into_archive(vim.deepcopy(old), section_path(doc.lines, node), content)
+		local ok, err = workspace.set_lines(archive_path, 1, #old, merged)
+		if not ok then
+			return nil, err
+		end
+		ok, err = workspace.delete_lines(file, node.start_line, node.end_line)
+		if not ok then
+			return nil, err
+		end
+		return archive_path
+	end)
+end
+
+-- =============================================================================
+-- Archiving a finished task
+-- =============================================================================
+
+--- The archive for finished tasks that served neither a key result nor an
+--- area: z/archive.tasks.zortex (made when missing).
+function M.tasks_archive_path()
+	local dir = fs.joinpath(Config.notes_dir, "z")
+	vim.fn.mkdir(dir, "p")
+	return fs.joinpath(dir, "archive.tasks" .. (Config.extension or ".zortex"))
+end
+
+--- Move the task on `lnum` of `file` (with the lines nested under it) to
+--- z/archive.tasks.zortex, under a heading naming the note it came from.
+--- One batch (core/workspace): :ZortexUndo takes it back. Returns the
+--- archive's path, or nil and why not.
+function M.archive_task(file, lnum)
+	local workspace = require("zortex.core.workspace")
+	local Move = require("zortex.services.move")
+	local doc = workspace.document(file)
+	if not doc then
+		return nil, "can't read " .. file
+	end
+	local path = M.tasks_archive_path()
+	if vim.fn.filereadable(path) == 0 then
+		fs.write_lines(path, { "@@Archived tasks", "@" .. constants.ARCHIVE_TAG, "" })
+		Document.invalidate(path)
+	end
+	local from = doc:name() or vim.fn.fnamemodify(file, ":t:r")
+	return workspace.batch("archive a task", { file, path }, function()
+		local src, err = Move.source(workspace.document(file), lnum)
+		if not src then
+			return nil, err
+		end
+		-- the heading for its note, at the end of the archive when new
+		local lines = workspace.get_lines(path)
+		local heading
+		for i, l in ipairs(lines) do
+			if l == "# " .. from then
+				heading = i
+			end
+		end
+		if not heading then
+			local add = { "# " .. from }
+			if lines[#lines] and lines[#lines]:match("%S") then
+				table.insert(add, 1, "")
+			end
+			local ok, ierr = workspace.insert_lines(path, #lines + 1, add)
+			if not ok then
+				return nil, ierr
+			end
+			heading = #lines + #add
+		end
+		local dst, derr = Move.target(workspace.document(path), heading, src)
+		if not dst then
+			return nil, derr
+		end
+		local at, merr = Move.move(file, src, path, dst)
+		if not at then
+			return nil, merr
+		end
+		return path
+	end)
+end
+
 return M

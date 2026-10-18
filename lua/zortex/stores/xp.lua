@@ -87,7 +87,7 @@ end
 -- Seasons
 -- =============================================================================
 
---- The season now: the one started with :ZortexSeasonStart while its end
+--- The season now: the one started with :ZortexSeason start while its end
 --- date hasn't passed, else (xp.season.follow_quarter, the default) the
 --- calendar quarter, the window of a 3M-YYYY-Qn objective, marked auto.
 function M.current_season(today)

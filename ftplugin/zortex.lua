@@ -12,6 +12,9 @@ vim.wo.wrap = true -- Enable line wrapping
 vim.wo.breakindent = true -- Indent wrapped lines
 
 vim.bo.comments = ""
+-- J drops the joined line's "#", "-" or "> " and a label's ":"
+-- (features.join; gJ joins as written)
+require("zortex.features.join").attach(0)
 
 -- Additional useful settings for note-taking
 vim.bo.expandtab = true -- Use spaces instead of tabs

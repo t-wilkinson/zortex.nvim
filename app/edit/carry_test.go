@@ -41,3 +41,23 @@ func TestCarryConformance(t *testing.T) {
 		}
 	}
 }
+
+func TestDateHeading(t *testing.T) {
+	for line, want := range map[string]string{
+		"2026-10-21:":      "2026-10-21",
+		"**2026-10-21:**":  "2026-10-21",
+		"**2026-10-21:** ": "2026-10-21",
+		"**2026-10-21**:":  "",
+		"**2026-10-21:":    "",
+		"  2026-10-21:":    "",
+		"2026-10-21: x":    "",
+	} {
+		got, ok := DateHeading(line)
+		if got != want || ok != (want != "") {
+			t.Errorf("%q: %q %v", line, got, ok)
+		}
+	}
+	if DateHeadingLine("2026-10-21") != "**2026-10-21:**" {
+		t.Error(DateHeadingLine("2026-10-21"))
+	}
+}

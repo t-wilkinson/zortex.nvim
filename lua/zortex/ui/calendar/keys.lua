@@ -155,20 +155,6 @@ function M.search()
 	require("zortex.ui.picker.calendar").open()
 end
 
-function M.show_digest()
-	state().view_mode = "digest"
-	view().refresh()
-end
-
-function M.toggle_view()
-	if state().view_mode == "month" then
-		state().view_mode = "digest"
-	else
-		state().view_mode = "month"
-	end
-	view().refresh()
-end
-
 function M.go_to_file()
 	view().close()
 	local cal_file = fs.get_calendar_file()
@@ -247,8 +233,6 @@ function M.attach(bufnr, cfg)
 		add_entry = M.add_entry,
 		view_entries = M.view_entries,
 		search = M.search,
-		digest = M.show_digest,
-		toggle_view = M.toggle_view,
 		go_to_file = M.go_to_file,
 		toggle_task = M.toggle_task,
 		sync_notifications = M.sync_notifications,

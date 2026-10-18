@@ -8,7 +8,6 @@ import (
 	"html"
 	"net/http"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -87,8 +86,6 @@ func (s *Server) announcePomodoro(e pomodoro.Event) {
 // =============================================================================
 // Calendar note
 // =============================================================================
-
-var dateLabel = regexp.MustCompile(`^(\d{4})-(\d{2})-(\d{2}):\s*$`)
 
 // calEntry is one list item under a date of the calendar note.
 type calEntry struct {
@@ -388,7 +385,7 @@ func (s *Server) notificationView(now time.Time) notifView {
 	return v
 }
 
-// apiSummary: GET /api/summary, for homelab dashboards.
+// apiSummary: GET /api/summary, for home dashboards (Homepage, Home Assistant, ...).
 func (s *Server) apiSummary(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	v := s.notificationView(now)

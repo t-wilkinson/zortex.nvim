@@ -8,7 +8,6 @@ M.FILES = {
 	PROJECTS = "projects.zortex",
 	AREAS = "areas.zortex",
 	OKR = "okr.zortex",
-	DIGEST = "digest.zortex",
 	STRUCTURE = "structure.zortex",
 	INBOX = "inbox.zortex",
 	REVIEWS = "reviews.zortex",

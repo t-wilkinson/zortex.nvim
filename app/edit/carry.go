@@ -59,9 +59,26 @@ func (p CarryPlan) Apply(lines []string) []string {
 }
 
 var (
-	dateLine = regexp.MustCompile(`^(\d{4})-(\d{2})-(\d{2}):\s*$`)
+	dateLine = regexp.MustCompile(`^(?:(\d{4}-\d{2}-\d{2}):|\*\*(\d{4}-\d{2}-\d{2}):\*\*)\s*$`)
 	idAttr   = regexp.MustCompile(`@id\(([^)\s]+)\)`)
 )
+
+// DateHeading is the date of a calendar day heading: "**2026-10-21:**" (a
+// bold label, what new days get, so a label like "Outcomes:" nests under
+// it) or "2026-10-21:". As the plugin's datetime.date_heading.
+func DateHeading(line string) (string, bool) {
+	m := dateLine.FindStringSubmatch(line)
+	if m == nil {
+		return "", false
+	}
+	if m[1] != "" {
+		return m[1], true
+	}
+	return m[2], true
+}
+
+// DateHeadingLine is the heading a new calendar day gets: "**2026-10-21:**".
+func DateHeadingLine(date string) string { return "**" + date + ":**" }
 
 // ID is a line's @id, or "".
 func ID(line string) string {
@@ -141,8 +158,8 @@ func Carry(lines []string, today, from string, newID func() string) CarryPlan {
 		if isFence(l) {
 			fence = !fence
 		} else if !fence {
-			if m := dateLine.FindStringSubmatch(l); m != nil {
-				blocks = append(blocks, &block{date: m[1] + "-" + m[2] + "-" + m[3], heading: i + 1})
+			if date, ok := DateHeading(l); ok {
+				blocks = append(blocks, &block{date: date, heading: i + 1})
 			}
 		}
 	}
@@ -360,7 +377,7 @@ func Carry(lines []string, today, from string, newID func() string) CarryPlan {
 			at = blocks[afterI].heading
 		}
 	}
-	add := append([]string{today + ":"}, out...)
+	add := append([]string{DateHeadingLine(today)}, out...)
 	add = append(add, "")
 	if at > len(lines) {
 		at = len(lines) + 1

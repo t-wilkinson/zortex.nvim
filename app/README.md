@@ -22,12 +22,12 @@ dependencies (this folder's Go module).
 - **Time tracking** (`-writable`): while a clock runs, its time goes to the
   task you're working on (the current calendar entry by default) and is
   added to the task's `@spent(...)`. See [Time tracking](#time-tracking).
-- **Digest**: `GET /api/digest` gives the coming days of the calendar as a
-  subject, text and HTML, for whatever mail or chat service you use.
+- **Inbox** (`-writable`): the home page's box adds a task or a note to
+  `inbox.zortex`, and keeps working offline in the installed app.
 
 Notes are read-only unless `-writable` is set. The server's own state
 (`notifications.json`, `pomodoro.json`, `clocks.json`, `track.json` and
-`track_log.jsonl`, the XP summary)
+`track_log.jsonl`, `search_history.json`, `web_completions.json`, the XP summary)
 lives in `-data`. Without `-data` it serves the notes only. The server never
 creates notes of its own except `inbox.zortex` (web edits); Neovim's
 `setup()` creates the key notes in a new folder.
@@ -58,8 +58,7 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 
 | page | what |
 |---|---|
-| `/` | search box, the **calendar** (days of `calendar.zortex`, a month grid whose dot marks days with an `@event`, scheduled notifications; 🔔 on lines with a written `@n`), the **pomodoro** clock with **timer**, **alarm** and **stopwatch** tabs, **this week's focus projects**, **season and XP** (level and tier, progress to the next level, XP per day for two weeks, top areas, recent awards; tasks completed on the web with their estimated XP until Neovim counts them), recently changed notes, notes not yet in the structure, counts |
-| `/structure` | notes that neither the Structure note (`@@Structure`), any `@Structure` note, nor any note's `# Structure` section links to (archived notes left out); not in the top bar, since `/graph` lists the same notes |
+| `/` | the **inbox** capture box (works offline in the installed app), the **calendar** (days of `calendar.zortex`, a month grid whose dot marks days with an `@event`, scheduled notifications; 🔔 on lines with a written `@n`), the **pomodoro** clock with **timer**, **alarm** and **stopwatch** tabs, **this week's focus projects**, **season and XP** (level and tier, progress to the next level, XP per day for two weeks, top areas, recent awards; tasks completed on the web with their estimated XP until Neovim counts them), recently changed notes, notes not yet in the structure, counts |
 | `/graph` | the whole structure as cards side by side, one per section of the Structure note, each note with a `# Structure` section opened in place, and under a note the headings other notes link to (how many notes do); hover a note to mark the notes it links with, click a tag to mark its notes, filter notes and tags as you type (`@word` for tags); the notes not in it |
 | `/n/<path>` | a rendered note: outline, every line anchored (`#L12`), links resolved with the plugin's rules (to the canonical target; `⁺` when there are more), broken links in red, file paths and markdown links to the file viewer, [tag tables](#tag-tables) and [indexes](#tag-indexes), its [connections](#connections-and-the-graph), "Linked from" (backlinks) |
 | `/n/<path>?view=slides` | the note as a slide deck ([Slides](#slides)) |
@@ -75,6 +74,7 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 | `/review?week=` | the weekly review (`:ZortexReview`'s findings), read-only: done this week, time tracked, XP and its hours, the inbox, the week's focus, objectives against the time passed, tasks put off on 2+ days, overdue and due in a week, projects without a next action, key results no project moves, time per task; `‹ ›` to other weeks |
 | `/broken` | links that don't resolve (notes and files), and task ids that don't line up (a project task's `@id` on two lines, a calendar copy whose link points at another task); then the tags that go nowhere: tag searches that find nothing, `[@Tag]` links to a tag no note has, bare tags no tag search asks for |
 | `/api/search?q=`, `/api/resolve?to=&from=`, `/api/backlinks?rel=`, `/api/resources?show=unlinked&kind=&dir=`, `/api/structure` | JSON |
+| `/search/open?rel=&lnum=` | open a search result (`&section=1` for a section) and count it in the search history (with `-data`) |
 | `/api/hover?rel=&lnum=` | a link's hover card: the note's title, path, header tags, first lines (a heading's own lines) and how many links point there; images and websites need no call (the card shows the image, or the domain and URL; nothing is fetched) |
 | `/api/tagtable?q=&from=` | a tag search's table, as HTML ([tag indexes](#tag-indexes)) |
 | `POST /api/open`, `/api/presence`, `/api/open/ack` | show a page in an open tab ([from Neovim](#opening-pages-from-neovim)) |
@@ -116,15 +116,18 @@ section tree and a compact per-line summary; a page re-parses the one note it
 shows. Measured on 2,000 generated notes (16 MB, 64,000 links): first index
 about 2 s, rebuild about 2.5 s, search 30–60 ms, a note page 5 ms, about
 120 MB resident with `GOMEMLIMIT=120MiB` (a typical folder is far smaller).
-There is no login: bind to localhost and put a proxy with authentication in
-front.
+Bind to localhost and put a proxy with authentication in front, or give it
+its own login with `-auth-file` ([Server.md](../doc/Server.md#3-put-it-behind-a-login)).
 
 **Editing (`-writable`, `ZORTEX_WRITABLE=1`; NixOS `web.writable`).** Note
 pages get clickable checkboxes and an Edit mode (the button sits above the
 outline on wide screens; tap a line: To-do · Done · Plain · Edit text · Add
 below · Move up/down · Delete; drag a line's ⠿ handle to move it, with the
 lines indented under it); the home page checks off calendar tasks and adds
-tasks and notes to `inbox.zortex`. Edits are line-level, refused when the note changed since the page loaded, and written
+tasks and notes to `inbox.zortex`. The inbox box also works offline (in the
+installed app, or when the server is down): what you add waits in the
+browser and is appended to the bottom of the inbox, in order, when the
+connection is back (`static/inbox.js`). Edits are line-level, refused when the note changed since the page loaded, and written
 atomically (through a `.syncthing.*.tmp` file Syncthing ignores). Task
 edits match Neovim's exactly: `app/edit` is tested against
 `tests/fixtures/edits.json`, which `tests/gen_edits.lua` writes from the
@@ -325,7 +328,7 @@ the usual systemd hardening.
 | `GET /pending?user_id=` | pending notifications |
 | `POST /test` | `{title?, message?}`: publish through ntfy now and report |
 | `GET /api/calendar?from=&to=` | `days` (entries of `calendar.zortex` with time, text, rendered HTML, task state, whether a notification is scheduled), `notifications`, `count`, `next_event` |
-| `GET /api/summary` | for homelab dashboards: pending count, upcoming notifications as text/HTML, the pomodoro |
+| `GET /api/summary` | for home dashboards (Homepage, Home Assistant, …): pending count, upcoming notifications as text/HTML, the pomodoro |
 | `GET /api/pomodoro` | phase, running, remaining, ends_at, session, completed, today, settings, `next_alarm`, `ntfy` |
 | `POST /api/pomodoro/{start,pause,resume,toggle,skip,stop,restart}` | drive the clock |
 | `GET /api/xp` | the XP summary Neovim published (season, daily XP, areas, recent awards, calibration), or `{"available": false}`; plus `pending_web` (tasks completed on the web since, one per `@id`), `pending_xp` and `pending_tasks` (`{title, xp, hours}`: estimated from the task's `@size`, priority and importance with the summary's calibration) |
@@ -334,14 +337,13 @@ the usual systemd hardening.
 | `POST /api/calendar/carry` | `-writable` only: `{date?}` (default today): copy the open tasks of the 14 days before to the date with the same `@id` and mark the old lines `[>]`, as Neovim's `:ZortexCarryForward`; `{moved, added}`. `GET /api/calendar` has `carry`, how many there are for today (the home page offers a **Carry** button) |
 | `GET /api/note?rel=` | a rendered note: `{body, mod, src?}` (`src` with `-writable`) |
 | `GET /api/events` | server-sent events for open pages: `notes` (`{rels}` added, changed or removed; seen on the next rescan, `-poll`), `xp` (a new summary), `pomodoro` (the clock changed), `clocks` (timers, alarms, stopwatch), `track` (time tracking). Pages redraw right away; behind nginx the stream needs `proxy_buffering off` (the server also sends `X-Accel-Buffering: no`) |
-| `POST /api/inbox` | `-writable` only: `{text, kind: "task" \| "note"}` appended to `inbox.zortex` (created when missing) |
+| `POST /api/inbox` | `-writable` only: `{text, kind: "task" \| "note", id?}` appended to the bottom of `inbox.zortex` (created when missing). `id` is set by the offline queue: a capture sent again with the same id (its answer was lost) is added once |
 | `GET /api/clocks` | timers, alarms and the stopwatch: `{timers, alarms, stopwatch, now, ntfy}` |
 | `POST /api/clocks/timers` | `{label, seconds}` starts a timer; `POST /api/clocks/timers/{id}/{pause,resume,restart,remove}` |
 | `POST /api/clocks/alarms` | `{label, time: "HH:MM", repeat: "once" \| "daily"}`; `POST /api/clocks/alarms/{id}/{enable,disable,remove}` |
 | `POST /api/clocks/stopwatch/{start,pause,toggle,lap,reset}` | the stopwatch |
 | `GET /api/track` | time tracking: `{enabled, mode: calendar \| pinned \| off, task, counting, counted_ms, calendar?, error}` |
 | `POST /api/track/pin` | `{rel, lnum, expect?}` work on this line; `POST /api/track/{follow,off,flush}`; `GET /api/track/tasks?q=` open tasks for the picker |
-| `GET /api/digest?days=7&site=` | the coming days of the calendar: `{subject, text, html, days, count}`; links in `html` are absolute (`site`, else the request's host). E.g. `curl -s localhost:8090/api/digest \| jq -r .text \| mail -s Agenda me@example.com` from cron |
 | `POST /api/pomodoro/settings` | `{work, short_break, long_break, long_break_after, auto_start_break, auto_start_work}` (minutes; partial updates are fine) |
 
 `/notify`, `/pending` and `/test` require `X-API-Key` when `-api-key` is set.
@@ -370,7 +372,12 @@ down is sent when it starts again if it is under 10 minutes late.
 - `links/`: the link resolver (`Resolve`, `ResolveFirst`, `Parse`), checked
   against `../tests/fixtures/resolve.json`.
 - `search/`: the structural search (`Build`, `Query`), checked against
-  `../tests/fixtures/search.json`. Search history boosts are not ported.
+  `../tests/fixtures/search.json`, and its history (`history.go`: the
+  plugin's frecency boosts, kept in `-data/search_history.json`).
+- `edit/`: single-line edits the way the plugin makes them (task open /
+  done with `@done` and `@id`, text to task and back), task groups
+  (`Groups`, `Cascade`), carrying tasks forward and the calendar auto-size,
+  checked against `../tests/fixtures/{edits,groups,carry,autosize}.json`.
 - `web/`: the web app (handlers, note rendering, file browser, calendar,
   pomodoro and structure pages); templates and static files are embedded.
   `web_test.go` and `state_test.go` run it over the fixtures.

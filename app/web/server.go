@@ -104,6 +104,7 @@ type Server struct {
 	xp      xpCache // XP summary published by Neovim
 
 	editMu      sync.Mutex    // one edit at a time
+	inboxSent   sentIDs       // inbox captures by id, so a resend adds once (edit.go)
 	completions completionLog // tasks completed on the web, until Neovim counts them
 	copies      copyCache     // calendar copies of tasks by @id (mirrors.go)
 
@@ -436,14 +437,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/hover", s.apiHover)
 	mux.HandleFunc("GET /healthz", s.handleHealth)
 	mux.HandleFunc("GET /health", s.handleHealth)
-	mux.HandleFunc("GET /structure", s.handleStructure)
 	mux.HandleFunc("GET /graph", s.handleGraph)
 	mux.HandleFunc("GET /api/structure", s.apiStructure)
 	// calendar and notifications (Neovim syncs to /notify)
 	mux.HandleFunc("GET /api/calendar", s.apiCalendar)
 	mux.HandleFunc("POST /api/calendar/carry", s.apiCarry)
 	mux.HandleFunc("GET /api/summary", s.apiSummary)
-	mux.HandleFunc("GET /api/digest", s.apiDigest)
 	mux.HandleFunc("POST /notify", s.handleNotify)
 	mux.HandleFunc("GET /pending", s.handlePending)
 	mux.HandleFunc("POST /test", s.handleTestNotification)

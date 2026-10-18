@@ -14,8 +14,7 @@ function M.setup(opts)
 	pomodoro.setup(opts.types.pomodoro, opts.providers)
 	calendar.setup(opts.types.calendar)
 
-	-- Setup commands and autocmds
-	M.setup_commands()
+	-- Autocmds (the commands are in actions.lua: M.commands)
 	M.setup_autocmds()
 end
 
@@ -107,11 +106,13 @@ end
 -- Commands
 -- ===========================================================================
 
-function M.setup_commands()
-	local Config = require("zortex.config")
+-- The bodies of the notification and pomodoro commands; actions.lua makes
+-- them :Zortex<Name> commands (so :help and the README list them).
+M.commands = {}
 
-	local function cmd(name, command, options)
-		vim.api.nvim_create_user_command(Config.commands.prefix .. name, command, options)
+do
+	local function cmd(name, command)
+		M.commands[name] = command
 	end
 
 	-- ===========================================================================
@@ -128,7 +129,7 @@ function M.setup_commands()
 		local title = args[1]
 		local message = table.concat(vim.list_slice(args, 2), " ")
 		M.notify(title, message)
-	end, { nargs = "*", desc = "Send a notification" })
+	end)
 
 	-- List scheduled notifications
 	cmd("NotificationList", function(opts)
@@ -166,23 +167,7 @@ function M.setup_commands()
 		vim.bo[buf].buftype = "nofile"
 		vim.cmd("split")
 		vim.api.nvim_win_set_buf(0, buf)
-	end, {
-		nargs = "?",
-		desc = "List scheduled notifications",
-		complete = function()
-			return { "calendar", "pomodoro" }
-		end,
-	})
-
-	-- Calendar sync
-	cmd("CalendarSync", function(opts)
-		M.calendar.sync({
-			force = opts.bang,
-			on_done = function(msg)
-				vim.notify(msg, vim.log.levels.INFO)
-			end,
-		})
-	end, { bang = true, desc = "Sync calendar notifications (! resends even when unchanged)" })
+	end)
 
 	-- Test notifications
 	cmd("TestNotifications", function(opts)
@@ -196,37 +181,11 @@ function M.setup_commands()
 		else
 			M.test.all()
 		end
-	end, {
-		nargs = "?",
-		desc = "Test notification providers",
-		complete = function()
-			return vim.tbl_keys(M.test)
-		end,
-	})
+	end)
 
 	-- ===========================================================================
 	-- Pomodoro
 	-- ===========================================================================
-
-	cmd("PomodoroStart", function()
-		M.pomodoro.start()
-	end, { desc = "Start (or resume) the pomodoro" })
-
-	cmd("PomodoroPause", function()
-		M.pomodoro.toggle()
-	end, { desc = "Pause / resume the pomodoro" })
-
-	cmd("PomodoroSkip", function()
-		M.pomodoro.skip()
-	end, { desc = "End the current pomodoro phase now" })
-
-	cmd("PomodoroStop", function()
-		M.pomodoro.stop()
-	end, { desc = "Stop the pomodoro" })
-
-	cmd("PomodoroRestart", function()
-		M.pomodoro.restart()
-	end, { desc = "Begin a new pomodoro cycle" })
 
 	cmd("PomodoroStatus", function()
 		local function show()
@@ -237,7 +196,7 @@ function M.setup_commands()
 		else
 			show()
 		end
-	end, { desc = "Show pomodoro status" })
+	end)
 
 	-- :ZortexPomodoroSettings work=50 short=10 long=20 every=4 auto_break=yes auto_work=no
 	cmd("PomodoroSettings", function(opts)
@@ -274,13 +233,7 @@ function M.setup_commands()
 			return
 		end
 		M.pomodoro.update_settings(changes)
-	end, {
-		nargs = "*",
-		desc = "Show or change pomodoro settings (work=25 short=5 long=15 every=4 auto_break=yes auto_work=no)",
-		complete = function()
-			return { "work=", "short=", "long=", "every=", "auto_break=", "auto_work=" }
-		end,
-	})
+	end)
 end
 
 return M

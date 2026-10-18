@@ -208,7 +208,7 @@ function M.sync(opts)
 	end
 
 	if target == "server" then
-		require("zortex.notifications.providers.homelab").sync(notifications, nil, function(ok, res, err)
+		require("zortex.notifications.providers.server").sync(notifications, nil, function(ok, res, err)
 			if ok then
 				remember(notifications, "server")
 				local r = res or {}

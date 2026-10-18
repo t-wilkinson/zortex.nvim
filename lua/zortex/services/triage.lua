@@ -91,6 +91,14 @@ end
 --- place's own lines. Returns { file, at, link } or nil, err.
 function M.move(item, link)
 	link = link or M.destination(item)
+	local target = link and require("zortex.core.link").resolve_first(link)
+	-- one batch (core/workspace): :ZortexUndo takes it back in both notes
+	return workspace.batch("inbox: move to " .. tostring(link), { item.file, target and target.file }, function()
+		return M._move(item, link)
+	end)
+end
+
+function M._move(item, link)
 	if not link then
 		return nil, "no @project, and review.inbox_default isn't set"
 	end

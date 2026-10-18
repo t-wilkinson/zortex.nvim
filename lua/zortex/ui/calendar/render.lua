@@ -1,9 +1,10 @@
 -- ui/calendar/render.lua - Calendar view content: lines and highlights
 --
--- Pure rendering for ui/calendar/view: month(date, state, cfg, width) and
--- digest(cfg, width) return the buffer lines, highlight ranges
--- ({ line, col, end_col, hl }, 1-based line, byte or display columns as
--- noted) and, for the month, where each day cell is.
+-- Pure rendering for ui/calendar/view: month(date, state, cfg, width)
+-- returns the buffer lines, highlight ranges ({ line, col, end_col, hl },
+-- 1-based line, byte or display columns as noted) and where each day cell
+-- is. Under the grid: the selected day as written, then the events of the
+-- days after it ("Coming up", agenda.upcoming_events).
 local M = {}
 local fn = vim.fn
 
@@ -66,10 +67,7 @@ function M.month(date, state, cfg, win_width)
 
 	-- Header with navigation hints
 	local header_text = datetime.format_month_year(date)
-	local view_mode_text = state.view_mode == "month" and "Month View" or "Week View"
-	local space_between = CONTENT_WIDTH - (fn.strwidth(header_text) + fn.strwidth(view_mode_text))
-	local header_padding = string.rep(" ", math.max(1, space_between))
-	local header_line = left_pad_str .. header_text .. header_padding .. view_mode_text
+	local header_line = left_pad_str .. header_text
 
 	table.insert(lines, header_line)
 	table.insert(highlights, {
@@ -82,7 +80,7 @@ function M.month(date, state, cfg, win_width)
 	table.insert(lines, "")
 
 	-- ── Navigation help (top) ────────────────────────────────────────────────
-	local nav_hint = "←/→/↑/↓ move • H/L year • J/K • g today • q quit"
+	local nav_hint = "←/→/↑/↓ move • J/K month • H/L year • t today • q quit"
 	local nav_center = center(win_width, nav_hint)
 
 	table.insert(lines, nav_center.line)
@@ -263,7 +261,7 @@ function M.month(date, state, cfg, win_width)
 			line = #lines,
 			col = fn.strwidth(left_pad_str .. MARGIN_STR),
 			end_col = fn.strwidth(left_pad_str .. MARGIN_STR .. summary_header),
-			hl = cfg.colors.digest_header,
+			hl = cfg.colors.day_header,
 		})
 		table.insert(lines, left_pad_str)
 
@@ -324,6 +322,31 @@ function M.month(date, state, cfg, win_width)
 			table.insert(lines, left_pad_str .. MARGIN_STR .. "  (no entries)")
 		end
 
+		-- the events of the days after it, as in the planner
+		-- (agenda.upcoming_events, ui.planner.upcoming_days)
+		local ok_up, upcoming = pcall(require("zortex.services.agenda").upcoming_events, { date = date_str })
+		if ok_up and #upcoming > 0 then
+			local days = ((require("zortex.config").ui or {}).planner or {}).upcoming_days or 7
+			table.insert(lines, left_pad_str)
+			local up_header = string.format("Coming up (next %d day%s)", days, days == 1 and "" or "s")
+			table.insert(lines, left_pad_str .. MARGIN_STR .. up_header)
+			table.insert(highlights, {
+				line = #lines,
+				col = fn.strwidth(left_pad_str .. MARGIN_STR),
+				end_col = fn.strwidth(left_pad_str .. MARGIN_STR .. up_header),
+				hl = cfg.colors.day_header,
+			})
+			for _, day in ipairs(upcoming) do
+				local d = datetime.parse_date(day.date)
+				for i, item in ipairs(day.items) do
+					local when = i == 1 and os.date("%a %b %d", os.time(d)) or string.rep(" ", 10)
+					local text = string.format("   %s  %s %s", when, entry_icon(item.entry, cfg), item.entry:format())
+					table.insert(lines, left_pad_str .. MARGIN_STR .. text)
+					time_highlight(highlights, #lines, text, #left_pad_str + #MARGIN_STR, cfg)
+				end
+			end
+		end
+
 		-- Minimum height of 10 lines
 		while #lines < line_num + 10 do
 			table.insert(lines, "")
@@ -348,108 +371,6 @@ function M.month(date, state, cfg, win_width)
 	})
 
 	return lines, highlights, marks
-end
-
---- Today and the coming days (services/agenda), then high-priority projects.
----@return string[] lines, table[] highlights
-function M.digest(cfg, win_width)
-	local lines = {}
-	local highlights = {}
-	local today = datetime.get_current_date()
-
-	-- Header
-	table.insert(lines, "")
-	local header = "📋 Today's Digest & Upcoming Week"
-	local header_padding = math.max(0, math.floor((win_width - fn.strwidth(header)) / 2))
-	table.insert(lines, string.rep(" ", header_padding) .. header)
-	table.insert(highlights, {
-		line = 2,
-		col = header_padding,
-		end_col = header_padding + fn.strwidth(header),
-		hl = cfg.colors.header,
-	})
-	table.insert(lines, string.rep("─", win_width))
-	table.insert(lines, "")
-
-	-- Today and the next days (services/agenda: calendar entries plus project
-	-- tasks/projects due that day)
-	local days = require("zortex.services.agenda").upcoming(cfg.digest.show_upcoming_days + 1)
-	local today_str = datetime.format_datetime(today, "YYYY-MM-DD")
-	for _, day in ipairs(days) do
-		local date = datetime.parse_date(day.date)
-		local offset = datetime.days_between(datetime.parse_date(today_str), date)
-
-		-- Date header
-		local date_header = datetime.format_relative_date(date)
-		if offset > 1 then
-			date_header = date_header .. string.format(" (%s)", os.date("%b %d", os.time(date)))
-		end
-		table.insert(lines, string.format("  %s", date_header))
-		table.insert(highlights, {
-			line = #lines,
-			col = 2,
-			end_col = 2 + fn.strwidth(date_header),
-			hl = cfg.colors.digest_header,
-		})
-
-		for _, item in ipairs(day.items) do
-			local entry_line
-			if item.entry then
-				local entry = item.entry
-				local icon = entry.attributes.notify and cfg.icons.notification or entry_icon(entry, cfg)
-				entry_line = string.format("    %s %s", icon, entry:format())
-			else
-				-- Project task or project due today
-				local icon = item.done and cfg.icons.task_done or cfg.icons.task
-				local where = item.project and (" · " .. item.project:breadcrumb()) or ""
-				local what = item.kind == "project_due" and ("Project due: " .. item.text) or (item.text .. " (due)")
-				entry_line = string.format("    %s %s%s", icon, what, where)
-			end
-			table.insert(lines, entry_line)
-
-			time_highlight(highlights, #lines, entry_line, 0, cfg)
-		end
-		table.insert(lines, "")
-	end
-
-	-- Show high priority projects
-	if cfg.digest.show_high_priority then
-		local high_priority = require("zortex.services.projects").query({
-			sort = "priority",
-			include_done = false,
-			filter = function(p)
-				return p.attributes.p == "1" or p.attributes.i == "1"
-			end,
-		})
-
-		if #high_priority > 0 then
-			table.insert(lines, string.rep("─", win_width))
-			table.insert(lines, "")
-			table.insert(lines, "  🎯 High Priority Projects")
-			table.insert(highlights, {
-				line = #lines,
-				col = 2,
-				end_col = 2 + fn.strwidth("🎯 High Priority Projects"),
-				hl = cfg.colors.digest_header,
-			})
-			table.insert(lines, "")
-
-			for _, project in ipairs(high_priority) do
-				local priority_str = ""
-				if project.attributes.p == "1" then
-					priority_str = priority_str .. " [P1]"
-				end
-				if project.attributes.i == "1" then
-					priority_str = priority_str .. " [I1]"
-				end
-
-				local project_line = string.format("    • %s%s", project.name, priority_str)
-				table.insert(lines, project_line)
-			end
-		end
-	end
-
-	return lines, highlights
 end
 
 -- Byte offset (0-based) of display column `col` in `line`: the start of the

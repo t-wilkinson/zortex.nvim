@@ -39,6 +39,7 @@
 local M = {}
 
 local planner = require("zortex.services.planner")
+local datetime = require("zortex.utils.datetime")
 
 local BUF_NAME = "zortex://plan"
 local NS = vim.api.nvim_create_namespace("zortex_planner")
@@ -54,15 +55,20 @@ end
 -- =============================================================================
 
 --- Lines, badges and line -> candidate map for a candidates table:
+---   # Coming up    the events of the next ui.planner.upcoming_days days
+---                  (agenda.upcoming_events), to plan around
 ---   # Projects     a "## <project link>" heading per project, its ranked
----                  tasks under it
+---                  tasks under it; under a project a key result links,
+---                  folded, its other open tasks and each sub-project
+---                  ("### <link>") with its own (the 4th return value:
+---                  the folds, { first, last } line ranges)
 ---   # Key results
 ---   # Tasks        to-dos: the TODO project, the Projects note's own tasks,
 ---                  open calendar tasks of earlier days
 ---   # Areas
 ---   # Inbox        what is left in inbox.zortex (when anything is)
 function M.render(candidates, date)
-	local lines, badges, items = {}, {}, {}
+	local lines, badges, items, folds = {}, {}, {}, {}
 	local function add(text, c, b)
 		lines[#lines + 1] = text
 		items[#lines] = c
@@ -83,6 +89,24 @@ function M.render(candidates, date)
 		add(candidates.capacity_line, nil, candidates.capacity_badges)
 	end
 
+	-- the events of the coming days, to plan around (not put on the day)
+	local upcoming = candidates.upcoming or {}
+	if #upcoming > 0 then
+		local days = cfg().upcoming_days or 7
+		lines[#lines + 1] = ""
+		lines[#lines + 1] = string.format("# Coming up (next %d day%s)", days, days == 1 and "" or "s")
+		for _, day in ipairs(upcoming) do
+			local t = os.time({ year = tonumber(day.date:sub(1, 4)), month = tonumber(day.date:sub(6, 7)), day = tonumber(day.date:sub(9, 10)), hour = 12 })
+			for i, item in ipairs(day.items) do
+				local when = i == 1 and os.date("%a %m-%d", t) or string.rep(" ", 9)
+				local e = item.entry and item.entry.timing and item.entry.timing["end"]
+				local ends = type(e) == "table" and e.hour and string.format("–%02d:%02d", e.hour, e.min or 0) or ""
+				local text = (item.time and (item.time .. ends .. " ") or "") .. item.text
+				add(string.format("%s  %s", when, text), nil, {})
+			end
+		end
+	end
+
 	local groups = candidates.groups or {}
 	lines[#lines + 1] = ""
 	lines[#lines + 1] = string.format("# Projects (%d)", #groups)
@@ -100,6 +124,25 @@ function M.render(candidates, date)
 				return b ~= t.project_name
 			end, t.badges or {}))
 		end
+		-- a project a key result links: the rest of its tree, folded (zo)
+		local open = {} -- open sections: { depth, start }
+		local function close_to(depth)
+			while #open > 0 and open[#open].depth >= depth do
+				local o = table.remove(open)
+				folds[#folds + 1] = { o.start, #lines }
+			end
+		end
+		for _, sec in ipairs(g.more or {}) do
+			close_to(sec.depth)
+			local hashes = string.rep("#", math.min(6, 2 + sec.depth))
+			local title = sec.own and string.format("More of this project (%d)", #sec.tasks) or sec.project.text
+			add(hashes .. " " .. title, not sec.own and sec.project or nil, not sec.own and sec.project.badges or {})
+			open[#open + 1] = { depth = sec.depth, start = #lines }
+			for _, t in ipairs(sec.tasks) do
+				add(t.text, t, {})
+			end
+		end
+		close_to(1)
 	end
 	section("Key results", candidates.key_results or {})
 	section("Tasks", candidates.todos or {})
@@ -107,7 +150,7 @@ function M.render(candidates, date)
 	if candidates.inbox and #candidates.inbox > 0 then
 		section("Inbox", candidates.inbox)
 	end
-	return lines, badges, items
+	return lines, badges, items, folds
 end
 
 local function paint(buf, badges)
@@ -361,13 +404,31 @@ function M.refresh()
 	end
 	local candidates = planner.candidates({ today = state.date })
 	candidates.capacity_line, candidates.capacity_badges = capacity_line()
-	local lines, badges, items = M.render(candidates, state.date)
+	local lines, badges, items, folds = M.render(candidates, state.date)
 	state.items, state.badges = items, badges
 	vim.bo[buf].modifiable = true
 	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
 	vim.bo[buf].modifiable = false
 	pcall(require("zortex.features.highlights").highlight_buffer, buf)
 	paint(buf, badges)
+	-- the rest of a key result's project, folded (manual folds, closed)
+	if state.win and vim.api.nvim_win_is_valid(state.win) and vim.api.nvim_win_get_buf(state.win) == buf then
+		vim.api.nvim_win_call(state.win, function()
+			vim.wo.foldmethod = "manual"
+			vim.wo.foldenable = true
+			vim.wo.foldlevel = 0
+			vim.cmd("silent! normal! zE")
+			table.sort(folds, function(a, b)
+				return a[1] > b[1] -- inner (later-starting) folds first
+			end)
+			for _, f in ipairs(folds) do
+				if f[2] > f[1] then
+					vim.cmd(string.format("silent! %d,%dfold", f[1], f[2]))
+				end
+			end
+			vim.cmd("silent! normal! zM")
+		end)
+	end
 end
 
 function M.close()
@@ -375,6 +436,50 @@ function M.close()
 		vim.api.nvim_win_close(state.win, true)
 	end
 	state.win = nil
+end
+
+--- :ZortexToday [date] (<leader>zd): today's day in calendar.zortex, made
+--- from the day's template (ui.planner.templates) when it isn't there yet,
+--- opened in this window with the cursor on its first line. Unlike
+--- :ZortexPlan it opens no candidate list and carries nothing forward.
+--- Returns the calendar buffer and the day's heading line, or nil.
+function M.open_day(date)
+	date = (date and date ~= "") and date or os.date("%Y-%m-%d")
+	local parsed = datetime.parse_date(date)
+	if not parsed then
+		vim.notify("Not a date: " .. tostring(date), vim.log.levels.ERROR, { title = "Zortex" })
+		return nil
+	end
+	date = datetime.format_datetime(parsed, "YYYY-MM-DD")
+	local calendar = require("zortex.stores.calendar")
+	local heading, created = calendar.ensure_date(date, planner.template(date))
+	if not heading then
+		vim.notify("Couldn't add " .. date .. " to the calendar: " .. tostring(created), vim.log.levels.ERROR, { title = "Zortex" })
+		return nil
+	end
+	-- the buffer as is: the day may have just been written into it unsaved
+	-- (":edit" would stop at E37)
+	local path = vim.fn.fnamemodify(require("zortex.utils.filesystem").get_calendar_file(), ":p")
+	local buf = vim.fn.bufadd(path)
+	vim.fn.bufload(buf)
+	vim.bo[buf].buflisted = true
+	vim.api.nvim_win_set_buf(0, buf)
+	if vim.bo[buf].filetype == "" then
+		vim.bo[buf].filetype = "zortex"
+	end
+	-- the day's first line, or the heading when the day is empty
+	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+	local target = heading
+	local next_line = lines[heading + 1]
+	if next_line and next_line:match("%S") and not datetime.date_heading(next_line) then
+		target = heading + 1
+	end
+	vim.api.nvim_win_set_cursor(0, { target, 0 })
+	vim.cmd("normal! zvzt")
+	if created then
+		vim.notify("Added " .. date .. " to the calendar", vim.log.levels.INFO, { title = "Zortex" })
+	end
+	return buf, heading
 end
 
 --- Plan a day.

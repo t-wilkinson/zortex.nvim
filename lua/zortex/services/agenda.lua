@@ -1,13 +1,14 @@
 -- services/agenda.lua - What's on, what's due, and what needs attention
 --
 -- One query over the calendar, project tasks and projects, used by the
--- calendar view, the digest file and the email digest. review() collects the
+-- calendar view and the planner. review() collects the
 -- findings a weekly review needs.
 --
 --   local A = require("zortex.services.agenda")
 --   A.day("2026-10-09")                     -- items for one day
 --   A.range("2026-10-09", "2026-10-15")     -- { { date, items }, ... }
 --   A.upcoming(7)                           -- today + 6 days
+--   A.upcoming_events({ date = d, days = 7 }) -- events of the 7 days after d
 --   A.review({ days = 7 })                  -- weekly review findings
 --
 -- An item:
@@ -210,6 +211,45 @@ function M.upcoming(days, opts)
 	return M.range(from, add_days(from, (days or 7) - 1), opts)
 end
 
+-- An event: what you plan around rather than work you planned. Lines marked
+-- @event, and timed lines and calendar notes that don't link a project
+-- ("14:00 Dentist", "- Mum's birthday"); not tasks without a time, lines
+-- standing for a task, or blocks of project work ("09:00 [P/#1.4 …]").
+local function is_event(item)
+	local entry = item.entry
+	if not entry or item.ref or entry.outcome then
+		return false
+	end
+	if vim.tbl_contains(entry.attributes.tags or {}, "event") then
+		return true
+	end
+	if item.project then
+		return false
+	end
+	return item.time ~= nil or item.kind == "note"
+end
+
+--- The events of the `days` days after `date` (default today; `days`
+--- default ui.planner.upcoming_days, 7): { { date, items } } with the days
+--- that have any. The planner and the calendar view list them.
+---@param opts { days?: integer, date?: string }?
+function M.upcoming_events(opts)
+	opts = opts or {}
+	local days = opts.days or ((require("zortex.config").ui or {}).planner or {}).upcoming_days or 7
+	if days <= 0 then
+		return {}
+	end
+	local from = add_days(opts.date or today_str(), 1)
+	local out = {}
+	for _, day in ipairs(M.range(from, add_days(from, days - 1))) do
+		local items = vim.tbl_filter(is_event, day.items)
+		if #items > 0 then
+			out[#out + 1] = { date = day.date, items = items }
+		end
+	end
+	return out
+end
+
 -- =============================================================================
 -- Review
 -- =============================================================================
@@ -307,6 +347,7 @@ function M.review(opts)
 		objectives_without_krs = {},
 		areas_without_projects = {},
 		broken_links = {},
+		done_projects = {},
 		-- the inbox, and lines elsewhere marked @project (services/triage)
 		inbox = require("zortex.services.triage").items(),
 	}
@@ -328,7 +369,18 @@ function M.review(opts)
 			end
 		end
 
-		if not p:is_root() and not p:is_done() then
+		-- @someday: parked on purpose (z in the weekly review); not stale
+		local someday = false
+		local q = p
+		while q and not someday do
+			someday = q.attributes ~= nil and vim.tbl_contains(q.attributes.tags or {}, "someday")
+			q = q.parent
+		end
+		if not p:is_root() and p:is_done() and not (p.parent and p.parent:is_done() and not p.parent:is_root()) then
+			-- done, still in the projects: the weekly review offers to archive
+			r.done_projects[#r.done_projects + 1] = p
+		end
+		if not p:is_root() and not p:is_done() and not someday then
 			local rollup = p:rollup()
 			if rollup.open > 0 and not has_schedule(p, today, future) then
 				table.insert(r.unscheduled, p)
@@ -480,6 +532,14 @@ function M.plan_findings(r, today)
 	-- XP and time in the window
 	local ok, between = pcall(require("zortex.services.xp.ledger").window_totals, r.from, today)
 	r.xp = ok and between or { entries = {}, xp = 0, mastery = 0, by_alignment = { kr = 0, area = 0, none = 0 } }
+	-- tasks finished in the window that served neither a key result nor an
+	-- area (the daily review lists them, to archive or to give a home)
+	r.unaligned_done = {}
+	for _, e in ipairs(r.xp.entries or {}) do
+		if not e.aligned and (e.source == "task" or e.source == "project_task") and e.file and e.lnum then
+			r.unaligned_done[#r.unaligned_done + 1] = e
+		end
+	end
 	local ok_s, season = pcall(function()
 		return require("zortex.services.xp.season").status()
 	end)
@@ -509,6 +569,107 @@ function M.plan_findings(r, today)
 			if not below then
 				r.areas_without_objective[#r.areas_without_objective + 1] = area
 			end
+		end
+	end
+
+	-- The plan top down, for the weekly review: the vision, then each area
+	-- (two levels) with its own vision, the current objectives that name it,
+	-- their key results and the projects those link, and its active
+	-- projects that only carry the area. Objectives that name no area come
+	-- last (area = nil).
+	r.vision = select(2, pcall(function()
+		return require("zortex.services.areas").vision()
+	end))
+	if type(r.vision) ~= "string" then
+		r.vision = nil
+	end
+	r.top_down = {}
+	do
+		local areas_mod = require("zortex.services.areas")
+		local by_area, placed = {}, {}
+		for _, x in ipairs(r.objectives) do
+			local areas = x.objective:areas()
+			for _, a in ipairs(areas) do
+				-- the most specific area of the two levels shown
+				local shown = a
+				while shown and shown.depth > 2 do
+					shown = shown.parent
+				end
+				if shown then
+					by_area[shown.key] = by_area[shown.key] or {}
+					table.insert(by_area[shown.key], x)
+					placed[x] = true
+				end
+			end
+		end
+		local function projects_of(x)
+			local out, seen = {}, {}
+			for _, k in ipairs(x.krs) do
+				local list = {}
+				for key in pairs(k.kr:linked_projects()) do
+					local p = projects().get(key)
+					if p and not seen[key] then
+						seen[key] = true
+						list[#list + 1] = p
+					end
+				end
+				table.sort(list, function(a, b)
+					return a.key < b.key
+				end)
+				k.projects = list
+				vim.list_extend(out, list)
+			end
+			return out
+		end
+		local on_kr = {}
+		for _, x in ipairs(r.objectives) do
+			for _, p in ipairs(projects_of(x)) do
+				on_kr[p.key] = true
+			end
+		end
+		for _, area in ipairs(areas_mod.all({ include_roots = false })) do
+			if area.depth <= 2 then
+				local area_only = {}
+				for _, p in ipairs(area:projects({ descendants = area.depth == 2 })) do
+					local covered = false
+					local q = p
+					while q and not covered do
+						covered = on_kr[q.key] == true
+						q = q.parent
+					end
+					if not covered and not p:is_root() and not p:is_done() and p:rollup().open > 0 then
+						area_only[#area_only + 1] = p
+					end
+				end
+				-- a sub-project goes with its project
+				local listed = {}
+				for _, p in ipairs(area_only) do
+					listed[p.key] = true
+				end
+				area_only = vim.tbl_filter(function(p)
+					local up = p.parent
+					while up do
+						if listed[up.key] then
+							return false
+						end
+						up = up.parent
+					end
+					return true
+				end, area_only)
+				r.top_down[#r.top_down + 1] = {
+					area = area,
+					depth = area.depth,
+					vision = area:vision(),
+					objectives = by_area[area.key] or {},
+					area_only = area_only,
+				}
+			end
+		end
+		local loose = vim.tbl_filter(function(x)
+			return not placed[x]
+		end, r.objectives)
+		if #loose > 0 then
+			r.top_down[#r.top_down + 1] = { depth = 1, objectives = loose, area_only = {} }
 		end
 	end
 

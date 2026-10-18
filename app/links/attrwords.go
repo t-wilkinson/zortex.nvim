@@ -5,7 +5,7 @@ import "regexp"
 var durationWord = regexp.MustCompile(`^\d+\.?\d*[hdmw]$`)
 
 var attributeWords = map[string]bool{
-	"step": true, "steps": true, "event": true, "fold": true,
+	"step": true, "steps": true, "event": true, "fold": true, "someday": true,
 	"xs": true, "sm": true, "md": true, "lg": true, "xl": true,
 	"2xl": true, "3xl": true, "4xl": true, "5xl": true,
 	"epic": true, "legendary": true, "mythic": true, "ultimate": true,

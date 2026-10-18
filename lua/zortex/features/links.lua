@@ -296,22 +296,6 @@ function M.open_info(link_info, ctx)
 			end
 		end
 
-		-- For live links in digest, just navigate normally but register for updates
-		if link_info.type == "live_link" and in_buffer then
-			if current_file:match(constants.FILES.DIGEST .. "$") then
-				-- This is a live link in the digest
-				local digest = require("zortex.services.digest")
-				local lnum = buffer.get_cursor_pos()
-				local link_id = table.concat(
-					vim.tbl_map(function(c)
-						return c.text
-					end, parsed.components),
-					"/"
-				)
-				digest.register_live_link_from_cursor(link_id, parsed, lnum)
-			end
-		end
-
 		local results, err = link_mod.resolve(parsed, ctx.doc and { doc = ctx.doc } or nil)
 
 		if #results == 0 then

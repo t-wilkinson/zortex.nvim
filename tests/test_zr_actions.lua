@@ -41,11 +41,11 @@ end)
 
 T.test("key prefixes are named for which-key", function()
 	local groups = {}
-	for _, g in ipairs(actions.key_groups("<leader>z", {}, { C = "Calendar & digest" })) do
+	for _, g in ipairs(actions.key_groups("<leader>z", {}, { C = "Calendar" })) do
 		groups[g[1]] = g[2]
 	end
 	T.eq(groups["<leader>z"], "Zortex")
-	T.eq(groups["<leader>zC"], "Calendar & digest") -- named in config
+	T.eq(groups["<leader>zC"], "Calendar") -- named in config
 	T.eq(groups["<leader>zx"], "XP") -- named after its actions' group
 	T.eq(groups["<leader>zt"], "Tasks")
 	T.eq(groups["<leader>zz"], nil) -- a single key, not a prefix
@@ -71,13 +71,13 @@ T.test("which-key gets the groups when installed (v3 add, v2 register)", functio
 			added = spec
 		end,
 	}
-	T.ok(actions.register_which_key("<leader>z", {}, { C = "Calendar & digest" }))
+	T.ok(actions.register_which_key("<leader>z", {}, { C = "Calendar" }))
 	local by_lhs = {}
 	for _, s in ipairs(added) do
 		by_lhs[s[1]] = s
 	end
 	T.eq(by_lhs["<leader>z"].group, "Zortex")
-	T.eq(by_lhs["<leader>zC"].group, "Calendar & digest")
+	T.eq(by_lhs["<leader>zC"].group, "Calendar")
 	T.eq(by_lhs["<leader>zC"].mode, "n")
 
 	local registered
@@ -129,7 +129,7 @@ T.test(":help zortex is up to date and its tags are valid", function()
 	vim.fn.writefile(vim.fn.readfile(gen.vimdoc), dir .. "/zortex.txt")
 	vim.cmd("helptags " .. vim.fn.fnameescape(dir)) -- errors on duplicate tags
 	local tags = table.concat(vim.fn.readfile(dir .. "/tags"), "\n")
-	for _, tag in ipairs({ "zortex", "zortex-config", ":ZortexSearch", ":ZortexInit", "zortex-action-pomodoro_toggle" }) do
+	for _, tag in ipairs({ "zortex", "zortex-config", ":ZortexSearch", ":ZortexInit", ":ZortexPomodoro" }) do
 		T.ok(tags:find(tag .. "\t", 1, true), tag)
 	end
 end)

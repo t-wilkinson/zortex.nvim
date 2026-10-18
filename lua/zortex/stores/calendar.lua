@@ -53,15 +53,17 @@ function M.load()
 end
 
 -- Date blocks in file order: { date, heading_lnum, last_lnum }. A date
--- heading is a top-level label "YYYY-MM-DD:"; its block runs to the next date
--- heading, and last_lnum is its last non-blank line.
+-- heading is a bold label "**YYYY-MM-DD:**" (what new days get, so labels
+-- such as "Outcomes:" nest under it) or a top-level label "YYYY-MM-DD:";
+-- its block runs to the next date heading, and last_lnum is its last
+-- non-blank line.
 local function date_blocks(doc)
 	local blocks = {}
 	for _, sec in ipairs(doc.syntax.sections) do
-		if sec.type == "label" and doc:info(sec.lnum).indent == 0 then
-			local y, m, d = sec.text:match("^(%d%d%d%d)%-(%d%d)%-(%d%d)$")
-			if y then
-				blocks[#blocks + 1] = { date = string.format("%s-%s-%s", y, m, d), heading_lnum = sec.lnum }
+		if sec.type == "bold_heading" or (sec.type == "label" and doc:info(sec.lnum).indent == 0) then
+			local date = datetime.date_heading(doc.lines[sec.lnum])
+			if date then
+				blocks[#blocks + 1] = { date = date, heading_lnum = sec.lnum }
 			end
 		end
 	end
@@ -77,25 +79,53 @@ local function date_blocks(doc)
 	return blocks
 end
 
+-- "Outcomes:" in a day: what would make the day a success
+local OUTCOMES = "^%s*[Oo]utcomes:%s*$"
+
 -- Parse calendar lines into { ["YYYY-MM-DD"] = { CalendarEntry, ... } }.
 -- Entries are the list items under each date heading; each records its line
--- in `entry.lnum`. Duplicate date headings merge into one list.
+-- in `entry.lnum`. Duplicate date headings merge into one list. The items
+-- right under an "Outcomes:" label (up to the first blank line) are the
+-- day's outcomes: `entry.outcome` is true.
 function M.parse_lines(lines, doc)
 	doc = doc or require("zortex.core.document").from_lines(lines)
 	local entries = {}
 	for _, block in ipairs(date_blocks(doc)) do
 		entries[block.date] = entries[block.date] or {}
+		local outcomes = false
 		for lnum = block.heading_lnum + 1, block.last_lnum do
-			if doc:info(lnum).item then
-				local entry = CalendarEntry.from_text(doc.lines[lnum], block.date)
+			local line = doc.lines[lnum]
+			if line:match(OUTCOMES) then
+				outcomes = true
+			elseif not line:match("%S") then
+				outcomes = false
+			elseif doc:info(lnum).item then
+				local entry = CalendarEntry.from_text(line, block.date)
 				if entry then
 					entry.lnum = lnum
+					entry.outcome = outcomes or nil
 					table.insert(entries[block.date], entry)
 				end
 			end
 		end
 	end
 	return entries
+end
+
+--- The day's outcomes: the entries under its "Outcomes:" label, in file
+--- order.
+function M.outcomes(date_str)
+	M.ensure_loaded()
+	local out = {}
+	for _, entry in ipairs(state.entries[date_str] or {}) do
+		if entry.outcome then
+			out[#out + 1] = entry
+		end
+	end
+	table.sort(out, function(a, b)
+		return (a.lnum or 0) < (b.lnum or 0)
+	end)
+	return out
 end
 
 -- Re-parse when the calendar file (or its buffer) changed since last load.
@@ -209,7 +239,7 @@ function M.ensure_date(date_str, lines)
 		end
 	end
 
-	local new_lines = { date_str .. ":" }
+	local new_lines = { datetime.date_heading_line(date_str) }
 	vim.list_extend(new_lines, lines or {})
 	new_lines[#new_lines + 1] = ""
 	local insert_at = M.insertion_line(blocks, date_str, current)
@@ -260,7 +290,7 @@ function M.add_entry(date_str, entry_text)
 		ok, err = workspace().insert_lines(path, block.last_lnum + 1, { format_entry_line(entry_text, sibling) })
 	else
 		-- New date: after the closest earlier date (see insertion_line)
-		local new_lines = { date_str .. ":", format_entry_line(entry_text), "" }
+		local new_lines = { datetime.date_heading_line(date_str), format_entry_line(entry_text), "" }
 		local insert_at = M.insertion_line(blocks, date_str, lines)
 		if insert_at > #lines then
 			insert_at = #lines + 1

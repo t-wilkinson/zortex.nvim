@@ -203,6 +203,28 @@
         "text": "under a label that isn't a date",
         "time": ""
       }
+    ],
+    "2026-10-14": [
+      {
+        "depth": 0,
+        "done": false,
+        "end": "",
+        "lnum": 37,
+        "moved": false,
+        "task": true,
+        "text": "Ship the release",
+        "time": ""
+      },
+      {
+        "depth": 0,
+        "done": false,
+        "end": "",
+        "lnum": 39,
+        "moved": false,
+        "task": false,
+        "text": "Bold-headed day",
+        "time": "09:00"
+      }
     ]
   },
   "lines": [
@@ -238,6 +260,12 @@
     "- [ ] under a label that isn't a date",
     "",
     "2026-10-12:",
-    "- [ ] The same day again"
+    "- [ ] The same day again",
+    "",
+    "**2026-10-14:**",
+    "Outcomes:",
+    "- [ ] Ship the release",
+    "",
+    "09:00 Bold-headed day"
   ]
 }

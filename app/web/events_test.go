@@ -141,39 +141,6 @@ func getJSON(t *testing.T, ts *httptest.Server, path string) (int, map[string]an
 	return resp.StatusCode, out
 }
 
-func TestDigest(t *testing.T) {
-	s, dir, ts := newTestServer(t, "")
-	today := time.Now()
-	cal := "@@Calendar\n\n" + today.Format("2006-01-02") + ":\n09:00 - 10:00 Deep work on [P/#1.4 - zortex] @notify(10)\n- [x] Call the mechanic\n\n" +
-		today.AddDate(0, 0, 3).Format("2006-01-02") + ":\n- [ ] Pay rent\n\n" +
-		today.AddDate(0, 0, 30).Format("2006-01-02") + ":\n- Far away\n"
-	os.WriteFile(filepath.Join(dir, "calendar.zortex"), []byte(cal), 0o644)
-	s.Refresh()
-	code, out := getJSON(t, ts, "/api/digest?site=https://notes.example.com/ignored")
-	if code != 200 {
-		t.Fatalf("digest: %d", code)
-	}
-	text, body := out["text"].(string), out["html"].(string)
-	for _, want := range []string{"Today, ", "09:00–10:00  Deep work on [P/#1.4 - zortex]", "[x] Call the mechanic", "[ ] Pay rent"} {
-		if !strings.Contains(text, want) {
-			t.Errorf("text lacks %q:\n%s", want, text)
-		}
-	}
-	if strings.Contains(text, "Far away") || strings.Contains(text, "@notify") {
-		t.Errorf("text:\n%s", text)
-	}
-	if !strings.Contains(body, `href="https://notes.example.com/n/projects.zortex#L14"`) || out["count"].(float64) != 3 {
-		t.Errorf("html/count: %v %s", out["count"], body)
-	}
-	if !strings.HasPrefix(out["subject"].(string), "Agenda: ") {
-		t.Errorf("subject %q", out["subject"])
-	}
-	_, out = getJSON(t, ts, "/api/digest?days=31")
-	if !strings.Contains(out["text"].(string), "Far away") {
-		t.Error("days=31 misses the far entry")
-	}
-}
-
 func TestClocksAPI(t *testing.T) {
 	s, _, ts, pub := newStateServer(t, "")
 	ch, stop := stream(t, ts.URL)

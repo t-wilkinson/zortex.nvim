@@ -205,6 +205,30 @@ func TestInboxAndPending(t *testing.T) {
 	_ = s
 }
 
+// The offline queue (inbox.js) sends each capture with an id; one sent again
+// because its answer was lost is added once, and later captures still go to
+// the bottom of the inbox in order.
+func TestInboxOfflineQueueResend(t *testing.T) {
+	_, dir, ts := writableServer(t)
+	path := filepath.Join(dir, "inbox.zortex")
+	os.WriteFile(path, []byte("@@Inbox\n\n- [ ] Existing @id(aaaaa)\n\n\n"), 0o644)
+	for _, req := range []map[string]any{
+		{"text": "First offline", "kind": "note", "id": "q-1"},
+		{"text": "First offline", "kind": "note", "id": "q-1"}, // the answer was lost: sent again
+		{"text": "Second offline", "kind": "task", "id": "q-2"},
+	} {
+		if code, out := postJSON(t, ts.URL, "/api/inbox", req); code != 200 {
+			t.Fatalf("%v: %d %v", req, code, out)
+		}
+	}
+	lines := readLines(t, path)
+	if len(lines) != 5 || lines[3] != "- First offline" || !strings.HasPrefix(lines[4], "- [ ] Second offline @id(") {
+		t.Fatalf("inbox: %q", lines)
+	}
+	// the offline page has the box too
+	expect(t, ts, "/offline", 200, `id="inbox-form"`, `static/inbox.js`)
+}
+
 func TestCalendarSourcesWhenWritable(t *testing.T) {
 	s, dir, ts := writableServer(t)
 	day := time.Now().Format("2006-01-02")

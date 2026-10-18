@@ -106,6 +106,18 @@ function M.resolve(target)
 	return nil
 end
 
+--- The snapshot last read for `path` (file) or `bufnr` (buffer), without
+--- looking at the disk or the buffer again: what a caller computed its line
+--- numbers from (core/workspace compares it with the note before writing).
+function M.cached(target)
+	if type(target) == "number" then
+		local c = buffer_cache[target]
+		return c and c.doc, c and c.changedtick
+	end
+	local c = target and file_cache[normalize(target)]
+	return c and c.doc
+end
+
 function M.invalidate(path)
 	if path then
 		file_cache[normalize(path)] = nil

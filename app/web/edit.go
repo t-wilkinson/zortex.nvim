@@ -32,7 +32,9 @@ import (
 //	                                    before line `to` (len+1: the end), lined
 //	                                    up with the lines around it; `expectTo`
 //	                                    is the text of line `to`
-//	POST /api/inbox  {text, kind}       append a task or a note to inbox.zortex
+//	POST /api/inbox  {text, kind, id?}  append a task or a note to inbox.zortex;
+//	                                    id (optional, from the offline queue)
+//	                                    makes a resend a no-op
 //
 // Task ops keep copies in step (mirrors.go): the other lines with the
 // task's @id in the calendar and the project notes get the same state, and
@@ -610,6 +612,9 @@ func (s *Server) apiInbox(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Text string `json:"text"`
 		Kind string `json:"kind"`
+		// set by the web app's offline queue (inbox.js): a capture sent again
+		// because its answer was lost is added once
+		ID string `json:"id"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid JSON: " + err.Error()})
@@ -623,7 +628,15 @@ func (s *Server) apiInbox(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": err.Error()})
 		return
 	}
+	if len(req.ID) > 64 {
+		req.ID = req.ID[:64]
+	}
 	s.editMu.Lock()
+	if prev, ok := s.inboxSent.get(req.ID); ok {
+		s.editMu.Unlock()
+		writeJSON(w, http.StatusOK, prev)
+		return
+	}
 	path := s.ix.Path(inboxRel)
 	f, err := readNoteFile(path)
 	if errors.Is(err, os.ErrNotExist) {
@@ -646,6 +659,10 @@ func (s *Server) apiInbox(w http.ResponseWriter, r *http.Request) {
 	if f != nil {
 		lnum = len(f.lines)
 	}
+	out := map[string]any{"ok": true, "rel": inboxRel, "lnum": lnum, "line": line, "url": s.noteURL(inboxRel, lnum)}
+	if err == nil {
+		s.inboxSent.put(req.ID, out)
+	}
 	s.editMu.Unlock()
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
@@ -653,7 +670,43 @@ func (s *Server) apiInbox(w http.ResponseWriter, r *http.Request) {
 	}
 	s.afterWrite()
 	s.log.Printf("inbox: %s", line)
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "rel": inboxRel, "lnum": lnum, "line": line, "url": s.noteURL(inboxRel, lnum)})
+	writeJSON(w, http.StatusOK, out)
+}
+
+// sentIDs remembers the answers to the last inbox captures that carried an
+// id, so the offline queue can resend one whose answer never arrived (the
+// connection dropped after the write) without adding it twice. Guarded by
+// Server.editMu.
+type sentIDs struct {
+	byID  map[string]map[string]any
+	order []string
+}
+
+const sentIDsMax = 500
+
+func (c *sentIDs) get(id string) (map[string]any, bool) {
+	if id == "" || c.byID == nil {
+		return nil, false
+	}
+	v, ok := c.byID[id]
+	return v, ok
+}
+
+func (c *sentIDs) put(id string, v map[string]any) {
+	if id == "" {
+		return
+	}
+	if c.byID == nil {
+		c.byID = map[string]map[string]any{}
+	}
+	if _, ok := c.byID[id]; !ok {
+		c.order = append(c.order, id)
+	}
+	c.byID[id] = v
+	for len(c.order) > sentIDsMax {
+		delete(c.byID, c.order[0])
+		c.order = c.order[1:]
+	}
 }
 
 // =============================================================================

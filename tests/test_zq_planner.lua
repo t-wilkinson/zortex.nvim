@@ -103,14 +103,16 @@ T.test("plan buffer puts items into the calendar day", function()
 	local original = vim.fn.readfile(cal)
 	local proj = require("zortex.utils.filesystem").get_projects_file()
 	local original_proj = vim.fn.readfile(proj) -- p gives the task an @id
-	with_config({ todo_link = "P/#1 Programming/#1.4 - zortex", templates = { sunday = { "09:00", "12:00 Lunch" } } }, function()
+	-- carry_forward off: on the real 2026-10-18 it would also move open tasks
+	-- of the days before onto the day
+	with_config({ todo_link = "P/#1 Programming/#1.4 - zortex", carry_forward = false, templates = { sunday = { "09:00", "12:00 Lunch" } } }, function()
 		local ui = require("zortex.ui.planner")
 		local buf = ui.open({ date = "2026-10-18" }) -- a Sunday, not in the calendar yet
 		local st = ui._state()
 		local cal_lines = vim.api.nvim_buf_get_lines(st.cal_buf, 0, -1, false)
 		local h
 		for i, l in ipairs(cal_lines) do
-			if l == "2026-10-18:" then
+			if l == "**2026-10-18:**" then -- new days get a bold heading
 				h = i
 			end
 		end
@@ -307,17 +309,18 @@ T.test("new days go after the closest earlier day, not before a stray later one"
 	require("zortex.core.document").invalidate(cal)
 	calendar.ensure_date("2026-10-12", { "09:00" })
 	local lines = vim.fn.readfile(cal)
-	T.eq(vim.list_slice(lines, 9), { "2026-10-10:", "- two", "", "2026-10-12:", "09:00" })
+	-- new days get a bold label ("Outcomes:" nests under it); old ones stay
+	T.eq(vim.list_slice(lines, 9), { "2026-10-10:", "- two", "", "**2026-10-12:**", "09:00" })
 
 	-- between two days that are in order
 	calendar.ensure_date("2026-10-11", {})
 	lines = vim.fn.readfile(cal)
-	T.eq(vim.list_slice(lines, 9), { "2026-10-10:", "- two", "", "2026-10-11:", "", "2026-10-12:", "09:00" })
+	T.eq(vim.list_slice(lines, 9), { "2026-10-10:", "- two", "", "**2026-10-11:**", "", "**2026-10-12:**", "09:00" })
 
 	-- earlier than everything: before the earliest day
 	calendar.add_entry("2026-10-01", "- zero")
 	lines = vim.fn.readfile(cal)
-	T.eq(vim.list_slice(lines, 6, 9), { "2026-10-01:", "- zero", "", "2026-10-09:" })
+	T.eq(vim.list_slice(lines, 6, 9), { "**2026-10-01:**", "- zero", "", "2026-10-09:" })
 
 	vim.fn.writefile(original, cal)
 	require("zortex.core.document").invalidate(cal)
@@ -366,4 +369,91 @@ T.test("alignment: key-result work first, behind schedule more; then areas", fun
 		-- areas without a current objective come first, and say so
 		T.ok(vim.tbl_contains(c.areas[1].badges, "no objective"), vim.inspect(c.areas[1]))
 	end)
+end)
+
+T.test("a project a key result links: the rest of its tree, folded", function()
+	local dir = Config.notes_dir
+	local proj, okr = dir .. "fold-proj.zortex", dir .. "okr.zortex"
+	vim.fn.writefile({
+		"@@Fold proj",
+		"@P",
+		"",
+		"# Launch",
+		"- [ ] Ship it @p1",
+		"- [ ] Write the post",
+		"## Site",
+		"- [ ] Landing page",
+		"### Copy",
+		"- [ ] Headline",
+		"## Done part",
+		"- [x] Old thing",
+	}, proj)
+	-- a key result in the OKR note links the project
+	local okr_original = vim.fn.readfile(okr)
+	vim.fn.writefile(vim.list_extend(vim.deepcopy(okr_original), { "", "## 3M-2026-Q4 Launch it", "- KR1: [ ] Launched [Fold proj/#Launch]" }), okr)
+	require("zortex.core.document").invalidate()
+	require("zortex.core.link_index").refresh(true)
+	local ok, err = pcall(function()
+		local c = planner.candidates({ today = TODAY })
+		local g
+		for _, x in ipairs(c.groups) do
+			if x.project.project_key == "Fold proj/Launch" then
+				g = x
+			end
+		end
+		T.ok(g and g.more, vim.inspect(vim.tbl_map(function(x)
+			return x.project.project_key
+		end, c.groups)))
+		local titles = vim.tbl_map(function(sec)
+			return { sec.depth, sec.own and "own" or sec.project.text, #sec.tasks }
+		end, g.more)
+		-- each sub-project with its open tasks, nested; done ones left out
+		T.eq(titles, { { 1, "[P/Fold proj/#Launch/#Site]", 1 }, { 2, "[P/Fold proj/#Launch/#Site/#Copy]", 1 } })
+		-- shown under the project, not as groups of their own
+		for _, x in ipairs(c.groups) do
+			T.ok(not x.project.project_key:find("^Fold proj/Launch/"), x.project.project_key)
+		end
+
+		local lines, _, items, folds = require("zortex.ui.planner").render({ groups = { g } }, TODAY)
+		local site = vim.fn.index(lines, "### [P/Fold proj/#Launch/#Site]") + 1
+		local copy = vim.fn.index(lines, "#### [P/Fold proj/#Launch/#Site/#Copy]") + 1
+		T.ok(site > 0 and copy > site, vim.inspect(lines))
+		T.ok(items[site + 1] and items[site + 1].kind == "task", "p works on a folded task")
+		local spans = {}
+		for _, f in ipairs(folds) do
+			spans[f[1]] = f[2]
+		end
+		T.eq(spans[copy], copy + 1)
+		T.eq(spans[site], copy + 1, "a sub-project's fold holds its own sub-projects")
+	end)
+	os.remove(proj)
+	vim.fn.writefile(okr_original, okr)
+	require("zortex.core.document").invalidate()
+	require("zortex.core.link_index").refresh(true)
+	assert(ok, err)
+end)
+
+T.test(":ZortexToday adds the day from its template once and goes to it", function()
+	local cal = require("zortex.utils.filesystem").get_calendar_file()
+	local original = vim.fn.readfile(cal)
+	with_config({ templates = { weekday = { "Outcomes:", "- [ ] The one thing" }, sunday = { "Outcomes:" } } }, function()
+		local ui = require("zortex.ui.planner")
+		local buf, heading = ui.open_day("2026-10-20") -- a Tuesday
+		local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+		T.eq(vim.api.nvim_buf_get_name(0), vim.fn.fnamemodify(cal, ":p"))
+		T.eq(vim.list_slice(lines, heading, heading + 2), { "**2026-10-20:**", "Outcomes:", "- [ ] The one thing" })
+		T.eq(vim.api.nvim_win_get_cursor(0)[1], heading + 1, "on the day's first line")
+		-- again: the same day, nothing added
+		local _, again = ui.open_day("2026-10-20")
+		T.eq(again, heading)
+		T.eq(#vim.api.nvim_buf_get_lines(buf, 0, -1, false), #lines)
+		-- an existing day is only visited
+		local _, h = ui.open_day("2026-10-09")
+		T.eq(vim.api.nvim_buf_get_lines(buf, h - 1, h, false)[1], "2026-10-09:")
+		T.eq(vim.api.nvim_win_get_cursor(0)[1], h + 1)
+		T.eq(ui.open_day("not a date"), nil)
+		vim.cmd("silent! bwipeout! " .. buf)
+	end)
+	vim.fn.writefile(original, cal)
+	require("zortex.core.document").invalidate(cal)
 end)

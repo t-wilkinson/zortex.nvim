@@ -153,26 +153,29 @@ T.test("capacity: open tasks against the free time left in the day", function()
 		"- [ ] Call home",
 		"- [x] Done already @size(sm)",
 		"- [>] Carried on @size(xl)",
+		"- [ ] [P/#1.4 - zortex/#1.4.1/-Fix project search] @id(fix01)",
 	}
-	with_notes(day, { ["Improve website"] = "imp01" }, function()
+	with_notes(day, { ["Improve website"] = "imp01", ["Fix project search"] = "fix01" }, function()
 		local c = planner.capacity("2026-10-20", { today = "2026-10-19" })
 		-- the copy weighs its project task (xl, 3h); unsized = md (1h)
-		T.eq(c.planned, 180 + 15 + 60)
-		T.eq({ c.tasks, c.unsized }, { 3, 1 })
+		T.eq(c.planned, 180 + 15 + 60 + 30)
+		T.eq({ c.tasks, c.unsized }, { 4, 1 })
+		-- 1.4.1 is what an open key result links (KR2); 1.4's KR is done
+		T.eq(c.aligned, 30)
 		T.eq(c.done, 30)
 		-- the lecture and lunch (no end: 30m) are busy; the project block isn't
 		T.eq(c.busy, 90 + 30)
 		T.eq(c.free, 14 * 60 - 120)
 		T.eq(c.over, c.planned - c.free)
 		local line = planner.capacity_line(c)
-		T.ok(line:find("^Capacity: 4h15m planned %(3 tasks, 1 unsized%) · 12h free %(08:00%-22:00, 2h busy%) · 7h45m to spare · 30m done$"), line)
+		T.ok(line:find("^Capacity: 4h45m planned %(4 tasks, 1 unsized%) · 30m on key results · 12h free %(08:00%-22:00, 2h busy%) · 7h15m to spare · 30m done$"), line)
 
 		-- today at 15:00: only what's left of the window counts
 		c = planner.capacity("2026-10-20", { today = "2026-10-20", now = "15:00" })
 		T.eq({ c.busy, c.free }, { 0, 7 * 60 })
 		c = planner.capacity("2026-10-20", { today = "2026-10-20", now = "21:00" })
 		T.eq(c.free, 60)
-		T.ok(planner.capacity_line(c):find("3h15m over", 1, true), planner.capacity_line(c))
+		T.ok(planner.capacity_line(c):find("3h45m over", 1, true), planner.capacity_line(c))
 	end)
 end)
 

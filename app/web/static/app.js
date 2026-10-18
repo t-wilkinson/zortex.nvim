@@ -54,7 +54,8 @@
     var when = savedAt ? new Date(savedAt) : null;
     bannerEl.textContent = (navigator.onLine ? "The server can't be reached" : "Offline") +
       (when && !isNaN(when) ? ": a copy saved " + when.toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : ": a saved copy") +
-      ". Editing works again once it's back.";
+      ". Editing works again once it's back" +
+      (document.getElementById("inbox-form") ? "; what you add to the inbox is kept and added then." : ".");
     document.querySelector("main").prepend(bannerEl);
   };
   window.addEventListener("online", offlineBanner);

@@ -78,7 +78,10 @@ function M.calendar_doc()
 	return Document().get(path)
 end
 
-local DATE_LINE = "^(%d%d%d%d%-%d%d%-%d%d):%s*$"
+-- a calendar day heading: "**2026-10-21:**" or "2026-10-21:"
+local function date_heading(line)
+	return require("zortex.utils.datetime").date_heading(line)
+end
 
 --- Calendar tasks with an @id: id -> { lines = { Item }, done, date (the
 --- earliest @done value of a checked copy), spent (minutes), put_off }.
@@ -98,7 +101,7 @@ function M.copies(today)
 	local out = {}
 	local day
 	for lnum, line in ipairs(doc.lines) do
-		local d = line:match(DATE_LINE)
+		local d = date_heading(line)
 		if d and not doc:in_code(lnum) then
 			day = d
 		elseif line:find("@id(", 1, true) and not doc:in_code(lnum) then

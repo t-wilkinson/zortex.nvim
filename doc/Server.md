@@ -42,6 +42,9 @@ Whatever you use:
   out of the notes, so a copy of `projects.zortex` doesn't double every
   project, and the file browser hides them; `:checkhealth zortex` lists
   them. Merge each into its note by hand and delete it.
+- **Keep history.** A sync tool copies a mistake to every device; keep
+  the folder in git on this machine (the README's
+  [Backups](../README.md#backups) has a daily commit).
 - **Syncthing: lower the delay.** Syncthing waits 10 s before syncing a
   change by default; set the folder's *Advanced → fsWatcherDelayS* to 1 or
   2 so the web pages follow Neovim closely. The server itself rescans every
@@ -214,14 +217,22 @@ The web app is installable (a PWA): on a phone, open it in the browser and
 choose **Add to Home Screen** (Safari) or **Install app** (Chrome); on the
 desktop, the install button in Chrome's or Edge's address bar. It opens in
 its own window, without the browser's bars, at the home page; long-pressing
-the icon offers Search and Projects. Browsers allow this over HTTPS only
+the icon offers Search and Projects (and Add to inbox with `-writable`). Browsers allow this over HTTPS only
 (and on `localhost`), so serve it as in [section 3](#3-put-it-behind-a-login).
 
 Recent pages read offline. The app keeps the last 60 pages you opened on
 the device, so when the phone is offline or the server can't be reached, a
 page you read lately opens as a saved copy (it says when it was saved), and
 any other page shows the list of saved ones. Editing, the clocks and live
-updates need the server. The copies live in the browser's storage on that
+updates need the server.
+
+The inbox works offline. With `-writable`, the inbox box on the home page
+(and on the offline page) keeps what you add while there is no connection,
+or while the server is down, and appends it to the bottom of
+`inbox.zortex`, in the order you added it, as soon as the server can be
+reached again (when the app is next open: on reconnecting, on returning to
+it, or within 30 seconds). It says how many are waiting. A capture whose
+answer was lost on a flaky connection is sent again but added once. The copies live in the browser's storage on that
 device, behind the device's own lock; clearing the site's data removes
 them, and each new version of the server starts afresh.
 

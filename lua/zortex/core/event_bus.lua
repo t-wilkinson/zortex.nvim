@@ -8,11 +8,11 @@
 -- { async = false } to on() for a synchronous handler.
 --
 -- Events in use:
---   task:completed, task:uncompleted, task:created   services/tasks  -> xp, digest
+--   task:completed, task:uncompleted, task:created   services/tasks  -> xp
 --   xp:awarded, xp:removed                           services/xp     -> xp notifications
 --   season:started, season:ended, season:tier_reached  stores/xp  -> xp notifications
---   calendar:entry_added, _removed, _updated         stores/calendar -> digest
---   workspace:lines_changed                          core/workspace  -> digest live links
+--   calendar:entry_added, _removed, _updated         stores/calendar (for plugins)
+--   workspace:lines_changed                          core/workspace  (for plugins)
 local M = {}
 
 local handlers = {} -- event -> { { fn, priority, name, original } }

@@ -158,6 +158,13 @@ days (`ui.planner.upcoming_days`; 0 hides it): the events you plan around
 project), not your own planned work or tasks. The calendar view shows the
 same list under the selected day.
 
+Other calendars count too. With the server's calendar feeds
+([Other calendars](Server.md#6-other-calendars)), a family calendar's events
+(a Cozi member's, say) are listed among yours, read-only and labelled
+(`16:00–17:00 Soccer  · cozi`); the plan lists the day's own under "From
+your calendar feeds", since the calendar note beside it doesn't hold them.
+Tag a line of yours `@share` and it goes the other way, into their calendar.
+
 ## Capacity
 
 The plan buffer's second line weighs the day:
@@ -173,8 +180,10 @@ Capacity: 5h30m planned (4 tasks, 1 unsized) · 3h on key results · 4h free (13
 - **free**: what is left of `ui.planner.capacity.day` (from now, when
   planning today) after the timed entries that aren't project work: a
   lecture, an appointment (`09:00 - 10:30 Lecture`; one without an end
-  counts `event_minutes`). Blocks for a project (`14:00 [P/#3.1]`) are where
-  the planned tasks happen, so they don't count as busy.
+  counts `event_minutes`), and the calendar feeds' events. Blocks for a
+  project (`14:00 [P/#3.1]`) are where the planned tasks happen, so they
+  don't count as busy, nor does a line with `@free` (a feed with
+  `busy: false` marks its events so).
 
 It follows every `p`, `P` and edit to the day. Estimates run short (most
 people plan for more than fits), so leave room: a day "to spare" by a couple

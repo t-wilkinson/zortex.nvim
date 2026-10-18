@@ -123,6 +123,15 @@ Deferred for now; listed so the pieces fit together later.
 - **Trends.** Points completed per area and per objective per week, from
   review snapshots and `@done` dates; shown in the area overview and the
   review.
+- **Shared lines for one person.** `@share(bob)` on a calendar line puts it
+  only in Bob's feed: `/calendar.ics?to=bob` with a token per person (a
+  `-share-tokens` file of `name:token` lines), so a line for the kids' pickup
+  reaches the other parent's Cozi calendar and nothing else of yours does.
+  Bare `@share` stays in every feed. Today `@share(…)` is read as `@share`.
+- **Calendar feeds, both ways.** Feed events are read-only; a key on one
+  (in the calendar view) could copy it into `calendar.zortex` as your own
+  line, to plan around or link a project. `:ZortexIcalImport` already
+  copies a whole file once.
 - **Recurring project tasks** (`@repeat(weekly)` on a project task, like
   calendar entries) and **task dependencies** (`@depends(id)`, already in the
   task schema but unused).

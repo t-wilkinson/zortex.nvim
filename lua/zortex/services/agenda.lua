@@ -23,6 +23,7 @@
 --   task      project task (due items)
 --   project   Project the item belongs to / links to (if any)
 --   file, lnum
+--   feed      the calendar feed a read-only event comes from (z/feeds/<feed>)
 local M = {}
 
 local datetime = require("zortex.utils.datetime")
@@ -79,11 +80,18 @@ local function calendar_items(date, ctx)
 			moved = entry.mark == mirrors.MOVED,
 			priority = entry.attributes.p,
 			entry = entry,
-			project = ctx.calendar_projects[entry.lnum],
-			file = ctx.calendar_path,
+			project = not entry.feed and ctx.calendar_projects[entry.lnum] or nil,
+			file = entry.file or ctx.calendar_path,
 			lnum = entry.lnum,
+			feed = entry.feed, -- a calendar feed's event: read-only
 		}
-		if entry.type ~= "task" and entry.lnum and ctx.calendar_doc and entry.raw_text:find("[", 1, true) then
+		if
+			not entry.feed
+			and entry.type ~= "task"
+			and entry.lnum
+			and ctx.calendar_doc
+			and entry.raw_text:find("[", 1, true)
+		then
 			local ref = mirrors.reference(ctx.calendar_doc.lines, entry.lnum, ctx.calendar_doc)
 			if ref then
 				local id = ref.task.attributes.id

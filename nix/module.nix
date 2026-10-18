@@ -15,6 +15,10 @@
 #     ntfy.topic is set
 #   - the pomodoro clock shared by Neovim and the home page, and the home
 #     page's timers, alarms and stopwatch
+#   - calendar feeds: other calendars' iCal links (a Cozi family member's,
+#     say) fetched into notesDir/z/feeds/<name>.zortex, which the calendar
+#     shows read-only; and /calendar.ics, the calendar's @share lines for
+#     other calendars to subscribe to
 #
 # It reads notesDir (a Syncthing folder, say) and keeps its own state in
 # dataDir. Notes are private: keep it on localhost behind a reverse proxy
@@ -27,6 +31,31 @@ let
   cfg = config.services.zortex;
   web = cfg.web;
   on = cfg.enable;
+
+  # the service writes into notesDir: edits from the web, feed notes
+  notesWritable = web.writable || cfg.feeds != { };
+
+  # a feed's urlFile is passed as a systemd credential, read from here
+  credDir = "/run/credentials/zortex-web.service";
+  feedsOn = filterAttrs (_: f: f.enable) cfg.feeds;
+  feedsJSON = pkgs.writeText "zortex-feeds.json" (
+    builtins.toJSON {
+      feeds = mapAttrsToList (
+        name: f:
+        {
+          inherit name;
+          inherit (f) notify busy every;
+          # an off feed stays listed: the service removes its note
+          enabled = f.enable;
+          days_back = f.daysBack;
+          days_ahead = f.daysAhead;
+        }
+        // optionalAttrs (f.title != null) { inherit (f) title; }
+        // optionalAttrs (f.url != null) { inherit (f) url; }
+        // optionalAttrs (f.enable && f.urlFile != null) { url_file = "${credDir}/feed-${name}"; }
+      ) cfg.feeds;
+    }
+  );
 
   args = [
     "serve"
@@ -64,6 +93,14 @@ let
   ++ optionals (web.authFile != null) [
     "-auth-file"
     "%d/auth"
+  ]
+  ++ optionals (cfg.feeds != { }) [
+    "-feeds"
+    "${feedsJSON}"
+  ]
+  ++ optionals (cfg.shareTokenFile != null) [
+    "-share-token-file"
+    "%d/share-token"
   ]
   ++ web.extraArgs;
 in
@@ -151,6 +188,99 @@ in
       description = "Extra group that gives the service read access to notesDir.";
     };
 
+
+    feeds = mkOption {
+      default = { };
+      example = literalExpression ''
+        {
+          cozi = {
+            title = "Family";
+            urlFile = "/run/secrets/cozi-ical-url";
+          };
+          school = {
+            url = "https://example.edu/calendar.ics";
+            notify = true;
+            busy = false;
+          };
+        }
+      '';
+      description = ''
+        Calendar feeds: iCal links (a Cozi family member's "Connected
+        calendars" link, Google's "Secret address in iCal format") fetched
+        every few minutes into notesDir/z/feeds/<name>.zortex, which the
+        calendar, planner and web app show read-only. The service writes
+        into notesDir: give it write access with notesGroup and a
+        group-writable folder (as web.writable). A feed turned off has its
+        note removed.
+      '';
+      type = types.attrsOf (
+        types.submodule {
+          options = {
+            enable = mkOption {
+              type = types.bool;
+              default = true;
+              description = "Fetch this feed. Off: its note is removed and its events leave the calendar.";
+            };
+            title = mkOption {
+              type = types.nullOr types.str;
+              default = null;
+              description = "The note's title (@@Title). Null: the feed's name.";
+            };
+            url = mkOption {
+              type = types.nullOr types.str;
+              default = null;
+              description = "The feed's URL (https:// or webcal://). Ends up in the Nix store: a private link is a secret, prefer urlFile.";
+            };
+            urlFile = mkOption {
+              type = types.nullOr types.path;
+              default = null;
+              example = "/run/secrets/cozi-ical-url";
+              description = "File holding the URL (passed as a systemd credential).";
+            };
+            notify = mkOption {
+              type = types.bool;
+              default = false;
+              description = "Notify for the feed's timed events, as for your own (Neovim syncs them). Off: its lines get @n(no).";
+            };
+            busy = mkOption {
+              type = types.bool;
+              default = true;
+              description = "The feed's events take time in the planner's capacity line. Off: its lines get @free.";
+            };
+            every = mkOption {
+              type = types.str;
+              default = "15m";
+              description = "How often to fetch it (a Go duration, 5m at least).";
+            };
+            daysBack = mkOption {
+              type = types.ints.positive;
+              default = 7;
+              description = "Days before today the note keeps.";
+            };
+            daysAhead = mkOption {
+              type = types.ints.positive;
+              default = 60;
+              description = "Days after today the note covers.";
+            };
+          };
+        }
+      );
+    };
+
+    shareTokenFile = mkOption {
+      type = types.nullOr types.path;
+      default = null;
+      example = "/run/secrets/zortex-share-token";
+      description = ''
+        File holding a token (16 characters or more: openssl rand -hex 16)
+        that lets a calendar app subscribe to
+        <site>/calendar.ics?token=<token>, the calendar's lines tagged
+        @share, without the login. With a proxy that has its own login, let
+        /calendar.ics through to the app (an Authelia "bypass" rule for that
+        path, say): with a token and no web.authFile, the app answers
+        /calendar.ics only to the token. Passed as a systemd credential.
+      '';
+    };
 
     timezone = mkOption {
       type = types.nullOr types.str;
@@ -285,7 +415,15 @@ in
         assertion = web.basePath == "" || hasPrefix "/" web.basePath;
         message = "services.zortex.web.basePath must start with \"/\" (or be empty).";
       }
-    ];
+    ]
+    ++ mapAttrsToList (name: f: {
+      assertion = !f.enable || ((f.url != null) != (f.urlFile != null));
+      message = "services.zortex.feeds.${name}: set one of url and urlFile.";
+    }) cfg.feeds
+    ++ mapAttrsToList (name: _: {
+      assertion = builtins.match "[A-Za-z0-9_-]+" name != null;
+      message = "services.zortex.feeds.${name}: a feed's name is letters, digits, - and _.";
+    }) cfg.feeds;
 
     warnings =
       optional (cfg.ntfy.topic == null) ''
@@ -327,15 +465,20 @@ in
         EnvironmentFile = optional (cfg.apiKeyFile != null) cfg.apiKeyFile;
         LoadCredential =
           optional (cfg.ntfy.authTokenFile != null) "ntfy-token:${toString cfg.ntfy.authTokenFile}"
-          ++ optional (web.authFile != null) "auth:${toString web.authFile}";
+          ++ optional (web.authFile != null) "auth:${toString web.authFile}"
+          ++ optional (cfg.shareTokenFile != null) "share-token:${toString cfg.shareTokenFile}"
+          ++ mapAttrsToList (name: f: "feed-${name}:${toString f.urlFile}") (
+            filterAttrs (_: f: f.urlFile != null) feedsOn
+          );
 
-        # Read-only notes, writable state, nothing else
+        # Read-only notes (writable with web.writable or calendar feeds,
+        # which write z/feeds/), writable state, nothing else
         StateDirectory = mkIf (cfg.dataDir == "/var/lib/zortex") "zortex";
         StateDirectoryMode = "0750";
         ReadWritePaths =
           optional (cfg.dataDir != "/var/lib/zortex") (toString cfg.dataDir)
-          ++ optional (cfg.notesDir != null && web.writable) (toString cfg.notesDir);
-        ReadOnlyPaths = optional (cfg.notesDir != null && !web.writable) (toString cfg.notesDir);
+          ++ optional (cfg.notesDir != null && notesWritable) (toString cfg.notesDir);
+        ReadOnlyPaths = optional (cfg.notesDir != null && !notesWritable) (toString cfg.notesDir);
         ProtectSystem = "strict";
         # notesDir may live in a home directory (a Syncthing user's)
         ProtectHome = "read-only";
@@ -368,7 +511,7 @@ in
           "~@privileged"
         ];
         # writable notes stay group-writable so Syncthing can keep syncing them
-        UMask = if web.writable then "0007" else "0077";
+        UMask = if notesWritable then "0007" else "0077";
       };
     };
 

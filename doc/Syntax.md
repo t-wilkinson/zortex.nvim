@@ -144,6 +144,8 @@ projects, calendar entries):
 | `@spent(1h25m)` | time worked on it, added by the web app's clocks ([time tracking](../app/README.md#time-tracking)) |
 | `@notify(15)`, `@n(0, 30)`, `@n(0, end)` | calendar: notify minutes before the start (several allowed; every timed line notifies at its time by default, `@n(no)` turns it off); `end` also notifies when a range ends |
 | `@event` | calendar: something fixed that you plan around (an appointment, a flight), not a block you planned; the web month grid marks its day, and it is listed under "Coming up" (as are timed lines and calendar notes that don't link a project) |
+| `@share` | calendar: the line is in the server's `/calendar.ics`, which other calendars (Cozi, Google, Apple) subscribe to; nothing else of the calendar is ([Other calendars](Server.md#6-other-calendars)) |
+| `@free` | calendar: a timed line that doesn't take your time: the planner's capacity line doesn't count it as busy (a calendar feed with `busy: false` writes it) |
 | `@repeat(weekly)` | calendar: repetition |
 | `@fold` | on a heading, label or list item with nested lines: the section starts folded in Neovim each time the note is shown (`zo` opens it until then) |
 | `@slides(2)` | in a header: the heading level that starts a slide ([slides](../app/README.md#slides)) |
@@ -310,6 +312,7 @@ Topics:
 | `calendar.zortex` | `@@Calendar` | days with entries under them: `**YYYY-MM-DD:**` (a bold heading, what new days get, so an `Outcomes:` label nests under it) or a plain `YYYY-MM-DD:` label; entries `- [ ] task`, `14:00 event`, `16:00 - 17:00 event`, `- note`. The items right under `Outcomes:` (to the first blank line) are the day's outcomes |
 | `structure.zortex` | `@@Structure` | links to your notes; notes nothing here links to are listed as unlinked. A note tagged `@Structure` adds all its links; a note with a top-level `# Structure` heading adds the links in that section: its own sub-notes, so a hub note can own its part of the tree |
 | `inbox.zortex` | `@@Inbox` | tasks and notes added from the web app |
+| `z/feeds/<name>.zortex` | `@@<title>`, tagged `@CalendarFeed` | written by the server from another calendar's iCal link ([Other calendars](Server.md#6-other-calendars)): days as in `calendar.zortex`, one line per event (`16:00 - 17:00 Soccer · Field 3 @n(no)`, `- Camping` for an all-day one). The calendar shows them read-only; edits are replaced on the next change |
 
 `setup()` creates these from short templates in a new notes folder;
 `:ZortexInit` adds missing ones later. See [Projects.md](Projects.md) for

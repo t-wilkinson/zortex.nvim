@@ -21,7 +21,6 @@ From a review of what a new user meets first. Not agreed item by item yet.
 - [ ] A shorter README: the pitch, the screenshot, the quickstart and a feature list; the generated command and key tables live in `:help` and the docs @p2 @size(sm)
 
 ## 6.2 Workflow
-- [ ] A calendar feed from the server (`/calendar.ics`): timed lines and `@event`s in the phone's calendar app, next to the other calendars (today: iCal files in and out only) @p1 @size(sm)
 - [ ] Import from Markdown / Obsidian vaults (moved up from # 4): `[[wikilinks]]` to zortex links, `#tags` to `@tags`, `.md` to `.zortex`; and a docs page on moving over @p1 @size(lg)
 - [ ] Capture from the phone's share menu: the installed web app as a share target (a link or text lands in the inbox; inbox adds already wait offline until the server is back) @p2 @size(md)
 - [ ] Undo on the web: a "ticked · undo" toast for a few seconds after ticking or deleting a line @p2 @size(sm)

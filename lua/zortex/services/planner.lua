@@ -550,6 +550,14 @@ function M.candidates(opts)
 			local ok, list = pcall(require("zortex.services.agenda").upcoming_events, { date = ctx.today_str })
 			return ok and list or {}
 		end)(),
+		-- the day's events from the calendar feeds (z/feeds), which the
+		-- calendar note beside the plan doesn't show
+		feed_today = (function()
+			local ok, items = pcall(require("zortex.services.agenda").day, ctx.today_str)
+			return ok and vim.tbl_filter(function(i)
+				return i.feed ~= nil
+			end, items) or {}
+		end)(),
 	}
 end
 
@@ -708,8 +716,9 @@ function M.capacity(date, opts)
 						out.aligned = out.aligned + mins
 					end
 				end
-			elseif entry.type == "event" and not item.project then
-				-- a commitment: the part of it inside what is left of the window
+			elseif entry.type == "event" and not item.project and not vim.tbl_contains(entry.attributes.tags or {}, "free") then
+				-- a commitment: the part of it inside what is left of the
+				-- window (@free: not one, as a calendar feed's free events)
 				local s = clock_minutes(entry.timing and entry.timing.start)
 				if s then
 					local len = entry:get_duration() or event_default

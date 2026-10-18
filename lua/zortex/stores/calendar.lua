@@ -21,6 +21,11 @@ local state = {
 	entries = {}, -- entries[date_str] = array of CalendarEntry models
 	doc = nil, -- snapshot the entries were parsed from
 	loaded = false,
+	-- calendar feeds (z/feeds/<name>.zortex, written by `zortex serve
+	-- -feeds`): feed_entries[date_str] = array of read-only CalendarEntry
+	-- models with `feed` (its name) and `file`; feed_docs the snapshots
+	feed_entries = {},
+	feed_docs = {},
 }
 
 local DEFAULT_HEADER = { "@@Calendar", "@@C", "" }
@@ -41,10 +46,75 @@ end
 -- Loading
 -- =============================================================================
 
+-- The notes of the calendar feeds shown (features.calendar_feeds): the
+-- server writes each feed's events into z/feeds/<name>.zortex, tagged
+-- @CalendarFeed. false hides every feed, { cozi = false } one of them.
+-- { { name, path, doc } } by name.
+local function feed_notes()
+	local Config = require("zortex.config")
+	local setting = Config.features and Config.features.calendar_feeds
+	if setting == false or not Config.notes_dir then
+		return {}
+	end
+	local dir = fs.joinpath(Config.notes_dir, "z", "feeds")
+	if vim.fn.isdirectory(dir) == 0 then
+		return {}
+	end
+	local out = {}
+	for _, path in ipairs(vim.fn.glob(dir .. "/*" .. Config.extension, false, true)) do
+		local name = vim.fn.fnamemodify(path, ":t"):sub(1, -#Config.extension - 1)
+		if not (type(setting) == "table" and setting[name] == false) then
+			local doc = require("zortex.core.document").get(path)
+			local marked = false
+			for i = 1, math.min(#doc.lines, 5) do
+				if doc.lines[i]:match("^%s*@CalendarFeed%s*$") then
+					marked = true
+					break
+				end
+			end
+			if marked then
+				out[#out + 1] = { name = name, path = path, doc = doc }
+			end
+		end
+	end
+	table.sort(out, function(a, b)
+		return a.name < b.name
+	end)
+	return out
+end
+
+local function load_feeds(notes)
+	state.feed_entries, state.feed_docs = {}, {}
+	for _, note in ipairs(notes) do
+		state.feed_docs[#state.feed_docs + 1] = note.doc
+		for date, entries in pairs(M.parse_lines(note.doc.lines, note.doc)) do
+			local list = state.feed_entries[date] or {}
+			state.feed_entries[date] = list
+			for _, entry in ipairs(entries) do
+				entry.feed, entry.file = note.name, note.path
+				list[#list + 1] = entry
+			end
+		end
+	end
+end
+
+local function feeds_changed(notes)
+	if #notes ~= #state.feed_docs then
+		return true
+	end
+	for i, note in ipairs(notes) do
+		if note.doc ~= state.feed_docs[i] then
+			return true
+		end
+	end
+	return false
+end
+
 function M.load()
 	local doc = current_doc()
 	state.doc = doc
 	state.entries = doc and M.parse_lines(doc.lines, doc) or {}
+	load_feeds(feed_notes())
 	state.loaded = true
 	if not doc then
 		Logger.warn("calendar.load", "Calendar file not found", { path = calendar_path() })
@@ -128,11 +198,33 @@ function M.outcomes(date_str)
 	return out
 end
 
--- Re-parse when the calendar file (or its buffer) changed since last load.
+-- Re-parse when the calendar file (or its buffer) changed since last load;
+-- the feed notes when one of them changed, came or went.
 function M.ensure_loaded()
 	if not state.loaded or current_doc() ~= state.doc then
 		M.load()
+		return
 	end
+	local notes = feed_notes()
+	if feeds_changed(notes) then
+		load_feeds(notes)
+	end
+end
+
+--- The names of the calendar feeds shown, sorted.
+function M.feeds()
+	M.ensure_loaded()
+	local names, seen = {}, {}
+	for _, list in pairs(state.feed_entries) do
+		for _, entry in ipairs(list) do
+			if not seen[entry.feed] then
+				seen[entry.feed] = true
+				names[#names + 1] = entry.feed
+			end
+		end
+	end
+	table.sort(names)
+	return names
 end
 
 -- =============================================================================
@@ -334,7 +426,11 @@ local function locate(entry)
 end
 
 -- Delete one entry (a CalendarEntry from this store). Its date heading stays.
+-- A feed's entries are read-only.
 function M.delete_entry(entry)
+	if entry and entry.feed then
+		return false, "Calendar feed entries are read-only"
+	end
 	local lnum = entry and locate(entry)
 	if not lnum then
 		return false, "Entry not found in calendar"
@@ -370,7 +466,10 @@ end
 -- Entries Management
 -- =============================================================================
 
-function M.get_entries_for_date(date_str)
+--- The entries active on `date_str`, by priority: the calendar's own and
+--- the calendar feeds' (with `entry.feed`; opts.feeds = false leaves them
+--- out).
+function M.get_entries_for_date(date_str, opts)
 	M.ensure_loaded()
 
 	local active_entries = {}
@@ -388,6 +487,12 @@ function M.get_entries_for_date(date_str)
 			end
 		end
 	end
+	-- feeds write each occurrence on its own day
+	if not (opts and opts.feeds == false) then
+		for _, entry in ipairs(state.feed_entries[date_str] or {}) do
+			active_entries[#active_entries + 1] = entry
+		end
+	end
 
 	-- Sort by priority
 	table.sort(active_entries, function(a, b)
@@ -403,9 +508,11 @@ end
 --- nesting under the day (0 for the day's top-level lines), so a task under
 --- its project's block stays under it.
 function M.get_day_entries(date_str)
-	local own, other = {}, {}
+	local own, other, feed = {}, {}, {}
 	for _, entry in ipairs(M.get_entries_for_date(date_str)) do
-		if entry.date_context == date_str and entry.lnum then
+		if entry.feed then
+			feed[#feed + 1] = entry
+		elseif entry.date_context == date_str and entry.lnum then
 			own[#own + 1] = entry
 		else
 			other[#other + 1] = entry
@@ -422,7 +529,34 @@ function M.get_day_entries(date_str)
 		e.depth = 0
 		out[#out + 1] = e
 	end
-	return vim.list_extend(out, M.day_layout(own))
+	out = vim.list_extend(out, M.day_layout(own))
+	table.sort(feed, function(a, b)
+		return a.lnum < b.lnum
+	end)
+	for _, e in ipairs(feed) do
+		e.depth = 0
+		M.insert_by_time(out, e)
+	end
+	return out
+end
+
+--- Put a calendar feed's entry among a day's entries: before the first
+--- top-level entry that starts later (an all-day one before the first timed
+--- one, after the other feeds' all-day ones). As the web's insertByTime.
+function M.insert_by_time(list, e)
+	local time = e:get_time_string()
+	local at = #list + 1
+	for i, x in ipairs(list) do
+		local xt = x:get_time_string()
+		if (x.depth or 0) == 0 and not (x.feed and not time and not xt) then
+			if (not time and xt) or (time and xt and xt > time) then
+				at = i
+				break
+			end
+		end
+	end
+	table.insert(list, at, e)
+	return list
 end
 
 --- A day's own entries in file order, each with `depth`: the rank of its
@@ -454,17 +588,24 @@ function M.day_layout(own)
 	return own
 end
 
--- Get all entries (for search/telescope)
-function M.get_all_entries()
+-- Get all entries (for search/telescope): the calendar's own, and with
+-- opts.feeds the calendar feeds' too.
+function M.get_all_entries(opts)
 	M.ensure_loaded()
 
 	local all_entries = {}
-	for date_str, entries in pairs(state.entries) do
-		for _, entry in ipairs(entries) do
-			table.insert(all_entries, {
-				date = date_str,
-				entry = entry,
-			})
+	local sources = { state.entries }
+	if opts and opts.feeds then
+		sources[2] = state.feed_entries
+	end
+	for _, source in ipairs(sources) do
+		for date_str, entries in pairs(source) do
+			for _, entry in ipairs(entries) do
+				table.insert(all_entries, {
+					date = date_str,
+					entry = entry,
+				})
+			end
 		end
 	end
 

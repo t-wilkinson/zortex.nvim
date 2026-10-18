@@ -272,9 +272,14 @@ function Entry:get_sort_priority()
 	return priority
 end
 
---- Display text per Config.ui.calendar.pretty_attributes.
+--- Display text per Config.ui.calendar.pretty_attributes; a calendar
+--- feed's entry ends with "  · <feed>".
 function Entry:format()
-	return format().format(self)
+	local text = format().format(self)
+	if self.feed then
+		text = text .. "  · " .. self.feed
+	end
+	return text
 end
 
 function Entry:format_pretty()

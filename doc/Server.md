@@ -9,6 +9,8 @@ reads your notes folder and gives you:
   timers, alarms, a stopwatch, time tracking and your season's XP;
 - calendar notifications and alarms on your phone through
   [ntfy](https://ntfy.sh);
+- other calendars in yours (a Cozi or Google calendar's iCal link), and
+  your calendar's `@share` lines in theirs ([section 6](#6-other-calendars));
 - with `-writable`, light editing: check off tasks, edit, add, move and
   delete lines, add to the inbox.
 
@@ -33,9 +35,14 @@ the inbox, carried tasks), so the sync has to run both ways.
 Whatever you use:
 
 - **Sync `.z/` too.** Neovim's state lives in `notes/.z/`. The web app
-  reads `.z/xp_summary.json` from there (Neovim writes it after every XP
-  change), so don't leave `.z` out (`.stignore`, `.gitignore`) unless you
-  also point the plugin at the server (step 5).
+  reads `.z/xp_summary.json` and `.z/time_spent.json` from there (Neovim
+  writes them as they change), so don't leave `.z` out of the sync
+  (`.stignore`). Leave it out of a git backup instead
+  ([Backups](../README.md#backups)): it is state, not notes.
+- **Calendar feeds write into the folder.** With `-feeds`
+  ([section 6](#6-other-calendars)) the server writes `z/feeds/<name>.zortex`
+  itself, so it needs write access to the notes even without `-writable`,
+  and the sync carries those notes to Neovim.
 - **Conflicts.** When both sides change one note before a sync, the tool
   keeps both (Syncthing writes `note.sync-conflict-….zortex`, Dropbox and
   Nextcloud `note (… conflicted copy …).zortex`). Zortex leaves these copies
@@ -115,12 +122,16 @@ time zone (UTC when unset). On NixOS, `timezone` follows `time.timeZone`.
     ntfy.authTokenFile = "/run/secrets/ntfy-token";
     apiKeyFile = "/run/secrets/zortex-api-key";   # ZORTEX_API_KEY=...
     web.writable = true;
+    # other calendars in yours, and yours in theirs (section 6)
+    feeds.cozi = { title = "Family"; urlFile = "/run/secrets/cozi-ical-url"; };
+    shareTokenFile = "/run/secrets/zortex-share-token";
   };
 }
 ```
 
-The service is sandboxed: read-only access to the notes (unless writable),
-its own state directory, nothing else.
+The service is sandboxed: read-only access to the notes (unless writable,
+or with calendar feeds, which write `z/feeds/`), its own state directory,
+nothing else.
 
 ## 3. Put it behind a login
 
@@ -210,6 +221,105 @@ browser reaches the web app at another address than `api_endpoint`.
 
 Set `-api-key` (or `ZORTEX_API_KEY`) on the server so only Neovim can post
 to `/notify`, `/pending` and `/api/xp`; the browser pages don't need it.
+
+## 6. Other calendars
+
+### Their events in your calendar: `-feeds`
+
+Most calendar apps give each calendar a private iCal link (an address
+ending in `.ics`, or `webcal://`): Cozi under *Settings → Calendar → Share
+calendar* ("Connected calendars", one link per family member, or one for
+everyone), Google under a calendar's *Settings → Integrate calendar →
+Secret address in iCal format*, Apple's iCloud under *Public calendar*. The
+server fetches each link you list every 15 minutes and writes its events
+into a note, `z/feeds/<name>.zortex`, which the calendar view, the planner,
+the agenda and the web app's home page show among your own, read-only and
+labelled with the feed's name (`· cozi`):
+
+```json
+{
+  "feeds": [
+    { "name": "cozi", "title": "Family", "url_file": "/run/secrets/cozi-ical-url" },
+    { "name": "school", "url": "https://example.edu/calendar.ics", "notify": true, "busy": false },
+    { "name": "old-job", "url": "https://...", "enabled": false }
+  ]
+}
+```
+
+```sh
+zortex serve ... -feeds ~/.config/zortex/feeds.json    # or ZORTEX_FEEDS
+```
+
+| field | default | what |
+|---|---|---|
+| `name` | (required) | the note's name, `z/feeds/<name>.zortex`, and the label; letters, digits, `-` and `_` |
+| `title` | the name | the note's `@@` title |
+| `url` / `url_file` | (one of them) | the link (`https://` or `webcal://`); a private link is a secret, so prefer a file holding it |
+| `enabled` | `true` | `false` stops fetching it and removes its note: its events leave every calendar view |
+| `notify` | `false` | `true`: its timed events notify as yours do; off, each line gets `@n(no)` |
+| `busy` | `true` | its events take time in the planner's capacity line; `false` adds `@free` to each line |
+| `every` | `15m` | how often to fetch it (5m at least); unchanged feeds aren't downloaded again (`ETag`) |
+| `days_back`, `days_ahead` | 7, 60 | the days the note covers |
+
+Repeating events, exceptions, cancelled occurrences and time zones are
+expanded into one line per day, at your server's time (`TZ`), in the
+calendar's syntax (`16:00 - 17:00 Soccer · Field 3 @n(no)`; an all-day event
+is `- Camping` on each of its days). The note is rewritten only when the
+feed changed, so Syncthing stays quiet, and edits to it are replaced: change
+what the feed says in the calendar it comes from. If a fetch fails, the
+last note stays.
+
+To hide a feed in Neovim only, `features.calendar_feeds = { cozi = false }`
+(`false` hides them all); `enabled: false` hides it everywhere. Notifying
+feeds are notified through Neovim, like the rest of the calendar (step 5).
+
+### Your events in their calendar: `/calendar.ics`
+
+Tag a calendar line `@share` and it is in `/calendar.ics`, an iCal feed of
+your calendar's shared lines (30 days back to 180 ahead) that Cozi, Google
+or Apple can subscribe to:
+
+```
+**2026-10-21:**
+09:00 - 12:00 Deep work on [P/#1.4 - zortex]
+16:00 [ ] Pick up the kids @share
+- Mum's birthday @share
+```
+
+Only `@share` lines leave, as their text (a link becomes its name); a timed
+line without an end lasts 30 minutes, a line without a time is an all-day
+event, and each event links back to its line on the web app.
+
+A calendar app can't log in, so give the feed a token of its own: a file
+holding 16 characters or more (`openssl rand -hex 16`), passed with
+`-share-token-file` (`ZORTEX_SHARE_TOKEN_FILE`, or the token itself in
+`ZORTEX_SHARE_TOKEN`; `shareTokenFile` on NixOS). Then subscribe to
+
+```
+https://notes.example.com/calendar.ics?token=<token>
+```
+
+(Cozi: *Settings → Calendar → Connected calendars → Add*, Google: *Other
+calendars → From URL*.) The token opens that one address, nothing else.
+Without `-auth-file`, the server answers `/calendar.ics` only to the token;
+with it, either the token or the login. Calendar apps refresh subscribed
+feeds on their own schedule, from every few minutes to a day.
+
+Behind a proxy with its own login, let `/calendar.ics` through to the app
+(the token protects it). Authelia, for example:
+
+```yaml
+access_control:
+  rules:
+    - domain: notes.example.com
+      resources: ['^/calendar\.ics([?].*)?$']   # '^/notes/calendar...' with -base /notes
+      policy: bypass
+    - domain: notes.example.com
+      policy: one_factor
+```
+
+Caddy with `basic_auth`: a `handle /calendar.ics` block without it, as for
+the app icons [below](#installing-it-as-an-app).
 
 ## Installing it as an app
 

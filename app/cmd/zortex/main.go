@@ -19,6 +19,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/t-wilkinson/zortex.nvim/app/feeds"
 	"log"
 	"net"
 	"net/http"
@@ -168,6 +169,8 @@ func serveCmd(args []string) {
 	sendEvery := fs.Duration("send-interval", 20*time.Second, "how often due notifications are sent")
 	authFile := fs.String("auth-file", os.Getenv("ZORTEX_AUTH_FILE"), "file of user:password lines: a login (HTTP basic auth) for every page; use it over HTTPS ($ZORTEX_AUTH_FILE, or ZORTEX_AUTH=user:password)")
 	writable := fs.Bool("writable", os.Getenv("ZORTEX_WRITABLE") == "1" || os.Getenv("ZORTEX_WRITABLE") == "true", "let the web app edit notes: toggle tasks, edit, add and remove lines, add to inbox.zortex ($ZORTEX_WRITABLE=1)")
+	feedsFile := fs.String("feeds", os.Getenv("ZORTEX_FEEDS"), "JSON file of calendar feeds to fetch into z/feeds/<name>.zortex, e.g. a Cozi family member's iCal URL ($ZORTEX_FEEDS; see doc/Server.md)")
+	shareTokenFile := fs.String("share-token-file", os.Getenv("ZORTEX_SHARE_TOKEN_FILE"), "file holding the token that lets a calendar app subscribe to /calendar.ics?token=… (the calendar's @share lines) without the login ($ZORTEX_SHARE_TOKEN_FILE, or ZORTEX_SHARE_TOKEN)")
 	htmlScripts := fs.Bool("html-scripts", os.Getenv("ZORTEX_HTML_SCRIPTS") == "1" || os.Getenv("ZORTEX_HTML_SCRIPTS") == "true", "let HTML files in the notes folder run JavaScript, sandboxed away from the site ($ZORTEX_HTML_SCRIPTS=1)")
 	_ = fs.Parse(args)
 	if v := os.Getenv("ZORTEX_POLL"); v != "" && !flagSet(fs, "poll") {
@@ -204,6 +207,23 @@ func serveCmd(args []string) {
 	if len(accounts) == 0 && !loopback(*addr) {
 		logger.Printf("WARNING: listening on %s with no login: anyone who can reach it can read every note. Use -auth-file (or ZORTEX_AUTH=user:password), or keep it on 127.0.0.1 behind a proxy with a login.", *addr)
 	}
+	var feedList []feeds.Feed
+	if *feedsFile != "" {
+		if feedList, err = feeds.Load(*feedsFile); err != nil {
+			logger.Fatal(err)
+		}
+	}
+	shareToken := os.Getenv("ZORTEX_SHARE_TOKEN")
+	if *shareTokenFile != "" {
+		raw, err := os.ReadFile(*shareTokenFile)
+		if err != nil {
+			logger.Fatal(err)
+		}
+		shareToken = strings.TrimSpace(string(raw))
+	}
+	if shareToken != "" && len(shareToken) < 16 {
+		logger.Fatal("the share token is too short: use 16 characters or more (e.g. openssl rand -hex 16)")
+	}
 	srv, err := web.New(web.Config{
 		Root:         *dir,
 		Title:        *title,
@@ -221,8 +241,10 @@ func serveCmd(args []string) {
 			}
 			return strings.Split(*resources, ",")
 		}(),
-		Accounts: accounts,
-		Logger:   logger,
+		Accounts:   accounts,
+		Feeds:      feedList,
+		ShareToken: shareToken,
+		Logger:     logger,
 	})
 	if err != nil {
 		logger.Fatal(err)

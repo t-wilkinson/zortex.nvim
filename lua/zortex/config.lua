@@ -66,6 +66,12 @@ local defaults = {
 		-- "#"s, "-" (and "[ ]"), "1." or "> ", and the ":" of a label it is
 		-- joined onto. gJ joins as written.
 		join = { enabled = true },
+		-- Calendar feeds: `zortex serve -feeds` writes each feed's events
+		-- (a Cozi or Google calendar's iCal link) into
+		-- z/feeds/<name>.zortex (doc/Server.md), and they show read-only in
+		-- the calendar view, the planner and the agenda. Per-feed toggles:
+		-- { cozi = false } hides one; false hides them all.
+		calendar_feeds = {},
 		-- <prefix>gX: links in the web app (server.web_url)
 		web = {
 			-- show them in the tab on this computer you focused last, when

@@ -131,7 +131,8 @@ end
 -- Bare @words that are attributes, not tags (utils/attributes shortcuts)
 -- Bare @words that are attributes, not tags: @2h, @p1, @sm, @step, @event,
 -- @fold, @someday (app/links IsAttributeWord is the same)
-local ATTRIBUTE_WORDS = { step = true, steps = true, event = true, fold = true, someday = true }
+local ATTRIBUTE_WORDS =
+	{ step = true, steps = true, event = true, fold = true, someday = true, share = true, free = true }
 
 local function shortcut(key)
 	return key:match("^%d+%.?%d*[hdmw]$") or key:match("^[pi][123]$") or ATTRIBUTE_WORDS[key]

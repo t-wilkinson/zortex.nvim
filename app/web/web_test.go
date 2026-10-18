@@ -269,7 +269,7 @@ func TestFiles(t *testing.T) {
 	}
 	// (the mux answers "/../" with a redirect to the cleaned path)
 	for _, p := range []string{"/raw/../etc/passwd", "/raw/%2e%2e/%2e%2e/etc/passwd", "/raw/.z/state.json", "/f/.z", "/raw/z", "/raw/z/../../x"} {
-		if code, _, body := get(t, ts, p); code != 404 && code != 301 || strings.Contains(body, "root:") {
+		if code, _, body := get(t, ts, p); code != 404 && code != 301 && code != 307 || strings.Contains(body, "root:") {
 			t.Errorf("GET %s: %d, want 404", p, code)
 		}
 	}

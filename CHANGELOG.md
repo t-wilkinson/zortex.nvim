@@ -23,6 +23,9 @@ The first public release.
 - Neovim no longer edits a note blind when it changed on disk (the web app,
   a phone): an edit is checked against what was read, and refused when the
   lines around it differ; an open, unsaved buffer is reloaded first.
+- `:ZortexToday [date]` (`<leader>zd`) goes to today in the calendar,
+  adding the day from its template (`ui.planner.templates`) when it isn't
+  there yet.
 - **A day of the calendar is a bold label**, `**2026-10-21:**`: new days
   get it (the planner, carrying tasks, `add_entry`, the web app's Carry),
   and a plain `2026-10-21:` still reads the same, in Neovim and on the web.

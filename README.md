@@ -196,6 +196,9 @@ Special notes:
   (`features.join`; `gJ` joins as written).
 - **Projects**: picker with progress, points, due dates, areas and key
   results; `@progress` written back on request.
+- **Today** (`<leader>zd`, `:ZortexToday [date]`): today's block in the
+  calendar, added from your day template when it isn't there yet, with the
+  cursor on it.
 - **Day planner** (`<leader>zm`): opens today's calendar day (created from
   your weekday/Saturday/Sunday template) next to ranked candidates: the
   week's focus projects first, then tasks on key results (the further a key
@@ -314,6 +317,7 @@ require("zortex").setup({
 | `:ZortexReview …` | `<leader>zw` | `review` | Review: week (default), day (since the last daily review), or a number of days |
 | `:ZortexReviewDay` | `<leader>zW` | `review_day` | Daily review: completed, XP, time spent and the calendar since the last one |
 | `:ZortexPlan …` | `<leader>zm` | `plan` | Plan a day: calendar day (from its template) plus ranked tasks, projects, KRs and areas to put on it |
+| `:ZortexToday …` | `<leader>zd` | `today` | Go to today in the calendar (or a date), adding the day from its template when it isn't there |
 | `:ZortexCarryForward …` | `<leader>zCf` | `carry_forward` | Copy the open tasks of the days before to today (or a date), marking the old lines [>] |
 | `:ZortexCalendar` | `<leader>zc` | `calendar` | Calendar view |
 

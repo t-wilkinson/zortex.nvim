@@ -198,6 +198,10 @@ PLAN ~
     Plan a day: calendar day (from its template) plus ranked tasks, projects,
     KRs and areas to put on it. Keys: <leader>zm. Id: plan.
 
+:ZortexToday                                                    *:ZortexToday*
+    Go to today in the calendar (or a date), adding the day from its template
+    when it isn't there. Keys: <leader>zd. Id: today.
+
 :ZortexCarryForward                                      *:ZortexCarryForward*
     Copy the open tasks of the days before to today (or a date), marking the
     old lines [>]. Keys: <leader>zCf. Id: carry_forward.

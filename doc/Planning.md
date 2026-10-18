@@ -201,6 +201,11 @@ Outcomes:
 - [ ] Buy milk
 ```
 
+`:ZortexToday` (`<leader>zd`) goes straight to today's block, adding it
+from the day's template when it isn't there yet (`:ZortexToday
+2026-10-21` for another day); `:ZortexPlan` does the same with the
+candidates beside it.
+
 **Outcomes** come first: under an `Outcomes:` label (it nests under the
 day's bold label), the two or three results that would make the day a
 success, up to the first blank line. They are the day's own items (tick

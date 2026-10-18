@@ -482,6 +482,17 @@ M.list = {
 		end,
 	},
 	{
+		id = "today",
+		command = "Today",
+		key = "d",
+		group = "Plan",
+		desc = "Go to today in the calendar (or a date), adding the day from its template when it isn't there",
+		nargs = "?",
+		run = function(args)
+			require("zortex.ui.planner").open_day(args and args.args or nil)
+		end,
+	},
+	{
 		id = "carry_forward",
 		command = "CarryForward",
 		key = "Cf",

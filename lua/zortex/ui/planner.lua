@@ -39,6 +39,7 @@
 local M = {}
 
 local planner = require("zortex.services.planner")
+local datetime = require("zortex.utils.datetime")
 
 local BUF_NAME = "zortex://plan"
 local NS = vim.api.nvim_create_namespace("zortex_planner")
@@ -435,6 +436,50 @@ function M.close()
 		vim.api.nvim_win_close(state.win, true)
 	end
 	state.win = nil
+end
+
+--- :ZortexToday [date] (<leader>zd): today's day in calendar.zortex, made
+--- from the day's template (ui.planner.templates) when it isn't there yet,
+--- opened in this window with the cursor on its first line. Unlike
+--- :ZortexPlan it opens no candidate list and carries nothing forward.
+--- Returns the calendar buffer and the day's heading line, or nil.
+function M.open_day(date)
+	date = (date and date ~= "") and date or os.date("%Y-%m-%d")
+	local parsed = datetime.parse_date(date)
+	if not parsed then
+		vim.notify("Not a date: " .. tostring(date), vim.log.levels.ERROR, { title = "Zortex" })
+		return nil
+	end
+	date = datetime.format_datetime(parsed, "YYYY-MM-DD")
+	local calendar = require("zortex.stores.calendar")
+	local heading, created = calendar.ensure_date(date, planner.template(date))
+	if not heading then
+		vim.notify("Couldn't add " .. date .. " to the calendar: " .. tostring(created), vim.log.levels.ERROR, { title = "Zortex" })
+		return nil
+	end
+	-- the buffer as is: the day may have just been written into it unsaved
+	-- (":edit" would stop at E37)
+	local path = vim.fn.fnamemodify(require("zortex.utils.filesystem").get_calendar_file(), ":p")
+	local buf = vim.fn.bufadd(path)
+	vim.fn.bufload(buf)
+	vim.bo[buf].buflisted = true
+	vim.api.nvim_win_set_buf(0, buf)
+	if vim.bo[buf].filetype == "" then
+		vim.bo[buf].filetype = "zortex"
+	end
+	-- the day's first line, or the heading when the day is empty
+	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+	local target = heading
+	local next_line = lines[heading + 1]
+	if next_line and next_line:match("%S") and not datetime.date_heading(next_line) then
+		target = heading + 1
+	end
+	vim.api.nvim_win_set_cursor(0, { target, 0 })
+	vim.cmd("normal! zvzt")
+	if created then
+		vim.notify("Added " .. date .. " to the calendar", vim.log.levels.INFO, { title = "Zortex" })
+	end
+	return buf, heading
 end
 
 --- Plan a day.

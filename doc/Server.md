@@ -14,7 +14,8 @@ reads your notes folder and gives you:
 - with `-writable`, light editing: check off tasks, edit, add, move and
   delete lines, add to the inbox.
 
-This guide gets it running. Every flag, page and endpoint is in
+This guide gets it running. What the website does, page by page, and how
+it works with Neovim is in [Web.md](Web.md); every flag is in
 [app/README.md](../app/README.md).
 
 ## 1. Get the notes to the server
@@ -320,53 +321,14 @@ access_control:
 ```
 
 Caddy with `basic_auth`: a `handle /calendar.ics` block without it, as for
-the app icons [below](#installing-it-as-an-app).
+the app icons ([Installing it as an app](Web.md#installing-it-as-an-app)).
 
 ## Installing it as an app
 
-The web app is installable (a PWA): on a phone, open it in the browser and
-choose **Add to Home Screen** (Safari) or **Install app** (Chrome); on the
-desktop, the install button in Chrome's or Edge's address bar. It opens in
-its own window, without the browser's bars, at the home page; long-pressing
-the icon offers Search and Projects (and Add to inbox with `-writable`). Browsers allow this over HTTPS only
-(and on `localhost`), so serve it as in [section 3](#3-put-it-behind-a-login).
-
-Recent pages read offline. The app keeps the last 60 pages you opened on
-the device, so when the phone is offline or the server can't be reached, a
-page you read lately opens as a saved copy (it says when it was saved), and
-any other page shows the list of saved ones. Editing, the clocks and live
-updates need the server.
-
-The inbox works offline. With `-writable`, the inbox box on the home page
-(and on the offline page) keeps what you add while there is no connection,
-or while the server is down, and appends it to the bottom of
-`inbox.zortex`, in the order you added it, as soon as the server can be
-reached again (when the app is next open: on reconnecting, on returning to
-it, or within 30 seconds). It says how many are waiting. A capture whose
-answer was lost on a flaky connection is sent again but added once. The copies live in the browser's storage on that
-device, behind the device's own lock; clearing the site's data removes
-them, and each new version of the server starts afresh.
-
-Behind a login: the manifest (`/manifest.webmanifest`) and the icons
-(`/static/icons/`) hold the site's title and nothing from your notes, and a
-phone's installer may fetch them without your credentials. `-auth-file`
-serves them without a login; with a proxy's login, let those two paths
-through too (with `-base`, below the prefix):
-
-```
-notes.example.com {
-  @app path /manifest.webmanifest /static/icons/*
-  handle @app {
-    reverse_proxy 127.0.0.1:8090
-  }
-  handle {
-    basic_auth {
-      me $2a$14$...
-    }
-    reverse_proxy 127.0.0.1:8090
-  }
-}
-```
+The website installs as an app on a phone or desktop (over HTTPS), reads
+recent pages offline and keeps inbox captures until the server is back;
+behind a login, let `/manifest.webmanifest` and `/static/icons/` through.
+See [Installing it as an app](Web.md#installing-it-as-an-app).
 
 ## Checking it works
 

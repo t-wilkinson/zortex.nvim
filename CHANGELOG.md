@@ -330,7 +330,7 @@ The first public release.
   copies too), and a task ticked on the web is estimated at its share.
 - The web app installs as an app (a PWA: home screen on a phone, its own
   window on the desktop), and the last 60 pages you opened read offline as
-  saved copies ([doc/Server.md](doc/Server.md#installing-it-as-an-app)).
+  saved copies ([doc/Web.md](doc/Web.md#installing-it-as-an-app)).
 - An attribute in a heading looks like one on a text line (not bold, not
   heading-sized).
 - The header's search box lists the notes whose name matches as you type.
@@ -407,6 +407,11 @@ The first public release.
 
 ### Project
 
+- `doc/Web.md`: the website in one place: every page, the home page,
+  reading and editing notes, time tracking, slides, other calendars, the
+  installable app, how it works with Neovim, and the API (moved from
+  `app/README.md`, which keeps the flags, NixOS and the Go packages, and
+  from `doc/Server.md`).
 - MIT license; the old Node app (`legacy/`), its VimL bridge (`autoload/`),
   the old test harness, dead code and compatibility shims for earlier names
   and note forms are gone.

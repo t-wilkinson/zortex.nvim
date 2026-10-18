@@ -220,7 +220,7 @@ Editing started as a non-goal; `-writable` now covers line-level edits
   search-as-you-type and keyboard navigation (htmx or a few dozen lines of
   plain JS).
 - **Routes** (as built; the full list is in
-  [app/README](../app/README.md#web-app-zortex-serve)): `/` home, `/f/<dir>` folders and
+  [Web.md](Web.md#pages)): `/` home, `/f/<dir>` folders and
   files, `/n/<rel>` a rendered note with its outline and backlinks,
   `/search?q=` results as breadcrumbs then matching lines, and JSON under
   `/api/` (`/api/search`, `/api/note`, `/api/resolve`, …).

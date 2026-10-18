@@ -141,14 +141,14 @@ projects, calendar entries):
 | `@someday` | a project parked on purpose: not listed as stale or unscheduled (`z` in the weekly review toggles it) |
 | `@xp(500)` | a project's XP pool |
 | `@2h`, `@dur(90m)`, `@est(3h)` | duration and estimate |
-| `@spent(1h25m)` | time worked on it, added by the web app's clocks ([time tracking](../app/README.md#time-tracking)) |
+| `@spent(1h25m)` | time worked on it, added by the web app's clocks ([time tracking](Web.md#time-tracking)) |
 | `@notify(15)`, `@n(0, 30)`, `@n(0, end)` | calendar: notify minutes before the start (several allowed; every timed line notifies at its time by default, `@n(no)` turns it off); `end` also notifies when a range ends |
 | `@event` | calendar: something fixed that you plan around (an appointment, a flight), not a block you planned; the web month grid marks its day, and it is listed under "Coming up" (as are timed lines and calendar notes that don't link a project) |
 | `@share` | calendar: the line is in the server's `/calendar.ics`, which other calendars (Cozi, Google, Apple) subscribe to; nothing else of the calendar is ([Other calendars](Server.md#6-other-calendars)) |
 | `@free` | calendar: a timed line that doesn't take your time: the planner's capacity line doesn't count it as busy (a calendar feed with `busy: false` writes it) |
 | `@repeat(weekly)` | calendar: repetition |
 | `@fold` | on a heading, label or list item with nested lines: the section starts folded in Neovim each time the note is shown (`zo` opens it until then) |
-| `@slides(2)` | in a header: the heading level that starts a slide ([slides](../app/README.md#slides)) |
+| `@slides(2)` | in a header: the heading level that starts a slide ([slides](Web.md#slides)) |
 | `@step`, `@steps` | slides: reveal a line, or each item of a slide, one at a time |
 | `@rust`, `@home`, `@ai-model` | any other bare `@word`: a tag, found by tag searches (`@[rust]`; see [Tag searches](#tag-searches)) |
 

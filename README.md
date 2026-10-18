@@ -64,6 +64,9 @@ text you own and sync however you like.
   (KaTeX), sandboxed HTML; each file shows which notes link to it, and
   `/resources` lists the ones nothing links to.
 
+Every page, and how the website works with Neovim:
+[doc/Web.md](doc/Web.md).
+
 ## Quickstart
 
 Needs Neovim 0.10 or newer. Linux and macOS; Windows untested. With
@@ -608,10 +611,12 @@ From 1.0 on, the note format changes only in a major release.
 - [doc/Syntax.md](doc/Syntax.md): the note format (lines, inline markup,
   attributes, links, special notes)
 - [doc/example](doc/example): a small notes folder using most of the format
+- [doc/Web.md](doc/Web.md): the website: every page, the home page,
+  editing, time tracking, slides, the installable app, how it works with
+  Neovim, and the API
 - [doc/Server.md](doc/Server.md): running `zortex serve` (Docker, NixOS, a
   proxy with a login, ntfy, connecting Neovim, other calendars);
-  [app/README.md](app/README.md)
-  has every flag, page and endpoint
+  [app/README.md](app/README.md) has every flag
 - [doc/Projects.md](doc/Projects.md): projects and areas reference
 - [doc/Planning.md](doc/Planning.md): the plan (areas, OKRs, projects),
   the daily and weekly loop, and how XP, Mastery and seasons work

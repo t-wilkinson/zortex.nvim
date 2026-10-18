@@ -12,6 +12,7 @@
 --   f      on a project: add it to (or take it out of) the week's focus
 --   m      on an inbox line: move it to its @project(...), else to
 --          review.inbox_default, else to a place picked in the search
+--   u      take the last move back (:ZortexUndo)
 --   <Tab>  go to the reviews note
 --   gx     follow the link on the line
 --   K      preview the link on the line
@@ -20,7 +21,7 @@
 --   ?      these keys (ui/keyhelp)
 --
 -- render(review) is pure: it returns the lines, a line -> location map and a
--- line -> entity map, so other front ends (the digest, an app) can reuse the
+-- line -> entity map, so other front ends (the web app) can reuse the
 -- same layout.
 local M = {}
 
@@ -416,7 +417,7 @@ function M.triage()
 			return
 		end
 		M.refresh()
-		vim.api.nvim_echo({ { "Moved to " .. res.link, "Comment" } }, false, {})
+		vim.api.nvim_echo({ { "Moved to " .. res.link .. " (u takes it back)", "Comment" } }, false, {})
 	end
 	if triage.destination(item) then
 		return done(triage.move(item))
@@ -427,6 +428,18 @@ function M.triage()
 			M.refresh()
 		end
 	end)
+end
+
+--- u: take back the last move (m), or any batch of edits across notes
+--- (core/workspace.undo_last, :ZortexUndo).
+function M.undo()
+	local label, err = require("zortex.core.workspace").undo_last()
+	if not label then
+		vim.api.nvim_echo({ { "Undo: " .. err, "WarningMsg" } }, false, {})
+		return
+	end
+	M.refresh()
+	vim.api.nvim_echo({ { "Undone: " .. label, "Comment" } }, false, {})
 end
 
 --- f: add the project on the cursor line to the week's focus, or take it
@@ -473,6 +486,7 @@ local function get_buffer()
 		jump = jump,
 		focus = M.toggle_focus,
 		triage = M.triage,
+		undo = M.undo,
 		note = function()
 			local win = note_window()
 			if win then

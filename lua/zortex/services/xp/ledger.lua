@@ -94,7 +94,7 @@ end
 local function excluded_files()
 	local fs = require("zortex.utils.filesystem")
 	local out = {}
-	for _, p in ipairs({ fs.get_okr_file(), fs.get_digest_file() }) do
+	for _, p in ipairs({ fs.get_okr_file() }) do
 		if p then
 			out[normalize(p)] = true
 		end

@@ -10,7 +10,7 @@
 --   date_context  the date heading it is under ("YYYY-MM-DD")
 --   timing        { type = "point"|"range", start, end?, duration?, buffer? }
 --
--- Text formats for the calendar view, digest and notifications live in
+-- Text formats for the calendar view, the planner and notifications live in
 -- calendar_entry/format.
 local M = {}
 

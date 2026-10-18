@@ -386,3 +386,25 @@ T.test("xp.area_split: each area gets the ratio of the one before", function()
 	local gentle = c._distribute_on_curve(100, 2, 0.7)
 	T.ok(approx(gentle[1] + gentle[2], 100) and approx(gentle[2] / gentle[1], 0.7), vim.inspect(gentle))
 end)
+
+T.test(":ZortexXP: season, the last two weeks, projects, recent awards and areas in one view", function()
+	local ui = require("zortex.ui.xp")
+	local lines, _, where = ui.render()
+	for _, heading in ipairs({ "^## Season", "^## Last 14 days", "^## Projects in progress", "^## Recent", "^## Areas" }) do
+		T.ok(vim.iter(lines):any(function(l)
+			return l:match(heading) ~= nil
+		end), heading .. "\n" .. table.concat(lines, "\n"))
+	end
+	-- a project line knows where it is written, for <CR> and e
+	local found
+	for lnum, loc in pairs(where) do
+		if loc.project then
+			found = lines[lnum]
+		end
+	end
+	T.ok(found and found:find("XP %(", 1) ~= nil, tostring(found))
+	-- the split of the work done adds up
+	local work = ui.recent_work(14)
+	T.eq(#work.days, 14)
+	T.ok(math.abs(work.kr + work.area + work.none - work.total) < 1e-6)
+end)

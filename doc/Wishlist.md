@@ -63,7 +63,7 @@ line → location map), `core/workspace`, `stores/calendar.add_entry`,
 
 A page per PARA area that answers "how is this part of my life going?"
 (`:ZortexArea [key]`, picker over `areas.all()` when no key; also `<CR>` on an
-area in the mastery tree).
+area in the XP view).
 
 ```
 @@Area: 1.2 Vitality
@@ -129,9 +129,6 @@ Deferred for now; listed so the pieces fit together later.
 
 ## 4. Search
 
-- **Breadcrumb display per token count** (`ui.search.breadcrumb_display`, kept
-  in the config, reserved): shorten breadcrumbs depending on how many words
-  were typed (article only for one word, article + H1/H2 for two, …).
 - **Search inside a folder:** a `z/` or `dir:z/projects` prefix, or a picker
   scope, limiting `services/search` to notes under a directory.
 - **Tag words in search:** `@tag` narrowing results to sections or lines

@@ -24,7 +24,7 @@ local defaults = {
 		-- <prefix> is "Zortex", and a prefix like "x" of "xs" is named after
 		-- its actions' group ("XP") unless set here. false skips one, or set
 		-- groups = false to name none.
-		groups = { C = "Calendar & digest" },
+		groups = { C = "Calendar" },
 	},
 
 	core = {
@@ -173,6 +173,10 @@ local defaults = {
 			todo_link = "P/#TODOs", -- tasks under this project rank higher
 			max_tasks = 30,
 			project_tasks = 3, -- P puts a project's next this many open tasks on the day (5P: five)
+			-- "Coming up": the events of this many days after the day (timed
+			-- lines, @event, calendar notes), in the plan and the calendar
+			-- view; 0 hides them
+			upcoming_days = 7,
 			-- The capacity line: open tasks on the day (their @size hours) against
 			-- the free time left in `day`, after timed entries that aren't project
 			-- work (lectures, appointments; one without an end counts event_minutes)
@@ -205,11 +209,6 @@ local defaults = {
 				new_note = "<C-o>", -- a new note named after the query
 			},
 			access_decay_rate = 0.1, -- per day
-			breadcrumb_display = {
-				one_token = { "article" },
-				two_tokens = { "article", "heading_1_2" },
-				three_plus_tokens = { "article", "heading", "bold_heading", "label" },
-			},
 			history = {
 				enabled = true,
 				max_entries = 50,
@@ -252,7 +251,7 @@ local defaults = {
 				border = "FloatBorder",
 				footer = "Comment",
 				key_hint = "NonText",
-				digest_header = "Title",
+				day_header = "Title",
 				notification = "DiagnosticWarn",
 				selected = "PmenuSel",
 				today_selected = "PmenuSel",
@@ -270,11 +269,6 @@ local defaults = {
 				has_items = "•",
 				none = " ",
 			},
-			digest = {
-				show_upcoming_days = 7, -- Show events for next 7 days
-				show_high_priority = true, -- Show high priority/importance projects
-				position = "right", -- right, bottom, or floating
-			},
 			keymaps = {
 				close = { "q", "<Esc>", "<C-c>" },
 				next_day = { "l", "<Right>" },
@@ -289,8 +283,6 @@ local defaults = {
 				add_entry = { "a", "i" },
 				view_entries = { "<CR>", "o" },
 				search = { "/" },
-				toggle_view = { "v" },
-				digest = { "d", "D" },
 				refresh = { "r", "R" },
 				go_to_file = { "gf" },
 				toggle_task = { "x" }, -- 2x ticks the day's task 2

@@ -15,14 +15,30 @@ The first public release.
   bold heading it is joined onto (`Fitness:` + `- run 5k` is
   `Fitness run 5k`). Counts, visual mode, `.` and undo work as with Vim's
   `J`; code blocks and `gJ` join as written (`features.join`).
+- Edits across notes can be taken back: a rename, `:ZortexMove` and an
+  inbox move (`m`) load the notes that aren't open, change and save them,
+  and `:ZortexUndo` (`<leader>zU`, or `u` in the review) undoes the whole
+  thing in every note. A rename that changes other notes says what it will
+  change and asks first (Rename / List / Cancel).
+- Neovim no longer edits a note blind when it changed on disk (the web app,
+  a phone): an edit is checked against what was read, and refused when the
+  lines around it differ; an open, unsaved buffer is reloaded first.
+- The planner and the calendar view list what's **coming up**: the events
+  of the next seven days (`@event` lines, and timed lines and calendar
+  notes that don't link a project), to plan around
+  (`ui.planner.upcoming_days`; 0 hides it).
+- One XP view, `:ZortexXP` (`<leader>zxx`): the season's objectives and
+  tier, XP per day for two weeks with how much of that work went to key
+  results, areas only or neither, projects in progress, recent awards and
+  the area tree. `:ZortexSeason start|end|status` handles seasons;
+  `:ZortexXPExplain` and `:ZortexXPGuide` stay.
 - Every command is listed in `:help zortex` and the README, the
   notification and pomodoro ones too: `:ZortexPomodoro` (start, pause or
   resume), `:ZortexPomodoroSkip` / `Restart` / `Stop` / `Status`,
   `:ZortexPomodoroSettings work=50 short=10 …`, `:ZortexNotify`,
-  `:ZortexNotificationList`, `:ZortexTestNotifications`.
-  `:ZortexNotificationsSync [force]` sends the calendar's notifications
-  (the duplicate `:ZortexCalendarSync`, `:ZortexPomodoroStart` and
-  `:ZortexPomodoroPause` are gone).
+  `:ZortexNotificationList`, `:ZortexNotificationsSync [force]`.
+  Tools for finding problems are under one `:ZortexDebug` (`status`,
+  `logs`, `level`, `timers`, `clear`, `notifications`).
 - Needs Neovim 0.10 or newer (`:checkhealth zortex` says so); no deprecated
   calls are left.
 - Works with nothing else installed: no picker plugin is required, the
@@ -170,7 +186,7 @@ The first public release.
 - Plain text search (`:ZortexSearchText`, `<leader>z/`): the prompt as typed,
   smart case, over every line; `<M-t>` cycles section, article and text mode.
 - Key prefixes are named in which-key when it is installed (`<leader>z`
-  "Zortex", `<leader>zC` "Calendar & digest", ...; `keymaps.groups`).
+  "Zortex", `<leader>zC` "Calendar", ...; `keymaps.groups`).
 - Projects, areas, objectives and key results as entities with progress,
   a weekly review, a day planner, a calendar view with iCal import/export.
 - XP read off completed tasks, calibrated in hours: `@size` is estimated
@@ -180,7 +196,7 @@ The first public release.
   `:ZortexXPGuide` shows the calibration from your config.
 - Seasons are progress on their objectives (weighted by objective XP), with
   tiers at 25/50/70/85/100%; with no season started by hand, the season is
-  the calendar quarter. A mastery tree shows both.
+  the calendar quarter. The XP view shows both.
 - The day planner ranks key-result work first, the further behind schedule
   the higher; a daily review (`:ZortexReview day`) next to the weekly one,
   both opening with what is left in the inbox, then objectives, XP on key
@@ -306,7 +322,6 @@ The first public release.
   inbox, from any browser.
 - `-html-scripts`: HTML files in the notes may run JavaScript, sandboxed in
   an opaque origin (off by default).
-- `GET /api/digest`: the coming days of the calendar for any mail service.
 - Slides: any note as a slide deck (`?view=slides`, `:ZortexPresent`), cut at
   its headings (`@slides(n)` to choose the level), with speaker notes
   (`Notes:`), step-by-step reveal (`@step`, `@steps`), a presenter window,

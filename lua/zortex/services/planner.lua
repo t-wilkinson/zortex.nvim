@@ -467,6 +467,12 @@ function M.candidates(opts)
 		groups = groups,
 		inbox = inbox,
 		focus_week = ctx.focus_week,
+		-- the events of the coming days (ui.planner.upcoming_days): what
+		-- the day's plan has to fit around
+		upcoming = (function()
+			local ok, list = pcall(require("zortex.services.agenda").upcoming_events, { date = ctx.today_str })
+			return ok and list or {}
+		end)(),
 	}
 end
 

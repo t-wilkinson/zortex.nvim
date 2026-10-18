@@ -1,13 +1,14 @@
 -- services/agenda.lua - What's on, what's due, and what needs attention
 --
 -- One query over the calendar, project tasks and projects, used by the
--- calendar view, the digest file and the email digest. review() collects the
+-- calendar view and the planner. review() collects the
 -- findings a weekly review needs.
 --
 --   local A = require("zortex.services.agenda")
 --   A.day("2026-10-09")                     -- items for one day
 --   A.range("2026-10-09", "2026-10-15")     -- { { date, items }, ... }
 --   A.upcoming(7)                           -- today + 6 days
+--   A.upcoming_events({ date = d, days = 7 }) -- events of the 7 days after d
 --   A.review({ days = 7 })                  -- weekly review findings
 --
 -- An item:
@@ -208,6 +209,45 @@ end
 function M.upcoming(days, opts)
 	local from = today_str(opts)
 	return M.range(from, add_days(from, (days or 7) - 1), opts)
+end
+
+-- An event: what you plan around rather than work you planned. Lines marked
+-- @event, and timed lines and calendar notes that don't link a project
+-- ("14:00 Dentist", "- Mum's birthday"); not tasks without a time, lines
+-- standing for a task, or blocks of project work ("09:00 [P/#1.4 …]").
+local function is_event(item)
+	local entry = item.entry
+	if not entry or item.ref then
+		return false
+	end
+	if vim.tbl_contains(entry.attributes.tags or {}, "event") then
+		return true
+	end
+	if item.project then
+		return false
+	end
+	return item.time ~= nil or item.kind == "note"
+end
+
+--- The events of the `days` days after `date` (default today; `days`
+--- default ui.planner.upcoming_days, 7): { { date, items } } with the days
+--- that have any. The planner and the calendar view list them.
+---@param opts { days?: integer, date?: string }?
+function M.upcoming_events(opts)
+	opts = opts or {}
+	local days = opts.days or ((require("zortex.config").ui or {}).planner or {}).upcoming_days or 7
+	if days <= 0 then
+		return {}
+	end
+	local from = add_days(opts.date or today_str(), 1)
+	local out = {}
+	for _, day in ipairs(M.range(from, add_days(from, days - 1))) do
+		local items = vim.tbl_filter(is_event, day.items)
+		if #items > 0 then
+			out[#out + 1] = { date = day.date, items = items }
+		end
+	end
+	return out
 end
 
 -- =============================================================================

@@ -194,13 +194,11 @@ func TestStructure(t *testing.T) {
 	if !strings.Contains(got, "okr.zortex") || !strings.Contains(got, "z/garden.zortex") {
 		t.Errorf("unlinked: %s", got)
 	}
-	// /structure is the Structure note, rendered like any note, with the
-	// notes it doesn't reach in the sidebar
-	page := expect(t, ts, "/structure", 200, `<h1>Structure</h1>`, `class="side-unlinked"`, `7 of 11 notes are not linked from Structure`, `href="/graph" aria-current="page"`)
+	// the Structure note's page lists the notes it doesn't reach (/graph too)
+	page := expect(t, ts, "/n/structure.zortex", 200, `class="side-unlinked"`, `7 of 11 notes are not linked from Structure`)
 	if !strings.Contains(page, `href="/n/okr.zortex"`) || !strings.Contains(page, `href="/n/hub.zortex`) {
-		t.Errorf("structure page body or sidebar: %s", page)
+		t.Errorf("structure note sidebar: %s", page)
 	}
-	expect(t, ts, "/n/structure.zortex", 200, `class="side-unlinked"`)
 	if strings.Contains(expect(t, ts, "/n/okr.zortex", 200), "side-unlinked") {
 		t.Error("only the Structure note has the sidebar")
 	}

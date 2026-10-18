@@ -116,18 +116,102 @@ function M.plan(file, lnum, new)
 		end
 		links[#links + 1] = { file = l.file, lnum = l.lnum, line = line }
 	end
-	return { title = { file = file, lnum = lnum, line = title }, links = links, count = count, node = node }
+	return { title = { file = file, lnum = lnum, line = title }, links = links, count = count, node = node, new = new }
 end
 
---- Apply a plan: the title, then the links (buffers if loaded, else files).
-function M.apply(plan)
-	workspace.set_line(plan.title.file, plan.title.lnum, plan.title.line)
-	local files = { [vim.fn.fnamemodify(plan.title.file, ":p")] = true }
-	for _, e in ipairs(plan.links) do
-		workspace.set_line(e.file, e.lnum, e.line)
-		files[vim.fn.fnamemodify(e.file, ":p")] = true
+-- The notes a plan changes, the title's first
+local function plan_files(plan)
+	local files, seen = {}, {}
+	for _, e in ipairs({ plan.title, unpack(plan.links) }) do
+		local p = vim.fn.fnamemodify(e.file, ":p")
+		if not seen[p] then
+			seen[p] = true
+			files[#files + 1] = p
+		end
 	end
-	return vim.tbl_count(files)
+	return files
+end
+
+--- Apply a plan: the title, then the links, as one batch (core/workspace):
+--- notes that aren't open are loaded, edited and saved, and :ZortexUndo
+--- takes the whole rename back. Returns how many notes changed, or nil and
+--- an error (a note changed since the plan was made: nothing more written).
+function M.apply(plan)
+	local files = plan_files(plan)
+	local ok, err = workspace.batch("rename to " .. vim.trim(plan.new or ""), files, function()
+		local ok1, err1 = workspace.set_line(plan.title.file, plan.title.lnum, plan.title.line)
+		if not ok1 then
+			return false, err1
+		end
+		for _, e in ipairs(plan.links) do
+			local ok2, err2 = workspace.set_line(e.file, e.lnum, e.line)
+			if not ok2 then
+				return false, err2
+			end
+		end
+		return true
+	end)
+	if not ok then
+		return nil, err
+	end
+	return #files
+end
+
+--- Ask before a rename that changes other notes: what changes, where (and
+--- which of those notes aren't open), with Rename / List / Cancel. List puts
+--- the changed lines in the quickfix list and asks again. Returns true to go
+--- ahead. Tests replace it.
+function M.ask(plan, old)
+	local files = plan_files(plan)
+	local here = vim.fn.fnamemodify(plan.title.file, ":p")
+	if #files == 1 and files[1] == here then
+		return true -- only this note: plain undo covers it
+	end
+	local closed = 0
+	for _, f in ipairs(files) do
+		local b = vim.fn.bufnr(f)
+		if b <= 0 or not vim.api.nvim_buf_is_loaded(b) then
+			closed = closed + 1
+		end
+	end
+	local lines = {
+		string.format(
+			"Rename %q to %q: %d link%s in %d note%s%s.",
+			old,
+			vim.trim(plan.new or ""),
+			plan.count,
+			plan.count == 1 and "" or "s",
+			#files,
+			#files == 1 and "" or "s",
+			closed > 0 and string.format(" (%d not open: loaded, changed and saved)", closed) or ""
+		),
+		"",
+	}
+	for i, e in ipairs(plan.links) do
+		if i > 8 then
+			lines[#lines + 1] = string.format("… and %d more", #plan.links - 8)
+			break
+		end
+		lines[#lines + 1] = string.format("%s:%d  %s", vim.fn.fnamemodify(e.file, ":t"), e.lnum, vim.trim(e.line))
+	end
+	lines[#lines + 1] = ""
+	lines[#lines + 1] = ":ZortexUndo takes it back afterwards."
+	while true do
+		local choice = vim.fn.confirm(table.concat(lines, "\n"), "&Rename\n&List\n&Cancel", 1)
+		if choice == 1 then
+			return true
+		elseif choice == 2 then
+			local items = { { filename = plan.title.file, lnum = plan.title.lnum, text = "title → " .. vim.trim(plan.title.line) } }
+			for _, e in ipairs(plan.links) do
+				items[#items + 1] = { filename = e.file, lnum = e.lnum, text = vim.trim(e.line) }
+			end
+			vim.fn.setqflist({}, "r", { title = "Rename: the lines as they will read", items = items })
+			vim.cmd("copen")
+			vim.cmd("redraw")
+		else
+			return false
+		end
+	end
 end
 
 --- :ZortexRename [new title]: rename the section under the cursor.
@@ -147,15 +231,22 @@ function M.rename_current(args)
 		if not plan then
 			return notify("Rename: " .. err, vim.log.levels.ERROR)
 		end
-		local files = M.apply(plan)
+		if not M.ask(plan, node.text) then
+			return notify("Rename cancelled")
+		end
+		local files, aerr = M.apply(plan)
+		if not files then
+			return notify("Rename: " .. aerr .. " (:ZortexUndo takes back what was written)", vim.log.levels.ERROR)
+		end
 		notify(
 			string.format(
-				"Renamed to %s; %d link%s rewritten in %d note%s",
+				"Renamed to %s; %d link%s rewritten in %d note%s%s",
 				vim.trim(new),
 				plan.count,
 				plan.count == 1 and "" or "s",
 				files,
-				files == 1 and "" or "s"
+				files == 1 and "" or "s",
+				files > 1 and " · :ZortexUndo takes it back" or ""
 			)
 		)
 	end

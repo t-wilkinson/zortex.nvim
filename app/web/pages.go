@@ -24,7 +24,7 @@ import (
 // Templates
 // =============================================================================
 
-var pageNames = []string{"home", "note", "search", "results", "link", "files", "file", "tags", "tag", "broken", "resources", "structure", "graph", "error", "projects", "project", "offline", "okr", "review"}
+var pageNames = []string{"home", "note", "search", "results", "link", "files", "file", "tags", "tag", "broken", "resources", "graph", "error", "projects", "project", "offline", "okr", "review"}
 
 func (s *Server) parseTemplates() error {
 	funcs := template.FuncMap{
@@ -114,7 +114,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, page string, sta
 }
 
 // navOf: which top-bar tab a page belongs to.
-var navOf = map[string]string{"files": "files", "file": "files", "resources": "resources", "tags": "graph", "tag": "graph", "broken": "broken", "structure": "graph", "graph": "graph", "projects": "projects", "project": "projects", "okr": "okr", "review": "projects"}
+var navOf = map[string]string{"files": "files", "file": "files", "resources": "resources", "tags": "graph", "tag": "graph", "broken": "broken", "graph": "graph", "projects": "projects", "project": "projects", "okr": "okr", "review": "projects"}
 
 // backGroup is the backlinks from one note or file.
 type backGroup struct {

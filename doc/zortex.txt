@@ -161,6 +161,10 @@ STRUCTURE ~
     Move the section or line under the cursor (or the selected lines) to a
     place picked in the search. Keys: <leader>zM. Id: move.
 
+:ZortexUndo                                                      *:ZortexUndo*
+    Take back the last rename, move or inbox move in every note it changed.
+    Keys: <leader>zU. Id: undo.
+
 TASKS ~
 
 :ZortexTaskToggle                                          *:ZortexTaskToggle*
@@ -201,16 +205,6 @@ PLAN ~
 :ZortexCalendar                                              *:ZortexCalendar*
     Calendar view. Keys: <leader>zc. Id: calendar.
 
-:ZortexCalendarDigest                                  *:ZortexCalendarDigest*
-    Calendar view with the digest panel. Keys: <leader>zCc. Id:
-    calendar_digest.
-
-:ZortexDigest                                                  *:ZortexDigest*
-    Open the digest note. Keys: <leader>zCd. Id: digest.
-
-:ZortexDigestUpdate                                      *:ZortexDigestUpdate*
-    Regenerate the digest note. Keys: <leader>zCD. Id: digest_update.
-
 POMODORO ~
 
 :ZortexPomodoro                                              *:ZortexPomodoro*
@@ -242,10 +236,6 @@ CALENDAR ~
 :ZortexNotificationList                              *:ZortexNotificationList*
     List the scheduled notifications (calendar or pomodoro only). Id:
     notification_list.
-
-:ZortexTestNotifications                            *:ZortexTestNotifications*
-    Send a test notification through each provider (or the one named). Id:
-    test_notifications.
 
 :ZortexNotificationsSync                            *:ZortexNotificationsSync*
     Sync calendar notifications (to the server if enabled); force resends
@@ -287,14 +277,9 @@ FILES ~
 
 XP ~
 
-:ZortexMasteryTree                                        *:ZortexMasteryTree*
-    Mastery tree and season progress. Keys: <leader>zk. Id: mastery_tree.
-
-:ZortexXPStats                                                *:ZortexXPStats*
-    XP statistics. Keys: <leader>zxs. Id: xp_stats.
-
-:ZortexXPAreas                                                *:ZortexXPAreas*
-    Top areas by XP. Keys: <leader>zxa. Id: xp_areas.
+:ZortexXP                                                          *:ZortexXP*
+    Season, the last two weeks, projects in progress, recent awards and the
+    area tree in one view. Keys: <leader>zxx. Id: xp.
 
 :ZortexXPExplain                                            *:ZortexXPExplain*
     How the project at the cursor earned its XP. Keys: <leader>zxe. Id:
@@ -304,15 +289,9 @@ XP ~
     How XP is calibrated: hours per @size, Mastery, tiers. Keys: <leader>zxg.
     Id: xp_guide.
 
-:ZortexSeasonStatus                                      *:ZortexSeasonStatus*
-    Current season. Id: season_status.
-
-:ZortexSeasonStart                                        *:ZortexSeasonStart*
-    Start a season: [name] [end YYYY-MM-DD] [start YYYY-MM-DD] (prompts
-    without args). Id: season_start.
-
-:ZortexSeasonEnd                                            *:ZortexSeasonEnd*
-    End the current season. Id: season_end.
+:ZortexSeason                                                  *:ZortexSeason*
+    The season: status (default), start [name] [end YYYY-MM-DD] [start
+    YYYY-MM-DD] (prompts without a name), end. Id: season.
 
 SYSTEM ~
 
@@ -320,20 +299,10 @@ SYSTEM ~
     Export notes and the model as JSON (default notes_dir/.z/export). Id:
     export.
 
-:ZortexStatus                                                  *:ZortexStatus*
-    Counts, state directory and event timings. Id: status.
-
-:ZortexLogs                                                      *:ZortexLogs*
-    Recent log entries (optional count). Id: logs.
-
-:ZortexLogLevel                                              *:ZortexLogLevel*
-    Set the log level. Id: log_level.
-
-:ZortexPerformance                                        *:ZortexPerformance*
-    Timer statistics. Id: performance.
-
-:ZortexClearLogs                                            *:ZortexClearLogs*
-    Clear logs and timers. Id: clear_logs.
+:ZortexDebug                                                    *:ZortexDebug*
+    For finding problems: status (default; counts, state directory, timings),
+    logs [n], level <LEVEL>, timers, clear (logs and timers), notifications
+    [provider] (a test through each). Id: debug.
 
 :ZortexHelp                                                      *:ZortexHelp*
     List commands and keys. Keys: <leader>z?. Id: help.
@@ -364,6 +333,7 @@ REVIEW (:ZortexReview) ~
   <CR>   jump to source
   f      add the project to the week's focus (or take it out)
   m      move the inbox line to its @project (or pick a place)
+  u      take the last move back (:ZortexUndo)
   <Tab>  go to the reviews note
   gx     follow link
   K      preview link
@@ -385,8 +355,6 @@ CALENDAR VIEW (:ZortexCalendar, keys in ui.calendar.keymaps) ~
   <CR> o         open the day in the calendar note
   x              tick a task of the day (2x: task 2)
   /              search the entries
-  v              month / week view
-  d D            the coming days
   gf             open the calendar note
   n              send the notifications to the server
   r R            refresh
@@ -396,6 +364,14 @@ CALENDAR VIEW (:ZortexCalendar, keys in ui.calendar.keymaps) ~
 TABLE OF CONTENTS (:ZortexTOC) ~
   <CR>     jump to the section
   q <Esc>  close
+
+XP (:ZortexXP) ~
+  <CR>     open the project, award, objective or area on the line
+  e        how the project on the line earned its XP
+  g        how XP is calibrated (:ZortexXPGuide)
+  r        refresh
+  q <Esc>  close
+  ?        these keys
 
 LINK PREVIEW (<leader>zK) ~
   <CR>     open the target
@@ -441,7 +417,7 @@ setup() merges your options over these defaults: >lua
         -- <prefix> is "Zortex", and a prefix like "x" of "xs" is named after
         -- its actions' group ("XP") unless set here. false skips one, or set
         -- groups = false to name none.
-        groups = { C = "Calendar & digest" },
+        groups = { C = "Calendar" },
       },
 
       core = {
@@ -590,6 +566,10 @@ setup() merges your options over these defaults: >lua
           todo_link = "P/#TODOs", -- tasks under this project rank higher
           max_tasks = 30,
           project_tasks = 3, -- P puts a project's next this many open tasks on the day (5P: five)
+          -- "Coming up": the events of this many days after the day (timed
+          -- lines, @event, calendar notes), in the plan and the calendar
+          -- view; 0 hides them
+          upcoming_days = 7,
           -- The capacity line: open tasks on the day (their @size hours) against
           -- the free time left in `day`, after timed entries that aren't project
           -- work (lectures, appointments; one without an end counts event_minutes)
@@ -622,11 +602,6 @@ setup() merges your options over these defaults: >lua
             new_note = "<C-o>", -- a new note named after the query
           },
           access_decay_rate = 0.1, -- per day
-          breadcrumb_display = {
-            one_token = { "article" },
-            two_tokens = { "article", "heading_1_2" },
-            three_plus_tokens = { "article", "heading", "bold_heading", "label" },
-          },
           history = {
             enabled = true,
             max_entries = 50,
@@ -669,7 +644,7 @@ setup() merges your options over these defaults: >lua
             border = "FloatBorder",
             footer = "Comment",
             key_hint = "NonText",
-            digest_header = "Title",
+            day_header = "Title",
             notification = "DiagnosticWarn",
             selected = "PmenuSel",
             today_selected = "PmenuSel",
@@ -687,11 +662,6 @@ setup() merges your options over these defaults: >lua
             has_items = "•",
             none = " ",
           },
-          digest = {
-            show_upcoming_days = 7, -- Show events for next 7 days
-            show_high_priority = true, -- Show high priority/importance projects
-            position = "right", -- right, bottom, or floating
-          },
           keymaps = {
             close = { "q", "<Esc>", "<C-c>" },
             next_day = { "l", "<Right>" },
@@ -706,8 +676,6 @@ setup() merges your options over these defaults: >lua
             add_entry = { "a", "i" },
             view_entries = { "<CR>", "o" },
             search = { "/" },
-            toggle_view = { "v" },
-            digest = { "d", "D" },
             refresh = { "r", "R" },
             go_to_file = { "gf" },
             toggle_task = { "x" }, -- 2x ticks the day's task 2

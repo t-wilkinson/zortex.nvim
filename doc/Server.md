@@ -42,6 +42,9 @@ Whatever you use:
   out of the notes, so a copy of `projects.zortex` doesn't double every
   project, and the file browser hides them; `:checkhealth zortex` lists
   them. Merge each into its note by hand and delete it.
+- **Keep history.** A sync tool copies a mistake to every device; keep
+  the folder in git on this machine (the README's
+  [Backups](../README.md#backups) has a daily commit).
 - **Syncthing: lower the delay.** Syncthing waits 10 s before syncing a
   change by default; set the folder's *Advanced → fsWatcherDelayS* to 1 or
   2 so the web pages follow Neovim closely. The server itself rescans every

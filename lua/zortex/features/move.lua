@@ -49,7 +49,10 @@ function M.move_to(file, src, result)
 			end
 		end
 	end
-	local at, merr = Move.move(file, src, place.file, dst)
+	-- one batch (core/workspace): :ZortexUndo takes it back in both notes
+	local at, merr = workspace.batch("move", { file, place.file }, function()
+		return Move.move(file, src, place.file, dst)
+	end)
 	if not at then
 		return nil, merr
 	end
@@ -88,6 +91,7 @@ function M.pick(file, first, last, on_done)
 		if done.links > 0 then
 			msg = msg .. string.format(" · %d link%s pointed into it: :ZortexBrokenLinks shows any that broke", done.links, done.links == 1 and "" or "s")
 		end
+		msg = msg .. " · :ZortexUndo takes it back"
 		notify(msg)
 		if on_done then
 			on_done(done)

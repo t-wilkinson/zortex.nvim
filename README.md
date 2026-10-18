@@ -170,9 +170,15 @@ Special notes:
   goes to a section or line you pick in the structural search, in the same
   note or another one. Headings are re-levelled and lines re-indented to
   fit where they land.
+- **Edits across notes are undoable**: a rename, a move or an inbox move
+  shows what it changes in other notes (rename asks first), loads the notes
+  that aren't open, changes and saves them, and `:ZortexUndo`
+  (`<leader>zU`) takes the whole thing back. A note that changed on disk
+  since it was read (the web app, a phone) is never edited blind: the edit
+  is refused rather than landing on the wrong line.
 - **which-key**: when [which-key.nvim](https://github.com/folke/which-key.nvim)
   is installed, `<leader>z` shows as "Zortex" and its sub-prefixes by name
-  (`<leader>zC` "Calendar & digest", `<leader>zx` "XP", ...); rename them
+  (`<leader>zC` "Calendar", `<leader>zx` "XP", ...); rename them
   with `keymaps.groups`.
 - **Links**: follow (`<leader>zgx`), open in the web app (`<leader>zgX`),
   preview in a float (`<leader>zK`, or on hover with
@@ -192,7 +198,9 @@ Special notes:
   week's focus projects first, then tasks on key results (the further a key
   result is behind schedule, the higher), then work with only an area, then
   the rest; due dates, priority and how often a task was put off add on
-  top. A capacity line weighs the day's tasks against its free time. `p`
+  top. A capacity line weighs the day's tasks against its free time, and
+  "Coming up" lists the events of the next seven days to plan around
+  (`ui.planner.upcoming_days`). `p`
   adds an item (with a link to it) to the day and stays in the list; `P` a
   project with its next three tasks; `i`/`o`/`O` put it on the
   current/next/previous line and let you type its time.
@@ -206,9 +214,10 @@ Special notes:
   week's focus from (`f`), stale and unscheduled projects, key results
   without projects, areas without an objective, broken links. Every line
   links to its source.
-- **Calendar**: month/week views with project tasks and due dates, a digest
-  panel, iCal import/export, notifications (synced to `zortex serve` and sent
-  through ntfy; unchanged calendars aren't re-sent).
+- **Calendar**: a month view with the selected day as written and the
+  events coming up after it (the planner's list), iCal import/export,
+  notifications (synced to `zortex serve` and sent through ntfy; unchanged
+  calendars aren't re-sent).
 - **Pomodoro** (`<leader>zoo`): one clock shared with the web app's home page,
   with ntfy alerts and a different sound for work, breaks and a new cycle
   (played with `paplay`, `afplay` on macOS; `sounds` and `sound_command` under
@@ -220,7 +229,9 @@ Special notes:
   a week's focus projects, a day planner that puts focus and key-result
   work first, daily and weekly reviews,
   and XP that mirrors it (seasons for this quarter's objectives, Mastery for
-  areas). See
+  areas). `:ZortexXP` (`<leader>zxx`) shows it in one view: the season, the
+  last two weeks and how much of that work went to key results, projects
+  in progress, recent awards and the area tree. See
   [doc/Planning.md](doc/Planning.md).
 - **Export** (`:ZortexExport`): the notes and the whole model as JSON.
 
@@ -275,6 +286,7 @@ require("zortex").setup({
 | `:ZortexRename …` | `<leader>zR` | `rename` | Rename the heading or label under the cursor and rewrite every link to it |
 | `:ZortexArchiveSection` | `<leader>za` | `archive_section` | Move the section under the cursor to the note's z/archive file |
 | `:ZortexMove` | `<leader>zM` | `move` | Move the section or line under the cursor (or the selected lines) to a place picked in the search |
+| `:ZortexUndo` | `<leader>zU` | `undo` | Take back the last rename, move or inbox move in every note it changed |
 
 **Tasks**
 
@@ -295,9 +307,6 @@ require("zortex").setup({
 | `:ZortexPlan …` | `<leader>zm` | `plan` | Plan a day: calendar day (from its template) plus ranked tasks, projects, KRs and areas to put on it |
 | `:ZortexCarryForward …` | `<leader>zCf` | `carry_forward` | Copy the open tasks of the days before to today (or a date), marking the old lines [>] |
 | `:ZortexCalendar` | `<leader>zc` | `calendar` | Calendar view |
-| `:ZortexCalendarDigest` | `<leader>zCc` | `calendar_digest` | Calendar view with the digest panel |
-| `:ZortexDigest` | `<leader>zCd` | `digest` | Open the digest note |
-| `:ZortexDigestUpdate` | `<leader>zCD` | `digest_update` | Regenerate the digest note |
 
 **Pomodoro**
 
@@ -316,7 +325,6 @@ require("zortex").setup({
 |---|---|---|---|
 | `:ZortexNotify …` |  | `notify` | Send a notification now through the configured channels: `:ZortexNotify <title> <message>` |
 | `:ZortexNotificationList …` |  | `notification_list` | List the scheduled notifications (`calendar` or `pomodoro` only) |
-| `:ZortexTestNotifications …` |  | `test_notifications` | Send a test notification through each provider (or the one named) |
 | `:ZortexNotificationsSync …` |  | `notifications_sync` | Sync calendar notifications (to the server if enabled); `force` resends unchanged |
 | `:ZortexIcalImport` |  | `ical_import` | Import an iCal file or URL into the calendar |
 | `:ZortexIcalExport` |  | `ical_export` | Export the calendar to an iCal file |
@@ -338,25 +346,17 @@ require("zortex").setup({
 
 | Command | Keys | Action id | Does |
 |---|---|---|---|
-| `:ZortexMasteryTree` | `<leader>zk` | `mastery_tree` | Mastery tree and season progress |
-| `:ZortexXPStats` | `<leader>zxs` | `xp_stats` | XP statistics |
-| `:ZortexXPAreas` | `<leader>zxa` | `xp_areas` | Top areas by XP |
+| `:ZortexXP` | `<leader>zxx` | `xp` | Season, the last two weeks, projects in progress, recent awards and the area tree in one view |
 | `:ZortexXPExplain` | `<leader>zxe` | `xp_explain` | How the project at the cursor earned its XP |
 | `:ZortexXPGuide` | `<leader>zxg` | `xp_guide` | How XP is calibrated: hours per @size, Mastery, tiers |
-| `:ZortexSeasonStatus` |  | `season_status` | Current season |
-| `:ZortexSeasonStart …` |  | `season_start` | Start a season: [name] [end YYYY-MM-DD] [start YYYY-MM-DD] (prompts without args) |
-| `:ZortexSeasonEnd` |  | `season_end` | End the current season |
+| `:ZortexSeason …` |  | `season` | The season: `status` (default), `start [name] [end YYYY-MM-DD] [start YYYY-MM-DD]` (prompts without a name), `end` |
 
 **System**
 
 | Command | Keys | Action id | Does |
 |---|---|---|---|
 | `:ZortexExport …` |  | `export` | Export notes and the model as JSON (default notes_dir/.z/export) |
-| `:ZortexStatus` |  | `status` | Counts, state directory and event timings |
-| `:ZortexLogs …` |  | `logs` | Recent log entries (optional count) |
-| `:ZortexLogLevel …` |  | `log_level` | Set the log level |
-| `:ZortexPerformance` |  | `performance` | Timer statistics |
-| `:ZortexClearLogs` |  | `clear_logs` | Clear logs and timers |
+| `:ZortexDebug …` |  | `debug` | For finding problems: `status` (default; counts, state directory, timings), `logs [n]`, `level <LEVEL>`, `timers`, `clear` (logs and timers), `notifications [provider]` (a test through each) |
 | `:ZortexHelp` | `<leader>z?` | `help` | List commands and keys |
 <!-- actions:end -->
 
@@ -390,6 +390,7 @@ the title, with the picker's own help key: telescope `<C-/>` (insert mode; `?` i
 | `<CR>` | jump to source |
 | `f` | add the project to the week's focus (or take it out) |
 | `m` | move the inbox line to its @project (or pick a place) |
+| `u` | take the last move back (:ZortexUndo) |
 | `<Tab>` | go to the reviews note |
 | `gx` | follow link |
 | `K` | preview link |
@@ -414,8 +415,6 @@ the title, with the picker's own help key: telescope `<C-/>` (insert mode; `?` i
 | `<CR>` `o` | open the day in the calendar note |
 | `x` | tick a task of the day (2x: task 2) |
 | `/` | search the entries |
-| `v` | month / week view |
-| `d` `D` | the coming days |
 | `gf` | open the calendar note |
 | `n` | send the notifications to the server |
 | `r` `R` | refresh |
@@ -428,6 +427,17 @@ the title, with the picker's own help key: telescope `<C-/>` (insert mode; `?` i
 |---|---|
 | `<CR>` | jump to the section |
 | `q` `<Esc>` | close |
+
+**XP** (`:ZortexXP`)
+
+| Key | Does |
+|---|---|
+| `<CR>` | open the project, award, objective or area on the line |
+| `e` | how the project on the line earned its XP |
+| `g` | how XP is calibrated (:ZortexXPGuide) |
+| `r` | refresh |
+| `q` `<Esc>` | close |
+| `?` | these keys |
 
 **Link preview** (<leader>zK)
 
@@ -518,14 +528,49 @@ require("zortex.notifications.types.pomodoro").statusline()
 | ---------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `query`                                  | `zortex.query`    | plain-data views: `tree`, `note`, `search`, `resolve`, `backlinks`, `broken_links`, `projects`, `areas`, `objectives`, `agenda`, `review`, `export` |
 | `projects`, `areas`, `okr`               | `services/*`      | entities: `all`, `get`, `at`, `resolve`, plus `query`/`tasks` (projects), `objectives`/`key_results` (OKR)                                          |
-| `agenda`                                 | `services/agenda` | `day`, `range`, `upcoming`, `review`                                                                                                                |
+| `agenda`                                 | `services/agenda` | `day`, `range`, `upcoming`, `upcoming_events`, `review`                                                                                             |
 | `calendar`                               | `stores/calendar` | entries by date, `add_entry`, `update_entry`, `delete_entry`                                                                                        |
 | `tasks`                                  | `services/tasks`  | toggle/complete on the cursor line, `find_task_by_id`                                                                                               |
 | `search`, `search_history`               | `services/*`      | structural search and its ranking history                                                                                                           |
-| `digest`, `review`, `xp`                 |                   | digest note, review buffer, XP and seasons                                                                                                          |
+| `review`, `planner`, `xp`                |                   | review buffer, day planning, XP and seasons                                                                                                         |
 | `notes`, `document`, `syntax`, `item`    | `core/*`          | note index, parsed snapshots, grammar, list items                                                                                                   |
 | `links`, `link_index`                    |                   | link resolution and the index of every link                                                                                                         |
-| `workspace`, `state`, `events`, `config` |                   | line edits, `.z` state files, domain events, configuration                                                                                          |
+| `workspace`, `state`, `events`, `config` |                   | line edits (checked against what was read; `batch` / `undo_last` for edits across notes), `.z` state files, domain events, configuration           |
+
+## Backups
+
+Notes are plain files, and a sync tool copies a mistake to every device as
+faithfully as anything else. Keep history of the folder, on the one machine
+that always has the notes (the server, or your main computer):
+
+```sh
+cd ~/zortex && git init
+printf '.z/\n*.sync-conflict-*\n.stversions/\n' > .gitignore
+git add -A && git commit -m "notes"
+# then once a day (cron, a systemd timer, launchd):
+git -C ~/zortex add -A && git -C ~/zortex commit -qm "notes $(date +%F)" || true
+```
+
+Push to a private remote for an off-site copy. `.z/` is left out of the
+history (keep syncing it: the web app reads it): it holds caches (the link
+index), the search history, notification state and XP seasons you started
+by hand, all rebuilt or restarted without harm. With
+Syncthing, its file versioning ("Staggered") on that machine is a second
+net. To take back an edit zortex made across notes (a rename, a move, an
+inbox move), `:ZortexUndo` is quicker than a restore.
+
+## Stability
+
+Until 1.0, a minor release (0.2, 0.3, …) may change the note format or the
+configuration; a patch release (0.1.1) never does. What is promised:
+
+- Notes stay plain text that reads fine without zortex.
+- Every change to how notes parse, and every renamed or removed setting or
+  command, is listed in [CHANGELOG.md](CHANGELOG.md) with how to find the
+  lines it affects (as `:ZortexLongLabels` did for labels).
+- Nothing rewrites your notes on upgrade.
+
+From 1.0 on, the note format changes only in a major release.
 
 ## Documentation
 
@@ -542,7 +587,8 @@ require("zortex.notifications.types.pomodoro").statusline()
 - [doc/Architecture.md](doc/Architecture.md): how the plugin is built (syntax,
   documents, links, entities, domain, state, query API, UI) and the rules
   modules share
-- [CHANGELOG.md](CHANGELOG.md): releases, and what to change when upgrading
+- [CHANGELOG.md](CHANGELOG.md): releases, and what to change when upgrading;
+  [Stability](#stability) says what may change before 1.0
 - [CONTRIBUTING.md](CONTRIBUTING.md): tests, generated files, releasing
 - [doc/Wishlist.md](doc/Wishlist.md): planned features and ideas
 - [doc/Philosophy.md](doc/Philosophy.md): why zortex is a personal wiki, not

@@ -1,6 +1,6 @@
 -- services/projects/score.lua - Task/project scoring and project comparators
 --
--- Pure functions shared by the projects picker, digest and calendar views.
+-- Pure functions shared by the projects picker, the planner and the calendar view.
 local M = {}
 
 local datetime = require("zortex.utils.datetime")

@@ -54,6 +54,8 @@ end
 -- =============================================================================
 
 --- Lines, badges and line -> candidate map for a candidates table:
+---   # Coming up    the events of the next ui.planner.upcoming_days days
+---                  (agenda.upcoming_events), to plan around
 ---   # Projects     a "## <project link>" heading per project, its ranked
 ---                  tasks under it
 ---   # Key results
@@ -81,6 +83,24 @@ function M.render(candidates, date)
 	})
 	if candidates.capacity_line then
 		add(candidates.capacity_line, nil, candidates.capacity_badges)
+	end
+
+	-- the events of the coming days, to plan around (not put on the day)
+	local upcoming = candidates.upcoming or {}
+	if #upcoming > 0 then
+		local days = cfg().upcoming_days or 7
+		lines[#lines + 1] = ""
+		lines[#lines + 1] = string.format("# Coming up (next %d day%s)", days, days == 1 and "" or "s")
+		for _, day in ipairs(upcoming) do
+			local t = os.time({ year = tonumber(day.date:sub(1, 4)), month = tonumber(day.date:sub(6, 7)), day = tonumber(day.date:sub(9, 10)), hour = 12 })
+			for i, item in ipairs(day.items) do
+				local when = i == 1 and os.date("%a %m-%d", t) or string.rep(" ", 9)
+				local e = item.entry and item.entry.timing and item.entry.timing["end"]
+				local ends = type(e) == "table" and e.hour and string.format("–%02d:%02d", e.hour, e.min or 0) or ""
+				local text = (item.time and (item.time .. ends .. " ") or "") .. item.text
+				add(string.format("%s  %s", when, text), nil, {})
+			end
+		end
 	end
 
 	local groups = candidates.groups or {}

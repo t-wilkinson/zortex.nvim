@@ -80,6 +80,10 @@ T.test("m moves an inbox line and what is nested under it to its @project", func
 	T.eq(triage.destination(l2), "[Triage projects/#Other]")
 	assert(triage.move(l2))
 	T.eq(read(proj)[#read(proj)], "- loose thought")
+	-- u in the review (:ZortexUndo) takes the move back in both notes
+	T.eq(require("zortex.core.workspace").undo_last(), "inbox: move to [Triage projects/#Other]")
+	T.eq(read(inbox), { "@@Inbox", "", "- loose thought" })
+	T.ok(read(proj)[#read(proj)] ~= "- loose thought", "gone from the project again")
 	Config.review = old
 	os.remove(proj)
 	os.remove(inbox)

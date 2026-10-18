@@ -22,8 +22,6 @@ dependencies (this folder's Go module).
 - **Time tracking** (`-writable`): while a clock runs, its time goes to the
   task you're working on (the current calendar entry by default) and is
   added to the task's `@spent(...)`. See [Time tracking](#time-tracking).
-- **Digest**: `GET /api/digest` gives the coming days of the calendar as a
-  subject, text and HTML, for whatever mail or chat service you use.
 - **Inbox** (`-writable`): the home page's box adds a task or a note to
   `inbox.zortex`, and keeps working offline in the installed app.
 
@@ -61,7 +59,6 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 | page | what |
 |---|---|
 | `/` | the **inbox** capture box (works offline in the installed app), the **calendar** (days of `calendar.zortex`, a month grid whose dot marks days with an `@event`, scheduled notifications; 🔔 on lines with a written `@n`), the **pomodoro** clock with **timer**, **alarm** and **stopwatch** tabs, **this week's focus projects**, **season and XP** (level and tier, progress to the next level, XP per day for two weeks, top areas, recent awards; tasks completed on the web with their estimated XP until Neovim counts them), recently changed notes, notes not yet in the structure, counts |
-| `/structure` | notes that neither the Structure note (`@@Structure`), any `@Structure` note, nor any note's `# Structure` section links to (archived notes left out); not in the top bar, since `/graph` lists the same notes |
 | `/graph` | the whole structure as cards side by side, one per section of the Structure note, each note with a `# Structure` section opened in place, and under a note the headings other notes link to (how many notes do); hover a note to mark the notes it links with, click a tag to mark its notes, filter notes and tags as you type (`@word` for tags); the notes not in it |
 | `/n/<path>` | a rendered note: outline, every line anchored (`#L12`), links resolved with the plugin's rules (to the canonical target; `⁺` when there are more), broken links in red, file paths and markdown links to the file viewer, [tag tables](#tag-tables) and [indexes](#tag-indexes), its [connections](#connections-and-the-graph), "Linked from" (backlinks) |
 | `/n/<path>?view=slides` | the note as a slide deck ([Slides](#slides)) |
@@ -331,7 +328,7 @@ the usual systemd hardening.
 | `GET /pending?user_id=` | pending notifications |
 | `POST /test` | `{title?, message?}`: publish through ntfy now and report |
 | `GET /api/calendar?from=&to=` | `days` (entries of `calendar.zortex` with time, text, rendered HTML, task state, whether a notification is scheduled), `notifications`, `count`, `next_event` |
-| `GET /api/summary` | for homelab dashboards: pending count, upcoming notifications as text/HTML, the pomodoro |
+| `GET /api/summary` | for home dashboards (Homepage, Home Assistant, …): pending count, upcoming notifications as text/HTML, the pomodoro |
 | `GET /api/pomodoro` | phase, running, remaining, ends_at, session, completed, today, settings, `next_alarm`, `ntfy` |
 | `POST /api/pomodoro/{start,pause,resume,toggle,skip,stop,restart}` | drive the clock |
 | `GET /api/xp` | the XP summary Neovim published (season, daily XP, areas, recent awards, calibration), or `{"available": false}`; plus `pending_web` (tasks completed on the web since, one per `@id`), `pending_xp` and `pending_tasks` (`{title, xp, hours}`: estimated from the task's `@size`, priority and importance with the summary's calibration) |
@@ -347,7 +344,6 @@ the usual systemd hardening.
 | `POST /api/clocks/stopwatch/{start,pause,toggle,lap,reset}` | the stopwatch |
 | `GET /api/track` | time tracking: `{enabled, mode: calendar \| pinned \| off, task, counting, counted_ms, calendar?, error}` |
 | `POST /api/track/pin` | `{rel, lnum, expect?}` work on this line; `POST /api/track/{follow,off,flush}`; `GET /api/track/tasks?q=` open tasks for the picker |
-| `GET /api/digest?days=7&site=` | the coming days of the calendar: `{subject, text, html, days, count}`; links in `html` are absolute (`site`, else the request's host). E.g. `curl -s localhost:8090/api/digest \| jq -r .text \| mail -s Agenda me@example.com` from cron |
 | `POST /api/pomodoro/settings` | `{work, short_break, long_break, long_break_after, auto_start_break, auto_start_work}` (minutes; partial updates are fine) |
 
 `/notify`, `/pending` and `/test` require `X-API-Key` when `-api-key` is set.

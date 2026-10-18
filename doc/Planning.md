@@ -326,11 +326,9 @@ removes that whole class of problems.
 | `:ZortexPlan` (`<leader>zm`) | plan a day |
 | `:ZortexReview day` / `:ZortexReview` | daily / weekly review |
 | `:ZortexXPGuide` (`<leader>zxg`) | how XP is calibrated: hours per `@size`, Mastery, tiers; and what the line at the cursor is worth |
-| `:ZortexXPStats` (`<leader>zxs`) | season, projects in progress, recent awards, areas |
+| `:ZortexXP` (`<leader>zxx`) | one view: the season's objectives and tier, XP per day for two weeks and how much of that work went to key results, areas only or neither, projects in progress, recent awards, the area tree (`<CR>` opens a line's source, `e` explains a project, `g` the guide) |
 | `:ZortexXPExplain` (`<leader>zxe`) | how the project at the cursor earned its XP, award by award |
-| `:ZortexXPAreas` (`<leader>zxa`) | top areas |
-| `:ZortexMasteryTree` (`<leader>zk`) | the season's objectives and tier, and the area tree |
-| `:ZortexSeasonStart` / `SeasonStatus` / `SeasonEnd` | a season of your own instead of the quarter |
+| `:ZortexSeason start [name] [end] [start]` / `end` / `status` | a season of your own instead of the quarter |
 
 On the web, the home page of `zortex serve` shows the season (progress,
 tier, its objectives), Mastery XP per day for two weeks, top areas and recent

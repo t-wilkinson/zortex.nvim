@@ -41,11 +41,11 @@ end)
 
 T.test("key prefixes are named for which-key", function()
 	local groups = {}
-	for _, g in ipairs(actions.key_groups("<leader>z", {}, { C = "Calendar & digest" })) do
+	for _, g in ipairs(actions.key_groups("<leader>z", {}, { C = "Calendar" })) do
 		groups[g[1]] = g[2]
 	end
 	T.eq(groups["<leader>z"], "Zortex")
-	T.eq(groups["<leader>zC"], "Calendar & digest") -- named in config
+	T.eq(groups["<leader>zC"], "Calendar") -- named in config
 	T.eq(groups["<leader>zx"], "XP") -- named after its actions' group
 	T.eq(groups["<leader>zt"], "Tasks")
 	T.eq(groups["<leader>zz"], nil) -- a single key, not a prefix
@@ -71,13 +71,13 @@ T.test("which-key gets the groups when installed (v3 add, v2 register)", functio
 			added = spec
 		end,
 	}
-	T.ok(actions.register_which_key("<leader>z", {}, { C = "Calendar & digest" }))
+	T.ok(actions.register_which_key("<leader>z", {}, { C = "Calendar" }))
 	local by_lhs = {}
 	for _, s in ipairs(added) do
 		by_lhs[s[1]] = s
 	end
 	T.eq(by_lhs["<leader>z"].group, "Zortex")
-	T.eq(by_lhs["<leader>zC"].group, "Calendar & digest")
+	T.eq(by_lhs["<leader>zC"].group, "Calendar")
 	T.eq(by_lhs["<leader>zC"].mode, "n")
 
 	local registered

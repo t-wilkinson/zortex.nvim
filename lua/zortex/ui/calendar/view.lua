@@ -1,7 +1,7 @@
 -- ui/calendar/view.lua - The calendar window
 --
--- A floating window with a month grid (selected day's entries below) or the
--- digest (today and the coming days). Content comes from ui/calendar/render,
+-- A floating window with a month grid, the selected day's entries and the
+-- events coming up after it below. Content comes from ui/calendar/render,
 -- keys from ui/calendar/keys; this module owns the window and its state.
 local M = {}
 local api = vim.api
@@ -14,7 +14,6 @@ local CalendarState = {
 	bufnr = nil,
 	win_id = nil,
 	current_date = nil,
-	view_mode = "month", -- month, digest
 	marks = {}, -- marks[date_str] = { line, col, end_col, day }: day cells (display columns)
 	ns_id = nil, -- Namespace for extmarks
 	selected_extmark_id = nil, -- Current selection extmark
@@ -174,12 +173,8 @@ function M.refresh()
 	local lines, highlights
 
 	local win_width = CalendarState.win_id and api.nvim_win_get_width(CalendarState.win_id) or cfg.window.width
-	if CalendarState.view_mode == "digest" then
-		lines, highlights = render.digest(cfg, win_width)
-	else
-		local date = CalendarState.current_date or datetime.get_current_date()
-		lines, highlights, CalendarState.marks = render.month(date, CalendarState, cfg, win_width)
-	end
+	local date = CalendarState.current_date or datetime.get_current_date()
+	lines, highlights, CalendarState.marks = render.month(date, CalendarState, cfg, win_width)
 
 	vim.bo[CalendarState.bufnr].modifiable = true
 	api.nvim_buf_set_lines(CalendarState.bufnr, 0, -1, false, lines)
@@ -196,15 +191,7 @@ function M.refresh()
 	apply_highlights(CalendarState.bufnr, highlights)
 
 	-- Update selected date extmark
-	if CalendarState.view_mode == "month" then
-		update_selected_extmark()
-	end
-end
-
-function M.open_digest()
-	calendar_store.load()
-	M.open()
-	require("zortex.ui.calendar.keys").show_digest()
+	update_selected_extmark()
 end
 
 function M.setup(opts)

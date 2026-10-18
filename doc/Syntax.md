@@ -105,7 +105,7 @@ Nothing inside a code or math block is structure.
 | Example | Span | Notes |
 |---|---|---|
 | `[Link/#Heading]` | `link` | see Links below |
-| `![Live link]` | `live_link` | a link shown in place (the digest note) |
+| `![Live link]` | `live_link` | a link shown in place: an image or video on the web; other targets are reserved for showing zortex data in place |
 | `@[cars parts]` | `tag_search` | lines tagged `@cars` and `@parts` (words: all of them; commas: any); see Tag searches below |
 | `!@[R/rust async]` | `tag_search` | the same search shown in place: a table on the web; see Tag searches below |
 | `[text](https://example.com)` | `markdown` | a markdown link |

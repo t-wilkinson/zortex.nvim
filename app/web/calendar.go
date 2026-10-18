@@ -388,7 +388,7 @@ func (s *Server) notificationView(now time.Time) notifView {
 	return v
 }
 
-// apiSummary: GET /api/summary, for homelab dashboards.
+// apiSummary: GET /api/summary, for home dashboards (Homepage, Home Assistant, ...).
 func (s *Server) apiSummary(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	v := s.notificationView(now)

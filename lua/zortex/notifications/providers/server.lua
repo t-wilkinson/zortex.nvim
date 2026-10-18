@@ -1,4 +1,4 @@
--- notifications/providers/homelab.lua - `zortex serve` notification API (POST /notify)
+-- notifications/providers/server.lua - `zortex serve` notification API (POST /notify)
 local base = require("zortex.notifications.providers.base")
 local server = require("zortex.notifications.server")
 
@@ -48,7 +48,7 @@ local function sync_notifications(notifications, _, cb)
 	return true, nil
 end
 
-return base.create_provider("homelab", {
+return base.create_provider("server", {
 	send = send,
 	sync = sync_notifications,
 	wire = wire,

@@ -55,6 +55,8 @@ local function with_notes(fn)
 	local okr = vim.deepcopy(saved[fs.get_okr_file()])
 	vim.list_extend(okr, { "", "## 3M-2026-Q4 Grow food @a(4.1)", "- KR1: [ ] A harvest", "", "## 3M-2026-Q4 No key results yet @a(4.1)" })
 	vim.fn.writefile(okr, fs.get_okr_file())
+	-- the note list is cached for a moment: fix-proj.zortex comes and goes
+	require("zortex.core.notes").invalidate()
 	require("zortex.core.document").invalidate()
 	require("zortex.core.link_index").refresh(true)
 	local orig_input, orig_select = vim.ui.input, vim.ui.select
@@ -77,6 +79,8 @@ local function with_notes(fn)
 		end
 		os.remove(f)
 	end
+	-- the note list is cached for a moment: fix-proj.zortex comes and goes
+	require("zortex.core.notes").invalidate()
 	require("zortex.core.document").invalidate()
 	require("zortex.core.link_index").refresh(true)
 	assert(ok, err)

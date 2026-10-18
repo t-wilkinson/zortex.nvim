@@ -288,7 +288,9 @@ The first public release.
   calendar's syntax, repeats, exceptions and time zones expanded. Per feed:
   on or off (off removes its note), whether its events notify (off by
   default) and count as busy (on by default), how often and how far ahead.
-  The home page lists their events among yours, labelled.
+  The home page lists their events among yours, labelled; a notifying
+  feed's days get a dot of their own on the month grid, in the feed's
+  `color`.
 - **`/calendar.ics`**: the calendar's lines tagged `@share` as an iCal feed
   for Cozi, Google or Apple to subscribe to. `-share-token-file` (NixOS
   `shareTokenFile`) lets `?token=…` in without the login; behind a proxy

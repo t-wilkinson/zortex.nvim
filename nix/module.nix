@@ -52,6 +52,7 @@ let
         }
         // optionalAttrs (f.title != null) { inherit (f) title; }
         // optionalAttrs (f.url != null) { inherit (f) url; }
+        // optionalAttrs (f.color != null) { inherit (f) color; }
         // optionalAttrs (f.enable && f.urlFile != null) { url_file = "${credDir}/feed-${name}"; }
       ) cfg.feeds;
     }
@@ -241,6 +242,12 @@ in
               type = types.bool;
               default = false;
               description = "Notify for the feed's timed events, as for your own (Neovim syncs them). Off: its lines get @n(no).";
+            };
+            color = mkOption {
+              type = types.nullOr types.str;
+              default = null;
+              example = "#2a9d8f";
+              description = "With notify, the dot its days get on the web app's month grid (a CSS color). Null: orange (#e8833a).";
             };
             busy = mkOption {
               type = types.bool;

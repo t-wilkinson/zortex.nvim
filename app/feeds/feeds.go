@@ -61,6 +61,25 @@ type Feed struct {
 	// DaysBack / DaysAhead: the window written (default 7 and 60)
 	DaysBack  int `json:"days_back,omitempty"`
 	DaysAhead int `json:"days_ahead,omitempty"`
+	// Color: a notifying feed's dot on the web app's month grid, on the
+	// days it has events (a CSS color: "#e07a5f", "teal"; default
+	// DefaultColor)
+	Color string `json:"color,omitempty"`
+}
+
+// DefaultColor is a notifying feed's dot when it sets no color.
+const DefaultColor = "#e8833a"
+
+// colorRe: the CSS colors a feed may set: #rgb … #rrggbbaa, a name,
+// rgb()/hsl() with numbers (nothing that could close the style attribute)
+var colorRe = regexp.MustCompile(`^(#[0-9A-Fa-f]{3,8}|[A-Za-z]{3,30}|(rgb|rgba|hsl|hsla)\([0-9.,%/ ]+\))$`)
+
+// DotColor: the feed's dot color.
+func (f Feed) DotColor() string {
+	if f.Color == "" {
+		return DefaultColor
+	}
+	return f.Color
 }
 
 // File is the feeds file (-feeds, ZORTEX_FEEDS): { "feeds": [ ... ] }.
@@ -91,6 +110,9 @@ func Load(path string) ([]Feed, error) {
 		seen[fd.Name] = true
 		if fd.URL == "" && fd.URLFile == "" && fd.On() {
 			return nil, fmt.Errorf("%s: feed %q has no url or url_file", path, fd.Name)
+		}
+		if fd.Color != "" && !colorRe.MatchString(fd.Color) {
+			return nil, fmt.Errorf("%s: feed %q: color %q: use #rrggbb, a CSS color name, rgb() or hsl()", path, fd.Name, fd.Color)
 		}
 		if _, err := fd.interval(); err != nil {
 			return nil, fmt.Errorf("%s: feed %q: every: %w", path, fd.Name, err)

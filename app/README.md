@@ -58,7 +58,7 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 
 | page | what |
 |---|---|
-| `/` | the **inbox** capture box (works offline in the installed app), the **calendar** (days of `calendar.zortex`, a month grid whose dot marks days with an `@event`, scheduled notifications; 🔔 on lines with a written `@n`), the **pomodoro** clock with **timer**, **alarm** and **stopwatch** tabs, **this week's focus projects**, **season and XP** (level and tier, progress to the next level, XP per day for two weeks, top areas, recent awards; tasks completed on the web with their estimated XP until Neovim counts them), recently changed notes, notes not yet in the structure, counts |
+| `/` | the **inbox** capture box (works offline in the installed app), the **calendar** (days of `calendar.zortex`, a month grid whose dot marks days with an `@event` (and a dot in its color for each notifying calendar feed with events that day), scheduled notifications; 🔔 on lines with a written `@n`), the **pomodoro** clock with **timer**, **alarm** and **stopwatch** tabs, **this week's focus projects**, **season and XP** (level and tier, progress to the next level, XP per day for two weeks, top areas, recent awards; tasks completed on the web with their estimated XP until Neovim counts them), recently changed notes, notes not yet in the structure, counts |
 | `/graph` | the whole structure as cards side by side, one per section of the Structure note, each note with a `# Structure` section opened in place, and under a note the headings other notes link to (how many notes do); hover a note to mark the notes it links with, click a tag to mark its notes, filter notes and tags as you type (`@word` for tags); the notes not in it |
 | `/n/<path>` | a rendered note: outline, every line anchored (`#L12`), links resolved with the plugin's rules (to the canonical target; `⁺` when there are more), broken links in red, file paths and markdown links to the file viewer, [tag tables](#tag-tables) and [indexes](#tag-indexes), its [connections](#connections-and-the-graph), "Linked from" (backlinks) |
 | `/n/<path>?view=slides` | the note as a slide deck ([Slides](#slides)) |
@@ -332,8 +332,8 @@ Everything is one service on `web.port`. It runs as the `zortex` user with
 read-only access to `notesDir` (writable with `web.writable` or `feeds`), a
 writable `dataDir` (`/var/lib/zortex`) and the usual systemd hardening.
 `feeds.<name>` takes `url` or `urlFile` (a credential), `enable`, `title`,
-`notify`, `busy`, `every`, `daysBack` and `daysAhead`; an off feed's note is
-removed.
+`notify`, `color`, `busy`, `every`, `daysBack` and `daysAhead`; an off
+feed's note is removed.
 
 ## Notification and pomodoro API
 
@@ -342,7 +342,7 @@ removed.
 | `POST /notify` | `{user_id, operation: "sync", notifications: [...]}` replaces the user's pending notifications (unchanged ones keep their identity; an identical manifest is a no-op: `{unchanged: true}`); `operation: "notify"` adds one; `"clear"` removes the pending ones |
 | `GET /pending?user_id=` | pending notifications |
 | `POST /test` | `{title?, message?}`: publish through ntfy now and report |
-| `GET /api/calendar?from=&to=` | `days` (entries of `calendar.zortex` with time, text, rendered HTML, task state, whether a notification is scheduled; the calendar feeds' events among them, with `feed` and no `rel`), `notifications`, `count`, `next_event` |
+| `GET /api/calendar?from=&to=` | `days` (entries of `calendar.zortex` with time, text, rendered HTML, task state, whether a notification is scheduled; the calendar feeds' events among them, with `feed` and no `rel`), `notifications`, `count`, `next_event`, `feeds` (`name`, `title`, `notify`, and for a notifying feed its dot `color`) |
 | `GET /api/summary` | for home dashboards (Homepage, Home Assistant, …): pending count, upcoming notifications as text/HTML, the pomodoro |
 | `GET /api/pomodoro` | phase, running, remaining, ends_at, session, completed, today, settings, `next_alarm`, `ntfy` |
 | `POST /api/pomodoro/{start,pause,resume,toggle,skip,stop,restart}` | drive the clock |

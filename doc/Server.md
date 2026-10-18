@@ -239,7 +239,7 @@ labelled with the feed's name (`· cozi`):
 ```json
 {
   "feeds": [
-    { "name": "cozi", "title": "Family", "url_file": "/run/secrets/cozi-ical-url" },
+    { "name": "cozi", "title": "Family", "url_file": "/run/secrets/cozi-ical-url", "notify": true, "color": "#2a9d8f" },
     { "name": "school", "url": "https://example.edu/calendar.ics", "notify": true, "busy": false },
     { "name": "old-job", "url": "https://...", "enabled": false }
   ]
@@ -257,6 +257,7 @@ zortex serve ... -feeds ~/.config/zortex/feeds.json    # or ZORTEX_FEEDS
 | `url` / `url_file` | (one of them) | the link (`https://` or `webcal://`); a private link is a secret, so prefer a file holding it |
 | `enabled` | `true` | `false` stops fetching it and removes its note: its events leave every calendar view |
 | `notify` | `false` | `true`: its timed events notify as yours do; off, each line gets `@n(no)` |
+| `color` | `#e8833a` | with `notify`, the dot its days get on the web app's month grid, beside the one for your `@event`s, and on its label in the day's list: `#rrggbb`, a CSS color name, `rgb()` or `hsl()` |
 | `busy` | `true` | its events take time in the planner's capacity line; `false` adds `@free` to each line |
 | `every` | `15m` | how often to fetch it (5m at least); unchanged feeds aren't downloaded again (`ETag`) |
 | `days_back`, `days_ahead` | 7, 60 | the days the note covers |

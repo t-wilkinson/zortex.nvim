@@ -141,16 +141,21 @@ func TestOptionsAndFailures(t *testing.T) {
 func TestLoad(t *testing.T) {
 	dir := t.TempDir()
 	good := filepath.Join(dir, "good.json")
-	os.WriteFile(good, []byte(`{"feeds":[{"name":"cozi","url":"https://x/y.ics","every":"30m"},{"name":"school","url_file":"/run/secrets/school","enabled":false}]}`), 0o600)
+	os.WriteFile(good, []byte(`{"feeds":[{"name":"cozi","url":"https://x/y.ics","every":"30m","color":"#3a86ff"},{"name":"school","url_file":"/run/secrets/school","enabled":false},{"name":"club","url":"x","color":"hsl(150, 40%, 45%)"}]}`), 0o600)
 	fs, err := Load(good)
-	if err != nil || len(fs) != 2 || !fs[0].On() || fs[1].On() {
+	if err != nil || len(fs) != 3 || !fs[0].On() || fs[1].On() {
 		t.Fatalf("%v %+v", err, fs)
+	}
+	if fs[0].DotColor() != "#3a86ff" || fs[1].DotColor() != DefaultColor {
+		t.Fatalf("colors: %q %q", fs[0].DotColor(), fs[1].DotColor())
 	}
 	for _, bad := range []string{
 		`{"feeds":[{"name":"a b","url":"x"}]}`,
 		`{"feeds":[{"name":"a","url":"x"},{"name":"a","url":"y"}]}`,
 		`{"feeds":[{"name":"a"}]}`,
 		`{"feeds":[{"name":"a","url":"x","every":"soon"}]}`,
+		`{"feeds":[{"name":"a","url":"x","color":"red\" onclick=\"x"}]}`,
+		`{"feeds":[{"name":"a","url":"x","color":"url(x)"}]}`,
 	} {
 		p := filepath.Join(dir, "bad.json")
 		os.WriteFile(p, []byte(bad), 0o600)

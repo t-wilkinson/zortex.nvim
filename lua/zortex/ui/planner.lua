@@ -55,6 +55,7 @@ end
 -- =============================================================================
 
 --- Lines, badges and line -> candidate map for a candidates table:
+---   # From your calendar feeds  the day's events from z/feeds (doc/Server.md)
 ---   # Coming up    the events of the next ui.planner.upcoming_days days
 ---                  (agenda.upcoming_events), to plan around
 ---   # Projects     a "## <project link>" heading per project, its ranked
@@ -89,6 +90,26 @@ function M.render(candidates, date)
 		add(candidates.capacity_line, nil, candidates.capacity_badges)
 	end
 
+	local function event_text(item)
+		local e = item.entry and item.entry.timing and item.entry.timing["end"]
+		local ends = type(e) == "table" and e.hour and string.format("–%02d:%02d", e.hour, e.min or 0) or ""
+		local text = (item.time and (item.time .. ends .. " ") or "") .. item.text
+		if item.feed then
+			text = text .. "  · " .. item.feed
+		end
+		return text
+	end
+
+	-- the day's events from the calendar feeds (not in the calendar note)
+	local feed_today = candidates.feed_today or {}
+	if #feed_today > 0 then
+		lines[#lines + 1] = ""
+		lines[#lines + 1] = string.format("# From your calendar feeds (%d)", #feed_today)
+		for _, item in ipairs(feed_today) do
+			add(event_text(item), nil, {})
+		end
+	end
+
 	-- the events of the coming days, to plan around (not put on the day)
 	local upcoming = candidates.upcoming or {}
 	if #upcoming > 0 then
@@ -99,10 +120,7 @@ function M.render(candidates, date)
 			local t = os.time({ year = tonumber(day.date:sub(1, 4)), month = tonumber(day.date:sub(6, 7)), day = tonumber(day.date:sub(9, 10)), hour = 12 })
 			for i, item in ipairs(day.items) do
 				local when = i == 1 and os.date("%a %m-%d", t) or string.rep(" ", 9)
-				local e = item.entry and item.entry.timing and item.entry.timing["end"]
-				local ends = type(e) == "table" and e.hour and string.format("–%02d:%02d", e.hour, e.min or 0) or ""
-				local text = (item.time and (item.time .. ends .. " ") or "") .. item.text
-				add(string.format("%s  %s", when, text), nil, {})
+				add(string.format("%s  %s", when, event_text(item)), nil, {})
 			end
 		end
 	end

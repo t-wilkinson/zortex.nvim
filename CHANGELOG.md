@@ -23,6 +23,16 @@ The first public release.
 - Neovim no longer edits a note blind when it changed on disk (the web app,
   a phone): an edit is checked against what was read, and refused when the
   lines around it differ; an open, unsaved buffer is reloaded first.
+- **Other calendars in yours.** The events the server fetches from
+  calendar feeds (`z/feeds/<name>.zortex`) show in the calendar view, the
+  planner (the day's under "From your calendar feeds", and in "Coming up"),
+  the agenda and the calendar picker, read-only and labelled `· <feed>`;
+  they count as busy in the capacity line unless marked `@free`, and notify
+  unless `@n(no)` (the server writes that by default).
+  `features.calendar_feeds = { cozi = false }` hides one feed, `false` all
+  of them. `@share` and `@free` are attributes, not tags.
+- The calendar view no longer marks a day as notifying for a line with
+  `@n(no)`.
 - `:ZortexToday [date]` (`<leader>zd`) goes to today in the calendar,
   adding the day from its template (`ui.planner.templates`) when it isn't
   there yet.
@@ -272,6 +282,18 @@ The first public release.
 
 ### Server (`zortex serve`)
 
+- **Calendar feeds** (`-feeds FILE`, NixOS `feeds.<name>`): iCal links (a
+  Cozi family member's, Google's secret address, …) fetched every 15
+  minutes into `z/feeds/<name>.zortex`, one line per event in the
+  calendar's syntax, repeats, exceptions and time zones expanded. Per feed:
+  on or off (off removes its note), whether its events notify (off by
+  default) and count as busy (on by default), how often and how far ahead.
+  The home page lists their events among yours, labelled.
+- **`/calendar.ics`**: the calendar's lines tagged `@share` as an iCal feed
+  for Cozi, Google or Apple to subscribe to. `-share-token-file` (NixOS
+  `shareTokenFile`) lets `?token=…` in without the login; behind a proxy
+  with a login, let that one path through (doc/Server.md has an Authelia
+  rule).
 - The inbox box works offline in the installed app: what you add without a
   connection (or while the server is down) is kept in the browser and
   appended to the bottom of `inbox.zortex`, in order, when it's back. A

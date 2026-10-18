@@ -493,6 +493,17 @@ heading is an entity; headings matching `3M-2026-Q1 Title` are objectives
   header, notes, ordering and spacing are never rewritten.
 - `projects/relations.schedule_index()` maps calendar links to projects through
   the link index; `project:schedule({ descendants, from, to })` reads it.
+- **Calendar feeds.** The notes the server writes from other calendars
+  (`z/feeds/<name>.zortex`, tagged `@CalendarFeed`; `app/feeds`) are parsed
+  the same way into `feed_entries`, re-read when one changes, comes or goes,
+  minus those `features.calendar_feeds` turns off. Their entries carry
+  `feed` (the name) and `file`, and are read-only: `get_entries_for_date`
+  includes them (`{ feeds = false }` leaves them out, as the iCal export
+  does), `get_day_entries` puts them among the day's top-level lines by time
+  (as the web's `insertByTime`), `get_all_entries` only with
+  `{ feeds = true }` (the picker), and `delete_entry` refuses them. Agenda
+  items from them have `feed` and their `file`, never a project; the
+  calendar view and the planner label them.
 
 ### Agenda — `services/agenda.lua`
 
@@ -957,6 +968,7 @@ to date; `app/links` and `app/search` must reproduce them.
 | `test_zy_present`        | `:ZortexPresent` opens the web app's slides at the slide under the cursor                                                                                                        |
 | `test_zy_web`            | `:ZortexLinkOpenWeb`: where each link goes, reusing an open tab; tag indexes                                                                                                    |
 | `test_picker`            | backend choice, confirm / quickfix, the search spec, blink.cmp and nvim-cmp registration (stub plugins)                                                                          |
+| `test_zz_feeds`          | calendar feeds (`z/feeds/`): read-only entries by time, toggles per feed, a changed note re-read, `@free` in the capacity, the planner's section |
 | `test_zz_setup`          | full `require("zortex").setup()`, then opening and navigating the calendar                                                                                                       |
 | `test_zzz_integrations`  | with `ZORTEX_TEST_PLUGINS` (`tests/plugins.sh`): every picker key on telescope, snacks and fzf-lua; the blink.cmp provider                                                       |
 

@@ -1,5 +1,6 @@
 -- ui/picker/calendar.lua - Calendar entries, newest day first (the calendar
--- view's "/" key); the preview shows the entry in the calendar note.
+-- view's "/" key), the calendar feeds' events among them; the preview shows
+-- the entry in its note.
 local Picker = require("zortex.ui.picker")
 local calendar_store = require("zortex.stores.calendar")
 local fs = require("zortex.utils.filesystem")
@@ -11,7 +12,7 @@ function M.spec()
 	return {
 		title = "Calendar",
 		items = function()
-			local items = calendar_store.get_all_entries()
+			local items = calendar_store.get_all_entries({ feeds = true })
 			table.sort(items, function(a, b)
 				if a.date ~= b.date then
 					return a.date > b.date
@@ -24,13 +25,21 @@ function M.spec()
 			return item.date .. " " .. vim.trim(item.entry.raw_text or "")
 		end,
 		format = function(item)
-			return { { item.date .. "  ", "Comment" }, { vim.trim(item.entry.raw_text or "") } }
+			local out = { { item.date .. "  ", "Comment" }, { vim.trim(item.entry.raw_text or "") } }
+			if item.entry.feed then
+				out[#out + 1] = { "  · " .. item.entry.feed, "Comment" }
+			end
+			return out
 		end,
 		location = function(item)
-			return { file = file, lnum = item.entry.lnum or 1, text = vim.trim(item.entry.raw_text or "") }
+			return {
+				file = item.entry.file or file,
+				lnum = item.entry.lnum or 1,
+				text = vim.trim(item.entry.raw_text or ""),
+			}
 		end,
 		preview = function(item)
-			local lines = fs.read_lines(file)
+			local lines = fs.read_lines(item.entry.file or file)
 			return lines and { lines = lines, lnum = item.entry.lnum, zortex = true, title = item.date } or nil
 		end,
 	}

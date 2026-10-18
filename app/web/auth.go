@@ -87,7 +87,7 @@ func (s *Server) requireLogin(h http.Handler) http.Handler {
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, s.cfg.Base)
-		if path == "/healthz" || path == "/health" || s.pwaPublic(path) {
+		if path == "/healthz" || path == "/health" || s.pwaPublic(path) || s.sharePublic(path, r) {
 			h.ServeHTTP(w, r)
 			return
 		}

@@ -447,7 +447,8 @@ function M.export_file(filepath, options)
 
 	while os.time(current) <= os.time(end_date) do
 		local date_str = datetime.format_datetime(current, "YYYY-MM-DD")
-		local entries = calendar_store.get_entries_for_date(date_str)
+		-- the calendar feeds' events came from other calendars: not again
+		local entries = calendar_store.get_entries_for_date(date_str, { feeds = false })
 
 		for _, entry in ipairs(entries) do
 			-- Skip completed tasks if requested

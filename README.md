@@ -56,6 +56,10 @@ text you own and sync however you like.
   period, and the **weekly review** to read anywhere.
 - A **note graph**: the Structure note as cards, the notes each one links
   with marked on hover, and the notes it doesn't reach.
+- **Other calendars in yours**: a family calendar's iCal link (Cozi,
+  Google, Apple) fetched into your calendar, read-only, in Neovim and on
+  the web; and the lines you tag `@share` in theirs, through
+  `/calendar.ics`.
 - A **personal file viewer**: PDFs, images, video, Markdown with math
   (KaTeX), sandboxed HTML; each file shows which notes link to it, and
   `/resources` lists the ones nothing links to.
@@ -227,8 +231,9 @@ Special notes:
   a project to a key result, `k` add a key result, `p` start a project,
   `F` fix a link; `u` takes it back).
 - **Calendar**: a month view with the selected day as written and the
-  events coming up after it (the planner's list), iCal import/export,
-  notifications (synced to `zortex serve` and sent through ntfy; unchanged
+  events coming up after it (the planner's list), other calendars' events
+  from the server's calendar feeds (read-only; `features.calendar_feeds`
+  toggles them per feed), iCal import/export, notifications (synced to `zortex serve` and sent through ntfy; unchanged
   calendars aren't re-sent).
 - **Pomodoro** (`<leader>zoo`): one clock shared with the web app's home page,
   with ntfy alerts and a different sound for work, breaks and a new cycle
@@ -569,7 +574,7 @@ that always has the notes (the server, or your main computer):
 
 ```sh
 cd ~/zortex && git init
-printf '.z/\n*.sync-conflict-*\n.stversions/\n' > .gitignore
+printf '.z/\nz/feeds/\n*.sync-conflict-*\n.stversions/\n' > .gitignore
 git add -A && git commit -m "notes"
 # then once a day (cron, a systemd timer, launchd):
 git -C ~/zortex add -A && git -C ~/zortex commit -qm "notes $(date +%F)" || true
@@ -578,7 +583,8 @@ git -C ~/zortex add -A && git -C ~/zortex commit -qm "notes $(date +%F)" || true
 Push to a private remote for an off-site copy. `.z/` is left out of the
 history (keep syncing it: the web app reads it): it holds caches (the link
 index), the search history, notification state and XP seasons you started
-by hand, all rebuilt or restarted without harm. With
+by hand, all rebuilt or restarted without harm; `z/feeds/` holds the
+notes the server writes from other calendars, rewritten as they change. With
 Syncthing, its file versioning ("Staggered") on that machine is a second
 net. To take back an edit zortex made across notes (a rename, a move, an
 inbox move), `:ZortexUndo` is quicker than a restore.
@@ -603,7 +609,8 @@ From 1.0 on, the note format changes only in a major release.
   attributes, links, special notes)
 - [doc/example](doc/example): a small notes folder using most of the format
 - [doc/Server.md](doc/Server.md): running `zortex serve` (Docker, NixOS, a
-  proxy with a login, ntfy, connecting Neovim); [app/README.md](app/README.md)
+  proxy with a login, ntfy, connecting Neovim, other calendars);
+  [app/README.md](app/README.md)
   has every flag, page and endpoint
 - [doc/Projects.md](doc/Projects.md): projects and areas reference
 - [doc/Planning.md](doc/Planning.md): the plan (areas, OKRs, projects),

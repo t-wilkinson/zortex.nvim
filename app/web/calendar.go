@@ -5,8 +5,10 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
+	"github.com/t-wilkinson/zortex.nvim/app/feeds"
 	"html"
 	"net/http"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -103,10 +105,13 @@ type calEntry struct {
 	Event  bool   `json:"event,omitempty"`  // tagged @event: fixed, planned around (the month grid's dot)
 	// a project's next open task, listed under a project block (a line
 	// holding only the project's link): Rel, Lnum and Src are the task's
-	Virtual bool   `json:"virtual,omitempty"`
-	URL     string `json:"url"`
-	Src     string `json:"src,omitempty"` // the line as written (-writable: for edits)
-	Rel     string `json:"rel,omitempty"`
+	Virtual bool `json:"virtual,omitempty"`
+	// Feed: the calendar feed it comes from (z/feeds/<feed>.zortex,
+	// app/feeds); read-only here
+	Feed string `json:"feed,omitempty"`
+	URL  string `json:"url"`
+	Src  string `json:"src,omitempty"` // the line as written (-writable: for edits)
+	Rel  string `json:"rel,omitempty"`
 
 	textCol int // where the text starts (after the marker and a time)
 }
@@ -172,7 +177,55 @@ func (s *Server) calendarDays(from, to string) map[string][]calEntry {
 		}
 		days[date] = out
 	}
+	// the calendar feeds' events (z/feeds/*.zortex), among the day's own
+	for _, fd := range s.feedDocs() {
+		name := strings.TrimSuffix(path.Base(fd.Rel), s.cfg.Ext)
+		fr := &noteRenderer{s: s, doc: fd}
+		for date, entries := range calendarEntries(fd, from, to) {
+			for i := range entries {
+				e := &entries[i]
+				e.HTML = strings.TrimSpace(fr.entryHTML(fd.Lines[e.Lnum-1], e.Lnum, e.textCol))
+				e.URL = s.noteURL(fd.Rel, e.Lnum)
+				e.Feed = name
+				days[date] = insertByTime(days[date], *e)
+			}
+		}
+	}
 	return days
+}
+
+// feedDocs: the notes calendar feeds write (z/feeds/*, tagged @CalendarFeed).
+func (s *Server) feedDocs() []*notes.Document {
+	var out []*notes.Document
+	for _, rel := range s.ix.Catalog().WithTag(strings.TrimPrefix(feeds.Marker, "@")) {
+		if strings.HasPrefix(rel, "z/feeds/") {
+			if d := s.ix.Doc(rel); d != nil {
+				out = append(out, d)
+			}
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Rel < out[j].Rel })
+	return out
+}
+
+// insertByTime puts a feed's entry among a day's entries: an all-day one
+// before the day's first timed top-level line, a timed one before the first
+// top-level line that starts later (nested lines stay with theirs).
+func insertByTime(list []calEntry, e calEntry) []calEntry {
+	at := len(list)
+	for i, x := range list {
+		if x.Depth != 0 || x.Feed != "" && e.Time == "" && x.Time == "" {
+			continue
+		}
+		if (e.Time == "" && x.Time != "") || (e.Time != "" && x.Time != "" && x.Time > e.Time) {
+			at = i
+			break
+		}
+	}
+	list = append(list, calEntry{})
+	copy(list[at+1:], list[at:])
+	list[at] = e
+	return list
 }
 
 type blockTask struct {

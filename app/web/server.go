@@ -13,6 +13,7 @@ package web
 import (
 	"context"
 	"embed"
+	"github.com/t-wilkinson/zortex.nvim/app/feeds"
 	"hash/fnv"
 	"html/template"
 	"io/fs"
@@ -78,7 +79,14 @@ type Config struct {
 	// no access to this site's pages, cookies or login, and POSTs they send
 	// are refused (see htmlScriptsGuard). Off: HTML is shown without script.
 	HTMLScripts bool
-	Logger      *log.Logger
+	// Feeds: calendars fetched into z/feeds/<name>.zortex (app/feeds);
+	// they need the notes folder writable by the server.
+	Feeds []feeds.Feed
+	// ShareToken lets a calendar app subscribe to GET /calendar.ics (the
+	// calendar's @share lines) without the login: ?token=<ShareToken>.
+	// Empty: /calendar.ics needs the login like every page.
+	ShareToken string
+	Logger     *log.Logger
 }
 
 // Server serves a notes folder. Create it with New.
@@ -249,6 +257,10 @@ func (s *Server) Run(ctx context.Context) {
 			}
 		}
 	}()
+	if len(s.cfg.Feeds) > 0 {
+		r := &feeds.Runner{Root: s.cfg.Root, Ext: s.cfg.Ext, Feeds: s.cfg.Feeds, Log: s.log, OnWrite: s.Refresh}
+		r.Run(ctx)
+	}
 	if s.cfg.Poll < 0 {
 		<-ctx.Done()
 		return
@@ -479,6 +491,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /manifest.webmanifest", s.handleManifest)
 	mux.HandleFunc("GET /sw.js", s.handleServiceWorker)
 	mux.HandleFunc("GET /offline", s.handleOffline)
+	mux.HandleFunc("GET /calendar.ics", s.handleShareICS)
 	var h http.Handler = mux
 	if base := s.cfg.Base; base != "" {
 		strip := http.StripPrefix(base, mux)

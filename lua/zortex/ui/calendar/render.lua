@@ -149,7 +149,7 @@ function M.month(date, state, cfg, win_width)
 					local has_event = false
 
 					for _, entry in ipairs(entries) do
-						if entry.attributes.notify then
+						if entry.attributes.notify and entry.attributes.notify ~= "no" then
 							has_notification = true
 						end
 						if entry.type == "task" then
@@ -294,8 +294,13 @@ function M.month(date, state, cfg, win_width)
 		if #entries > 0 then
 			for _, entry in ipairs(entries) do
 				-- notifying entries get a plain bullet here; a task its box
-				local icon = (entry.attributes.notify and entry.type ~= "task") and "•" or entry_icon(entry, cfg)
-				local own = entry.date_context == date_str and entry.lnum and cal_lines[entry.lnum] == entry.raw_text
+				local notifies = entry.attributes.notify and entry.attributes.notify ~= "no"
+				local icon = (notifies and entry.type ~= "task") and "•" or entry_icon(entry, cfg)
+				-- a calendar feed's entry (z/feeds) is read-only
+				local own = not entry.feed
+					and entry.date_context == date_str
+					and entry.lnum
+					and cal_lines[entry.lnum] == entry.raw_text
 				local target
 				if own and entry.type == "task" and entry.mark ~= mirrors.MOVED then
 					target = { file = cal_path, lnum = entry.lnum, text = entry.text }

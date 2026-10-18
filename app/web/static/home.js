@@ -47,7 +47,7 @@
     entries.forEach(function (e, i) {
       var m = minutes(e.time);
       var past = isToday && m !== null && i < current;
-      var cls = "event-item" + (past ? " past" : "") + (e.done ? " done" : "") + (e.moved ? " moved" : "") + (e.virtual ? " virtual" : "") + (i === current ? " current" : "");
+      var cls = "event-item" + (e.feed ? " feed" : "") + (past ? " past" : "") + (e.done ? " done" : "") + (e.moved ? " moved" : "") + (e.virtual ? " virtual" : "") + (i === current ? " current" : "");
       var time = e.time ? esc(e.time) + (e.end ? '<span class="end">–' + esc(e.end) + "</span>" : "") : "";
       var box = "";
       // a line without a checkbox that stands for a task (e.ref) toggles that task
@@ -63,6 +63,8 @@
         box = '<span class="box ' + (e.done ? "done" : "open") + '" aria-label="' + (e.done ? "done" : "open task") + '"></span>';
       }
       var bell = e.notify ? '<span class="bell" title="notifies (@n)" aria-label="notifies">🔔</span>' : "";
+      // a calendar feed's event (z/feeds/<feed>): read-only, labelled
+      if (e.feed) bell += '<span class="feed" title="from the ' + esc(e.feed) + ' calendar feed">' + esc(e.feed) + "</span>";
       html += '<div class="' + cls + '" style="--depth:' + (e.depth || 0) + '">' +
         '<a class="event-time" href="' + esc(e.url) + '">' + time + "</a>" +
         '<span class="event-title">' + box + e.html + bell + "</span></div>";

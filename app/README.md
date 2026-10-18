@@ -79,6 +79,7 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 | `/api/tagtable?q=&from=` | a tag search's table, as HTML ([tag indexes](#tag-indexes)) |
 | `POST /api/open`, `/api/presence`, `/api/open/ack` | show a page in an open tab ([from Neovim](#opening-pages-from-neovim)) |
 | `/manifest.webmanifest`, `/sw.js`, `/offline` | the installable app: its manifest (no login needed, nor for `/static/icons/`), the service worker (recent pages kept for reading offline), and the page shown offline for a page never opened ([Installing it as an app](../doc/Server.md#installing-it-as-an-app)) |
+| `/calendar.ics?token=` | the calendar's lines tagged `@share` as an iCal feed (30 days back to 180 ahead) for other calendars to subscribe to; with `-share-token-file`, the token gets in without the login ([Other calendars](../doc/Server.md#6-other-calendars)) |
 | `/healthz` (`/health`) | counts and last index time |
 
 Flags (each also an environment variable): `-dir` (`ZORTEX_NOTES_DIR`),
@@ -282,7 +283,8 @@ With `-writable` (and `-data`), the clock box on the home page has a
 publish it through a proxy that has one (doc/Server.md). Without such a
 proxy, `-auth-file FILE` (`ZORTEX_AUTH_FILE`; or `ZORTEX_AUTH=user:password`;
 NixOS `web.authFile`) asks for a login (HTTP basic auth) on every page and
-endpoint except `/healthz`; requests with a valid `X-API-Key` (Neovim) pass.
+endpoint except `/healthz` (and `/calendar.ics` with its token); requests
+with a valid `X-API-Key` (Neovim) pass.
 The file has `user:password` lines. Use it over HTTPS. Listening on anything
 but localhost without a login logs a warning.
 
@@ -290,6 +292,14 @@ State flags (with `-data`): `-data` (`ZORTEX_DATA_DIR`, or systemd's
 `STATE_DIRECTORY`), `-ntfy-url` (`NTFY_SERVER_URL`), `-ntfy-topic`
 (`NTFY_TOPIC`), `-ntfy-token` (`NTFY_AUTH_TOKEN`) or `-ntfy-token-file`,
 `-api-key` (`ZORTEX_API_KEY`), `-send-interval` (default `20s`).
+
+Calendar flags ([Other calendars](../doc/Server.md#6-other-calendars)):
+`-feeds FILE` (`ZORTEX_FEEDS`): a JSON file of iCal links fetched into
+`z/feeds/<name>.zortex`, which the calendar shows read-only (the server
+writes those notes, so it needs write access to the folder);
+`-share-token-file FILE` (`ZORTEX_SHARE_TOKEN_FILE`, or the token in
+`ZORTEX_SHARE_TOKEN`): the token, 16 characters or more, that opens
+`/calendar.ics?token=…` without the login.
 
 ### NixOS
 
@@ -307,6 +317,8 @@ State flags (with `-data`): `-data` (`ZORTEX_DATA_DIR`, or systemd's
     };
     # apiKeyFile = "/run/secrets/zortex-api";   # ZORTEX_API_KEY=...
     # web.basePath = "/notes";                   # when proxied below "/"
+    # feeds.cozi.urlFile = "/run/secrets/cozi-ical-url";  # z/feeds/cozi.zortex
+    # shareTokenFile = "/run/secrets/zortex-share-token"; # /calendar.ics?token=…
   };
 
   services.nginx.virtualHosts."zortex.home.lab" = {
@@ -317,8 +329,11 @@ State flags (with `-data`): `-data` (`ZORTEX_DATA_DIR`, or systemd's
 ```
 
 Everything is one service on `web.port`. It runs as the `zortex` user with
-read-only access to `notesDir`, a writable `dataDir` (`/var/lib/zortex`) and
-the usual systemd hardening.
+read-only access to `notesDir` (writable with `web.writable` or `feeds`), a
+writable `dataDir` (`/var/lib/zortex`) and the usual systemd hardening.
+`feeds.<name>` takes `url` or `urlFile` (a credential), `enable`, `title`,
+`notify`, `busy`, `every`, `daysBack` and `daysAhead`; an off feed's note is
+removed.
 
 ## Notification and pomodoro API
 
@@ -327,7 +342,7 @@ the usual systemd hardening.
 | `POST /notify` | `{user_id, operation: "sync", notifications: [...]}` replaces the user's pending notifications (unchanged ones keep their identity; an identical manifest is a no-op: `{unchanged: true}`); `operation: "notify"` adds one; `"clear"` removes the pending ones |
 | `GET /pending?user_id=` | pending notifications |
 | `POST /test` | `{title?, message?}`: publish through ntfy now and report |
-| `GET /api/calendar?from=&to=` | `days` (entries of `calendar.zortex` with time, text, rendered HTML, task state, whether a notification is scheduled), `notifications`, `count`, `next_event` |
+| `GET /api/calendar?from=&to=` | `days` (entries of `calendar.zortex` with time, text, rendered HTML, task state, whether a notification is scheduled; the calendar feeds' events among them, with `feed` and no `rel`), `notifications`, `count`, `next_event` |
 | `GET /api/summary` | for home dashboards (Homepage, Home Assistant, …): pending count, upcoming notifications as text/HTML, the pomodoro |
 | `GET /api/pomodoro` | phase, running, remaining, ends_at, session, completed, today, settings, `next_alarm`, `ntfy` |
 | `POST /api/pomodoro/{start,pause,resume,toggle,skip,stop,restart}` | drive the clock |
@@ -383,6 +398,13 @@ down is sent when it starts again if it is under 10 minutes late.
   `web_test.go` and `state_test.go` run it over the fixtures.
 - `alerts/`: the notification store (a JSON file), the ntfy client and the
   sender loop.
+- `ical/`: iCalendar (RFC 5545) reading (events, `RRULE` repeats with
+  `BYDAY`/`BYMONTHDAY`/`BYMONTH`/`COUNT`/`UNTIL`, `EXDATE`, `RDATE`,
+  changed and cancelled occurrences, `TZID` zones) and expanding into
+  occurrences; writing the `/calendar.ics` feed.
+- `feeds/`: the calendar feeds (`-feeds`): fetch each link on its interval
+  (conditional GET), write its window as `z/feeds/<name>.zortex` when it
+  changed, remove the note of a feed turned off.
 - `tracker/`: time tracking (which task, what counts, when it's written),
   with the note writing left to a callback
 - `clocks/`: timers, alarms and the stopwatch, persisted and announced through

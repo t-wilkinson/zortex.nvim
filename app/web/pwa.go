@@ -12,9 +12,11 @@ package web
 // The service worker keeps the static files of this build and the last
 // pages you opened, so notes you read recently open without a connection
 // (marked as a saved copy). The API, live updates, edits and files are never
-// cached. The manifest and icons are served without a login (-auth-file):
-// they hold the site's title and nothing from the notes, and a phone's
-// installer fetches them without the browser's credentials.
+// cached. The inbox box (home page and /offline) works offline: captures wait
+// in the browser and are appended to inbox.zortex when it's back (inbox.js).
+// The manifest and icons are served without a login (-auth-file): they hold
+// the site's title and nothing from the notes, and a phone's installer
+// fetches them without the browser's credentials.
 
 import (
 	"encoding/json"
@@ -50,6 +52,10 @@ func (s *Server) handleManifest(w http.ResponseWriter, r *http.Request) {
 			{"name": "Projects", "url": s.url("/projects")},
 		},
 	}
+	if s.cfg.Writable {
+		// focuses the inbox box (inbox.js), which works offline too
+		m["shortcuts"] = append([]map[string]string{{"name": "Add to inbox", "url": s.url("/") + "#inbox"}}, m["shortcuts"].([]map[string]string)...)
+	}
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Content-Type", "application/manifest+json")
 	_ = json.NewEncoder(w).Encode(m)
@@ -68,7 +74,7 @@ func (s *Server) handleServiceWorker(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleOffline(w http.ResponseWriter, r *http.Request) {
-	s.render(w, r, "offline", http.StatusOK, map[string]any{"Title": "Offline"})
+	s.render(w, r, "offline", http.StatusOK, map[string]any{"Title": "Offline", "Writable": s.cfg.Writable})
 }
 
 // pwaPublic: paths served without a login (see the top of this file).

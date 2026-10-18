@@ -31,3 +31,18 @@
   {{with .Next}}<div class="prow-next small"><span class="dim">next</span> {{.HTML}}{{if .PutOff}} <span class="pill warn">put off ×{{.PutOff}}</span>{{end}}</div>{{end}}
 </li>
 {{end}}
+
+{{/* the inbox capture box; inbox.js keeps what is added offline */}}
+{{define "inboxForm"}}
+<form class="inbox-add" id="inbox-form" autocomplete="off">
+  <label class="sr-only" for="inbox-text">Add to the inbox</label>
+  <input type="text" id="inbox-text" name="text" placeholder="Add to inbox…" required>
+  <div class="seg" role="radiogroup" aria-label="Kind">
+    <label><input type="radio" name="kind" value="task" checked> Task</label>
+    <label><input type="radio" name="kind" value="note"> Note</label>
+  </div>
+  <button type="submit">Add</button>
+  <a class="dim small" href="{{noteURL "inbox.zortex" 0}}">inbox</a>
+  <span class="small" id="inbox-status" role="status" aria-live="polite"></span>
+</form>
+{{end}}

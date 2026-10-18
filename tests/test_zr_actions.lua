@@ -129,7 +129,7 @@ T.test(":help zortex is up to date and its tags are valid", function()
 	vim.fn.writefile(vim.fn.readfile(gen.vimdoc), dir .. "/zortex.txt")
 	vim.cmd("helptags " .. vim.fn.fnameescape(dir)) -- errors on duplicate tags
 	local tags = table.concat(vim.fn.readfile(dir .. "/tags"), "\n")
-	for _, tag in ipairs({ "zortex", "zortex-config", ":ZortexSearch", ":ZortexInit", "zortex-action-pomodoro_toggle" }) do
+	for _, tag in ipairs({ "zortex", "zortex-config", ":ZortexSearch", ":ZortexInit", ":ZortexPomodoro" }) do
 		T.ok(tags:find(tag .. "\t", 1, true), tag)
 	end
 end)

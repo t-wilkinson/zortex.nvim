@@ -62,6 +62,10 @@ local defaults = {
 		-- vim.diagnostic on their notes (]d / [d); severity "ERROR" | "WARN" |
 		-- "INFO" | "HINT"
 		diagnostics = { enabled = true, severity = "WARN" },
+		-- J in a note drops what only starts a line: the joined line's
+		-- "#"s, "-" (and "[ ]"), "1." or "> ", and the ":" of a label it is
+		-- joined onto. gJ joins as written.
+		join = { enabled = true },
 		-- <prefix>gX: links in the web app (server.web_url)
 		web = {
 			-- show them in the tab on this computer you focused last, when

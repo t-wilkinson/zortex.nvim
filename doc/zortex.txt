@@ -213,23 +213,39 @@ PLAN ~
 
 POMODORO ~
 
-actions.pomodoro_toggle                        *zortex-action-pomodoro_toggle*
+:ZortexPomodoro                                              *:ZortexPomodoro*
     Start, pause or resume the pomodoro. Keys: <leader>zoo. Id:
     pomodoro_toggle.
 
-actions.pomodoro_skip                            *zortex-action-pomodoro_skip*
+:ZortexPomodoroSkip                                      *:ZortexPomodoroSkip*
     End the current pomodoro phase now. Keys: <leader>zos. Id: pomodoro_skip.
 
-actions.pomodoro_restart                      *zortex-action-pomodoro_restart*
+:ZortexPomodoroRestart                                *:ZortexPomodoroRestart*
     Begin a new pomodoro cycle. Keys: <leader>zor. Id: pomodoro_restart.
 
-actions.pomodoro_stop                            *zortex-action-pomodoro_stop*
+:ZortexPomodoroStop                                      *:ZortexPomodoroStop*
     Stop the pomodoro. Keys: <leader>zox. Id: pomodoro_stop.
 
-actions.pomodoro_status                        *zortex-action-pomodoro_status*
+:ZortexPomodoroStatus                                  *:ZortexPomodoroStatus*
     Show the pomodoro status. Keys: <leader>zoi. Id: pomodoro_status.
 
+:ZortexPomodoroSettings                              *:ZortexPomodoroSettings*
+    Show or change the pomodoro's settings (work=25 short=5 long=15 every=4
+    auto_break=yes auto_work=no). Id: pomodoro_settings.
+
 CALENDAR ~
+
+:ZortexNotify                                                  *:ZortexNotify*
+    Send a notification now through the configured channels: :ZortexNotify
+    <title> <message>. Id: notify.
+
+:ZortexNotificationList                              *:ZortexNotificationList*
+    List the scheduled notifications (calendar or pomodoro only). Id:
+    notification_list.
+
+:ZortexTestNotifications                            *:ZortexTestNotifications*
+    Send a test notification through each provider (or the one named). Id:
+    test_notifications.
 
 :ZortexNotificationsSync                            *:ZortexNotificationsSync*
     Sync calendar notifications (to the server if enabled); force resends
@@ -463,6 +479,10 @@ setup() merges your options over these defaults: >lua
         -- vim.diagnostic on their notes (]d / [d); severity "ERROR" | "WARN" |
         -- "INFO" | "HINT"
         diagnostics = { enabled = true, severity = "WARN" },
+        -- J in a note drops what only starts a line: the joined line's
+        -- "#"s, "-" (and "[ ]"), "1." or "> ", and the ":" of a label it is
+        -- joined onto. gJ joins as written.
+        join = { enabled = true },
         -- <prefix>gX: links in the web app (server.web_url)
         web = {
           -- show them in the tab on this computer you focused last, when

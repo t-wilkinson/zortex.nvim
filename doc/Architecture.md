@@ -566,10 +566,10 @@ XP is derived, not recorded (see [Planning.md](Planning.md)):
 - **`require("zortex")`** (`init.lua` + `api.lua`) is `setup(opts)` plus the
   public API: every service by name, loaded on first use (`z.query`,
   `z.projects`, `z.areas`, `z.okr`, `z.agenda`, `z.calendar`, `z.tasks`,
-  `z.search`, `z.links`, `z.link_index`, `z.document`, `z.syntax`, `z.item`,
-  `z.notes`, `z.workspace`, `z.state`, `z.events`, `z.digest`, `z.review`,
-  `z.xp`, `z.config`; the table is `api.SERVICES`), `z.actions.<id>()` and
-  `z.run(id, args)`.
+  `z.search`, `z.search_history`, `z.links`, `z.link_index`, `z.document`,
+  `z.syntax`, `z.item`, `z.notes`, `z.workspace`, `z.state`, `z.events`,
+  `z.digest`, `z.review`, `z.planner`, `z.xp`, `z.config`, `z.attributes`;
+  the table is `api.SERVICES`), `z.actions.<id>()` and `z.run(id, args)`.
 - **`actions.lua`** lists every user-facing action once: `id`, `command`,
   default `key`, `desc`, `group`, `run` (or `call(module, fn, ...)`, whose
   target `test_zr_actions` checks exists). `create_commands(prefix)` and
@@ -577,8 +577,18 @@ XP is derived, not recorded (see [Planning.md](Planning.md)):
   `<prefix><key>` from it, so a description is written once and a command can
   never point at a function that doesn't exist. `Config.keymaps.mappings`
   overrides keys by id (a key, a list, or `false`); `keymaps.enabled = false`
-  skips them. `:ZortexHelp` and the README table (`tests/gen_docs.lua`,
-  checked by a test) are generated from the same list.
+  skips them. `:ZortexHelp`, the README table and `:help zortex`
+  (`tests/gen_docs.lua`, checked by a test) are generated from the same
+  list. Every `:Zortex…` command is an action, including the notification
+  and pomodoro ones (their bodies are `notifications.commands`).
+- **`keys.lua`**: the keys of zortex's own buffers (plan, review, calendar
+  view, TOC, preview) and pickers in one table; each buffer maps from it,
+  `?` lists it (`ui/keyhelp`), and the pickers' titles, the README and
+  `:help zortex-keys` are generated from it.
+- **`ftplugin/zortex.lua`**: buffer options for notes (indent, wrap,
+  `comments` off, `autoread`), the starting fold level, and `J`
+  (`features/join`: joining drops the joined line's `#`, `-`, `1.` or `> `
+  and the `:` of a label it is joined onto; `gJ` is left alone).
 - **`health.lua`**: `:checkhealth zortex` (notes dir, counts, broken links,
   state dir, optional integrations).
 
@@ -596,8 +606,16 @@ XP is derived, not recorded (see [Planning.md](Planning.md)):
 | `features/completion.lua` (+ `blink.lua`)           | `core/link`, `notes`, `document`                          |
 | `features/preview.lua`                              | `core/link`, `features/links`                             |
 | `features/web.lua` (+ `core/tag_index.lua`)         | `core/link`, `notifications/server` (`/api/open`)         |
-| `ui/review.lua`                                     | `agenda.review`                                           |
+| `ui/review.lua`                                     | `agenda.review`, `services/review` (reviews.zortex), `services/triage` (`m`) |
+| `ui/keyhelp.lua`                                    | `keys.lua` (`?` in zortex buffers)                        |
+| `ui/xp_guide.lua`                                   | `xp` config (`:ZortexXPGuide`)                            |
 | `services/search_history.lua`                       | `services/search` (adds boosts); the picker records opens |
+| `features/rename.lua`, `features/move.lua` (+ `services/move.lua`) | `core/link_index` (links to rewrite), `core/workspace`, `ui/picker/search` (where to move) |
+| `features/archive.lua`                              | `core/workspace` (`z/archive.<note>.zortex`)              |
+| `features/diagnostics.lua`                          | `core/link_index.unresolved_in` (`vim.diagnostic`)        |
+| `features/present.lua`                              | `notifications/server` (the web app's slides)             |
+| `features/ical.lua`                                 | `stores/calendar` (iCal import/export)                    |
+| `features/join.lua`                                 | `core/document` syntax (what a line starts with)          |
 
 **Pickers** (`ui/picker`): each zortex picker is a spec (what to list, how
 a row looks, where it points, a preview, extra keys), and a backend shows it:
@@ -763,15 +781,25 @@ earlier days) and **Areas**.
 KR, max 140) in `project_score`, an `OKR` indicator, and come first within a
 priority in the `priority` sort; the picker also has an `okr` sort.
 
-**Weekly review** (`ui/review.lua`, `:ZortexReview [days]`, default 7):
-`agenda.review()` rendered into a read-only, Zortex-highlighted scratch
-buffer `zortex://review`. Sections: Tasks (overdue, due soon, completed),
-Projects (stale, unscheduled, no next action, with done/total and open
-points), Goals (KRs without projects, objectives without KRs, areas without
-active projects) and Notes (broken links). Each line carries the link of its
+**Reviews** (`ui/review.lua` + `services/review.lua`, `:ZortexReview
+[day|week|N]`, `<prefix>w` weekly, `<prefix>W` daily): opens the period's
+entry in `reviews.zortex` (`# 2026-W43`, its days as `## 2026-10-21` inside,
+made from `review.week` / `review.day` when missing; nothing written there
+is ever regenerated) next to `agenda.review()` rendered into a read-only,
+Zortex-highlighted scratch buffer `zortex://review`. Both open with what is
+left in the inbox (`m` moves a line to its `@project`, `services/triage`),
+the week's focus and tasks put off on 2+ days, then objectives against the
+time passed, XP and time spent. The weekly review adds the projects to pick
+the focus from (`f`), stale, unscheduled and next-action-less projects,
+key results without projects, objectives without key results, areas
+without active projects or without an objective this period, projects with
+neither a key result nor an area, broken links and task ids that don't line
+up; the daily review what was completed, what's left on the calendar,
+overdue and due soon. Each line carries the link of its
 project/objective/area, so `gx` and `K` work; `<CR>` jumps to the source
-line, `r` refreshes, `q` closes. `render(review)` is pure (lines plus a
-line → location map) so other front ends can reuse the layout.
+line, `<Tab>` goes to the note, `r` refreshes, `q` closes, `?` lists the
+keys. `render(review)` is pure (lines plus a line → location map) so other
+front ends can reuse the layout.
 
 **Query API** (`query.lua`): the model as plain data — `tree(dir)` (folders
 and notes with titles, tags, archived flag, mtime), `note(path)` (header,
@@ -815,6 +843,8 @@ nvim --headless -u NONE -l tests/run.lua            # everything
 nvim --headless -u NONE -l tests/run.lua projects   # files whose name contains "projects"
 nvim --headless -u NONE -l tests/gen_ast.lua        # regenerate the AST fixtures (after a grammar change)
 nvim --headless -u NONE -l tests/gen_links.lua      # regenerate the resolve/search fixtures (after a resolver or search change)
+nvim --headless -u NONE -l tests/gen_edits.lua      # regenerate the edit, calendar, group and auto-size fixtures the Go app checks against
+nvim --headless -u NONE -l tests/gen_docs.lua       # regenerate the README tables and doc/zortex.txt (after an action, key or config change)
 go -C app test ./...                                # Go parser, resolver, search, web app, notifications, pomodoro
 
 # the pickers and completion against the real plugins (pinned; also in CI)
@@ -871,6 +901,20 @@ to date; `app/links` and `app/search` must reproduce them.
 | `test_zw_edits`          | editing layer; calendar line edits keep the file intact; buffer vs file                                                                                                          |
 | `test_zx_link_index`     | backlinks, unresolved links, incremental refresh, reload from disk                                                                                                               |
 | `test_zy_preview`        | preview content, focus line, `<CR>` opens the target                                                                                                                             |
+| `test_syntax_doc`        | every example in doc/Syntax.md's checked tables is a fixture line and parses as listed                                                                                          |
+| `test_task_groups`       | tasks nested under a task: shared `@size`, progress and XP of the leaves, cascading checks                                                                                      |
+| `test_xp`                | XP calibration (`@size` hours), project, key-result and objective awards, area split, seasons, the summary published for the web app                                          |
+| `test_notifications`     | the pomodoro clock (local and the server's), calendar sync and when entries notify, sound commands                                                                              |
+| `test_join`              | `J` drops line-start markers and a label's colon; counts, undo and `.`                                                                                                           |
+| `test_zq_planning_loop`  | tasks put off, `P`'s next tasks, the day's capacity, the week's focus from the reviews note                                                                                     |
+| `test_zt_starter`        | the key notes a new folder gets                                                                                                                                                  |
+| `test_zu_triage`         | `@project(…)` on an inbox line and where `m` moves it                                                                                                                            |
+| `test_zw_move`           | `:ZortexMove`: sections and lines with what is nested under them, re-levelled and re-indented                                                                                   |
+| `test_zw_rename`         | `:ZortexRename` rewrites every link through a renamed heading or label                                                                                                           |
+| `test_zx_outside`        | notes outside `notes_dir` resolve in their own folder; `[~/…]` reaches `notes_dir`                                                                                               |
+| `test_zy_mirrors`        | task copies: one task per `@id` across the calendar and projects (state, XP, time)                                                                                               |
+| `test_zy_present`        | `:ZortexPresent` opens the web app's slides at the slide under the cursor                                                                                                        |
+| `test_zy_web`            | `:ZortexLinkOpenWeb`: where each link goes, reusing an open tab; tag indexes                                                                                                    |
 | `test_picker`            | backend choice, confirm / quickfix, the search spec, blink.cmp and nvim-cmp registration (stub plugins)                                                                          |
 | `test_zz_setup`          | full `require("zortex").setup()`, then opening and navigating the calendar                                                                                                       |
 | `test_zzz_integrations`  | with `ZORTEX_TEST_PLUGINS` (`tests/plugins.sh`): every picker key on telescope, snacks and fzf-lua; the blink.cmp provider                                                       |

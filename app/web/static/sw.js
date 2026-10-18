@@ -7,6 +7,8 @@
 //                  so they open offline as a saved copy; a page never opened
 //                  shows /offline, which lists the saved ones
 //   anything else  the network only: the API, live updates, edits, files
+//                  (inbox captures made offline wait in the page's storage
+//                  and are sent when it's back: inbox.js)
 "use strict";
 
 var VERSION = new URL(self.location.href).searchParams.get("v") || "dev";
@@ -20,7 +22,7 @@ var OFFLINE = BASE + "/offline";
 var NETWORK_ONLY = /^\/(api|f|raw|notify|pending|test|sw\.js|manifest\.webmanifest)(\/|$)/;
 
 self.addEventListener("install", function (event) {
-  var core = ["style.css", "app.js", "hover.js", "live.js", "tables.js", "math.js", "icon.svg"].map(function (f) {
+  var core = ["style.css", "app.js", "hover.js", "live.js", "tables.js", "inbox.js", "math.js", "icon.svg"].map(function (f) {
     return BASE + "/static/" + f + "?v=" + VERSION;
   });
   event.waitUntil(

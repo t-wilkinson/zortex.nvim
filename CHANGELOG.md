@@ -10,6 +10,38 @@ The first public release.
 
 ### Neovim plugin
 
+- `J` in a note joins lines the way they read: the joined line's `#`s,
+  `-` (with its `[ ]`), `1.` or `> ` go, and so does the `:` of a label or
+  bold heading it is joined onto (`Fitness:` + `- run 5k` is
+  `Fitness run 5k`). Counts, visual mode, `.` and undo work as with Vim's
+  `J`; code blocks and `gJ` join as written (`features.join`).
+- Every command is listed in `:help zortex` and the README, the
+  notification and pomodoro ones too: `:ZortexPomodoro` (start, pause or
+  resume), `:ZortexPomodoroSkip` / `Restart` / `Stop` / `Status`,
+  `:ZortexPomodoroSettings work=50 short=10 …`, `:ZortexNotify`,
+  `:ZortexNotificationList`, `:ZortexTestNotifications`.
+  `:ZortexNotificationsSync [force]` sends the calendar's notifications
+  (the duplicate `:ZortexCalendarSync`, `:ZortexPomodoroStart` and
+  `:ZortexPomodoroPause` are gone).
+- Needs Neovim 0.10 or newer (`:checkhealth zortex` says so); no deprecated
+  calls are left.
+- Works with nothing else installed: no picker plugin is required, the
+  `vim` notification channel shows its messages, and highlights and icons
+  fall back to standard groups and plain characters (no Nerd Font or
+  mini.hipatterns needed).
+- No personal defaults: ntfy has no default topic (nothing is sent until
+  you choose a private one) and defaults to `https://ntfy.sh`;
+  `:checkhealth` warns about a missing topic, and about a missing
+  `zortex-notify` tag only on the public ntfy.sh.
+- Notifications ship as `vim`, `system`, `ntfy` and the server; the ntfy
+  provider publishes with `vim.system` and an argument list, so it no
+  longer blocks the editor or breaks on quotes. Timers and alarms live in
+  the web app.
+- Bold headings are `**Text:**` only (the colon inside the stars).
+- One way to write each thing: `.zortex` is the only extension, `@size`
+  the only size spelling besides the bare `@sm`, `@lg`, … (`@sz` and
+  `@every` are gone).
+- The calendar view lines up icons by display width.
 - Timed tasks: `16:00 [ ] Task` (or `16:00 - 17:00 [ ]`, `16:00 - [ ]`) is
   a task with a time. It notifies until it's done, sizes itself from its
   slot when ticked, and carries to today without its old time. Toggling
@@ -194,6 +226,18 @@ The first public release.
 
 ### Server (`zortex serve`)
 
+- The inbox box works offline in the installed app: what you add without a
+  connection (or while the server is down) is kept in the browser and
+  appended to the bottom of `inbox.zortex`, in order, when it's back. A
+  capture whose answer was lost is added once. The `/offline` page has the
+  box too, and the installed app has an "Add to inbox" shortcut.
+- The home page has one search box, the header's (it lists matching notes
+  as you type); the second box above the inbox is gone.
+- `/api/calendar` no longer returns `events` / `text_view`, and the
+  notification sync's reply no longer has `upserted`.
+- A `- Key: text` item wraps under its key, not in a column after it.
+- No personal time zone: the NixOS module follows `time.timeZone`, and
+  docker-compose sets no `TZ`.
 - `/okr` (Objectives in the top bar): objectives against the time passed in
   their period, their key results and the projects behind them. `/review`:
   the weekly review's findings, for any week.
@@ -291,3 +335,21 @@ The first public release.
   that has one; a warning when listening beyond localhost without a login.
 - Released as binaries for Linux and macOS and as
   `ghcr.io/t-wilkinson/zortex`; a NixOS module.
+
+### Project
+
+- MIT license; the old Node app (`legacy/`), its VimL bridge (`autoload/`),
+  the old test harness, dead code and compatibility shims for earlier names
+  and note forms are gone.
+- CI on every push: the Lua tests on Neovim 0.10, stable and nightly (and
+  against snacks.nvim, telescope, fzf-lua and blink.cmp), `go test -race`,
+  `gofmt`, and a check that generated docs and fixtures are up to date.
+  Tags build the release binaries and the container image; the Nix package
+  takes its version from the tag and runs the Go tests in its build.
+- Documentation for someone new: a README with a quickstart, `:help
+  zortex` (commands, keys and every configuration default, generated),
+  one syntax reference checked against the parser
+  ([doc/Syntax.md](doc/Syntax.md)), an example vault
+  ([doc/example](doc/example)), a server guide
+  ([doc/Server.md](doc/Server.md)) and the ideas behind it
+  ([doc/Philosophy.md](doc/Philosophy.md)).

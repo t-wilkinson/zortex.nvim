@@ -23,7 +23,9 @@ Contents:
 `:ZortexReview` shows the findings of `agenda.review()` (overdue, due soon,
 completed, stale/unscheduled projects, projects without a next action, KRs
 without projects, objectives without KRs, areas without projects, broken
-links). Today it is read-only. The goal is a review you can *work through*:
+links). Today two keys act on it: `f` adds a project to the week's focus and
+`m` moves an inbox line to its project. The goal is a review you can *work
+through*:
 every finding has the obvious next step one key away, and the review records
 what happened.
 
@@ -111,9 +113,10 @@ Deferred for now; listed so the pieces fit together later.
   references ([Planning](Planning.md#the-day-on-the-calendar)). No `[T/…]`
   component: a `-` component matching an `@id` covers stable task links
   (section 8).
-- **Inbox capture.** `inbox.zortex` (or `@Inbox` notes) plus a quick-capture
-  command; the review gets an "Inbox (n)" section with `m` to move an item
-  into a project or onto the calendar.
+- **Inbox capture**: mostly done. `inbox.zortex` is opened with
+  `:ZortexOpenInbox` and filled from the web app (offline too); the reviews
+  list it first, with `m` to move an item to its `@project`. Still missing: a
+  quick-capture command in Neovim that adds a line without opening the note.
 - **Key results with their own measure.** `@progress(3/10)` or
   `@target(10) @current(3)` on a KR line for KRs not backed by projects;
   `KeyResult:progress()` prefers it.
@@ -136,16 +139,15 @@ Deferred for now; listed so the pieces fit together later.
 
 ## 5. Editing and maintenance
 
-- **`:ZortexProjectRename`:** rename or renumber a project heading and rewrite
-  every link to it (`link_index.references` knows each one).
-- **Broken-link diagnostics** with `vim.diagnostic` from
-  `link_index.unresolved()`.
-- **Backlinks panel** for the section under the cursor
-  (`query.backlinks(path, lnum)`).
-- **Calendar view highlights:** `ui/calendar/render.lua` still adjusts icon
-  widths by hand (`shift_hl` / `icon_width`); switch it to
-  `display_col_to_byte`.
-- **Archive revert:** `features/archive.revert_archive` is a stub.
+Renaming with link rewriting (`:ZortexRename`), broken-link diagnostics
+and backlinks of the section under the cursor (`:ZortexBacklinks`, in the
+quickfix list) are done. Left:
+
+- **Backlinks panel:** a side window that follows the cursor, instead of a
+  quickfix list on request.
+- **Archive revert:** moving an archived section back from
+  `z/archive.*.zortex` (the stub was removed; `u` right after archiving is
+  the only undo today).
 
 ## 6. The web app
 
@@ -211,12 +213,11 @@ Editing started as a non-goal; `-writable` now covers line-level edits
   highlighting loaded only on pages that need them. Minimal JavaScript:
   search-as-you-type and keyboard navigation (htmx or a few dozen lines of
   plain JS).
-- **Routes:**
-  - `/` folder view (root)
-  - `/d/<dir>` folder view (`z/…`)
-  - `/n/<rel>` rendered note with an outline sidebar and backlinks
-  - `/search?q=` results as breadcrumbs, then matching lines
-  - `/api/search`, `/api/note/<rel>`: JSON, same shapes as `zortex.query`
+- **Routes** (as built; the full list is in
+  [app/README](../app/README.md#web-app-zortex-serve)): `/` home, `/f/<dir>` folders and
+  files, `/n/<rel>` a rendered note with its outline and backlinks,
+  `/search?q=` results as breadcrumbs then matching lines, and JSON under
+  `/api/` (`/api/search`, `/api/note`, `/api/resolve`, …).
 - **Later, with the domain ported:** project progress bars in
   `projects.zortex`, KR progress in `okr.zortex`, a calendar view of
   `calendar.zortex`, the weekly review page, and the area overview (section
@@ -246,29 +247,14 @@ two resolvers in sync becomes the main cost, **D** is the natural next step;
 
 ### Nix
 
-- The flake exports `packages.<system>.zortex-app` (`buildGoModule`) and
-  `nixosModules.zortex-app`.
-- **Module options:**
-  - `services.zortex-app.enable`
-  - `notesDir` (the synced folder)
-  - `listenAddress` / `port`
-  - `user` / `group` (or `DynamicUser` with read access to the folder)
-  - `memoryMax`
-  - `extraArgs`
-- **systemd unit:**
-  - `ReadOnlyPaths = [ notesDir ]`
-  - `StateDirectory = "zortex-app"`
-  - `ProtectSystem = "strict"`, `ProtectHome` (unless the folder is under
-    `/home`), `NoNewPrivileges`, `PrivateTmp`
-  - `MemoryMax` from the option
-  - `Restart = "on-failure"`
-- **Syncthing:** NixOS's `services.syncthing` can run on the Pi. Give the app
-  read access to the synced folder (group membership, `ReadOnlyPaths`), and
-  watch it with fsnotify/inotify.
-- **Exposure:** bind to localhost and publish it through the existing reverse
-  proxy with authentication (or Tailscale only). The notes are private.
-- **Notifications:** part of the same binary (`app/alerts`), sent through
-  ntfy.
+Built as the flake's `packages.<system>.default` (the `zortex` binary) and
+`nixosModules.default`, which defines `services.zortex`: one
+`zortex-web` systemd unit with `notesDir`, `dataDir` (its `StateDirectory`),
+`web.address` / `web.port` / `web.basePath`, `web.memoryLimit`,
+`web.writable` (read-only access to the notes otherwise), `web.authFile`,
+the `ntfy.*` settings and `extraArgs`. [Server.md](Server.md) has the
+setup, behind a reverse proxy with a login or on Tailscale only; Syncthing
+keeps the notes folder in step, and the app polls it (no inotify needed).
 
 ### Phases
 
@@ -315,8 +301,8 @@ fixtures have settled the grammar's details.
 
 ## 8. Agreed on 2026-10-16
 
-From a review of open ideas; the roadmap (`doc/Roadmap.zortex`, # 3.10 and
-# 5) tracks them. The notes say what was decided and why.
+From a review of open ideas. All of it shipped in 0.1.0 (see
+[CHANGELOG.md](../CHANGELOG.md)); the notes say what was decided and why.
 
 ### Events and notifications
 
@@ -388,18 +374,17 @@ an emphasis span.
 ### XP
 
 Behaviour stays. Two additions: `xp.area_split` sets a geometric ratio for
-splitting an award between areas (1 even, 0.7 gently decaying; the harmonic
-split stays the default), and the wording: XP is estimated work, so say
-"1 XP = 6 minutes of estimated work" wherever XP is shown or documented,
-with hours next to XP.
+splitting an award between areas (default 0.5; 1 even, 0.7 gently
+decaying; it replaced the harmonic split), and the wording: XP is estimated
+work, so say "10 XP = 1 hour of estimated work" wherever XP is shown or
+documented, with hours next to XP.
 
 ### Help
 
-`?` lists the keys of the plan and review buffers (from their mappings), the
-search picker names its keys in its title, and `:help zortex` works for
-local installs. Next: one table of every zortex buffer's and picker's keys,
-read by `?`, the README, a `:help zortex-keys` section and the picker
-titles, plus a pointer to each picker backend's own help key.
+One table of every zortex buffer's and picker's keys
+(`lua/zortex/keys.lua`) is read by `?`, the README, `:help zortex-keys` and
+the picker titles, which also name each picker backend's own help key;
+`:help zortex` works for local installs.
 
 ### Dropped
 

@@ -103,7 +103,9 @@ T.test("plan buffer puts items into the calendar day", function()
 	local original = vim.fn.readfile(cal)
 	local proj = require("zortex.utils.filesystem").get_projects_file()
 	local original_proj = vim.fn.readfile(proj) -- p gives the task an @id
-	with_config({ todo_link = "P/#1 Programming/#1.4 - zortex", templates = { sunday = { "09:00", "12:00 Lunch" } } }, function()
+	-- carry_forward off: on the real 2026-10-18 it would also move open tasks
+	-- of the days before onto the day
+	with_config({ todo_link = "P/#1 Programming/#1.4 - zortex", carry_forward = false, templates = { sunday = { "09:00", "12:00 Lunch" } } }, function()
 		local ui = require("zortex.ui.planner")
 		local buf = ui.open({ date = "2026-10-18" }) -- a Sunday, not in the calendar yet
 		local st = ui._state()

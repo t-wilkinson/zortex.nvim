@@ -1,7 +1,8 @@
--- services/digest.lua - The daily digest: a note (digest.zortex) and an email
+-- services/digest.lua - The digest note (digest.zortex): the coming days
 --
--- Both are built from services/agenda. notifications/types/digest decides
--- when to send the email; this module decides what is in it.
+-- Built from services/agenda: upcoming events, today's tasks and priority
+-- items, plus live links (![...]) kept up to date. `zortex serve` has the
+-- same content for any mail service at GET /api/digest (app/web/digest.go).
 local M = {}
 
 local Logger = require("zortex.core.logger")

@@ -42,8 +42,8 @@ text you own and sync however you like.
   bookkeeping.
 - **Pomodoro** shared by Neovim and the browser; its time goes to the
   calendar task you're on (`@spent(1h25m)`).
-- **Inbox**: jot a thought down from the web app (or Neovim) and the next
-  review lists it for you to file away.
+- **Inbox**: jot a thought down from the web app (even offline, on your
+  phone) or Neovim, and the next review lists it for you to file away.
 
 **On the web** (`zortex serve`, optional: one Go binary)
 
@@ -182,7 +182,9 @@ Special notes:
   `:ZortexRename` to rename a heading and rewrite the links to it. A
   persistent link index keeps this fast.
 - **Highlighting and folding** for the whole format, with concealed markers;
-  `@fold` keeps a section folded.
+  `@fold` keeps a section folded. `J` joins lines the way they read: the
+  joined line's `#`, `-` (and `[ ]`), `1.` or `> ` and a label's `:` go
+  (`features.join`; `gJ` joins as written).
 - **Projects**: picker with progress, points, due dates, areas and key
   results; `@progress` written back on request.
 - **Day planner** (`<leader>zm`): opens today's calendar day (created from
@@ -301,16 +303,20 @@ require("zortex").setup({
 
 | Command | Keys | Action id | Does |
 |---|---|---|---|
-|  | `<leader>zoo` | `pomodoro_toggle` | Start, pause or resume the pomodoro |
-|  | `<leader>zos` | `pomodoro_skip` | End the current pomodoro phase now |
-|  | `<leader>zor` | `pomodoro_restart` | Begin a new pomodoro cycle |
-|  | `<leader>zox` | `pomodoro_stop` | Stop the pomodoro |
-|  | `<leader>zoi` | `pomodoro_status` | Show the pomodoro status |
+| `:ZortexPomodoro` | `<leader>zoo` | `pomodoro_toggle` | Start, pause or resume the pomodoro |
+| `:ZortexPomodoroSkip` | `<leader>zos` | `pomodoro_skip` | End the current pomodoro phase now |
+| `:ZortexPomodoroRestart` | `<leader>zor` | `pomodoro_restart` | Begin a new pomodoro cycle |
+| `:ZortexPomodoroStop` | `<leader>zox` | `pomodoro_stop` | Stop the pomodoro |
+| `:ZortexPomodoroStatus` | `<leader>zoi` | `pomodoro_status` | Show the pomodoro status |
+| `:ZortexPomodoroSettings …` |  | `pomodoro_settings` | Show or change the pomodoro's settings (work=25 short=5 long=15 every=4 auto_break=yes auto_work=no) |
 
 **Calendar**
 
 | Command | Keys | Action id | Does |
 |---|---|---|---|
+| `:ZortexNotify …` |  | `notify` | Send a notification now through the configured channels: `:ZortexNotify <title> <message>` |
+| `:ZortexNotificationList …` |  | `notification_list` | List the scheduled notifications (`calendar` or `pomodoro` only) |
+| `:ZortexTestNotifications …` |  | `test_notifications` | Send a test notification through each provider (or the one named) |
 | `:ZortexNotificationsSync …` |  | `notifications_sync` | Sync calendar notifications (to the server if enabled); `force` resends unchanged |
 | `:ZortexIcalImport` |  | `ical_import` | Import an iCal file or URL into the calendar |
 | `:ZortexIcalExport` |  | `ical_export` | Export the calendar to an iCal file |

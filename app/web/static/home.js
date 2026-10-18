@@ -554,30 +554,7 @@
     return api("/api/xp").then(function (res) { if (res.ok) { renderXP(res.body); renderPending(res.body); } }).catch(function () {});
   }
 
-  // -writable: add to inbox.zortex
-  var inbox = $("inbox-form");
-  if (inbox) {
-    inbox.addEventListener("submit", function (ev) {
-      ev.preventDefault();
-      var text = inbox.elements.text.value.trim();
-      if (!text) return;
-      var kind = inbox.querySelector("input[name=kind]:checked").value;
-      var st = $("inbox-status");
-      st.textContent = "Adding…"; st.className = "small dim";
-      fetch(base + "/api/inbox", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: text, kind: kind }),
-      }).then(function (r) { return r.json().then(function (x) { return { ok: r.ok, x: x }; }); })
-        .then(function (res) {
-          if (res.ok) {
-            inbox.elements.text.value = "";
-            st.innerHTML = 'Added to <a href="' + esc(res.x.url) + '">inbox</a>';
-            st.className = "small";
-          } else { st.textContent = res.x.error || "Couldn't add"; st.className = "small bad"; }
-        }).catch(function () { st.textContent = "Server unreachable"; st.className = "small bad"; });
-    });
-  }
+  // the inbox box (-writable) is inbox.js: it keeps captures made offline
 
   // ===========================================================================
   // Refresh

@@ -501,6 +501,7 @@ M.list = {
 	-- Pomodoro (the clock is shared with `zortex serve` when server.enabled) --
 	{
 		id = "pomodoro_toggle",
+		command = "Pomodoro",
 		key = "oo",
 		group = "Pomodoro",
 		desc = "Start, pause or resume the pomodoro",
@@ -508,6 +509,7 @@ M.list = {
 	},
 	{
 		id = "pomodoro_skip",
+		command = "PomodoroSkip",
 		key = "os",
 		group = "Pomodoro",
 		desc = "End the current pomodoro phase now",
@@ -515,6 +517,7 @@ M.list = {
 	},
 	{
 		id = "pomodoro_restart",
+		command = "PomodoroRestart",
 		key = "or",
 		group = "Pomodoro",
 		desc = "Begin a new pomodoro cycle",
@@ -522,6 +525,7 @@ M.list = {
 	},
 	{
 		id = "pomodoro_stop",
+		command = "PomodoroStop",
 		key = "ox",
 		group = "Pomodoro",
 		desc = "Stop the pomodoro",
@@ -529,11 +533,61 @@ M.list = {
 	},
 	{
 		id = "pomodoro_status",
+		command = "PomodoroStatus",
 		key = "oi",
 		group = "Pomodoro",
 		desc = "Show the pomodoro status",
-		run = function()
-			notify(require("zortex.notifications.types.pomodoro").describe())
+		run = function(args)
+			require("zortex.notifications").commands.PomodoroStatus(args)
+		end,
+	},
+	{
+		id = "pomodoro_settings",
+		command = "PomodoroSettings",
+		group = "Pomodoro",
+		desc = "Show or change the pomodoro's settings (work=25 short=5 long=15 every=4 auto_break=yes auto_work=no)",
+		run = function(args)
+			require("zortex.notifications").commands.PomodoroSettings(args or { fargs = {} })
+		end,
+		nargs = "*",
+		complete = function()
+			return { "work=", "short=", "long=", "every=", "auto_break=", "auto_work=" }
+		end,
+	},
+	{
+		id = "notify",
+		command = "Notify",
+		group = "Calendar",
+		desc = "Send a notification now through the configured channels: `:ZortexNotify <title> <message>`",
+		run = function(args)
+			require("zortex.notifications").commands.Notify(args or { args = "" })
+		end,
+		nargs = "*",
+	},
+	{
+		id = "notification_list",
+		command = "NotificationList",
+		group = "Calendar",
+		desc = "List the scheduled notifications (`calendar` or `pomodoro` only)",
+		run = function(args)
+			require("zortex.notifications").commands.NotificationList(args or { args = "" })
+		end,
+		nargs = "?",
+		complete = function()
+			return { "calendar", "pomodoro" }
+		end,
+	},
+	{
+		id = "test_notifications",
+		command = "TestNotifications",
+		group = "Calendar",
+		desc = "Send a test notification through each provider (or the one named)",
+		run = function(args)
+			require("zortex.notifications").commands.TestNotifications(args or { args = "" })
+		end,
+		nargs = "?",
+		complete = function()
+			return vim.tbl_keys(require("zortex.notifications").test)
 		end,
 	},
 	{

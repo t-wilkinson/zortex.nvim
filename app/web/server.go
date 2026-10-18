@@ -104,6 +104,7 @@ type Server struct {
 	xp      xpCache // XP summary published by Neovim
 
 	editMu      sync.Mutex    // one edit at a time
+	inboxSent   sentIDs       // inbox captures by id, so a resend adds once (edit.go)
 	completions completionLog // tasks completed on the web, until Neovim counts them
 	copies      copyCache     // calendar copies of tasks by @id (mirrors.go)
 

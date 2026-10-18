@@ -330,7 +330,10 @@ table.res-files { table-layout: fixed; }
 .day-cell:focus-visible, .pomo button:focus-visible, .link-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .day-cell.today { color: var(--accent); font-weight: 700; }
 .day-cell.active { border-color: var(--accent); background: var(--accent-soft); }
-.day-cell.has-events::after { content: ""; position: absolute; left: 50%; bottom: 0.2rem; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--accent); }
+/* the day's dots: an @event (accent), then a notifying calendar feed's (its color) */
+.day-cell .dots { position: absolute; left: 0; right: 0; bottom: 0.2rem; display: flex; justify-content: center; gap: 2px; line-height: 0; }
+.day-cell .dot, .event-title .feed .dot { display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
+.event-title .feed .dot { width: 6px; height: 6px; margin-right: 0.25rem; vertical-align: 0.05em; }
 .day-cell.blank { visibility: hidden; }
 .link-btn { background: none; border: 0; padding: 0.4rem 0 0; color: var(--accent); font-size: 0.88rem; }
 

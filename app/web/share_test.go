@@ -116,5 +116,18 @@ func TestFeedInCalendar(t *testing.T) {
 			t.Fatal("feed entries are read-only")
 		}
 	}
-	_ = ts
+
+	// /api/calendar lists the feeds: a notifying one with its dot color
+	no := false
+	s.cfg.Feeds = []feeds.Feed{
+		{Name: "cozi", URL: "x", Notify: true, Color: "#3a86ff"},
+		{Name: "kids", URL: "x", Notify: true},
+		{Name: "school", URL: "x"},
+		{Name: "old", URL: "x", Notify: true, Enabled: &no},
+	}
+	code, body := fetchAs(t, ts.URL+"/api/calendar?from="+day+"&to="+day, "", "")
+	wantFeeds := `"feeds":[{"name":"cozi","notify":true,"color":"#3a86ff"},{"name":"kids","notify":true,"color":"` + feeds.DefaultColor + `"},{"name":"school"}]`
+	if code != 200 || !strings.Contains(body, wantFeeds) {
+		t.Fatalf("%d %s", code, body)
+	}
 }

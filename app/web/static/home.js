@@ -21,7 +21,12 @@
   // Calendar
   // ===========================================================================
 
-  var cal = { days: {}, loaded: {}, notifications: [], next: null };
+  var cal = { days: {}, loaded: {}, notifications: [], next: null, feeds: [] };
+  // a notifying calendar feed's dot color (-feeds "color"), else ""
+  function feedColor(name) {
+    for (var i = 0; i < cal.feeds.length; i++) if (cal.feeds[i].name === name) return cal.feeds[i].notify ? cal.feeds[i].color : "";
+    return "";
+  }
   var calWritable = false;
   var shown = new Date(), selected = new Date();
   shown.setDate(1);
@@ -64,7 +69,11 @@
       }
       var bell = e.notify ? '<span class="bell" title="notifies (@n)" aria-label="notifies">🔔</span>' : "";
       // a calendar feed's event (z/feeds/<feed>): read-only, labelled
-      if (e.feed) bell += '<span class="feed" title="from the ' + esc(e.feed) + ' calendar feed">' + esc(e.feed) + "</span>";
+      if (e.feed) {
+        var fc = feedColor(e.feed);
+        bell += '<span class="feed" title="from the ' + esc(e.feed) + ' calendar feed">' +
+          (fc ? '<i class="dot" style="background:' + esc(fc) + '"></i>' : "") + esc(e.feed) + "</span>";
+      }
       html += '<div class="' + cls + '" style="--depth:' + (e.depth || 0) + '">' +
         '<a class="event-time" href="' + esc(e.url) + '">' + time + "</a>" +
         '<span class="event-title">' + box + e.html + bell + "</span></div>";
@@ -90,10 +99,19 @@
     var sel = dayKey(selected), today = dayKey(new Date(now()));
     var html = '<span class="day-cell blank"></span>'.repeat(first);
     for (var d = 1; d <= count; d++) {
-      // the dot: the day has an @event (something fixed to plan around)
-      var key = dayKey(new Date(y, m, d)), busy = (cal.days[key] || []).some(function (e) { return e.event; });
-      var cls = ["day-cell", busy && "has-events", key === sel && "active", key === today && "today"].filter(Boolean).join(" ");
-      html += '<button type="button" class="' + cls + '" data-day="' + d + '" aria-label="' + key + (busy ? ", has events" : "") + '">' + d + "</button>";
+      // the dots: the day has an @event (something fixed to plan around),
+      // and one per notifying calendar feed with events that day, in its color
+      var key = dayKey(new Date(y, m, d)), entries = cal.days[key] || [];
+      var busy = entries.some(function (e) { return e.event; });
+      var dots = busy ? '<i class="dot"></i>' : "", label = busy ? ", has events" : "";
+      cal.feeds.forEach(function (f) {
+        if (!f.notify || !entries.some(function (e) { return e.feed === f.name; })) return;
+        dots += '<i class="dot" style="background:' + esc(f.color) + '"></i>';
+        label += ", " + (f.title || f.name) + " events";
+      });
+      var cls = ["day-cell", dots && "has-events", key === sel && "active", key === today && "today"].filter(Boolean).join(" ");
+      html += '<button type="button" class="' + cls + '" data-day="' + d + '" aria-label="' + esc(key + label) + '">' + d +
+        (dots ? '<span class="dots" aria-hidden="true">' + dots + "</span>" : "") + "</button>";
     }
     grid.innerHTML = html;
   }
@@ -121,6 +139,7 @@
         calWritable = !!data.writable;
         cal.carry = data.carry || 0;
         cal.notifications = data.notifications || [];
+        cal.feeds = data.feeds || [];
         cal.next = data.next_time ? { time: data.next_time, text: data.next_event } : null;
         var stats = $("cal-stats");
         if (stats && data.notes_enabled) {

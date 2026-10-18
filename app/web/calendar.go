@@ -333,6 +333,8 @@ func (r *noteRenderer) entryHTML(line string, lnum, from int) string {
 //	notifications  scheduled notifications from 30 days ago on
 //	count          pending notifications
 //	next_event     "HH:MM title" of the next notification
+//	feeds          the calendar feeds fetched (-feeds): name, title, notify,
+//	               color (a notifying feed's dot on the month grid)
 func (s *Server) apiCalendar(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	from, to := r.URL.Query().Get("from"), r.URL.Query().Get("to")
@@ -361,7 +363,32 @@ func (s *Server) apiCalendar(w http.ResponseWriter, r *http.Request) {
 		"writable":      s.cfg.Writable,
 		"ntfy":          s.cfg.Ntfy.Enabled(),
 		"carry":         carry,
+		"feeds":         s.feedInfo(),
 	})
+}
+
+type feedInfo struct {
+	Name   string `json:"name"`
+	Title  string `json:"title,omitempty"`
+	Notify bool   `json:"notify,omitempty"`
+	Color  string `json:"color,omitempty"`
+}
+
+// feedInfo: the feeds fetched, for the home page: a notifying feed's
+// days get a dot of its color on the month grid.
+func (s *Server) feedInfo() []feedInfo {
+	out := []feedInfo{}
+	for _, f := range s.cfg.Feeds {
+		if !f.On() {
+			continue
+		}
+		fi := feedInfo{Name: f.Name, Title: f.Title, Notify: f.Notify}
+		if f.Notify {
+			fi.Color = f.DotColor()
+		}
+		out = append(out, fi)
+	}
+	return out
 }
 
 func isDate(s string) bool {

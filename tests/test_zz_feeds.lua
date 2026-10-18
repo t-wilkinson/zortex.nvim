@@ -10,9 +10,18 @@ local DAY = "2026-12-01"
 local dir = Config.notes_dir .. "z/feeds/"
 local cozi = dir .. "cozi.zortex"
 
+-- The caches with a time to live (the note list, the link index) can miss
+-- a file written within it: drop them after writing one.
+local function fresh()
+	require("zortex.core.notes").invalidate()
+	require("zortex.core.document").invalidate()
+	require("zortex.core.link_index").refresh(true)
+end
+
 local function write_feed(path, lines)
 	vim.fn.mkdir(dir, "p")
 	fs.write_lines(path, lines)
+	fresh()
 end
 
 local function with_feeds(setting, fn)
@@ -43,6 +52,7 @@ T.test("feeds: a feed's events join the day, read-only, by time", function()
 		"09:00 Work",
 		"17:00 Gym",
 	}))
+	fresh()
 	write_feed(cozi, {
 		"@@Cozi",
 		"@CalendarFeed",
@@ -154,5 +164,6 @@ T.test("feeds: the planner lists the day's feed events", function()
 	end)
 	vim.fn.delete(dir, "rf")
 	fs.write_lines(cal_path, cal_original)
+	fresh()
 	calendar.load()
 end)

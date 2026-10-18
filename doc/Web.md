@@ -1,0 +1,464 @@
+# The web app
+
+`zortex serve` shows your notes folder as a website: the notes rendered
+with working links, search, a file browser, the calendar, the pomodoro and
+other clocks, projects, objectives and the weekly review, and with
+`-writable` light editing from a phone. It reads the same folder Neovim
+edits (synced to the server, or on the same machine) and keeps its own
+state apart (`-data`).
+
+This page is what the website does and how it works with Neovim. Getting
+it running (sync, Docker, NixOS, a login, ntfy) is in
+[Server.md](Server.md); every flag and the Go packages are in
+[app/README.md](../app/README.md).
+
+- [How it fits with Neovim](#how-it-fits-with-neovim)
+- [Pages](#pages)
+- [The home page](#the-home-page)
+- [Reading notes](#reading-notes)
+- [Editing](#editing)
+- [Time tracking](#time-tracking)
+- [Slides](#slides)
+- [Other calendars](#other-calendars)
+- [Installing it as an app](#installing-it-as-an-app)
+- [Working with Neovim](#working-with-neovim)
+- [API](#api)
+
+## How it fits with Neovim
+
+Neovim and the website share one thing: the notes folder. Neither talks to
+the other to read notes; each reads the files.
+
+```
+          Neovim ───── edits notes, writes .z/ (XP, state) ─────┐
+            │                                                    ▼
+            │  server.enabled: POST /notify, /api/xp,     notes folder (synced)
+            │  /api/pomodoro, /api/open                          ▲
+            ▼                                                    │
+     zortex serve ── reads notes; with -writable edits lines, ───┘
+        │            writes inbox.zortex, @spent, z/feeds/
+        └── -data: notifications, clocks, time tracking, search history
+```
+
+| | Neovim | the website |
+|---|---|---|
+| Notes | the editor; reloads a note changed on disk before editing it | renders them; with `-writable`, line edits checked against what the page saw |
+| Calendar notifications | schedules them from `calendar.zortex` and syncs them on save | keeps them and sends them through ntfy when due |
+| Pomodoro | `<leader>zoo`, `:ZortexPomodoro…` drive the server's clock | the same clock on the home page |
+| XP | computes it; writes `.z/xp_summary.json`, posts `/api/xp` | shows the summary; counts web completions until Neovim catches up |
+| Time | reads `.z/time_spent.json` in the reviews | tracks the clocks' time against a task, writes `@spent` and that file |
+| Links | `<leader>zgX` opens the link under the cursor on the website, in the tab you used last | |
+| Calendar feeds | shows `z/feeds/*` read-only | fetches them into `z/feeds/`; shows them with their dots |
+
+The details, and the settings, are in [Working with Neovim](#working-with-neovim).
+
+## Pages
+
+| page | what |
+|---|---|
+| `/` | the home page: the inbox box, the calendar, the clocks, the week's focus, XP, recent notes ([The home page](#the-home-page)) |
+| `/graph` | the whole structure as cards side by side, one per section of the Structure note, each note with a `# Structure` section opened in place, and under a note the headings other notes link to (how many notes do); hover a note to mark the notes it links with, click a tag to mark its notes, filter notes and tags as you type (`@word` for tags); the notes not in it |
+| `/n/<path>` | a rendered note: outline, every line anchored (`#L12`), links resolved with the plugin's rules (to the canonical target; `⁺` when there are more), broken links in red, file paths and markdown links to the file viewer, [tag tables](#tag-tables) and [indexes](#tag-indexes), its [connections](#connections-and-the-graph), "Linked from" (backlinks) |
+| `/n/<path>?view=slides` | the note as a slide deck ([Slides](#slides)) |
+| `/search?q=&mode=` | structural search, the plugin's ranking: sections whose path matches the words in order, then lines with every word; `mode=article` names only, `mode=text` lines holding the prompt as typed. Results update as you type, `↑`/`↓` + Enter, `/` focuses search anywhere; with `-data`, what you open ranks higher next time (`search_history.json`). The header's box lists the notes whose name matches as you type; Enter without picking one opens this page |
+| `/link?to=&from=` | resolve a link: one target redirects, several are listed (a tag search as a [table](#tag-tables)), failures say why |
+| `/f/<path>` | file browser (sort by name (notes by article name) or modified time, either direction: `?sort=modified&order=desc`, kept in folder links; notes with a generated name, like `2026-10-15.042.zortex` from "create note" in search, only with "show all"; hidden folders and Syncthing artefacts never) and viewer: PDF, image, video, audio (with seeking), text, sandboxed HTML/SVG (HTML runs script with `-html-scripts`), [Markdown](#markdown-files) rendered like a note; HTML and Markdown have a "source" link (`?source=1`) to their text |
+| `/raw/<path>` | the file as is: byte ranges, `?download=1`; HTML/SVG/XML with `Content-Security-Policy: sandbox` (`sandbox allow-scripts` for HTML with `-html-scripts`); nothing outside the folder, no hidden files |
+| `/tags`, `/tag/<name>` | header tags and their notes (the top bar's Graph lists the tags too); an area attribute in a header (`@area(4.1)`, `@a(1.2/Fitness)`) links to its area (`[A/#4.1]`) |
+| `/resources` | PDFs, books, images, media and documents, and which ones nothing links to (all by default; filter by unlinked/linked, type, folder); file pages show their own "Linked from", folder listings count links and unlinked files |
+| `/projects` | the week's focus projects (the `Focus:` of the week's entry in `reviews.zortex`), then every project with open work and those without a next action: progress (task `@size` hours, done when a task or its calendar copy is checked), key results, the next task and how often it was put off |
+| `/project?rel=&lnum=` | one project: progress, time tracked (all and this week), its next tasks (put off ×n, the day it's planned, due), sub-projects, done tasks, the key results it moves (progress, how far behind its objective's window), its `Log:`, the days it was on the calendar, the notes and files it links and the notes that link it. With `-writable`: tick tasks (calendar copies follow) and add a dated line to its log (`POST /api/project/log` `{rel, lnum, expect, text}`) |
+| `/okr` | objectives by period (`## 3M-2026-Q4 …`): progress (the mean of their key results) against the share of the period gone, marked when behind; each key result with the projects it links; objectives whose period ended without `@done`, later ones, and the latest done |
+| `/review?week=` | the weekly review (`:ZortexReview`'s findings), read-only: done this week, time tracked, XP and its hours, the inbox, the week's focus, objectives against the time passed, tasks put off on 2+ days, overdue and due in a week, projects without a next action, key results no project moves, time per task; `‹ ›` to other weeks |
+| `/broken` | links that don't resolve (notes and files), and task ids that don't line up (a project task's `@id` on two lines, a calendar copy whose link points at another task); then the tags that go nowhere: tag searches that find nothing, `[@Tag]` links to a tag no note has, bare tags no tag search asks for |
+| `/offline` | the page the installed app shows for a page never opened while offline: the saved pages, and the inbox box ([Installing it as an app](#installing-it-as-an-app)) |
+| `/calendar.ics?token=` | the calendar's lines tagged `@share` as an iCal feed for other calendars ([Other calendars](#other-calendars)) |
+| `/healthz` (`/health`) | note and link counts, last index time |
+
+Every page has the header's search box (`/` focuses it). The JSON
+endpoints behind the pages are under [API](#api).
+
+## The home page
+
+- **Inbox** (`-writable`): a box that adds a task or a note to the bottom of
+  `inbox.zortex`. It works offline too
+  ([Installing it as an app](#installing-it-as-an-app)); the reviews in
+  Neovim list the inbox first.
+- **Calendar**: the selected day of `calendar.zortex` as written (tasks
+  nested under their project's block, a project block's next tasks under
+  it, "now" marked on today), with checkboxes when `-writable` (a calendar
+  copy ticks its project task too). 🔔 marks a line with a written `@n`.
+  Under it the month grid: a dot for days with an `@event`, and a dot in
+  its color for each [notifying calendar feed](#other-calendars) with
+  events that day. The calendar feeds' events are among the day's lines,
+  labelled. **Carry** (`-writable`) moves the open tasks of the last two
+  weeks to today, as Neovim's carry forward. The pending notifications and
+  the next one are counted above it.
+- **Clocks**: the pomodoro (shared with Neovim; its **Settings**), and
+  tabs for timers, alarms (once or daily) and a stopwatch. They run on the
+  server, so every device sees the same ones and they ring through ntfy
+  with no page open. With `-writable` their time goes to a task
+  ([Time tracking](#time-tracking)).
+- **Focus**: the week's focus projects from the weekly review.
+- **Season and XP**: level and tier, progress to the next level, XP per day
+  for two weeks, top areas, recent awards, from the summary Neovim
+  publishes; tasks ticked on the web with their estimated XP until Neovim
+  counts them.
+- Recently changed notes, notes not yet in the structure, counts.
+
+## Reading notes
+
+A note page shows the note rendered: its outline, every line anchored
+(`#L12`), links resolved with the plugin's rules (`⁺` when a link has more
+than one target, broken links in red), file paths and Markdown links to the
+file viewer, and "Linked from" at the end. Hover a link (where there is a
+mouse; a tap just follows it) for a card: the note's title, path, tags and
+first lines, how many links point there; an image link shows the image, a
+website its address.
+
+**Live updates.** Open pages listen on `/api/events`: a note page redraws
+its note when the file changes (an edit in another tab, a note synced from
+Neovim), the home page its calendar, XP and pomodoro. Changes made through
+Syncthing show up after Syncthing has synced the file (its folder watcher
+waits 10 s by default: lower `fsWatcherDelayS` for faster updates) and
+the server's next rescan (`-poll`, 3 s).
+
+### Connections and the graph
+
+A note page ends with its **connections**: the notes whose structure lists
+it (above, with the section they list it under), the notes its own
+`# Structure` section lists (below), the other notes it links to (left) and
+that link to it (right); `↔` when a link goes both ways. `/graph` is the
+whole structure, every hub opened in place once, laid out as a card per
+top-level section (the Structure note's loose notes share the first card;
+lists more than two levels down start folded, with a count). Beside it are
+the header tags (click one to mark its notes) and the notes not in the
+structure. The filter box (`/`) hides what doesn't match and opens the
+sections that hold matches; `@word` filters by tag; Enter opens the first
+match.
+
+### Tag tables
+
+`!@[scope/tags]` on a line of its own renders the lines the tag search finds
+as a table (and an `@[…]` link page shows the same table). Columns come from
+the lines: the item (attributes left out), its first link and what kind of
+thing it is (web, pdf, book, image, video, audio, document, note), its tags
+besides the searched ones (its own and its sections'), one column per
+`@key(value)` any row has (not `@id`), the note and section it is in, and
+its notes: the lines nested under it (labels too), or the section of a
+heading that is only a link (`### [Book](https://…) @rust`), shown under
+the item: all of them up to three lines, else the first two and an "All
+notes" button that opens them in a panel (a bottom sheet on a phone),
+rendered like the note, with the first note they link to below them. A
+bare `@tag` in a note links to its table (`@[*/tag]`). Click a header to sort; type to filter, or click a kind or
+tag to keep only those rows. Empty columns are left out.
+
+### Tag indexes
+
+A label whose lines are all `@[…]` searches, or items grouping them, renders
+as rows of chips, each with how many lines its search finds (none: dimmed),
+over one shared table ([Syntax](Syntax.md#tag-searches)). Choosing a
+chip loads its table (`/api/tagtable?q=&from=`, an HTML fragment) and puts
+the search in the address (`#tags=R/rl`); choosing it again clears it, and
+the back button undoes it. Nothing is chosen at first. Without script the
+chips are links to the search's page.
+
+### Files
+
+**Resources and their backlinks.** A file counts as linked when a note or
+a Markdown file refers to it with a zortex link to its path
+(`[z/books/type-theory.pdf]`, `[./scan.png]`), a markdown link
+(`[TT](z/books/type-theory.pdf)`, `![](img.png)`) or a bare path
+(`./scan.pdf`). In notes `./` and `../` are relative to the note and other
+paths to the notes folder; Markdown files try their own folder first. A bare
+file name (`[type-theory.pdf]`) works when exactly one resource has that
+name. Links inside code blocks don't count; links to missing files are
+listed on `/broken`. New or removed files are picked up on the next rescan.
+
+<a id="markdown-files"></a>**Markdown files.** A `.md` or `.markdown` file
+in the viewer is rendered with the note renderer: headings, lists and tasks,
+quotes, tables, footnotes, code blocks, emphasis, `$inline$` and `$$` block
+math (KaTeX, as in notes), images (`![alt](img.png)`), inline and reference
+links (`[text][id]` with `[id]: url`), `---` rules, setext headings and YAML
+front matter (folded). Consecutive lines flow as one paragraph and every line
+keeps its `#L12` anchor; headings also get GitHub-style ids
+(`other.md#some-heading`). Relative paths resolve from the file's folder
+first. Other `[brackets]` are text, not zortex links, and raw HTML is shown
+as text: the page is on the app's origin, so nothing in the file runs.
+
+**Math.** `$inline$`, `$$display$$` and `$$` blocks are typeset with
+[KaTeX](https://katex.org) on every page (`static/katex`, vendored: loaded
+only on pages with math, no CDN).
+
+**Scripts in HTML files (`-html-scripts`, `ZORTEX_HTML_SCRIPTS=1`; NixOS
+`web.htmlScripts`).** HTML files are shown without JavaScript by default.
+With this on, the file viewer's frame and `/raw` add `allow-scripts` to the
+sandbox, but never `allow-same-origin`: the page runs in an opaque origin,
+so its script can't read the site's pages, files or cookies, and the
+server refuses any POST from a sandboxed page (`Origin: null`), so it can't
+edit notes or drive the clocks. It can still do what any web page can:
+load things from the internet, and send what it sees there. Turn it on only
+for HTML you trust, such as exported notebooks or your own pages. SVG and
+XML never run script.
+
+## Editing
+
+With `-writable` (`ZORTEX_WRITABLE=1`; NixOS `web.writable`), note
+pages get clickable checkboxes and an Edit mode (the button sits above the
+outline on wide screens; tap a line: To-do · Done · Plain · Edit text · Add
+below · Move up/down · Delete; drag a line's ⠿ handle to move it, with the
+lines indented under it); the home page checks off calendar tasks and adds
+tasks and notes to `inbox.zortex`. The inbox box also works offline (in the
+installed app, or when the server is down): what you add waits in the
+browser and is appended to the bottom of the inbox, in order, when the
+connection is back (`app/web/static/inbox.js`). Edits are line-level,
+refused when the note changed since the page loaded, and written
+atomically (through a `.syncthing.*.tmp` file Syncthing ignores). Task
+edits match Neovim's exactly: `app/edit` is tested against
+`tests/fixtures/edits.json`, which `tests/gen_edits.lua` writes from the
+plugin's `tasks.edit_line`. XP isn't computed on the server: Neovim counts
+completed tasks from their `@done` dates when it next runs (it reloads
+changed notes on focus), and until then the home page shows how many web
+completions are waiting.
+
+## Time tracking
+
+With `-writable` (and `-data`), the clock box on the home page has a
+**Working on** line: the task the clocks' time goes to.
+
+- **Which task.** By default the current calendar entry: the timed entry of
+  today that has started (and not ended, for `09:00 - 10:30` ranges). When
+  tasks are nested under it (`09:00 [P/#1.4 - zortex]` with
+  `  - [ ] [./-Improve website] @id(…)` below), the first open one: tick it
+  and the time goes to the next. Otherwise, when its first link points at a
+  task (`[P/#1.4 - zortex/-Improve website]`), that task; otherwise the
+  calendar line itself. It changes when the next
+  entry starts. **Change** picks another (search open tasks), as does
+  **⏱ Track** in a note's Edit toolbar; then the calendar no longer
+  matters until you choose **Follow the calendar** (or **Don't track**).
+- **What counts.** Time while any clock runs: a pomodoro *work* phase, the
+  stopwatch, a timer. Overlapping clocks count once; breaks and pauses
+  don't count.
+- **When it's written.** When the clocks stop (pause, the end of a work
+  phase, a timer done) the time is added to the task's `@spent(1h25m)`,
+  rounded to minutes. Under a minute nothing is written: it waits for more
+  on the same task, and is dropped when the task changes. Changing the task
+  while a clock runs closes the old task's account and starts the new one
+  from zero.
+- The task is found again by its `@id`, else by its text (nearest to where
+  it was). Each write is logged to `-data/track_log.jsonl`. Neovim reads
+  `@spent` as a duration (minutes), like `@dur`.
+
+## Slides
+
+`/n/<path>?view=slides` (the **slides** link on a note page, or
+`:ZortexPresent` in Neovim) shows a note as a slide deck. Nothing in the
+note has to change:
+
+| in the note | on the slides |
+|---|---|
+| `@@Name` and the lines before the first heading | the title slide |
+| headings at the slide level | one slide each, with everything up to the next one |
+| headings above the slide level | section slides |
+| `Notes:` (or `**Notes:**`) in a slide | speaker notes: hidden, shown in the presenter window |
+| `@step` on a line | revealed on its own click, with the lines nested under it |
+| `@steps` on a slide's heading | each of its top-level items revealed in turn |
+| `@slides(n)` in the header | headings of level n start the slides |
+
+The slide level is `@slides(n)`, or else the second heading level the note
+uses (with `#` and `##`, `##` are slides and `#` section slides), or the only
+one. Attributes are hidden on slides; links, tasks, tables, code, math and
+images and videos (`![./pic.png]`, `![./clip.mp4]`; a video pauses when you leave its slide) render as on the note page, and a slide whose text
+doesn't fit is shrunk until it does.
+
+Keys: `→` `Space` `PgDn` next, `←` `PgUp` previous, `Home`/`End`, a number
+and `Enter` to jump, `o` overview, `s` presenter window (current slide, next
+slide, notes, a timer: click pauses, double-click resets; it and the deck
+follow each other), `f` fullscreen, `b` black screen, `?` the keys. Swipe on
+a phone. The hash is the position (`#3`, `#3.2` for its second step; `#L42`
+opens the slide holding line 42), a link to a line of the note goes to its
+slide, and the deck redraws in place when the note is saved. Printing
+(Ctrl+P) gives one 16:9 page per slide.
+
+## Other calendars
+
+The server can fetch other calendars (a Cozi family member's, Google's,
+Apple's: any iCal link) into your notes, and publish your calendar's
+`@share` lines for them to subscribe to. Setting it up is in
+[Server.md](Server.md#6-other-calendars). On the website:
+
+- a feed's events are among the day's lines on the home page, read-only,
+  labelled with the feed's name;
+- a feed with `notify` on gets a dot of its own on the month grid, on the
+  days it has events, in its `color` (default orange), beside the dot for
+  your `@event`s; its label carries the same dot;
+- `/calendar.ics` serves the lines you tagged `@share` (30 days back to 180
+  ahead); with `-share-token-file`, `?token=…` gets in without the login.
+
+Neovim shows the same events in its calendar, planner and agenda.
+
+## Installing it as an app
+
+The web app is installable (a PWA): on a phone, open it in the browser and
+choose **Add to Home Screen** (Safari) or **Install app** (Chrome); on the
+desktop, the install button in Chrome's or Edge's address bar. It opens in
+its own window, without the browser's bars, at the home page; long-pressing
+the icon offers Search and Projects (and Add to inbox with `-writable`). Browsers allow this over HTTPS only
+(and on `localhost`), so serve it as in [Server.md](Server.md#3-put-it-behind-a-login).
+
+Recent pages read offline. The app keeps the last 60 pages you opened on
+the device, so when the phone is offline or the server can't be reached, a
+page you read lately opens as a saved copy (it says when it was saved), and
+any other page shows the list of saved ones. Editing, the clocks and live
+updates need the server.
+
+The inbox works offline. With `-writable`, the inbox box on the home page
+(and on the offline page) keeps what you add while there is no connection,
+or while the server is down, and appends it to the bottom of
+`inbox.zortex`, in the order you added it, as soon as the server can be
+reached again (when the app is next open: on reconnecting, on returning to
+it, or within 30 seconds). It says how many are waiting. A capture whose
+answer was lost on a flaky connection is sent again but added once. The copies live in the browser's storage on that
+device, behind the device's own lock; clearing the site's data removes
+them, and each new version of the server starts afresh.
+
+Behind a login: the manifest (`/manifest.webmanifest`) and the icons
+(`/static/icons/`) hold the site's title and nothing from your notes, and a
+phone's installer may fetch them without your credentials. `-auth-file`
+serves them without a login; with a proxy's login, let those two paths
+through too (with `-base`, below the prefix):
+
+```
+notes.example.com {
+  @app path /manifest.webmanifest /static/icons/*
+  handle @app {
+    reverse_proxy 127.0.0.1:8090
+  }
+  handle {
+    basic_auth {
+      me $2a$14$...
+    }
+    reverse_proxy 127.0.0.1:8090
+  }
+}
+```
+
+## Working with Neovim
+
+Turn it on in the plugin:
+
+```lua
+require("zortex").setup({
+  server = {
+    enabled = true,
+    api_endpoint = "https://notes.example.com", -- or http://127.0.0.1:8090
+    api_key = os.getenv("ZORTEX_API_KEY"),        -- the server's -api-key, if set
+    web_url = nil,  -- where the browser reaches the website, when not api_endpoint
+  },
+})
+```
+
+Neovim's requests carry `X-API-Key`, which also passes `-auth-file`'s
+login. What each side does:
+
+- **Notifications.** Saving `calendar.zortex` schedules its notifications
+  and syncs them to the server (`POST /notify`; an unchanged calendar isn't
+  re-sent, `:ZortexNotificationsSync force` resends). The server sends each
+  through ntfy when it is due, whether Neovim is running or not. The
+  calendar feeds' events are among them when their feed notifies.
+- **Pomodoro.** `<leader>zoo` and the `:ZortexPomodoro…` commands drive the
+  server's clock (`/api/pomodoro/*`), the one on the home page. On start,
+  Neovim sends its configured durations
+  (`notifications.types.pomodoro`) when they changed since it last did;
+  settings changed on the website stick otherwise.
+- **XP.** Neovim computes XP from the notes and publishes a summary after
+  every change: `.z/xp_summary.json` in the notes folder (synced) and,
+  with `server.enabled`, `POST /api/xp`; the website shows the newer.
+  Tasks ticked on the website are counted by Neovim from their `@done`
+  date the next time it runs; meanwhile the home page shows them with their
+  estimated XP (`pending_web`).
+- **Edits from the website.** They are written to the files, so Neovim
+  sees them like any synced change: a note open in Neovim is reloaded
+  (`:checktime`) before Neovim edits it, and an edit is refused when the
+  lines around it changed since they were read. Task edits are the same on
+  both sides (`app/edit` is tested against the plugin's own output,
+  `tests/fixtures/edits.json`).
+- **Time.** The website's time tracking adds `@spent(…)` to the task and
+  records it per day in `.z/time_spent.json`, which Neovim's reviews read.
+- **Carry forward.** The home page's **Carry** and Neovim's
+  `:ZortexCarryForward` (and the planner on opening today) do the same
+  thing: open tasks of earlier days copied to today with the same `@id`,
+  the old lines marked `[>]`.
+- **Presenting.** `:ZortexPresent` (`<leader>zS`) opens the note as
+  [slides](#slides), at the slide under the cursor.
+- **Calendar feeds.** The server writes `z/feeds/<name>.zortex`; Neovim
+  shows those events read-only (`features.calendar_feeds` hides a feed in
+  Neovim only).
+
+### Opening pages from Neovim
+
+`:ZortexLinkOpenWeb` (`<leader>zgX`) shows the link under the cursor in the
+web app: zortex links and tag searches through `/link`, files in the
+viewer, a tag index with the line's chip chosen, else the note at the
+cursor's line (`gx` on an index's label does it too). With `server.enabled`
+the page goes to the tab on the same device that was focused last, instead
+of a new tab:
+
+- each page opens `/api/events?client=<id>` (one id per tab) and posts
+  `/api/presence` when it's focused;
+- Neovim posts `{"path": "/n/x.zortex#L3"}` to `/api/open`; the server sends
+  it to that tab, which answers `/api/open/ack` and goes there;
+  `{"opened": true}` then, `{"opened": false}` after 2 s or with no tab, and
+  Neovim opens a new one.
+
+"Same device" is the same client address: behind a proxy on the server's
+machine or network, its `X-Forwarded-For`. A page can change what it shows
+but not raise its window. `features.web.reuse_tab = false` always opens a
+new tab.
+
+## API
+
+Everything the pages use is plain HTTP with JSON. `X-API-Key` (Neovim's
+`server.api_key`) is needed for `/notify`, `/pending` and `/test` when
+`-api-key` is set; with `-auth-file`, every endpoint but `/healthz` (and
+`/calendar.ics` with its token) needs the login or the key.
+
+| endpoint | |
+|---|---|
+| `/api/search?q=`, `/api/resolve?to=&from=`, `/api/backlinks?rel=`, `/api/resources?show=unlinked&kind=&dir=`, `/api/structure` | JSON |
+| `/search/open?rel=&lnum=` | open a search result (`&section=1` for a section) and count it in the search history (with `-data`) |
+| `/api/hover?rel=&lnum=` | a link's hover card: the note's title, path, header tags, first lines (a heading's own lines) and how many links point there; images and websites need no call (the card shows the image, or the domain and URL; nothing is fetched) |
+| `/api/tagtable?q=&from=` | a tag search's table, as HTML ([tag indexes](#tag-indexes)) |
+| `POST /api/open`, `/api/presence`, `/api/open/ack` | show a page in an open tab ([from Neovim](#opening-pages-from-neovim)) |
+| `POST /notify` | `{user_id, operation: "sync", notifications: [...]}` replaces the user's pending notifications (unchanged ones keep their identity; an identical manifest is a no-op: `{unchanged: true}`); `operation: "notify"` adds one; `"clear"` removes the pending ones |
+| `GET /pending?user_id=` | pending notifications |
+| `POST /test` | `{title?, message?}`: publish through ntfy now and report |
+| `GET /api/calendar?from=&to=` | `days` (entries of `calendar.zortex` with time, text, rendered HTML, task state, whether a notification is scheduled; the calendar feeds' events among them, with `feed` and no `rel`), `notifications`, `count`, `next_event`, `feeds` (`name`, `title`, `notify`, and for a notifying feed its dot `color`) |
+| `GET /api/summary` | for home dashboards (Homepage, Home Assistant, …): pending count, upcoming notifications as text/HTML, the pomodoro |
+| `GET /api/pomodoro` | phase, running, remaining, ends_at, session, completed, today, settings, `next_alarm`, `ntfy` |
+| `POST /api/pomodoro/{start,pause,resume,toggle,skip,stop,restart}` | drive the clock |
+| `GET /api/xp` | the XP summary Neovim published (season, daily XP, areas, recent awards, calibration), or `{"available": false}`; plus `pending_web` (tasks completed on the web since, one per `@id`), `pending_xp` and `pending_tasks` (`{title, xp, hours}`: estimated from the task's `@size`, priority and importance with the summary's calibration) |
+| `POST /api/xp` | Neovim publishes it after every XP change (`X-API-Key` when set); it also writes `.z/xp_summary.json` into the notes folder, and the newer of the two is shown |
+| `POST /api/edit` | `-writable` only: `{rel, lnum, expect, op, text?, kind?}` with `op` `open` / `done` / `toggle` / `text` (task state, exactly as Neovim's toggle: `@done(today)`, an `@id`), `set` (new text after the line's marker; `@id`/`@done` kept), `delete`, `insert` (after `lnum`; `kind` `task` / `note` / `text`), `move` (the line and the lines indented under it go before line `to`, `len+1` for the end, re-indented to fit; `expectTo` is that line's text). `expect` is the line as the page saw it: if the note changed since, nothing is written and the reply is 409 with the current note. Task ops keep copies in step: the other lines with the task's `@id` in the calendar and the project notes get the same state (not `[>]` lines), and on a calendar line without a checkbox whose link points at a task they toggle that task (the reply then carries `task: {rel, lnum, line}`) |
+| `POST /api/calendar/carry` | `-writable` only: `{date?}` (default today): copy the open tasks of the 14 days before to the date with the same `@id` and mark the old lines `[>]`, as Neovim's `:ZortexCarryForward`; `{moved, added}`. `GET /api/calendar` has `carry`, how many there are for today (the home page offers a **Carry** button) |
+| `GET /api/note?rel=` | a rendered note: `{body, mod, src?}` (`src` with `-writable`) |
+| `GET /api/events` | server-sent events for open pages: `notes` (`{rels}` added, changed or removed; seen on the next rescan, `-poll`), `xp` (a new summary), `pomodoro` (the clock changed), `clocks` (timers, alarms, stopwatch), `track` (time tracking). Pages redraw right away; behind nginx the stream needs `proxy_buffering off` (the server also sends `X-Accel-Buffering: no`) |
+| `POST /api/inbox` | `-writable` only: `{text, kind: "task" \| "note", id?}` appended to the bottom of `inbox.zortex` (created when missing). `id` is set by the offline queue: a capture sent again with the same id (its answer was lost) is added once |
+| `GET /api/clocks` | timers, alarms and the stopwatch: `{timers, alarms, stopwatch, now, ntfy}` |
+| `POST /api/clocks/timers` | `{label, seconds}` starts a timer; `POST /api/clocks/timers/{id}/{pause,resume,restart,remove}` |
+| `POST /api/clocks/alarms` | `{label, time: "HH:MM", repeat: "once" \| "daily"}`; `POST /api/clocks/alarms/{id}/{enable,disable,remove}` |
+| `POST /api/clocks/stopwatch/{start,pause,toggle,lap,reset}` | the stopwatch |
+| `GET /api/track` | time tracking: `{enabled, mode: calendar \| pinned \| off, task, counting, counted_ms, calendar?, error}` |
+| `POST /api/track/pin` | `{rel, lnum, expect?}` work on this line; `POST /api/track/{follow,off,flush}`; `GET /api/track/tasks?q=` open tasks for the picker |
+| `POST /api/pomodoro/settings` | `{work, short_break, long_break, long_break_after, auto_start_break, auto_start_work}` (minutes; partial updates are fine) |
+
+Pomodoro POSTs must be JSON (or carry the key), so a cross-site form can't
+drive the clock. Notifications more than 2 h overdue (server down) are
+skipped rather than sent late; sent ones are kept a week.
+
+**Pomodoro events** (ntfy tags): `pomodoro-work-start`,
+`pomodoro-break-start`, `pomodoro-restart` (back to work after the long
+break, or Restart cycle), `pomodoro-work-end` / `pomodoro-break-end` (the next
+phase waits for you when auto-start is off), `pomodoro-stop`. Timers carry
+`timer`, alarms `alarm`. A timer or alarm that came due while the server was
+down is sent when it starts again if it is under 10 minutes late.

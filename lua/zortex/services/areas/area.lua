@@ -7,6 +7,11 @@
 --   Fitness:                 <- area "Areas/1 Personal Foundation/1.2 Vitality/Fitness"
 --
 -- Links start with the A namespace: "[A/#1 Personal Foundation/#1.2 Vitality/:Fitness]".
+--
+-- A "Vision:" in an area's own lines says what good looks like there
+-- (area:vision()); the weekly review opens with it:
+--   ## 1.1 Health
+--   Vision: strong enough to carry the kids up a mountain at 60
 -- Area keys are also the keys XP is recorded under.
 local M = {}
 
@@ -104,6 +109,33 @@ function Area:objectives(opts)
 		end
 	end
 	return out
+end
+
+
+--- What good looks like in this area: the text of a "Vision:" line in its
+--- own lines ("Vision: …", or "Vision:" with the lines under it up to a
+--- blank line), or nil.
+function Area:vision()
+	local lines = self:lines()
+	for i, line in ipairs(lines) do
+		local rest = line:match("^%s*[Vv]ision:%s*(.-)%s*$")
+		if rest then
+			local parts = {}
+			if rest ~= "" then
+				parts[1] = rest
+			else
+				for j = i + 1, #lines do
+					local l = lines[j]
+					if not l:match("%S") or l:match("^#") or l:match("^%S.*:%s*$") then
+						break
+					end
+					parts[#parts + 1] = vim.trim((l:gsub("^%s*[-*]%s+", "")))
+				end
+			end
+			return #parts > 0 and table.concat(parts, " ") or nil
+		end
+	end
+	return nil
 end
 
 return M

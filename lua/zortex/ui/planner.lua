@@ -57,14 +57,17 @@ end
 ---   # Coming up    the events of the next ui.planner.upcoming_days days
 ---                  (agenda.upcoming_events), to plan around
 ---   # Projects     a "## <project link>" heading per project, its ranked
----                  tasks under it
+---                  tasks under it; under a project a key result links,
+---                  folded, its other open tasks and each sub-project
+---                  ("### <link>") with its own (the 4th return value:
+---                  the folds, { first, last } line ranges)
 ---   # Key results
 ---   # Tasks        to-dos: the TODO project, the Projects note's own tasks,
 ---                  open calendar tasks of earlier days
 ---   # Areas
 ---   # Inbox        what is left in inbox.zortex (when anything is)
 function M.render(candidates, date)
-	local lines, badges, items = {}, {}, {}
+	local lines, badges, items, folds = {}, {}, {}, {}
 	local function add(text, c, b)
 		lines[#lines + 1] = text
 		items[#lines] = c
@@ -120,6 +123,25 @@ function M.render(candidates, date)
 				return b ~= t.project_name
 			end, t.badges or {}))
 		end
+		-- a project a key result links: the rest of its tree, folded (zo)
+		local open = {} -- open sections: { depth, start }
+		local function close_to(depth)
+			while #open > 0 and open[#open].depth >= depth do
+				local o = table.remove(open)
+				folds[#folds + 1] = { o.start, #lines }
+			end
+		end
+		for _, sec in ipairs(g.more or {}) do
+			close_to(sec.depth)
+			local hashes = string.rep("#", math.min(6, 2 + sec.depth))
+			local title = sec.own and string.format("More of this project (%d)", #sec.tasks) or sec.project.text
+			add(hashes .. " " .. title, not sec.own and sec.project or nil, not sec.own and sec.project.badges or {})
+			open[#open + 1] = { depth = sec.depth, start = #lines }
+			for _, t in ipairs(sec.tasks) do
+				add(t.text, t, {})
+			end
+		end
+		close_to(1)
 	end
 	section("Key results", candidates.key_results or {})
 	section("Tasks", candidates.todos or {})
@@ -127,7 +149,7 @@ function M.render(candidates, date)
 	if candidates.inbox and #candidates.inbox > 0 then
 		section("Inbox", candidates.inbox)
 	end
-	return lines, badges, items
+	return lines, badges, items, folds
 end
 
 local function paint(buf, badges)
@@ -381,13 +403,31 @@ function M.refresh()
 	end
 	local candidates = planner.candidates({ today = state.date })
 	candidates.capacity_line, candidates.capacity_badges = capacity_line()
-	local lines, badges, items = M.render(candidates, state.date)
+	local lines, badges, items, folds = M.render(candidates, state.date)
 	state.items, state.badges = items, badges
 	vim.bo[buf].modifiable = true
 	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
 	vim.bo[buf].modifiable = false
 	pcall(require("zortex.features.highlights").highlight_buffer, buf)
 	paint(buf, badges)
+	-- the rest of a key result's project, folded (manual folds, closed)
+	if state.win and vim.api.nvim_win_is_valid(state.win) and vim.api.nvim_win_get_buf(state.win) == buf then
+		vim.api.nvim_win_call(state.win, function()
+			vim.wo.foldmethod = "manual"
+			vim.wo.foldenable = true
+			vim.wo.foldlevel = 0
+			vim.cmd("silent! normal! zE")
+			table.sort(folds, function(a, b)
+				return a[1] > b[1] -- inner (later-starting) folds first
+			end)
+			for _, f in ipairs(folds) do
+				if f[2] > f[1] then
+					vim.cmd(string.format("silent! %d,%dfold", f[1], f[2]))
+				end
+			end
+			vim.cmd("silent! normal! zM")
+		end)
+	end
 end
 
 function M.close()

@@ -451,6 +451,83 @@ function M.candidates(opts)
 		local p = projects.get(key)
 		return p and project_candidate(p)
 	end)
+
+	-- A project a key result links: the rest of its work under it, folded
+	-- in the plan: its other open tasks, then each sub-project with its
+	-- open tasks (ranked ones first, with their badges), nested. Sub-projects
+	-- listed there don't get groups of their own.
+	local ranked = {}
+	for _, t in ipairs(tasks) do
+		if t.file and t.lnum then
+			ranked[t.file .. ":" .. t.lnum] = t
+		end
+	end
+	local function open_tasks(p, skip_ranked)
+		local first, rest = {}, {}
+		for _, task in ipairs(p:tasks()) do
+			local open = not task.completed and not task.parent_task and (task.leaf ~= false or (task.open_leaves or 0) > 0)
+			local r = ranked[(task.file or "") .. ":" .. (task.lnum or 0)]
+			if open and r and not skip_ranked then
+				first[#first + 1] = r
+			elseif open and not r then
+				rest[#rest + 1] = {
+					kind = "task",
+					text = plain(task.text) .. " " .. M.item_link(p.link, task.raw_text),
+					link = M.item_link(p.link, task.raw_text),
+					component = require("zortex.core.link").item_component(task.raw_text),
+					project_key = p.key,
+					project_link = p.link,
+					project_name = p.name,
+					badges = {},
+					score = 0,
+					file = task.file,
+					lnum = task.lnum,
+				}
+			end
+		end
+		sort_by_score(first)
+		return vim.list_extend(first, rest)
+	end
+	local nested = {} -- project key -> true: shown under an ancestor
+	local function subtree(p, depth, out)
+		for _, child in ipairs(p.children or {}) do
+			if not child:is_done() and child:rollup().open > 0 then
+				local r = child:rollup()
+				nested[child.key] = true
+				out[#out + 1] = {
+					depth = depth,
+					project = {
+						kind = "project",
+						text = child.link,
+						project_key = child.key,
+						project_link = child.link,
+						file = child.file,
+						lnum = child.lnum,
+						badges = { string.format("%d/%d", r.done, r.total) },
+					},
+					tasks = open_tasks(child),
+				}
+				subtree(child, depth + 1, out)
+			end
+		end
+		return out
+	end
+	for _, g in ipairs(groups) do
+		local key = g.project and g.project.project_key
+		local p = key and ctx.krs[key] and projects.get(key)
+		if p then
+			local more = {}
+			local own = open_tasks(p, true)
+			if #own > 0 then
+				more[1] = { depth = 1, own = true, project = g.project, tasks = own }
+			end
+			g.more = subtree(p, 1, more)
+		end
+	end
+	groups = vim.tbl_filter(function(g)
+		return not (g.project and nested[g.project.project_key])
+	end, groups)
+
 	-- What is left in the inbox, as written: p puts a line on the day
 	-- ("- [ ] Call the plumber"); the reviews are where it is cleared
 	local inbox = {}
@@ -579,7 +656,27 @@ function M.capacity(date, opts)
 	local event_default = conf.event_minutes or 30
 
 	local project_ids = require("zortex.services.mirrors").project_ids()
-	local out = { planned = 0, done = 0, busy = 0, tasks = 0, unsized = 0, from = w_from, to = w_to }
+	local out = { planned = 0, done = 0, busy = 0, tasks = 0, unsized = 0, aligned = 0, from = w_from, to = w_to }
+	-- projects an open key result links: work on them (or under them) is
+	-- work on a key result
+	local kr_linked = {}
+	local okr_ok, open_krs = pcall(require("zortex.services.okr").key_results, { open = true })
+	for _, kr in ipairs(okr_ok and open_krs or {}) do
+		if not (kr.objective and kr.objective.completed) then
+			for key in pairs(kr:linked_projects()) do
+				kr_linked[key] = true
+			end
+		end
+	end
+	local function on_kr(project)
+		while project do
+			if kr_linked[project.key] then
+				return true
+			end
+			project = project.parent
+		end
+		return false
+	end
 	for _, item in ipairs(require("zortex.services.agenda").day(date)) do
 		local entry = item.entry
 		if entry and not item.moved then
@@ -600,6 +697,15 @@ function M.capacity(date, opts)
 					out.tasks = out.tasks + 1
 					if unsized then
 						out.unsized = out.unsized + 1
+					end
+					-- the project it is work on: the task it copies or links,
+					-- else the project the calendar line links
+					local id = entry.attributes.id
+					local project = (id and project_ids[id] and project_ids[id].project)
+						or (item.ref and require("zortex.services.projects").at(item.ref.file, item.ref.lnum))
+						or item.project
+					if project and on_kr(project) then
+						out.aligned = out.aligned + mins
 					end
 				end
 			elseif entry.type == "event" and not item.project then
@@ -643,6 +749,9 @@ function M.capacity_line(c)
 		planned = planned .. string.format(" (%d task%s%s)", c.tasks, c.tasks == 1 and "" or "s", c.unsized > 0 and string.format(", %d unsized", c.unsized) or "")
 	end
 	parts[#parts + 1] = planned
+	if c.planned > 0 then
+		parts[#parts + 1] = hm(c.aligned or 0) .. " on key results"
+	end
 	local free = hm(c.free) .. " free"
 	if c.to > c.from then
 		free = free .. " (" .. clock(c.from) .. "-" .. clock(c.to) .. (c.busy > 0 and (", " .. hm(c.busy) .. " busy") or "") .. ")"
@@ -881,7 +990,7 @@ end
 -- Carrying open tasks forward
 -- =============================================================================
 
-local DATE_LINE = "^(%d%d%d%d)%-(%d%d)%-(%d%d):%s*$"
+
 
 local function day_number(date_str)
 	local y, m, d = date_str:match("^(%d+)%-(%d+)%-(%d+)$")
@@ -938,9 +1047,9 @@ function M.carry(lines, today, opts)
 		if is_fence(l) then
 			fence = not fence
 		elseif not fence then
-			local y, m, d = l:match(DATE_LINE)
-			if y then
-				blocks[#blocks + 1] = { date = y .. "-" .. m .. "-" .. d, heading = i }
+			local date = datetime.date_heading(l)
+			if date then
+				blocks[#blocks + 1] = { date = date, heading = i }
 			end
 		end
 	end
@@ -1126,7 +1235,7 @@ function M.carry(lines, today, opts)
 			at = blocks[after_i].heading
 		end
 	end
-	local new = { today .. ":" }
+	local new = { datetime.date_heading_line(today) }
 	vim.list_extend(new, out)
 	new[#new + 1] = ""
 	if at > #lines then
@@ -1168,6 +1277,91 @@ function M.carry_forward(date, opts)
 		end
 	end
 	return #plan.edits, added
+end
+
+
+--- Put the open calendar task on `lnum` on the next day, at the same time:
+--- the old line is marked carried ([>]), a copy with the same @id goes
+--- under the next day (made when missing), timed lines in time order. One
+--- batch: :ZortexUndo (u in the review) takes it back. Returns the new
+--- day and the copy's line, or nil and why not.
+function M.to_next_day(lnum)
+	local workspace = require("zortex.core.workspace")
+	local syntax = require("zortex.core.syntax")
+	local attributes = require("zortex.utils.attributes")
+	local calendar = require("zortex.stores.calendar")
+	local moved = require("zortex.services.mirrors").MOVED
+	local target = calendar_target()
+	return workspace.batch("to the next day", { target }, function()
+		local lines = workspace.get_lines(target)
+		local line = lines[lnum]
+		local it = line and syntax.item(line)
+		if not (it and it.mark) then
+			return nil, "not a calendar task"
+		end
+		if it.mark ~= " " then
+			return nil, "only an open task moves on"
+		end
+		local date
+		for l = lnum, 1, -1 do
+			date = datetime.date_heading(lines[l])
+			if date then
+				break
+			end
+		end
+		if not date then
+			return nil, "not under a day of the calendar"
+		end
+		local next_day = datetime.format_datetime(datetime.add_days(datetime.parse_date(date), 1), "YYYY-MM-DD")
+
+		-- the copy: as written for a timed task, else "- [ ] …" with its
+		-- links made absolute (it leaves the block it was nested in)
+		local id = line:match("@id%(([^)%s]+)%)")
+		local marked = line:sub(1, it.mark_col + 1) .. moved .. line:sub(it.mark_col + 3)
+		if not id then
+			id = require("zortex.services.tasks").new_id()
+			marked = attributes.add_attribute(marked, "id", id)
+		end
+		local copy
+		local time = it.marker_type == "time" and it.time
+		if time then
+			copy = vim.trim(line)
+		else
+			copy = "- " .. absolute_text(lines, lnum, it.mark_col)
+		end
+		copy = attributes.add_attribute(copy, "id", id)
+
+		local ok, err = workspace.set_line(target, lnum, marked)
+		if not ok then
+			return nil, err
+		end
+		calendar.ensure_date(next_day)
+		lines = workspace.get_lines(target)
+		local block = calendar.date_block(next_day, lines)
+		if not block then
+			return nil, "couldn't make " .. next_day
+		end
+		local at = block.last_lnum + 1
+		local start = time and (time.from or time.at)
+		if start then
+			local mine = clock_minutes(start)
+			for l = block.heading_lnum + 1, block.last_lnum do
+				local other = lines[l]
+				local oit = indent_of(other) == 0 and syntax.item(other)
+				local t = oit and oit.marker_type == "time" and oit.time
+				local m = t and clock_minutes(t.from or t.at)
+				if m and mine and m > mine then
+					at = l
+					break
+				end
+			end
+		end
+		ok, err = workspace.insert_lines(target, at, { copy })
+		if not ok then
+			return nil, err
+		end
+		return next_day, at
+	end)
 end
 
 return M

@@ -380,8 +380,8 @@ func (s *Server) calendarHistory() *calendarHistory {
 			h.dateOf[i] = date
 			continue
 		}
-		if m := dateLabel.FindStringSubmatch(line); m != nil {
-			date = m[1] + "-" + m[2] + "-" + m[3]
+		if d, ok := edit.DateHeading(line); ok {
+			date = d
 		}
 		h.dateOf[i] = date
 		id := edit.ID(line)

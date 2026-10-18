@@ -112,7 +112,7 @@ T.test("plan buffer puts items into the calendar day", function()
 		local cal_lines = vim.api.nvim_buf_get_lines(st.cal_buf, 0, -1, false)
 		local h
 		for i, l in ipairs(cal_lines) do
-			if l == "2026-10-18:" then
+			if l == "**2026-10-18:**" then -- new days get a bold heading
 				h = i
 			end
 		end
@@ -309,17 +309,18 @@ T.test("new days go after the closest earlier day, not before a stray later one"
 	require("zortex.core.document").invalidate(cal)
 	calendar.ensure_date("2026-10-12", { "09:00" })
 	local lines = vim.fn.readfile(cal)
-	T.eq(vim.list_slice(lines, 9), { "2026-10-10:", "- two", "", "2026-10-12:", "09:00" })
+	-- new days get a bold label ("Outcomes:" nests under it); old ones stay
+	T.eq(vim.list_slice(lines, 9), { "2026-10-10:", "- two", "", "**2026-10-12:**", "09:00" })
 
 	-- between two days that are in order
 	calendar.ensure_date("2026-10-11", {})
 	lines = vim.fn.readfile(cal)
-	T.eq(vim.list_slice(lines, 9), { "2026-10-10:", "- two", "", "2026-10-11:", "", "2026-10-12:", "09:00" })
+	T.eq(vim.list_slice(lines, 9), { "2026-10-10:", "- two", "", "**2026-10-11:**", "", "**2026-10-12:**", "09:00" })
 
 	-- earlier than everything: before the earliest day
 	calendar.add_entry("2026-10-01", "- zero")
 	lines = vim.fn.readfile(cal)
-	T.eq(vim.list_slice(lines, 6, 9), { "2026-10-01:", "- zero", "", "2026-10-09:" })
+	T.eq(vim.list_slice(lines, 6, 9), { "**2026-10-01:**", "- zero", "", "2026-10-09:" })
 
 	vim.fn.writefile(original, cal)
 	require("zortex.core.document").invalidate(cal)
@@ -368,4 +369,66 @@ T.test("alignment: key-result work first, behind schedule more; then areas", fun
 		-- areas without a current objective come first, and say so
 		T.ok(vim.tbl_contains(c.areas[1].badges, "no objective"), vim.inspect(c.areas[1]))
 	end)
+end)
+
+T.test("a project a key result links: the rest of its tree, folded", function()
+	local dir = Config.notes_dir
+	local proj, okr = dir .. "fold-proj.zortex", dir .. "okr.zortex"
+	vim.fn.writefile({
+		"@@Fold proj",
+		"@P",
+		"",
+		"# Launch",
+		"- [ ] Ship it @p1",
+		"- [ ] Write the post",
+		"## Site",
+		"- [ ] Landing page",
+		"### Copy",
+		"- [ ] Headline",
+		"## Done part",
+		"- [x] Old thing",
+	}, proj)
+	-- a key result in the OKR note links the project
+	local okr_original = vim.fn.readfile(okr)
+	vim.fn.writefile(vim.list_extend(vim.deepcopy(okr_original), { "", "## 3M-2026-Q4 Launch it", "- KR1: [ ] Launched [Fold proj/#Launch]" }), okr)
+	require("zortex.core.document").invalidate()
+	require("zortex.core.link_index").refresh(true)
+	local ok, err = pcall(function()
+		local c = planner.candidates({ today = TODAY })
+		local g
+		for _, x in ipairs(c.groups) do
+			if x.project.project_key == "Fold proj/Launch" then
+				g = x
+			end
+		end
+		T.ok(g and g.more, vim.inspect(vim.tbl_map(function(x)
+			return x.project.project_key
+		end, c.groups)))
+		local titles = vim.tbl_map(function(sec)
+			return { sec.depth, sec.own and "own" or sec.project.text, #sec.tasks }
+		end, g.more)
+		-- each sub-project with its open tasks, nested; done ones left out
+		T.eq(titles, { { 1, "[P/Fold proj/#Launch/#Site]", 1 }, { 2, "[P/Fold proj/#Launch/#Site/#Copy]", 1 } })
+		-- shown under the project, not as groups of their own
+		for _, x in ipairs(c.groups) do
+			T.ok(not x.project.project_key:find("^Fold proj/Launch/"), x.project.project_key)
+		end
+
+		local lines, _, items, folds = require("zortex.ui.planner").render({ groups = { g } }, TODAY)
+		local site = vim.fn.index(lines, "### [P/Fold proj/#Launch/#Site]") + 1
+		local copy = vim.fn.index(lines, "#### [P/Fold proj/#Launch/#Site/#Copy]") + 1
+		T.ok(site > 0 and copy > site, vim.inspect(lines))
+		T.ok(items[site + 1] and items[site + 1].kind == "task", "p works on a folded task")
+		local spans = {}
+		for _, f in ipairs(folds) do
+			spans[f[1]] = f[2]
+		end
+		T.eq(spans[copy], copy + 1)
+		T.eq(spans[site], copy + 1, "a sub-project's fold holds its own sub-projects")
+	end)
+	os.remove(proj)
+	vim.fn.writefile(okr_original, okr)
+	require("zortex.core.document").invalidate()
+	require("zortex.core.link_index").refresh(true)
+	assert(ok, err)
 end)

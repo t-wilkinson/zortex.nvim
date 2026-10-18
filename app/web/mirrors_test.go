@@ -165,7 +165,8 @@ func TestMirrorCarry(t *testing.T) {
 	lines := readLines(t, cal)
 	i := lineOf(t, lines, today()+":")
 	got := strings.Join(lines[i-1:], "\n")
-	if !strings.HasPrefix(got, today()+":\n- [P/#1.4 - zortex]\n  - [ ] [./-Improve website] @id(web01)\n- [ ] Call the bank @id(") {
+	// a new day gets a bold label
+	if !strings.HasPrefix(got, edit.DateHeadingLine(today())+"\n- [P/#1.4 - zortex]\n  - [ ] [./-Improve website] @id(web01)\n- [ ] Call the bank @id(") {
 		t.Fatalf("today:\n%s", got)
 	}
 	if l := lines[lineOf(t, lines, "[>] [./-Improve")-1]; l != "  - [>] [./-Improve website] @id(web01)" {

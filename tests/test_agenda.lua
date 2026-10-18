@@ -40,7 +40,11 @@ T.test("upcoming events: appointments and notes of the days after a date, not ta
 	local original = fs.read_lines(cal)
 	local lines = vim.list_extend(vim.deepcopy(original), {
 		"",
-		"2026-10-15:",
+		"**2026-10-15:**",
+		"Outcomes:",
+		"- [ ] Ship the release",
+		"- Feel rested",
+		"",
 		"14:00 - 15:00 Dentist",
 		"- Mum's birthday",
 		"- [ ] Untimed task",
@@ -58,6 +62,10 @@ T.test("upcoming events: appointments and notes of the days after a date, not ta
 		T.eq(days[1].date, "2026-10-15")
 		T.eq(texts(days[1].items), { "11:00 Launch [P/#1.4 - zortex]", "14:00 Dentist", "16:00 Timed task", "Mum's birthday" })
 		T.eq(#A.upcoming_events({ date = "2026-10-12", days = 2 }), 0, "two days end on 10-14")
+		-- the day's outcomes: what's under its Outcomes: label, not events
+		T.eq(vim.tbl_map(function(e)
+			return e.text
+		end, require("zortex.stores.calendar").outcomes("2026-10-15")), { "Ship the release", "Feel rested" })
 		T.eq(A.upcoming_events({ date = "2026-10-12", days = 0 }), {})
 	end)
 	fs.write_lines(cal, original)

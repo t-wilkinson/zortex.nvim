@@ -149,8 +149,11 @@ Special notes:
 - **`okr.zortex`**: headings like `## 3M-2026-Q1 Title` are objectives; their
   `- KRn:` items are key results, and project links on a KR drive its
   progress.
-- **`calendar.zortex`**: `YYYY-MM-DD:` labels with entries under them
-  (`- [ ] task`, `14:00 event`, `16:00 [ ] timed task`, `- note`).
+- **`calendar.zortex`**: a day is `**YYYY-MM-DD:**` (new days get this
+  bold label; a plain `YYYY-MM-DD:` reads the same) with its entries under
+  it (`- [ ] task`, `14:00 event`, `16:00 [ ] timed task`, `- note`). Start
+  the day with `Outcomes:` and the two or three things that would make it
+  a success.
 - Notes tagged `@Archive` (or named `z/archive.*`) are left out of links,
   projects and search ranking.
 
@@ -198,22 +201,28 @@ Special notes:
   week's focus projects first, then tasks on key results (the further a key
   result is behind schedule, the higher), then work with only an area, then
   the rest; due dates, priority and how often a task was put off add on
-  top. A capacity line weighs the day's tasks against its free time, and
+  top. A capacity line weighs the day's tasks against its free time (and
+  says how much of it is on key results), and
   "Coming up" lists the events of the next seven days to plan around
-  (`ui.planner.upcoming_days`). `p`
+  (`ui.planner.upcoming_days`); a project a key result links keeps the rest
+  of its tree under it, folded. `p`
   adds an item (with a link to it) to the day and stays in the list; `P` a
   project with its next three tasks; `i`/`o`/`O` put it on the
   current/next/previous line and let you type its time.
 - **Reviews**: daily (`<leader>zW`, since the last one) and weekly
   (`<leader>zw`), written in `reviews.zortex` (a week's entry with its days
-  inside) with the findings beside it. Both open with what is left in the
-  inbox, the week's focus and tasks put off again and again, then your
-  objectives and key results against the time passed, the XP earned and how
-  much of it was on key results, and the time spent per task; then what you
-  completed, what's overdue or due, and (weekly) the projects to pick the
-  week's focus from (`f`), stale and unscheduled projects, key results
-  without projects, areas without an objective, broken links. Every line
-  links to its source.
+  inside) with the findings beside it. The daily review opens with how the
+  day's work served the plan (hours on key results, areas only, neither),
+  then the inbox, focus, objectives and time; what wasn't done (`t`: same
+  time tomorrow) and what you finished that served nothing (`a`: archive
+  it). The weekly review reads top down: the vision, each area with its
+  vision, objectives, key results and the projects they link, with the
+  gaps marked where they are; then the week's focus (`f`, as many as you
+  like), stale and unscheduled projects, done ones to archive, broken
+  links. Every line links to its source and has its fix one key away
+  (`x` tick, `d` due, `s` schedule, `n` next action, `z` someday, `l` link
+  a project to a key result, `k` add a key result, `p` start a project,
+  `F` fix a link; `u` takes it back).
 - **Calendar**: a month view with the selected day as written and the
   events coming up after it (the planner's list), iCal import/export,
   notifications (synced to `zortex serve` and sent through ntfy; unchanged
@@ -390,7 +399,18 @@ the title, with the picker's own help key: telescope `<C-/>` (insert mode; `?` i
 | `<CR>` | jump to source |
 | `f` | add the project to the week's focus (or take it out) |
 | `m` | move the inbox line to its @project (or pick a place) |
-| `u` | take the last move back (:ZortexUndo) |
+| `u` | take the last change back (:ZortexUndo) |
+| `t` | a task left undone: same time tomorrow |
+| `a` | archive it: a finished task to z/archive.tasks.zortex, a done project to its archive |
+| `x` | tick the task |
+| `d` | set or move the task's @due |
+| `s` | put the task, or a block of the project, on a day |
+| `n` | add a next action to the project |
+| `z` | park the project (@someday: not stale) or bring it back |
+| `l` | link a project to the key result |
+| `k` | add a key result to the objective |
+| `p` | start a project for the area |
+| `F` | fix the broken link from the search |
 | `<Tab>` | go to the reviews note |
 | `gx` | follow link |
 | `K` | preview link |

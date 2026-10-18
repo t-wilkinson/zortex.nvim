@@ -8,7 +8,8 @@
 --   A.resolve("Areas/#4.1")       -- what @a(4.1) expands to
 --   A.at(bufnr_or_path, lnum)     -- area containing a line
 --   A.top(5)                      -- areas by total XP
---   area:projects() / area:objectives() / area:xp_data()
+--   area:projects() / area:objectives() / area:xp_data() / area:vision()
+--   A.vision()                    -- the vision above every area, or nil
 local M = {}
 
 local entity = require("zortex.core.entity")
@@ -28,7 +29,8 @@ local registry = entity.registry({
 	namespace = "A",
 	class = AreaModule.Area,
 	keep = function(node)
-		return AREA_TYPES[node.type] == true
+		-- "Vision:" says what an area is for; it isn't an area itself
+		return AREA_TYPES[node.type] == true and not (node.type == "label" and (node.text or ""):lower() == "vision")
 	end,
 	sources = function()
 		return { fs.get_areas_file() }
@@ -139,5 +141,13 @@ function M.top(limit)
 	return ranked
 end
 M.get_top_areas = M.top
+
+
+--- The vision written above every area in the Areas note ("Vision:" before
+--- the first area), or nil.
+function M.vision()
+	local root = M.roots()[1]
+	return root and root:vision() or nil
+end
 
 return M

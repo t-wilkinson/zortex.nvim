@@ -477,10 +477,14 @@ heading is an entity; headings matching `3M-2026-Q1 Title` are objectives
 
 ### Calendar — `stores/calendar.lua`
 
-- The file is the source of truth. Date headings are top-level labels
-  `YYYY-MM-DD:`; entries are the list items under them (`parse_lines`, each
-  entry with its `lnum`), read from the current snapshot of `calendar.zortex`
-  and re-parsed whenever the file or its buffer changes.
+- The file is the source of truth. Date headings are bold labels
+  `**YYYY-MM-DD:**` (what new days get, `datetime.date_heading_line`) or
+  top-level labels `YYYY-MM-DD:` (`datetime.date_heading` reads both, as
+  `app/edit.DateHeading` does in Go); entries are the list items under them
+  (`parse_lines`, each entry with its `lnum`), read from the current
+  snapshot of `calendar.zortex` and re-parsed whenever the file or its
+  buffer changes. The items right under an `Outcomes:` label, to the first
+  blank line, are the day's outcomes (`entry.outcome`, `outcomes(date)`).
 - **Edits are line edits** through `core/workspace`. `add_entry` inserts under
   the date's last entry (formatted like its siblings, `- ` for untimed
   entries) or creates the date heading in date order. `update_entry` replaces
@@ -508,8 +512,14 @@ One query over calendar entries, project tasks with `@due`, and projects with
 `unscheduled` (open work, no calendar time ahead), `stale` (also none in the
 last `days`), `no_next_action` (leaf projects without tasks),
 `krs_without_projects`, `objectives_without_krs`, `areas_without_projects`,
-`broken_links` and `put_off` (open tasks planned on two or more earlier days
-and not done, from `services/mirrors.copies`). `upcoming_events({ date,
+`broken_links`, `put_off` (open tasks planned on two or more earlier days
+and not done, from `services/mirrors.copies`), `done_projects` (to archive),
+`unaligned_done` (tasks finished in the window that served neither a key
+result nor an area) and, for the weekly review, `vision` and `top_down`
+(each area two levels deep with its vision, the current objectives naming
+it with their key results and the projects those link, and its projects no
+key result covers). Projects marked `@someday` are never stale or
+unscheduled. `upcoming_events({ date,
 days })` is the events of the days after `date` (`@event` lines, and timed
 lines and calendar notes that don't link a project), which the planner and
 the calendar view list as "Coming up" (`ui.planner.upcoming_days`).
@@ -761,6 +771,11 @@ ranked tasks under it; `planner.group`), **Key results**, **Tasks** (to-dos:
 the TODO project, the Projects note's own tasks, open calendar tasks of
 earlier days) and **Areas**.
 
+- A project an open key result links carries `more`: its open tasks not
+  already ranked, then each open sub-project with its own (ranked ones first),
+  nested; the sub-projects don't get groups of their own. The plan buffer
+  shows them as `###`/`####` sections in closed manual folds (`render`'s
+  fourth value).
 - **Tasks** of the week's focus projects come first (`services/review`),
   then by adding signals (`planner.weights`): in the TODO project
   (`ui.planner.todo_link`, default `P/#TODOs`) 3, `@p1/2/3` 3/2/1, `@i1/2`
@@ -770,8 +785,12 @@ earlier days) and **Areas**.
   calendar tasks are included, except copies of project tasks (the task is
   listed).
 - **Capacity** (`planner.capacity(date)`, the plan buffer's second line):
-  the open tasks' `@size` minutes against the free time left in
+  the open tasks' `@size` minutes (and how many of them are on projects an
+  open key result links, `aligned`) against the free time left in
   `ui.planner.capacity.day` after timed entries that aren't project work.
+- `planner.to_next_day(lnum)`: an open calendar task to the next day at the
+  same time (`[>]` on the old line, a copy with its `@id`), the daily
+  review's `t`.
 - `P` (`planner.add_project`) copies the project's next
   `ui.planner.project_tasks` open tasks (or a count) under its block.
 - **Projects** that are OKR-linked or high priority/importance, **key
@@ -810,7 +829,11 @@ overdue and due soon. Each line carries the link of its
 project/objective/area, so `gx` and `K` work; `<CR>` jumps to the source
 line, `<Tab>` goes to the note, `r` refreshes, `q` closes, `?` lists the
 keys. `render(review)` is pure (lines plus a line → location map) so other
-front ends can reuse the layout.
+front ends can reuse the layout. The keys that fix what a line shows (`x`
+tick, `d` due, `s` schedule, `t` same time tomorrow, `n` next action, `z`
+someday, `a` archive, `l` link a project to a key result, `k` add a key
+result, `p` start a project for an area, `F` fix a broken link) each run as
+a `core/workspace` batch, so `u` takes them back.
 
 **Query API** (`query.lua`): the model as plain data — `tree(dir)` (folders
 and notes with titles, tags, archived flag, mtime), `note(path)` (header,
@@ -911,6 +934,7 @@ to date; `app/links` and `app/search` must reproduce them.
 | `test_zr_actions`        | every action complete, targets exist, commands/keymaps/overrides, API, backlinks, README table up to date                                                                        |
 | `test_zs_query`          | every query function returns JSON-safe data; export                                                                                                                              |
 | `test_zt_state`          | state files: defaults, versions, migration, corrupt files                                                                                                                        |
+| `test_zu_review_fixes`   | the weekly review top down (vision to projects) and every one-key fix, with `u` taking them back                                                                         |
 | `test_zu_review`         | review buffer layout, links, jumps                                                                                                                                               |
 | `test_zv_search_history` | recording, decay, persistence, boosts                                                                                                                                            |
 | `test_zw_archive`        | archiving merges under existing ancestors                                                                                                                                        |

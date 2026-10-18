@@ -138,11 +138,12 @@ projects, calendar entries):
 | `@a(4.1)`, `@area(1.2/Fitness)` | area link: `4.1` is `[A/#4.1]`, `1.2/Fitness` is `[A/#1.2/:Fitness]`; comma-separated for several |
 | `@project(1.4)`, `@project(1/1.4)`, `@project(P/#Kitchen)` | the project a line belongs to (`1.4` is `[P/#1.4]`): `m` in the daily review moves it there, dropping the attribute |
 | `@progress(3/5)` | a project's progress (written back on request) |
+| `@someday` | a project parked on purpose: not listed as stale or unscheduled (`z` in the weekly review toggles it) |
 | `@xp(500)` | a project's XP pool |
 | `@2h`, `@dur(90m)`, `@est(3h)` | duration and estimate |
 | `@spent(1h25m)` | time worked on it, added by the web app's clocks ([time tracking](../app/README.md#time-tracking)) |
 | `@notify(15)`, `@n(0, 30)`, `@n(0, end)` | calendar: notify minutes before the start (several allowed; every timed line notifies at its time by default, `@n(no)` turns it off); `end` also notifies when a range ends |
-| `@event` | calendar: something fixed that you plan around (an appointment, a flight), not a block you planned; the web month grid marks its day |
+| `@event` | calendar: something fixed that you plan around (an appointment, a flight), not a block you planned; the web month grid marks its day, and it is listed under "Coming up" (as are timed lines and calendar notes that don't link a project) |
 | `@repeat(weekly)` | calendar: repetition |
 | `@fold` | on a heading, label or list item with nested lines: the section starts folded in Neovim each time the note is shown (`zo` opens it until then) |
 | `@slides(2)` | in a header: the heading level that starts a slide ([slides](../app/README.md#slides)) |
@@ -306,7 +307,7 @@ Topics:
 | `projects.zortex` | `@@Projects` / `@@P` | headings are projects and sub-projects; checkbox items are their tasks. Any note tagged `@P` is a project too |
 | `areas.zortex` | `@@Areas` / `@@A` | headings and labels are areas (`# 1 Personal`, `## 1.2 Health`, `Fitness:`) |
 | `okr.zortex` | `@@Objectives` / `@@OKR` | headings like `## 3M-2026-Q1 Title` are objectives; `- KRn: [ ] …` items are key results; project links on a KR drive its progress |
-| `calendar.zortex` | `@@Calendar` | `YYYY-MM-DD:` labels with entries under them: `- [ ] task`, `14:00 event`, `16:00 - 17:00 event`, `- note` |
+| `calendar.zortex` | `@@Calendar` | days with entries under them: `**YYYY-MM-DD:**` (a bold heading, what new days get, so an `Outcomes:` label nests under it) or a plain `YYYY-MM-DD:` label; entries `- [ ] task`, `14:00 event`, `16:00 - 17:00 event`, `- note`. The items right under `Outcomes:` (to the first blank line) are the day's outcomes |
 | `structure.zortex` | `@@Structure` | links to your notes; notes nothing here links to are listed as unlinked. A note tagged `@Structure` adds all its links; a note with a top-level `# Structure` heading adds the links in that section: its own sub-notes, so a hub note can own its part of the tree |
 | `inbox.zortex` | `@@Inbox` | tasks and notes added from the web app |
 

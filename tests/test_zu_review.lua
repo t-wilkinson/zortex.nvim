@@ -18,10 +18,10 @@ T.test("render: sections with counts and links", function()
 	T.ok(find(lines, "## Overdue (2)"), "overdue header")
 	T.ok(find(lines, "## Due soon (1)"), "due soon header")
 	T.ok(find(lines, "## Completed (2)"), "completed header")
-	T.ok(find(lines, "## Stale: no calendar time behind or ahead (4)"), "stale header")
+	T.ok(find(lines, "## Stale: no calendar time behind or ahead (s schedules, n next action, z someday, a archives a done one) (4)"), "stale header")
 	-- unscheduled excludes the stale ones
 	T.ok(find(lines, "## Unscheduled: open work, nothing on the calendar ahead (3)"), "unscheduled header")
-	T.ok(find(lines, "## Broken links (1)"), "broken links header")
+	T.ok(find(lines, "## Broken links (F: fix from the search) (1)"), "broken links header")
 
 	local i, line = find(lines, "Change task sizes")
 	T.ok(line:find("[P/", 1, true), line) -- due task links its project
@@ -92,7 +92,8 @@ T.test("daily review: since the last one, at most a week; time, XP and objective
 	T.ok(find(lines, "## Time spent: 1h 25m (1)"), vim.inspect(lines))
 	T.ok(find(lines, "## Objectives (2)"), "objectives first")
 	T.ok(find(lines, "100% behind"), "key results behind schedule")
-	T.ok(find(lines, "## Left on the calendar"), "calendar tasks left")
+	T.ok(find(lines, "## Not done (t: same time tomorrow)"), "calendar tasks left")
+	T.ok(find(lines, "Work done: "), "the alignment line")
 	vim.fn.delete(z .. "time_spent.json")
 	agenda.mark_day_reviewed("2000-01-01", "2000-01-01")
 end)

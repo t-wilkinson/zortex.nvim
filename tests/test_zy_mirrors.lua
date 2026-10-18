@@ -287,9 +287,9 @@ T.test("carry forward: open tasks of the days before move to today, [>] on the o
 	T.eq({ moved, added }, { 2, 2 })
 	local cal = fs.read_lines(CAL)
 	T.ok(find(cal, "  - [>] [./-Improve website] @id(web01)"), "marked")
-	local i = find(cal, "2026-10-21:")
+	local i = find(cal, "**2026-10-21:**") -- a new day: a bold label
 	T.eq(vim.list_slice(cal, i, i + 3), {
-		"2026-10-21:",
+		"**2026-10-21:**",
 		"- [P/#1.4 - zortex]",
 		"  - [ ] [./-Improve website] @id(web01)",
 		cal[i + 3],

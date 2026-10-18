@@ -46,6 +46,23 @@ return {
 		},
 	},
 	{
+		name = "bold day headings (what new days get), with Outcomes: under a day",
+		today = "2026-10-14",
+		from = "2026-09-30",
+		lines = {
+			"@@Calendar",
+			"",
+			"**2026-10-13:**",
+			"Outcomes:",
+			"- [ ] Ship the release",
+			"",
+			"09:00 - [ ] Write the notes",
+			"",
+			"**2026-10-14:**",
+			"10:00 Stand-up",
+		},
+	},
+	{
 		name = "nothing open; days before `from` and after today stay",
 		today = "2026-10-14",
 		from = "2026-10-10",

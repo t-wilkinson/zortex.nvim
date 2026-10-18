@@ -23,6 +23,33 @@ The first public release.
 - Neovim no longer edits a note blind when it changed on disk (the web app,
   a phone): an edit is checked against what was read, and refused when the
   lines around it differ; an open, unsaved buffer is reloaded first.
+- **A day of the calendar is a bold label**, `**2026-10-21:**`: new days
+  get it (the planner, carrying tasks, `add_entry`, the web app's Carry),
+  and a plain `2026-10-21:` still reads the same, in Neovim and on the web.
+  So an `Outcomes:` label nests under the day: the two or three results
+  that would make it a success. Change existing days by hand if you like:
+  `:%s/^\(\d\{4}-\d\d-\d\d\):$/**\1:**/` in `calendar.zortex`.
+- **The weekly review reads top down**: the vision (a `Vision:` line in
+  `areas.zortex`, and one per area), each area's objectives this period
+  against the time passed, their key results and the projects those link,
+  and the area's projects no key result covers, with gaps marked where
+  they are. Then the week's focus (no limit on how many), the rest of the
+  findings, and done projects to archive.
+- **One-key fixes in the reviews**: `x` ticks a task, `d` sets its
+  `@due`, `s` puts a task or a block of a project on a day, `n` adds a
+  next action, `z` parks a project (`@someday`: never stale), `a`
+  archives a done project or a finished task that served nothing (to
+  `z/archive.tasks.zortex`), `l` links a project to a key result, `k` adds
+  a key result, `p` starts a project for an area, `F` fixes a broken link
+  from the search; `u` takes the last one back.
+- The daily review opens with how the work done served the plan
+  (`Work done: 3h30m · 60% on key results · 25% on areas only · 15% on
+  neither`), lists what wasn't done with `t` to put it on the next day at
+  the same time, and lists finished tasks that served neither a key result
+  nor an area.
+- The planner keeps the rest of a key result's project under it, folded:
+  its other open tasks and each sub-project with its own (`zo` opens). The
+  capacity line says how much of the day is on key results.
 - The planner and the calendar view list what's **coming up**: the events
   of the next seven days (`@event` lines, and timed lines and calendar
   notes that don't link a project), to plan around

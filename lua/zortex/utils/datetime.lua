@@ -354,4 +354,21 @@ function M.is_same_day(date1, date2)
 	return date1.year == date2.year and date1.month == date2.month and date1.day == date2.day
 end
 
+-- =============================================================================
+-- Calendar day headings
+-- =============================================================================
+
+--- The date of a calendar day heading: "**2026-10-21:**" (a bold label, so
+--- a label like "Outcomes:" nests under it) or "2026-10-21:", at the start of
+--- the line. nil for any other line.
+function M.date_heading(line)
+	local d = line and (line:match("^%*%*(%d%d%d%d%-%d%d%-%d%d):%*%*%s*$") or line:match("^(%d%d%d%d%-%d%d%-%d%d):%s*$"))
+	return d
+end
+
+--- The heading a new calendar day gets: "**2026-10-21:**".
+function M.date_heading_line(date_str)
+	return "**" .. date_str .. ":**"
+end
+
 return M

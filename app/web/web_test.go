@@ -97,9 +97,10 @@ func TestNotePage(t *testing.T) {
 		`<h1>Links</h1>`,
 		`href="/n/projects.zortex#L14"`, // [P/#1.4 - zortex] resolves to the heading
 		`class="zl broken"`,             // [Nope/#x]
-		`href="/n/links.zortex#L5"`,     // local link [/#Local]
-		`href="/f/z/docs/manual.pdf"`,   // ./path
-		`href="/f/z/docs/notes.txt"`,    // markdown link to a file
+		`class="zl zl-heading" href="/n/projects.zortex#L14"`, // coloured by what it names
+		`href="/n/links.zortex#L5"`,                           // local link [/#Local]
+		`href="/f/z/docs/manual.pdf"`,                         // ./path
+		`href="/f/z/docs/notes.txt"`,                          // markdown link to a file
 		`target="_blank" rel="noopener noreferrer"`,
 		`<span class="cl" id="L7">[P] in code`, // code stays text
 		`<table>`,

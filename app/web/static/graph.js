@@ -58,6 +58,36 @@
   }
   each(tagButtons, function (b) { b.addEventListener("click", function () { selectTag(b); }); });
 
+  // ---- (children): to where a note listed again is expanded ----------------
+  function reveal(id, smooth) {
+    var el = id && document.getElementById(id);
+    if (!el || !page.contains(el)) return false;
+    // open the lists it is in, and show it if the filter hid it
+    for (var p = el; p && p !== page; p = p.parentElement) {
+      if (p.tagName === "DETAILS") p.open = true;
+      if (p.hidden) p.hidden = false;
+    }
+    if (el.tagName === "LI") {
+      var own = el.querySelector(":scope > details");
+      if (own) own.open = true;
+    }
+    el.classList.remove("gt-flash");
+    void el.offsetWidth; // restart the animation
+    el.classList.add("gt-flash");
+    el.scrollIntoView({ block: "center", behavior: smooth ? "smooth" : "auto" });
+    return true;
+  }
+  page.addEventListener("click", function (e) {
+    var a = e.target.closest("a.gt-goto");
+    if (!a) return;
+    var id = a.getAttribute("href").slice(1);
+    if (reveal(id, true)) {
+      e.preventDefault();
+      history.replaceState(null, "", "#" + id);
+    }
+  });
+  if (location.hash.indexOf("#gt-") === 0) reveal(location.hash.slice(1), false);
+
   // ---- filtering -----------------------------------------------------------
   each(page.querySelectorAll(".graph-tree details"), function (d) { d.dataset.open = d.open ? "1" : ""; });
   function textOf(el) { return (el.textContent + " " + (el.dataset.rel || "")).toLowerCase(); }

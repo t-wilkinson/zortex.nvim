@@ -10,6 +10,10 @@ The first public release.
 
 ### Neovim plugin
 
+- Links are coloured by what they name: a note, a heading, a label, a
+  bold heading or a list item each have their own group
+  (`ZortexLinkNote`, `ZortexLinkHeading`, ...), read from the link alone
+  (nothing is resolved). The web app colours them the same way.
 - `J` in a note joins lines the way they read: the joined line's `#`s,
   `-` (with its `[ ]`), `1.` or `> ` go, and so does the `:` of a label or
   bold heading it is joined onto (`Fitness:` + `- run 5k` is
@@ -52,8 +56,8 @@ The first public release.
   `@due`, `s` puts a task or a block of a project on a day, `n` adds a
   next action, `z` parks a project (`@someday`: never stale), `a`
   archives a done project or a finished task that served nothing (to
-  `z/archive.tasks.zortex`), `l` links a project to a key result, `k` adds
-  a key result, `p` starts a project for an area, `F` fixes a broken link
+  `z/archive.tasks.zortex`), `L` links a project to a key result, `R` adds
+  a key result (`h j k l` still move the cursor), `p` starts a project for an area, `F` fixes a broken link
   from the search; `u` takes the last one back.
 - The daily review opens with how the work done served the plan
   (`Work done: 3h30m · 60% on key results · 25% on areas only · 15% on
@@ -310,10 +314,14 @@ The first public release.
   docker-compose sets no `TZ`.
 - `/okr` (Objectives in the top bar): objectives against the time passed in
   their period, their key results and the projects behind them. `/review`:
-  the weekly review's findings, for any week.
+  the weekly review's findings, for any week, with what its entry in
+  `reviews.zortex` says besides the focus (wins, lessons, ...).
 - Hover cards on links: a note's title, path, tags, first lines and
   backlinks; an image; a website's domain and URL (nothing is fetched).
-- `/graph` lists, under each note, the headings other notes link to.
+- `/graph` lists, under each note, the headings other notes link to. A card
+  much taller than the rest spans two columns, its sections side by side;
+  a note listed in a second place links to its children where they are
+  shown ("(children)").
 - The search page has a Text mode, and with `-data` its own search history
   (`search_history.json`, never in the notes' `.z/`).
 - `/broken` lists the tags that go nowhere, apart from broken links.

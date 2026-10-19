@@ -13,6 +13,12 @@
   --code-bg: #efece4;
   --target: #fff6d6;
   --chart: #1f6aa5; /* data marks: passes lightness, chroma and 3:1 on --panel */
+  /* zortex links, by what they point to (a.zl-*) */
+  --link-note: #1d5f8a;
+  --link-heading: #8a3b62;
+  --link-label: #1f6f6a;
+  --link-bold: #5b4b8a;
+  --link-item: #85560f;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
   --serif: "Iowan Old Style", "Charter", "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
   --mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
@@ -33,6 +39,11 @@
     --code-bg: #23272c;
     --target: #2e2a1a;
     --chart: #4596db;
+    --link-note: #7db7e0;
+    --link-heading: #e79bb8;
+    --link-label: #6fc2b8;
+    --link-bold: #b7a6ec;
+    --link-item: #e0b36a;
   }
 }
 * { box-sizing: border-box; }
@@ -164,6 +175,13 @@ tr.sep { display: none; }
 /* links in notes */
 a.zl { border-bottom: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); }
 a.zl:hover { text-decoration: none; border-bottom-color: var(--accent); }
+a.zl-note { --link: var(--link-note); }
+a.zl-heading { --link: var(--link-heading); }
+a.zl-label { --link: var(--link-label); }
+a.zl-bold { --link: var(--link-bold); }
+a.zl-item { --link: var(--link-item); }
+a.zl[class*="zl-"] { color: var(--link); border-bottom-color: color-mix(in srgb, var(--link) 40%, transparent); }
+a.zl[class*="zl-"]:hover { border-bottom-color: var(--link); }
 a.zl::before { content: "["; color: var(--dim); }
 a.zl::after { content: "]"; color: var(--dim); }
 a.zl.multi::after { content: "]⁺"; }
@@ -650,13 +668,23 @@ svg.graph .ga { fill: var(--dim); }
 .graph-head { grid-area: head; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 1rem; }
 .graph-head h1 { margin: 0; }
 .graph-q { flex: 1 1 16rem; max-width: 28rem; font: inherit; padding: 0.35rem 0.6rem; border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); color: inherit; }
-.graph-tree { grid-area: tree; min-width: 0; }
+.graph-tree { grid-area: tree; min-width: 0; container-type: inline-size; }
 .graph-side { grid-area: side; min-width: 0; }
 @media (max-width: 52rem) { .graph-page { grid-template-columns: 1fr; grid-template-areas: "head" "side" "tree"; } .gt-unlinked ul { max-height: 10rem; } }
 .graph-page [hidden] { display: none !important; }
 .gt-cols { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 0.9rem; align-items: start; }
 .gt-card { border: 1px solid var(--rule); border-radius: 8px; padding: 0.55rem 0.8rem 0.65rem; background: var(--panel); min-width: 0; }
 .gt-card h2 { font-size: 1rem; margin: 0 0 0.35rem; overflow-wrap: anywhere; }
+/* a big card: two grid columns, its top-level entries in two columns
+   inside, none split between them (only where two grid columns fit) */
+@container (min-width: 31rem) {
+  .gt-card.gt-wide { grid-column: span 2; }
+  .gt-card.gt-wide > ul.gt { columns: 2; column-gap: 1.4rem; }
+  .gt-card.gt-wide > ul.gt > li { break-inside: avoid; }
+}
+.gt-goto { font-size: 0.8rem; }
+.graph-tree li.gt-flash > details > summary, .gt-card.gt-flash { animation: gt-flash 1.6s ease-out; border-radius: 4px; }
+@keyframes gt-flash { from { background: var(--mark); } to { background: transparent; } }
 .gt-n, .gt-more { font-size: 0.78rem; font-weight: normal; }
 ul.gt { list-style: none; margin: 0; padding-left: 0.9rem; border-left: 1px solid var(--rule); }
 .gt-card > ul.gt { padding-left: 0; border-left: 0; }
@@ -721,6 +749,7 @@ ul.prows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--
 .rv-list { list-style: none; margin: 0; padding: 0; }
 .rv-list > li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.6rem; padding: 0.4rem 0.1rem; border-bottom: 1px solid color-mix(in srgb, var(--rule) 60%, transparent); }
 .rv-text { min-width: 0; overflow-wrap: anywhere; margin-right: auto; }
+.rv-notes { margin: 0.6rem 0 0.2rem; }
 .rv-obj .okr-progress { display: inline-flex; align-items: center; gap: 0.4rem; margin-left: auto; }
 .okr-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.9rem; }
 .okr-obj { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 0.8rem 1rem; }
@@ -729,13 +758,14 @@ ul.prows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--
 .okr-title { font-weight: 600; font-size: 1.05rem; margin-right: auto; }
 .okr-bar { position: relative; overflow: visible; }
 .okr-bar > i { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--ink); opacity: 0.55; border-radius: 1px; }
-.okr-krs { list-style: none; margin: 0.6rem 0 0; padding: 0; }
-.okr-kr { padding: 0.45rem 0; border-top: 1px solid color-mix(in srgb, var(--rule) 60%, transparent); }
+.okr-krs { list-style: none; margin: 0.7rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.75rem; }
+.okr-kr { padding: 0; }
 .okr-kr-head { display: flex; align-items: baseline; gap: 0.5rem; }
 .okr-kr-text { min-width: 0; overflow-wrap: anywhere; margin-right: auto; }
 .okr-kr.done .okr-kr-text { color: var(--dim); }
-.okr-projects { margin: 0.2rem 0 0 1.2rem; }
-.okr-projects .prow { padding: 0.35rem 0.2rem; }
+/* a key result's projects: indented under it, spaced rather than ruled */
+ul.prows.okr-projects { margin: 0.25rem 0 0 1.2rem; border-top: 0; }
+.okr-projects .prow { padding: 0.3rem 0.2rem; border-bottom: 0; }
 
 .project-grid { display: grid; grid-template-columns: minmax(0, 1fr) 21rem; gap: 1.5rem; align-items: start; }
 .project-side { display: flex; flex-direction: column; gap: 0.8rem; margin-top: 1.2rem; }

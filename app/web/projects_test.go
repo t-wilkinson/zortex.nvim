@@ -167,3 +167,29 @@ func TestObjectivesAndReviewPages(t *testing.T) {
 	expect(t, ts, "/review?week=nonsense", 200, `Weekly review`)
 	expect(t, ts, "/projects", 200, `href="/review"`)
 }
+
+// The review page shows what the week's entry says besides its focus.
+func TestReviewPageShowsTheWeeksNotes(t *testing.T) {
+	s, dir, ts := newTestServer(t, "")
+	note := "@@Reviews\n\n# 2026-W03\nOnly W03\n\n" +
+		"# 2026-W02\nEnergy: low midweek\nFocus:\n- [P/#1.4 - zortex]\nWins:\n- Shipped the parser\nLessons:\n" +
+		"\n## 2026-01-06\nDone:\n- A day line\n"
+	if err := os.WriteFile(filepath.Join(dir, "reviews.zortex"), []byte(note), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s.Refresh()
+	page := expect(t, ts, "/review?week=2026-W02", 200, `class="body rv-notes"`, `Shipped the parser`, `Energy`, `low midweek`, `In reviews.zortex`)
+	notes := page[strings.Index(page, `rv-notes`):]
+	notes = notes[:strings.Index(notes, `In reviews.zortex`)]
+	for _, not := range []string{`Focus`, `Lessons`, `A day line`, `Only W03`} {
+		if strings.Contains(notes, not) {
+			t.Errorf("the week's notes show %q", not)
+		}
+	}
+	if !strings.Contains(notes, `Wins`) {
+		t.Error("a label with lines under it is shown")
+	}
+	if strings.Contains(expect(t, ts, "/review?week=2026-W05", 200), `rv-notes`) {
+		t.Error("a week with no entry shows no notes")
+	}
+}

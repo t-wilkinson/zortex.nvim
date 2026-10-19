@@ -89,3 +89,21 @@ func TestMarkdownBullets(t *testing.T) {
 		`<hr class="ln" id="L3">`,
 		`<span class="body">dash item</span>`)
 }
+
+func TestLinkKindClass(t *testing.T) {
+	for def, want := range map[string]string{
+		"Projects":         " zl-note",
+		"@Cars":            " zl-note",
+		"P/#1.4":           " zl-heading",
+		"A/#1.2/:Fitness":  " zl-label",
+		"Note/*Next steps": " zl-bold",
+		"O/#Current/-KR1":  " zl-item",
+		"./-Item":          " zl-item",
+		"Note/%sparkplug":  "",
+		"R/#Rust/>Book":    "",
+	} {
+		if got := linkKindClass(def); got != want {
+			t.Errorf("linkKindClass(%q) = %q, want %q", def, got, want)
+		}
+	}
+}

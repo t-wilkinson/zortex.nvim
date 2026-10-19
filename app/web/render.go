@@ -517,12 +517,35 @@ func (s *Server) linkHTMLAs(from *notes.Document, def, written string) string {
 			title = n.Breadcrumb(" › ")
 		}
 	}
-	cls := "zl"
+	cls := "zl" + linkKindClass(def)
 	if len(results) > 1 {
 		cls += " multi"
 		title += " (+" + itoa(len(results)-1) + " more)"
 	}
 	return `<a class="` + cls + `" href="` + esc(s.noteURL(first.Doc.Rel, first.Lnum)) + `" title="` + esc(title) + `">` + text + `</a>`
+}
+
+// linkKindClass colours a link once, by what its last component names
+// (the same kinds as the plugin's ZortexLink* groups): " zl-note",
+// " zl-heading", " zl-label", " zl-bold", " zl-item", or "" for a query.
+func linkKindClass(def string) string {
+	d := links.Parse(def)
+	if len(d.Components) == 0 {
+		return ""
+	}
+	switch d.Components[len(d.Components)-1].Type {
+	case "article", "tag":
+		return " zl-note"
+	case "heading":
+		return " zl-heading"
+	case "label":
+		return " zl-label"
+	case "highlight":
+		return " zl-bold"
+	case "listitem":
+		return " zl-item"
+	}
+	return ""
 }
 
 // maxFollow bounds chains of > links ([R/>a] matching a line whose link is

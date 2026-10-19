@@ -122,23 +122,23 @@ T.test("weekly review: the plan top down, from the vision to the projects", func
 		local obj = find(lines, "Grow food")
 		local kr = find(lines, "KR1: A harvest")
 		T.ok(area and vision and obj and kr and area < vision and vision < obj and obj < kr, table.concat(lines, "\n"))
-		T.ok(find(lines, "no project moves it: l links one"), "a key result with no project")
-		T.ok(find(lines, "no key results: k adds one"), "an objective with no key results")
+		T.ok(find(lines, "no project moves it: L links one"), "a key result with no project")
+		T.ok(find(lines, "no key results: R adds one"), "an objective with no key results")
 		T.ok(find(lines, "[P/Fix proj/#Garden]") and select(2, find(lines, "[P/Fix proj/#Garden]")):find("area only", 1, true), "area-only projects")
 	end)
 end)
 
-T.test("weekly review keys: l, k, n, z, a, p", function()
+T.test("weekly review keys: L, R, n, z, a, p", function()
 	with_notes(function(proj)
 		review.open({ today = TODAY })
 		local okr = fs.get_okr_file()
 
-		press("l", "KR1: A harvest", "[P/Fix proj/#Garden]")
+		press("L", "KR1: A harvest", "[P/Fix proj/#Garden]")
 		T.ok(vim.iter(read(okr)):any(function(l)
 			return l == "- KR1: [ ] A harvest [P/Fix proj/#Garden]"
 		end), table.concat(read(okr), "\n"))
 
-		press("k", "No key results yet", "Plant three beds")
+		press("R", "No key results yet", "Plant three beds")
 		T.ok(vim.tbl_contains(read(okr), "- KR1: [ ] Plant three beds"), table.concat(read(okr), "\n"))
 		-- u takes the last one back
 		vim.fn.maparg("u", "n", false, true).callback()
@@ -227,4 +227,10 @@ T.test("daily review keys: x, d, t, a", function()
 			return l:match("^%- %[x%] Call the mechanic") ~= nil
 		end), table.concat(read(cal), "\n"))
 	end)
+end)
+
+T.test("the review keeps h j k l for moving the cursor", function()
+	for _, k in ipairs(require("zortex.keys").of("review")) do
+		T.ok(not ({ h = true, j = true, k = true, l = true })[k.lhs], k.lhs .. " is mapped to " .. k.action)
+	end
 end)

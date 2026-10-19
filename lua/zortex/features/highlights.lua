@@ -45,6 +45,12 @@ local LINKS = {
 	ZortexTaskDone = { from = "Comment", strikethrough = true },
 	ZortexMarkdownLink = "Underlined",
 	ZortexLink = "Underlined",
+	-- a link takes the look of what it names (core/link.kind)
+	ZortexLinkNote = "ZortexLink",
+	ZortexLinkHeading = { from = "Title", underline = true, bold = false },
+	ZortexLinkLabel = { from = "Identifier", underline = true, bold = false },
+	ZortexLinkBold = { from = "Function", underline = true, bold = false },
+	ZortexLinkItem = { from = "Special", underline = true, bold = false },
 	ZortexTagSearchAt = "Comment", -- the "@" of @[tags]
 	ZortexFootnote = { from = "Comment", italic = true },
 	ZortexURL = "Underlined",
@@ -114,6 +120,11 @@ local ROSE_PINE = {
 	ZortexTaskDone = { fg = "#908caa", strikethrough = true },
 	ZortexMarkdownLink = { fg = "#3e8fb0", underline = true },
 	ZortexLink = { fg = "#3e8fb0", underline = true },
+	ZortexLinkNote = { fg = "#c4a7e7", underline = true },
+	ZortexLinkHeading = { fg = "#ea9a97", underline = true },
+	ZortexLinkLabel = { fg = "#3e8fb0", underline = true },
+	ZortexLinkBold = { fg = "#56949f", underline = true },
+	ZortexLinkItem = { fg = "#9ccfd8", underline = true },
 	ZortexTagSearchAt = { fg = "#6e6a86" },
 	ZortexFootnote = { fg = "#9ccfd8", italic = true },
 	ZortexURL = { fg = "#3e8fb0", underline = true },
@@ -219,6 +230,23 @@ end
 -- Inline spans
 -- =============================================================================
 
+local LINK_GROUPS = {
+	note = "ZortexLinkNote",
+	heading = "ZortexLinkHeading",
+	label = "ZortexLinkLabel",
+	bold = "ZortexLinkBold",
+	item = "ZortexLinkItem",
+}
+
+-- A link is coloured once, by what it names; a tag search, a query or a
+-- follow link keeps ZortexLink
+local function link_group(span_type, definition)
+	if span_type == "tag_search" or not definition then
+		return "ZortexLink"
+	end
+	return LINK_GROUPS[require("zortex.core.link").kind(definition) or ""] or "ZortexLink"
+end
+
 local function paint_spans(buf, row, spans, kind)
 	for _, span in ipairs(spans) do
 		local t, s, e = span.type, span.s, span.e
@@ -228,7 +256,7 @@ local function paint_spans(buf, row, spans, kind)
 			if t == "tag_search" then
 				paint(buf, row, "ZortexTagSearchAt", s, s + 1)
 			end
-			paint(buf, row, "ZortexLink", open + 1, e - 1)
+			paint(buf, row, link_group(t, span.definition), open + 1, e - 1)
 			icon(buf, row, open)
 			conceal(buf, row, e - 1, e)
 		elseif t == "markdown" then

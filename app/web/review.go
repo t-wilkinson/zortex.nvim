@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/t-wilkinson/zortex.nvim/app/links"
+	"github.com/t-wilkinson/zortex.nvim/app/notes"
 	"github.com/t-wilkinson/zortex.nvim/app/syntax"
 )
 
@@ -239,6 +240,81 @@ func (s *Server) xpIn(from, to string) (xp, hours float64, ok bool) {
 	return math.Round(xp), hours, true
 }
 
+// weekNotes: what is written in the week's entry of the reviews note (wins,
+// lessons, ...), rendered, and the entry's URL. The focus is left out (the
+// page shows its projects), and so are labels with nothing under them and
+// the entry's days (its "## <date>" headings).
+func (s *Server) weekNotes(week string) (template.HTML, string) {
+	d := s.reviewsDoc()
+	if d == nil {
+		return "", ""
+	}
+	var head *notes.Node
+	d.Tree.Walk(func(n *notes.Node) {
+		if head == nil && n.Type == syntax.KindHeading && n.Level == 1 && n.Text == week {
+			head = n
+		}
+	})
+	if head == nil {
+		return "", ""
+	}
+	// the entry's own lines: up to its first day
+	last := head.End
+	for _, c := range head.Children {
+		if c.Type == syntax.KindHeading {
+			last = c.Start - 1
+			break
+		}
+	}
+	blank := func(from, to int) bool {
+		for l := from; l <= to && l <= len(d.Lines); l++ {
+			if strings.TrimSpace(d.Lines[l-1]) != "" {
+				return false
+			}
+		}
+		return true
+	}
+	skip := map[int]bool{}
+	for _, c := range head.Children {
+		if c.Type != syntax.KindLabel || c.Start > last {
+			continue
+		}
+		end := c.End
+		if end > last {
+			end = last
+		}
+		if strings.EqualFold(c.Text, "Focus") || blank(c.Start+1, end) {
+			for l := c.Start; l <= end; l++ {
+				skip[l] = true
+			}
+		}
+	}
+	// trim blank lines at either end, then render the runs between skips
+	first := head.Start + 1
+	for first <= last && (skip[first] || strings.TrimSpace(d.Lines[first-1]) == "") {
+		first++
+	}
+	for last >= first && (skip[last] || strings.TrimSpace(d.Lines[last-1]) == "") {
+		last--
+	}
+	if first > last {
+		return "", s.noteURL(d.Rel, head.Start)
+	}
+	r := &noteRenderer{s: s, doc: d, ast: d.Parse()}
+	for l := first; l <= last; l++ {
+		if skip[l] {
+			continue
+		}
+		end := l
+		for end+1 <= last && !skip[end+1] {
+			end++
+		}
+		r.renderRange(l, end)
+		l = end
+	}
+	return template.HTML(r.b.String()), s.noteURL(d.Rel, head.Start)
+}
+
 func (s *Server) handleReview(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	week, monday, sunday := weekBounds(r.URL.Query().Get("week"), now)
@@ -344,6 +420,8 @@ func (s *Server) handleReview(w http.ResponseWriter, r *http.Request) {
 	xp, xpHours, hasXP := s.xpIn(from, to)
 	broken := len(s.current().broken)
 
+	notesHTML, notesURL := s.weekNotes(week)
+
 	prev, _, _ := weekBounds("", monday.AddDate(0, 0, -7))
 	next, _, _ := weekBounds("", monday.AddDate(0, 0, 7))
 	s.render(w, r, "review", http.StatusOK, map[string]any{
@@ -357,6 +435,8 @@ func (s *Server) handleReview(w http.ResponseWriter, r *http.Request) {
 		"Today":       today,
 		"Inbox":       inbox,
 		"Focus":       focusRows,
+		"Notes":       notesHTML,
+		"NotesURL":    notesURL,
 		"Earlier":     earlier,
 		"PutOff":      putOff,
 		"Objectives":  objectives,

@@ -155,8 +155,7 @@ function KeyResult:linked_projects()
 	local out = {}
 	for _, ref in ipairs(require("zortex.core.link_index").links_from(self.file)) do
 		if ref.lnum == self.lnum and ref.target then
-			local p = projects.at(ref.target.file, ref.target.lnum)
-			if p then
+			for _, p in ipairs(projects.for_target(ref.target.file, ref.target.lnum)) do
 				out[p.key] = p
 			end
 		end

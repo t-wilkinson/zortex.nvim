@@ -35,6 +35,16 @@ task        the next step                         anywhere           - [ ] Feed 
   **tasks** the checkbox items under them. A project is done when its tasks
   are, or when its heading has `@done(...)`: `<leader>zT` on the heading
   adds it (asking first while tasks are open) or takes it off.
+- **Organizational headings** group projects without being one: a heading
+  with no task of its own (done or not, sub-headings not counted) and no
+  project attribute (`@size` or a bare size, `@p`, `@i`, `@due`, `@done`,
+  `@xp`, `@dur`/`@est` or a bare duration, `@a(…)`, `@someday`) stays out of
+  the reviews, the planner, XP and `/projects`. Tags (`@cars`, for `@[…]`
+  links) and `@progress` don't count. The projects under it are
+  sub-projects of the nearest project above, and still go through it in
+  their links (`[P/#Car/#Rebuild engine]`). Linking it (a key result, the
+  week's focus, any note) makes it a project again when it has projects
+  under it: a container whose progress is theirs.
 
 **The canonical path** is task → project → key result → objective → area:
 the objective decides which area the work serves. A project can also carry

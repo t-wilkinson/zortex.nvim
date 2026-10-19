@@ -176,9 +176,9 @@ local function project_on(lines, lnum)
 	for _, span in ipairs(link.links_on(lines[lnum])) do
 		local def = link.absolute(span.definition, lines, lnum)
 		if def then
-			local ok, p = pcall(projects.resolve, "[" .. def .. "]")
-			if ok and p then
-				return p
+			local ok, list = pcall(projects.for_link, "[" .. def .. "]")
+			if ok and list[1] then
+				return list[1]
 			end
 		end
 	end

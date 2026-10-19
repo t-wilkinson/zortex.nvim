@@ -45,6 +45,13 @@ $$
 
 func newSlidesServer(t *testing.T, files map[string]string) *httptest.Server {
 	t.Helper()
+	ts, _ := newSlidesServerWith(t, files)
+	return ts
+}
+
+// newSlidesServerWith is newSlidesServer, with the server too.
+func newSlidesServerWith(t *testing.T, files map[string]string) (*httptest.Server, *Server) {
+	t.Helper()
 	dir := t.TempDir()
 	for rel, content := range files {
 		p := filepath.Join(dir, rel)
@@ -59,7 +66,7 @@ func newSlidesServer(t *testing.T, files map[string]string) *httptest.Server {
 	}
 	ts := httptest.NewServer(s.Handler())
 	t.Cleanup(ts.Close)
-	return ts
+	return ts, s
 }
 
 var slideRe = regexp.MustCompile(`<section class="slide (\w+)" data-lnum="(\d+)" data-end="(\d+)" data-steps="(\d+)"`)

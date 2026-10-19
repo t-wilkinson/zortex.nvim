@@ -69,6 +69,7 @@ type webProject struct {
 	Size, P, I, Due, Done string
 	Areas                 []string // @a(...) values
 	doc                   *notes.Document
+	node                  *notes.Node // its heading (the article for a note's root)
 }
 
 // rollup is a project's tasks with its sub-projects': counts and hours.
@@ -191,15 +192,23 @@ func (s *Server) buildProjects(d *notes.Document, cal calibration, hist *calenda
 	} else {
 		root.Link = "[P/" + root.Name + "]"
 	}
-	var visit func(n *notes.Node, parent *webProject)
-	visit = func(n *notes.Node, parent *webProject) {
+	// organizational headings aren't projects but still name the ones under
+	// them: path is the headings down to here, projects or not
+	isProject := s.projectHeadings(d)
+	var visit func(n *notes.Node, parent *webProject, path []string)
+	visit = func(n *notes.Node, parent *webProject, path []string) {
 		for _, c := range n.Children {
 			if c.Type != syntax.KindHeading {
-				visit(c, parent)
+				visit(c, parent, path)
 				continue
 			}
-			p := &webProject{Rel: d.Rel, Lnum: c.Start, End: c.End, Name: c.Text, Parent: parent, doc: d}
-			p.Path = append(append([]string(nil), parent.Path...), c.Text)
+			here := append(append([]string(nil), path...), c.Text)
+			if !isProject(c) {
+				visit(c, parent, here)
+				continue
+			}
+			p := &webProject{Rel: d.Rel, Lnum: c.Start, End: c.End, Name: c.Text, Parent: parent, doc: d, node: c}
+			p.Path = here
 			parts := make([]string, len(p.Path))
 			for i, t := range p.Path {
 				parts[i] = "#" + t
@@ -210,24 +219,28 @@ func (s *Server) buildProjects(d *notes.Document, cal calibration, hist *calenda
 				p.Link = "[P/" + root.Name + "/" + strings.Join(parts, "/") + "]"
 			}
 			parent.Children = append(parent.Children, p)
-			visit(c, p)
+			visit(c, p, here)
 		}
 	}
 	if article != nil {
-		visit(article, root)
+		root.node = article
+		visit(article, root, nil)
 	}
 	// headings outside the article (a note without a header)
 	for _, n := range d.Tree.Children {
 		if n != article && n.Type == syntax.KindHeading {
-			visit(&notes.Node{Children: []*notes.Node{n}}, root)
+			visit(&notes.Node{Children: []*notes.Node{n}}, root, nil)
 		}
 	}
 	r := &noteRenderer{s: s, doc: d}
 	root.walk(func(p *webProject) {
 		line := d.Lines[p.Lnum-1]
+		// its own lines: up to its first sub-heading, a project or not
 		p.OwnEnd = p.End
-		if len(p.Children) > 0 {
-			p.OwnEnd = p.Children[0].Lnum - 1
+		if p.node != nil {
+			p.OwnEnd = ownEnd(p.node)
+		} else if first := firstHeading(d); first > 0 && first <= p.End {
+			p.OwnEnd = first - 1
 		}
 		if !p.Root {
 			p.Size, p.P, p.I = attrOrBare(line, "size"), attrOrBare(line, "p"), attrOrBare(line, "i")
@@ -306,6 +319,132 @@ func (s *Server) allProjects() []*webProject {
 		s.buildProjects(d, cal, hist, today).walk(func(p *webProject) { out = append(out, p) })
 	}
 	return out
+}
+
+// =============================================================================
+// Organizational headings (lua/zortex/services/projects/project.lua)
+// =============================================================================
+
+// A heading with no task of its own (done or not) and no project attribute
+// only groups the projects under it: it isn't a project, unless something
+// links it (from outside it) and it has projects under it. Bare tags (for
+// @[...] tag links) and the derived @progress don't make one.
+var (
+	projectAttrRe = regexp.MustCompile(`@(?:size|p|i|due|done|xp|dur|est|a|area)\(`)
+	projectBareRe = regexp.MustCompile(`(?:^|\s)@(?:xs|sm|md|lg|xl|epic|legendary|mythic|ultimate|[pi][1-3]|someday|\d+(?:\.\d+)?(?:h|m|min|d|w)(?:\d+m)?)(?:\s|$)`)
+)
+
+// ownEnd: the last line of a section's own content, before its first
+// sub-heading.
+func ownEnd(n *notes.Node) int {
+	for _, c := range n.Children {
+		if c.Type == syntax.KindHeading {
+			return c.Start - 1
+		}
+	}
+	return n.End
+}
+
+// firstHeading: the line of a note's first heading, 0 when it has none.
+func firstHeading(d *notes.Document) int {
+	first := 0
+	d.Tree.Walk(func(n *notes.Node) {
+		if n.Type == syntax.KindHeading && (first == 0 || n.Start < first) {
+			first = n.Start
+		}
+	})
+	return first
+}
+
+// projectHeadings: which headings of a project note are projects.
+func (s *Server) projectHeadings(d *notes.Document) func(*notes.Node) bool {
+	// the links pointing at its lines: from other notes (not archived ones,
+	// as the plugin's link index) and from itself
+	type ref struct {
+		from string
+		lnum int
+	}
+	linked := map[int][]ref{}
+	if snap := s.current(); snap != nil {
+		for _, b := range snap.backlinks[d.Rel] {
+			if b.FromNote && !s.ix.IsArchived(b.From) {
+				linked[b.ToLnum] = append(linked[b.ToLnum], ref{b.From, b.Lnum})
+			}
+		}
+		for _, b := range snap.inner[d.Rel] {
+			linked[b.ToLnum] = append(linked[b.ToLnum], ref{b.From, b.Lnum})
+		}
+	}
+	memo := map[*notes.Node]bool{}
+	var is func(n *notes.Node) bool
+	var under func(n *notes.Node) bool
+	under = func(n *notes.Node) bool {
+		for _, c := range n.Children {
+			if c.Type == syntax.KindHeading && is(c) || under(c) {
+				return true
+			}
+		}
+		return false
+	}
+	is = func(n *notes.Node) bool {
+		if v, ok := memo[n]; ok {
+			return v
+		}
+		yes := false
+		line := d.Lines[n.Start-1]
+		if projectAttrRe.MatchString(line) || projectBareRe.MatchString(line) {
+			yes = true
+		}
+		for l := n.Start + 1; !yes && l <= ownEnd(n); l++ {
+			if d.InCode(l) {
+				continue
+			}
+			if it := syntax.ItemOf(d.Lines[l-1]); it != nil && it.Mark != "" {
+				yes = true
+			}
+		}
+		if !yes {
+			for _, r := range linked[n.Start] {
+				if r.from != d.Rel || r.lnum < n.Start || r.lnum > n.End {
+					yes = under(n)
+					break
+				}
+			}
+		}
+		memo[n] = yes
+		return yes
+	}
+	return is
+}
+
+// projectsFor: the projects a link's target stands for: the project its
+// line is in; none for an organizational heading (nothing under it is a
+// project, or only links from inside it name it), else the outermost
+// projects under it.
+func projectsFor(all []*webProject, rel string, lnum int, d *notes.Document) []*webProject {
+	if d != nil {
+		if n := d.NodeStartingAt(lnum); n != nil && n.Type == syntax.KindHeading {
+			isProject := false
+			for _, p := range all {
+				if p.Rel == rel && p.Lnum == lnum && !p.Root {
+					isProject = true
+				}
+			}
+			if !isProject {
+				var out []*webProject
+				for _, p := range all {
+					if p.Rel == rel && p.Lnum > n.Start && p.Lnum <= n.End && (p.Parent == nil || p.Parent.Lnum < n.Start || p.Parent.Root) {
+						out = append(out, p)
+					}
+				}
+				return out
+			}
+		}
+	}
+	if p := projectAt(all, rel, lnum); p != nil {
+		return []*webProject{p}
+	}
+	return nil
 }
 
 // projectAt: the innermost project containing rel:lnum.
@@ -590,9 +729,11 @@ func (s *Server) objectives(all []*webProject, now time.Time) []*webObjective {
 				if err != nil || res == nil {
 					continue
 				}
-				if p := projectAt(all, res.Doc.Rel, res.Lnum); p != nil && !seen[p] {
-					seen[p] = true
-					kr.Projects = append(kr.Projects, p)
+				for _, p := range projectsFor(all, res.Doc.Rel, res.Lnum, res.Doc) {
+					if !seen[p] {
+						seen[p] = true
+						kr.Projects = append(kr.Projects, p)
+					}
 				}
 			}
 			if kr.Done {
@@ -689,9 +830,9 @@ func (s *Server) focus(all []*webProject, now time.Time) (week string, list []*w
 					if err != nil || res == nil {
 						continue
 					}
-					if p := projectAt(all, res.Doc.Rel, res.Lnum); p != nil && !seen[p] {
-						seen[p] = true
-						e.projects = append(e.projects, p)
+					if list := projectsFor(all, res.Doc.Rel, res.Lnum, res.Doc); len(list) > 0 && !seen[list[0]] {
+						seen[list[0]] = true
+						e.projects = append(e.projects, list[0])
 					}
 					break
 				}
@@ -751,11 +892,12 @@ func (s *Server) row(p *webProject, focused map[*webProject]bool, krs []webKR) p
 			}
 		}
 	})
+	// the headings above it, projects or organizational ones
 	var parents []string
-	for x := p.Parent; x != nil && !x.Root; x = x.Parent {
-		parents = append([]string{x.Name}, parents...)
+	if len(p.Path) > 1 {
+		parents = append(parents, p.Path[:len(p.Path)-1]...)
 	}
-	if p.Parent != nil && p.Parent.Root && !s.isProjectsNote(p.doc) {
+	if len(p.Path) == 1 && p.Parent != nil && p.Parent.Root && !s.isProjectsNote(p.doc) {
 		parents = append([]string{p.Parent.Name}, parents...)
 	}
 	r.Context = strings.Join(parents, " › ")

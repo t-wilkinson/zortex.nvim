@@ -37,8 +37,19 @@ local registry = entity.registry({
 	namespace = constants.PROJECT_TAG, -- links start with [P/...]
 	class = ProjectModule.Project,
 	init = ProjectModule.init,
-	keep = function(node)
+	-- headings that are projects; organizational ones only name them
+	keep = function(node, doc)
+		return node.type == "heading" and ProjectModule.is_project_heading(node, doc)
+	end,
+	in_path = function(node)
 		return node.type == "heading"
+	end,
+	-- linking a heading can make it a project: rebuild when links change
+	cache_tag = function()
+		local ok, gen = pcall(function()
+			return require("zortex.core.link_index").generation()
+		end)
+		return ok and gen or 0
 	end,
 	-- The Projects file first, then every note tagged @P
 	sources = function()
@@ -79,6 +90,42 @@ function M.query(opts)
 	return list
 end
 
+--- The projects a link's target stands for: the project its line is in;
+--- none for an organizational heading (one that isn't a project even
+--- though linked: nothing under it is a project). Key results and the
+--- week's focus read their links with it.
+---@return table[] projects
+function M.for_target(target, lnum)
+	local doc = Document.resolve(target)
+	if not doc or not M.is_source(doc) then
+		return {}
+	end
+	local node = doc:node_starting_at(lnum)
+	if node and node.type == "heading" and not ProjectModule.is_project_heading(node, doc) then
+		local out = {}
+		for _, root in ipairs(M.for_document(doc)) do
+			root:walk(function(x)
+				if x.start_line > node.start_line and x.start_line <= node.end_line then
+					out[#out + 1] = x
+					return false
+				end
+			end)
+		end
+		return out
+	end
+	local p = M.at(doc, lnum)
+	return p and { p } or {}
+end
+
+--- for_target for a link ("[P/#Car]"): its canonical target's projects.
+function M.for_link(link, opts)
+	local result = require("zortex.core.link").resolve_first(link, opts)
+	if not result then
+		return {}
+	end
+	return M.for_target(result.doc, result.lnum)
+end
+
 -- Every task across all projects (each task carries `.project`).
 ---@param opts { include_done?: boolean, filter?: function }?
 function M.tasks(opts)
@@ -108,9 +155,11 @@ function M.update_progress(bufnr)
 		return 0
 	end
 	local updated = 0
+	local projects = {}
 	for _, root in ipairs(M.for_document(doc)) do
 		root:walk(function(p)
 			if p.kind == "heading" then
+				projects[p.lnum] = true
 				local r = p:rollup()
 				local line = doc.lines[p.lnum]
 				local new_line = attributes.update_progress_attribute(line, r.done, r.total)
@@ -121,6 +170,17 @@ function M.update_progress(bufnr)
 			end
 		end)
 	end
+	-- an organizational heading has no progress of its own: drop an old one
+	doc.tree:walk(function(n)
+		if n.type == "heading" and not projects[n.start_line] then
+			local line = doc.lines[n.start_line]
+			local new_line = attributes.remove_attribute(line, "progress")
+			if new_line ~= line then
+				vim.api.nvim_buf_set_lines(bufnr, n.start_line - 1, n.start_line, false, { new_line })
+				updated = updated + 1
+			end
+		end
+	end)
 	return updated
 end
 

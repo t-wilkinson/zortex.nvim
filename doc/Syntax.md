@@ -312,7 +312,7 @@ Topics:
 
 | Note | Name | What it holds |
 |---|---|---|
-| `projects.zortex` | `@@Projects` / `@@P` | headings are projects and sub-projects; checkbox items are their tasks. Any note tagged `@P` is a project too |
+| `projects.zortex` | `@@Projects` / `@@P` | headings are projects and sub-projects; checkbox items are their tasks. A heading with no task of its own and no project attribute only groups the projects under it, unless it is linked ([Planning](Planning.md)). Any note tagged `@P` is a project too |
 | `areas.zortex` | `@@Areas` / `@@A` | headings and labels are areas (`# 1 Personal`, `## 1.2 Health`, `Fitness:`) |
 | `okr.zortex` | `@@Objectives` / `@@OKR` | headings like `## 3M-2026-Q1 Title` are objectives; `- KRn: [ ] …` items are key results; project links on a KR drive its progress |
 | `calendar.zortex` | `@@Calendar` | days with entries under them: `**YYYY-MM-DD:**` (a bold heading, what new days get, so an `Outcomes:` label nests under it) or a plain `YYYY-MM-DD:` label; entries `- [ ] task`, `14:00 event`, `16:00 - 17:00 event`, `- note`. The items right under `Outcomes:` (to the first blank line) are the day's outcomes |

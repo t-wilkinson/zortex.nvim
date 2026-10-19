@@ -111,10 +111,9 @@ T.test("review findings", function()
 	T.eq(keys(r.stale), {
 		"Projects/1 Programming/1.4 - esp32",
 		"Projects/1 Programming/1.4 - zortex/1.4.1 - zortex search",
-		"Projects/1 Personal",
 		"Projects/1 Personal/Habits",
 	})
-	T.eq(#r.unscheduled, 7) -- nothing is scheduled next week
+	T.eq(#r.unscheduled, 6) -- nothing is scheduled next week ("1 Personal" groups, not a project)
 	T.eq(#r.no_next_action, 0)
 	T.eq(vim.tbl_map(function(kr)
 		return kr.id

@@ -107,7 +107,8 @@ T.test("all() filters", function()
 		"Flipping/Subaru outback",
 		"Garden",
 	})
-	T.eq(#P.all({ include_roots = false }), 7) -- every heading project
+	-- every heading project; "1 Personal" only groups Habits: not one
+	T.eq(#P.all({ include_roots = false }), 6)
 end)
 
 T.test("query sorts", function()

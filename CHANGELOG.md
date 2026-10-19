@@ -10,6 +10,15 @@ The first public release.
 
 ### Neovim plugin
 
+- **Organizational headings** in project notes aren't projects: a heading
+  with no task of its own (done or not) and no project attribute (`@size`,
+  `@p`, `@i`, `@due`, `@done`, `@xp`, `@dur`, `@est`, `@a`, `@someday`;
+  tags and `@progress` don't count) only groups the projects under it. It
+  stays out of the reviews, the planner, XP, the projects picker and the
+  web app's `/projects`, `/review` and `/okr`; the projects under it keep
+  their keys and links through it. Linked from anywhere outside it, with
+  projects under it, it is a project again (a container). `<leader>zu`
+  takes an old `@progress` off it.
 - Links are coloured by what they name: a note, a heading, a label, a
   bold heading or a list item each have their own group
   (`ZortexLinkNote`, `ZortexLinkHeading`, ...), read from the link alone

@@ -193,3 +193,85 @@ func TestReviewPageShowsTheWeeksNotes(t *testing.T) {
 		t.Error("a week with no entry shows no notes")
 	}
 }
+
+// Organizational headings (no task of their own, no project attribute)
+// aren't projects; they still name the projects under them. Linked, with
+// projects under them, they are projects again (lua: test_projects_org).
+func TestOrganizationalHeadings(t *testing.T) {
+	note := "@@Org test\n@P\n\n" +
+		"# Car @cars\nNotes about the car, no tasks.\n## Rebuild engine\n- [ ] Lap the valves\n## Fix brakes\n- [x] Order pads\n" +
+		"# Someday ideas @progress(0/0)\n## Empty idea\n" +
+		"# Learn piano @lg\n" +
+		"# Parked @someday\n" +
+		"# Home\n- [ ] Fix the gate\n## Garden\n### Beds\n- [ ] Dig\n"
+	build := func(extra string) []*webProject {
+		files := map[string]string{"org-test.zortex": note}
+		if extra != "" {
+			files["org-links.zortex"] = extra
+		}
+		_, s := newSlidesServerWith(t, files)
+		var out []*webProject
+		for _, p := range s.allProjects() {
+			if p.Rel == "org-test.zortex" {
+				out = append(out, p)
+			}
+		}
+		return out
+	}
+	names := func(list []*webProject) []string {
+		var out []string
+		for _, p := range list {
+			out = append(out, p.Link)
+		}
+		return out
+	}
+	got := names(build(""))
+	want := []string{
+		"[P/Org test]",
+		"[P/Org test/#Car/#Rebuild engine]",
+		"[P/Org test/#Car/#Fix brakes]",
+		"[P/Org test/#Learn piano]",
+		"[P/Org test/#Parked]",
+		"[P/Org test/#Home]",
+		"[P/Org test/#Home/#Garden/#Beds]",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("projects:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+	for _, p := range build("") {
+		switch p.Name {
+		case "Home":
+			if p.OwnEnd != 15 || len(p.Tasks) != 1 {
+				t.Errorf("Home's own lines end at %d with %d tasks", p.OwnEnd, len(p.Tasks))
+			}
+		case "Beds":
+			if p.Parent == nil || p.Parent.Name != "Home" {
+				t.Error("Beds' project is Home")
+			}
+		case "Org test":
+			if p.OwnEnd != 3 {
+				t.Errorf("the root's own lines end at %d, not before # Car", p.OwnEnd)
+			}
+		}
+	}
+	// a link's target: the project it is in, none for an organizational
+	// heading with nothing under it
+	ts, srv := newSlidesServerWith(t, map[string]string{"org-test.zortex": note})
+	_ = ts
+	all := srv.allProjects()
+	doc := srv.ix.Doc("org-test.zortex")
+	if got := projectsFor(all, "org-test.zortex", 11, doc); len(got) != 0 {
+		t.Errorf("Empty idea stands for %v", names(got))
+	}
+	if got := names(projectsFor(all, "org-test.zortex", 7, doc)); len(got) != 1 || got[0] != "[P/Org test/#Car/#Rebuild engine]" {
+		t.Errorf("a task line stands for %v", got)
+	}
+	// linked from another note, with projects under it: a project again
+	linked := names(build("@@Org links\n\n- [P/Org test/#Car] needs work\n- [P/Org test/#Someday ideas/#Empty idea]\n"))
+	if !strings.Contains(strings.Join(linked, "\n"), "[P/Org test/#Car]\n") {
+		t.Errorf("a linked Car with projects under it isn't a project: %v", linked)
+	}
+	if strings.Contains(strings.Join(linked, "\n"), "Empty idea") {
+		t.Error("a linked heading with nothing under it became a project")
+	}
+}

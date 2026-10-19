@@ -7,6 +7,8 @@
 --   references(file, start_line, end_line)  links pointing into a line range
 --   backlinks(node_or_entity, opts)         links pointing at a section/entity
 --   links_from(file)                        links found in a note
+--   linked_lines(file)                      lnum -> the links pointing at it
+--   generation()                            changes whenever links change
 --   unresolved()                            links that resolve nowhere (a
 --                                           path link, [./z/scan.pdf], when
 --                                           its file is missing)
@@ -34,6 +36,8 @@ local state = {
 	files = {}, -- path -> { stamp, names, tags, links = { link... }, line_tags = { tag = count } }
 	last_refresh = nil,
 	dirty = false,
+	generation = 0, -- bumped whenever a refresh changed anything
+	by_target = nil, -- file -> { lnum -> { ref... } }, for this generation
 }
 
 local function notes()
@@ -298,6 +302,8 @@ function M.refresh(force)
 		return
 	end
 	state.dirty = true
+	state.generation = state.generation + 1
+	state.by_target = nil
 
 	-- 2. Re-resolve every link whose target could have changed.
 	local memo = {}
@@ -321,6 +327,7 @@ end
 --- Drop the index (memory and disk) and rebuild it from scratch.
 function M.rebuild()
 	state.files = {}
+	state.by_target = nil
 	state.loaded = true
 	state.dirty = true
 	state.last_refresh = nil
@@ -402,6 +409,34 @@ function M.references(file, start_line, end_line)
 		return a.lnum < b.lnum
 	end)
 	return out
+end
+
+--- A number that changes whenever the index does (after a refresh), so
+--- what is derived from links can be cached against it.
+function M.generation()
+	M.refresh()
+	return state.generation
+end
+
+--- The lines of `file` that links point at: { [lnum] = { ref... } }.
+function M.linked_lines(file)
+	M.refresh()
+	file = vim.fn.fnamemodify(file, ":p")
+	if not state.by_target then
+		state.by_target = {}
+		for path, entry in pairs(state.files) do
+			for _, link in ipairs(entry.links) do
+				local t = link.target
+				if t and t.file then
+					local f = state.by_target[t.file] or {}
+					state.by_target[t.file] = f
+					f[t.lnum] = f[t.lnum] or {}
+					table.insert(f[t.lnum], as_ref(path, link))
+				end
+			end
+		end
+	end
+	return state.by_target[file] or {}
 end
 
 --- Backlinks of a section node (with its document) or an entity (project,
@@ -601,7 +636,8 @@ function M._reset()
 		save_timer:close()
 		save_timer = nil
 	end
-	state = { loaded = false, files = {}, last_refresh = nil, dirty = false }
+	-- the generation keeps counting, so nothing cached against it survives
+	state = { loaded = false, files = {}, last_refresh = nil, dirty = false, generation = (state.generation or 0) + 1 }
 end
 
 return M

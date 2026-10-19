@@ -151,6 +151,8 @@ Special notes:
 
 - **`projects.zortex`** (`@@Projects` / `@@P`): headings are projects and
   sub-projects; any note tagged `@P` is a project too. Link them as `[P/…]`.
+  A heading with no task of its own and no project attribute only groups
+  the projects under it (until something links it).
 - **`areas.zortex`** (`@@Areas` / `@@A`): headings and labels are areas;
   `@a(4.1)` on a project or objective links it to an area.
 - **`okr.zortex`**: headings like `## 3M-2026-Q1 Title` are objectives; their

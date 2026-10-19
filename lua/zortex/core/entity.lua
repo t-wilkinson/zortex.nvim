@@ -11,9 +11,13 @@
 -- A kind specializes it with a spec:
 --   kind       "project" | "area" | ...
 --   namespace  first link component ("P" -> [P/#1 Programming/#1.4 - zortex])
---   keep(node) which sections become entities
+--   keep(node, doc) which sections become entities
+--   in_path(node) optional: a section that isn't kept but still names the
+--              entities under it (their path, so key and link stay stable)
 --   class      metatable inheriting from Entity (adds domain methods)
 --   init(e)    optional per-entity setup (attributes, ...)
+--   cache_tag(doc) optional: a value the cached tree depends on besides the
+--              document (rebuilt when it changes)
 --   sources()  note paths that contribute root entities
 --   is_source(doc)
 local M = {}
@@ -71,7 +75,22 @@ function M.new(cls, spec, doc, node, parent)
 		depth = parent and (parent.depth + 1) or 0,
 	}, cls)
 
-	e.path = parent and vim.list_extend(vim.list_slice(parent.path), { e.name }) or { e.name }
+	e.path = { e.name }
+	if parent then
+		-- sections between the parent's and this one that aren't entities
+		-- but still name it (spec.in_path)
+		local between = {}
+		if spec.in_path then
+			local cur = node.parent
+			while cur and cur ~= parent.node do
+				if spec.in_path(cur) then
+					table.insert(between, 1, cur.text)
+				end
+				cur = cur.parent
+			end
+		end
+		e.path = vim.list_extend(vim.list_extend(vim.list_slice(parent.path), between), { e.name })
+	end
 	e.key = table.concat(e.path, "/")
 	local parts = M.link_components(doc, node, spec.namespace)
 	e.link = #parts > 0 and link_mod.build_link(parts) or nil
@@ -212,6 +231,9 @@ function M.registry(spec)
 			local doc = Document.get(path)
 			parts[#parts + 1] = path .. ":" .. tostring(doc and (doc.mtime or doc.changedtick))
 		end
+		if spec.cache_tag then
+			parts[#parts + 1] = "tag:" .. tostring(spec.cache_tag())
+		end
 		return table.concat(parts, "|")
 	end
 
@@ -221,9 +243,11 @@ function M.registry(spec)
 		if not doc then
 			return {}
 		end
-		if not doc[cache_key] then
+		local tag = spec.cache_tag and spec.cache_tag(doc)
+		if not doc[cache_key] or doc[cache_key .. "_tag"] ~= tag then
+			doc[cache_key .. "_tag"] = tag
 			local roots = section.derive(doc.tree, function(node)
-				return node.type == "article" or spec.keep(node)
+				return node.type == "article" or spec.keep(node, doc)
 			end, function(node, parent)
 				return M.new(spec.class, spec, doc, node, parent)
 			end)

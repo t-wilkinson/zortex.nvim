@@ -148,6 +148,7 @@ type Broken struct {
 type snapshot struct {
 	search    *search.Index
 	backlinks map[string][]Backlink // target note -> links to it
+	inner     map[string][]Backlink // note -> its links to its own lines
 	broken    []Broken
 	tags      []tagInfo // sorted by name
 	recent    []string  // notes, most recently modified first
@@ -298,6 +299,7 @@ func (s *Server) rebuild(res []resource, linking []string, fingerprint uint64) {
 	snap := &snapshot{
 		search:    search.BuildAll(s.ix),
 		backlinks: map[string][]Backlink{},
+		inner:     map[string][]Backlink{},
 		notes:     len(all),
 
 		resources:     res,
@@ -402,7 +404,10 @@ func (s *Server) collectLinks(doc *notes.Document, snap *snapshot) {
 				return
 			}
 			if r.Doc.Rel == doc.Rel {
-				return // links within a note aren't backlinks
+				// links within a note aren't backlinks (projects read them:
+				// a linked heading with projects under it is one)
+				snap.inner[doc.Rel] = append(snap.inner[doc.Rel], Backlink{From: doc.Rel, FromNote: true, Lnum: lnum, Def: sp.Definition, ToLnum: r.Lnum})
+				return
 			}
 			snap.backlinks[r.Doc.Rel] = append(snap.backlinks[r.Doc.Rel], Backlink{
 				From:       doc.Rel,

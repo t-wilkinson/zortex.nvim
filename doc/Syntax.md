@@ -178,6 +178,12 @@ case-insensitive and by prefix: `[P/#1.4]` finds `## 1.4 - zortex`.
 | `%` query | `[Note/%sparkplug]` | any line containing the text |
 | `>` follow | `[R/#Rust/>The Rust Book]` | a link in the range, by its text or its line's text; following it opens what that link points to (last component only) |
 
+A link is coloured by what its last component names: a note (or tag), a
+heading, a label, a bold heading or a list item, each its own colour
+(`ZortexLinkNote`, `ZortexLinkHeading`, `ZortexLinkLabel`, `ZortexLinkBold`,
+`ZortexLinkItem` in Neovim; the same kinds in the web app). Query and
+follow links keep the plain link colour.
+
 - `[/#Local heading]` (leading `/`) resolves in the current note.
 - A note outside `notes_dir` (a repository's `doc/Roadmap.zortex`) resolves
   its links among the notes of its own folder: the nearest folder above it

@@ -263,7 +263,8 @@ T.test("highlights paint from the syntax", function()
 		"ZortexKeyResultDone",
 		"ZortexTaskText",
 		"ZortexTaskDone",
-		"ZortexLink",
+		"ZortexLinkNote",
+		"ZortexLinkHeading",
 		"ZortexAttribute",
 		"ZortexCodeBlock",
 		"ZortexMathBlock",
@@ -283,6 +284,20 @@ T.test("highlights paint from the syntax", function()
 		T.ok(groups[g], "painted " .. g)
 	end
 	vim.cmd("bwipeout!")
+end)
+
+T.test("a link is coloured by what its last component names", function()
+	local kind = require("zortex.core.link").kind
+	T.eq(kind("Projects"), "note")
+	T.eq(kind("[@Cars]"), "note")
+	T.eq(kind("P/#1.4 - zortex"), "heading")
+	T.eq(kind("A/#1.2/:Fitness"), "label")
+	T.eq(kind("Note/*Next steps"), "bold")
+	T.eq(kind("O/#Current/-KR1"), "item")
+	T.eq(kind("./-Item"), "item")
+	T.eq(kind("/#Local"), "heading")
+	T.eq(kind("Note/%sparkplug"), nil)
+	T.eq(kind("R/#Rust/>The Rust Book"), nil)
 end)
 
 T.test("folds follow sections and indentation", function()

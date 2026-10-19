@@ -518,13 +518,65 @@ func (s *Server) gtHeadings(rel string) string {
 // showing how many notes they hold.
 const openDepth = 2
 
+// A card is wide (two grid columns, its top-level entries in two columns
+// inside) when it has at least wideMinRows visible rows and wideFactor times
+// the median card's, and two or more top-level entries to share them out.
+const (
+	wideMinRows = 14
+	wideFactor  = 2
+)
+
+// gtCard is a card of /graph, and how many rows it shows (its height).
+type gtCard struct {
+	html string
+	rows int
+	tops int
+}
+
 // graphHTML lays the tree out as cards: each Structure note's top-level
 // sections and sub-trees, its loose notes together, and each hub the tree
-// doesn't reach.
+// doesn't reach. A note listed again elsewhere isn't expanded again: it
+// links to where its children are ("(children)").
 func (s *Server) graphHTML(roots []*treeNode) template.HTML {
-	var b strings.Builder
-	var write func(list []*treeNode, depth int)
-	write = func(list []*treeNode, depth int) {
+	// where each note's children are: the one place it is expanded; an id
+	// on it when it is listed again somewhere
+	home := map[string]*treeNode{}
+	var again []*treeNode
+	var index func(list []*treeNode)
+	index = func(list []*treeNode) {
+		for _, n := range list {
+			switch {
+			case n.Rel == "":
+			case n.Again:
+				again = append(again, n)
+			case len(n.Children) > 0 && home[n.Rel] == nil:
+				home[n.Rel] = n
+			}
+			index(n.Children)
+		}
+	}
+	index(roots)
+	ids := map[*treeNode]string{}
+	for _, n := range again {
+		if h := home[n.Rel]; h != nil && ids[h] == "" {
+			ids[h] = "gt-" + strconv.Itoa(len(ids)+1)
+		}
+	}
+	idAttr := func(n *treeNode) string {
+		if id, ok := ids[n]; ok {
+			return ` id="` + id + `"`
+		}
+		return ""
+	}
+
+	var write func(b *strings.Builder, list []*treeNode, depth int, rows *int)
+	write = func(b *strings.Builder, list []*treeNode, depth int, rows *int) {
+		visible := depth <= openDepth // under a list that starts open
+		count := func(html string) {
+			if visible {
+				*rows += 1 + strings.Count(html, "<li")
+			}
+		}
 		b.WriteString(`<ul class="gt">`)
 		for _, n := range list {
 			open := ""
@@ -536,38 +588,44 @@ func (s *Server) graphHTML(roots []*treeNode) template.HTML {
 				more = ` <span class="gt-more dim" title="Notes under it">+` + strconv.Itoa(countNotes(n.Children)) + `</span>`
 			}
 			if n.Rel == "" {
+				count("")
 				b.WriteString(`<li class="gt-sec"><details` + open + `><summary>` + esc(n.Text) + more + `</summary>`)
-				write(n.Children, depth+1)
+				write(b, n.Children, depth+1, rows)
 				b.WriteString(`</details></li>`)
 				continue
 			}
 			a := s.gtNote(n.Rel, n.Text, true)
-			if n.Again {
-				a += ` <span class="dim" title="Listed in another place too; its notes are shown there">(above)</span>`
-			}
 			heads := ""
-			if !n.Again {
+			if n.Again {
+				if h := home[n.Rel]; h != nil && ids[h] != "" {
+					a += ` <a class="gt-goto dim" href="#` + ids[h] + `" title="Its notes are listed where it first appears">(children)</a>`
+				}
+			} else {
 				heads = s.gtHeadings(n.Rel)
 			}
+			count(heads)
 			if len(n.Children) == 0 {
-				b.WriteString(`<li>` + a + heads + `</li>`)
+				b.WriteString(`<li` + idAttr(n) + `>` + a + heads + `</li>`)
 				continue
 			}
-			b.WriteString(`<li><details` + open + `><summary>` + a + more + `</summary>` + heads)
-			write(n.Children, depth+1)
+			b.WriteString(`<li` + idAttr(n) + `><details` + open + `><summary>` + a + more + `</summary>` + heads)
+			write(b, n.Children, depth+1, rows)
 			b.WriteString(`</details></li>`)
 		}
 		b.WriteString(`</ul>`)
 	}
-	card := func(title string, list []*treeNode, heads string) {
-		b.WriteString(`<section class="gt-card"><h2>` + title + ` <span class="gt-n dim" title="Notes in it">` + strconv.Itoa(countNotes(list)) + `</span></h2>` + heads)
-		write(list, 0)
+	var cards []gtCard
+	card := func(title string, list []*treeNode, heads, id string) {
+		var b strings.Builder
+		rows := 1 + strings.Count(heads, "<li") // the title, its headings
+		b.WriteString(`<section class="gt-card"` + id + `><h2>` + title + ` <span class="gt-n dim" title="Notes in it">` + strconv.Itoa(countNotes(list)) + `</span></h2>` + heads)
+		write(&b, list, 0, &rows)
 		b.WriteString(`</section>`)
+		cards = append(cards, gtCard{html: b.String(), rows: rows, tops: len(list)})
 	}
-	b.WriteString(`<div class="gt-cols">`)
 	for _, root := range roots {
 		if !root.Root {
-			card(s.gtNote(root.Rel, root.Text, false), root.Children, s.gtHeadings(root.Rel))
+			card(s.gtNote(root.Rel, root.Text, false), root.Children, s.gtHeadings(root.Rel), idAttr(root))
 			continue
 		}
 		var loose []*treeNode
@@ -576,17 +634,44 @@ func (s *Server) graphHTML(roots []*treeNode) template.HTML {
 				loose = append(loose, c)
 			}
 		}
+		first := idAttr(root) // a Structure note's children start at its first card
 		if len(loose) > 0 {
-			card(s.gtNote(root.Rel, root.Text, false), loose, "")
+			card(s.gtNote(root.Rel, root.Text, false), loose, "", first)
+			first = ""
 		}
 		for _, c := range root.Children {
 			switch {
 			case c.Rel == "":
-				card(esc(c.Text), c.Children, "")
+				card(esc(c.Text), c.Children, "", first)
+				first = ""
 			case len(c.Children) > 0:
-				card(s.gtNote(c.Rel, c.Text, false), c.Children, s.gtHeadings(c.Rel))
+				id := idAttr(c)
+				if id == "" {
+					id, first = first, ""
+				}
+				card(s.gtNote(c.Rel, c.Text, false), c.Children, s.gtHeadings(c.Rel), id)
 			}
 		}
+	}
+
+	// the median card's height decides which are big
+	heights := make([]int, len(cards))
+	for i, c := range cards {
+		heights[i] = c.rows
+	}
+	sort.Ints(heights)
+	median := 0
+	if len(heights) > 0 {
+		median = heights[len(heights)/2]
+	}
+	var b strings.Builder
+	b.WriteString(`<div class="gt-cols">`)
+	for _, c := range cards {
+		html := c.html
+		if c.tops >= 2 && c.rows >= wideMinRows && c.rows >= wideFactor*median {
+			html = strings.Replace(html, `<section class="gt-card"`, `<section class="gt-card gt-wide"`, 1)
+		}
+		b.WriteString(html)
 	}
 	b.WriteString(`</div>`)
 	return template.HTML(b.String())

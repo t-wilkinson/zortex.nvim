@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -253,5 +254,46 @@ func TestGraphLinkedHeadings(t *testing.T) {
 	}
 	if !strings.Contains(body[i:], `1.4 - zortex</a>`) {
 		t.Error("projects.zortex's heading 1.4 - zortex, linked from the calendar, not listed")
+	}
+}
+
+// A note listed in a second place links to where its children are.
+func TestGraphRepeatLinksToChildren(t *testing.T) {
+	ts := newSlidesServer(t, map[string]string{
+		"structure.zortex": "@@Structure\n\n# A\n- [Hub]\n  - [Child]\n# B\n- [Hub]\n- [Other]\n",
+		"hub.zortex":       "@@Hub\n",
+		"child.zortex":     "@@Child\n",
+		"other.zortex":     "@@Other\n",
+	})
+	page := expect(t, ts, "/graph", 200, `<li id="gt-1"><details open><summary><a class="gt-note" href="/n/hub.zortex"`,
+		`<a class="gt-goto dim" href="#gt-1"`, `>(children)</a>`)
+	if strings.Contains(page, "(above)") {
+		t.Error("still says (above)")
+	}
+	if strings.Count(page, ` id="gt-`) != 1 {
+		t.Error("an id on a note nobody links to")
+	}
+}
+
+// A card much taller than the rest spans two grid columns.
+func TestGraphWideCards(t *testing.T) {
+	big := "# Big\n## One\n"
+	notes := map[string]string{}
+	for i := 0; i < 16; i++ {
+		name := "n" + strconv.Itoa(i)
+		if i == 8 {
+			big += "## Two\n"
+		}
+		big += "- [" + name + "]\n"
+		notes[name+".zortex"] = "@@" + name + "\n"
+	}
+	small := "# S1\n- [a]\n# S2\n- [b]\n# S3\n- [c]\n"
+	for _, n := range []string{"a", "b", "c"} {
+		notes[n+".zortex"] = "@@" + n + "\n"
+	}
+	notes["structure.zortex"] = "@@Structure\n\n" + big + small
+	page := expect(t, newSlidesServer(t, notes), "/graph", 200, `<section class="gt-card gt-wide"><h2>Big `)
+	if strings.Count(page, "gt-wide") != 1 {
+		t.Error("a small card is wide")
 	}
 }

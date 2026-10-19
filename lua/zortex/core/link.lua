@@ -151,6 +151,26 @@ function M.split(definition)
 	return components, scope
 end
 
+local KINDS = { ["@"] = "note", ["#"] = "heading", [":"] = "label", ["*"] = "bold", ["-"] = "item", ["%"] = false, [">"] = false }
+
+--- What a link names, by its last component: "note" (an article or a tag),
+--- "heading", "label", "bold", "item", or nil (a query, a follow). The link
+--- is coloured by it (ZortexLink<Kind>) and needs no resolving.
+---@param definition string "P/#1.4", "[A/:Fitness]"
+---@return string?
+function M.kind(definition)
+	local components = M.split(definition)
+	local last = components[#components]
+	if not last or last == "" then
+		return nil
+	end
+	local kind = KINDS[last:sub(1, 1)]
+	if kind == nil then
+		return "note"
+	end
+	return kind or nil
+end
+
 --- A link definition ("[P/#1.4]", "/:Notes") as { scope = "global"|"local", components }.
 function M.parse(definition)
 	if not definition or definition == "" then

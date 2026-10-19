@@ -10,6 +10,10 @@ The first public release.
 
 ### Neovim plugin
 
+- Links are coloured by what they name: a note, a heading, a label, a
+  bold heading or a list item each have their own group
+  (`ZortexLinkNote`, `ZortexLinkHeading`, ...), read from the link alone
+  (nothing is resolved). The web app colours them the same way.
 - `J` in a note joins lines the way they read: the joined line's `#`s,
   `-` (with its `[ ]`), `1.` or `> ` go, and so does the `:` of a label or
   bold heading it is joined onto (`Fitness:` + `- run 5k` is
@@ -314,7 +318,10 @@ The first public release.
   `reviews.zortex` says besides the focus (wins, lessons, ...).
 - Hover cards on links: a note's title, path, tags, first lines and
   backlinks; an image; a website's domain and URL (nothing is fetched).
-- `/graph` lists, under each note, the headings other notes link to.
+- `/graph` lists, under each note, the headings other notes link to. A card
+  much taller than the rest spans two columns, its sections side by side;
+  a note listed in a second place links to its children where they are
+  shown ("(children)").
 - The search page has a Text mode, and with `-data` its own search history
   (`search_history.json`, never in the notes' `.z/`).
 - `/broken` lists the tags that go nowhere, apart from broken links.

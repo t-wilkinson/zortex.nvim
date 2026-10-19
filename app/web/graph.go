@@ -16,7 +16,8 @@ import (
 // A note page shows the note's neighbourhood: the notes whose structure
 // lists it (above), the notes its own # Structure section lists (below),
 // and the other notes it links to (left) and that link to it (right).
-// /graph shows the whole structure as columns of cards, one per top-level
+// /graph shows the whole structure as cards packed in columns (masonry,
+// graph.js), one per top-level
 // section of the Structure note (and per hub the tree doesn't reach), each
 // hub note expanded with its own # Structure section; hovering a note marks
 // its other links, a tag marks its notes, and a filter narrows it all.

@@ -58,6 +58,28 @@
   }
   each(tagButtons, function (b) { b.addEventListener("click", function () { selectTag(b); }); });
 
+  // ---- masonry ---------------------------------------------------------------
+  // Each card spans as many of the grid's thin rows as its height (and the
+  // gap under it) needs, so short cards fill in under short ones instead of
+  // leaving holes next to tall ones; wide cards keep their two columns. A
+  // card is re-measured whenever its size changes: a list opened or closed,
+  // the filter, the window.
+  var cols = page.querySelector(".gt-cols");
+  if (cols && window.ResizeObserver) {
+    cols.classList.add("masonry");
+    var unit = parseFloat(getComputedStyle(cols).gridAutoRows) || 4;
+    var fit = function (card) {
+      var h = card.getBoundingClientRect().height;
+      if (!h) return; // hidden by the filter
+      var gap = parseFloat(getComputedStyle(card).marginBottom) || 0;
+      card.style.gridRowEnd = "span " + Math.max(1, Math.ceil((h + gap) / unit));
+    };
+    var ro = new ResizeObserver(function (entries) {
+      entries.forEach(function (e) { fit(e.target); });
+    });
+    each(cols.querySelectorAll(".gt-card"), function (card) { fit(card); ro.observe(card); });
+  }
+
   // ---- (children): to where a note listed again is expanded ----------------
   function reveal(id, smooth) {
     var el = id && document.getElementById(id);
@@ -74,7 +96,10 @@
     el.classList.remove("gt-flash");
     void el.offsetWidth; // restart the animation
     el.classList.add("gt-flash");
-    el.scrollIntoView({ block: "center", behavior: smooth ? "smooth" : "auto" });
+    // after the cards have been repacked for the lists just opened
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { el.scrollIntoView({ block: "center", behavior: smooth ? "smooth" : "auto" }); });
+    });
     return true;
   }
   page.addEventListener("click", function (e) {

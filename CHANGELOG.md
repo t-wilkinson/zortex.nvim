@@ -321,7 +321,9 @@ The first public release.
 - `/graph` lists, under each note, the headings other notes link to. A card
   much taller than the rest spans two columns, its sections side by side;
   a note listed in a second place links to its children where they are
-  shown ("(children)").
+  shown ("(children)"). The cards pack like masonry: each takes the height
+  it needs and the next fills in under the shortest, repacking when a list
+  opens or closes, the filter changes or the window resizes.
 - The search page has a Text mode, and with `-data` its own search history
   (`search_history.json`, never in the notes' `.z/`).
 - `/broken` lists the tags that go nowhere, apart from broken links.

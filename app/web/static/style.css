@@ -673,6 +673,11 @@ svg.graph .ga { fill: var(--dim); }
 @media (max-width: 52rem) { .graph-page { grid-template-columns: 1fr; grid-template-areas: "head" "side" "tree"; } .gt-unlinked ul { max-height: 10rem; } }
 .graph-page [hidden] { display: none !important; }
 .gt-cols { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 0.9rem; align-items: start; }
+/* masonry (graph.js): each card spans as many 4px rows as its height and
+   the gap below it; dense packing fills the holes. Without the script the
+   plain grid above stays. */
+.gt-cols.masonry { grid-auto-rows: 4px; row-gap: 0; grid-auto-flow: row dense; }
+.gt-cols.masonry > .gt-card { margin-bottom: 0.9rem; }
 .gt-card { border: 1px solid var(--rule); border-radius: 8px; padding: 0.55rem 0.8rem 0.65rem; background: var(--panel); min-width: 0; }
 .gt-card h2 { font-size: 1rem; margin: 0 0 0.35rem; overflow-wrap: anywhere; }
 /* a big card: two grid columns, its top-level entries in two columns

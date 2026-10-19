@@ -38,8 +38,8 @@ edit through `core/workspace`, then `r` refresh):
 | completed | nothing; it's the "wins" list |
 | stale / unscheduled project | `s` schedule a block · `n` add a next action · `z` mark `@someday` (excluded from stale) · `a` archive if done |
 | no next action | `n` add a task under the project (prompt) |
-| KR without projects | `l` link a project (projects picker → append `[P/…]` to the KR line) |
-| objective without KRs | `k` add `- KRn: [ ] …` under it |
+| KR without projects | `L` link a project (projects picker → append `[P/…]` to the KR line) |
+| objective without KRs | `R` add `- KRn: [ ] …` under it |
 | area without projects | `p` create a project heading with `@a(…)` for the area |
 | broken link | `f` fix: structural search with the link text as the prompt, replace the link with the chosen result's canonical link |
 

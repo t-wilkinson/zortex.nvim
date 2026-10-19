@@ -43,6 +43,11 @@
   <ul class="prows">{{range .Focus}}{{template "projectRow" .}}{{end}}</ul>
   {{else}}<p class="dim small">None picked (<kbd>f</kbd> on a project in <code>:ZortexReview</code>).</p>{{end}}
 
+  {{if .Notes}}
+  <div class="body rv-notes">{{.Notes}}</div>
+  {{if .NotesURL}}<p class="small"><a class="dim" href="{{.NotesURL}}">In reviews.zortex ↗</a></p>{{end}}
+  {{end}}
+
   {{if .Objectives}}
   <h2 class="section-title">Objectives against the time passed</h2>
   <ul class="rv-list">

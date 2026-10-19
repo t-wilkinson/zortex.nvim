@@ -230,8 +230,8 @@ Special notes:
   gaps marked where they are; then the week's focus (`f`, as many as you
   like), stale and unscheduled projects, done ones to archive, broken
   links. Every line links to its source and has its fix one key away
-  (`x` tick, `d` due, `s` schedule, `n` next action, `z` someday, `l` link
-  a project to a key result, `k` add a key result, `p` start a project,
+  (`x` tick, `d` due, `s` schedule, `n` next action, `z` someday, `L` link
+  a project to a key result, `R` add a key result, `p` start a project,
   `F` fix a link; `u` takes it back).
 - **Calendar**: a month view with the selected day as written and the
   events coming up after it (the planner's list), other calendars' events
@@ -419,8 +419,8 @@ the title, with the picker's own help key: telescope `<C-/>` (insert mode; `?` i
 | `s` | put the task, or a block of the project, on a day |
 | `n` | add a next action to the project |
 | `z` | park the project (@someday: not stale) or bring it back |
-| `l` | link a project to the key result |
-| `k` | add a key result to the objective |
+| `L` | link a project to the key result |
+| `R` | add a key result to the objective |
 | `p` | start a project for the area |
 | `F` | fix the broken link from the search |
 | `<Tab>` | go to the reviews note |

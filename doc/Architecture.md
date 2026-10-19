@@ -842,7 +842,7 @@ line, `<Tab>` goes to the note, `r` refreshes, `q` closes, `?` lists the
 keys. `render(review)` is pure (lines plus a line → location map) so other
 front ends can reuse the layout. The keys that fix what a line shows (`x`
 tick, `d` due, `s` schedule, `t` same time tomorrow, `n` next action, `z`
-someday, `a` archive, `l` link a project to a key result, `k` add a key
+someday, `a` archive, `L` link a project to a key result, `R` add a key
 result, `p` start a project for an area, `F` fix a broken link) each run as
 a `core/workspace` batch, so `u` takes them back.
 

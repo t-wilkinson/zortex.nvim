@@ -52,8 +52,8 @@ The first public release.
   `@due`, `s` puts a task or a block of a project on a day, `n` adds a
   next action, `z` parks a project (`@someday`: never stale), `a`
   archives a done project or a finished task that served nothing (to
-  `z/archive.tasks.zortex`), `l` links a project to a key result, `k` adds
-  a key result, `p` starts a project for an area, `F` fixes a broken link
+  `z/archive.tasks.zortex`), `L` links a project to a key result, `R` adds
+  a key result (`h j k l` still move the cursor), `p` starts a project for an area, `F` fixes a broken link
   from the search; `u` takes the last one back.
 - The daily review opens with how the work done served the plan
   (`Work done: 3h30m · 60% on key results · 25% on areas only · 15% on
@@ -310,7 +310,8 @@ The first public release.
   docker-compose sets no `TZ`.
 - `/okr` (Objectives in the top bar): objectives against the time passed in
   their period, their key results and the projects behind them. `/review`:
-  the weekly review's findings, for any week.
+  the weekly review's findings, for any week, with what its entry in
+  `reviews.zortex` says besides the focus (wins, lessons, ...).
 - Hover cards on links: a note's title, path, tags, first lines and
   backlinks; an image; a website's domain and URL (nothing is fetched).
 - `/graph` lists, under each note, the headings other notes link to.

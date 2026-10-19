@@ -205,7 +205,7 @@ function M.render(r, opts)
 
 	add("")
 	add("# Goals")
-	section("Key results without projects (l links one)", r.krs_without_projects, function(kr)
+	section("Key results without projects (L links one)", r.krs_without_projects, function(kr)
 		local line = "- " .. (kr.id and (kr.id .. ": ") or "") .. (kr.text or "")
 		local link = kr.link or (kr.objective and kr.objective.link)
 		if link then
@@ -213,7 +213,7 @@ function M.render(r, opts)
 		end
 		return line, { file = kr.file, lnum = kr.lnum }, { kr = kr }
 	end)
-	section("Objectives without key results (k adds one)", r.objectives_without_krs, function(o)
+	section("Objectives without key results (R adds one)", r.objectives_without_krs, function(o)
 		local line, loc = entity_line(o)
 		return line, loc, { objective = o }
 	end)
@@ -250,7 +250,7 @@ end
 --- vision, the objectives that name it (against the time passed), their key
 --- results and the projects those link, and the area's projects no key
 --- result covers. Gaps say so where they are. Keys act on the lines: f, n,
---- s, z, a on a project; k on an objective; l on a key result; p on an area.
+--- s, z, a on a project; R on an objective; L on a key result; p on an area.
 function M.render_top_down(r, add)
 	if not r.top_down then
 		return
@@ -302,7 +302,7 @@ function M.render_top_down(r, add)
 			end
 			add(line, { file = o.file, lnum = o.lnum }, { objective = o })
 			if #x.krs == 0 then
-				add(base .. "    no key results: k adds one", { file = o.file, lnum = o.lnum }, { objective = o })
+				add(base .. "    no key results: R adds one", { file = o.file, lnum = o.lnum }, { objective = o })
 			end
 			for _, k in ipairs(x.krs) do
 				local kr = k.kr
@@ -313,7 +313,7 @@ function M.render_top_down(r, add)
 					{ kr = kr }
 				)
 				if not kr:is_done() and #(k.projects or {}) == 0 then
-					add(base .. "        no project moves it: l links one", { file = kr.file, lnum = kr.lnum }, { kr = kr })
+					add(base .. "        no project moves it: L links one", { file = kr.file, lnum = kr.lnum }, { kr = kr })
 				end
 				for _, p in ipairs(k.projects or {}) do
 					add(project_line(p, base .. "        "))
@@ -759,7 +759,7 @@ function M.archive_project(e)
 	say("Archived " .. e.name .. " to " .. vim.fn.fnamemodify(path, ":t") .. " (u takes it back)")
 end
 
---- l: link a project to the key result (picked from the active projects).
+--- L: link a project to the key result (picked from the active projects).
 function M.link_project()
 	local e = entity_here()
 	if not (e and e.kr) then
@@ -785,7 +785,7 @@ function M.link_project()
 	end)
 end
 
---- k: add a key result under the objective.
+--- R: add a key result under the objective.
 function M.add_key_result()
 	local e = entity_here()
 	local o = e and e.objective

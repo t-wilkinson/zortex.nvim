@@ -70,7 +70,7 @@ Vision: fit enough to say yes to any hike
     - KR1: Run 3 times a week 50% · 10% behind [O/…/-KR1]
         - [P/#1.1 Training plan] (6/14 done) · focus
     - KR2: A 21 km long run 0% · 60% behind
-        no project moves it: l links one
+        no project moves it: L links one
   - [P/#1.2 Fix the bike] (0/3 done) · area only
 ## [A/#2 Growth/#2.1 Reading]
   no objective this period
@@ -98,8 +98,8 @@ On a line of either review:
 | `z` | a project | parks it (`@someday`: no longer stale or unscheduled), or brings it back |
 | `a` | a done project / a finished task on neither a key result nor an area | moves the project to its note's archive / the task to `z/archive.tasks.zortex` |
 | `f` | a project | adds it to the week's focus, or takes it out |
-| `l` | a key result | links a project to it (picked from the active ones) |
-| `k` | an objective | adds a key result |
+| `L` | a key result | links a project to it (picked from the active ones) |
+| `R` | an objective | adds a key result |
 | `p` | an area | starts a project for it (a heading in the projects note with `@a(…)`) |
 | `F` | a broken link | fixes it from the structural search |
 | `u` | | takes the last change back, in every note it touched (`:ZortexUndo`) |

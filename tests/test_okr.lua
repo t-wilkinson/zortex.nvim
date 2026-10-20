@@ -144,3 +144,13 @@ T.test("objectives under a season heading share its window; new seasons get a he
 	workspace.set_lines(file, 1, #workspace.get_lines(file), before)
 	T.ok(ok, err)
 end)
+
+T.test("a key result with no project and no checkbox is stuck", function()
+	local o2 = O.objectives()[2]
+	T.eq(o2.key_results[2]:is_stuck(), false, "linked to a project")
+	local kr = setmetatable(O.parse_key_result("- KR3: Read more"), O.KeyResult)
+	kr.file, kr.lnum = "nowhere", 1
+	T.eq(kr.has_box, false)
+	T.eq(kr:is_stuck(), true)
+	T.eq(O.parse_key_result("- KR3: [ ] Read more").has_box, true)
+end)

@@ -2,6 +2,7 @@ package web
 
 import (
 	"bufio"
+	"errors"
 	"hash/fnv"
 	"io/fs"
 	"net/http"
@@ -351,11 +352,52 @@ func (f resourceFilter) match(r resource) bool {
 	return f.Dir == "" || strings.HasPrefix(r.Rel, f.Dir+"/")
 }
 
-// isResourceView reports whether a folder request asks for its resources
-// (?show= or ?kind=) rather than the plain listing.
-func isResourceView(r *http.Request) bool {
+// isResourceView reports whether a folder request shows its resources rather
+// than the plain listing: asked for (?show= or ?kind=), or by default in a
+// resource folder (?list=1 lists it as files).
+func (s *Server) isResourceView(r *http.Request, rel string) bool {
 	q := r.URL.Query()
-	return q.Has("show") || q.Has("kind")
+	if q.Has("show") || q.Has("kind") {
+		return true
+	}
+	return q.Get("list") != "1" && s.resourceFolder(rel)
+}
+
+// resourceFolder reports whether rel is a folder of resources, like
+// z/books: every file under it is a resource (no notes, no text files;
+// hidden files and Syncthing artefacts aside), and there is one. The notes
+// folder itself never is.
+func (s *Server) resourceFolder(rel string) bool {
+	if rel == "" {
+		return false
+	}
+	abs, st, ok := s.resolvePath(rel)
+	if !ok || !st.IsDir() {
+		return false
+	}
+	found := false
+	errOther := errors.New("not a resource")
+	err := filepath.WalkDir(abs, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		name := d.Name()
+		if d.IsDir() {
+			if p != abs && strings.HasPrefix(name, ".") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if strings.HasPrefix(name, ".") || isSyncArtifact(name) {
+			return nil
+		}
+		if !s.resExts[extOf(name)] {
+			return errOther
+		}
+		found = true
+		return nil
+	})
+	return err == nil && found
 }
 
 // URL of the folder's resource list with one field changed.
@@ -453,7 +495,7 @@ func (s *Server) resourceView(w http.ResponseWriter, r *http.Request, rel string
 	s.render(w, r, "resources", http.StatusOK, map[string]any{
 		"NavTab":    "files",
 		"Crumbs":    crumbs,
-		"Listing":   s.fileURL(rel),
+		"Listing":   s.fileURL(rel) + "?list=1",
 		"Title":     title,
 		"Filter":    f,
 		"Folders":   folders,

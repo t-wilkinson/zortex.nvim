@@ -781,20 +781,14 @@ end
 -- Templates and putting text
 -- =============================================================================
 
-local WEEKDAYS = { "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday" }
-
---- Template lines for a new day: ui.planner.templates[<weekday name>], else
---- .saturday / .sunday, else .weekday.
+--- Template lines for a new day: the calendar note's # Templates (its
+--- weekday's label, else Weekday: / Weekend:, else Daily:; see
+--- services/calendar_rules).
 function M.template(date)
-	local d = type(date) == "string" and datetime.parse_date(date) or date
-	local wday = os.date("*t", os.time({ year = d.year, month = d.month, day = d.day, hour = 12 })).wday
-	local name = WEEKDAYS[wday]
-	local templates = cfg().templates or {}
-	local lines = templates[name]
-	if not lines and name ~= "saturday" and name ~= "sunday" then
-		lines = templates.weekday
+	if type(date) == "table" then
+		date = datetime.format_datetime(date, "YYYY-MM-DD")
 	end
-	return vim.deepcopy(lines or {})
+	return require("zortex.stores.calendar").template(date)
 end
 
 --- Put `text` into `line` at the cursor (0-based byte `col`), the way `p`

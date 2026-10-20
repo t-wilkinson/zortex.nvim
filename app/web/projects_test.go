@@ -1,6 +1,7 @@
 package web
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -133,6 +134,28 @@ func TestOKRKeyResultText(t *testing.T) {
 	if strings.Count(krs, `>KR1<`) != 1 {
 		t.Error("the project row doesn't repeat the key result's id")
 	}
+}
+
+// A season heading on /okr shows its tier: Neovim's when it published this
+// season, else estimated here; a key result nothing can move is flagged.
+func TestOKRSeasonTierAndStuckKRs(t *testing.T) {
+	q := time.Now()
+	qn := (int(q.Month())-1)/3 + 1
+	heading := fmt.Sprintf("%d-Q%d Season 3 Cedar", q.Year(), qn)
+	ts, s := newSlidesServerWith(t, map[string]string{
+		"okr.zortex": "@@OKR\n\n# " + heading + "\n## Run\n- KR1: [x] Run a 10k\n## Read\n- KR1: Read more\n- KR2: [ ] Ten books\n",
+	})
+	// estimated: Run done, Read at 0 -> 50%, Silver
+	page := expect(t, ts, "/okr", 200, heading, `Silver · 50%`, `Gold at 70%`, `estimated here`)
+	if strings.Count(page, `>stuck<`) != 1 || !strings.Contains(page, `Nothing can move it`) {
+		t.Error("only the KR with no project and no checkbox is stuck")
+	}
+	// Neovim's figure wins when it published this season
+	start, _, _ := seasonStart(heading)
+	os.MkdirAll(filepath.Join(s.cfg.Root, ".z"), 0o755)
+	os.WriteFile(filepath.Join(s.cfg.Root, ".z", "xp_summary.json"), []byte(`{"version":2,"generated":"`+time.Now().UTC().Format(time.RFC3339)+
+		`","season":{"name":"Season 3 Cedar","start_date":"`+start.Format("2006-01-02")+`","progress":0.72,"tier":"Gold","next_tier":"Platinum","next_at":0.85}}`), 0o644)
+	expect(t, ts, "/okr", 200, `Gold · 72%`, `Platinum at 85%`, `from Neovim`)
 }
 
 func TestKeyResultsAndFocus(t *testing.T) {

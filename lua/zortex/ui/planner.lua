@@ -2,7 +2,7 @@
 --
 -- :ZortexPlan [YYYY-MM-DD] (default today)
 --   1. opens calendar.zortex at the day, creating it from the day's template
---      (ui.planner.templates: weekday / saturday / sunday / monday ...), and
+--      (the calendar note's # Templates: Weekday:, Sunday:, …), and
 --      carries the open tasks of the days before to it (the old lines marked
 --      [>]; ui.planner.carry_forward, :ZortexCarryForward)
 --   2. opens zortex://plan beside it: projects, each with its ranked tasks
@@ -457,7 +457,7 @@ function M.close()
 end
 
 --- :ZortexToday [date] (<leader>zd): today's day in calendar.zortex, made
---- from the day's template (ui.planner.templates) when it isn't there yet,
+--- from the day's template (the calendar's # Templates) when it isn't there yet,
 --- opened in this window with the cursor on its first line. Unlike
 --- :ZortexPlan it opens no candidate list and carries nothing forward.
 --- Returns the calendar buffer and the day's heading line, or nil.

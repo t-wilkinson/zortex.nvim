@@ -557,6 +557,7 @@ type webKR struct {
 	ID, Text  string
 	HTML      template.HTML
 	Done      bool
+	HasBox    bool // "- KR1: [ ] …": it can be checked when reached
 	Progress  float64
 	Lag       float64
 	Objective string
@@ -566,6 +567,9 @@ type webKR struct {
 
 func (k webKR) Percent() int    { return int(math.Round(k.Progress * 100)) }
 func (k webKR) LagPercent() int { return int(math.Round(k.Lag * 100)) }
+
+// Stuck: nothing can move it, no project and no checkbox to tick.
+func (k webKR) Stuck() bool { return !k.Done && !k.HasBox && len(k.Projects) == 0 }
 
 // objectiveWindow: the dates "3M-2026-Q4" covers (okr/objective.window).
 func objectiveWindow(span string, year int, period string) (time.Time, time.Time) {
@@ -660,13 +664,20 @@ func seasonStart(text string) (time.Time, time.Time, bool) {
 	return start, start.AddDate(0, 0, seasonLength-1), true
 }
 
+// seasonHeading is a season heading's window and name ("Season 10 Juniper").
+type seasonHeading struct {
+	Start, End time.Time
+	Name       string
+}
+
 // seasonWindows: the window of each season heading of d, by its line: from
 // its start to the day before the next season heading of its level starts,
 // its natural end at the latest (okr/objective.season_window).
-func seasonWindows(d *notes.Document) map[int][2]time.Time {
+func seasonWindows(d *notes.Document) map[int]seasonHeading {
 	type season struct {
 		lnum, level int
 		start, end  time.Time
+		name        string
 	}
 	var all []season
 	for _, n := range d.Sections() {
@@ -674,10 +685,11 @@ func seasonWindows(d *notes.Document) map[int][2]time.Time {
 			continue
 		}
 		if s, e, ok := seasonStart(n.Text); ok {
-			all = append(all, season{n.Start, n.Level, s, e})
+			name := strings.TrimSpace(seasonRe.ReplaceAllString(strings.TrimSpace(n.Text), ""))
+			all = append(all, season{n.Start, n.Level, s, e, name})
 		}
 	}
-	out := map[int][2]time.Time{}
+	out := map[int]seasonHeading{}
 	for _, a := range all {
 		end := a.end
 		for _, b := range all {
@@ -687,7 +699,7 @@ func seasonWindows(d *notes.Document) map[int][2]time.Time {
 				}
 			}
 		}
-		out[a.lnum] = [2]time.Time{a.start, end}
+		out[a.lnum] = seasonHeading{a.start, end, a.name}
 	}
 	return out
 }
@@ -727,7 +739,8 @@ type webObjective struct {
 	Rel        string
 	Lnum       int
 	Title      string
-	Span       string // "3M-2026-Q4", or the season heading it is under
+	Span       string         // "3M-2026-Q4", or the season heading it is under
+	Season     *seasonHeading // the season heading it is under, if any
 	Start, End time.Time
 	Done       string // its @done date
 	Areas      []string
@@ -782,8 +795,8 @@ func (s *Server) objectives(all []*webProject, now time.Time) []*webObjective {
 				if !ok {
 					continue
 				}
-				o = &webObjective{Rel: d.Rel, Lnum: n.Start, Title: n.Text, Span: p.Text, URL: s.noteURL(d.Rel, n.Start)}
-				o.Start, o.End = w[0], w[1]
+				o = &webObjective{Rel: d.Rel, Lnum: n.Start, Title: n.Text, Span: p.Text, URL: s.noteURL(d.Rel, n.Start), Season: &w}
+				o.Start, o.End = w.Start, w.End
 			}
 			if o == nil {
 				continue
@@ -818,7 +831,7 @@ func (s *Server) objectives(all []*webProject, now time.Time) []*webObjective {
 			if o == nil {
 				continue
 			}
-			kr := webKR{ID: it.Key, Done: it.Mark == "x" || it.Mark == "X", Objective: o.Title, URL: s.noteURL(d.Rel, lnum)}
+			kr := webKR{ID: it.Key, Done: it.Mark == "x" || it.Mark == "X", HasBox: it.MarkCol != nil, Objective: o.Title, URL: s.noteURL(d.Rel, lnum)}
 			// the text after "KR1:" (and its checkbox): the key is shown on its own
 			from := it.ContentCol
 			if it.KeyCol != nil && from <= *it.KeyCol {

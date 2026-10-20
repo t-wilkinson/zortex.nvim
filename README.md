@@ -123,8 +123,7 @@ with a server (Syncthing, Nextcloud, Unison, git or rsync).
 them. Commonly changed: `keymaps.prefix` (default `<leader>z`),
 `ui.highlights` (colours follow your colorscheme; `preset = "rose-pine"` for
 the author's palette), `ui.calendar.icons` (plain Unicode; a Nerd Font set
-is in a comment there), `ui.planner.templates` (a new calendar day's lines)
-and `xp` (how many hours each `@size` stands for, and what that is worth;
+is in a comment there) and `xp` (how many hours each `@size` stands for, and what that is worth;
 `:ZortexXPGuide` shows it).
 
 ## Notes
@@ -164,7 +163,10 @@ Special notes:
   bold label; a plain `YYYY-MM-DD:` reads the same) with its entries under
   it (`- [ ] task`, `14:00 event`, `16:00 [ ] timed task`, `- note`). Start
   the day with `Outcomes:` and the two or three things that would make it
-  a success.
+  a success. Above the first day, `# Templates` holds a new day's lines by
+  name (`Weekday:`, `Sunday:`, …) and `# Repeating` the entries that
+  repeat (`- Sam @repeat(03-14) @born(1990)`, `12:00 [ ] Weekly review
+  @repeat(sun)`), shown on their days without being copied.
 - Notes tagged `@Archive` (or named `z/archive.*`) are left out of links,
   projects and search ranking.
 

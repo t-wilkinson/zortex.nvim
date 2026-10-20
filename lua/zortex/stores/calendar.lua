@@ -26,6 +26,10 @@ local state = {
 	-- models with `feed` (its name) and `file`; feed_docs the snapshots
 	feed_entries = {},
 	feed_docs = {},
+	-- the Repeating section's rules (services/calendar_rules), and the done
+	-- copies that stand for an occurrence on another day: for_copies[date][text]
+	rules = {},
+	for_copies = {},
 }
 
 local DEFAULT_HEADER = { "@@Calendar", "@@C", "" }
@@ -114,6 +118,17 @@ function M.load()
 	local doc = current_doc()
 	state.doc = doc
 	state.entries = doc and M.parse_lines(doc.lines, doc) or {}
+	state.rules = doc and require("zortex.services.calendar_rules").rules(doc.lines) or {}
+	state.for_copies = {}
+	for _, entries in pairs(state.entries) do
+		for _, e in ipairs(entries) do
+			local for_date = e.raw_text and e.raw_text:match("@for%((%d%d%d%d%-%d%d%-%d%d)%)")
+			if for_date then
+				state.for_copies[for_date] = state.for_copies[for_date] or {}
+				state.for_copies[for_date][e.text or ""] = e
+			end
+		end
+	end
 	load_feeds(feed_notes())
 	state.loaded = true
 	if not doc then
@@ -463,6 +478,99 @@ function M.update_entry(date_str, old_text, new_text)
 end
 
 -- =============================================================================
+-- Templates and repeating entries (the top of the calendar note)
+-- =============================================================================
+
+--- The lines a new day `date_str` starts with: the calendar's # Templates
+--- (services/calendar_rules.template).
+function M.template(date_str)
+	local lines = workspace().get_lines(calendar_path())
+	return require("zortex.services.calendar_rules").template(lines, date_str)
+end
+
+--- The rules of the calendar's # Repeating section.
+function M.rules()
+	M.ensure_loaded()
+	return state.rules
+end
+
+--- The entries the repeating rules put on `date_str`: an entry per rule
+--- that lands on it, with `rule` (its line in the Repeating section) and
+--- `rule_lnum`, no `lnum` (it isn't written on the day). A task done on its
+--- own day (a copy on the day) shows as that copy instead; one done another
+--- day (a copy with @for(date_str)) has the copy's state and `copy`.
+function M.occurrences(date_str)
+	M.ensure_loaded()
+	local rules_mod = require("zortex.services.calendar_rules")
+	local out = {}
+	for _, rule in ipairs(state.rules) do
+		if rules_mod.matches(rule, date_str) then
+			local e = CalendarEntry.from_text(rules_mod.plain_line(rule.line), date_str)
+			if e then
+				local own
+				for _, x in ipairs(state.entries[date_str] or {}) do
+					if x.text == e.text and not (x.raw_text or ""):match("@for%(") then
+						own = x
+					end
+				end
+				if not own then
+					e.rule, e.rule_lnum, e.lnum = rule, rule.lnum, nil
+					e.file = calendar_path()
+					local copy = (state.for_copies[date_str] or {})[e.text or ""]
+					if copy then
+						e.copy, e.completed, e.mark = copy, copy.completed, copy.mark
+					elseif e.type == "task" then
+						e.completed, e.mark = false, " "
+					end
+					e.text = rules_mod.label(rule, e.text or "", date_str)
+					out[#out + 1] = e
+				end
+			end
+		end
+	end
+	return out
+end
+
+--- Tick a repeating task's occurrence (M.occurrences): its copy is ticked
+--- when it has one, else the task goes, done, into the day `today` (made
+--- from its template when new) with @for(date) when it was due another day.
+--- Returns true, or nil and an error.
+function M.complete_occurrence(occ, today)
+	today = today or os.date("%Y-%m-%d")
+	if occ.copy then
+		local lnum = locate(occ.copy)
+		if not lnum then
+			return nil, "its copy moved"
+		end
+		local ok, err = require("zortex.services.tasks").toggle_at(calendar_path(), lnum)
+		M.load()
+		return ok and true or nil, err
+	end
+	if occ.type ~= "task" then
+		return nil, "not a task"
+	end
+	local line = require("zortex.services.calendar_rules").done_copy(occ.rule, occ.date_context, today)
+	if not line then
+		return nil, "can't make a task of it"
+	end
+	local heading, err = M.ensure_date(today, M.template(today))
+	if not heading then
+		return nil, err
+	end
+	-- at the end of the day, at its top level (not under its last block)
+	local block = M.date_block(today)
+	if not block then
+		return nil, "no day " .. today
+	end
+	local ok, add_err = workspace().insert_lines(calendar_path(), block.last_lnum + 1, { line })
+	if not ok then
+		return nil, add_err
+	end
+	notify_changed("calendar:entry_added", { date = today })
+	return true
+end
+
+-- =============================================================================
 -- Entries Management
 -- =============================================================================
 
@@ -493,6 +601,10 @@ function M.get_entries_for_date(date_str, opts)
 			active_entries[#active_entries + 1] = entry
 		end
 	end
+	-- the # Repeating rules that land on it
+	for _, entry in ipairs(M.occurrences(date_str)) do
+		active_entries[#active_entries + 1] = entry
+	end
 
 	-- Sort by priority
 	table.sort(active_entries, function(a, b)
@@ -510,7 +622,7 @@ end
 function M.get_day_entries(date_str)
 	local own, other, feed = {}, {}, {}
 	for _, entry in ipairs(M.get_entries_for_date(date_str)) do
-		if entry.feed then
+		if entry.feed or entry.rule then
 			feed[#feed + 1] = entry
 		elseif entry.date_context == date_str and entry.lnum then
 			own[#own + 1] = entry
@@ -530,8 +642,12 @@ function M.get_day_entries(date_str)
 		out[#out + 1] = e
 	end
 	out = vim.list_extend(out, M.day_layout(own))
+	-- feeds in their note's order, then the repeating rules in theirs
 	table.sort(feed, function(a, b)
-		return a.lnum < b.lnum
+		if (a.rule == nil) ~= (b.rule == nil) then
+			return a.rule == nil
+		end
+		return (a.lnum or a.rule_lnum or 0) < (b.lnum or b.rule_lnum or 0)
 	end)
 	for _, e in ipairs(feed) do
 		e.depth = 0

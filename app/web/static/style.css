@@ -330,6 +330,7 @@ table.res-files { table-layout: fixed; }
 .event-item.done .event-title { color: var(--dim); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--dim) 50%, transparent); }
 .event-title .box { margin-right: 0.4rem; vertical-align: -0.1em; }
 .event-title .bell { margin-left: 0.35rem; font-size: 0.75em; opacity: 0.75; }
+.event-title .repeat { margin-left: 0.35rem; font-size: 0.8em; color: var(--dim); }
 .event-title .feed { margin-left: 0.4rem; padding: 0 0.35rem; border: 1px solid var(--rule); border-radius: 0.6rem; font-size: 0.72em; color: var(--dim); white-space: nowrap; }
 .empty-day { color: var(--dim); text-align: center; padding: 1.5rem 0 1rem; }
 .now-row { display: flex; align-items: center; gap: 0.6rem; margin: 0.1rem 0 0.1rem 1.2rem; height: 2.6rem; }

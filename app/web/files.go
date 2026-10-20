@@ -326,7 +326,7 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 		s.fileView(w, r, rel, st)
 		return
 	}
-	if isResourceView(r) {
+	if s.isResourceView(r, rel) {
 		s.resourceView(w, r, rel)
 		return
 	}

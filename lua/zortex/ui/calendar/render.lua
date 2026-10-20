@@ -302,7 +302,12 @@ function M.month(date, state, cfg, win_width)
 					and entry.lnum
 					and cal_lines[entry.lnum] == entry.raw_text
 				local target
-				if own and entry.type == "task" and entry.mark ~= mirrors.MOVED then
+				if entry.rule then
+					-- a repeating entry (# Repeating): ticking it copies it into today
+					if entry.type == "task" then
+						target = { occurrence = entry, text = entry.text }
+					end
+				elseif own and entry.type == "task" and entry.mark ~= mirrors.MOVED then
 					target = { file = cal_path, lnum = entry.lnum, text = entry.text }
 				elseif own then
 					local ref = mirrors.reference(cal_lines, entry.lnum, cal_doc)
@@ -311,7 +316,7 @@ function M.month(date, state, cfg, win_width)
 						icon = ref.task.completed and cfg.icons.task_done or cfg.icons.task
 					end
 				end
-				row(entry.depth or 0, icon, entry:format(), target)
+				row(entry.depth or 0, icon, entry:format() .. (entry.rule and "  ↻" or ""), target)
 
 				-- a project block: the project's next open tasks under it
 				if own and not target then

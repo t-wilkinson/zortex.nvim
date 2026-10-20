@@ -241,6 +241,7 @@ function M.parse_key_result(line)
 		id = id,
 		text = text,
 		completed = completed,
+		has_box = item.mark ~= nil, -- "- KR1: [ ] …": it can be checked when reached
 		links = item:links(),
 		attributes = attributes.parse_attributes(line, attributes.schemas.project),
 	}
@@ -304,6 +305,11 @@ end
 
 function KeyResult:is_done()
 	return self.completed or self:progress() >= 1
+end
+
+--- Nothing can move it: no project linked and no checkbox to tick.
+function KeyResult:is_stuck()
+	return not self.completed and not self.has_box and next(self:linked_projects()) == nil
 end
 
 --- How far behind schedule (0..1): the share of the objective's window that

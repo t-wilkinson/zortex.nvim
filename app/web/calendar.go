@@ -109,9 +109,17 @@ type calEntry struct {
 	// Feed: the calendar feed it comes from (z/feeds/<feed>.zortex,
 	// app/feeds); read-only here
 	Feed string `json:"feed,omitempty"`
-	URL  string `json:"url"`
-	Src  string `json:"src,omitempty"` // the line as written (-writable: for edits)
-	Rel  string `json:"rel,omitempty"`
+	// Repeat: put on the day by a rule of the calendar's # Repeating section
+	// (Lnum and URL are the rule's; Src its line). Copy: the line of the
+	// done copy standing for it (then Lnum and Src are the copy's, and the
+	// usual toggle acts on it); without one, ticking it is POST
+	// /api/calendar/repeat.
+	Repeat bool   `json:"repeat,omitempty"`
+	Date   string `json:"date,omitempty"`
+	Copy   int    `json:"copy,omitempty"`
+	URL    string `json:"url"`
+	Src    string `json:"src,omitempty"` // the line as written (-writable: for edits)
+	Rel    string `json:"rel,omitempty"`
 
 	textCol int // where the text starts (after the marker and a time)
 }
@@ -188,6 +196,32 @@ func (s *Server) calendarDays(from, to string) map[string][]calEntry {
 				e.URL = s.noteURL(fd.Rel, e.Lnum)
 				e.Feed = name
 				days[date] = insertByTime(days[date], *e)
+			}
+		}
+	}
+	// what the # Repeating rules put on each day, after the feeds
+	if rules := edit.Rules(doc.Lines); len(rules) > 0 {
+		byLnum := map[int]*edit.Rule{}
+		for _, rule := range rules {
+			byLnum[rule.Lnum] = rule
+		}
+		all := calendarEntries(doc, "", "")
+		forCopies := forCopiesOf(doc, all)
+		start, err1 := time.Parse("2006-01-02", from)
+		stop, err2 := time.Parse("2006-01-02", to)
+		for t := start; err1 == nil && err2 == nil && !t.After(stop); t = t.AddDate(0, 0, 1) {
+			date := t.Format("2006-01-02")
+			for _, e := range occurrences(doc, rules, all[date], forCopies, date) {
+				rule := doc.Lines[e.Lnum-1]
+				e.HTML = strings.TrimSpace(r.entryHTML(rule, e.Lnum, e.textCol)) + html.EscapeString(byLnum[e.Lnum].Label("", date))
+				e.URL = s.noteURL(doc.Rel, e.Lnum)
+				if e.Copy > 0 {
+					e.Lnum, rule = e.Copy, doc.Lines[e.Copy-1]
+				}
+				if s.cfg.Writable {
+					e.Src, e.Rel = rule, doc.Rel
+				}
+				days[date] = insertByTime(days[date], e)
 			}
 		}
 	}

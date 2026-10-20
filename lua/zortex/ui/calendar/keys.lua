@@ -179,7 +179,12 @@ function M.toggle_task()
 		return
 	end
 	local function toggle(t)
-		local res, err = require("zortex.services.tasks").toggle_at(t.file, t.lnum)
+		local res, err
+		if t.occurrence then
+			res, err = require("zortex.stores.calendar").complete_occurrence(t.occurrence, os.date("%Y-%m-%d"))
+		else
+			res, err = require("zortex.services.tasks").toggle_at(t.file, t.lnum)
+		end
 		if not res then
 			vim.notify("Can't toggle: " .. tostring(err), vim.log.levels.WARN)
 		end

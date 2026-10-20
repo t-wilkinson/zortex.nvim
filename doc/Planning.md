@@ -237,7 +237,7 @@ day's bold label), the two or three results that would make the day a
 success, up to the first blank line. They are the day's own items (tick
 them like any task), but they aren't events, and the daily review is the
 place to ask whether the day's work went to them. Put one in your day
-template (`ui.planner.templates`) to be asked every morning.
+template (below) to be asked every morning.
 
 A day reads top to bottom as you'll live it: blocks of planned work with
 their tasks under them, the **events** you plan around (`@event`: an
@@ -285,6 +285,56 @@ and `@n(0, end)` also notifies when a range ends.
   block (today's, when today already has one for the same link, say from the
   day's template), and marks the old lines `[>]` (carried: neither open nor
   done, kept as the record of that day). Repeating entries (`@repeat`) stay.
+
+### Templates and repeating entries
+
+Above the first day, the calendar note can hold two sections (any heading
+level; each runs to the next heading of its level or above, or to the first
+day, so a `# Days` heading after them keeps the days out of them):
+
+```
+# Templates
+Weekday:
+Outcomes:
+- [ ]
+09:00
+Sunday:
+12:00 Weekly review
+
+# Repeating
+## Birthdays
+- Sam's birthday @repeat(03-14) @born(1990)
+- Dad @repeat(yearly) @born(1961-07-02)
+## Routines
+12:00 [ ] Weekly review @repeat(weekly, Sunday)
+- [ ] Bins out @repeat(2w) @since(2026-10-06) @at(18:00)
+- 07:00 Run @repeat(mon, wed, fri) @until(2026-12-31)
+
+# Days
+```
+
+- **Templates** are the lines a new day starts with (`:ZortexToday`, the
+  planner, ticking a repeating task on a day not written yet). A label names
+  which days: `Monday:` … `Sunday:` (or `Mon:` …), `Weekday:`, `Weekend:`,
+  `Daily:`; the most specific wins. Everything up to the next such label is
+  the template, other labels (`Outcomes:`) included.
+- **Repeating entries** are the items with `@repeat(…)` in the Repeating
+  section; headings, labels and plain lines around them only organize it.
+  Each shows on the days it lands on, in the calendar view, the planner,
+  notifications and the web calendar, without being written into them.
+  `@repeat` takes `daily`, `weekly`, `monthly`, `yearly`, every n (`2d`,
+  `3w`, `6m`, `2y`, counted from `@since(YYYY-MM-DD)`), days of the week
+  (`sun`, `mon, wed, fri`, `weekdays`, `weekends`), a date every year
+  (`03-14`) or a day of the month (`15`, `1st`); `weekly, Sunday` is every
+  Sunday, `2w tue` every other Tuesday from `@since`. `@since` and
+  `@until(YYYY-MM-DD)` bound it. `@born(1990)` shows the age: `Sam's
+  birthday (36)`; `@born(1961-07-02)` also anchors `yearly`.
+- **A repeating task** (`[ ]`) is ticked where it shows (`x` in the calendar
+  view, its box on the web): it is copied, done, into the day you did it
+  (today), with `@for(2026-10-18)` when that was another day. The copy
+  stands for that occurrence: on its own day it shows instead, on another
+  day the occurrence takes its state (ticking it again reopens the copy).
+  The copy is a calendar task like any other, so it counts for XP.
 
 The planner (`<leader>zm`) lists projects first, each under a heading with
 its ranked tasks, then key results, then to-dos (the TODO project,

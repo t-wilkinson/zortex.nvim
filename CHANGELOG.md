@@ -23,6 +23,18 @@ The first public release.
   or a selection) moves the entry times later or earlier: `12:00` to
   `13:30`, ranges and `@at`/`@from`/`@to` too.
 - `g` in the XP guide goes back to the XP overview.
+- **Calendar templates and repeating entries** live at the top of the
+  calendar note. `# Templates`: a new day's lines by a label naming the day
+  (`Monday:` … `Sunday:`, `Weekday:`, `Weekend:`, `Daily:`; the most
+  specific wins). `ui.planner.templates` is gone. `# Repeating`: items with
+  `@repeat(…)` (`daily`, `2w` from `@since`, `mon, wed`, `weekdays`,
+  `03-14`, `15th`, `weekly, Sunday`; `@until`; `@born(1990)` shows the
+  age), organized with any headings and labels, shown on their days in the
+  calendar view, the planner, notifications and the web calendar without
+  being copied. Ticking a repeating task copies it, done, into today, with
+  `@for(date)` when it was due another day.
+- The weekly review marks a key result nothing can move (no project, no
+  checkbox) as stuck.
 - **Organizational headings** in project notes aren't projects: a heading
   with no task of its own (done or not) and no project attribute (`@size`,
   `@p`, `@i`, `@due`, `@done`, `@xp`, `@dur`, `@est`, `@a`, `@someday`;
@@ -311,6 +323,14 @@ The first public release.
 - `/resources` is part of the file browser: a folder links its resources,
   `/f/<dir>?show=all|unlinked|linked&kind=pdf` lists the ones under it by
   folder; `/resources` redirects there and leaves the top bar.
+- A folder of resources (only resources under it, like `z/books`) opens as
+  its resource list; `?list=1` lists its files.
+- `/okr` shows a season's tier beside its heading (Neovim's when it
+  published or ended the season, else estimated) and marks a key result
+  with no project and no checkbox as stuck.
+- The web calendar shows the calendar's `# Repeating` entries on their days
+  and ticks a repeating task into today (`POST /api/calendar/repeat`);
+  `@at(…)` and `@from(…) @to(…)` give an entry its time, as in Neovim.
 - `/broken` lists the notes nothing reaches: not in the structure, and no
   other note links them.
 - `/okr`: a key result's text leaves out its `KRn:` and the links to its

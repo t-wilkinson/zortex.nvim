@@ -459,6 +459,7 @@ func (s *Server) Handler() http.Handler {
 	// calendar and notifications (Neovim syncs to /notify)
 	mux.HandleFunc("GET /api/calendar", s.apiCalendar)
 	mux.HandleFunc("POST /api/calendar/carry", s.apiCarry)
+	mux.HandleFunc("POST /api/calendar/repeat", s.apiRepeat)
 	mux.HandleFunc("GET /api/summary", s.apiSummary)
 	mux.HandleFunc("POST /notify", s.handleNotify)
 	mux.HandleFunc("GET /pending", s.handlePending)

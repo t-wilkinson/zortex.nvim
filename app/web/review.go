@@ -59,6 +59,84 @@ type okrPeriod struct {
 	Window  string
 	Elapsed int // percent of the window passed
 	List    []okrObjective
+	Tier    *okrTier // a season heading's tier
+}
+
+// okrTier is how far a season got: Neovim's own figure when it published
+// this season (the XP summary) or ended it (its history), else an estimate
+// here (its objectives' mean progress against the default tiers).
+type okrTier struct {
+	Name      string // "" before the first tier
+	Progress  int    // percent
+	Next      string
+	NextAt    int // percent
+	Final     bool
+	Estimated bool
+}
+
+type summaryTier struct {
+	Name string  `json:"name"`
+	At   float64 `json:"at"`
+}
+
+var defaultTiers = []summaryTier{{"Bronze", 0.25}, {"Silver", 0.5}, {"Gold", 0.7}, {"Platinum", 0.85}, {"Complete", 1}}
+
+// seasonTier: the tier of the season heading `h`, among every objective (done
+// ones too).
+func (s *Server) seasonTier(h *seasonHeading, all []*webObjective, raw []byte) *okrTier {
+	var sum struct {
+		Season *struct {
+			Name      string        `json:"name"`
+			StartDate string        `json:"start_date"`
+			Progress  float64       `json:"progress"`
+			Tier      string        `json:"tier"`
+			NextTier  string        `json:"next_tier"`
+			NextAt    float64       `json:"next_at"`
+			Tiers     []summaryTier `json:"tiers"`
+		} `json:"season"`
+		History []struct {
+			Name          string  `json:"name"`
+			FinalProgress float64 `json:"final_progress"`
+			FinalTier     string  `json:"final_tier"`
+		} `json:"history"`
+	}
+	if raw != nil {
+		_ = json.Unmarshal(raw, &sum)
+	}
+	pct := func(x float64) int { return int(math.Round(x * 100)) }
+	start := h.Start.Format("2006-01-02")
+	if c := sum.Season; c != nil && (c.StartDate == start || (h.Name != "" && c.Name == h.Name)) {
+		return &okrTier{Name: c.Tier, Progress: pct(c.Progress), Next: c.NextTier, NextAt: pct(c.NextAt)}
+	}
+	for _, past := range sum.History {
+		if h.Name != "" && past.Name == h.Name {
+			return &okrTier{Name: past.FinalTier, Progress: pct(past.FinalProgress), Final: true}
+		}
+	}
+	tiers := defaultTiers
+	if sum.Season != nil && len(sum.Season.Tiers) > 0 {
+		tiers = sum.Season.Tiers
+	}
+	progress, n := 0.0, 0
+	for _, o := range all {
+		if o.Season != nil && o.Season.Start.Equal(h.Start) && o.Season.Name == h.Name {
+			progress += o.Progress
+			n++
+		}
+	}
+	if n > 0 {
+		progress /= float64(n)
+	}
+	t := &okrTier{Progress: pct(progress), Estimated: true}
+	for _, tier := range tiers {
+		if progress >= tier.At-1e-9 {
+			t.Name = tier.Name
+		} else {
+			t.Next, t.NextAt = tier.Name, pct(tier.At)
+			break
+		}
+	}
+	return t
 }
 
 func (s *Server) handleOKR(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +144,8 @@ func (s *Server) handleOKR(w http.ResponseWriter, r *http.Request) {
 	all := s.allProjects()
 	today := now.Format("2006-01-02")
 	var current, later, past, done []okrObjective
-	for _, o := range s.objectives(all, now) {
+	objs := s.objectives(all, now)
+	for _, o := range objs {
 		x := okrObjective{webObjective: o, AreaLinks: s.areaLinks(o.Areas, o.Rel)}
 		for _, kr := range o.KRs {
 			k := okrKR{webKR: kr}
@@ -97,6 +176,12 @@ func (s *Server) handleOKR(w http.ResponseWriter, r *http.Request) {
 			periods = append(periods, okrPeriod{Span: o.Span, Window: o.Window(), Elapsed: o.ElapsedPercent()})
 		}
 		periods[i].List = append(periods[i].List, o)
+	}
+	summary := s.xpSummary()
+	for i := range periods {
+		if h := periods[i].List[0].Season; h != nil {
+			periods[i].Tier = s.seasonTier(h, objs, summary)
+		}
 	}
 	sort.SliceStable(periods, func(i, j int) bool {
 		return periods[i].List[0].End.Before(periods[j].List[0].End)

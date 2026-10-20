@@ -17,9 +17,11 @@
       <div class="okr-kr-head">
         <a class="pill" href="{{.URL}}">{{.ID}}</a>
         <span class="okr-kr-text">{{.HTML}}</span>
+        {{if .Stuck}}<span class="pill warn" title="No project and no checkbox: nothing can move it">stuck</span>{{end}}
         <span class="okr-kr-pct small dim nums">{{if .Done}}✓{{else}}{{.Percent}}%{{end}}</span>
       </div>
       {{if .Rows}}<ul class="prows okr-projects">{{range .Rows}}{{template "projectRow" .}}{{end}}</ul>
+      {{else if .Stuck}}<p class="small warn-text">Nothing can move it: link a project (<code>[P/#…]</code>) or give it a checkbox (<code>- {{.ID}}: [ ] …</code>).</p>
       {{else if not .Done}}<p class="small dim">No project moves it: link one (<code>[P/#…]</code>) or check it when reached.</p>{{end}}
     </li>
     {{end}}
@@ -35,7 +37,7 @@
   <p class="dim">No OKR note: objectives are the headings under a season heading in <code>okr.zortex</code> (<code>@@Objectives</code>): <code># 2026-Q4 Season 1</code>, then <code>## Ship the first release</code>, with key results <code>- KR1: [ ] …</code> under them that link the project doing the work.</p>
   {{end}}
   {{range .Periods}}
-  <h2 class="section-title">{{.Span}} · {{.Window}} · {{.Elapsed}}% gone</h2>
+  <h2 class="section-title">{{.Span}} · {{.Window}} · {{.Elapsed}}% gone{{with .Tier}} <span class="pill{{if .Name}} ok{{end}}" title="{{if .Estimated}}estimated here: the mean of its objectives (Neovim weighs them by XP){{else if .Final}}its final tier{{else}}from Neovim{{end}}">{{if .Name}}{{.Name}}{{else}}no tier yet{{end}} · {{.Progress}}%</span>{{if .Next}} <span class="dim small">{{.Next}} at {{.NextAt}}%</span>{{end}}{{end}}</h2>
   <ul class="okr-list">{{range .List}}{{template "okrObjective" .}}{{end}}</ul>
   {{end}}
   {{if and .HasOKR (not .Periods)}}<p class="dim">No objective is running now.</p>{{end}}

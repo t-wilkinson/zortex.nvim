@@ -1,6 +1,24 @@
 @@Calendar
 @@C
 
+# Templates
+Weekday:
+Outcomes:
+- [ ]
+
+09:00 - 10:30 Deep work
+Sunday:
+12:00 Weekly review [P]
+
+# Repeating
+## Birthdays
+- Sam's birthday @repeat(10-16) @born(1990)
+## Routines
+12:00 [ ] Weekly review @repeat(weekly, Sunday)
+- [ ] Bins out @repeat(2w) @since(2026-10-06) @at(18:00)
+
+# Days
+
 **2026-10-12:**
 09:00 - 10:30 Deep work on [P/#2.1]
 - [x] Call the hardware store @done(2026-10-12)

@@ -211,6 +211,9 @@ function M.render(r, opts)
 		if link then
 			line = line .. " " .. link
 		end
+		if kr.is_stuck and kr:is_stuck() then
+			line = line .. "  (stuck: no checkbox either, nothing can move it)"
+		end
 		return line, { file = kr.file, lnum = kr.lnum }, { kr = kr }
 	end)
 	section("Objectives without key results (R adds one)", r.objectives_without_krs, function(o)

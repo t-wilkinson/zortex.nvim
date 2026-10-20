@@ -392,6 +392,10 @@ local defaults = {
 		-- by their XP (size x priority x importance)
 		season = {
 			default_length = 90, -- days
+			-- :ZortexSeason start names seasons "Season 10 Juniper": a number and a
+			-- word whose letter moves on with it. A list of your own words, or false
+			-- for numbers only. nil: the built-in list (services/okr SEASON_NAMES).
+			names = nil,
 			-- No season started by hand (or it ended): the calendar quarter is
 			-- the season, the same window as 3M-YYYY-Qn objectives
 			follow_quarter = true,

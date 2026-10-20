@@ -227,7 +227,7 @@ function M.lines(context)
 	end
 
 	add("")
-	add("  Change these with setup({ xp = { ... } }) · :ZortexXPExplain on a project · q to close")
+	add("  Change these with setup({ xp = { ... } }) · :ZortexXPExplain on a project · g overview · q close")
 	return lines, headings
 end
 
@@ -417,9 +417,16 @@ function M.show()
 			vim.api.nvim_win_close(win, true)
 		end
 	end
-	for _, key in ipairs({ "q", "<Esc>" }) do
-		vim.keymap.set("n", key, close, { buffer = buf, nowait = true, silent = true })
-	end
+	require("zortex.keys").map(buf, "xp_guide", {
+		overview = function()
+			close()
+			require("zortex.ui.xp").show()
+		end,
+		close = close,
+		help = function()
+			require("zortex.ui.keyhelp").show("xp_guide")
+		end,
+	})
 	return buf, win
 end
 

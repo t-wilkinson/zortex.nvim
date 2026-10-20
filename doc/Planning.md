@@ -12,7 +12,7 @@ A vision, then five layers, each linking to the one above:
 ```
 vision      what a good life looks like           areas.zortex       Vision: a calm home, a strong body, …
 area        what you care about over years       areas.zortex       # 1 Personal / ## 1.1 Health
-objective   what you'll change this period        okr.zortex         ## 3M-2026-Q4 Build steady habits @a(1.1)
+objective   what you'll change this season        okr.zortex         ## Build steady habits @a(1.1)
 key result  how you'll know                       okr.zortex         - KR1: [ ] Bake every weekend [P/#2.2 Bake a loaf]
 project     the work that moves a key result      projects.zortex    ## 2.2 Bake a good sourdough loaf
 task        the next step                         anywhere           - [ ] Feed the starter twice a day @size(sm)
@@ -24,9 +24,16 @@ task        the next step                         anywhere           - [ ] Feed 
   weekly review opens with them.
 - **Areas** are headings (and labels) in `areas.zortex`, nested: `1.2` is part
   of `1`. A `Vision:` label is not an area.
-- **Objectives** are headings in `okr.zortex` named `SPAN-YEAR-PERIOD Title`;
-  `3M-2026-Q4` runs October to December (also `6M-2026-H2`, `1M-2026-03`,
-  `1Y-2026-Y`). Give each its area: `@a(1.1)`.
+- **Objectives** are the headings under a season heading in `okr.zortex`.
+  The season heading starts with when the season starts, then its name:
+  `# 2026-Q4 Season 10 Juniper` (also `# 2026-10 …`, `# 2026-October …`,
+  `# 2026-10-20 …`). Its objectives run from then to the day before the next
+  season heading starts: the quarter for `Qn`, at most
+  `xp.season.default_length` days (90) otherwise. `:ZortexSeason start` adds
+  the heading. An objective can also carry its own window instead,
+  `## 3M-2026-Q4 Title` (October to December; also `6M-2026-H2`,
+  `1M-2026-03`, `1Y-2026-Y`), anywhere in the note. Give each its area:
+  `@a(1.1)`.
 - **Key results** are `- KRn:` items under an objective. Link the projects
   that move them: `[P/#2.2 Bake a good sourdough loaf]`. A key result's
   progress is its projects' effort points done (`@size` weighs tasks); a key
@@ -329,8 +336,10 @@ Two measures come out of it:
    10 about 10,000. An area's total is its own XP plus `area.bubble` (75%) of
    each sub-area's.
 2. **Seasons**: progress on this period's objectives. A season is a date
-   window (by default the calendar quarter, the window of `3M-YYYY-Qn`
-   objectives); its progress is the progress of the objectives in it,
+   window (started with `:ZortexSeason start`, which also adds its heading
+   to `okr.zortex` and names it `Season 10 Juniper`: a number and a word
+   whose letter moves on with it, `xp.season.names`; else the calendar
+   quarter); its progress is the progress of the objectives in it,
    weighted by their XP, so a large, important objective moves it more than a
    small one. Tiers are thresholds on that progress (Bronze 25%, Silver 50%,
    Gold 70%, Platinum 85%, Complete 100%: every objective done).

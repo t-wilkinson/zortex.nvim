@@ -202,6 +202,19 @@ PLAN ~
     Go to today in the calendar (or a date), adding the day from its template
     when it isn't there. Keys: <leader>zd. Id: today.
 
+:ZortexNow                                                        *:ZortexNow*
+    Go to today in the calendar, at the entry for the time now (the latest one
+    that has started). Keys: <leader>zn. Id: now.
+
+:ZortexTimeShift                                            *:ZortexTimeShift*
+    Move the times on the line (or the selected lines) later by an offset:
+    1h30m takes 12:00 to 13:30; -15m moves them earlier. Keys: <leader>z+. Id:
+    time_later.
+
+actions.time_earlier                              *zortex-action-time_earlier*
+    Move the times on the line (or the selected lines) earlier by an offset.
+    Keys: <leader>z-. Id: time_earlier.
+
 :ZortexCarryForward                                      *:ZortexCarryForward*
     Copy the open tasks of the days before to today (or a date), marking the
     old lines [>]. Keys: <leader>zCf. Id: carry_forward.
@@ -385,6 +398,11 @@ XP (:ZortexXP) ~
   e        how the project on the line earned its XP
   g        how XP is calibrated (:ZortexXPGuide)
   r        refresh
+  q <Esc>  close
+  ?        these keys
+
+XP GUIDE (:ZortexXPGuide) ~
+  g        back to the XP overview (:ZortexXP)
   q <Esc>  close
   ?        these keys
 
@@ -800,6 +818,10 @@ setup() merges your options over these defaults: >lua
         -- by their XP (size x priority x importance)
         season = {
           default_length = 90, -- days
+          -- :ZortexSeason start names seasons "Season 10 Juniper": a number and a
+          -- word whose letter moves on with it. A list of your own words, or false
+          -- for numbers only. nil: the built-in list (services/okr SEASON_NAMES).
+          names = nil,
           -- No season started by hand (or it ended): the calendar quarter is
           -- the season, the same window as 3M-YYYY-Qn objectives
           follow_quarter = true,

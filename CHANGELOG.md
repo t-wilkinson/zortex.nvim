@@ -10,6 +10,19 @@ The first public release.
 
 ### Neovim plugin
 
+- **Season headings** in the OKR note: `# 2026-Q4 Season 10 Juniper` (also
+  `# 2026-10 …`, `# 2026-October …`, `# 2026-10-20 …`) holds the season's
+  objectives, the headings under it, which need no `3M-YYYY-Qn` prefix:
+  they run from the season's start to the day before the next season
+  heading (at most the quarter, or `xp.season.default_length` days).
+  `:ZortexSeason start` adds the heading and names the season
+  `Season N <word>`, the word's letter moving on with the number
+  (`xp.season.names`). Prefixed objectives work as before.
+- `:ZortexNow` (`<leader>zn`): today in the calendar, at the entry for the
+  time now. `:ZortexTimeShift 1h30m` (`<leader>z+`, `<leader>z-`, on a line
+  or a selection) moves the entry times later or earlier: `12:00` to
+  `13:30`, ranges and `@at`/`@from`/`@to` too.
+- `g` in the XP guide goes back to the XP overview.
 - **Organizational headings** in project notes aren't projects: a heading
   with no task of its own (done or not) and no project attribute (`@size`,
   `@p`, `@i`, `@due`, `@done`, `@xp`, `@dur`, `@est`, `@a`, `@someday`;
@@ -295,6 +308,14 @@ The first public release.
 
 ### Server (`zortex serve`)
 
+- `/resources` is part of the file browser: a folder links its resources,
+  `/f/<dir>?show=all|unlinked|linked&kind=pdf` lists the ones under it by
+  folder; `/resources` redirects there and leaves the top bar.
+- `/broken` lists the notes nothing reaches: not in the structure, and no
+  other note links them.
+- `/okr`: a key result's text leaves out its `KRn:` and the links to its
+  projects (listed under it), and the project rows don't repeat its id;
+  objectives under a season heading are grouped by it.
 - **Calendar feeds** (`-feeds FILE`, NixOS `feeds.<name>`): iCal links (a
   Cozi family member's, Google's secret address, …) fetched every 15
   minutes into `z/feeds/<name>.zortex`, one line per event in the

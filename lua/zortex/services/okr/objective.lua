@@ -1,8 +1,15 @@
 -- services/okr/objective.lua - Objective entities and key results
 --
 -- Every heading in the OKR article is an entity (so "# Current" is a
--- container); headings whose text looks like "3M-2026-Q1 Title" are
--- objectives. Key results are list items directly under an objective:
+-- container). Objectives are either
+--   * headings whose text looks like "3M-2026-Q1 Title" (the prefix is the
+--     objective's own window), or
+--   * the headings directly under a season heading, which names when the
+--     season starts: "# 2026-Q4 Season 10 Juniper", "# 2026-10 …",
+--     "# 2026-October …", "# 2026-10-20 …". They share the season's window:
+--     from its start to the day before the next season heading starts, at
+--     most a quarter (Qn) or xp.season.default_length days.
+-- Key results are list items directly under an objective:
 --   "- KR2: [ ] Make list of habits and routines [P/#1 Personal/#Habits]"
 --
 -- KR progress is computed from the projects it links to (points done / points
@@ -80,6 +87,112 @@ function M.window(span, year, period)
 	end
 	len = len or default_len
 	return ymd(year, month, 1), month_end(year, month, len)
+end
+
+-- =============================================================================
+-- Season headings
+-- =============================================================================
+
+local MONTHS = {
+	january = 1, february = 2, march = 3, april = 4, may = 5, june = 6,
+	july = 7, august = 8, september = 9, october = 10, november = 11, december = 12,
+}
+
+local function add_days(date, days)
+	local y, m, d = date:match("^(%d+)%-(%d+)%-(%d+)")
+	return ymd(tonumber(y), tonumber(m), tonumber(d) + days)
+end
+
+local function season_length()
+	local xp = require("zortex.config").xp or {}
+	return tonumber((xp.season or {}).default_length) or 90
+end
+
+--- A season heading's text -> { start, natural_end, token, name } or nil.
+--- The text starts with when the season starts: "2026-Q4", "2026-10",
+--- "2026-October" (or "2026-Oct"), "2026-10-20"; the rest is its name.
+--- natural_end: the quarter's last day for Qn, else start + default_length.
+function M.parse_season(text)
+	text = vim.trim(text or "")
+	local token, rest = text:match("^(%d%d%d%d%-%S+)%s*(.*)$")
+	if not token then
+		return nil
+	end
+	local year = tonumber(token:sub(1, 4))
+	local tail = token:sub(6)
+	local start, natural_end
+	local q = tail:match("^[Qq]([1-4])$")
+	local mm, dd = tail:match("^(%d%d)%-(%d%d)$")
+	local month_only = tail:match("^(%d%d?)$")
+	if q then
+		start, natural_end = M.window("3M", year, "Q" .. q)
+	elseif mm then
+		local m, d = tonumber(mm), tonumber(dd)
+		if m < 1 or m > 12 or d < 1 or d > 31 then
+			return nil
+		end
+		start = string.format("%04d-%02d-%02d", year, m, d)
+	elseif month_only and tonumber(month_only) >= 1 and tonumber(month_only) <= 12 then
+		start = string.format("%04d-%02d-01", year, tonumber(month_only))
+	else
+		local name = tail:lower()
+		local m = MONTHS[name]
+		if not m and #name >= 3 then
+			for full, n in pairs(MONTHS) do
+				if full:sub(1, #name) == name then
+					m = n
+				end
+			end
+		end
+		if not m then
+			return nil
+		end
+		start = string.format("%04d-%02d-01", year, m)
+	end
+	natural_end = natural_end or add_days(start, season_length() - 1)
+	return { start = start, natural_end = natural_end, token = token, name = vim.trim(rest) }
+end
+
+--- The season headings of `lines`: { { lnum, level, start, natural_end, name, text } }
+function M.season_headings(lines)
+	local out = {}
+	for lnum, line in ipairs(lines or {}) do
+		local hashes, text = line:match("^(#+)%s+(.-)%s*$")
+		if hashes then
+			local s = M.parse_season(text)
+			if s then
+				s.lnum, s.level, s.text = lnum, #hashes, text
+				out[#out + 1] = s
+			end
+		end
+	end
+	return out
+end
+
+--- start, end of the season heading at `lnum` of `lines`: it ends the day
+--- before the next season heading (of the same level) starts, and at its
+--- natural end at the latest.
+function M.season_window(lines, lnum)
+	local seasons = M.season_headings(lines)
+	local this
+	for _, s in ipairs(seasons) do
+		if s.lnum == lnum then
+			this = s
+		end
+	end
+	if not this then
+		return nil
+	end
+	local finish = this.natural_end
+	for _, s in ipairs(seasons) do
+		if s.level == this.level and s.start > this.start then
+			local before = add_days(s.start, -1)
+			if before < finish then
+				finish = before
+			end
+		end
+	end
+	return this.start, finish
 end
 
 --- The calendar quarter around `date` ("YYYY-MM-DD"; default today):
@@ -267,7 +380,32 @@ function M.init(o)
 		o.id = string.format("%s_%d_%s_%s", info.span, info.year, info.period, (info.title:gsub("[^%w]", "_")))
 		o.completed = o.attributes.done ~= nil
 		o.section = o.parent and o.parent.name or nil -- e.g. "Current"
+		return
 	end
+	if o.kind ~= "heading" then
+		return
+	end
+	local season = M.parse_season(o.name)
+	if season then
+		o.is_season = true
+		o.season_info = season
+	elseif o.parent and o.parent.is_season then
+		-- an objective of the season it is under: "# 2026-Q4 Season 10" / "## Title"
+		o.is_objective = true
+		o.title = o.name
+		o.season = o.parent
+		o.id = string.format("S_%s_%s", o.parent.season_info.start, (o.name:gsub("[^%w]", "_")))
+		o.completed = o.attributes.done ~= nil
+		o.section = o.parent.name
+	end
+end
+
+--- start, end of a season heading entity
+function Objective:season_window()
+	if not self.is_season then
+		return nil
+	end
+	return M.season_window(self.doc.lines, self.lnum)
 end
 
 function Objective:parse_key_results()
@@ -310,6 +448,9 @@ end
 function Objective:window()
 	if not self.is_objective then
 		return nil
+	end
+	if self.season then
+		return self.season:season_window()
 	end
 	return M.window(self.span, self.year, self.period)
 end

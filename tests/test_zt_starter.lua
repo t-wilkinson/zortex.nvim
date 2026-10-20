@@ -64,7 +64,9 @@ T.test("templates use the syntax and link to each other", function()
 	end
 	T.ok(has("projects.zortex", "# 1 Example project @a(1.1)"))
 	T.ok(has("areas.zortex", "## 1.1 Health"), "@a(1.1) resolves")
-	T.ok(all["okr.zortex"][5]:match("^## 3M%-%d%d%d%d%-Q[1-4] "), "OKR heading format")
+	T.ok(all["okr.zortex"][4]:match("^# %d%d%d%d%-Q[1-4] Season 1 "), "a season heading")
+	T.ok(require("zortex.services.okr.objective").parse_season(all["okr.zortex"][4]:sub(3)), "it parses as one")
+	T.eq(all["okr.zortex"][5], "## An objective @a(1.1)")
 	local cal = all["calendar.zortex"]
 	T.eq(syntax.classify(cal[4]).kind, "bold_heading", "a day is a bold label")
 	T.eq(syntax.classify(cal[5]).kind, "label", "Outcomes: nests under it")

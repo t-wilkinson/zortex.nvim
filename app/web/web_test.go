@@ -369,18 +369,25 @@ func TestResources(t *testing.T) {
 	expect(t, ts, "/f/z/images/pic.png", 200, `href="/f/z/readme.md"`, `line 2`)    // from a Markdown file
 	expect(t, ts, "/f/z/papers/unread.pdf", 200, `Nothing links to this file yet.`) // only in a code block
 
-	// every resource by default, then the unlinked list
-	expect(t, ts, "/resources", 200, `unread.pdf`, `sicp.epub`, `talk.mp4`, `type-theory.pdf`, `hott.pdf`, `pic.png`,
-		`<a class="chip on" href="/resources" aria-current="true">all</a>`, `href="/resources?show=unlinked"`)
-	body := expect(t, ts, "/resources?show=unlinked", 200, `unread.pdf`, `sicp.epub`, `talk.mp4`)
+	// a folder's resources: every one under it, then the unlinked
+	expect(t, ts, "/f/?show=all", 200, `unread.pdf`, `sicp.epub`, `talk.mp4`, `type-theory.pdf`, `hott.pdf`, `pic.png`,
+		`<a class="chip on" href="/f/?show=all" aria-current="true">all</a>`, `href="/f/?show=unlinked"`, `aria-current="page">Files`)
+	body := expect(t, ts, "/f/?show=unlinked", 200, `unread.pdf`, `sicp.epub`, `talk.mp4`)
 	for _, linked := range []string{"type-theory.pdf", "hott.pdf", "attention.pdf", "pic.png"} {
 		if strings.Contains(body, linked) {
-			t.Errorf("/resources?show=unlinked lists linked %s", linked)
+			t.Errorf("?show=unlinked lists linked %s", linked)
 		}
 	}
-	expect(t, ts, "/resources?show=linked&kind=pdf", 200, `type-theory.pdf`, `attention.pdf`)
-	if b := expect(t, ts, "/resources?dir=z/books", 200, `sicp.epub`); strings.Contains(b, "unread.pdf") {
-		t.Error("dir filter")
+	expect(t, ts, "/f/?show=linked&kind=pdf", 200, `type-theory.pdf`, `attention.pdf`)
+	if b := expect(t, ts, "/f/z/books?show=all", 200, `sicp.epub`, `<h1>Resources in z/books/</h1>`, `href="/f/z/books?show=all">books</a>`); strings.Contains(b, "unread.pdf") {
+		t.Error("only the folder's resources")
+	}
+	// /resources is the top folder's list now; ?dir= becomes the path
+	if code, h, _ := get(t, ts, "/resources?show=unlinked&dir=z/books"); code != 301 || h.Get("Location") != "/f/z/books?show=unlinked" {
+		t.Errorf("/resources: %d %s", code, h.Get("Location"))
+	}
+	if code, h, _ := get(t, ts, "/resources"); code != 301 || h.Get("Location") != "/f/?show=all" {
+		t.Errorf("/resources: %d %s", code, h.Get("Location"))
 	}
 	_, _, js := get(t, ts, "/api/resources?kind=pdf")
 	if !strings.Contains(js, `"rel":"z/papers/unread.pdf"`) || strings.Contains(js, "hott") {
@@ -388,7 +395,8 @@ func TestResources(t *testing.T) {
 	}
 
 	// listings: per-file counts and unlinked per folder
-	expect(t, ts, "/f/z", 200, `href="/resources?show=unlinked&amp;dir=z%2fbooks">1 unlinked</a>`, `href="/resources?show=unlinked&amp;dir=z%2fpapers">1 unlinked</a>`)
+	expect(t, ts, "/f/z", 200, `href="/f/z/books?show=unlinked">1 unlinked</a>`, `href="/f/z/papers?show=unlinked">1 unlinked</a>`,
+		`href="/f/z?show=all">8 resources</a> under this folder`, `href="/f/z?show=unlinked">3 unlinked</a>`)
 	expect(t, ts, "/f/z/books", 200, `<span class="unlinked">unlinked</span>`, `/f/z/books/type-theory.pdf#backlinks">1</a>`)
 	// rendering resolves the bare name too; a missing file is a broken link
 	expect(t, ts, "/n/z/reading.zortex", 200, `href="/f/z/papers/attention.pdf"`)
@@ -397,7 +405,7 @@ func TestResources(t *testing.T) {
 	// a new file shows up on the next rescan, without any note changing
 	os.WriteFile(filepath.Join(dir, "z/papers/new.pdf"), []byte("%PDF"), 0o644)
 	s.Refresh()
-	expect(t, ts, "/resources", 200, `new.pdf`)
+	expect(t, ts, "/f/?show=all", 200, `new.pdf`)
 }
 
 func TestBrokenPathLinks(t *testing.T) {

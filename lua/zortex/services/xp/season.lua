@@ -1,8 +1,10 @@
 -- services/xp/season.lua - A season is progress on its objectives
 --
 -- The season (stores/xp: started by hand, else the calendar quarter) is a
--- date window. Its objectives are the ones whose window overlaps it
--- (3M-2026-Q4 for Q4 2026). Season progress is their progress weighted by
+-- date window. Its objectives are the ones whose window overlaps it: the
+-- objectives under its season heading in the OKR note ("# 2026-Q4 Season
+-- 10 Juniper", which :ZortexSeason start adds), or ones with their own
+-- window (3M-2026-Q4 for Q4 2026). Season progress is their progress weighted by
 -- their value (calculator.objective_value: estimated hours x XP per hour x
 -- priority x importance), so a large, important objective moves the season
 -- more than a small one, and every task on a key result moves it a little.
@@ -15,6 +17,12 @@ local M = {}
 
 local function cfg()
 	return require("zortex.services.xp.calculator").conf()
+end
+
+--- "Season 10 Juniper" stays as it is; "2026 Q4" becomes "Season 2026 Q4".
+function M.label(season)
+	local name = season and season.name or "?"
+	return name:match("^[Ss]eason") and name or ("Season " .. name)
 end
 
 --- The configured tiers, lowest first: { { name, at }, ... }

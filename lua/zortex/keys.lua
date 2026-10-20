@@ -111,6 +111,17 @@ M.BUFFERS = {
 		},
 	},
 	{
+		id = "xp_guide",
+		name = "XP guide",
+		where = ":ZortexXPGuide",
+		keys = {
+			{ "g", "overview", "back to the XP overview (:ZortexXP)" },
+			{ "q", "close", "close" },
+			{ "<Esc>", "close", "close" },
+			{ "?", "help", "these keys" },
+		},
+	},
+	{
 		id = "preview",
 		name = "Link preview",
 		where = "<leader>zK",

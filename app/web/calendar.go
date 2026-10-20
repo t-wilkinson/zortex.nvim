@@ -313,10 +313,16 @@ func entryFlags(spans []syntax.Span) (notify, event bool) {
 
 // entryHTML renders line[from:] like a note line, without attributes.
 func (r *noteRenderer) entryHTML(line string, lnum, from int) string {
+	return r.entryHTMLWithout(line, lnum, from, nil)
+}
+
+// entryHTMLWithout is entryHTML without the links that start at `hide`'s
+// columns (a key result's links to the projects listed under it).
+func (r *noteRenderer) entryHTMLWithout(line string, lnum, from int, hide map[int]bool) string {
 	r.lnum = lnum
 	spans := append([]syntax.Span(nil), r.doc.Spans(lnum)...)
 	for i := range spans {
-		if spans[i].Type == "attribute" {
+		if spans[i].Type == "attribute" || (hide[spans[i].S] && (spans[i].Type == "link" || spans[i].Type == "live_link")) {
 			spans[i].Type = "hidden"
 		}
 	}

@@ -1,10 +1,10 @@
 {{define "content"}}
 <section class="narrow wide resources">
-  <h1>Resources</h1>
-  <p class="dim">PDFs, books, images, media and documents in the notes folder, and whether any note or Markdown file links to them. {{.Total}} here, {{.Unlinked}} unlinked.</p>
+  <nav class="crumbs">{{range $i, $c := .Crumbs}}{{if $i}}<span>/</span>{{end}}<a href="{{$c.URL}}">{{$c.Name}}</a>{{end}}</nav>
+  <h1>{{.Title}}</h1>
+  <p class="dim">PDFs, books, images, media and documents under this folder, and whether any note or Markdown file links to them. {{.Total}} here, {{.Unlinked}} unlinked. <a href="{{.Listing}}">Back to the folder</a></p>
   <div class="chips" role="group" aria-label="Show">{{range .Shows}}<a class="chip{{if .On}} on{{end}}" href="{{.URL}}"{{if .On}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</div>
   <div class="chips" role="group" aria-label="Type">{{range .Kinds}}<a class="chip{{if .On}} on{{end}}" href="{{.URL}}"{{if .On}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</div>
-  {{if .Filter.Dir}}<p class="dim">In <code>{{.Filter.Dir}}/</code> · <a href="{{.AllDirs}}">every folder</a></p>{{end}}
 
   {{if .Folders}}
   <table class="listing folders">

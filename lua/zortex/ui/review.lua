@@ -375,8 +375,8 @@ local function season_line(s)
 		return nil
 	end
 	return string.format(
-		"  Season %s: %s of its objectives%s%s",
-		s.season.name or "",
+		"  %s: %s of its objectives%s%s",
+		require("zortex.services.xp.season").label(s.season),
 		pct(s.progress),
 		s.tier and (" · " .. s.tier.name) or "",
 		s.next_tier and string.format(" · %s at %s", s.next_tier.name, pct(s.next_tier.at)) or ""

@@ -12,6 +12,21 @@
   </table>
   {{else}}<p>Every link resolves.</p>{{end}}
 
+  <h2 class="section-title" id="orphans">Notes nothing reaches</h2>
+  {{if .Orphans}}
+  <p class="dim small">{{if .HasStructure}}Not in the structure, and no other note links to them{{else}}No other note links to them (there is no Structure note yet){{end}}: link each from where it belongs, or archive it.</p>
+  <table class="listing">
+    <thead><tr><th>Note</th><th>Folder</th><th class="when">Changed</th></tr></thead>
+    <tbody>
+    {{range .Orphans}}
+    <tr class="note"><td><a href="{{noteURL .Rel 0}}"><span class="ico" aria-hidden="true"></span>{{.Title}}{{if ne .Title (base .Rel)}} <span class="dim">{{base .Rel}}</span>{{end}}</a></td><td class="dim">{{if .Dir}}<a href="{{fileURL .Dir}}">{{.Dir}}/</a>{{end}}</td><td class="when">{{ago .ModTime}}</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}<p class="dim">Every note is in the structure or linked from another note.</p>{{end}}
+  {{if and .HasStructure .StructureOnly}}<p class="dim small">{{.StructureOnly}} more note{{if ne .StructureOnly 1}}s are{{else}} is{{end}} linked from a note but not from the structure{{range $i, $r := .Roots}}{{if not $i}}: <a href="{{noteURL $r 0}}">{{$r}}</a> lists {{if ne $.StructureOnly 1}}them{{else}}it{{end}}{{end}}{{end}}.</p>{{end}}
+  {{if .Unlinked}}<p class="dim small"><a href="{{fileURL ""}}?show=unlinked">{{.Unlinked}} file{{if ne .Unlinked 1}}s{{end}}</a> (PDFs, images, …) nothing links to.</p>{{end}}
+
   <h2 class="section-title">Tags that go nowhere</h2>
   {{with .Tags}}
   {{if or .Searches .Links}}

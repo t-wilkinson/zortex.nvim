@@ -64,7 +64,6 @@ type okrPeriod struct {
 func (s *Server) handleOKR(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	all := s.allProjects()
-	krs := s.keyResults(all, now)
 	today := now.Format("2006-01-02")
 	var current, later, past, done []okrObjective
 	for _, o := range s.objectives(all, now) {
@@ -72,7 +71,7 @@ func (s *Server) handleOKR(w http.ResponseWriter, r *http.Request) {
 		for _, kr := range o.KRs {
 			k := okrKR{webKR: kr}
 			for _, p := range kr.Projects {
-				k.Rows = append(k.Rows, s.row(p, nil, krs))
+				k.Rows = append(k.Rows, s.row(p, nil, nil)) // its key result is the one above it
 			}
 			x.KRs = append(x.KRs, k)
 		}

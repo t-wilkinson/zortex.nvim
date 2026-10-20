@@ -1,7 +1,7 @@
 {{define "content"}}
 <section class="narrow wide">
   <nav class="crumbs">{{range $i, $c := .Crumbs}}{{if $i}}<span>/</span>{{end}}<a href="{{$c.URL}}">{{$c.Name}}</a>{{end}}</nav>
-  {{if .Unlinked}}<p class="dim toggle"><a href="{{u "/resources"}}?show=unlinked{{if .Rel}}&amp;dir={{.Rel}}{{end}}">{{.Unlinked}} unlinked resource{{if ne .Unlinked 1}}s{{end}}</a> in this folder</p>{{end}}
+  {{if .Resources}}<p class="dim toggle"><a href="{{fileURL .Rel}}?show=all">{{.Resources}} resource{{if ne .Resources 1}}s{{end}}</a> under this folder{{if .Unlinked}}, <a href="{{fileURL .Rel}}?show=unlinked">{{.Unlinked}} unlinked</a>{{end}}</p>{{end}}
   {{if .Hidden}}
   <p class="dim toggle">{{if .All}}Showing every note. <a href="{{.Named}}">Hide notes with generated names</a>{{else}}{{.Hidden}} note{{if ne .Hidden 1}}s{{end}} with generated names hidden. <a href="{{.ShowAll}}">Show all</a>{{end}}</p>
   {{end}}
@@ -16,7 +16,7 @@
     {{range .Entries}}
     <tr class="{{if .Dir}}dir{{else}}{{.Kind}}{{end}}{{if .Hidden}} extra{{end}}">
       <td><a href="{{if .Note}}{{noteURL .Rel 0}}{{else if .Dir}}{{fileURL .Rel}}{{$.Keep}}{{else}}{{fileURL .Rel}}{{end}}"><span class="ico" aria-hidden="true"></span>{{if .Dir}}{{.Name}}/{{else if .Note}}{{.Title}}{{if ne .Title (base .Rel)}} <span class="dim">{{.Name}}</span>{{end}}{{else}}{{.Name}}{{end}}</a></td>
-      <td class="num">{{if .Dir}}{{if .Unlinked}}<a class="unlinked" href="{{u "/resources"}}?show=unlinked&amp;dir={{.Rel}}">{{.Unlinked}} unlinked</a>{{end}}{{else if .Resource}}{{if .Links}}<a href="{{fileURL .Rel}}#backlinks">{{.Links}}</a>{{else}}<span class="unlinked">unlinked</span>{{end}}{{end}}</td>
+      <td class="num">{{if .Dir}}{{if .Unlinked}}<a class="unlinked" href="{{fileURL .Rel}}?show=unlinked">{{.Unlinked}} unlinked</a>{{end}}{{else if .Resource}}{{if .Links}}<a href="{{fileURL .Rel}}#backlinks">{{.Links}}</a>{{else}}<span class="unlinked">unlinked</span>{{end}}{{end}}</td>
       <td class="num">{{if not .Dir}}{{size .Size}}{{end}}</td>
       <td class="when">{{ago .ModTime}}</td>
     </tr>

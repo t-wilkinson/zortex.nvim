@@ -85,3 +85,62 @@ T.test("link text stops at link syntax, @ and |, and still resolves", function()
 	local r = resolver.resolve_first("[P/#1 Programming/#1.4 - zortex/-Improve website]")
 	T.ok(r and r.doc.lines[r.lnum]:find("Improve website", 1, true), r and r.doc.lines[r.lnum])
 end)
+
+T.test("season headings: when they start, and how long they run", function()
+	local obj = require("zortex.services.okr.objective")
+	local function window(text)
+		local s = obj.parse_season(text)
+		return s and (s.start .. ".." .. s.natural_end) or nil
+	end
+	T.eq(window("2026-Q4 Season 10 Juniper"), "2026-10-01..2026-12-31")
+	T.eq(window("2026-10 Season"), "2026-10-01..2026-12-29")
+	T.eq(window("2026-October Season"), "2026-10-01..2026-12-29")
+	T.eq(window("2026-oct"), "2026-10-01..2026-12-29")
+	T.eq(window("2026-10-20 Season 11 Kapok"), "2026-10-20..2027-01-17")
+	T.eq(obj.parse_season("2026-10-20 Season 11 Kapok").name, "Season 11 Kapok")
+	for _, not_season in ipairs({ "3M-2026-Q4 Title", "Current", "2026-Q5", "2026-13", "2026-Ju x" }) do
+		T.eq(obj.parse_season(not_season), nil, not_season)
+	end
+	-- a season ends the day before the next one starts
+	local lines = { "@@OKR", "", "# 2026-11-15 Season 11", "", "# 2026-Q4 Season 10" }
+	T.eq({ obj.season_window(lines, 5) }, { "2026-10-01", "2026-11-14" })
+	T.eq({ obj.season_window(lines, 3) }, { "2026-11-15", "2027-02-12" })
+end)
+
+T.test("objectives under a season heading share its window; new seasons get a heading", function()
+	local workspace = require("zortex.core.workspace")
+	local fs = require("zortex.utils.filesystem")
+	local file = fs.get_okr_file()
+	local before = workspace.get_lines(file)
+	local ok, err = pcall(function()
+		local lines = vim.list_extend({ "@@OKR", "", "# 2026-Q4 Season 10 Juniper", "## Learn piano @a(4.1)", "- KR1: [x] Scales", "### Notes", "" }, vim.list_slice(before, 5))
+		workspace.set_lines(file, 1, #before, lines)
+		local objs = O.objectives()
+		T.eq(objs[1].title, "Learn piano")
+		T.eq({ objs[1]:window() }, { "2026-10-01", "2026-12-31" })
+		T.eq(objs[1]:progress(), 1)
+		T.eq(objs[1].section, "2026-Q4 Season 10 Juniper")
+		T.eq(#objs, 3, "the prefixed objectives still count")
+		T.eq(O.get("OKR/2026-Q4 Season 10 Juniper/Learn piano/Notes").is_objective, false)
+
+		-- the next season: a number and its word, a heading on top
+		T.eq(O.next_season_name(), "Season 11 Kapok")
+		T.eq(O.season_token("2027-01-01", "2027-03-31"), "2027-Q1")
+		T.eq(O.season_token("2026-10-20", "2027-01-17"), "2026-10-20")
+		local stats = require("zortex.services.xp.stats")
+		local lnum = stats.start_season(nil, "2027-02-12", "2026-11-15")
+		T.eq(lnum, 3)
+		local now = workspace.get_lines(file)
+		T.eq(now[3], "# 2026-11-15 Season 11 Kapok")
+		T.eq(now[5], "# 2026-Q4 Season 10 Juniper")
+		T.eq(require("zortex.stores.xp").started_season().name, "Season 11 Kapok")
+		-- the older season now stops where the new one starts
+		T.eq({ O.objectives()[1]:window() }, { "2026-10-01", "2026-11-14" })
+		-- starting it again doesn't add a second heading
+		T.eq(require("zortex.services.okr").add_season_heading("Season 11 Kapok", "2026-11-15"), 3)
+		T.eq(#workspace.get_lines(file), #now)
+	end)
+	require("zortex.stores.xp").reset_season()
+	workspace.set_lines(file, 1, #workspace.get_lines(file), before)
+	T.ok(ok, err)
+end)

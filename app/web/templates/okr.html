@@ -32,7 +32,7 @@
 <section class="narrow wide okr-page">
   <h1>Objectives</h1>
   {{if not .HasOKR}}
-  <p class="dim">No OKR note: objectives are headings like <code>## 3M-2026-Q4 Ship the first release</code> in <code>okr.zortex</code> (<code>@@Objectives</code>), with key results <code>- KR1: [ ] …</code> under them that link the projects doing the work.</p>
+  <p class="dim">No OKR note: objectives are the headings under a season heading in <code>okr.zortex</code> (<code>@@Objectives</code>): <code># 2026-Q4 Season 1</code>, then <code>## Ship the first release</code>, with key results <code>- KR1: [ ] …</code> under them that link the project doing the work.</p>
   {{end}}
   {{range .Periods}}
   <h2 class="section-title">{{.Span}} · {{.Window}} · {{.Elapsed}}% gone</h2>

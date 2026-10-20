@@ -22,11 +22,21 @@ function M.season_status()
 	return require("zortex.services.xp.season").status()
 end
 
-function M.start_season(name, end_date, start_date)
+--- Start a season (stores/xp) and give it a top-level heading in the OKR
+--- note ("# 2026-Q4 Season 10 Juniper"), where its objectives go. opts.heading
+--- = false leaves the note alone. Returns the heading's line number, if any.
+function M.start_season(name, end_date, start_date, opts)
 	if type(end_date) == "number" then
 		end_date = os.date("%Y-%m-%d", end_date)
 	end
+	name = (name and name ~= "") and name or require("zortex.services.okr").next_season_name()
+	start_date = start_date or os.date("%Y-%m-%d")
 	xp_store.start_season(name, end_date, start_date)
+	if opts and opts.heading == false then
+		return nil
+	end
+	local ok, lnum = pcall(require("zortex.services.okr").add_season_heading, name, start_date, end_date)
+	return ok and lnum or nil
 end
 
 function M.end_season()
@@ -40,8 +50,7 @@ end
 
 -- Interactive: ask for a name and a duration, then start the season
 function M.prompt_start_season()
-	local quarter = math.ceil(tonumber(os.date("%m")) / 3)
-	local default_name = string.format("Q%d %s", quarter, os.date("%Y"))
+	local default_name = require("zortex.services.okr").next_season_name()
 	vim.ui.input({ prompt = "Season name: ", default = default_name }, function(name)
 		if not name or name == "" then
 			return
@@ -51,7 +60,10 @@ function M.prompt_start_season()
 		vim.ui.input({ prompt = "Season duration (days): ", default = default_days }, function(days)
 			local end_date = os.date("%Y-%m-%d", os.time() + (tonumber(days) or 90) * 86400)
 			M.start_season(name, end_date)
-			vim.notify(string.format("Season '%s' started!\nEnds: %s", name, end_date), vim.log.levels.INFO)
+			vim.notify(
+				string.format("Season '%s' started!\nEnds: %s · its objectives go under its heading in the OKR note", name, end_date),
+				vim.log.levels.INFO
+			)
 		end)
 	end)
 end

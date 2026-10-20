@@ -493,6 +493,36 @@ M.list = {
 		end,
 	},
 	{
+		id = "now",
+		command = "Now",
+		key = "n",
+		group = "Plan",
+		desc = "Go to today in the calendar, at the entry for the time now (the latest one that has started)",
+		run = call("zortex.features.calendar_time", "goto_now"),
+	},
+	{
+		id = "time_later",
+		command = "TimeShift",
+		key = "+",
+		group = "Plan",
+		range = true,
+		nargs = "?",
+		desc = "Move the times on the line (or the selected lines) later by an offset: 1h30m takes 12:00 to 13:30; -15m moves them earlier",
+		run = function(args)
+			require("zortex.features.calendar_time").shift(args, 1)
+		end,
+	},
+	{
+		id = "time_earlier",
+		key = "-",
+		group = "Plan",
+		range = true,
+		desc = "Move the times on the line (or the selected lines) earlier by an offset",
+		run = function(args)
+			require("zortex.features.calendar_time").shift(args, -1)
+		end,
+	},
+	{
 		id = "carry_forward",
 		command = "CarryForward",
 		key = "Cf",

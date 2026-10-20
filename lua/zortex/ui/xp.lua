@@ -124,8 +124,8 @@ function M.render(data)
 	-- Season
 	if season then
 		section(string.format(
-			"Season %s · %s to %s%s",
-			season.season.name,
+			"%s · %s to %s%s",
+			require("zortex.services.xp.season").label(season.season),
 			season.season.start_date or "?",
 			season.season.end_date or "?",
 			season.days_left and string.format(" · %d days left", season.days_left) or ""
@@ -140,7 +140,7 @@ function M.render(data)
 		))
 		hl(l, 0, #b, constants.HIGHLIGHTS.PROGRESS_BAR)
 		if #season.objectives == 0 then
-			add("No objectives in this season: add one to okr.zortex (## 3M-YYYY-Qn Title @a(…)).")
+			add("No objectives in this season: add one under its heading in okr.zortex (## Title @a(…)).")
 		end
 		for _, x in ipairs(season.objectives) do
 			local o = x.objective

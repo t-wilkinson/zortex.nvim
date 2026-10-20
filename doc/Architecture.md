@@ -775,8 +775,8 @@ focuses it. Footnotes preview their definition.
 
 **Day planner** (`ui/planner.lua` + `services/planner.lua`, `:ZortexPlan
 [date]`, `<prefix>m`): opens `calendar.zortex` at the day, creating it from
-`ui.planner.templates` (`monday` … `sunday` override `weekday` / `saturday` /
-`sunday`), and a `zortex://plan` window beside it with ranked candidates in
+the calendar's `# Templates` (`services/calendar_rules`: `Monday:` …
+`Sunday:` over `Weekday:` / `Weekend:` over `Daily:`), and a `zortex://plan` window beside it with ranked candidates in
 four sections: **Projects** (a `## <project link>` heading per project, its
 ranked tasks under it; `planner.group`), **Key results**, **Tasks** (to-dos:
 the TODO project, the Projects note's own tasks, open calendar tasks of

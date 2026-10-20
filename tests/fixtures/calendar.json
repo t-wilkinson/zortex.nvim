@@ -1,11 +1,37 @@
 {
+  "copies": [
+    {
+      "date": "2026-10-18",
+      "line": "12:00 [x] Weekly review @id(rep01) @done(2026-10-18)",
+      "lnum": 22,
+      "today": "2026-10-18"
+    },
+    {
+      "date": "2026-10-11",
+      "line": "12:00 [x] Weekly review @id(rep01) @done(2026-10-13) @for(2026-10-11)",
+      "lnum": 22,
+      "today": "2026-10-13"
+    },
+    {
+      "date": "2026-10-20",
+      "line": "- [x] Bins out @at(18:00) @id(rep01) @done(2026-10-20)",
+      "lnum": 23,
+      "today": "2026-10-20"
+    },
+    {
+      "date": "2026-10-14",
+      "line": "- [x] Stretch @id(rep01) @done(2026-10-15) @for(2026-10-14)",
+      "lnum": 29,
+      "today": "2026-10-15"
+    }
+  ],
   "days": {
     "2026-10-12": [
       {
         "depth": 0,
         "done": false,
         "end": "10:30",
-        "lnum": 4,
+        "lnum": 36,
         "moved": false,
         "task": false,
         "text": "Deep work on [P/#2.1]",
@@ -15,7 +41,7 @@
         "depth": 1,
         "done": true,
         "end": "",
-        "lnum": 5,
+        "lnum": 37,
         "moved": false,
         "task": true,
         "text": "Outline",
@@ -25,7 +51,7 @@
         "depth": 1,
         "done": false,
         "end": "",
-        "lnum": 6,
+        "lnum": 38,
         "moved": false,
         "task": true,
         "text": "Draft",
@@ -35,7 +61,7 @@
         "depth": 1,
         "done": false,
         "end": "",
-        "lnum": 7,
+        "lnum": 39,
         "moved": false,
         "task": false,
         "text": "a note under the block",
@@ -45,7 +71,7 @@
         "depth": 0,
         "done": true,
         "end": "",
-        "lnum": 8,
+        "lnum": 40,
         "moved": false,
         "task": true,
         "text": "Call the hardware store",
@@ -55,7 +81,7 @@
         "depth": 0,
         "done": false,
         "end": "",
-        "lnum": 9,
+        "lnum": 41,
         "moved": true,
         "task": true,
         "text": "Carried",
@@ -65,7 +91,7 @@
         "depth": 0,
         "done": false,
         "end": "",
-        "lnum": 10,
+        "lnum": 42,
         "moved": false,
         "task": false,
         "text": "Lunch with Sam",
@@ -75,7 +101,7 @@
         "depth": 0,
         "done": false,
         "end": "",
-        "lnum": 11,
+        "lnum": 43,
         "moved": false,
         "task": false,
         "text": "Dentist",
@@ -85,7 +111,7 @@
         "depth": 0,
         "done": false,
         "end": "15:30",
-        "lnum": 12,
+        "lnum": 44,
         "moved": false,
         "task": false,
         "text": "Standup",
@@ -95,7 +121,7 @@
         "depth": 0,
         "done": false,
         "end": "18:00",
-        "lnum": 13,
+        "lnum": 45,
         "moved": false,
         "task": false,
         "text": "Report",
@@ -105,7 +131,7 @@
         "depth": 2,
         "done": false,
         "end": "",
-        "lnum": 14,
+        "lnum": 46,
         "moved": false,
         "task": true,
         "text": "Four-space task",
@@ -115,7 +141,7 @@
         "depth": 3,
         "done": false,
         "end": "",
-        "lnum": 15,
+        "lnum": 47,
         "moved": false,
         "task": true,
         "text": "Its step",
@@ -125,7 +151,7 @@
         "depth": 0,
         "done": false,
         "end": "",
-        "lnum": 16,
+        "lnum": 48,
         "moved": false,
         "task": false,
         "text": "plain note",
@@ -135,7 +161,7 @@
         "depth": 0,
         "done": false,
         "end": "",
-        "lnum": 17,
+        "lnum": 49,
         "moved": false,
         "task": true,
         "text": "Timed task",
@@ -145,7 +171,7 @@
         "depth": 0,
         "done": true,
         "end": "18:00",
-        "lnum": 18,
+        "lnum": 50,
         "moved": false,
         "task": true,
         "text": "Timed range task",
@@ -155,7 +181,7 @@
         "depth": 0,
         "done": false,
         "end": "",
-        "lnum": 19,
+        "lnum": 51,
         "moved": false,
         "task": true,
         "text": "Dashed timed task",
@@ -165,7 +191,7 @@
         "depth": 0,
         "done": false,
         "end": "",
-        "lnum": 33,
+        "lnum": 67,
         "moved": false,
         "task": true,
         "text": "The same day again",
@@ -177,7 +203,7 @@
         "depth": 0,
         "done": false,
         "end": "",
-        "lnum": 26,
+        "lnum": 58,
         "moved": false,
         "task": false,
         "text": "Run",
@@ -187,7 +213,7 @@
         "depth": 0,
         "done": false,
         "end": "",
-        "lnum": 27,
+        "lnum": 59,
         "moved": false,
         "task": true,
         "text": "Feed the starter",
@@ -195,9 +221,29 @@
       },
       {
         "depth": 0,
+        "done": true,
+        "end": "",
+        "lnum": 60,
+        "moved": false,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      },
+      {
+        "depth": 0,
+        "done": true,
+        "end": "",
+        "lnum": 61,
+        "moved": false,
+        "task": true,
+        "text": "Water plants",
+        "time": ""
+      },
+      {
+        "depth": 0,
         "done": false,
         "end": "",
-        "lnum": 30,
+        "lnum": 64,
         "moved": false,
         "task": true,
         "text": "under a label that isn't a date",
@@ -209,7 +255,7 @@
         "depth": 0,
         "done": false,
         "end": "",
-        "lnum": 37,
+        "lnum": 71,
         "moved": false,
         "task": true,
         "text": "Ship the release",
@@ -219,7 +265,7 @@
         "depth": 0,
         "done": false,
         "end": "",
-        "lnum": 39,
+        "lnum": 73,
         "moved": false,
         "task": false,
         "text": "Bold-headed day",
@@ -227,8 +273,41 @@
       }
     ]
   },
+  "id": "rep01",
   "lines": [
     "@@Calendar",
+    "",
+    "# Templates",
+    "Weekday:",
+    "Outcomes:",
+    "- [ ]",
+    "  09:00",
+    "Sunday:",
+    "",
+    "12:00 Weekly review",
+    "",
+    "Daily:",
+    "- a daily line",
+    "",
+    "# Repeating",
+    "## Birthdays",
+    "- Sam's birthday @repeat(03-14) @born(1990)",
+    "- Dad @repeat(yearly) @born(1961-10-13)",
+    "Holidays:",
+    "- Christmas @repeat(12-25)",
+    "## Routines",
+    "12:00 [ ] Weekly review @repeat(weekly, Sunday)",
+    "- [ ] Bins out @repeat(2w) @since(2026-10-06) @at(18:00)",
+    "- 07:00 Run @repeat(mon, wed, fri) @until(2026-10-21)",
+    "- [ ] Pay rent @repeat(monthly 15)",
+    "- [ ] Water plants @repeat(3d) @since(2026-10-10)",
+    "- Standup @repeat(weekdays) @at(09:30)",
+    "- a plain line, no rule",
+    "  - [ ] Stretch @repeat(daily)",
+    "- Never @repeat(fortnightly)",
+    "- Every other Tuesday @repeat(2w tue) @since(2026-10-06)",
+    "",
+    "# Days",
     "",
     "2026-10-12:",
     "09:00 - 10:30 Deep work on [P/#2.1] @n(10)",
@@ -255,6 +334,8 @@
     "2026-10-13:",
     "7:05 Run",
     "- [ ] Feed the starter @p1 @sm",
+    "- [x] Stretch @done(2026-10-13) @id(str01)",
+    "- [x] Water plants @done(2026-10-14) @id(wat01) @for(2026-10-13)",
     "",
     "Not a date:",
     "- [ ] under a label that isn't a date",
@@ -267,5 +348,784 @@
     "- [ ] Ship the release",
     "",
     "09:00 Bold-headed day"
-  ]
+  ],
+  "occurrences": {
+    "2026-10-01": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 27,
+        "task": false,
+        "text": "Standup",
+        "time": "09:30"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-02": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 24,
+        "task": false,
+        "text": "Run",
+        "time": "07:00"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 27,
+        "task": false,
+        "text": "Standup",
+        "time": "09:30"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-03": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-04": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 22,
+        "task": true,
+        "text": "Weekly review",
+        "time": "12:00"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-05": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 24,
+        "task": false,
+        "text": "Run",
+        "time": "07:00"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 27,
+        "task": false,
+        "text": "Standup",
+        "time": "09:30"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-06": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 23,
+        "task": true,
+        "text": "Bins out",
+        "time": "18:00"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 27,
+        "task": false,
+        "text": "Standup",
+        "time": "09:30"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 31,
+        "task": false,
+        "text": "Every other Tuesday",
+        "time": ""
+      }
+    ],
+    "2026-10-07": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 24,
+        "task": false,
+        "text": "Run",
+        "time": "07:00"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 27,
+        "task": false,
+        "text": "Standup",
+        "time": "09:30"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-08": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 27,
+        "task": false,
+        "text": "Standup",
+        "time": "09:30"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-09": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 24,
+        "task": false,
+        "text": "Run",
+        "time": "07:00"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 27,
+        "task": false,
+        "text": "Standup",
+        "time": "09:30"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-10": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 26,
+        "task": true,
+        "text": "Water plants",
+        "time": ""
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-11": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 22,
+        "task": true,
+        "text": "Weekly review",
+        "time": "12:00"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-12": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 24,
+        "task": false,
+        "text": "Run",
+        "time": "07:00"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-13": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 18,
+        "task": false,
+        "text": "Dad (65)",
+        "time": ""
+      },
+      {
+        "copy": 61,
+        "done": true,
+        "end": "",
+        "rule": 26,
+        "task": true,
+        "text": "Water plants",
+        "time": ""
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 27,
+        "task": false,
+        "text": "Standup",
+        "time": "09:30"
+      }
+    ],
+    "2026-10-14": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 24,
+        "task": false,
+        "text": "Run",
+        "time": "07:00"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 27,
+        "task": false,
+        "text": "Standup",
+        "time": "09:30"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-15": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 25,
+        "task": true,
+        "text": "Pay rent",
+        "time": ""
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 27,
+        "task": false,
+        "text": "Standup",
+        "time": "09:30"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-16": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 24,
+        "task": false,
+        "text": "Run",
+        "time": "07:00"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 26,
+        "task": true,
+        "text": "Water plants",
+        "time": ""
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 27,
+        "task": false,
+        "text": "Standup",
+        "time": "09:30"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-17": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-18": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 22,
+        "task": true,
+        "text": "Weekly review",
+        "time": "12:00"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-19": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 24,
+        "task": false,
+        "text": "Run",
+        "time": "07:00"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 26,
+        "task": true,
+        "text": "Water plants",
+        "time": ""
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 27,
+        "task": false,
+        "text": "Standup",
+        "time": "09:30"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-20": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 23,
+        "task": true,
+        "text": "Bins out",
+        "time": "18:00"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 27,
+        "task": false,
+        "text": "Standup",
+        "time": "09:30"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 31,
+        "task": false,
+        "text": "Every other Tuesday",
+        "time": ""
+      }
+    ],
+    "2026-10-21": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 24,
+        "task": false,
+        "text": "Run",
+        "time": "07:00"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 27,
+        "task": false,
+        "text": "Standup",
+        "time": "09:30"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-22": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 26,
+        "task": true,
+        "text": "Water plants",
+        "time": ""
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 27,
+        "task": false,
+        "text": "Standup",
+        "time": "09:30"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-23": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 27,
+        "task": false,
+        "text": "Standup",
+        "time": "09:30"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-24": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-25": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 22,
+        "task": true,
+        "text": "Weekly review",
+        "time": "12:00"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 26,
+        "task": true,
+        "text": "Water plants",
+        "time": ""
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-26": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 27,
+        "task": false,
+        "text": "Standup",
+        "time": "09:30"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-27": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 27,
+        "task": false,
+        "text": "Standup",
+        "time": "09:30"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-28": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 26,
+        "task": true,
+        "text": "Water plants",
+        "time": ""
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 27,
+        "task": false,
+        "text": "Standup",
+        "time": "09:30"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-29": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 27,
+        "task": false,
+        "text": "Standup",
+        "time": "09:30"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-30": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 27,
+        "task": false,
+        "text": "Standup",
+        "time": "09:30"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ],
+    "2026-10-31": [
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 26,
+        "task": true,
+        "text": "Water plants",
+        "time": ""
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 29,
+        "task": true,
+        "text": "Stretch",
+        "time": ""
+      }
+    ]
+  },
+  "templates": {
+    "2026-10-11": [
+      "12:00 Weekly review"
+    ],
+    "2026-10-12": [
+      "Outcomes:",
+      "- [ ]",
+      "  09:00"
+    ],
+    "2026-10-17": [
+      "- a daily line"
+    ]
+  }
 }

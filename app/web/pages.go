@@ -8,6 +8,7 @@ import (
 	"html/template"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"sort"
 	"strconv"
@@ -114,7 +115,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, page string, sta
 }
 
 // navOf: which top-bar tab a page belongs to.
-var navOf = map[string]string{"files": "files", "file": "files", "resources": "resources", "tags": "graph", "tag": "graph", "broken": "broken", "graph": "graph", "projects": "projects", "project": "projects", "okr": "okr", "review": "projects"}
+var navOf = map[string]string{"files": "files", "file": "files", "resources": "files", "tags": "graph", "tag": "graph", "broken": "broken", "graph": "graph", "projects": "projects", "project": "projects", "okr": "okr", "review": "projects"}
 
 // backGroup is the backlinks from one note or file.
 type backGroup struct {
@@ -553,7 +554,63 @@ func (s *Server) handleBroken(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	sort.SliceStable(broken, func(i, j int) bool { return broken[i].From < broken[j].From })
-	s.render(w, r, "broken", http.StatusOK, map[string]any{"Title": "Broken links", "Broken": broken, "Tags": s.tagProblems(all)})
+	snap := s.current()
+	orphans, structureOnly := s.orphanNotes(snap)
+	s.render(w, r, "broken", http.StatusOK, map[string]any{
+		"Title":         "Broken links",
+		"Broken":        broken,
+		"Tags":          s.tagProblems(all),
+		"Orphans":       orphans,
+		"StructureOnly": structureOnly,
+		"HasStructure":  len(snap.structure.Sources) > 0,
+		"Roots":         snap.structure.Roots,
+		"Unlinked":      snap.unlinked[""],
+	})
+}
+
+// orphanRow is a note on /broken that nothing reaches.
+type orphanRow struct {
+	Rel, Title, Dir string
+	ModTime         time.Time
+}
+
+// orphanNotes: the notes outside the structure that no other note (or
+// Markdown file) links to either, by folder then name, and how many notes
+// are outside the structure but linked from somewhere.
+func (s *Server) orphanNotes(snap *snapshot) ([]orphanRow, int) {
+	var out []orphanRow
+	linkedOnly := 0
+	candidates := snap.structure.Unlinked
+	if len(snap.structure.Sources) == 0 { // no structure yet: every note
+		for _, rel := range s.ix.Catalog().Files(false) {
+			if s.isNote(rel) {
+				candidates = append(candidates, rel)
+			}
+		}
+	}
+	for _, rel := range candidates {
+		linked := false
+		for _, b := range snap.backlinks[rel] {
+			if b.From != rel {
+				linked = true
+				break
+			}
+		}
+		if linked {
+			linkedOnly++
+			continue
+		}
+		d := path.Dir(rel)
+		if d == "." {
+			d = ""
+		}
+		row := orphanRow{Rel: rel, Title: s.noteTitle(rel), Dir: d}
+		if st, err := os.Stat(s.ix.Path(rel)); err == nil {
+			row.ModTime = st.ModTime()
+		}
+		out = append(out, row)
+	}
+	return out, linkedOnly
 }
 
 // =============================================================================

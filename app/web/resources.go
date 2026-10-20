@@ -2,6 +2,7 @@ package web
 
 import (
 	"bufio"
+	"errors"
 	"hash/fnv"
 	"io/fs"
 	"net/http"
@@ -22,8 +23,9 @@ import (
 // Resources are the non-note files people link to from notes: PDFs, books,
 // images, media and office documents (Config.ResourceExts). The server
 // tracks which notes (and Markdown files) link to each one, so a file page
-// shows its backlinks and /resources lists them, and the files nothing links
-// to.
+// shows its backlinks and a folder lists them (/f/<dir>?show=all|unlinked|
+// linked&kind=pdf: every resource under the folder, by folder), and the
+// files nothing links to. /resources redirects there.
 //
 // A file is referenced by a zortex link to a path ([z/books/tt.pdf],
 // [./img.png]), a markdown link ([TT](z/books/tt.pdf)) or a bare path
@@ -322,8 +324,9 @@ type resourceFolder struct {
 	Rows     []resourceRow
 }
 
-// resourceFilter: GET /resources?show=all|unlinked|linked&kind=pdf&dir=z/books
-// (the page shows every resource by default, /api/resources the unlinked).
+// resourceFilter: GET /f/z/books?show=all|unlinked|linked&kind=pdf (the folder
+// is the path; /api/resources takes it as ?dir= and lists the unlinked by
+// default).
 type resourceFilter struct {
 	Show, Kind, Dir string
 }
@@ -349,7 +352,55 @@ func (f resourceFilter) match(r resource) bool {
 	return f.Dir == "" || strings.HasPrefix(r.Rel, f.Dir+"/")
 }
 
-// URL of the page with one field changed.
+// isResourceView reports whether a folder request shows its resources rather
+// than the plain listing: asked for (?show= or ?kind=), or by default in a
+// resource folder (?list=1 lists it as files).
+func (s *Server) isResourceView(r *http.Request, rel string) bool {
+	q := r.URL.Query()
+	if q.Has("show") || q.Has("kind") {
+		return true
+	}
+	return q.Get("list") != "1" && s.resourceFolder(rel)
+}
+
+// resourceFolder reports whether rel is a folder of resources, like
+// z/books: every file under it is a resource (no notes, no text files;
+// hidden files and Syncthing artefacts aside), and there is one. The notes
+// folder itself never is.
+func (s *Server) resourceFolder(rel string) bool {
+	if rel == "" {
+		return false
+	}
+	abs, st, ok := s.resolvePath(rel)
+	if !ok || !st.IsDir() {
+		return false
+	}
+	found := false
+	errOther := errors.New("not a resource")
+	err := filepath.WalkDir(abs, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		name := d.Name()
+		if d.IsDir() {
+			if p != abs && strings.HasPrefix(name, ".") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if strings.HasPrefix(name, ".") || isSyncArtifact(name) {
+			return nil
+		}
+		if !s.resExts[extOf(name)] {
+			return errOther
+		}
+		found = true
+		return nil
+	})
+	return err == nil && found
+}
+
+// URL of the folder's resource list with one field changed.
 func (s *Server) resourcesURL(f resourceFilter, key, value string) string {
 	switch key {
 	case "show":
@@ -360,27 +411,28 @@ func (s *Server) resourcesURL(f resourceFilter, key, value string) string {
 		f.Dir = value
 	}
 	q := url.Values{}
-	if f.Show != "all" {
-		q.Set("show", f.Show)
-	}
+	q.Set("show", f.Show)
 	if f.Kind != "" {
 		q.Set("kind", f.Kind)
 	}
-	if f.Dir != "" {
-		q.Set("dir", f.Dir)
-	}
-	u := s.url("/resources")
-	if len(q) > 0 {
-		u += "?" + q.Encode()
-	}
-	return u
+	return s.fileURL(f.Dir) + "?" + q.Encode()
 }
 
 const maxResourceRows = 2000
 
+// handleResources: /resources is the notes folder's resource list now,
+// /f/?show=all (?dir= becomes the path).
 func (s *Server) handleResources(w http.ResponseWriter, r *http.Request) {
+	f := parseResourceFilter(r, "all")
+	http.Redirect(w, r, s.resourcesURL(f, "show", f.Show), http.StatusMovedPermanently)
+}
+
+// resourceView: the resources under folder rel, by folder, filtered by
+// ?show= and ?kind= (GET /f/<rel>?show=…).
+func (s *Server) resourceView(w http.ResponseWriter, r *http.Request, rel string) {
 	snap := s.current()
 	f := parseResourceFilter(r, "all")
+	f.Dir = rel
 	byDir := map[string]*resourceFolder{}
 	var dirs []string
 	total, unlinked, shown := 0, 0, 0
@@ -428,8 +480,23 @@ func (s *Server) handleResources(w http.ResponseWriter, r *http.Request) {
 		kinds = append(kinds, chip{k, s.resourcesURL(f, "kind", k), f.Kind == k})
 	}
 	folderURL := func(dir string) string { return s.resourcesURL(f, "dir", dir) }
+	title := "Resources"
+	if rel != "" {
+		title = "Resources in " + rel + "/"
+	}
+	// the breadcrumbs keep the filters: each folder's resources
+	crumbs := []crumb{{Name: "notes", URL: s.resourcesURL(f, "dir", "")}}
+	if rel != "" {
+		parts := strings.Split(rel, "/")
+		for i := range parts {
+			crumbs = append(crumbs, crumb{Name: parts[i], URL: s.resourcesURL(f, "dir", strings.Join(parts[:i+1], "/"))})
+		}
+	}
 	s.render(w, r, "resources", http.StatusOK, map[string]any{
-		"Title":     "Resources",
+		"NavTab":    "files",
+		"Crumbs":    crumbs,
+		"Listing":   s.fileURL(rel) + "?list=1",
+		"Title":     title,
 		"Filter":    f,
 		"Folders":   folders,
 		"Shows":     shows,

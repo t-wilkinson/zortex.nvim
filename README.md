@@ -62,7 +62,7 @@ text you own and sync however you like.
   `/calendar.ics`.
 - A **personal file viewer**: PDFs, images, video, Markdown with math
   (KaTeX), sandboxed HTML; each file shows which notes link to it, and
-  `/resources` lists the ones nothing links to.
+  a folder lists the ones under it, and which ones nothing links to.
 
 Every page, and how the website works with Neovim:
 [doc/Web.md](doc/Web.md).
@@ -123,8 +123,7 @@ with a server (Syncthing, Nextcloud, Unison, git or rsync).
 them. Commonly changed: `keymaps.prefix` (default `<leader>z`),
 `ui.highlights` (colours follow your colorscheme; `preset = "rose-pine"` for
 the author's palette), `ui.calendar.icons` (plain Unicode; a Nerd Font set
-is in a comment there), `ui.planner.templates` (a new calendar day's lines)
-and `xp` (how many hours each `@size` stands for, and what that is worth;
+is in a comment there) and `xp` (how many hours each `@size` stands for, and what that is worth;
 `:ZortexXPGuide` shows it).
 
 ## Notes
@@ -155,14 +154,19 @@ Special notes:
   the projects under it (until something links it).
 - **`areas.zortex`** (`@@Areas` / `@@A`): headings and labels are areas;
   `@a(4.1)` on a project or objective links it to an area.
-- **`okr.zortex`**: headings like `## 3M-2026-Q1 Title` are objectives; their
+- **`okr.zortex`**: a season heading (`# 2026-Q4 Season 10 Juniper`, added
+  by `:ZortexSeason start`) holds the season's objectives, the headings under
+  it (or give one its own window: `## 3M-2026-Q1 Title`); their
   `- KRn:` items are key results, and project links on a KR drive its
   progress.
 - **`calendar.zortex`**: a day is `**YYYY-MM-DD:**` (new days get this
   bold label; a plain `YYYY-MM-DD:` reads the same) with its entries under
   it (`- [ ] task`, `14:00 event`, `16:00 [ ] timed task`, `- note`). Start
   the day with `Outcomes:` and the two or three things that would make it
-  a success.
+  a success. Above the first day, `# Templates` holds a new day's lines by
+  name (`Weekday:`, `Sunday:`, …) and `# Repeating` the entries that
+  repeat (`- Sam @repeat(03-14) @born(1990)`, `12:00 [ ] Weekly review
+  @repeat(sun)`), shown on their days without being copied.
 - Notes tagged `@Archive` (or named `z/archive.*`) are left out of links,
   projects and search ranking.
 
@@ -328,6 +332,9 @@ require("zortex").setup({
 | `:ZortexReviewDay` | `<leader>zW` | `review_day` | Daily review: completed, XP, time spent and the calendar since the last one |
 | `:ZortexPlan …` | `<leader>zm` | `plan` | Plan a day: calendar day (from its template) plus ranked tasks, projects, KRs and areas to put on it |
 | `:ZortexToday …` | `<leader>zd` | `today` | Go to today in the calendar (or a date), adding the day from its template when it isn't there |
+| `:ZortexNow` | `<leader>zn` | `now` | Go to today in the calendar, at the entry for the time now (the latest one that has started) |
+| `:ZortexTimeShift …` | `<leader>z+` | `time_later` | Move the times on the line (or the selected lines) later by an offset: 1h30m takes 12:00 to 13:30; -15m moves them earlier |
+|  | `<leader>z-` | `time_earlier` | Move the times on the line (or the selected lines) earlier by an offset |
 | `:ZortexCarryForward …` | `<leader>zCf` | `carry_forward` | Copy the open tasks of the days before to today (or a date), marking the old lines [>] |
 | `:ZortexCalendar` | `<leader>zc` | `calendar` | Calendar view |
 
@@ -470,6 +477,14 @@ the title, with the picker's own help key: telescope `<C-/>` (insert mode; `?` i
 | `e` | how the project on the line earned its XP |
 | `g` | how XP is calibrated (:ZortexXPGuide) |
 | `r` | refresh |
+| `q` `<Esc>` | close |
+| `?` | these keys |
+
+**XP guide** (`:ZortexXPGuide`)
+
+| Key | Does |
+|---|---|
+| `g` | back to the XP overview (:ZortexXP) |
 | `q` `<Esc>` | close |
 | `?` | these keys |
 

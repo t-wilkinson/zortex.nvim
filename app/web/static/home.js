@@ -59,6 +59,8 @@
       var refCls = e.ref ? " ref" : "", refTitle = e.ref ? ' title="the task in ' + esc(e.ref) + '"' : "";
       // a project block's next tasks: the project's own lines, shown here
       if (e.virtual) { refCls = " ref"; refTitle = ' title="the project\'s next task (' + esc(e.rel || "") + ')"'; }
+      // a repeating entry (# Repeating): ticking it copies it into today
+      if (e.repeat) { refTitle = ' title="repeats; ' + (e.copy ? "its copy is in today's or another day's lines" : "ticking it copies it, done, into today") + '"'; }
       if (e.moved) {
         box = '<span class="box moved" title="carried to a later day" aria-label="carried to a later day">&gt;</span>';
       } else if (e.task && e.src && calWritable) {
@@ -68,6 +70,7 @@
         box = '<span class="box ' + (e.done ? "done" : "open") + '" aria-label="' + (e.done ? "done" : "open task") + '"></span>';
       }
       var bell = e.notify ? '<span class="bell" title="notifies (@n)" aria-label="notifies">🔔</span>' : "";
+      if (e.repeat) bell += '<span class="repeat" title="repeats (# Repeating in the calendar note)" aria-label="repeats">↻</span>';
       // a calendar feed's event (z/feeds/<feed>): read-only, labelled
       if (e.feed) {
         var fc = feedColor(e.feed);
@@ -183,10 +186,14 @@
       var e = (cal.days[b.dataset.day] || [])[Number(b.dataset.i)];
       if (!e || !e.src) return;
       b.disabled = true;
-      fetch(base + "/api/edit", {
+      // a repeating task's occurrence without its copy yet: make the copy
+      var req = e.repeat && !e.copy ?
+        { url: "/api/calendar/repeat", body: { lnum: e.lnum, expect: e.src, date: e.date } } :
+        { url: "/api/edit", body: { rel: e.rel, lnum: e.lnum, expect: e.src, op: "toggle" } };
+      fetch(base + req.url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rel: e.rel, lnum: e.lnum, expect: e.src, op: "toggle" }),
+        body: JSON.stringify(req.body),
       }).then(function (r) {
         if (r.status === 409) window.alert("The calendar changed elsewhere; showing the latest. Try again.");
         else if (!r.ok) return r.json().then(function (x) { window.alert(x.error || "Couldn't save"); });

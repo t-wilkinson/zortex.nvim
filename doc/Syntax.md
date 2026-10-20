@@ -146,7 +146,10 @@ projects, calendar entries):
 | `@event` | calendar: something fixed that you plan around (an appointment, a flight), not a block you planned; the web month grid marks its day, and it is listed under "Coming up" (as are timed lines and calendar notes that don't link a project) |
 | `@share` | calendar: the line is in the server's `/calendar.ics`, which other calendars (Cozi, Google, Apple) subscribe to; nothing else of the calendar is ([Other calendars](Server.md#6-other-calendars)) |
 | `@free` | calendar: a timed line that doesn't take your time: the planner's capacity line doesn't count it as busy (a calendar feed with `busy: false` writes it) |
-| `@repeat(weekly)` | calendar: repetition |
+| `@repeat(weekly)`, `@repeat(03-14)`, `@repeat(mon, wed)` | calendar: an entry of the `# Repeating` section, shown on the days it lands on ([Planning](Planning.md#templates-and-repeating-entries)); under a day, it repeats from that day |
+| `@since(2026-10-06)`, `@until(2026-12-31)` | a repeating entry: when it starts (and what every n counts from) and ends |
+| `@born(1990)` | a repeating entry: the age, shown after its text on the day |
+| `@for(2026-10-18)` | a repeating task's copy done on another day: the day it stands for |
 | `@fold` | on a heading, label or list item with nested lines: the section starts folded in Neovim each time the note is shown (`zo` opens it until then) |
 | `@slides(2)` | in a header: the heading level that starts a slide ([slides](Web.md#slides)) |
 | `@step`, `@steps` | slides: reveal a line, or each item of a slide, one at a time |
@@ -314,7 +317,7 @@ Topics:
 |---|---|---|
 | `projects.zortex` | `@@Projects` / `@@P` | headings are projects and sub-projects; checkbox items are their tasks. A heading with no task of its own and no project attribute only groups the projects under it, unless it is linked ([Planning](Planning.md)). Any note tagged `@P` is a project too |
 | `areas.zortex` | `@@Areas` / `@@A` | headings and labels are areas (`# 1 Personal`, `## 1.2 Health`, `Fitness:`) |
-| `okr.zortex` | `@@Objectives` / `@@OKR` | headings like `## 3M-2026-Q1 Title` are objectives; `- KRn: [ ] …` items are key results; project links on a KR drive its progress |
+| `okr.zortex` | `@@Objectives` / `@@OKR` | headings under a season heading (`# 2026-Q4 Season 10`) are objectives, as are headings like `## 3M-2026-Q1 Title`; `- KRn: [ ] …` items are key results; project links on a KR drive its progress |
 | `calendar.zortex` | `@@Calendar` | days with entries under them: `**YYYY-MM-DD:**` (a bold heading, what new days get, so an `Outcomes:` label nests under it) or a plain `YYYY-MM-DD:` label; entries `- [ ] task`, `14:00 event`, `16:00 - 17:00 event`, `- note`. The items right under `Outcomes:` (to the first blank line) are the day's outcomes |
 | `structure.zortex` | `@@Structure` | links to your notes; notes nothing here links to are listed as unlinked. A note tagged `@Structure` adds all its links; a note with a top-level `# Structure` heading adds the links in that section: its own sub-notes, so a hub note can own its part of the tree |
 | `inbox.zortex` | `@@Inbox` | tasks and notes added from the web app |

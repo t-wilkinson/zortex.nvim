@@ -82,7 +82,8 @@ local function calendar_items(date, ctx)
 			entry = entry,
 			project = not entry.feed and ctx.calendar_projects[entry.lnum] or nil,
 			file = entry.file or ctx.calendar_path,
-			lnum = entry.lnum,
+			lnum = entry.lnum or entry.rule_lnum, -- a repeating entry: its rule
+			rule = entry.rule,
 			feed = entry.feed, -- a calendar feed's event: read-only
 		}
 		if

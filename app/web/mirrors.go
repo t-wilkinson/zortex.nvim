@@ -455,3 +455,68 @@ func (s *Server) apiCarry(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "moved": len(plan.Edits), "added": added, "date": req.Date, "rel": path.Clean(doc.Rel)})
 }
+
+// apiRepeat: POST /api/calendar/repeat {lnum, expect, date}: tick the
+// occurrence on `date` of the repeating task on line lnum of the calendar's
+// # Repeating section (expect: that line). Its copy goes, done, into
+// today (a new day from its template), with @for(date) when it was due
+// another day (as Neovim's stores/calendar.complete_occurrence). An
+// occurrence that has its copy is ticked through the copy (POST /api/edit).
+func (s *Server) apiRepeat(w http.ResponseWriter, r *http.Request) {
+	if !s.writableOK(w, r) {
+		return
+	}
+	var req struct {
+		Lnum   int    `json:"lnum"`
+		Expect string `json:"expect"`
+		Date   string `json:"date"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<14)).Decode(&req); err != nil || !isDate(req.Date) {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "want {lnum, expect, date: YYYY-MM-DD}"})
+		return
+	}
+	doc := s.calendarDoc()
+	if doc == nil {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "no calendar note"})
+		return
+	}
+	s.editMu.Lock()
+	f, err := readNoteFile(s.ix.Path(doc.Rel))
+	if err != nil {
+		s.editMu.Unlock()
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	if req.Lnum < 1 || req.Lnum > len(f.lines) || f.lines[req.Lnum-1] != req.Expect {
+		s.editMu.Unlock()
+		s.afterWrite()
+		writeJSON(w, http.StatusConflict, map[string]any{"error": errChanged.Error()})
+		return
+	}
+	var rule *edit.Rule
+	for _, x := range edit.Rules(f.lines) {
+		if x.Lnum == req.Lnum {
+			rule = x
+		}
+	}
+	if it := syntax.ItemOf(req.Expect); rule == nil || it == nil || it.MarkCol == nil || !rule.Matches(req.Date) {
+		s.editMu.Unlock()
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": "not a repeating task on " + req.Date})
+		return
+	}
+	now := today()
+	line, err := rule.DoneCopy(req.Date, now, s.newID)
+	if err == nil {
+		f.lines = edit.AddToDay(f.lines, now, edit.Template(f.lines, now), []string{line})
+		err = f.write()
+	}
+	s.editMu.Unlock()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	s.recordCompletion(doc.Rel, "", line, 0)
+	s.afterWrite()
+	s.log.Printf("repeat: %s on %s, done %s", strings.TrimSpace(syntax.StripAttributes(edit.PlainLine(req.Expect))), req.Date, now)
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "line": line, "date": now})
+}

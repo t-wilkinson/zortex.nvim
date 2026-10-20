@@ -4,12 +4,46 @@ local Config = require("zortex.config")
 
 local TODAY = "2026-10-11"
 
+-- planner_cfg.templates: { weekday = { lines } , … } written into the
+-- calendar note's # Templates section (above its first day) for the test
 local function with_config(planner_cfg, fn)
 	Config.ui = Config.ui or {}
 	local saved = Config.ui.planner
+	local templates = planner_cfg.templates
+	planner_cfg = vim.tbl_extend("force", {}, planner_cfg)
+	planner_cfg.templates = nil
 	Config.ui.planner = planner_cfg
+	local cal = require("zortex.utils.filesystem").get_calendar_file()
+	local before = vim.fn.readfile(cal)
+	if templates then
+		local section = { "# Templates" }
+		local names = vim.tbl_keys(templates)
+		table.sort(names)
+		for _, name in ipairs(names) do
+			section[#section + 1] = name:sub(1, 1):upper() .. name:sub(2) .. ":"
+			vim.list_extend(section, templates[name])
+		end
+		section[#section + 1] = ""
+		local at = #before + 1
+		for i, l in ipairs(before) do
+			if require("zortex.utils.datetime").date_heading(l) then
+				at = i
+				break
+			end
+		end
+		local lines = vim.list_slice(before, 1, at - 1)
+		vim.list_extend(lines, section)
+		vim.list_extend(lines, vim.list_slice(before, at))
+		vim.fn.writefile(lines, cal)
+		require("zortex.core.document").invalidate(cal)
+	end
 	local ok, err = pcall(fn)
 	Config.ui.planner = saved
+	if templates then
+		vim.fn.writefile(before, cal)
+		require("zortex.core.document").invalidate(cal)
+		require("zortex.stores.calendar").load()
+	end
 	assert(ok, err)
 end
 

@@ -326,6 +326,10 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 		s.fileView(w, r, rel, st)
 		return
 	}
+	if s.isResourceView(r, rel) {
+		s.resourceView(w, r, rel)
+		return
+	}
 	all := r.URL.Query().Get("all") == "1"
 	entries, hidden, err := s.listDir(rel, all)
 	if err != nil {
@@ -350,19 +354,26 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 	if rel != "" {
 		title = path.Base(rel)
 	}
+	resources := 0
+	for _, res := range s.current().resources {
+		if rel == "" || strings.HasPrefix(res.Rel, rel+"/") {
+			resources++
+		}
+	}
 	s.render(w, r, "files", http.StatusOK, map[string]any{
-		"Unlinked": s.current().unlinked[rel],
-		"Title":    title,
-		"Rel":      rel,
-		"Crumbs":   crumbs,
-		"Entries":  entries,
-		"Hidden":   hidden,
-		"All":      all,
-		"Keep":     keep, // appended to folder links: subfolders keep the order
-		"SortName": ls.header("name", s.fileURL(rel), extra),
-		"SortTime": ls.header("modified", s.fileURL(rel), extra),
-		"ShowAll":  withQuery(s.fileURL(rel), ls, url.Values{"all": {"1"}}),
-		"Named":    withQuery(s.fileURL(rel), ls, nil),
+		"Unlinked":  s.current().unlinked[rel],
+		"Resources": resources,
+		"Title":     title,
+		"Rel":       rel,
+		"Crumbs":    crumbs,
+		"Entries":   entries,
+		"Hidden":    hidden,
+		"All":       all,
+		"Keep":      keep, // appended to folder links: subfolders keep the order
+		"SortName":  ls.header("name", s.fileURL(rel), extra),
+		"SortTime":  ls.header("modified", s.fileURL(rel), extra),
+		"ShowAll":   withQuery(s.fileURL(rel), ls, url.Values{"all": {"1"}}),
+		"Named":     withQuery(s.fileURL(rel), ls, nil),
 	})
 }
 

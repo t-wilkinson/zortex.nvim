@@ -16,9 +16,9 @@ local function today()
 	return os.date("%Y-%m-%d")
 end
 
-local function quarter()
+local function season()
 	local t = os.date("*t")
-	return string.format("3M-%d-Q%d", t.year, math.floor((t.month - 1) / 3) + 1)
+	return string.format("%d-Q%d", t.year, math.floor((t.month - 1) / 3) + 1)
 end
 
 -- name -> function returning the lines
@@ -27,6 +27,19 @@ M.templates = {
 		return {
 			"@@Calendar",
 			"@@C",
+			"",
+			"# Templates",
+			"Weekday:",
+			"Outcomes:",
+			"- [ ] ",
+			"",
+			"# Repeating",
+			"## Birthdays",
+			"- A friend's birthday @repeat(03-14) @born(1990)",
+			"## Routines",
+			"12:00 [ ] Weekly review @repeat(weekly, Sunday)",
+			"",
+			"# Days",
 			"",
 			"**" .. today() .. ":**",
 			"Outcomes:",
@@ -61,8 +74,8 @@ M.templates = {
 			"@@Objectives",
 			"@@OKR",
 			"",
-			"# Current",
-			"## " .. quarter() .. " An objective @a(1.1)",
+			"# " .. season() .. " Season 1 Aspen",
+			"## An objective @a(1.1)",
 			"- KR1: [ ] A key result [P/#1 Example project]",
 		}
 	end,

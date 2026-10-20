@@ -203,6 +203,29 @@ func TestStructure(t *testing.T) {
 		t.Error("only the Structure note has the sidebar")
 	}
 	expect(t, ts, "/", 200, `Not in Structure`, `7 of 11 notes are not linked from Structure`)
+
+	// /broken: the notes outside the structure that no other note links
+	// either; the ones a note links are only counted
+	os.WriteFile(filepath.Join(dir, "lonely.zortex"), []byte("@@Lonely\n\nNobody links here, not even [Lonely] itself counts.\n"), 0o644)
+	s.Refresh()
+	broken := expect(t, ts, "/broken", 200, `id="orphans"`, `href="/n/lonely.zortex"`, `Lonely`, `linked from a note but not from the structure`)
+	orphans := broken[strings.Index(broken, `id="orphans"`):]
+	orphans = orphans[:strings.Index(orphans, `</table>`)]
+	for _, reached := range []string{"projects.zortex", "calendar.zortex", "hub.zortex", "structure.zortex"} {
+		if strings.Contains(orphans, `/n/`+reached+`"`) {
+			t.Errorf("%s is reached but listed as an orphan", reached)
+		}
+	}
+}
+
+func TestOrphansWithoutStructure(t *testing.T) {
+	s, dir, ts := newTestServer(t, "")
+	os.WriteFile(filepath.Join(dir, "lonely.zortex"), []byte("@@Lonely\n\nNobody links here.\n"), 0o644)
+	s.Refresh()
+	page := expect(t, ts, "/broken", 200, `there is no Structure note yet`, `href="/n/lonely.zortex"`)
+	if strings.Contains(page, "linked from a note but not from the structure") {
+		t.Error("no structure: no count of notes outside it")
+	}
 }
 
 func TestXPSummary(t *testing.T) {

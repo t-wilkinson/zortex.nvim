@@ -196,11 +196,8 @@ local defaults = {
 			-- (same @id) and marks the old lines [>]; how many days back
 			carry_forward = true,
 			carry_days = 14,
-			-- Lines for a new calendar day. Keys: monday … sunday override
-			-- weekday / saturday / sunday. e.g.
-			--   weekday = { "Outcomes:", "- [ ] ", "", "07:00 Morning routine [P/#1 Personal/#Habits]", "09:00", "12:00 Lunch", "13:00", "17:00" },
-			--   saturday = { "09:00", "14:00" },
-			templates = {},
+			-- Lines for a new calendar day: the calendar note's # Templates
+			-- section (Weekday:, Sunday:, … labels; see services/calendar_rules)
 		},
 
 		search = {
@@ -392,6 +389,10 @@ local defaults = {
 		-- by their XP (size x priority x importance)
 		season = {
 			default_length = 90, -- days
+			-- :ZortexSeason start names seasons "Season 10 Juniper": a number and a
+			-- word whose letter moves on with it. A list of your own words, or false
+			-- for numbers only. nil: the built-in list (services/okr SEASON_NAMES).
+			names = nil,
 			-- No season started by hand (or it ended): the calendar quarter is
 			-- the season, the same window as 3M-YYYY-Qn objectives
 			follow_quarter = true,

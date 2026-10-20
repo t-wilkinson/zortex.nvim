@@ -99,9 +99,65 @@ do
 		end
 		days[date] = rows
 	end
+	-- the top of the calendar: a new day's template, and what the repeating
+	-- rules put on each day of October 2026
+	local rules_mod = require("zortex.services.calendar_rules")
+	local templates = {}
+	for _, date in ipairs({ "2026-10-11", "2026-10-12", "2026-10-17" }) do
+		templates[date] = rules_mod.template(lines, date)
+	end
+	local CalendarEntry = require("zortex.services.calendar_entry")
+	local parsed = store.parse_lines(lines)
+	local for_copies = {}
+	for _, entries in pairs(parsed) do
+		for _, e in ipairs(entries) do
+			local d = e.raw_text:match("@for%((%d%d%d%d%-%d%d%-%d%d)%)")
+			if d then
+				for_copies[d] = for_copies[d] or {}
+				for_copies[d][e.text] = e
+			end
+		end
+	end
+	local occurrences = {}
+	for day = 1, 31 do
+		local date = string.format("2026-10-%02d", day)
+		local rows = {}
+		for _, rule in ipairs(rules_mod.rules(lines)) do
+			if rules_mod.matches(rule, date) then
+				local e = CalendarEntry.from_text(rules_mod.plain_line(rule.line), date)
+				local own = false
+				for _, x in ipairs(parsed[date] or {}) do
+					if x.text == e.text and not x.raw_text:match("@for%(") then
+						own = true
+					end
+				end
+				if not own then
+					local copy = (for_copies[date] or {})[e.text]
+					local stop = e:get_end_time()
+					rows[#rows + 1] = {
+						rule = rule.lnum,
+						time = e:get_time_string() or "",
+						["end"] = stop and stop.hour and string.format("%02d:%02d", stop.hour, stop.min) or "",
+						text = rules_mod.label(rule, e.text or "", date),
+						task = e.type == "task",
+						done = copy and copy.completed and true or false,
+						copy = copy and copy.lnum or 0,
+					}
+				end
+			end
+		end
+		if #rows > 0 then
+			occurrences[date] = rows
+		end
+	end
+	local copies = {}
+	for _, c in ipairs({ { 22, "2026-10-18", "2026-10-18" }, { 22, "2026-10-11", "2026-10-13" }, { 23, "2026-10-20", "2026-10-20" }, { 29, "2026-10-14", "2026-10-15" } }) do
+		local rule = rules_mod.rule(lines[c[1]], c[1])
+		copies[#copies + 1] = { lnum = c[1], date = c[2], today = c[3], line = rules_mod.done_copy(rule, c[2], c[3], "rep01") or "" }
+	end
 	local p = root .. "/tests/fixtures/calendar.json"
 	local fh = assert(io.open(p, "w"))
-	fh:write(require("json").encode({ lines = lines, days = days }) .. "\n")
+	fh:write(require("json").encode({ lines = lines, days = days, templates = templates, occurrences = occurrences, copies = copies, id = "rep01" }) .. "\n")
 	fh:close()
 	print("wrote " .. p)
 end

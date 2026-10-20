@@ -211,6 +211,9 @@ function M.render(r, opts)
 		if link then
 			line = line .. " " .. link
 		end
+		if kr.is_stuck and kr:is_stuck() then
+			line = line .. "  (stuck: no checkbox either, nothing can move it)"
+		end
 		return line, { file = kr.file, lnum = kr.lnum }, { kr = kr }
 	end)
 	section("Objectives without key results (R adds one)", r.objectives_without_krs, function(o)
@@ -375,8 +378,8 @@ local function season_line(s)
 		return nil
 	end
 	return string.format(
-		"  Season %s: %s of its objectives%s%s",
-		s.season.name or "",
+		"  %s: %s of its objectives%s%s",
+		require("zortex.services.xp.season").label(s.season),
 		pct(s.progress),
 		s.tier and (" · " .. s.tier.name) or "",
 		s.next_tier and string.format(" · %s at %s", s.next_tier.name, pct(s.next_tier.at)) or ""

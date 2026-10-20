@@ -107,4 +107,3 @@ func TestRepeatingOnTheWeb(t *testing.T) {
 		t.Errorf("a birthday isn't a task: %d", code)
 	}
 }
-

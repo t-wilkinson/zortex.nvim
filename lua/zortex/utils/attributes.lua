@@ -382,10 +382,8 @@ M.schemas = {
 		due = { type = "date" },
 		at = { type = "string" },
 		dur = { type = "duration" },
-		est = { type = "duration" },
 		spent = { type = "duration" }, -- time tracked on it (the web app's clocks), minutes
 		done = { type = "date" },
-		progress = { type = "progress" },
 		["repeat"] = { type = "string" },
 		notify = { type = "notify" },
 		n = "notify",
@@ -398,12 +396,10 @@ M.schemas = {
 	project = {
 		p = { type = "enum", values = { "1", "2", "3" } },
 		i = { type = "enum", values = { "1", "2", "3" } },
-		progress = { type = "progress" },
 		due = { type = "date" },
 		done = { type = "date" },
 		xp = { type = "number" },
 		dur = { type = "duration" },
-		est = { type = "duration" },
 		size = {
 			type = "enum",
 			values = {
@@ -442,7 +438,6 @@ M.schemas = {
 		due = { type = "datetime" },
 		at = { type = "datetime" },
 		dur = { type = "duration" },
-		est = { type = "duration" },
 		spent = { type = "duration" },
 		from = { type = "datetime" },
 		to = { type = "datetime" },
@@ -474,15 +469,6 @@ end
 -- =============================================================================
 -- Specific Attribute Helpers
 -- =============================================================================
-
--- Progress attribute helpers
-function M.update_progress_attribute(line, completed, total)
-	if total > 0 then
-		return M.update_attribute(line, "progress", string.format("%d/%d", completed, total))
-	else
-		return M.remove_attribute(line, "progress")
-	end
-end
 
 -- =============================================================================
 -- Duration Helpers

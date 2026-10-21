@@ -23,7 +23,6 @@ return {
 		"09:00 - 10:30 Deep work [P/#1.4 - zortex]",
 		"16:00 [ ] Timed task",
 		"16:00 - 17:00 [x] Timed range @done(2026-10-01)",
-		"16:00 - [ ] Dashed timed task",
 		"  7:05   Indented entry  ",
 		"- [ ] Done but empty @done()",
 		"- [x] two dones @done(2026-01-01) @done(2026-01-02)",

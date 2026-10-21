@@ -24,6 +24,12 @@ local function conf()
 	local Config = require("zortex.config")
 	return Config.xp or (Config.defaults or {}).xp or {}
 end
+
+--- Whether XP is on (xp.enabled). Off, @size still gives hours (progress,
+--- the planner); nothing is awarded, announced or published.
+function M.enabled()
+	return conf().enabled ~= false
+end
 M.conf = conf
 
 local function sizes(kind)

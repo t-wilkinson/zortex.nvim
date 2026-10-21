@@ -34,7 +34,7 @@ end
 local function compute_timing(attrs)
 	local timing
 	if attrs.at then
-		timing = { type = "point", start = attrs.at, duration = attrs.dur or attrs.est, estimated = attrs.est ~= nil }
+		timing = { type = "point", start = attrs.at, duration = attrs.dur }
 	elseif attrs.from then
 		timing = { type = "range", start = attrs.from, ["end"] = attrs.to, buffer = attrs.buffer }
 	elseif attrs.range then
@@ -100,7 +100,7 @@ function M.from_text(line, date_str)
 		end
 	end
 	if entry.attributes.from or entry.attributes.to or entry.attributes.at then
-		-- every timed line notifies at its time unless @n(no); a done task
+		-- every timed line notifies at its time unless @notify(no); a done task
 		-- doesn't (nothing left to remind you of)
 		if entry.attributes.notify == nil then
 			entry.attributes.notify = not entry.completed
@@ -143,19 +143,19 @@ function Entry:is_all_day()
 	return not (self.timing.start.hour and self.timing.start.min)
 end
 
---- Minutes, and whether the duration is an estimate.
+--- Minutes the entry lasts, or nil.
 function Entry:get_duration()
 	local timing = self.timing
 	if not timing then
 		return nil
 	end
 	if timing.duration then
-		return timing.duration, timing.estimated
+		return timing.duration
 	end
 	if timing.start and timing["end"] then
-		return datetime.diff(timing["end"], timing.start), false
+		return datetime.diff(timing["end"], timing.start)
 	end
-	return nil, false
+	return nil
 end
 
 --- "HH:MM" of the start, or nil.

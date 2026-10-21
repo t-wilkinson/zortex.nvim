@@ -87,12 +87,6 @@ return {
 		size = "lg",
 	},
 	{
-		name = "the dashed form",
-		lines = { day, "16:00 - [x] Task 1", "16:30 Next" },
-		lnum = 2,
-		size = "sm",
-	},
-	{
 		name = "a timed task with tasks under it is a group: no size",
 		lines = { day, "16:00 [x] Report", "  - [x] Draft", "17:00 Next" },
 		lnum = 2,

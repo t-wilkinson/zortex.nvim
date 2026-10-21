@@ -1,0 +1,45 @@
+@@Format tour
+@@Tour
+@Zortex
+
+A note starts with its name (`@@Format tour`), any aliases (`@@Tour`) and
+its tags (`@Zortex`). Then the body: headings, labels, lists, tasks and
+links, written the way you would write them anyway. [Structure] links here.
+
+# Headings and labels
+A label ends with a colon and holds the lines under it.
+
+Ingredients:
+- Flour, water, salt
+- A starter: see [Sourdough/#Starter]
+
+Key: a label can also carry text on its line.
+
+**A bold heading:**
+- Sits between headings and labels in the outline
+
+## A sub-heading
+- Folds, the outline and the table of contents follow this structure.
+
+# Inline
+Words can be *italic*, **bold** or ***both***, `code`, or math: $e^{i\pi} + 1 = 0$.
+https://en.wikipedia.org/wiki/Plain_text is a link, and so is a path: ./z/images/loop.svg.
+
+$$
+\int_0^1 x^2 \, dx = \frac{1}{3}
+$$
+
+```bash
+echo "code blocks keep their language"
+```
+
+# Links
+- [Sourdough] opens a note; [Sourdough/#Method/:Bake] a label inside it.
+- [/#Headings and labels] stays in this note, and [/:Ingredients] finds the label.
+- [/%colon] finds the first line containing the text.
+- [P/#2.2 Bake a good sourdough loaf] reaches a project through the `P` alias.
+
+# Tasks and attributes
+- [ ] Try every link above @size(sm)
+- [x] Read the tour @done(2026-10-12)
+- [ ] Bake on Saturday @due(2026-10-24) @area(1.1)

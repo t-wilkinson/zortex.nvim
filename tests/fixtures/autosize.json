@@ -176,16 +176,6 @@
     {
       "lines": [
         "2026-10-16:",
-        "16:00 - [x] Task 1",
-        "16:30 Next"
-      ],
-      "lnum": 2,
-      "name": "the dashed form",
-      "size": "sm"
-    },
-    {
-      "lines": [
-        "2026-10-16:",
         "16:00 [x] Report",
         "  - [x] Draft",
         "17:00 Next"

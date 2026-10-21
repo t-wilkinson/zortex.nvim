@@ -183,8 +183,8 @@
         "end": "",
         "lnum": 51,
         "moved": false,
-        "task": true,
-        "text": "Dashed timed task",
+        "task": false,
+        "text": "- [ ] Dashed timed task",
         "time": "18:00"
       },
       {

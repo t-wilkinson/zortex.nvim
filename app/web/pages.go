@@ -232,6 +232,7 @@ func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	s.render(w, r, "home", http.StatusOK, map[string]any{
+		"XP":             !s.cfg.NoXP,
 		"Focus":          focusRows,
 		"FocusWeek":      week,
 		"FocusEarlier":   focusEarlier,
@@ -707,5 +708,8 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		"broken":  len(snap.broken),
 		"indexed": snap.built.Format(time.RFC3339),
 		"took_ms": snap.took.Milliseconds(),
+		"data":    s.cfg.DataDir != "", // notifications and the pomodoro need it
+		"ntfy":    s.cfg.Ntfy.Enabled(),
+		"xp":      !s.cfg.NoXP,
 	})
 }

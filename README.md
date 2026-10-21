@@ -45,7 +45,7 @@ text you own and sync however you like.
 - **Inbox**: jot a thought down from the web app (even offline, on your
   phone) or Neovim, and the next review lists it for you to file away.
 
-**On the web** (`zortex serve`, optional: one Go binary)
+**On the web** (`zortex serve`: one Go binary, on this computer or a server)
 
 - Your notes rendered and searchable, with the calendar, the pomodoro and
   XP on the home page, light editing from your phone, ntfy notifications,
@@ -76,8 +76,8 @@ Needs Neovim 0.10 or newer. Linux and macOS; Windows untested. With
 {
   "t-wilkinson/zortex.nvim",
   opts = { notes_dir = "~/zortex" },
-  -- optional, to load on demand (calendar notifications and the starter
-  -- notes then wait until it loads):
+  -- optional, to load on demand (the server's alerts in Neovim then wait
+  -- until it loads):
   -- ft = "zortex", cmd = { "ZortexSearch", "ZortexPlan" }, keys = { "<leader>z" },
 }
 ```
@@ -93,10 +93,10 @@ when you use LazyVim), and link completion
 
 Then, in five minutes:
 
-1. **Start Neovim.** `~/zortex` is created with the key notes: `structure`,
-   `projects`, `areas`, `okr`, `calendar` and `inbox`, from short templates
-   that link to each other. (In a folder that already has notes nothing is
-   written; `:ZortexInit` adds what's missing.)
+1. **Run `:Zortex init`.** It creates `~/zortex` with the key notes:
+   `structure`, `projects`, `areas`, `okr`, `calendar` and `inbox`, from
+   short templates that link to each other. In a folder that already has
+   notes it only adds the missing ones.
 2. **Open the structure note**, the map of everything: `<leader>zfs`. Notes
    open folded to their headings: `zR` opens every fold, `zo` the one under
    the cursor (`features = { folding = { level = 99 } }` starts unfolded).
@@ -123,9 +123,15 @@ text that would read as a link) go to the quickfix list.
 
 Next: the note format is in [doc/Syntax.md](doc/Syntax.md),
 [doc/example](doc/example) is a small folder using most of it, and
-`:checkhealth zortex` checks the setup. The server is optional; see
-[doc/Server.md](doc/Server.md), which also covers keeping the notes in sync
-with a server (Syncthing, Nextcloud, Unison, git or rsync).
+`:checkhealth zortex` checks the setup.
+
+**The server.** The plugin expects `zortex serve` running, on this computer
+or elsewhere (`server.api_endpoint`, default `http://127.0.0.1:8090`): the
+calendar's notifications, the pomodoro and the alerts Neovim shows come
+from it, besides the web app. [doc/Server.md](doc/Server.md) covers running
+it and keeping the notes in sync with it (Syncthing, Nextcloud, Unison,
+git or rsync). Without one, `server = { enabled = false }`: notes, links,
+projects, planning and XP all work in Neovim alone.
 
 **Configuration.** Every option and its default is in
 [`lua/zortex/config.lua`](lua/zortex/config.lua); `setup()` merges yours over
@@ -150,10 +156,13 @@ subfolders work too. A note starts with a header:
 
 The body has headings (`#` … `######`), bold headings (`**Next steps:**`),
 labels (`Ideas:`), list items and tasks (`- [ ] task @size(sm)`,
-`14:00 event`), attributes (`@p1`, `@due(2026-10-20)`, `@a(4.1)`), links
+`14:00 event`), attributes (`@p1`, `@due(2026-10-20)`, `@area(4.1)`), links
 (`[P/#1.4 - zortex]`, `[A/#1.2/:Fitness]`, `[/#Local heading]`) and the
 usual markdown blocks and inline markup. **[doc/Syntax.md](doc/Syntax.md)** is
 the complete reference; a test checks its examples against the parser.
+Attributes are written in full in these docs; most have a short form that
+means the same: `@a(4.1)` for `@area(4.1)`, `@n(15)` for `@notify(15)`,
+`@sm` for `@size(sm)`, `@90m` for `@dur(90m)`.
 
 Special notes:
 
@@ -162,12 +171,12 @@ Special notes:
   A heading with no task of its own and no project attribute only groups
   the projects under it (until something links it).
 - **`areas.zortex`** (`@@Areas` / `@@A`): headings and labels are areas;
-  `@a(4.1)` on a project or objective links it to an area.
-- **`okr.zortex`**: a season heading (`# 2026-Q4 Season 10 Juniper`, added
-  by `:ZortexSeason start`) holds the season's objectives, the headings under
-  it (or give one its own window: `## 3M-2026-Q1 Title`); their
-  `- KRn:` items are key results, and project links on a KR drive its
-  progress.
+  `@area(4.1)` on a project or objective links it to an area.
+- **`okr.zortex`**: objectives are headings that start with their span,
+  `## 3M-2026-Q4 Title` (`##` or deeper); top-level headings group them,
+  like the one `:ZortexSeason start` adds (`# 3M-2026-Q4 Season 10
+  Juniper`). Their `- KRn:` items are key results, and project links on a
+  KR drive its progress.
 - **`calendar.zortex`**: a day is `**YYYY-MM-DD:**` (new days get this
   bold label; a plain `YYYY-MM-DD:` reads the same) with its entries under
   it (`- [ ] task`, `14:00 event`, `16:00 [ ] timed task`, `- note`). Start
@@ -217,7 +226,7 @@ Special notes:
   joined line's `#`, `-` (and `[ ]`), `1.` or `> ` go (`First line:` + `- Second line` is `First line: Second line`)
   (`features.join`; `gJ` joins as written).
 - **Projects**: picker with progress, points, due dates, areas and key
-  results; `@progress` written back on request.
+  results.
 - **Today** (`<leader>zd`, `:ZortexToday [date]`): today's block in the
   calendar, added from your day template when it isn't there yet, with the
   cursor on it.
@@ -251,20 +260,19 @@ Special notes:
 - **Calendar**: a month view with the selected day as written and the
   events coming up after it (the planner's list), other calendars' events
   from the server's calendar feeds (read-only; `features.calendar_feeds`
-  toggles them per feed), iCal import/export, notifications (synced to `zortex serve` and sent through ntfy; unchanged
-  calendars aren't re-sent).
-- **Pomodoro** (`<leader>zoo`): one clock shared with the web app's home page,
-  with ntfy alerts and a different sound for work, breaks and a new cycle
-  (played with `paplay`, `afplay` on macOS; `sounds` and `sound_command` under
-  `notifications.types.pomodoro` change them).
-  Timers, alarms and a stopwatch are on the home page too, and their time
+  toggles them per feed), and notifications: saving the calendar sends its
+  timed lines to `zortex serve`, which sends them through ntfy when they
+  are due and shows them in Neovim too (`notifications.alerts`).
+- **Pomodoro** (`:ZortexPomodoro`, `<leader>zoo`): the server's clock,
+  driven from Neovim or the web app's home page, running with both closed;
+  each phase change is announced through ntfy and in Neovim. Timers, alarms and a stopwatch are on the home page too, and their time
   goes to the task you're working on (`@spent(1h25m)`; by default the
   current calendar entry).
 - **Planning and XP**: areas → objectives → key results → projects → tasks,
   a week's focus projects, a day planner that puts focus and key-result
   work first, daily and weekly reviews,
   and XP that mirrors it (seasons for this quarter's objectives, Mastery for
-  areas). `:ZortexXP` (`<leader>zxx`) shows it in one view: the season, the
+  areas; `xp = { enabled = false }` turns it off). `:ZortexXP` (`<leader>zxx`) shows it in one view: the season, the
   last two weeks and how much of that work went to key results, projects
   in progress, recent awards and the area tree. See
   [doc/Planning.md](doc/Planning.md).
@@ -274,7 +282,10 @@ Special notes:
 
 Every action is one entry in [`lua/zortex/actions.lua`](lua/zortex/actions.lua);
 commands, keymaps and `require("zortex").actions` are generated from it, and
-`:ZortexHelp` (`<leader>z?`) lists them with your prefixes. Change a key with
+`:Zortex` (`<leader>z?`) lists them with your prefixes. `:Zortex` also
+keeps the notes in order: `:Zortex init` creates missing key notes,
+`:Zortex reindex` rebuilds the link index, `:Zortex refold` recomputes the
+folds. Change a key with
 `keymaps.mappings`:
 
 ```lua
@@ -307,7 +318,6 @@ require("zortex").setup({
 | `:ZortexLinkPreview` | `<leader>zK` | `link_preview` | Preview the link target in a float |
 | `:ZortexBacklinks` | `<leader>zb` | `backlinks` | Links into the section under the cursor (quickfix) |
 | `:ZortexBrokenLinks` | `<leader>zB` | `broken_links` | Links that resolve nowhere, then tags that go nowhere (quickfix) |
-| `:ZortexLinkIndexRebuild` |  | `link_index_rebuild` | Rebuild the link index from scratch |
 
 **Structure**
 
@@ -316,8 +326,7 @@ require("zortex").setup({
 | `:ZortexSectionNext` | `<leader>z]` | `section_next` | Next section at the same or higher level |
 | `:ZortexSectionPrev` | `<leader>z[` | `section_prev` | Previous section at the same or higher level |
 | `:ZortexSectionParent` | `<leader>z^` | `section_parent` | Parent section |
-| `:ZortexFoldsUpdate` | `<leader>zr` | `folds_update` | Recompute folds |
-| `:ZortexLongLabels` |  | `long_labels` | Lines ending in a colon that are too long to be labels (quickfix) |
+|  | `<leader>zr` | `folds_update` | Recompute folds (`:Zortex refold`) |
 | `:ZortexRename …` | `<leader>zR` | `rename` | Rename the heading or label under the cursor and rewrite every link to it |
 | `:ZortexArchiveSection` | `<leader>za` | `archive_section` | Move the section under the cursor to the note's z/archive file |
 | `:ZortexMove` | `<leader>zM` | `move` | Move the section or line under the cursor (or the selected lines) to a place picked in the search |
@@ -328,17 +337,13 @@ require("zortex").setup({
 | Command | Keys | Action id | Does |
 |---|---|---|---|
 | `:ZortexTaskToggle` | `<leader>zT` | `task_toggle` | Toggle the task on this line (makes one if needed); on a project heading, mark the project done |
-| `:ZortexTaskComplete` | `<leader>ztc` | `task_complete` | Complete the task on this line |
-| `:ZortexTaskUncomplete` | `<leader>ztu` | `task_uncomplete` | Reopen the task on this line |
-| `:ZortexTaskConvert` | `<leader>ztt` | `task_convert` | Turn this line into a task |
-| `:ZortexProjectProgress` | `<leader>zu` | `project_progress` | Write @progress(done/total) on project headings in this buffer |
 
 **Plan**
 
 | Command | Keys | Action id | Does |
 |---|---|---|---|
 | `:ZortexReview …` | `<leader>zw` | `review` | Review: week (default), day (since the last daily review), or a number of days |
-| `:ZortexReviewDay` | `<leader>zW` | `review_day` | Daily review: completed, XP, time spent and the calendar since the last one |
+|  | `<leader>zW` | `review_day` | Daily review (`:ZortexReview day`) |
 | `:ZortexPlan …` | `<leader>zm` | `plan` | Plan a day: calendar day (from its template) plus ranked tasks, projects, KRs and areas to put on it |
 | `:ZortexToday …` | `<leader>zd` | `today` | Go to today in the calendar (or a date), adding the day from its template when it isn't there |
 | `:ZortexNow` | `<leader>zn` | `now` | Go to today in the calendar, at the entry for the time now (the latest one that has started) |
@@ -351,35 +356,30 @@ require("zortex").setup({
 
 | Command | Keys | Action id | Does |
 |---|---|---|---|
-| `:ZortexPomodoro` | `<leader>zoo` | `pomodoro_toggle` | Start, pause or resume the pomodoro |
-| `:ZortexPomodoroSkip` | `<leader>zos` | `pomodoro_skip` | End the current pomodoro phase now |
-| `:ZortexPomodoroRestart` | `<leader>zor` | `pomodoro_restart` | Begin a new pomodoro cycle |
-| `:ZortexPomodoroStop` | `<leader>zox` | `pomodoro_stop` | Stop the pomodoro |
-| `:ZortexPomodoroStatus` | `<leader>zoi` | `pomodoro_status` | Show the pomodoro status |
-| `:ZortexPomodoroSettings …` |  | `pomodoro_settings` | Show or change the pomodoro's settings (work=25 short=5 long=15 every=4 auto_break=yes auto_work=no) |
+| `:ZortexPomodoro …` | `<leader>zoo` | `pomodoro_toggle` | The pomodoro (the clock is the server's): `toggle` start, pause or resume (default), `skip` end the phase now, `restart` begin a new cycle, `stop` stop it, `status` where it is, `settings` show or change them: work=25 short=5 long=15 every=4 auto_break=yes auto_work=no |
+|  | `<leader>zos` | `pomodoro_skip` | End the current pomodoro phase now (`:ZortexPomodoro skip`) |
+|  | `<leader>zor` | `pomodoro_restart` | Begin a new pomodoro cycle (`:ZortexPomodoro restart`) |
+|  | `<leader>zox` | `pomodoro_stop` | Stop the pomodoro (`:ZortexPomodoro stop`) |
+|  | `<leader>zoi` | `pomodoro_status` | Show the pomodoro status (`:ZortexPomodoro status`) |
 
 **Calendar**
 
 | Command | Keys | Action id | Does |
 |---|---|---|---|
-| `:ZortexNotify …` |  | `notify` | Send a notification now through the configured channels: `:ZortexNotify <title> <message>` |
-| `:ZortexNotificationList …` |  | `notification_list` | List the scheduled notifications (`calendar` or `pomodoro` only) |
-| `:ZortexNotificationsSync …` |  | `notifications_sync` | Sync calendar notifications (to the server if enabled); `force` resends unchanged |
-| `:ZortexIcalImport` |  | `ical_import` | Import an iCal file or URL into the calendar |
-| `:ZortexIcalExport` |  | `ical_export` | Export the calendar to an iCal file |
+| `:ZortexNotifications …` |  | `notifications` | Calendar notifications (sent by the server): `list` the ones the server will send (default), `sync` send the calendar's to the server now (`force` resends unchanged), `send` <title> <message>: one now, through the server |
 
 **Files**
 
 | Command | Keys | Action id | Does |
 |---|---|---|---|
-| `:ZortexInit` |  | `init` | Create missing key notes (calendar, projects, areas, okr, structure, inbox) |
 | `:ZortexImportMarkdown …` |  | `import_markdown` | Convert a Markdown file, or every one under a folder, to a note next to it (`--join` flows wrapped lines; `!` overwrites) |
-| `:ZortexOpenProjects` | `<leader>zfp` `<leader>zP` | `open_projects` | Open projects.zortex |
-| `:ZortexOpenAreas` | `<leader>zfa` | `open_areas` | Open areas.zortex |
-| `:ZortexOpenOKR` | `<leader>zfo` | `open_okr` | Open okr.zortex |
-| `:ZortexOpenCalendar` | `<leader>zfc` | `open_calendar` | Open calendar.zortex |
-| `:ZortexOpenStructure` | `<leader>zfs` | `open_structure` | Open structure.zortex |
-| `:ZortexOpenInbox` | `<leader>zfi` | `open_inbox` | Open inbox.zortex |
+| `:ZortexOpen …` |  | `open` | Open a note by its file name, without the extension (`projects`, `calendar`, `z/garden`); the structure note without one |
+|  | `<leader>zfp` | `open_projects` | Open projects.zortex (`:ZortexOpen projects`) |
+|  | `<leader>zfa` | `open_areas` | Open areas.zortex (`:ZortexOpen areas`) |
+|  | `<leader>zfo` | `open_okr` | Open okr.zortex (`:ZortexOpen okr`) |
+|  | `<leader>zfc` | `open_calendar` | Open calendar.zortex (`:ZortexOpen calendar`) |
+|  | `<leader>zfs` | `open_structure` | Open structure.zortex (`:ZortexOpen structure`) |
+|  | `<leader>zfi` | `open_inbox` | Open inbox.zortex (`:ZortexOpen inbox`) |
 | `:ZortexPresent` | `<leader>zS` | `present` | Present this note as slides in the web app, from the slide under the cursor |
 
 **XP**
@@ -389,15 +389,16 @@ require("zortex").setup({
 | `:ZortexXP` | `<leader>zxx` | `xp` | Season, the last two weeks, projects in progress, recent awards and the area tree in one view |
 | `:ZortexXPExplain` | `<leader>zxe` | `xp_explain` | How the project at the cursor earned its XP |
 | `:ZortexXPGuide` | `<leader>zxg` | `xp_guide` | How XP is calibrated: hours per @size, Mastery, tiers |
-| `:ZortexSeason …` |  | `season` | The season: `status` (default), `start [name] [end YYYY-MM-DD] [start YYYY-MM-DD]` (prompts without a name), `end` |
+| `:ZortexSeason …` |  | `season` | The season: `status` (default), `start [span] [name]` (a span like 3M-2026-Q4; without one it asks, the quarter filled in; adds the season's heading to the OKR note), `end` |
 
 **System**
 
 | Command | Keys | Action id | Does |
 |---|---|---|---|
 | `:ZortexExport …` |  | `export` | Export notes and the model as JSON (default notes_dir/.z/export) |
-| `:ZortexDebug …` |  | `debug` | For finding problems: `status` (default; counts, state directory, timings), `logs [n]`, `level <LEVEL>`, `timers`, `clear` (logs and timers), `notifications [provider]` (a test through each) |
-| `:ZortexHelp` | `<leader>z?` | `help` | List commands and keys |
+| `:ZortexDebug …` |  | `debug` | For finding problems: `status` (default; counts, state directory, timings), `logs [n]`, `level <LEVEL>`, `timers`, `clear` (logs and timers) |
+| `:Zortex …` |  | `zortex` | Zortex itself: `help` list commands and keys (default), `init` create the key notes that are missing (calendar, projects, areas, okr, structure, inbox), `reindex` rebuild the link index from scratch, `refold` recompute the folds of this note |
+|  | `<leader>z?` | `help` | List commands and keys (`:Zortex`) |
 <!-- actions:end -->
 
 <!-- keys:start -->
@@ -543,7 +544,7 @@ opens) and send rows to the quickfix list (`<C-q>`, fzf-lua `alt-q`). The
 zortex keys are the same everywhere: Ctrl acts on the row, Alt changes the
 list.
 
-Link completion (`[`, `/`, `#`, `>`, `@a(`, ...) registers itself on the
+Link completion (`[`, `/`, `#`, `>`, `@area(`, ...) registers itself on the
 first zortex buffer: with blink.cmp as the `zortex` provider, listed for
 zortex buffers next to your default sources; with nvim-cmp in the zortex
 buffers' sources. To list it elsewhere (markdown, say), in blink.cmp's
@@ -580,7 +581,7 @@ z.document.get(path).syntax               -- the parsed note
 z.syntax.parse(lines, { inline = true })  -- the grammar itself
 
 -- in a statusline: "🍅 12:34" while a pomodoro runs, "" otherwise
-require("zortex.notifications.types.pomodoro").statusline()
+require("zortex.notifications.pomodoro").statusline()
 ```
 
 | name                                     | module            | what                                                                                                                                                |
@@ -589,7 +590,7 @@ require("zortex.notifications.types.pomodoro").statusline()
 | `projects`, `areas`, `okr`               | `services/*`      | entities: `all`, `get`, `at`, `resolve`, plus `query`/`tasks` (projects), `objectives`/`key_results` (OKR)                                          |
 | `agenda`                                 | `services/agenda` | `day`, `range`, `upcoming`, `upcoming_events`, `review`                                                                                             |
 | `calendar`                               | `stores/calendar` | entries by date, `add_entry`, `update_entry`, `delete_entry`                                                                                        |
-| `tasks`                                  | `services/tasks`  | toggle/complete on the cursor line, `find_task_by_id`                                                                                               |
+| `tasks`                                  | `services/tasks`  | toggle on the cursor line, `find_task_by_id`                                                                                                        |
 | `search`, `search_history`               | `services/*`      | structural search and its ranking history                                                                                                           |
 | `review`, `planner`, `xp`                |                   | review buffer, day planning, XP and seasons                                                                                                         |
 | `notes`, `document`, `syntax`, `item`    | `core/*`          | note index, parsed snapshots, grammar, list items                                                                                                   |
@@ -627,7 +628,7 @@ configuration; a patch release (0.1.1) never does. What is promised:
 - Notes stay plain text that reads fine without zortex.
 - Every change to how notes parse, and every renamed or removed setting or
   command, is listed in [CHANGELOG.md](CHANGELOG.md) with how to find the
-  lines it affects (as `:ZortexLongLabels` did for labels).
+  lines it affects.
 - Nothing rewrites your notes on upgrade.
 
 From 1.0 on, the note format changes only in a major release.

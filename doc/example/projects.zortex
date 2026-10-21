@@ -2,17 +2,17 @@
 @@P
 
 # 1 Home
-## 1.1 Kitchen shelves @a(1.2) @size(sm)
+## 1.1 Kitchen shelves @area(1.2) @size(sm)
 - [x] Measure the wall @size(xs) @done(2026-10-10)
 - [ ] Buy brackets and boards @size(sm)
 - [ ] Mount the shelves @size(md) @due(2026-10-18)
 
 # 2 Learning
-## 2.1 Read "The Pragmatic Programmer" @a(2.1) @size(md)
+## 2.1 Read "The Pragmatic Programmer" @area(2.1) @size(md)
 - [x] Chapters 1-3 @done(2026-10-09)
 - [ ] Chapters 4-6 @spent(1h25m)
 - [ ] Write notes in [Reading list/#Pragmatic Programmer]
 
-## 2.2 Bake a good sourdough loaf @a(1.1)
+## 2.2 Bake a good sourdough loaf @area(1.1)
 - [ ] Feed the starter twice a day for a week @size(sm)
 - [ ] Bake following [Sourdough/#Method] @size(lg)

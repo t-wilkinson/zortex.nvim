@@ -59,14 +59,15 @@ type okrPeriod struct {
 	Window  string
 	Elapsed int // percent of the window passed
 	List    []okrObjective
-	Tier    *okrTier // a season heading's tier
+	Tier    *okrTier // the tier of the season with this span
 }
 
 // okrTier is how far a season got: Neovim's own figure when it published
 // this season (the XP summary) or ended it (its history), else an estimate
-// here (its objectives' mean progress against the default tiers).
+// here (its objectives' mean progress against the tiers).
 type okrTier struct {
-	Name      string // "" before the first tier
+	Season    string // "Season 10 Juniper", when Neovim named it
+	Name      string // the tier; "" before the first
 	Progress  int    // percent
 	Next      string
 	NextAt    int // percent
@@ -81,21 +82,24 @@ type summaryTier struct {
 
 var defaultTiers = []summaryTier{{"Bronze", 0.25}, {"Silver", 0.5}, {"Gold", 0.7}, {"Platinum", 0.85}, {"Complete", 1}}
 
-// seasonTier: the tier of the season heading `h`, among every objective (done
-// ones too).
-func (s *Server) seasonTier(h *seasonHeading, all []*webObjective, raw []byte) *okrTier {
+// seasonTier: the tier of the season whose span ("3M-2026-Q4") is `span`:
+// Neovim's own figure for it when it published this season (the XP summary)
+// or ended it (its history); else, for the current calendar quarter, an
+// estimate from the objectives of that span (done ones too). nil otherwise.
+func (s *Server) seasonTier(span string, all []*webObjective, raw []byte, now time.Time) *okrTier {
 	var sum struct {
 		Season *struct {
-			Name      string        `json:"name"`
-			StartDate string        `json:"start_date"`
-			Progress  float64       `json:"progress"`
-			Tier      string        `json:"tier"`
-			NextTier  string        `json:"next_tier"`
-			NextAt    float64       `json:"next_at"`
-			Tiers     []summaryTier `json:"tiers"`
+			Name     string        `json:"name"`
+			Span     string        `json:"span"`
+			Progress float64       `json:"progress"`
+			Tier     string        `json:"tier"`
+			NextTier string        `json:"next_tier"`
+			NextAt   float64       `json:"next_at"`
+			Tiers    []summaryTier `json:"tiers"`
 		} `json:"season"`
 		History []struct {
 			Name          string  `json:"name"`
+			Span          string  `json:"span"`
 			FinalProgress float64 `json:"final_progress"`
 			FinalTier     string  `json:"final_tier"`
 		} `json:"history"`
@@ -104,14 +108,16 @@ func (s *Server) seasonTier(h *seasonHeading, all []*webObjective, raw []byte) *
 		_ = json.Unmarshal(raw, &sum)
 	}
 	pct := func(x float64) int { return int(math.Round(x * 100)) }
-	start := h.Start.Format("2006-01-02")
-	if c := sum.Season; c != nil && (c.StartDate == start || (h.Name != "" && c.Name == h.Name)) {
-		return &okrTier{Name: c.Tier, Progress: pct(c.Progress), Next: c.NextTier, NextAt: pct(c.NextAt)}
+	if c := sum.Season; c != nil && strings.EqualFold(c.Span, span) {
+		return &okrTier{Season: c.Name, Name: c.Tier, Progress: pct(c.Progress), Next: c.NextTier, NextAt: pct(c.NextAt)}
 	}
-	for _, past := range sum.History {
-		if h.Name != "" && past.Name == h.Name {
-			return &okrTier{Name: past.FinalTier, Progress: pct(past.FinalProgress), Final: true}
+	for i := len(sum.History) - 1; i >= 0; i-- {
+		if past := sum.History[i]; strings.EqualFold(past.Span, span) {
+			return &okrTier{Season: past.Name, Name: past.FinalTier, Progress: pct(past.FinalProgress), Final: true}
 		}
+	}
+	if !strings.EqualFold(span, quarterSpan(now)) {
+		return nil
 	}
 	tiers := defaultTiers
 	if sum.Season != nil && len(sum.Season.Tiers) > 0 {
@@ -119,7 +125,7 @@ func (s *Server) seasonTier(h *seasonHeading, all []*webObjective, raw []byte) *
 	}
 	progress, n := 0.0, 0
 	for _, o := range all {
-		if o.Season != nil && o.Season.Start.Equal(h.Start) && o.Season.Name == h.Name {
+		if strings.EqualFold(o.Span, span) {
 			progress += o.Progress
 			n++
 		}
@@ -137,6 +143,12 @@ func (s *Server) seasonTier(h *seasonHeading, all []*webObjective, raw []byte) *
 		}
 	}
 	return t
+}
+
+// quarterSpan: the calendar quarter around t as a span, "3M-2026-Q4"
+// (okr.quarter_span).
+func quarterSpan(t time.Time) string {
+	return fmt.Sprintf("3M-%d-Q%d", t.Year(), (int(t.Month())-1)/3+1)
 }
 
 func (s *Server) handleOKR(w http.ResponseWriter, r *http.Request) {
@@ -179,9 +191,10 @@ func (s *Server) handleOKR(w http.ResponseWriter, r *http.Request) {
 	}
 	summary := s.xpSummary()
 	for i := range periods {
-		if h := periods[i].List[0].Season; h != nil {
-			periods[i].Tier = s.seasonTier(h, objs, summary)
+		if s.cfg.NoXP {
+			break
 		}
+		periods[i].Tier = s.seasonTier(periods[i].Span, objs, summary, now)
 	}
 	sort.SliceStable(periods, func(i, j int) bool {
 		return periods[i].List[0].End.Before(periods[j].List[0].End)
@@ -502,6 +515,7 @@ func (s *Server) handleReview(w http.ResponseWriter, r *http.Request) {
 		spent = spent[:10]
 	}
 	xp, xpHours, hasXP := s.xpIn(from, to)
+	hasXP = hasXP && !s.cfg.NoXP
 	broken := len(s.current().broken)
 
 	notesHTML, notesURL := s.weekNotes(week)

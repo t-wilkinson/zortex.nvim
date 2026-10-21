@@ -61,7 +61,6 @@ P.resolve("[P/#1.4 - zortex]")             -- -> project, link result
 P.at(bufnr | path | doc, lnum)             -- innermost project containing a line
 P.current()                                -- project at the cursor
 P.tasks({ include_done = false })          -- every task, each with .project
-P.update_progress(bufnr)                   -- write @progress(done/total) on headings
 
 p.name, p.key, p.path, p.link, p.attributes, p.tags, p.aliases
 p.parent, p.children, p.depth, p.kind      -- "article" | "heading"
@@ -95,15 +94,15 @@ in the Areas article are areas; deeper ones are sub-areas. Links start with `A`.
 local A = require("zortex.services.areas")
 A.get("Areas/1 Personal Foundation/1.2 Vitality/Fitness").link
 --> "[A/#1 Personal Foundation/#1.2 Vitality/:Fitness]"
-A.resolve("Areas/#4.1")          -- what @a(4.1) expands to
+A.resolve("Areas/#4.1")          -- what @area(4.1) expands to
 A.top(5)                         -- areas by total XP
 
-area:projects({ descendants = true })   -- projects inherit @a(...) from ancestors
-area:objectives()                       -- objectives whose @a(...) points here
+area:projects({ descendants = true })   -- projects inherit @area(...) from ancestors
+area:objectives()                       -- objectives whose @area(...) points here
 area:xp() / area:total_xp() / area:xp_data()  -- XP is stored under area keys
 
 p:areas({ inherit = true })      -- Area objects for a project
-p:area_links()                   -- its @a(...) links, including unresolved ones
+p:area_links()                   -- its @area(...) links, including unresolved ones
 ```
 
 XP is recorded under area **keys** (`Areas/4 Learning & Education/4.1 Education & Skills`).

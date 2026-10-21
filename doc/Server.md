@@ -1,14 +1,14 @@
 # Running the server
 
-`zortex serve` is optional. It is one Go binary with no dependencies that
-reads your notes folder and gives you:
+`zortex serve` is one Go binary with no dependencies, run on the computer
+with Neovim or on a server, that reads your notes folder and gives you:
 
 - the notes on the web: rendered, with working links, backlinks, search, a
   file browser, tags and broken links;
 - a home page with today's calendar, the pomodoro (shared with Neovim),
   timers, alarms, a stopwatch, time tracking and your season's XP;
 - calendar notifications and alarms on your phone through
-  [ntfy](https://ntfy.sh);
+  [ntfy](https://ntfy.sh), and in Neovim;
 - other calendars in yours (a Cozi or Google calendar's iCal link), and
   your calendar's `@share` lines in theirs ([section 6](#6-other-calendars));
 - with `-writable`, light editing: check off tasks, edit, add, move and
@@ -75,7 +75,7 @@ tracking). What lives in `-data`:
 
 | file | what |
 |---|---|
-| `notifications.json` | notifications Neovim scheduled from the calendar |
+| `notifications.json` | the calendar's notifications Neovim sent |
 | `pomodoro.json` | the pomodoro clock |
 | `clocks.json` | timers, alarms, the stopwatch |
 | `track.json`, `track_log.jsonl` | time tracking: the current task, and every time written to a task |
@@ -197,31 +197,35 @@ a break, a timer and an alarm (`ZORTEX_SOUND_*` pick the files and
 require("zortex").setup({
   notes_dir = "~/zortex",
   server = {
-    enabled = true,
-    api_endpoint = "https://notes.example.com", -- or http://127.0.0.1:8090
+    api_endpoint = "https://notes.example.com", -- default http://127.0.0.1:8090
     api_key = os.getenv("ZORTEX_API_KEY"),        -- the server's -api-key, if set
-  },
-  notifications = {
-    providers = { ntfy = { enabled = true, topic = "my-zortex-topic" } },
   },
 })
 ```
 
-With `server.enabled`:
+The plugin expects the server (`server.enabled` is true by default):
 
 - saving `calendar.zortex` sends its notifications to the server, which
   delivers them through ntfy when they're due (unchanged calendars aren't
-  re-sent; `:ZortexNotificationsSync force` resends);
-- `<leader>zoo` and the `:ZortexPomodoro…` commands drive the server's
-  pomodoro, the same one as the home page;
+  re-sent; `:ZortexNotifications sync force` resends);
+- what the server announces (calendar notifications, pomodoro phases,
+  timers, alarms) shows in Neovim too: it asks for new alerts every
+  `notifications.poll_seconds` (`notifications.alerts = false` stops it);
+- `:ZortexPomodoro` and `<leader>zo…` drive the server's pomodoro, the same
+  one as the home page;
 - the XP summary is posted to the server as well as written to `.z/`.
 
-`:ZortexPresent` (`<leader>zS`, with or without `server.enabled`) opens the
+`:checkhealth zortex` says whether Neovim reaches it. Without a server,
+`server = { enabled = false }`: no notifications or pomodoro, everything
+else works.
+
+`:ZortexPresent` (`<leader>zS`, with or without the server) opens the
 note as slides at the slide under the cursor; set `server.web_url` when the
 browser reaches the web app at another address than `api_endpoint`.
 
 Set `-api-key` (or `ZORTEX_API_KEY`) on the server so only Neovim can post
-to `/notify`, `/pending` and `/api/xp`; the browser pages don't need it.
+to `/notify`, `/pending` and `/api/xp` and read `/api/alerts`; the
+browser pages don't need it.
 
 ## 6. Other calendars
 
@@ -257,7 +261,7 @@ zortex serve ... -feeds ~/.config/zortex/feeds.json    # or ZORTEX_FEEDS
 | `title` | the name | the note's `@@` title |
 | `url` / `url_file` | (one of them) | the link (`https://` or `webcal://`); a private link is a secret, so prefer a file holding it |
 | `enabled` | `true` | `false` stops fetching it and removes its note: its events leave every calendar view |
-| `notify` | `false` | `true`: its timed events notify as yours do; off, each line gets `@n(no)` |
+| `notify` | `false` | `true`: its timed events notify as yours do; off, each line gets `@notify(no)` |
 | `color` | `#e8833a` | with `notify`, the dot its days get on the web app's month grid, beside the one for your `@event`s, and on its label in the day's list: `#rrggbb`, a CSS color name, `rgb()` or `hsl()` |
 | `busy` | `true` | its events take time in the planner's capacity line; `false` adds `@free` to each line |
 | `every` | `15m` | how often to fetch it (5m at least); unchanged feeds aren't downloaded again (`ETag`) |
@@ -265,7 +269,7 @@ zortex serve ... -feeds ~/.config/zortex/feeds.json    # or ZORTEX_FEEDS
 
 Repeating events, exceptions, cancelled occurrences and time zones are
 expanded into one line per day, at your server's time (`TZ`), in the
-calendar's syntax (`16:00 - 17:00 Soccer · Field 3 @n(no)`; an all-day event
+calendar's syntax (`16:00 - 17:00 Soccer · Field 3 @notify(no)`; an all-day event
 is `- Camping` on each of its days). The note is rewritten only when the
 feed changed, so Syncthing stays quiet, and edits to it are replaced: change
 what the feed says in the calendar it comes from. If a fetch fails, the
@@ -273,7 +277,7 @@ last note stays.
 
 To hide a feed in Neovim only, `features.calendar_feeds = { cozi = false }`
 (`false` hides them all); `enabled: false` hides it everywhere. Notifying
-feeds are notified through Neovim, like the rest of the calendar (step 5).
+feeds are sent with the rest of the calendar's notifications (step 5).
 
 ### Your events in their calendar: `/calendar.ics`
 

@@ -3,11 +3,10 @@
 -- calendar, projects, areas, okr, structure and inbox each get a short
 -- template that shows the syntax and links them together.
 --
--- setup() writes them only into a new notes folder (no .zortex note at its
--- top level yet). In a folder that already has notes, a missing file may
--- simply not have synced yet: writing a template there could win a Syncthing
--- conflict against the real note. There Zortex says which are missing, once,
--- and :ZortexInit creates them. The server never creates notes.
+-- Nothing is written on its own: setup() says, once, which are missing
+-- (all of them in a new notes folder), and `:Zortex init` creates them. In a
+-- folder that already has notes a missing file may simply not have synced
+-- yet, so writing one there is your call. The server never creates notes.
 local M = {}
 
 local constants = require("zortex.constants")
@@ -16,9 +15,10 @@ local function today()
 	return os.date("%Y-%m-%d")
 end
 
-local function season()
+-- The calendar quarter now, as objectives write it: "3M-2026-Q4"
+local function quarter()
 	local t = os.date("*t")
-	return string.format("%d-Q%d", t.year, math.floor((t.month - 1) / 3) + 1)
+	return string.format("3M-%d-Q%d", t.year, math.floor((t.month - 1) / 3) + 1)
 end
 
 -- name -> function returning the lines
@@ -54,7 +54,7 @@ M.templates = {
 			"@@Projects",
 			"@@P",
 			"",
-			"# 1 Example project @a(1.1)",
+			"# 1 Example project @area(1.1)",
 			"- [ ] A first task @size(sm)",
 			"- [ ] A second task",
 		}
@@ -74,8 +74,8 @@ M.templates = {
 			"@@Objectives",
 			"@@OKR",
 			"",
-			"# " .. season() .. " Season 1 Aspen",
-			"## An objective @a(1.1)",
+			"# " .. quarter() .. " Season 1 Aspen",
+			"## " .. quarter() .. " An objective @area(1.1)",
 			"- KR1: [ ] A key result [P/#1 Example project]",
 		}
 	end,
@@ -162,23 +162,10 @@ local function state()
 	})
 end
 
---- setup(): create the key notes in a new folder; otherwise report missing
---- ones once (per set of names).
-function M.setup(opts)
-	if opts == false then
-		return
-	end
+--- setup(): say once (per set of names) which key notes are missing.
+function M.setup()
 	local missing = M.missing()
 	if #missing == 0 then
-		return
-	end
-	if M.is_new_folder() then
-		local created = M.create(missing)
-		if #created > 0 then
-			vim.schedule(function()
-				vim.notify("Created " .. table.concat(created, ", "), vim.log.levels.INFO, { title = "Zortex" })
-			end)
-		end
 		return
 	end
 	local key = table.concat(missing, ",")
@@ -188,16 +175,15 @@ function M.setup(opts)
 	end
 	st:get().reported = { [key] = os.date("%Y-%m-%d") }
 	st:save()
+	local msg = M.is_new_folder()
+			and ("No notes in " .. require("zortex.config").notes_dir .. " yet: `:Zortex init` creates the key notes (" .. table.concat(missing, ", ") .. "), from short templates that link to each other.")
+		or ("Missing " .. table.concat(missing, ", ") .. ": `:Zortex init` creates them from short templates.")
 	vim.schedule(function()
-		vim.notify(
-			"Missing " .. table.concat(missing, ", ") .. ". :ZortexInit creates them from a short template.",
-			vim.log.levels.INFO,
-			{ title = "Zortex" }
-		)
+		vim.notify(msg, vim.log.levels.INFO, { title = "Zortex" })
 	end)
 end
 
---- :ZortexInit
+--- :Zortex init
 function M.init_command()
 	local created = M.create()
 	if #created == 0 then

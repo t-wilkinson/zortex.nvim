@@ -22,21 +22,23 @@ function M.season_status()
 	return require("zortex.services.xp.season").status()
 end
 
---- Start a season (stores/xp) and give it a top-level heading in the OKR
---- note ("# 2026-Q4 Season 10 Juniper"), where its objectives go. opts.heading
---- = false leaves the note alone. Returns the heading's line number, if any.
-function M.start_season(name, end_date, start_date, opts)
-	if type(end_date) == "number" then
-		end_date = os.date("%Y-%m-%d", end_date)
+--- Start a season over `span`, a window in the objectives' format
+--- ("3M-2026-Q4", "1M-2026-11"; default: the calendar quarter now), named
+--- `name` (default: the next "Season N <word>"). The OKR note gets a
+--- "# 3M-2026-Q4 Season 10 Juniper" heading for its objectives (opts.heading
+--- = false: not). Returns the season, or nil and an error.
+function M.start_season(span, name, opts)
+	local okr = require("zortex.services.okr")
+	local w = okr.parse_span(span or okr.quarter_span())
+	if not w then
+		return nil, "not a span: " .. tostring(span) .. " (like 3M-2026-Q4, 1M-2026-11 or 6M-2026-H2)"
 	end
-	name = (name and name ~= "") and name or require("zortex.services.okr").next_season_name()
-	start_date = start_date or os.date("%Y-%m-%d")
-	xp_store.start_season(name, end_date, start_date)
-	if opts and opts.heading == false then
-		return nil
+	name = (name and name ~= "") and name or okr.next_season_name()
+	xp_store.start_season(name, w.end_date, w.start_date, w.span)
+	if not (opts and opts.heading == false) then
+		pcall(okr.add_season_heading, w.span, name)
 	end
-	local ok, lnum = pcall(require("zortex.services.okr").add_season_heading, name, start_date, end_date)
-	return ok and lnum or nil
+	return xp_store.started_season()
 end
 
 function M.end_season()
@@ -48,21 +50,22 @@ function M.end_season()
 	return xp_store.end_season({ progress = status and status.progress or 0, tier = status and status.tier and status.tier.name })
 end
 
--- Interactive: ask for a name and a duration, then start the season
+-- Interactive: ask for the span and the name, then start the season
 function M.prompt_start_season()
-	local default_name = require("zortex.services.okr").next_season_name()
-	vim.ui.input({ prompt = "Season name: ", default = default_name }, function(name)
-		if not name or name == "" then
+	local okr = require("zortex.services.okr")
+	vim.ui.input({ prompt = "Season (span): ", default = okr.quarter_span() }, function(span)
+		if not span or span == "" then
 			return
 		end
-		local cfg = require("zortex.config").xp or {}
-		local default_days = tostring((cfg.season and cfg.season.default_length) or 90)
-		vim.ui.input({ prompt = "Season duration (days): ", default = default_days }, function(days)
-			local end_date = os.date("%Y-%m-%d", os.time() + (tonumber(days) or 90) * 86400)
-			M.start_season(name, end_date)
+		vim.ui.input({ prompt = "Name: ", default = okr.next_season_name() }, function(name)
+			local season, err = M.start_season(vim.trim(span), name)
+			if not season then
+				return vim.notify(err, vim.log.levels.WARN, { title = "Zortex" })
+			end
 			vim.notify(
-				string.format("Season '%s' started!\nEnds: %s · its objectives go under its heading in the OKR note", name, end_date),
-				vim.log.levels.INFO
+				string.format("%s started: %s to %s; its heading is in the OKR note", season.name, season.start_date, season.end_date),
+				vim.log.levels.INFO,
+				{ title = "Zortex" }
 			)
 		end)
 	end)

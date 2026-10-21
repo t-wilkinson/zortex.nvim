@@ -1,7 +1,6 @@
 package web
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -73,41 +72,24 @@ func TestObjectiveWindow(t *testing.T) {
 	}
 }
 
-func TestSeasonHeadings(t *testing.T) {
-	cases := []struct{ text, from, to string }{
-		{"2026-Q4 Season 10 Juniper", "2026-10-01", "2026-12-31"},
-		{"2026-10 Season", "2026-10-01", "2026-12-29"},
-		{"2026-October Season", "2026-10-01", "2026-12-29"},
-		{"2026-oct", "2026-10-01", "2026-12-29"},
-		{"2026-10-20 Season 11 Kapok", "2026-10-20", "2027-01-17"},
-	}
-	for _, c := range cases {
-		a, b, ok := seasonStart(c.text)
-		if !ok || a.Format("2006-01-02") != c.from || b.Format("2006-01-02") != c.to {
-			t.Errorf("%s: %v %s..%s", c.text, ok, a.Format("2006-01-02"), b.Format("2006-01-02"))
-		}
-	}
-	for _, not := range []string{"3M-2026-Q4 Title", "Current", "2026-Q5", "2026-13", "2026-Ju x"} {
-		if _, _, ok := seasonStart(not); ok {
-			t.Errorf("%q is not a season heading", not)
-		}
-	}
-	// objectives under a season heading share its window, cut at the next one
+// Objectives are "## SPAN Title" and deeper; a top-level heading (the
+// season's, "# 3M-2026-Q4 Season 1 Aspen") only groups them.
+func TestObjectiveHeadings(t *testing.T) {
 	_, s := newSlidesServerWith(t, map[string]string{"okr.zortex": "@@OKR\n\n" +
-		"# 2026-11-15 Season 11 Kapok\n## Ship it @a(4.1)\n- KR1: [ ] Done\n\n" +
-		"# 2026-Q4 Season 10 Juniper\n## Learn piano\n- KR1: [x] Scales\n### Notes\n\n" +
-		"# Current\n## 3M-2026-Q1 Old style\n- KR1: [ ] Still works\n"})
+		"# 3M-2026-Q4 Season 10 Juniper\n## 3M-2026-Q4 Learn piano @a(4.1)\n- KR1: [x] Scales\n### Notes\n" +
+		"## 1M-2026-11 Ship it\n- KR1: [ ] Done\n\n" +
+		"# Current\n## 3M-2026-Q1 Eat well\n- KR1: [ ] Cook\n"})
 	objs := s.objectives(nil, time.Date(2026, 11, 1, 9, 0, 0, 0, time.Local))
 	var got []string
 	for _, o := range objs {
-		got = append(got, o.Title+" "+o.Start.Format("01-02")+".."+o.End.Format("01-02")+" "+strconv.Itoa(len(o.KRs)))
+		got = append(got, o.Span+" "+o.Title+" "+o.Start.Format("01-02")+".."+o.End.Format("01-02")+" "+strconv.Itoa(len(o.KRs)))
 	}
-	want := []string{"Ship it 11-15..02-12 1", "Learn piano 10-01..11-14 1", "Old style 01-01..03-31 1"}
+	want := []string{"3M-2026-Q4 Learn piano 10-01..12-31 1", "1M-2026-11 Ship it 11-01..11-30 1", "3M-2026-Q1 Eat well 01-01..03-31 1"}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Errorf("objectives %q, want %q", got, want)
 	}
-	if objs[0].Span != "2026-11-15 Season 11 Kapok" || len(objs[0].Areas) != 1 || objs[1].Progress != 1 {
-		t.Errorf("season objective: %+v", objs[0])
+	if len(objs[0].Areas) != 1 || objs[0].Progress != 1 {
+		t.Errorf("objective: %+v", objs[0])
 	}
 }
 
@@ -117,11 +99,11 @@ func TestSeasonHeadings(t *testing.T) {
 func TestOKRKeyResultText(t *testing.T) {
 	ts, _ := newSlidesServerWith(t, map[string]string{
 		"projects.zortex": "@@Projects\n@@P\n\n# Bake bread\n- [ ] Feed the starter\n",
-		"okr.zortex": "@@OKR\n\n# 2026-Q4 Season 1 Aspen\n## Eat well\n" +
+		"okr.zortex": "@@OKR\n\n# 3M-2026-Q4 Season 1 Aspen\n## 3M-2026-Q4 Eat well\n" +
 			"- KR1: Bake every weekend [P/#Bake bread] with [a recipe](https://example.com)\n" +
 			"- KR2: [ ] Cook twice a week\n",
 	})
-	page := expect(t, ts, "/okr", 200, `2026-Q4 Season 1 Aspen`, `class="prow-name"`, `Bake every weekend`, `href="https://example.com"`, `Cook twice a week`)
+	page := expect(t, ts, "/okr", 200, `3M-2026-Q4`, `Eat well`, `class="prow-name"`, `Bake every weekend`, `href="https://example.com"`, `Cook twice a week`)
 	krs := page[strings.Index(page, `class="okr-krs"`):]
 	if strings.Contains(krs, "KR1:") || strings.Contains(krs, "KR2:") {
 		t.Error("the key is not repeated in the text")
@@ -136,26 +118,28 @@ func TestOKRKeyResultText(t *testing.T) {
 	}
 }
 
-// A season heading on /okr shows its tier: Neovim's when it published this
-// season, else estimated here; a key result nothing can move is flagged.
+// The current quarter's period on /okr shows the season's tier: Neovim's
+// when it published the season of that span, else estimated here; a key
+// result nothing can move is flagged.
 func TestOKRSeasonTierAndStuckKRs(t *testing.T) {
-	q := time.Now()
-	qn := (int(q.Month())-1)/3 + 1
-	heading := fmt.Sprintf("%d-Q%d Season 3 Cedar", q.Year(), qn)
+	span := quarterSpan(time.Now())
 	ts, s := newSlidesServerWith(t, map[string]string{
-		"okr.zortex": "@@OKR\n\n# " + heading + "\n## Run\n- KR1: [x] Run a 10k\n## Read\n- KR1: Read more\n- KR2: [ ] Ten books\n",
+		"okr.zortex": "@@OKR\n\n# " + span + " Season 3 Cedar\n## " + span + " Run\n- KR1: [x] Run a 10k\n## " + span + " Read\n- KR1: Read more\n- KR2: [ ] Ten books\n" +
+			"## 1Y-2026-Y Longer\n- KR1: [ ] Something\n",
 	})
-	// estimated: Run done, Read at 0 -> 50%, Silver
-	page := expect(t, ts, "/okr", 200, heading, `Silver · 50%`, `Gold at 70%`, `estimated here`)
+	// estimated: Run done, Read at 0 -> 50%, Silver; only the quarter has a tier
+	page := expect(t, ts, "/okr", 200, span, `Silver · 50%`, `Gold at 70%`, `estimated here`)
+	if strings.Count(page, `estimated here`) != 1 {
+		t.Error("only the current quarter's period has a tier")
+	}
 	if strings.Count(page, `>stuck<`) != 1 || !strings.Contains(page, `Nothing can move it`) {
 		t.Error("only the KR with no project and no checkbox is stuck")
 	}
-	// Neovim's figure wins when it published this season
-	start, _, _ := seasonStart(heading)
+	// Neovim's figure wins when it published the season of that span
 	os.MkdirAll(filepath.Join(s.cfg.Root, ".z"), 0o755)
 	os.WriteFile(filepath.Join(s.cfg.Root, ".z", "xp_summary.json"), []byte(`{"version":2,"generated":"`+time.Now().UTC().Format(time.RFC3339)+
-		`","season":{"name":"Season 3 Cedar","start_date":"`+start.Format("2006-01-02")+`","progress":0.72,"tier":"Gold","next_tier":"Platinum","next_at":0.85}}`), 0o644)
-	expect(t, ts, "/okr", 200, `Gold · 72%`, `Platinum at 85%`, `from Neovim`)
+		`","season":{"name":"Season 3 Cedar","span":"`+span+`","progress":0.72,"tier":"Gold","next_tier":"Platinum","next_at":0.85}}`), 0o644)
+	expect(t, ts, "/okr", 200, span+` Season 3 Cedar ·`, `Gold · 72%`, `Platinum at 85%`, `from Neovim`)
 }
 
 func TestKeyResultsAndFocus(t *testing.T) {
@@ -286,7 +270,7 @@ func TestReviewPageShowsTheWeeksNotes(t *testing.T) {
 func TestOrganizationalHeadings(t *testing.T) {
 	note := "@@Org test\n@P\n\n" +
 		"# Car @cars\nNotes about the car, no tasks.\n## Rebuild engine\n- [ ] Lap the valves\n## Fix brakes\n- [x] Order pads\n" +
-		"# Someday ideas @progress(0/0)\n## Empty idea\n" +
+		"# Someday ideas @ideas\n## Empty idea\n" +
 		"# Learn piano @lg\n" +
 		"# Parked @someday\n" +
 		"# Home\n- [ ] Fix the gate\n## Garden\n### Beds\n- [ ] Dig\n"

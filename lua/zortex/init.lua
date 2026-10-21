@@ -28,8 +28,8 @@ function api.setup(opts)
 
 	api.helptags()
 
-	-- A new notes folder gets the key notes (calendar, projects, ...)
-	require("zortex.core.starter").setup(Config.init_files)
+	-- Say which key notes are missing (:Zortex init creates them)
+	require("zortex.core.starter").setup()
 
 	-- Core: logger, events, workspace, link index, XP pipeline
 	require("zortex.core").setup(Config)

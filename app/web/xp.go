@@ -76,6 +76,10 @@ func (s *Server) xpSummary() []byte {
 
 func (s *Server) apiXP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
+	if s.cfg.NoXP {
+		writeJSON(w, http.StatusOK, map[string]any{"available": false, "disabled": true})
+		return
+	}
 	raw := s.xpSummary()
 	out := map[string]json.RawMessage{}
 	if raw == nil || json.Unmarshal(raw, &out) != nil {

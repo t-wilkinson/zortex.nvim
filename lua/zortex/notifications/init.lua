@@ -1,239 +1,182 @@
--- notifications/init.lua - Public API for the unified notification system
+-- notifications/init.lua - Notifications, through `zortex serve`
+--
+-- The server (Config.server) does the sending: the calendar's notifications
+-- (notifications/calendar, synced when calendar.zortex is saved) and the
+-- pomodoro's phase changes (notifications/pomodoro) go out through ntfy when
+-- they are due. Neovim asks the server every `poll_seconds` for the alerts it
+-- raised since (calendar, pomodoro, the web app's timers and alarms) and
+-- shows each one in the editor.
+--
+--   local n = require("zortex.notifications")
+--   n.sync_now(force)       -- :ZortexNotifications sync [force]
+--   n.show_list()           -- :ZortexNotifications list
+--   n.send(title, message)  -- :ZortexNotifications send <title> <message>
 local M = {}
 
-local manager = require("zortex.notifications.manager")
-local pomodoro = require("zortex.notifications.types.pomodoro")
-local calendar = require("zortex.notifications.types.calendar")
+local server = require("zortex.notifications.server")
+local calendar = require("zortex.notifications.calendar")
+local pomodoro = require("zortex.notifications.pomodoro")
 
--- Initialize the notification system
-function M.setup(opts)
-	-- Setup the core manager first
-	manager.setup(opts)
-
-	-- Setup individual modules
-	pomodoro.setup(opts.types.pomodoro, opts.providers)
-	calendar.setup(opts.types.calendar)
-
-	-- Autocmds (the commands are in actions.lua: M.commands)
-	M.setup_autocmds()
-end
-
--- ===========================================================================
--- Core API
--- ===========================================================================
-
--- Send a notification immediately
-function M.notify(title, message, options)
-	return manager.send_notification(title, message, options)
-end
-
--- List scheduled notifications with optional filter
-function M.list_scheduled(filter)
-	return manager.list_scheduled(filter)
-end
-
--- ===========================================================================
--- Module APIs
--- ===========================================================================
-
--- Pomodoro functions
+M.calendar = calendar
 M.pomodoro = pomodoro
 
--- Calendar functions
-M.calendar = {
-	sync = calendar.sync,
-}
+local cfg = {}
 
--- ===========================================================================
--- Test Functions
--- ===========================================================================
+local NO_SERVER = "Notifications need `zortex serve` (Config.server)"
 
-M.test = {
-	system = function()
-		return M.notify("Test", "System notification test", { channels = { "system" } })
-	end,
-	ntfy = function()
-		return M.notify("Test", "ntfy notification test", { channels = { "ntfy" } })
-	end,
-	vim = function()
-		return M.notify("Test", "Vim notification test", { channels = { "vim" } })
-	end,
-	all = function()
-		return M.notify("Test", "Testing all configured channels")
-	end,
-}
-
--- ===========================================================================
--- Cleanup
--- ===========================================================================
-
-function M.cleanup()
-	manager.stop()
-	pomodoro.cleanup()
+local function say(msg, level)
+	vim.notify(msg, level or vim.log.levels.INFO, { title = "Zortex" })
 end
 
--- ===========================================================================
--- Autocmds
--- ===========================================================================
+-- =============================================================================
+-- Alerts from the server, shown in Neovim
+-- =============================================================================
 
-function M.setup_autocmds()
+local alerts = { seq = nil, timer = nil, busy = false }
+
+local ICONS = { calendar = "📅", pomodoro = "🍅", clock = "⏰" }
+
+--- Show the alerts in `body` ({ seq, alerts = { { kind, title, message } } })
+--- and remember where the list is. The first answer only sets the position.
+function M.take_alerts(body)
+	if type(body) ~= "table" or type(body.seq) ~= "number" then
+		return
+	end
+	local first = alerts.seq == nil or body.seq < alerts.seq -- a restarted server starts over
+	alerts.seq = body.seq
+	if first then
+		return
+	end
+	for _, a in ipairs(body.alerts or {}) do
+		local text = (ICONS[a.kind] or "🔔") .. " " .. (a.title or "")
+		if a.message and a.message ~= "" then
+			text = text .. "\n" .. a.message
+		end
+		vim.notify(text, vim.log.levels.WARN, { title = "Zortex" })
+	end
+end
+
+local function poll()
+	if alerts.busy then
+		return
+	end
+	alerts.busy = true
+	local path = alerts.seq and ("/api/alerts?after=" .. alerts.seq) or "/api/alerts"
+	server.request("GET", path, nil, function(ok, body)
+		alerts.busy = false
+		if ok then
+			M.take_alerts(body)
+		end
+	end, { timeout = 5 })
+end
+
+local function start_alerts()
+	if alerts.timer or cfg.alerts == false then
+		return
+	end
+	local every = math.max(5, tonumber(cfg.poll_seconds) or 15) * 1000
+	alerts.timer = vim.uv.new_timer()
+	alerts.timer:start(100, every, vim.schedule_wrap(poll))
+end
+
+local function stop_alerts()
+	if alerts.timer then
+		alerts.timer:stop()
+		alerts.timer:close()
+		alerts.timer = nil
+	end
+end
+
+-- =============================================================================
+-- Commands
+-- =============================================================================
+
+--- :ZortexNotifications sync [force]
+function M.sync_now(force)
+	calendar.sync({
+		force = force,
+		on_done = function(msg)
+			if msg:match("unchanged") then
+				msg = msg .. "; nothing sent (`:ZortexNotifications sync force` resends)"
+			end
+			say(msg)
+		end,
+	})
+end
+
+--- :ZortexNotifications list: what the server will send, in a split.
+function M.show_list()
+	if not server.enabled() then
+		return say(NO_SERVER, vim.log.levels.WARN)
+	end
+	local ok, list, err = server.pending()
+	if not ok then
+		return say("Server unreachable: " .. tostring(err), vim.log.levels.WARN)
+	end
+	if #list == 0 then
+		return say("No notifications waiting to be sent")
+	end
+	local lines = { "Notifications the server will send:", "" }
+	for _, n in ipairs(list) do
+		lines[#lines + 1] = string.format("%s  %s: %s", os.date("%b %d %H:%M", n.scheduled_time), n.title or "", (n.message or ""):sub(1, 60))
+	end
+	local buf = vim.api.nvim_create_buf(false, true)
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+	vim.bo[buf].modifiable = false
+	vim.bo[buf].buftype = "nofile"
+	vim.cmd("split")
+	vim.api.nvim_win_set_buf(0, buf)
+end
+
+--- :ZortexNotifications send <title> <message>: one now, through the server.
+function M.send(title, message)
+	if not server.enabled() then
+		return say(NO_SERVER, vim.log.levels.WARN)
+	end
+	if not title or title == "" then
+		return say("Usage: :ZortexNotifications send <title> <message>", vim.log.levels.WARN)
+	end
+	server.send_now(title, message or "", function(ok, _, err)
+		if not ok then
+			say("Server unreachable: " .. tostring(err), vim.log.levels.WARN)
+		end
+	end)
+end
+
+-- =============================================================================
+-- Setup
+-- =============================================================================
+
+function M.setup(opts)
+	cfg = opts or {}
+	pomodoro.setup()
+	if cfg.enabled == false then
+		return
+	end
+	calendar.setup(cfg)
+	if server.enabled() then
+		start_alerts()
+	end
+
 	local group = vim.api.nvim_create_augroup("ZortexNotifications", { clear = true })
-
-	-- Sync calendar on save
+	-- the calendar's notifications follow it
 	vim.api.nvim_create_autocmd("BufWritePost", {
 		group = group,
 		pattern = "*calendar.zortex",
 		callback = function()
-			-- Defer slightly to ensure file is fully written
 			vim.defer_fn(function()
-				M.calendar.sync({ silent = true })
+				calendar.sync({ silent = true })
 			end, 100)
 		end,
-		desc = "Sync calendar notifications on save",
+		desc = "Zortex: send the calendar's notifications to the server",
 	})
-
-	-- Clean up on exit
 	vim.api.nvim_create_autocmd("VimLeavePre", {
 		group = group,
 		callback = function()
-			M.cleanup()
+			stop_alerts()
+			pomodoro.cleanup()
 		end,
-		desc = "Clean up notifications on exit",
 	})
-end
-
--- ===========================================================================
--- Commands
--- ===========================================================================
-
--- The bodies of the notification and pomodoro commands; actions.lua makes
--- them :Zortex<Name> commands (so :help and the README list them).
-M.commands = {}
-
-do
-	local function cmd(name, command)
-		M.commands[name] = command
-	end
-
-	-- ===========================================================================
-	-- Core notifications
-	-- ===========================================================================
-
-	-- Send immediate notification
-	cmd("Notify", function(opts)
-		local args = vim.split(opts.args, " ", { plain = false, trimempty = true })
-		if #args < 2 then
-			vim.notify("Usage: ZortexNotify <title> <message>", vim.log.levels.ERROR)
-			return
-		end
-		local title = args[1]
-		local message = table.concat(vim.list_slice(args, 2), " ")
-		M.notify(title, message)
-	end)
-
-	-- List scheduled notifications
-	cmd("NotificationList", function(opts)
-		local filter = nil
-		if opts.args ~= "" then
-			filter = { type = opts.args }
-		end
-
-		local notifications = M.list_scheduled(filter)
-		if #notifications == 0 then
-			vim.notify("No scheduled notifications", vim.log.levels.INFO)
-			return
-		end
-
-		local lines = { "Scheduled Notifications:", "" }
-		for _, notif in ipairs(notifications) do
-			local time_str = os.date("%b %d %H:%M", notif.trigger_time)
-			local type_str = notif.type or "default"
-			table.insert(
-				lines,
-				string.format(
-					"[%s] %s - %s: %s",
-					type_str,
-					time_str,
-					notif.title or "Untitled",
-					notif.message and notif.message:sub(1, 50) or ""
-				)
-			)
-		end
-
-		-- Create buffer to display
-		local buf = vim.api.nvim_create_buf(false, true)
-		vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-		vim.bo[buf].modifiable = false
-		vim.bo[buf].buftype = "nofile"
-		vim.cmd("split")
-		vim.api.nvim_win_set_buf(0, buf)
-	end)
-
-	-- Test notifications
-	cmd("TestNotifications", function(opts)
-		if opts.args ~= "" then
-			local test_fn = M.test[opts.args]
-			if test_fn then
-				test_fn()
-			else
-				vim.notify("Unknown test: " .. opts.args, vim.log.levels.ERROR)
-			end
-		else
-			M.test.all()
-		end
-	end)
-
-	-- ===========================================================================
-	-- Pomodoro
-	-- ===========================================================================
-
-	cmd("PomodoroStatus", function()
-		local function show()
-			vim.notify(M.pomodoro.describe(), vim.log.levels.INFO, { title = "Pomodoro" })
-		end
-		if M.pomodoro.remote() then
-			M.pomodoro.refresh(show)
-		else
-			show()
-		end
-	end)
-
-	-- :ZortexPomodoroSettings work=50 short=10 long=20 every=4 auto_break=yes auto_work=no
-	cmd("PomodoroSettings", function(opts)
-		local keys = {
-			work = "work",
-			short = "short_break",
-			short_break = "short_break",
-			long = "long_break",
-			long_break = "long_break",
-			every = "long_break_after",
-			long_break_after = "long_break_after",
-			auto_break = "auto_start_break",
-			auto_start_break = "auto_start_break",
-			auto_work = "auto_start_work",
-			auto_start_work = "auto_start_work",
-		}
-		local changes = {}
-		for _, arg in ipairs(opts.fargs) do
-			local k, v = arg:match("^([%w_]+)=(%S+)$")
-			local key = k and keys[k]
-			if not key then
-				vim.notify("Unknown setting: " .. arg, vim.log.levels.ERROR)
-				return
-			end
-			if key:match("^auto") then
-				changes[key] = v == "yes" or v == "true" or v == "1" or v == "on"
-			else
-				changes[key] = tonumber(v)
-			end
-		end
-		if vim.tbl_isempty(changes) then
-			local st = M.pomodoro.status()
-			vim.notify(vim.inspect(st.settings or {}), vim.log.levels.INFO, { title = "Pomodoro settings" })
-			return
-		end
-		M.pomodoro.update_settings(changes)
-	end)
 end
 
 return M

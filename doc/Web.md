@@ -32,8 +32,8 @@ the other to read notes; each reads the files.
 ```
           Neovim ───── edits notes, writes .z/ (XP, state) ─────┐
             │                                                    ▼
-            │  server.enabled: POST /notify, /api/xp,     notes folder (synced)
-            │  /api/pomodoro, /api/open                          ▲
+            │  POST /notify, /api/xp, /api/pomodoro,      notes folder (synced)
+            │  /api/open; GET /api/alerts                        ▲
             ▼                                                    │
      zortex serve ── reads notes; with -writable edits lines, ───┘
         │            writes inbox.zortex, @spent, z/feeds/
@@ -43,8 +43,9 @@ the other to read notes; each reads the files.
 | | Neovim | the website |
 |---|---|---|
 | Notes | the editor; reloads a note changed on disk before editing it | renders them; with `-writable`, line edits checked against what the page saw |
-| Calendar notifications | schedules them from `calendar.zortex` and syncs them on save | keeps them and sends them through ntfy when due |
-| Pomodoro | `<leader>zoo`, `:ZortexPomodoro…` drive the server's clock | the same clock on the home page |
+| Calendar notifications | reads them from `calendar.zortex` and sends them on save | keeps them and sends them through ntfy when due |
+| Alerts | shows the ones the server raised (`GET /api/alerts`, every `notifications.poll_seconds`) | raises them: calendar notifications, pomodoro phases, timers and alarms |
+| Pomodoro | `:ZortexPomodoro`, `<leader>zoo` drive the server's clock | the same clock on the home page |
 | XP | computes it; writes `.z/xp_summary.json`, posts `/api/xp` | shows the summary; counts web completions until Neovim catches up |
 | Time | reads `.z/time_spent.json` in the reviews | tracks the clocks' time against a task, writes `@spent` and that file |
 | Links | `<leader>zgX` opens the link under the cursor on the website, in the tab you used last | |
@@ -64,11 +65,11 @@ The details, and the settings, are in [Working with Neovim](#working-with-neovim
 | `/link?to=&from=` | resolve a link: one target redirects, several are listed (a tag search as a [table](#tag-tables)), failures say why |
 | `/f/<path>` | file browser (sort by name (notes by article name) or modified time, either direction: `?sort=modified&order=desc`, kept in folder links; notes with a generated name, like `2026-10-15.042.zortex` from "create note" in search, only with "show all"; hidden folders and Syncthing artefacts never) and viewer: PDF, image, video, audio (with seeking), text, sandboxed HTML/SVG (HTML runs script with `-html-scripts`), [Markdown](#markdown-files) rendered like a note; HTML and Markdown have a "source" link (`?source=1`) to their text. A folder counts the resources under it; `?show=all\|unlinked\|linked&kind=pdf` lists them instead, by folder, folders first (PDFs, books, images, media and documents, and which ones nothing links to). A folder holding only resources (like `z/books`) opens that way; `?list=1` lists its files |
 | `/raw/<path>` | the file as is: byte ranges, `?download=1`; HTML/SVG/XML with `Content-Security-Policy: sandbox` (`sandbox allow-scripts` for HTML with `-html-scripts`); nothing outside the folder, no hidden files |
-| `/tags`, `/tag/<name>` | header tags and their notes (the top bar's Graph lists the tags too); an area attribute in a header (`@area(4.1)`, `@a(1.2/Fitness)`) links to its area (`[A/#4.1]`) |
+| `/tags`, `/tag/<name>` | header tags and their notes (the top bar's Graph lists the tags too); an area attribute in a header (`@area(4.1)`, `@area(1.2/Fitness)`) links to its area (`[A/#4.1]`) |
 | `/resources` | redirects to `/f/?show=all` (`?dir=` becomes the path): file pages show their own "Linked from", folder listings count links and unlinked files |
 | `/projects` | the week's focus projects (the `Focus:` of the week's entry in `reviews.zortex`), then every project with open work and those without a next action: progress (task `@size` hours, done when a task or its calendar copy is checked), key results, the next task and how often it was put off |
 | `/project?rel=&lnum=` | one project: progress, time tracked (all and this week), its next tasks (put off ×n, the day it's planned, due), sub-projects, done tasks, the key results it moves (progress, how far behind its objective's window), its `Log:`, the days it was on the calendar, the notes and files it links and the notes that link it. With `-writable`: tick tasks (calendar copies follow) and add a dated line to its log (`POST /api/project/log` `{rel, lnum, expect, text}`) |
-| `/okr` | objectives by period (under `# 2026-Q4 Season 10`, or `## 3M-2026-Q4 …`); a season shows its tier (Neovim's, from the XP summary or its history, else estimated here from its objectives' mean progress); a key result with no project and no checkbox is marked stuck: progress (the mean of their key results) against the share of the period gone, marked when behind; each key result with the projects it links; objectives whose period ended without `@done`, later ones, and the latest done |
+| `/okr` | objectives (`## 3M-2026-Q4 …`) by period; the period of a season shows its name and tier (Neovim's, from the XP summary or its history; for the current quarter without one, estimated here from its objectives' mean progress); a key result with no project and no checkbox is marked stuck: progress (the mean of their key results) against the share of the period gone, marked when behind; each key result with the projects it links; objectives whose period ended without `@done`, later ones, and the latest done |
 | `/review?week=` | the weekly review (`:ZortexReview`'s findings), read-only: done this week, time tracked, XP and its hours, the inbox, the week's focus, objectives against the time passed, tasks put off on 2+ days, overdue and due in a week, projects without a next action, key results no project moves, time per task; `‹ ›` to other weeks |
 | `/broken` | links that don't resolve (notes and files), and task ids that don't line up (a project task's `@id` on two lines, a calendar copy whose link points at another task); the notes nothing reaches (not in the structure, and no other note links them; how many more a note links but the structure doesn't) and how many files nothing links to; then the tags that go nowhere: tag searches that find nothing, `[@Tag]` links to a tag no note has, bare tags no tag search asks for |
 | `/offline` | the page the installed app shows for a page never opened while offline: the saved pages, and the inbox box ([Installing it as an app](#installing-it-as-an-app)) |
@@ -346,12 +347,12 @@ notes.example.com {
 
 ## Working with Neovim
 
-Turn it on in the plugin:
+The plugin expects the server (`server.enabled` is true by default); tell
+it where:
 
 ```lua
 require("zortex").setup({
   server = {
-    enabled = true,
     api_endpoint = "https://notes.example.com", -- or http://127.0.0.1:8090
     api_key = os.getenv("ZORTEX_API_KEY"),        -- the server's -api-key, if set
     web_url = nil,  -- where the browser reaches the website, when not api_endpoint
@@ -362,19 +363,26 @@ require("zortex").setup({
 Neovim's requests carry `X-API-Key`, which also passes `-auth-file`'s
 login. What each side does:
 
-- **Notifications.** Saving `calendar.zortex` schedules its notifications
-  and syncs them to the server (`POST /notify`; an unchanged calendar isn't
-  re-sent, `:ZortexNotificationsSync force` resends). The server sends each
+- **Notifications.** Saving `calendar.zortex` sends its notifications to
+  the server (`POST /notify`; an unchanged calendar isn't re-sent,
+  `:ZortexNotifications sync force` resends). The server sends each
   through ntfy when it is due, whether Neovim is running or not. The
   calendar feeds' events are among them when their feed notifies.
-- **Pomodoro.** `<leader>zoo` and the `:ZortexPomodoro…` commands drive the
-  server's clock (`/api/pomodoro/*`), the one on the home page. On start,
-  Neovim sends its configured durations
-  (`notifications.types.pomodoro`) when they changed since it last did;
-  settings changed on the website stick otherwise.
+  `:ZortexNotifications list` shows what is waiting, `send <title>
+  <message>` sends one now.
+- **Alerts.** What the server announces (a calendar notification, a
+  pomodoro phase, a timer or an alarm) is also kept for Neovim, which asks
+  for the new ones every `notifications.poll_seconds` (`GET /api/alerts`)
+  and shows them (`notifications.alerts = false` doesn't).
+- **Pomodoro.** `:ZortexPomodoro` (`toggle`, `skip`, `restart`, `stop`,
+  `status`, `settings work=50 short=10 …`) and `<leader>zo…` drive the
+  server's clock (`/api/pomodoro/*`), the one on the home page; the
+  settings live on the server, changed from either side.
 - **XP.** Neovim computes XP from the notes and publishes a summary after
-  every change: `.z/xp_summary.json` in the notes folder (synced) and,
-  with `server.enabled`, `POST /api/xp`; the website shows the newer.
+  every change: `.z/xp_summary.json` in the notes folder (synced) and
+  `POST /api/xp`; the website shows the newer. With XP off
+  (`xp.enabled = false` in Neovim, `-xp=false` on the server) neither side
+  shows it.
   Tasks ticked on the website are counted by Neovim from their `@done`
   date the next time it runs; meanwhile the home page shows them with their
   estimated XP (`pending_web`).
@@ -420,7 +428,8 @@ new tab.
 ## API
 
 Everything the pages use is plain HTTP with JSON. `X-API-Key` (Neovim's
-`server.api_key`) is needed for `/notify`, `/pending` and `/test` when
+`server.api_key`) is needed for `/notify`, `/pending`, `/test` and
+`/api/alerts` when
 `-api-key` is set; with `-auth-file`, every endpoint but `/healthz` (and
 `/calendar.ics` with its token) needs the login or the key.
 
@@ -433,6 +442,7 @@ Everything the pages use is plain HTTP with JSON. `X-API-Key` (Neovim's
 | `POST /api/open`, `/api/presence`, `/api/open/ack` | show a page in an open tab ([from Neovim](#opening-pages-from-neovim)) |
 | `POST /notify` | `{user_id, operation: "sync", notifications: [...]}` replaces the user's pending notifications (unchanged ones keep their identity; an identical manifest is a no-op: `{unchanged: true}`); `operation: "notify"` adds one; `"clear"` removes the pending ones |
 | `GET /pending?user_id=` | pending notifications |
+| `GET /api/alerts?after=` | the alerts raised after `seq` `after` (calendar, pomodoro, clocks; the last 100): `{seq, alerts: [{seq, kind, title, message, at}]}`; without `after`, only the current `seq` |
 | `POST /test` | `{title?, message?}`: publish through ntfy now and report |
 | `GET /api/calendar?from=&to=` | `days` (entries of `calendar.zortex` with time, text, rendered HTML, task state, whether a notification is scheduled; the calendar feeds' events among them, with `feed` and no `rel`; the `# Repeating` rules' occurrences, with `repeat`), `notifications`, `count`, `next_event`, `feeds` (`name`, `title`, `notify`, and for a notifying feed its dot `color`) |
 | `GET /api/summary` | for home dashboards (Homepage, Home Assistant, …): pending count, upcoming notifications as text/HTML, the pomodoro |

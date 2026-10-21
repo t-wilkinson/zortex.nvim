@@ -381,26 +381,6 @@
       "result": "16:00 - 17:00 Timed range"
     },
     {
-      "line": "16:00 - [ ] Dashed timed task",
-      "op": "open",
-      "result": "16:00 - [ ] Dashed timed task @id(Tst01)"
-    },
-    {
-      "line": "16:00 - [ ] Dashed timed task",
-      "op": "done",
-      "result": "16:00 - [x] Dashed timed task @id(Tst01) @done(2026-10-12)"
-    },
-    {
-      "line": "16:00 - [ ] Dashed timed task",
-      "op": "toggle",
-      "result": "16:00 - [x] Dashed timed task @id(Tst01) @done(2026-10-12)"
-    },
-    {
-      "line": "16:00 - [ ] Dashed timed task",
-      "op": "text",
-      "result": "16:00 Dashed timed task"
-    },
-    {
       "line": "  7:05   Indented entry  ",
       "op": "open",
       "result": "  7:05   [ ] Indented entry @id(Tst01)"

@@ -9,7 +9,7 @@
 //	Written by zortex serve from the "cozi" feed; edits here are replaced.
 //
 //	**2026-10-21:**
-//	16:00 - 17:00 Soccer practice · Field 3 @n(no)
+//	16:00 - 17:00 Soccer practice · Field 3 @notify(no)
 //	- Camping
 //
 // The note syncs to every device like any other, and Neovim and the web app
@@ -51,7 +51,7 @@ type Feed struct {
 	// Enabled: false stops fetching and removes the feed's note (default true)
 	Enabled *bool `json:"enabled,omitempty"`
 	// Notify: its timed events notify like your own (default false: they
-	// are written with @n(no); the calendar they come from reminds you)
+	// are written with @notify(no); the calendar they come from reminds you)
 	Notify bool `json:"notify,omitempty"`
 	// Busy: its timed events count as busy time in the planner's capacity
 	// line (default true; false writes them with @free)
@@ -175,7 +175,7 @@ func Note(f Feed, occs []ical.Occurrence, from, to time.Time, loc *time.Location
 	last := dayStart(to, loc)
 	tail := ""
 	if !f.Notify {
-		tail += " @n(no)"
+		tail += " @notify(no)"
 	}
 	if !f.busy() {
 		tail += " @free"

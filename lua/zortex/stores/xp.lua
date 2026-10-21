@@ -14,8 +14,8 @@ local store = State.open("xp_state", {
 	version = 3,
 	default = function()
 		return {
-			current_season = nil, -- { name, start_date, end_date, start_time }
-			season_history = {}, -- { name, start_date, end_date, final_progress, final_tier }
+			current_season = nil, -- { name, span, start_date, end_date, start_time }
+			season_history = {}, -- { name, span, start_date, end_date, final_progress, final_tier }
 			seen = { season = nil, season_tier = 0, area_levels = {} },
 		}
 	end,
@@ -100,6 +100,7 @@ function M.current_season(today)
 		return explicit
 	end
 	local q = require("zortex.services.okr.objective").quarter(today)
+	q.span = require("zortex.services.okr").quarter_span(today)
 	q.auto = true
 	return q
 end
@@ -113,10 +114,13 @@ function M.season_history()
 	return data().season_history
 end
 
-function M.start_season(name, end_date, start_date)
+--- Start a season: its name, its window, and the span it was given as
+--- ("3M-2026-Q4", as objectives write theirs).
+function M.start_season(name, end_date, start_date, span)
 	local d = data()
 	d.current_season = {
 		name = name,
+		span = span,
 		start_date = start_date or os.date("%Y-%m-%d"),
 		end_date = end_date,
 		start_time = os.time(),
@@ -137,6 +141,7 @@ function M.end_season(final)
 	final = final or {}
 	local record = {
 		name = season.name,
+		span = season.span,
 		start_date = season.start_date,
 		end_date = os.date("%Y-%m-%d"),
 		planned_end_date = season.end_date,

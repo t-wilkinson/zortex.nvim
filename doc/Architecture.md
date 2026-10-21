@@ -44,7 +44,7 @@ and tags). Everything else is built on documents:
             ┌───────────────────────────────────────────────────────────┐
   UI        │ picker/{search,projects,follow,calendar}  xp  planner     │
             │ highlights folding toc completion preview review           │
-            │ actions.lua ──► commands, keymaps, api.actions, :ZortexHelp│
+            │ actions.lua ──► commands, keymaps, api.actions, :Zortex    │
             └──────────────▲────────────────────────────▲────────────────┘
                            │        query.lua (plain data, export)
             ┌──────────────┴──────────┐   ┌─────────────┴──────────────┐
@@ -146,7 +146,7 @@ definitions.
 `split` / `parse` / `parse_component` turn a link definition into typed
 components (`split` ignores `/` inside parentheses and is shared with
 completion). `at(line, col)` is the link under the cursor (from syntax
-spans; `@a(...)` resolves to its area link), and `links_on(line)` the plain
+spans; `@area(...)` resolves to its area link), and `links_on(line)` the plain
 `[...]` links on a line. Resolution and link building are in the same
 module (next sections); following a link in a buffer (quickfix list,
 footnotes, `@[scope/tag]` searches) is `features/links`.
@@ -295,7 +295,7 @@ index and on exit, not on every refresh: encoding a large index is slow.
 | `references(file, s, e)`                           | links whose target lies in lines `s..e` of `file`                                            |
 | `backlinks(entity_or_{doc,node}, { descendants })` | links into an item's own content, or its whole subtree                                       |
 | `unresolved()`                                     | links that resolve nowhere (`:ZortexBrokenLinks` puts them in quickfix)                      |
-| `refresh(force)`, `rebuild()`                      | update now (normally lazy, at most once a second) / start over (`:ZortexLinkIndexRebuild`)   |
+| `refresh(force)`, `rebuild()`                      | update now (normally lazy, at most once a second) / start over (`:Zortex reindex`)           |
 
 **Incremental refresh.** A note is re-read when its mtime/size changes (or, for
 a modified buffer, its changedtick). A link is re-resolved only if:
@@ -351,8 +351,7 @@ choose the source notes, which section types count, and a namespace. See
 
 ### Workspace — `core/workspace.lua`
 
-A small editing layer (it replaced a 1,100-line stateful document manager).
-Reads go through `core/document`; writes go through here:
+A small editing layer. Reads go through `core/document`; writes go through here:
 
 - if the note is loaded in a buffer, the **buffer** is edited (unsaved, undo
   works, you save as usual)
@@ -398,8 +397,8 @@ with `State.open(name, { version, default })`:
 Loading never fails: a missing file gives `default()`, a corrupt one is kept
 as `<name>.json.corrupt-<time>` and replaced, and a different version is
 replaced by `default()`. Files: `link_index`, `search_history`, `xp_state`,
-`notifications_state`; logs go to `.z/zortex.log`. Stores save when they
-change; there is no persistence manager.
+`notifications_state` (the calendar notifications last sent); logs go to
+`.z/zortex.log`. Stores save when they change.
 
 ### Events and logging
 
@@ -422,7 +421,7 @@ directory and event timings.
 
 | file            | role                                                                                                               |
 | --------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `init.lua`      | Registry (sources: `projects.zortex` plus `@P` notes; namespace `P`). Also `query`, `tasks` and `update_progress`. |
+| `init.lua`      | Registry (sources: `projects.zortex` plus `@P` notes; namespace `P`). Also `query` and `tasks`.                    |
 | `project.lua`   | `Project` class: tasks, notes, stats, rollup, points, `is_done`, and relation methods.                             |
 | `score.lua`     | Task and project scoring, indicators, and the comparators used by `query({ sort = … })`.                           |
 | `relations.lua` | Schedule index (calendar), key results (OKR), areas.                                                               |
@@ -450,7 +449,7 @@ are areas, and the namespace is `A`.
   `xp_data()` (`{ xp, total_xp, level, progress }`), `projects({ descendants })`
   and `objectives({ descendants })`.
 - Module helpers: `from_attributes(attrs)` and `resolve_links(attrs)` (for
-  `@a(...)` values), `keys_for(...)` (XP area keys for tasks, projects and
+  `@area(...)` values), `keys_for(...)` (XP area keys for tasks, projects and
   objectives; projects inherit areas from ancestors), `top(n)`, `get_area_tree()`.
 
 ### OKR — `services/okr/`
@@ -498,8 +497,8 @@ heading is an entity; headings matching `3M-2026-Q1 Title` are objectives
   the same way into `feed_entries`, re-read when one changes, comes or goes,
   minus those `features.calendar_feeds` turns off. Their entries carry
   `feed` (the name) and `file`, and are read-only: `get_entries_for_date`
-  includes them (`{ feeds = false }` leaves them out, as the iCal export
-  does), `get_day_entries` puts them among the day's top-level lines by time
+  includes them (`{ feeds = false }` leaves them out),
+  `get_day_entries` puts them among the day's top-level lines by time
   (as the web's `insertByTime`), `get_all_entries` only with
   `{ feeds = true }` (the picker), and `delete_entry` refuses them. Agenda
   items from them have `feed` and their `file`, never a project; the
@@ -549,8 +548,7 @@ server reads the same label (`app/web/projects.go`).
 
 ### Tasks — `services/tasks.lua`
 
-`toggle_current_task` / `complete_current_task` / `uncomplete_current_task`
-work in any note. Toggling edits the line in place: only the checkbox and
+`toggle_current_task` works in any note. Toggling edits the line in place: only the checkbox and
 `@done(...)` change, so other attributes, tags and indentation stay as written. `find_task_by_id` searches project sources and the calendar.
 After a toggle, `services/mirrors.sync` gives every other line with the
 task's `@id` (project sources and calendar; not `[>]` lines) the same state,
@@ -588,8 +586,14 @@ XP is derived, not recorded (see [Planning.md](Planning.md)):
 - `xp/publish` hands a summary to the web app after each refresh
   (`.z/xp_summary.json`, and `POST /api/xp` with a server), only when it
   changed.
-- `stores/xp` keeps only seasons (name, date window, history), the level
-  curves and the levels last announced.
+- `stores/xp` keeps only seasons (name, span, date window, history), the
+  level curves and the levels last announced. A season started by hand
+  (`xp/stats.start_season`) also adds its heading to the OKR note
+  (`okr.add_season_heading`); the heading only groups objectives and is
+  never read back.
+- `xp.enabled = false`: `xp/core` neither listens nor publishes (it still
+  stamps `@done`), the review leaves its XP section out, and the XP actions
+  aren't offered (`actions.offered`: no command, key or help line).
 - `xp/stats` (`require("zortex").xp`), the `xp`, `xp_explain` and `season`
   actions, the XP view (`ui/xp`) and `query.xp()` read the ledger. `Area:xp()` / `total_xp()`
   read it too (sub-areas count `xp.area.bubble` toward their parent).
@@ -610,10 +614,24 @@ XP is derived, not recorded (see [Planning.md](Planning.md)):
   `<prefix><key>` from it, so a description is written once and a command can
   never point at a function that doesn't exist. `Config.keymaps.mappings`
   overrides keys by id (a key, a list, or `false`); `keymaps.enabled = false`
-  skips them. `:ZortexHelp`, the README table and `:help zortex`
+  skips them. An action may have a key and no command (`<prefix>fp` opens
+  the projects note, `:ZortexOpen projects` too), and `command = ""` is
+  `:Zortex` itself, whose subcommands keep the notes in order (`init`,
+  `reindex`, `refold`; `help` lists the actions with your prefixes).
+  `:Zortex help`, the README table and `:help zortex`
   (`tests/gen_docs.lua`, checked by a test) are generated from the same
-  list. Every `:Zortex…` command is an action, including the notification
-  and pomodoro ones (their bodies are `notifications.commands`).
+  list. Every `:Zortex…` command is an action, including
+  `:ZortexNotifications` and `:ZortexPomodoro` (subcommands; their bodies are
+  in `notifications/`).
+- **`notifications/`** is the client of `zortex serve`: `server.lua` (HTTP
+  with the key, `vim.system` + curl), `calendar.lua` (the calendar's timed
+  lines, sent to `POST /notify` when `calendar.zortex` is saved and the set
+  changed), `pomodoro.lua` (the server's clock: actions, a cached state for
+  statuslines) and `init.lua` (commands, and the poll of `GET
+  /api/alerts` that shows what the server announced). Nothing is scheduled
+  in Neovim.
+- **`core/starter.lua`**: the key notes' templates. `setup()` only says
+  which are missing (once); `:Zortex init` writes them.
 - **`keys.lua`**: the keys of zortex's own buffers (plan, review, calendar
   view, TOC, preview) and pickers in one table; each buffer maps from it,
   `?` lists it (`ui/keyhelp`), and the pickers' titles, the README and
@@ -647,7 +665,6 @@ XP is derived, not recorded (see [Planning.md](Planning.md)):
 | `features/archive.lua`                              | `core/workspace` (`z/archive.<note>.zortex`)              |
 | `features/diagnostics.lua`                          | `core/link_index.unresolved_in` (`vim.diagnostic`)        |
 | `features/present.lua`                              | `notifications/server` (the web app's slides)             |
-| `features/ical.lua`                                 | `stores/calendar` (iCal import/export)                    |
 | `features/join.lua`                                 | `core/document` syntax (what a line starts with)          |
 
 **Pickers** (`ui/picker`): each zortex picker is a spec (what to list, how
@@ -956,10 +973,10 @@ to date; `app/links` and `app/search` must reproduce them.
 | `test_syntax_doc`        | every example in doc/Syntax.md's checked tables is a fixture line and parses as listed                                                                                          |
 | `test_task_groups`       | tasks nested under a task: shared `@size`, progress and XP of the leaves, cascading checks                                                                                      |
 | `test_xp`                | XP calibration (`@size` hours), project, key-result and objective awards, area split, seasons, the summary published for the web app                                          |
-| `test_notifications`     | the pomodoro clock (local and the server's), calendar sync and when entries notify, sound commands                                                                              |
+| `test_notifications`     | when calendar entries notify, the commands without a server, alerts, and end to end: calendar sync, an alert back, the server's pomodoro                    |
 | `test_join`              | `J` drops line-start markers, labels keep their colon; counts, undo and `.`                                                                                                         |
 | `test_zq_planning_loop`  | tasks put off, `P`'s next tasks, the day's capacity, the week's focus from the reviews note                                                                                     |
-| `test_zt_starter`        | the key notes a new folder gets                                                                                                                                                  |
+| `test_zt_starter`        | setup writes nothing and says what is missing; `:Zortex init` fills the gaps                                                                                                     |
 | `test_zu_triage`         | `@project(…)` on an inbox line and where `m` moves it                                                                                                                            |
 | `test_zw_move`           | `:ZortexMove`: sections and lines with what is nested under them, re-levelled and re-indented                                                                                   |
 | `test_zw_rename`         | `:ZortexRename` rewrites every link through a renamed heading or label                                                                                                           |

@@ -36,7 +36,8 @@ func (s *Server) openState() error {
 		return fmt.Errorf("notifications: %w", err)
 	}
 	s.alerts = store
-	s.sender = &alerts.Sender{Store: store, Ntfy: s.cfg.Ntfy, Interval: s.cfg.SendInterval, Logger: s.log}
+	s.sender = &alerts.Sender{Store: store, Ntfy: s.cfg.Ntfy, Interval: s.cfg.SendInterval, Logger: s.log,
+		OnFire: func(n alerts.Notification) { s.fired.add("calendar", n.Title, n.Message, time.Now()) }}
 	clock, err := pomodoro.Open(filepath.Join(s.cfg.DataDir, "pomodoro.json"))
 	if err != nil {
 		return fmt.Errorf("pomodoro: %w", err)
@@ -67,13 +68,14 @@ func (s *Server) openState() error {
 	return nil
 }
 
-// announcePomodoro sends a phase change through ntfy (the only channel the
-// server has, so pomodoro alerts never go anywhere else).
+// announcePomodoro passes a phase change on: to Neovim (GET /api/alerts)
+// and through ntfy.
 func (s *Server) announcePomodoro(e pomodoro.Event) {
+	title, body, tags := pomodoro.Message(e)
+	s.fired.add("pomodoro", title, body, time.Now())
 	if !s.cfg.Ntfy.Enabled() {
 		return
 	}
-	title, body, tags := pomodoro.Message(e)
 	priority := "high"
 	if e.Kind == pomodoro.EventStop {
 		priority = "low"
@@ -101,7 +103,7 @@ type calEntry struct {
 	Moved  bool   `json:"moved,omitempty"`  // [>]: carried to a later day
 	Ref    string `json:"ref,omitempty"`    // no checkbox: the task it links ("rel:lnum"), whose state Done is
 	Depth  int    `json:"depth,omitempty"`  // nesting under another entry
-	Notify bool   `json:"notify,omitempty"` // written with @n(…) / @notify(…) (not @n(no))
+	Notify bool   `json:"notify,omitempty"` // written with @notify(…) / @n(…) (not @notify(no))
 	Event  bool   `json:"event,omitempty"`  // tagged @event: fixed, planned around (the month grid's dot)
 	// a project's next open task, listed under a project block (a line
 	// holding only the project's link): Rel, Lnum and Src are the task's

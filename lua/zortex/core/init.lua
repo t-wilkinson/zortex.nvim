@@ -30,7 +30,9 @@ function M.setup(opts)
 	require("zortex.stores.xp").setup(opts.xp)
 	require("zortex.services.xp.calculator").setup(opts.xp)
 	require("zortex.services.xp.core").init(opts.xp)
-	require("zortex.services.xp.notifications").init()
+	if (opts.xp or {}).enabled ~= false then
+		require("zortex.services.xp.notifications").init()
+	end
 
 	stop_timer()
 end

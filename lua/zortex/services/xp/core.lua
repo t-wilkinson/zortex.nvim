@@ -166,19 +166,22 @@ end
 
 function M.init(opts)
 	opts = opts or {}
-	Events.on("task:completed", function()
-		M.schedule_refresh()
-	end, { name = "xp.task_completed" })
-	Events.on("task:uncompleted", function()
-		M.schedule_refresh()
-	end, { name = "xp.task_uncompleted" })
-	Events.on("season:started", function()
-		M.schedule_refresh(0)
-	end, { name = "xp.season_started" })
-	Events.on("season:ended", function()
-		M.schedule_refresh(0)
-	end, { name = "xp.season_ended" })
-	publish_enabled = opts.publish ~= false
+	local on = opts.enabled ~= false
+	publish_enabled = on and opts.publish ~= false
+	if on then
+		Events.on("task:completed", function()
+			M.schedule_refresh()
+		end, { name = "xp.task_completed" })
+		Events.on("task:uncompleted", function()
+			M.schedule_refresh()
+		end, { name = "xp.task_uncompleted" })
+		Events.on("season:started", function()
+			M.schedule_refresh(0)
+		end, { name = "xp.season_started" })
+		Events.on("season:ended", function()
+			M.schedule_refresh(0)
+		end, { name = "xp.season_ended" })
+	end
 
 	local group = vim.api.nvim_create_augroup("ZortexXP", { clear = true })
 	local ext = require("zortex.config").extension or ".zortex"
@@ -192,6 +195,21 @@ function M.init(opts)
 			desc = "Zortex: add @done(today) to tasks checked by hand",
 		})
 	end
+	-- Notes changed elsewhere (tasks completed in the web app, Syncthing):
+	-- reload open notes (and count their XP) when you come back to Neovim.
+	vim.api.nvim_create_autocmd({ "FocusGained", "VimResume" }, {
+		group = group,
+		callback = function()
+			pcall(vim.cmd, "silent! checktime")
+			if on then
+				M.schedule_refresh(500)
+			end
+		end,
+		desc = "Zortex: pick up notes changed elsewhere",
+	})
+	if not on then
+		return
+	end
 	vim.api.nvim_create_autocmd("BufWritePost", {
 		group = group,
 		pattern = "*" .. ext,
@@ -199,16 +217,6 @@ function M.init(opts)
 			M.schedule_refresh(500)
 		end,
 		desc = "Zortex: update XP",
-	})
-	-- Notes changed elsewhere (tasks completed in the web app, Syncthing):
-	-- reload open notes and count their XP when you come back to Neovim.
-	vim.api.nvim_create_autocmd({ "FocusGained", "VimResume" }, {
-		group = group,
-		callback = function()
-			pcall(vim.cmd, "silent! checktime")
-			M.schedule_refresh(500)
-		end,
-		desc = "Zortex: pick up notes changed elsewhere",
 	})
 	vim.api.nvim_create_autocmd("FileChangedShellPost", {
 		group = group,

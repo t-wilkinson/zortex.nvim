@@ -68,7 +68,7 @@ function M.add_minutes(date, minutes)
 	return os.date("*t", new_time)
 end
 
---- Adds a duration in minutes (as parsed from @dur/@est) to a datetime.
+--- Adds a duration in minutes (as parsed from @dur) to a datetime.
 M.add_duration = M.add_minutes
 
 --- Adds days to a date.

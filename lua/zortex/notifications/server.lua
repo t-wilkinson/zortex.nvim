@@ -1,12 +1,15 @@
 -- notifications/server.lua - Talking to `zortex serve` (Config.server)
 --
 -- The server (app/, `zortex serve -data DIR`) keeps the calendar's scheduled
--- notifications and the pomodoro clock, and delivers both through ntfy.
+-- notifications and the pomodoro clock, sends both through ntfy, and lists
+-- the alerts it raised for Neovim to show.
 --
 --   local server = require("zortex.notifications.server")
 --   server.enabled()
 --   server.request("POST", "/notify", { ... }, function(ok, body, err) end)
 --   server.request_sync("GET", "/api/pomodoro")   -- blocking, short timeout
+--   server.send_calendar(list, cb)                -- replace the pending set
+--   server.send_now(title, message, cb)           -- one notification, now
 local M = {}
 
 local function cfg()
@@ -130,6 +133,54 @@ function M.request_sync(method, path, body, timeout)
 	end
 	local out = vim.fn.system(cmd, input or "")
 	return parse(vim.v.shell_error, out, "")
+end
+
+-- =============================================================================
+-- Notifications
+-- =============================================================================
+
+local function user_id()
+	return cfg().user_id or "default"
+end
+
+-- One notification as the server takes it (POST /notify)
+local function wire(n)
+	return {
+		title = n.title,
+		message = n.message,
+		scheduled_time = n.scheduled_time or n.trigger_time or os.time(),
+		priority = n.priority or "default",
+		tags = n.tags or {},
+		entry_id = n.entry_id or n.entry_text,
+		deduplication_key = n.deduplication_key,
+	}
+end
+M.wire = wire
+
+--- Replace the server's pending calendar notifications with `list`.
+--- cb(ok, result, err): result is { added, updated, removed, unchanged, ... }.
+function M.send_calendar(list, cb)
+	local out = {}
+	for _, n in ipairs(list) do
+		out[#out + 1] = wire(n)
+	end
+	M.request("POST", "/notify", { user_id = user_id(), operation = "sync", notifications = out }, cb, { timeout = 30 })
+end
+
+--- A notification now: the server sends it through ntfy (and it comes back
+--- to Neovim as an alert).
+function M.send_now(title, message, cb)
+	M.request("POST", "/notify", {
+		user_id = user_id(),
+		operation = "notify",
+		notification = wire({ title = title, message = message, scheduled_time = os.time() }),
+	}, cb)
+end
+
+--- The notifications the server has yet to send: ok, list, err.
+function M.pending()
+	local ok, body, err = M.request_sync("GET", "/pending?user_id=" .. user_id())
+	return ok, ok and body and body.notifications or {}, err
 end
 
 return M

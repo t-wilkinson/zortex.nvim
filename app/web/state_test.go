@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log"
@@ -94,6 +95,44 @@ func TestNotifyAPI(t *testing.T) {
 		t.Fatalf("pending: %s", raw)
 	}
 	expect(t, ts, "/api/summary", 200, `"pending_count":1`, `Dentist`)
+}
+
+// A notification coming due is an alert Neovim can ask for: /api/alerts
+// gives the position first, then what came after it.
+func TestFiredAlerts(t *testing.T) {
+	s, _, ts, _ := newStateServer(t, "secret")
+	alertsAt := func(q string) map[string]any {
+		req, _ := http.NewRequest("GET", ts.URL+"/api/alerts"+q, nil)
+		req.Header.Set("X-API-Key", "secret")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		var out map[string]any
+		json.NewDecoder(resp.Body).Decode(&out)
+		return out
+	}
+	if code, _, _ := get(t, ts, "/api/alerts"); code != 401 {
+		t.Errorf("no key: %d", code)
+	}
+	start := alertsAt("")
+	if start["seq"] != float64(0) || len(start["alerts"].([]any)) != 0 {
+		t.Fatalf("start: %v", start)
+	}
+	body := `{"user_id":"me","operation":"notify","notification":{"title":"Dentist","message":"12:00","scheduled_time":` + itoa(int(time.Now().Unix()-5)) + `}}`
+	if code, out := post(t, ts, "/notify", body, map[string]string{"X-API-Key": "secret"}); code != 200 {
+		t.Fatalf("notify: %d %v", code, out)
+	}
+	s.sender.SendDue(context.Background(), time.Now())
+	got := alertsAt("?after=0")
+	list := got["alerts"].([]any)
+	if got["seq"] != float64(1) || len(list) != 1 || list[0].(map[string]any)["title"] != "Dentist" || list[0].(map[string]any)["kind"] != "calendar" {
+		t.Fatalf("after 0: %v", got)
+	}
+	if again := alertsAt("?after=1"); len(again["alerts"].([]any)) != 0 {
+		t.Errorf("nothing new after 1: %v", again)
+	}
 }
 
 func TestCalendarFromNote(t *testing.T) {

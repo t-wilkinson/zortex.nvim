@@ -535,17 +535,14 @@
       "inline": [
         {
           "children": [],
-          "e": 13,
-          "inner_e": 11,
+          "e": 19,
+          "inner_e": 17,
           "inner_s": 2,
           "s": 0,
           "type": "bold"
         }
       ],
-      "kind": "label",
-      "level": 8,
-      "section": true,
-      "text": "**Old style**"
+      "kind": "text"
     },
     {
       "content_col": 0,
@@ -987,13 +984,11 @@
       "kind": "item"
     },
     {
-      "content_col": 12,
+      "content_col": 6,
       "indent": 0,
       "inline": [],
       "item": {
-        "content_col": 12,
-        "mark": " ",
-        "mark_col": 8,
+        "content_col": 6,
         "marker": "16:00",
         "marker_col": 0,
         "marker_type": "time",
@@ -1324,12 +1319,6 @@
       "lnum": 22,
       "text": "Spaced",
       "type": "bold_heading"
-    },
-    {
-      "level": 8,
-      "lnum": 23,
-      "text": "**Old style**",
-      "type": "label"
     },
     {
       "level": 9,

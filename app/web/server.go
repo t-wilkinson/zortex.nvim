@@ -86,7 +86,11 @@ type Config struct {
 	// calendar's @share lines) without the login: ?token=<ShareToken>.
 	// Empty: /calendar.ics needs the login like every page.
 	ShareToken string
-	Logger     *log.Logger
+	// NoXP turns XP off: no XP panel on the home page, no season tiers,
+	// /api/xp answers {"available": false}. Neovim's xp.enabled = false is
+	// the same on its side.
+	NoXP   bool
+	Logger *log.Logger
 }
 
 // Server serves a notes folder. Create it with New.
@@ -109,7 +113,8 @@ type Server struct {
 	// what is opened from search (DataDir/search_history.json, never the
 	// notes' .z/); nil without DataDir
 	history *search.History
-	xp      xpCache // XP summary published by Neovim
+	xp      xpCache     // XP summary published by Neovim
+	fired   firedAlerts // the alerts raised lately, for Neovim (GET /api/alerts)
 
 	editMu      sync.Mutex    // one edit at a time
 	inboxSent   sentIDs       // inbox captures by id, so a resend adds once (edit.go)
@@ -463,6 +468,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/summary", s.apiSummary)
 	mux.HandleFunc("POST /notify", s.handleNotify)
 	mux.HandleFunc("GET /pending", s.handlePending)
+	mux.HandleFunc("GET /api/alerts", s.apiAlerts)
 	mux.HandleFunc("POST /test", s.handleTestNotification)
 	// pomodoro, shared by Neovim and the home page
 	mux.HandleFunc("GET /search/open", s.handleSearchOpen)

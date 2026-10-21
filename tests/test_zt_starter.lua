@@ -20,10 +20,26 @@ local function read(path)
 	return vim.fn.readfile(path)
 end
 
-T.test("a new folder gets every key note", function()
+T.test("setup writes nothing; it says once what's missing, and :Zortex init creates it", function()
 	with_dir(function(dir)
 		T.ok(starter.is_new_folder())
-		starter.setup(true)
+		local said = {}
+		local orig = vim.notify
+		vim.notify = function(msg)
+			said[#said + 1] = msg
+		end
+		local ok, err = pcall(function()
+			starter.setup()
+			vim.wait(50)
+			starter.setup() -- the same set again: nothing more
+			vim.wait(50)
+		end)
+		vim.notify = orig
+		assert(ok, err)
+		T.eq(#said, 1)
+		T.ok(said[1]:find(":Zortex init", 1, true), said[1])
+		T.eq(#starter.missing(), #starter.order, "nothing created on setup")
+		starter.init_command()
 		for _, name in ipairs(starter.order) do
 			T.ok(vim.fn.filereadable(dir .. name) == 1, name)
 		end
@@ -32,23 +48,14 @@ T.test("a new folder gets every key note", function()
 	end)
 end)
 
-T.test("a folder with notes is left alone; :ZortexInit fills the gaps", function()
+T.test(":Zortex init fills the gaps and leaves existing notes alone", function()
 	with_dir(function(dir)
 		vim.fn.writefile({ "@@Calendar", "", "2026-01-01:", "- mine" }, dir .. "calendar.zortex")
 		T.ok(not starter.is_new_folder())
-		starter.setup(true)
-		T.eq(vim.fn.filereadable(dir .. "projects.zortex"), 0, "not created on setup")
 		T.eq(#starter.missing(), 5)
 		starter.init_command()
 		T.eq(#starter.missing(), 0)
 		T.eq(read(dir .. "calendar.zortex")[4], "- mine", "existing notes untouched")
-	end)
-end)
-
-T.test("init_files = false creates nothing", function()
-	with_dir(function(dir)
-		starter.setup(false)
-		T.eq(vim.fn.filereadable(dir .. "calendar.zortex"), 0)
 	end)
 end)
 
@@ -62,11 +69,10 @@ T.test("templates use the syntax and link to each other", function()
 	local function has(name, line)
 		return vim.tbl_contains(all[name], line)
 	end
-	T.ok(has("projects.zortex", "# 1 Example project @a(1.1)"))
-	T.ok(has("areas.zortex", "## 1.1 Health"), "@a(1.1) resolves")
-	T.ok(all["okr.zortex"][4]:match("^# %d%d%d%d%-Q[1-4] Season 1 "), "a season heading")
-	T.ok(require("zortex.services.okr.objective").parse_season(all["okr.zortex"][4]:sub(3)), "it parses as one")
-	T.eq(all["okr.zortex"][5], "## An objective @a(1.1)")
+	T.ok(has("projects.zortex", "# 1 Example project @area(1.1)"))
+	T.ok(has("areas.zortex", "## 1.1 Health"), "@area(1.1) resolves")
+	T.ok(all["okr.zortex"][4]:match("^# 3M%-%d%d%d%d%-Q[1-4] Season 1 Aspen$"), "a season heading")
+	T.ok(all["okr.zortex"][5]:match("^## 3M%-%d%d%d%d%-Q[1-4] An objective @area%(1%.1%)$"), "an objective")
 	local cal = all["calendar.zortex"]
 	local day = 1
 	while not require("zortex.utils.datetime").date_heading(cal[day]) do

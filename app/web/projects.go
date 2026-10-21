@@ -328,9 +328,9 @@ func (s *Server) allProjects() []*webProject {
 // A heading with no task of its own (done or not) and no project attribute
 // only groups the projects under it: it isn't a project, unless something
 // links it (from outside it) and it has projects under it. Bare tags (for
-// @[...] tag links) and the derived @progress don't make one.
+// @[...] tag links) don't make one.
 var (
-	projectAttrRe = regexp.MustCompile(`@(?:size|p|i|due|done|xp|dur|est|a|area)\(`)
+	projectAttrRe = regexp.MustCompile(`@(?:size|p|i|due|done|xp|dur|a|area)\(`)
 	projectBareRe = regexp.MustCompile(`(?:^|\s)@(?:xs|sm|md|lg|xl|epic|legendary|mythic|ultimate|[pi][1-3]|someday|\d+(?:\.\d+)?(?:h|m|min|d|w)(?:\d+m)?)(?:\s|$)`)
 )
 
@@ -616,94 +616,6 @@ done:
 	return start, end
 }
 
-// seasonLength: how many days a season heading that isn't a quarter covers
-// at most (the default of xp.season.default_length).
-const seasonLength = 90
-
-var seasonRe = regexp.MustCompile(`^(\d{4})-(\S+)`)
-
-// seasonStart: when the season heading "2026-Q4 Season 10", "2026-10 …",
-// "2026-October …" or "2026-10-20 …" starts, and its natural end (the
-// quarter's last day, else seasonLength days on) (okr/objective.parse_season).
-func seasonStart(text string) (time.Time, time.Time, bool) {
-	m := seasonRe.FindStringSubmatch(strings.TrimSpace(text))
-	if m == nil {
-		return time.Time{}, time.Time{}, false
-	}
-	year, _ := strconv.Atoi(m[1])
-	tail := m[2]
-	day := func(y, mo, d int) time.Time { return time.Date(y, time.Month(mo), d, 12, 0, 0, 0, time.Local) }
-	var start time.Time
-	if len(tail) == 2 && (tail[0] == 'Q' || tail[0] == 'q') && tail[1] >= '1' && tail[1] <= '4' {
-		s, e := objectiveWindow("3M", year, "Q"+tail[1:])
-		return s, e, true
-	}
-	if mo, d, ok := strings.Cut(tail, "-"); ok && len(mo) == 2 && len(d) == 2 {
-		mn, err1 := strconv.Atoi(mo)
-		dn, err2 := strconv.Atoi(d)
-		if err1 != nil || err2 != nil || mn < 1 || mn > 12 || dn < 1 || dn > 31 {
-			return time.Time{}, time.Time{}, false
-		}
-		start = day(year, mn, dn)
-	} else if n, err := strconv.Atoi(tail); err == nil && len(tail) <= 2 && n >= 1 && n <= 12 {
-		start = day(year, n, 1)
-	} else {
-		name := strings.ToLower(tail)
-		mn := 0
-		for i := time.January; i <= time.December; i++ {
-			full := strings.ToLower(i.String())
-			if full == name || (len(name) >= 3 && strings.HasPrefix(full, name)) {
-				mn = int(i)
-			}
-		}
-		if mn == 0 {
-			return time.Time{}, time.Time{}, false
-		}
-		start = day(year, mn, 1)
-	}
-	return start, start.AddDate(0, 0, seasonLength-1), true
-}
-
-// seasonHeading is a season heading's window and name ("Season 10 Juniper").
-type seasonHeading struct {
-	Start, End time.Time
-	Name       string
-}
-
-// seasonWindows: the window of each season heading of d, by its line: from
-// its start to the day before the next season heading of its level starts,
-// its natural end at the latest (okr/objective.season_window).
-func seasonWindows(d *notes.Document) map[int]seasonHeading {
-	type season struct {
-		lnum, level int
-		start, end  time.Time
-		name        string
-	}
-	var all []season
-	for _, n := range d.Sections() {
-		if n.Type != syntax.KindHeading {
-			continue
-		}
-		if s, e, ok := seasonStart(n.Text); ok {
-			name := strings.TrimSpace(seasonRe.ReplaceAllString(strings.TrimSpace(n.Text), ""))
-			all = append(all, season{n.Start, n.Level, s, e, name})
-		}
-	}
-	out := map[int]seasonHeading{}
-	for _, a := range all {
-		end := a.end
-		for _, b := range all {
-			if b.level == a.level && b.start.After(a.start) {
-				if before := b.start.AddDate(0, 0, -1); before.Before(end) {
-					end = before
-				}
-			}
-		}
-		out[a.lnum] = seasonHeading{a.start, end, a.name}
-	}
-	return out
-}
-
 // elapsed: the share of [start, end] (whole days) passed by today.
 func elapsed(start, end, today time.Time) float64 {
 	day := func(t time.Time) float64 {
@@ -732,15 +644,13 @@ func (s *Server) okrDocs() []*notes.Document {
 	return out
 }
 
-// webObjective is an objective heading ("## 3M-2026-Q4 Title", or "## Title"
-// under a season heading "# 2026-Q4 Season 10") and its key results
-// (lua/zortex/services/okr/objective).
+// webObjective is an objective heading ("## 3M-2026-Q4 Title") and its key
+// results (lua/zortex/services/okr/objective). Top-level headings group them.
 type webObjective struct {
 	Rel        string
 	Lnum       int
 	Title      string
-	Span       string         // "3M-2026-Q4", or the season heading it is under
-	Season     *seasonHeading // the season heading it is under, if any
+	Span       string // "3M-2026-Q4"
 	Start, End time.Time
 	Done       string // its @done date
 	Areas      []string
@@ -772,35 +682,18 @@ func (s *Server) objectives(all []*webProject, now time.Time) []*webObjective {
 	for _, d := range s.okrDocs() {
 		r := &noteRenderer{s: s, doc: d}
 		byStart := map[int]*webObjective{}
-		seasons := seasonWindows(d)
 		for _, n := range d.Sections() {
-			if n.Type != syntax.KindHeading {
+			// "## 3M-2026-Q4 Title" and deeper; a top-level heading only groups them
+			if n.Type != syntax.KindHeading || n.Level < 2 {
 				continue
 			}
-			var o *webObjective
-			if m := objectiveRe.FindStringSubmatch(n.Text); m != nil {
-				year, _ := strconv.Atoi(m[2])
-				o = &webObjective{Rel: d.Rel, Lnum: n.Start, Title: m[4], Span: m[1] + "-" + m[2] + "-" + m[3], URL: s.noteURL(d.Rel, n.Start)}
-				o.Start, o.End = objectiveWindow(m[1], year, m[3])
-			} else if _, isSeason := seasons[n.Start]; !isSeason {
-				// a heading directly under a season heading
-				p := n.Parent
-				for p != nil && !p.IsRoot() && p.Type != syntax.KindHeading {
-					p = p.Parent
-				}
-				if p == nil || p.Type != syntax.KindHeading {
-					continue
-				}
-				w, ok := seasons[p.Start]
-				if !ok {
-					continue
-				}
-				o = &webObjective{Rel: d.Rel, Lnum: n.Start, Title: n.Text, Span: p.Text, URL: s.noteURL(d.Rel, n.Start), Season: &w}
-				o.Start, o.End = w.Start, w.End
-			}
-			if o == nil {
+			m := objectiveRe.FindStringSubmatch(n.Text)
+			if m == nil {
 				continue
 			}
+			year, _ := strconv.Atoi(m[2])
+			o := &webObjective{Rel: d.Rel, Lnum: n.Start, Title: m[4], Span: m[1] + "-" + m[2] + "-" + m[3], URL: s.noteURL(d.Rel, n.Start)}
+			o.Start, o.End = objectiveWindow(m[1], year, m[3])
 			line := d.Lines[n.Start-1]
 			o.Done, _ = edit.Attribute(line, "done")
 			o.P = attrOrBare(line, "p")

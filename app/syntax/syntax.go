@@ -329,18 +329,10 @@ func ItemOf(line string) *Item {
 			}
 		}
 	} else if it.MarkerType == "time" {
-		// a timed task: "16:00 [ ] Task", "16:00 - 17:00 [ ] Task", also
-		// "16:00 - [ ] Task"
-		text := line[col:]
-		dash := 0
-		if len(text) >= 2 && text[0] == '-' && isSpace(text[1]) {
-			if d := 1 + spaceRun(text, 1); at(text, d) == '[' {
-				dash = d
-			}
-		}
-		if mark, n, ok := matchCheckbox(text[dash:]); ok {
-			it.Mark, it.MarkCol = mark, intp(col+dash)
-			col += dash + n
+		// a timed task: "16:00 [ ] Task", "16:00 - 17:00 [ ] Task"
+		if mark, n, ok := matchCheckbox(line[col:]); ok {
+			it.Mark, it.MarkCol = mark, intp(col)
+			col += n
 		}
 	}
 	it.ContentCol = col
@@ -378,7 +370,8 @@ type Line struct {
 // (attributes not counted); a longer one is written "*A longer label:*".
 const MaxLabelWords = 3
 
-// colonLine: the old label rule, any "Text:" line (no other colon, no ". ").
+// colonLine: a "Text:" line: no other colon, no sentence (". "), and no bold
+// or italic text right before the colon.
 func colonLine(line string) bool {
 	n := len(line)
 	if n < 2 || line[n-1] != ':' {
@@ -390,7 +383,8 @@ func colonLine(line string) bool {
 			return false
 		}
 	}
-	return !hasPeriodSpace(prefix)
+	// "**Bold**:" is text (a bold heading has its colon inside: "**Bold:**")
+	return !hasPeriodSpace(prefix) && prefix[len(prefix)-1] != '*'
 }
 
 // starLabel: the text of "*A longer label like this one:*"
@@ -429,16 +423,6 @@ func isLabel(line, body string) bool {
 		return true
 	}
 	return colonLine(line) && wordCount(StripAttributes(body[:len(body)-1])) <= MaxLabelWords
-}
-
-// IsLongLabel: a "Text:" line that is not a label because it has more than
-// MaxLabelWords words (before labels were limited it would have been one).
-func IsLongLabel(line string) bool {
-	if !colonLine(line) {
-		return false
-	}
-	d := Classify(line)
-	return d.Kind == KindText || (d.Kind == KindItem && d.Item.Mark == "")
 }
 
 // SectionText is the display text of a section line, attributes stripped.

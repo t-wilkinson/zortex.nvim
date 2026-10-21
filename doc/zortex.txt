@@ -270,6 +270,10 @@ FILES ~
     Create missing key notes (calendar, projects, areas, okr, structure,
     inbox). Id: init.
 
+:ZortexImportMarkdown                                  *:ZortexImportMarkdown*
+    Convert a Markdown file, or every one under a folder, to a note next to it
+    (--join flows wrapped lines; ! overwrites). Id: import_markdown.
+
 :ZortexOpenProjects                                      *:ZortexOpenProjects*
     Open projects.zortex. Keys: <leader>zfp <leader>zP. Id: open_projects.
 

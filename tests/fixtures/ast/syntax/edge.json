@@ -23,10 +23,10 @@
       "start": 84
     },
     {
-      "finish": 93,
+      "finish": 99,
       "kind": "code",
       "lang": "js",
-      "start": 92
+      "start": 98
     }
   ],
   "header": {
@@ -1189,6 +1189,48 @@
       "close": true,
       "indent": 0,
       "kind": "math_fence"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "rule"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "rule"
+    },
+    {
+      "content_col": 1,
+      "indent": 1,
+      "inline": [],
+      "kind": "text"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "text"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "text"
     },
     {
       "content_col": 2,

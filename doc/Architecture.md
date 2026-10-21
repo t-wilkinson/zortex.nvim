@@ -621,7 +621,7 @@ XP is derived, not recorded (see [Planning.md](Planning.md)):
 - **`ftplugin/zortex.lua`**: buffer options for notes (indent, wrap,
   `comments` off, `autoread`), the starting fold level, and `J`
   (`features/join`: joining drops the joined line's `#`, `-`, `1.` or `> `
-  and the `:` of a label it is joined onto; `gJ` is left alone).
+  a label keeps its `:`; `gJ` is left alone).
 - **`health.lua`**: `:checkhealth zortex` (notes dir, counts, broken links,
   state dir, optional integrations).
 
@@ -957,7 +957,7 @@ to date; `app/links` and `app/search` must reproduce them.
 | `test_task_groups`       | tasks nested under a task: shared `@size`, progress and XP of the leaves, cascading checks                                                                                      |
 | `test_xp`                | XP calibration (`@size` hours), project, key-result and objective awards, area split, seasons, the summary published for the web app                                          |
 | `test_notifications`     | the pomodoro clock (local and the server's), calendar sync and when entries notify, sound commands                                                                              |
-| `test_join`              | `J` drops line-start markers and a label's colon; counts, undo and `.`                                                                                                           |
+| `test_join`              | `J` drops line-start markers, labels keep their colon; counts, undo and `.`                                                                                                         |
 | `test_zq_planning_loop`  | tasks put off, `P`'s next tasks, the day's capacity, the week's focus from the reviews note                                                                                     |
 | `test_zt_starter`        | the key notes a new folder gets                                                                                                                                                  |
 | `test_zu_triage`         | `@project(…)` on an inbox line and where `m` moves it                                                                                                                            |

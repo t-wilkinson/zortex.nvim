@@ -106,6 +106,26 @@ func TestSlidesSplitAtHeadings(t *testing.T) {
 	}
 }
 
+// "---" starts a slide that carries on under the same heading; a note
+// without headings is cut by its rules alone. On a note page it's a rule.
+func TestSlidesBreakAtRules(t *testing.T) {
+	note := "@@Deck\n\n- intro\n---\n- more intro\n# Part @steps\n- a\n---\n- b\n- c\n"
+	ts := newSlidesServer(t, map[string]string{"deck.zortex": note, "flat.zortex": "@@Flat\n\n- one\n---\n- two\n"})
+	body := expect(t, ts, "/n/deck.zortex?view=slides", 200)
+	if got := strings.Join(slidesOf(body), ", "); got != "title 1-3 0, slide 4-5 0, slide 6-7 1, slide 8-10 2" {
+		t.Fatalf("slides: %s", got)
+	}
+	// the continuation shows its heading again, not the "---"
+	last := body[strings.LastIndex(body, `data-lnum="8"`):]
+	if !strings.Contains(last, `class="slide-head"`) || !strings.Contains(last, `Part`) || strings.Contains(last, `<hr`) {
+		t.Errorf("continuation slide: %s", last[:min(len(last), 400)])
+	}
+	if got := strings.Join(slidesOf(expect(t, ts, "/n/flat.zortex?view=slides", 200)), ", "); got != "title 1-3 0, slide 4-5 0" {
+		t.Fatalf("flat: %s", got)
+	}
+	expect(t, ts, "/n/flat.zortex", 200, `<hr class="ln" id="L4">`)
+}
+
 func TestSlidesNotesStepsAndAttributes(t *testing.T) {
 	ts := newSlidesServer(t, map[string]string{"talk.zortex": talkNote})
 	_, _, body := get(t, ts, "/n/talk.zortex?view=slides")

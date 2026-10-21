@@ -346,6 +346,11 @@ function M.classify(line)
 		}
 	end
 
+	-- "---": a rule, a separator (a slide break in a deck)
+	if line:match("^%-%-%-+%s*$") then
+		return { kind = "rule", indent = 0, content_col = 0 }
+	end
+
 	local fid = line:match("^%[%^([%w_.%-]+)%]:")
 	if fid then
 		return { kind = "footnote", id = fid, indent = 0, content_col = #line:match("^%[%^[%w_.%-]+%]:%s*") }

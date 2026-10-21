@@ -84,6 +84,12 @@ still inside (different fence char)
 $$
 # not a heading in math
 $$
+---
+------   
+ ---
+--- not a rule
+- - -
+***
 @@Not an article here
 @notatag here
 Unicode: café — “quotes” ☐ ✓ [lien éé] @tâche

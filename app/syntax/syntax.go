@@ -30,6 +30,7 @@ const (
 	KindMath        = "math"
 	KindTable       = "table"
 	KindQuote       = "quote"
+	KindRule        = "rule"
 	KindFootnote    = "footnote"
 
 	levelBold  = 7
@@ -587,6 +588,11 @@ func Classify(line string) *Line {
 	}
 
 	// footnote definition: ^%[%^([%w_.%-]+)%]:
+	// "---": a rule, a separator (a slide break in a deck)
+	if isRule(line) {
+		return &Line{Kind: KindRule, Indent: 0, ContentCol: intp(0)}
+	}
+
 	if len(line) > 3 && line[0] == '[' && line[1] == '^' {
 		k := 2
 		for k < len(line) && (isWordOrUnderscore(line[k]) || line[k] == '.' || line[k] == '-') {
@@ -779,4 +785,22 @@ func Parse(lines []string, inline bool) *AST {
 		out.Lines = append(out.Lines, d)
 	}
 	return out
+}
+
+// isRule: "---" (three or more dashes from the first column, trailing
+// whitespace allowed), as the plugin's "^%-%-%-+%s*$".
+func isRule(line string) bool {
+	i := 0
+	for i < len(line) && line[i] == '-' {
+		i++
+	}
+	if i < 3 {
+		return false
+	}
+	for ; i < len(line); i++ {
+		if !isSpace(line[i]) {
+			return false
+		}
+	}
+	return true
 }

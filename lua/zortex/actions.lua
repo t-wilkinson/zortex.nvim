@@ -12,7 +12,7 @@
 --   group     heading for docs and :ZortexHelp
 --   run       function(args) where args = { args = string, fargs = {...} },
 --             or call(module, fn, ...) for a plain module function
---   nargs, complete   passed to nvim_create_user_command
+--   nargs, complete, bang   passed to nvim_create_user_command
 --   range     true: the command takes a range and the key works on a
 --             visual selection too; run gets { range, line1, line2 }
 local M = {}
@@ -661,6 +661,18 @@ M.list = {
 		run = call("zortex.core.starter", "init_command"),
 	},
 	{
+		id = "import_markdown",
+		command = "ImportMarkdown",
+		group = "Files",
+		desc = "Convert a Markdown file, or every one under a folder, to a note next to it (`--join` flows wrapped lines; `!` overwrites)",
+		nargs = "*",
+		bang = true,
+		complete = "file",
+		run = function(args)
+			require("zortex.features.markdown_import").command(args)
+		end,
+	},
+	{
 		id = "open_projects",
 		command = "OpenProjects",
 		key = { "fp", "P" },
@@ -852,7 +864,7 @@ function M.create_commands(prefix)
 		if a.command then
 			vim.api.nvim_create_user_command(prefix .. a.command, function(args)
 				a.run(args)
-			end, { desc = a.desc, nargs = a.nargs or 0, complete = a.complete, range = a.range })
+			end, { desc = a.desc, nargs = a.nargs or 0, complete = a.complete, range = a.range, bang = a.bang })
 		end
 	end
 end

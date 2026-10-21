@@ -280,6 +280,8 @@ func (r *noteRenderer) line(lnum int, d *syntax.Line) {
 			r.keyBox(line, d.Item)
 			r.w(`<span class="body">`, content(), `</span></div>`)
 		}
+	case syntax.KindRule:
+		r.w(`<hr class="ln" id="L`, id, `">`)
 	case syntax.KindQuote:
 		r.w(`<blockquote class="ln" id="L`, id, `"`, indent, `>`, content(), `</blockquote>`)
 	case syntax.KindFootnote:

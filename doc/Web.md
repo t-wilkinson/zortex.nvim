@@ -263,6 +263,7 @@ note has to change:
 | `Notes:` (or `**Notes:**`) in a slide | speaker notes: hidden, shown in the presenter window |
 | `@step` on a line | revealed on its own click, with the lines nested under it |
 | `@steps` on a slide's heading | each of its top-level items revealed in turn |
+| `---` | a new slide that carries on the one before it, under the same heading (a note without headings is cut into slides by its rules) |
 | `@slides(n)` in the header | headings of level n start the slides |
 
 The slide level is `@slides(n)`, or else the second heading level the note

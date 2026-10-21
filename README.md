@@ -112,6 +112,15 @@ Then, in five minutes:
 6. **Plan the day** with `<leader>zm`: today's calendar next to your tasks;
    `p` puts one on the day.
 
+**Coming from Markdown or Obsidian?** `:ZortexImportMarkdown ~/vault`
+writes a note next to every `.md` file (the files stay): front matter
+becomes the header (`title`, `aliases`, `tags`), `[[wikilinks]]`, links to
+other files and their `#headings` become note links, `![[embeds]]` find their
+files, `#tags` become `@tags`, and `*`/`+` bullets, setext headings, `***`
+rules, indented code and pipe-less tables take the note forms. `--join`
+also flows hard-wrapped paragraphs onto one line; lines to check (bracketed
+text that would read as a link) go to the quickfix list.
+
 Next: the note format is in [doc/Syntax.md](doc/Syntax.md),
 [doc/example](doc/example) is a small folder using most of it, and
 `:checkhealth zortex` checks the setup. The server is optional; see
@@ -205,7 +214,7 @@ Special notes:
   persistent link index keeps this fast.
 - **Highlighting and folding** for the whole format, with concealed markers;
   `@fold` keeps a section folded. `J` joins lines the way they read: the
-  joined line's `#`, `-` (and `[ ]`), `1.` or `> ` and a label's `:` go
+  joined line's `#`, `-` (and `[ ]`), `1.` or `> ` go (`First line:` + `- Second line` is `First line: Second line`)
   (`features.join`; `gJ` joins as written).
 - **Projects**: picker with progress, points, due dates, areas and key
   results; `@progress` written back on request.
@@ -364,6 +373,7 @@ require("zortex").setup({
 | Command | Keys | Action id | Does |
 |---|---|---|---|
 | `:ZortexInit` |  | `init` | Create missing key notes (calendar, projects, areas, okr, structure, inbox) |
+| `:ZortexImportMarkdown …` |  | `import_markdown` | Convert a Markdown file, or every one under a folder, to a note next to it (`--join` flows wrapped lines; `!` overwrites) |
 | `:ZortexOpenProjects` | `<leader>zfp` `<leader>zP` | `open_projects` | Open projects.zortex |
 | `:ZortexOpenAreas` | `<leader>zfa` | `open_areas` | Open areas.zortex |
 | `:ZortexOpenOKR` | `<leader>zfo` | `open_okr` | Open okr.zortex |

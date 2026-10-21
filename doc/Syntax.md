@@ -91,6 +91,8 @@ Nothing inside a code or math block is structure.
 | `09:00-10:30x not a range` | `text` | |
 | `\| col a \| col b \|` | `table` | rows start and end with `\|` |
 | `> a quote` | `quote` | `> ` and a space |
+| `---` | `rule` | three or more dashes alone on a line: a separator, a slide break in a deck ([slides](Web.md#slides)) |
+| `--- not a rule` | `text` | nothing may follow the dashes; `***` and `- - -` aren't rules either |
 | `\| not a quote` | `text` | `\|` without a closing `\|` is text |
 | `>not quote` | `text` | the space is required |
 | `` ```lua `` | `fence` | ` ``` ` or `~~~` fences; the closing fence uses the same character |

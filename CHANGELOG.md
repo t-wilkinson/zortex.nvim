@@ -23,6 +23,13 @@ The first public release.
   or a selection) moves the entry times later or earlier: `12:00` to
   `13:30`, ranges and `@at`/`@from`/`@to` too.
 - `g` in the XP guide goes back to the XP overview.
+- `:ZortexImportMarkdown [path] [--join]` converts a Markdown file, or every
+  one under a folder (an Obsidian vault), to notes next to them: front
+  matter to the header, wikilinks and links between the files to note
+  links (headings included), embeds, `#tags`, bullets, setext headings,
+  rules, indented code, tables and callouts; `--join` flows wrapped lines.
+- `---` on a line of its own is a rule: a separator in a note, a slide
+  break in a deck (the slide carries on under the same heading).
 - **Calendar templates and repeating entries** live at the top of the
   calendar note. `# Templates`: a new day's lines by a label naming the day
   (`Monday:` … `Sunday:`, `Weekday:`, `Weekend:`, `Daily:`; the most
@@ -49,9 +56,9 @@ The first public release.
   (`ZortexLinkNote`, `ZortexLinkHeading`, ...), read from the link alone
   (nothing is resolved). The web app colours them the same way.
 - `J` in a note joins lines the way they read: the joined line's `#`s,
-  `-` (with its `[ ]`), `1.` or `> ` go, and so does the `:` of a label or
-  bold heading it is joined onto (`Fitness:` + `- run 5k` is
-  `Fitness run 5k`). Counts, visual mode, `.` and undo work as with Vim's
+  `-` (with its `[ ]`), `1.` or `> ` go, and a label or bold heading keeps
+  its `:` (`First line:` + `- Second line` is `First line: Second
+  line`). Counts, visual mode, `.` and undo work as with Vim's
   `J`; code blocks and `gJ` join as written (`features.join`).
 - Edits across notes can be taken back: a rename, `:ZortexMove` and an
   inbox move (`m`) load the notes that aren't open, change and save them,

@@ -1,4 +1,4 @@
--- features/join: J drops line-start markers and a label's colon
+-- features/join: J drops the joined lines' markers; a label keeps its colon
 local T = require("helpers")
 local join = require("zortex.features.join")
 
@@ -25,11 +25,12 @@ T.test("lists: the joined line's - (and checkbox) or number go", function()
 	T.eq(joined({ "- Meet", "14:00 Lunch" })[1], "- Meet 14:00 Lunch")
 end)
 
-T.test("labels: the first line's colon goes", function()
-	T.eq(joined({ "Fitness:", "- run 5k" })[1], "Fitness run 5k")
-	T.eq(joined({ "*A longer label like this:*", "text" })[1], "*A longer label like this* text")
-	T.eq(joined({ "**Next steps:**", "ship it" })[1], "**Next steps** ship it")
-	-- not a label (four words): kept
+T.test("labels keep their colon; the joined item loses its marker", function()
+	T.eq(joined({ "First line:", "- Second line" })[1], "First line: Second line")
+	T.eq(joined({ "Fitness:", "- [ ] run 5k" })[1], "Fitness: run 5k")
+	T.eq(joined({ "Label:", "text under it" })[1], "Label: text under it")
+	T.eq(joined({ "*A longer label like this:*", "text" })[1], "*A longer label like this:* text")
+	T.eq(joined({ "**Next steps:**", "- ship it" })[1], "**Next steps:** ship it")
 	T.eq(joined({ "A line of four words:", "next" })[1], "A line of four words: next")
 end)
 

@@ -28,11 +28,10 @@
 --   03-14                                  on that day every year
 --   1, 15th                                on that day of every month
 -- "weekly, Sunday" is every Sunday; "2w sun" every other Sunday from @from.
--- @from(YYYY-MM-DD) and @to(YYYY-MM-DD) bound it, as they bound a span of
--- days elsewhere in the calendar; a @from or @to holding a time
--- (@from(07:00)) is the entry's time, as on any calendar line. @since and
--- @until, their old names, are still read. @born(1990) adds the age to the
--- text on the day: "Sam (36)".
+-- @from(YYYY-MM-DD) and @to(YYYY-MM-DD) bound it (both days included); a
+-- @from or @to holding a time (@from(07:00)) is the entry's time, as on any
+-- calendar line. @since and @until, their old names, are still read.
+-- @born(1990) adds the age to the text on the day: "Sam (36)".
 --
 -- A repeating task isn't ticked in place: ticking it copies it, done, into
 -- the day you did it (today), with @for(YYYY-MM-DD) when that isn't the day

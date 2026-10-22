@@ -15,6 +15,7 @@ Contents:
 6. [The web app](#6-the-web-app)
 7. [Tree-sitter grammar](#7-tree-sitter-grammar)
 8. [Agreed on 2026-10-16](#8-agreed-on-2026-10-16)
+9. [Agreed on 2026-10-22](#9-agreed-on-2026-10-22)
 
 ---
 
@@ -23,14 +24,13 @@ Contents:
 `:ZortexReview` shows the findings of `agenda.review()` (overdue, due soon,
 completed, stale/unscheduled projects, projects without a next action, KRs
 without projects, objectives without KRs, areas without projects, broken
-links). Today two keys act on it: `f` adds a project to the week's focus and
-`m` moves an inbox line to its project. The goal is a review you can *work
-through*:
-every finding has the obvious next step one key away, and the review records
-what happened.
+links). The goal is a review you can *work through*: every finding has the
+obvious next step one key away, and the review records what happened.
 
-**Actions per line** (buffer-local keys in `zortex://review`, each a line
-edit through `core/workspace`, then `r` refresh):
+**Actions per line: done.** Every row of this table is a key in
+`zortex://review` (`lua/zortex/keys.lua` lists them, `?` shows them), plus
+`f` (week's focus), `m` (inbox to its project), `t` (tomorrow, same time)
+and `u` (undo):
 
 | finding | action |
 |---|---|
@@ -57,7 +57,8 @@ the data for trends (section 3).
 
 **Builds on:** `agenda.review()`, `ui/review.render` (already returns a
 line → location map), `core/workspace`, `stores/calendar.add_entry`,
-`services/search`, `projects.query`.
+`services/search`, `projects.query`. Snapshots go in a synced `core/state`
+file (one per device, or merged on conflict: see section 9).
 
 ## 2. Area overview
 
@@ -187,9 +188,11 @@ Editing started as a non-goal; `-writable` now covers line-level edits
 - **Synced folder.** Files change underneath the app at any time. Watch the
   directory (inotify), re-parse changed files only, and ignore sync
   artefacts (`.syncthing.*.tmp`, `*.sync-conflict-*`, `.stversions/`,
-  `.stfolder`). Never write into the synced folder: app state (its own
-  search history, caches) lives in the service's state directory, so it
-  can't cause sync conflicts with `.z/` files written by Neovim.
+  `.stfolder`). Write into the synced folder only what the server alone
+  writes: line edits with `-writable` (checked against what the page saw),
+  `z/feeds/` and `.z/time_spent.json`. Its own state (search history,
+  caches, posted XP) lives in the service's state directory, so it can't
+  conflict with Neovim's files.
 
 ### Recommended shape
 
@@ -224,12 +227,12 @@ Editing started as a non-goal; `-writable` now covers line-level edits
   files, `/n/<rel>` a rendered note with its outline and backlinks,
   `/search?q=` results as breadcrumbs then matching lines, and JSON under
   `/api/` (`/api/search`, `/api/note`, `/api/resolve`, …).
-- **Later, with the domain ported:** project progress bars in
-  `projects.zortex`, KR progress in `okr.zortex`, a calendar view of
-  `calendar.zortex`, the weekly review page, and the area overview (section
-  2). The JSON shapes are already defined by `zortex.query` (`projects()`,
-  `objectives()`, `agenda()`, `review()`), so the plugin and the app can
-  share fixtures for those too.
+- **With the domain ported:** project progress (`/projects`), KR progress
+  (`/okr`), the calendar on the home page and the weekly review
+  (`/review`) are built; the area overview (section 2) is left. The JSON
+  shapes are defined by `zortex.query` (`projects()`, `objectives()`,
+  `agenda()`, `review()`), so the plugin and the app share fixtures for
+  those too.
 
 ### Grammar options
 
@@ -396,3 +399,46 @@ the picker titles, which also name each picker backend's own help key;
 
 A raw-text section, uploading a file to render it, generating tags from
 Structure, XP "overlap", and changes to the calendar picker.
+
+## 9. Agreed on 2026-10-22
+
+From a pre-release review. All of it is in 0.1.0 (see
+[CHANGELOG.md](../CHANGELOG.md)); the notes say what was decided and why.
+
+### Links with display text
+
+`[the plan](P/#1.4)` is a zortex link shown as its text. Markdown's form
+won because people coming from Markdown already write it, the importer can
+keep link text, and it reads well unrendered. What is in the parentheses
+decides: a URL (a scheme, `www.`) or a file (a path, or a name with an
+extension) stays a Markdown link; a typed component (`#`, `:`, `*`, `-`,
+`%`, `>`, `@`) or a bare name is a zortex link. A rename rewrites only the
+definition. `![alt](./pic.png)` is the image form. Considered and left
+out: `[P/#1.4|the plan]` (the `|` breaks table rows) and reference links
+`[the plan][p14]` with a definitions block (more to maintain per note).
+A definition with `)` can't use the form; such links stay `[…]`.
+
+### Repeating entries: @from and @to
+
+`@from(date)` and `@to(date)` bound a `# Repeating` rule (the first day is
+what every n counts from), instead of `@since` and `@until`: the same
+words as a calendar line's times, so a rule can carry both
+(`@from(07:30) @to(08:15) @from(2026-10-17)`): a date is a bound, a time is
+the entry's time. The old names are still read until the vault check can
+point at them.
+
+### Sync conflicts
+
+Two devices must never write the same synced file. So `.z/` holds only
+what every device shares and that changes rarely (seasons, the last daily
+review), written only when it changes, with conflict copies merged when it
+loads; what each Neovim writes often (the link index, search history,
+levels announced, notification bookkeeping, the log) lives in
+`stdpath("state")/zortex`; and the XP summary for the web app is one file
+per device (`.z/xp_summary.<device>.json`, the server shows the newest).
+
+### Reports say only what is wrong
+
+`/broken` and the weekly review list a kind of problem only when there is
+one: no "every link resolves" per kind, no `0 broken links`. One line says
+nothing is broken when nothing is.

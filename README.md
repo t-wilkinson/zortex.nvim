@@ -157,7 +157,8 @@ subfolders work too. A note starts with a header:
 The body has headings (`#` … `######`), bold headings (`**Next steps:**`),
 labels (`Ideas:`), list items and tasks (`- [ ] task @size(sm)`,
 `14:00 event`), attributes (`@p1`, `@due(2026-10-20)`, `@area(4.1)`), links
-(`[P/#1.4 - zortex]`, `[A/#1.2/:Fitness]`, `[/#Local heading]`) and the
+(`[P/#1.4 - zortex]`, `[A/#1.2/:Fitness]`, `[/#Local heading]`, or shown
+by its text: `[the plugin](P/#1.4 - zortex)`) and the
 usual markdown blocks and inline markup. **[doc/Syntax.md](doc/Syntax.md)** is
 the complete reference; a test checks its examples against the parser.
 Attributes are written in full in these docs; most have a short form that

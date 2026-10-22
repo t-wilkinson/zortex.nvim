@@ -24,6 +24,10 @@ that share one folder of plain-text notes.
   `[A/#1.2/:Fitness]`, `[/#Local heading]`, `[./-Item]` (continuing the
   link above), `[R/#Rust/>The Rust Book]` (a link to a link), `[P/-aB3x9]`
   (a task by its `@id`). Matching is by prefix, case-insensitive.
+  `[the plan](P/#1.4)` is the same link shown as its text (Markdown's form,
+  so imported notes keep their link text; a rename rewrites only the part
+  in parentheses); URLs and files in parentheses stay Markdown links.
+  `![alt](./pic.png)` is an image with alt text.
 - Tags and tag searches: bare `@words` on any line, `@[rust async]` (all),
   `@[rust, rl]` (any), scopes (`@[R/#Rust/async]`), `is:` words, and
   `!@[…]` tables in place.
@@ -52,7 +56,8 @@ that share one folder of plain-text notes.
   one; tasks nested under a task share its `@size`.
 - The calendar note: days as `**YYYY-MM-DD:**`, timed entries and tasks,
   `# Templates` for new days and `# Repeating` for entries that recur
-  (`@repeat(…)`, birthdays with `@born`); a month view, `:ZortexToday`,
+  (`@repeat(…)` bounded by `@from(date)` and `@to(date)`, birthdays with
+  `@born`); a month view, `:ZortexToday`,
   `:ZortexNow` and `:ZortexTimeShift`; other calendars' events, read-only.
 - A day planner that ranks the week's focus and key-result work first,
   carries open tasks forward and weighs the day against its free time; a
@@ -79,6 +84,12 @@ that share one folder of plain-text notes.
   names the key groups when installed.
 - `require("zortex")` exposes the services and `zortex.query`, the whole
   model as plain data; `:ZortexExport` writes it as JSON.
+- Safe to sync: `.z/` in the notes folder holds only what devices share
+  and rarely change (XP seasons, the last daily review) plus one XP summary
+  per device (`xp_summary.<device>.json`). Caches, search history and what
+  was announced stay on each machine (`stdpath("state")/zortex`), files are
+  rewritten only when their content changes, and a sync tool's conflict
+  copy of the seasons is merged and removed.
 - Needs Neovim 0.10 or newer and nothing else; `:checkhealth zortex`
   checks the setup and whether the server answers.
 
@@ -87,7 +98,8 @@ that share one folder of plain-text notes.
 - One Go binary (releases for Linux and macOS, `ghcr.io/t-wilkinson/zortex`,
   a NixOS module) that reads the notes folder: rendered notes with working
   links and hover cards, search, backlinks, tags and tag tables, broken
-  links and the notes nothing reaches, `/graph`, and a file browser whose
+  links and the notes nothing reaches (`/broken` lists only what has a
+  problem), `/graph`, and a file browser whose
   resource folders list their files and what links them.
 - A home page with today's calendar, an inbox box (offline too, in the
   installed app), the pomodoro, timers, alarms, a stopwatch, time tracking

@@ -6,36 +6,48 @@
 Goal: someone who has never seen zortex can install the plugin, take notes
 for a week, and (optionally) run the server, without reading the source or
 hitting a personal default. Ship as v0.1.0; everything under # 4 waits.
-What is done is in ../CHANGELOG.md.
+What is done is in ../CHANGELOG.md; what was decided and why, in
+Wishlist.md (sections 8 and 9).
 
 **Definition of done:**
 - [ ] A tagged release with `zortex` binaries and a container image @p1 @size(sm)
 
 # 6 Proposed (review of 2026-10-16)
-From a review of what a new user meets first. Not agreed item by item yet.
+From a review of what a new user meets first. Done since: `:ZortexRename`
+shows what it changes and asks, Markdown and Obsidian import
+(`:ZortexImportMarkdown`), backups and the format promise in the README,
+and Neovim's edits to notes that aren't open are checked like the web
+app's.
 
 ## 6.1 Before the tag
-- [ ] Use `release-prep` on a real vault for about a week before tagging v0.1.0: many features landed on 2026-10-16 without real notes behind them @p1 @size(sm)
-- [ ] `:ZortexRename` shows what it will change (the notes and links) and asks first; its edits to notes that aren't open can't be undone today. The same question for `m` (inbox triage) and `:ZortexMove`, which also write notes that aren't open @p1 @size(sm)
-- [ ] One command that checks a vault: long labels, broken links, tags that go nowhere, task ids that don't line up, and later the syntax a release deprecates (the checks exist as separate commands) @p2 @size(sm)
+- [ ] Use `release-prep` on a real vault for about a week before tagging v0.1.0: many features landed on 2026-10-16 and 2026-10-22 without real notes behind them @p1 @size(sm)
+- [ ] `m` (inbox triage) and `:ZortexMove` show what they will change and ask first, as `:ZortexRename` does, when they write notes that aren't open @p1 @size(sm)
+- [ ] One command that checks a vault: long labels, broken links, tags that go nowhere, task ids that don't line up, conflict copies, and the names 0.1.0 replaced (`@since` / `@until`, state files left in `.z/`); then stop reading the old names @p2 @size(sm)
 - [ ] A shorter README: the pitch, the screenshot, the quickstart and a feature list; the generated command and key tables live in `:help` and the docs @p2 @size(sm)
 
 ## 6.2 Workflow
-- [ ] Import from Markdown / Obsidian vaults (moved up from # 4): `[[wikilinks]]` to zortex links, `#tags` to `@tags`, `.md` to `.zortex`; and a docs page on moving over @p1 @size(lg)
 - [ ] Capture from the phone's share menu: the installed web app as a share target (a link or text lands in the inbox; inbox adds already wait offline until the server is back) @p2 @size(md)
 - [ ] Undo on the web: a "ticked · undo" toast for a few seconds after ticking or deleting a line @p2 @size(sm)
 
 ## 6.3 Later
-- [ ] Backups: a suggested git setup in the docs, or an optional commit on save (a mistake syncs to every device) @p2 @size(sm)
-- [ ] Neovim and the web app editing one note at once: Neovim writes notes that aren't open without checking the line it replaces (the web app checks); test both together @p2 @size(md)
-- [ ] A promise about the note format in the README: what may change before 1.0 and how a change is announced (the changelog, the vault check) @p2 @size(xs)
 - [ ] The web area overview (Wishlist # 2) @p3 @size(md)
 - [ ] Windows: try it, and say what works @p3 @size(md)
+
+# 7 Proposed (review of 2026-10-22)
+From a review before publishing. Not agreed item by item yet.
+
+## 7.1 Before the tag
+- [ ] One way to repeat: `@repeat` on a line under a day (repeats from that day) and `@from(date) @to(date)` spans on a day's line work in Neovim only, the web app doesn't show them. Drop them for the `# Repeating` section, or port both to Go with fixtures @p1 @size(sm)
+- [ ] Issue templates: a bug report asks for the version, `:checkhealth zortex` and the lines involved; a format question points at Syntax.md @p3 @size(xs)
+
+## 7.2 Workflow
+- [ ] Note conflict copies: `:ZortexConflicts` opens each `*.sync-conflict-*` note beside its note as a diff and deletes it once merged (`:checkhealth` only lists them today; state files in `.z/` merge themselves) @p2 @size(sm)
+- [ ] Quick capture in Neovim: `:ZortexCapture text` adds a line to the inbox without opening it (Wishlist # 3) @p3 @size(xs)
 
 # 4 After v0.1.0
 - [ ] Tree-sitter grammar with the AST fixtures as acceptance tests (Wishlist # 7) @size(xl)
 
-Dropped: a raw-text section, uploading a file to render it, tags generated from Structure, other rules for a tagged heading's rows, XP "overlap", the calendar picker.
+Dropped: a raw-text section, uploading a file to render it, tags generated from Structure, other rules for a tagged heading's rows, XP "overlap", the calendar picker, a `|` alias in links (it breaks table rows).
 
 Decisions:
 - One repo, one version: the plugin and `zortex serve` are tagged together (decided 2026-10-16).
@@ -43,3 +55,6 @@ Decisions:
 - Names: `zortex.nvim` for the plugin, `zortex` for the binary and the image on ghcr.io (`ghcr.io/t-wilkinson/zortex`, decided 2026-10-16).
 - Notifications: every timed calendar line notifies (keeps you on track, pulls you out of deep focus); `@n(no)` opts a line out, `@event` marks the fixed things you plan around (decided 2026-10-16).
 - Versioning: semver; `CHANGELOG.md` is the record of what changed (decided 2026-10-13).
+- Display text: `[text](link)`, Markdown's form; URLs and files in parentheses stay Markdown links (decided 2026-10-22).
+- Repeating rules are bounded by `@from(date)` and `@to(date)` (decided 2026-10-22).
+- Two devices never write the same synced file: `.z/` holds shared, rarely changed state; the rest stays per machine (decided 2026-10-22).

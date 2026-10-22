@@ -6,13 +6,14 @@
 --
 -- An action:
 --   id        snake_case name: Config.keymaps.mappings key, api.actions.<id>
---   command   command suffix (":Zortex" .. command), nil for keymap-only
+--   command   command suffix (":Zortex" .. command; "" for :Zortex itself),
+--             nil for keymap-only
 --   key       default key(s) after Config.keymaps.prefix, nil for none
 --   desc      one line, used for the command and the keymap
---   group     heading for docs and :ZortexHelp
+--   group     heading for docs and `:Zortex help`
 --   run       function(args) where args = { args = string, fargs = {...} },
 --             or call(module, fn, ...) for a plain module function
---   nargs, complete   passed to nvim_create_user_command
+--   nargs, complete, bang   passed to nvim_create_user_command
 --   range     true: the command takes a range and the key works on a
 --             visual selection too; run gets { range, line1, line2 }
 local M = {}
@@ -21,10 +22,88 @@ local function notify(msg, level)
 	vim.notify(msg, level or vim.log.levels.INFO, { title = "Zortex" })
 end
 
-local function file(getter)
-	return function()
-		vim.cmd("edit " .. vim.fn.fnameescape(require("zortex.utils.filesystem")[getter]()))
+-- The key notes by name, for :ZortexOpen (any other name is <name>.zortex)
+local KEY_NOTES = {
+	calendar = "get_calendar_file",
+	projects = "get_projects_file",
+	areas = "get_areas_file",
+	okr = "get_okr_file",
+	structure = "get_structure_file",
+	inbox = "get_inbox_file",
+	reviews = "get_reviews_file",
+}
+
+--- :ZortexOpen [note]: a note by its file name, without the extension
+--- (projects, calendar, z/garden); the structure note without one.
+local function open_note(name)
+	local fs = require("zortex.utils.filesystem")
+	local Config = require("zortex.config")
+	name = vim.trim(name or "")
+	if name == "" then
+		name = "structure"
 	end
+	local getter = KEY_NOTES[name:lower()]
+	local path = getter and fs[getter]()
+		or fs.joinpath(Config.notes_dir, name:sub(-#Config.extension) == Config.extension and name or (name .. Config.extension))
+	vim.cmd("edit " .. vim.fn.fnameescape(path))
+end
+
+-- Completion for :ZortexOpen: every note's file name, without the extension
+local function note_names(lead)
+	local Config = require("zortex.config")
+	local root = vim.fn.fnamemodify(Config.notes_dir, ":p")
+	local seen, out = {}, {}
+	local function add(n)
+		if not seen[n] and n:sub(1, #lead) == lead then
+			seen[n] = true
+			out[#out + 1] = n
+		end
+	end
+	for name in pairs(KEY_NOTES) do
+		add(name)
+	end
+	for _, path in ipairs(require("zortex.core.notes").files()) do
+		add(path:sub(#root + 1):gsub("%" .. Config.extension .. "$", ""))
+	end
+	table.sort(out)
+	return out
+end
+
+-- Subcommands: { name = { desc, run(rest_fargs, args) } } -> run(args) and
+-- complete(lead, cmdline) for an action. The first one is the default.
+local function subcommands(list)
+	local by = {}
+	for _, s in ipairs(list) do
+		by[s[1]] = s
+	end
+	local function run(args)
+		local fargs = vim.deepcopy(args and args.fargs or {})
+		local name = table.remove(fargs, 1) or list[1][1]
+		local s = by[name]
+		if not s then
+			local names = vim.tbl_map(function(x)
+				return x[1]
+			end, list)
+			return notify("Unknown: " .. name .. " (" .. table.concat(names, ", ") .. ")", vim.log.levels.WARN)
+		end
+		return s[3](fargs, args or {})
+	end
+	local function complete(lead, cmdline)
+		local words = vim.split(vim.trim(cmdline), "%s+")
+		if #words > 2 or (#words == 2 and lead == "") then
+			local s = by[words[2]]
+			return s and s[4] and s[4](lead) or {}
+		end
+		return vim.tbl_filter(function(c)
+			return c:sub(1, #lead) == lead
+		end, vim.tbl_map(function(x)
+			return x[1]
+		end, list))
+	end
+	local descs = vim.tbl_map(function(x)
+		return "`" .. x[1] .. "` " .. x[2]
+	end, list)
+	return run, complete, table.concat(descs, ", ")
 end
 
 -- run = call(module, fn, ...): calls require(module)[fn](...). The target is
@@ -36,29 +115,6 @@ end
 -- =============================================================================
 -- Implementations that are more than one call
 -- =============================================================================
-
--- "Text:" lines of more than three words: labels before labels were
--- limited, text now -> quickfix (wrap one in *…:* to keep it a label)
-local function long_labels()
-	local syntax = require("zortex.core.syntax")
-	local Document = require("zortex.core.document")
-	local items = {}
-	for _, path in ipairs(require("zortex.core.notes").files({ include_archived = true })) do
-		local doc = Document.get(path)
-		for lnum, line in ipairs(doc and doc.lines or {}) do
-			if line:sub(-1) == ":" and not doc:in_code(lnum) and syntax.is_long_label(line) then
-				items[#items + 1] = { filename = path, lnum = lnum, col = 1, text = vim.trim(line) }
-			end
-		end
-	end
-	vim.fn.setqflist({}, "r", { title = "Lines that are no longer labels (more than 3 words)", items = items })
-	if #items == 0 then
-		return notify("Every label is three words or fewer")
-	end
-	notify(#items .. " long label" .. (#items == 1 and "" or "s") .. ": write *…:* to keep one a label")
-	vim.cmd("copen")
-	return items
-end
 
 -- Links into the section under the cursor -> quickfix
 local function backlinks()
@@ -84,28 +140,19 @@ local function backlinks()
 	vim.cmd("copen")
 end
 
-local function task_convert()
-	local workspace = require("zortex.core.workspace")
-	local ctx = workspace.get_doc_context()
-	if not ctx then
-		return notify("Not a note buffer", vim.log.levels.WARN)
-	end
-	local _, line = require("zortex.services.tasks").convert_line_to_task(ctx.line)
-	if line then
-		workspace.set_line(ctx.bufnr, ctx.lnum, line)
-	end
-end
-
+-- :ZortexSeason start [span] [name…]: prompts without a span. The span
+-- may start in the past: completions dated from its start on count.
 local function season_start(args)
 	local fargs = args and args.fargs or {}
+	local stats = require("zortex.services.xp.stats")
 	if #fargs == 0 then
-		return require("zortex.services.xp.stats").prompt_start_season()
+		return stats.prompt_start_season()
 	end
-	local end_date = fargs[2] or os.date("%Y-%m-%d", os.time() + 90 * 86400)
-	-- an optional third argument backdates the start: completions dated from
-	-- then on count (XP is read off @done dates)
-	require("zortex.services.xp.stats").start_season(fargs[1], end_date, fargs[3])
-	notify("Started season: " .. fargs[1])
+	local season, err = stats.start_season(fargs[1], table.concat(vim.list_slice(fargs, 2), " "))
+	if not season then
+		return notify(err, vim.log.levels.WARN)
+	end
+	notify(string.format("%s started: %s to %s", season.name, season.start_date, season.end_date))
 end
 
 local function season_status()
@@ -161,31 +208,9 @@ local function status()
 	notify(table.concat(lines, "\n"))
 end
 
-local function project_progress()
-	local updated = require("zortex.services.projects").update_progress(0)
-	notify(string.format("Updated @progress on %d projects", updated))
-end
 
--- :ZortexNotificationsSync [force]: unchanged calendars are not re-sent
-local function notifications_sync(args)
-	local force = args and args.args and vim.trim(args.args) == "force"
-	require("zortex.notifications").calendar.sync({
-		force = force,
-		on_done = function(msg)
-			if msg:match("unchanged") then
-				msg = msg .. "; nothing sent (:ZortexNotificationsSync force resends)"
-			end
-			notify(msg)
-		end,
-	})
-end
 
-local function link_index_rebuild()
-	require("zortex.core.link_index").rebuild()
-	notify("Link index rebuilt")
-end
-
--- :ZortexDebug [status|logs [n]|level LEVEL|timers|clear|notifications [provider]]
+-- :ZortexDebug [status|logs [n]|level LEVEL|timers|clear]
 local function debug_cmd(args)
 	local words = vim.split(vim.trim(args and args.args or ""), "%s+", { trimempty = true })
 	local sub, rest = words[1] or "status", words[2]
@@ -200,12 +225,76 @@ local function debug_cmd(args)
 		logger.show_performance_report()
 	elseif sub == "clear" then
 		logger.clear_logs()
-	elseif sub == "notifications" then
-		require("zortex.notifications").commands.TestNotifications({ args = rest or "" })
 	else
-		notify("ZortexDebug: status, logs [n], level LEVEL, timers, clear or notifications [provider]", vim.log.levels.WARN)
+		notify("ZortexDebug: status, logs [n], level LEVEL, timers or clear", vim.log.levels.WARN)
 	end
 end
+
+-- :ZortexPomodoro [toggle|skip|restart|stop|status|settings key=value…]
+local POMODORO_RUN, POMODORO_COMPLETE, POMODORO_DESC = subcommands({
+	{ "toggle", "start, pause or resume (default)", function()
+		require("zortex.notifications.pomodoro").toggle()
+	end },
+	{ "skip", "end the phase now", function()
+		require("zortex.notifications.pomodoro").skip()
+	end },
+	{ "restart", "begin a new cycle", function()
+		require("zortex.notifications.pomodoro").restart()
+	end },
+	{ "stop", "stop it", function()
+		require("zortex.notifications.pomodoro").stop()
+	end },
+	{ "status", "where it is", function()
+		require("zortex.notifications.pomodoro").show_status()
+	end },
+	{
+		"settings",
+		"show or change them: work=25 short=5 long=15 every=4 auto_break=yes auto_work=no",
+		function(fargs)
+			require("zortex.notifications.pomodoro").settings(fargs)
+		end,
+		function()
+			return { "work=", "short=", "long=", "every=", "auto_break=", "auto_work=" }
+		end,
+	},
+})
+
+-- :ZortexNotifications [list|sync [force]|send <title> <message>]
+local NOTIFICATIONS_RUN, NOTIFICATIONS_COMPLETE, NOTIFICATIONS_DESC = subcommands({
+	{ "list", "the ones the server will send (default)", function()
+		require("zortex.notifications").show_list()
+	end },
+	{
+		"sync",
+		"send the calendar's to the server now (`force` resends unchanged)",
+		function(fargs)
+			require("zortex.notifications").sync_now(fargs[1] == "force")
+		end,
+		function()
+			return { "force" }
+		end,
+	},
+	{ "send", "<title> <message>: one now, through the server", function(fargs)
+		require("zortex.notifications").send(fargs[1], table.concat(vim.list_slice(fargs, 2), " "))
+	end },
+})
+
+-- :Zortex [help|init|reindex|refold]
+local ZORTEX_RUN, ZORTEX_COMPLETE, ZORTEX_DESC = subcommands({
+	{ "help", "list commands and keys (default)", function()
+		M.show_help()
+	end },
+	{ "init", "create the key notes that are missing (calendar, projects, areas, okr, structure, inbox)", function()
+		require("zortex.core.starter").init_command()
+	end },
+	{ "reindex", "rebuild the link index from scratch", function()
+		require("zortex.core.link_index").rebuild()
+		notify("Link index rebuilt")
+	end },
+	{ "refold", "recompute the folds of this note", function()
+		require("zortex.features.folding").update_folds(0)
+	end },
+})
 
 -- =============================================================================
 -- The list
@@ -303,13 +392,7 @@ M.list = {
 		desc = "Links that resolve nowhere, then tags that go nowhere (quickfix)",
 		run = call("zortex.core.link_index", "broken_links_quickfix"),
 	},
-	{
-		id = "link_index_rebuild",
-		command = "LinkIndexRebuild",
-		group = "Links",
-		desc = "Rebuild the link index from scratch",
-		run = link_index_rebuild,
-	},
+
 
 	-- Structure ----------------------------------------------------------------
 	{
@@ -338,21 +421,14 @@ M.list = {
 	},
 	{
 		id = "folds_update",
-		command = "FoldsUpdate",
 		key = "r",
 		group = "Structure",
-		desc = "Recompute folds",
+		desc = "Recompute folds (`:Zortex refold`)",
 		run = function()
 			require("zortex.features.folding").update_folds(0)
 		end,
 	},
-	{
-		id = "long_labels",
-		command = "LongLabels",
-		group = "Structure",
-		desc = "Lines ending in a colon that are too long to be labels (quickfix)",
-		run = long_labels,
-	},
+
 	{
 		id = "rename",
 		command = "Rename",
@@ -407,38 +483,6 @@ M.list = {
 		desc = "Toggle the task on this line (makes one if needed); on a project heading, mark the project done",
 		run = call("zortex.services.tasks", "toggle_current_task"),
 	},
-	{
-		id = "task_complete",
-		command = "TaskComplete",
-		key = "tc",
-		group = "Tasks",
-		desc = "Complete the task on this line",
-		run = call("zortex.services.tasks", "complete_current_task"),
-	},
-	{
-		id = "task_uncomplete",
-		command = "TaskUncomplete",
-		key = "tu",
-		group = "Tasks",
-		desc = "Reopen the task on this line",
-		run = call("zortex.services.tasks", "uncomplete_current_task"),
-	},
-	{
-		id = "task_convert",
-		command = "TaskConvert",
-		key = "tt",
-		group = "Tasks",
-		desc = "Turn this line into a task",
-		run = task_convert,
-	},
-	{
-		id = "project_progress",
-		command = "ProjectProgress",
-		key = "u",
-		group = "Tasks",
-		desc = "Write @progress(done/total) on project headings in this buffer",
-		run = project_progress,
-	},
 
 	-- Plan ---------------------------------------------------------------------
 	{
@@ -461,14 +505,14 @@ M.list = {
 	},
 	{
 		id = "review_day",
-		command = "ReviewDay",
 		key = "W",
 		group = "Plan",
-		desc = "Daily review: completed, XP, time spent and the calendar since the last one",
+		desc = "Daily review (`:ZortexReview day`)",
 		run = function()
 			require("zortex.ui.review").open({ scope = "day" })
 		end,
 	},
+
 	{
 		id = "plan",
 		command = "Plan",
@@ -553,161 +597,145 @@ M.list = {
 		command = "Pomodoro",
 		key = "oo",
 		group = "Pomodoro",
-		desc = "Start, pause or resume the pomodoro",
-		run = call("zortex.notifications.types.pomodoro", "toggle"),
+		desc = "The pomodoro (the clock is the server's): " .. POMODORO_DESC,
+		nargs = "*",
+		complete = POMODORO_COMPLETE,
+		run = POMODORO_RUN,
 	},
 	{
 		id = "pomodoro_skip",
-		command = "PomodoroSkip",
 		key = "os",
 		group = "Pomodoro",
-		desc = "End the current pomodoro phase now",
-		run = call("zortex.notifications.types.pomodoro", "skip"),
+		desc = "End the current pomodoro phase now (`:ZortexPomodoro skip`)",
+		run = call("zortex.notifications.pomodoro", "skip"),
 	},
 	{
 		id = "pomodoro_restart",
-		command = "PomodoroRestart",
 		key = "or",
 		group = "Pomodoro",
-		desc = "Begin a new pomodoro cycle",
-		run = call("zortex.notifications.types.pomodoro", "restart"),
+		desc = "Begin a new pomodoro cycle (`:ZortexPomodoro restart`)",
+		run = call("zortex.notifications.pomodoro", "restart"),
 	},
 	{
 		id = "pomodoro_stop",
-		command = "PomodoroStop",
 		key = "ox",
 		group = "Pomodoro",
-		desc = "Stop the pomodoro",
-		run = call("zortex.notifications.types.pomodoro", "stop"),
+		desc = "Stop the pomodoro (`:ZortexPomodoro stop`)",
+		run = call("zortex.notifications.pomodoro", "stop"),
 	},
 	{
 		id = "pomodoro_status",
-		command = "PomodoroStatus",
 		key = "oi",
 		group = "Pomodoro",
-		desc = "Show the pomodoro status",
-		run = function(args)
-			require("zortex.notifications").commands.PomodoroStatus(args)
-		end,
-	},
-	{
-		id = "pomodoro_settings",
-		command = "PomodoroSettings",
-		group = "Pomodoro",
-		desc = "Show or change the pomodoro's settings (work=25 short=5 long=15 every=4 auto_break=yes auto_work=no)",
-		run = function(args)
-			require("zortex.notifications").commands.PomodoroSettings(args or { fargs = {} })
-		end,
-		nargs = "*",
-		complete = function()
-			return { "work=", "short=", "long=", "every=", "auto_break=", "auto_work=" }
-		end,
-	},
-	{
-		id = "notify",
-		command = "Notify",
-		group = "Calendar",
-		desc = "Send a notification now through the configured channels: `:ZortexNotify <title> <message>`",
-		run = function(args)
-			require("zortex.notifications").commands.Notify(args or { args = "" })
-		end,
-		nargs = "*",
-	},
-	{
-		id = "notification_list",
-		command = "NotificationList",
-		group = "Calendar",
-		desc = "List the scheduled notifications (`calendar` or `pomodoro` only)",
-		run = function(args)
-			require("zortex.notifications").commands.NotificationList(args or { args = "" })
-		end,
-		nargs = "?",
-		complete = function()
-			return { "calendar", "pomodoro" }
-		end,
-	},
-	{
-		id = "notifications_sync",
-		command = "NotificationsSync",
-		group = "Calendar",
-		desc = "Sync calendar notifications (to the server if enabled); `force` resends unchanged",
-		run = notifications_sync,
-		nargs = "?",
-		complete = function()
-			return { "force" }
-		end,
-	},
-	{
-		id = "ical_import",
-		command = "IcalImport",
-		group = "Calendar",
-		desc = "Import an iCal file or URL into the calendar",
-		run = call("zortex.features.ical", "import_interactive"),
-	},
-	{
-		id = "ical_export",
-		command = "IcalExport",
-		group = "Calendar",
-		desc = "Export the calendar to an iCal file",
-		run = call("zortex.features.ical", "export_interactive"),
+		desc = "Show the pomodoro status (`:ZortexPomodoro status`)",
+		run = call("zortex.notifications.pomodoro", "show_status"),
 	},
 
-	-- Files --------------------------------------------------------------------
+
+
+
+
+
 	{
-		id = "init",
-		command = "Init",
+		id = "notifications",
+		command = "Notifications",
+		group = "Calendar",
+		desc = "Calendar notifications (sent by the server): " .. NOTIFICATIONS_DESC,
+		nargs = "*",
+		complete = NOTIFICATIONS_COMPLETE,
+		run = NOTIFICATIONS_RUN,
+	},
+
+
+
+
+	-- Files --------------------------------------------------------------------
+
+	{
+		id = "import_markdown",
+		command = "ImportMarkdown",
 		group = "Files",
-		desc = "Create missing key notes (calendar, projects, areas, okr, structure, inbox)",
-		run = call("zortex.core.starter", "init_command"),
+		desc = "Convert a Markdown file, or every one under a folder, to a note next to it (`--join` flows wrapped lines; `!` overwrites)",
+		nargs = "*",
+		bang = true,
+		complete = "file",
+		run = function(args)
+			require("zortex.features.markdown_import").command(args)
+		end,
+	},
+	{
+		id = "open",
+		command = "Open",
+		group = "Files",
+		desc = "Open a note by its file name, without the extension (`projects`, `calendar`, `z/garden`); the structure note without one",
+		nargs = "?",
+		complete = function(lead)
+			return note_names(lead)
+		end,
+		run = function(args)
+			open_note(args and args.args)
+		end,
 	},
 	{
 		id = "open_projects",
-		command = "OpenProjects",
-		key = { "fp", "P" },
+		key = "fp",
 		group = "Files",
-		desc = "Open projects.zortex",
-		run = file("get_projects_file"),
+		desc = "Open projects.zortex (`:ZortexOpen projects`)",
+		run = function()
+			open_note("projects")
+		end,
 	},
 	{
 		id = "open_areas",
-		command = "OpenAreas",
 		key = "fa",
 		group = "Files",
-		desc = "Open areas.zortex",
-		run = file("get_areas_file"),
+		desc = "Open areas.zortex (`:ZortexOpen areas`)",
+		run = function()
+			open_note("areas")
+		end,
 	},
 	{
 		id = "open_okr",
-		command = "OpenOKR",
 		key = "fo",
 		group = "Files",
-		desc = "Open okr.zortex",
-		run = file("get_okr_file"),
+		desc = "Open okr.zortex (`:ZortexOpen okr`)",
+		run = function()
+			open_note("okr")
+		end,
 	},
 	{
 		id = "open_calendar",
-		command = "OpenCalendar",
 		key = "fc",
 		group = "Files",
-		desc = "Open calendar.zortex",
-		run = file("get_calendar_file"),
+		desc = "Open calendar.zortex (`:ZortexOpen calendar`)",
+		run = function()
+			open_note("calendar")
+		end,
 	},
 	{
 		id = "open_structure",
-		command = "OpenStructure",
 		key = "fs",
 		group = "Files",
-		desc = "Open structure.zortex",
-		run = file("get_structure_file"),
+		desc = "Open structure.zortex (`:ZortexOpen structure`)",
+		run = function()
+			open_note("structure")
+		end,
 	},
 	{
 		id = "open_inbox",
-		command = "OpenInbox",
 		key = "fi",
 		group = "Files",
-		desc = "Open inbox.zortex",
-		run = file("get_inbox_file"),
+		desc = "Open inbox.zortex (`:ZortexOpen inbox`)",
+		run = function()
+			open_note("inbox")
+		end,
 	},
+
+
+
+
+
+
 	{
 		id = "present",
 		command = "Present",
@@ -746,7 +774,7 @@ M.list = {
 		id = "season",
 		command = "Season",
 		group = "XP",
-		desc = "The season: `status` (default), `start [name] [end YYYY-MM-DD] [start YYYY-MM-DD]` (prompts without a name), `end`",
+		desc = "The season: `status` (default), `start [span] [name]` (a span like 3M-2026-Q4; without one it asks, the quarter filled in; adds the season's heading to the OKR note), `end`",
 		nargs = "*",
 		complete = function(lead)
 			return vim.tbl_filter(function(c)
@@ -780,34 +808,41 @@ M.list = {
 		id = "debug",
 		command = "Debug",
 		group = "System",
-		desc = "For finding problems: `status` (default; counts, state directory, timings), `logs [n]`, `level <LEVEL>`, `timers`, `clear` (logs and timers), `notifications [provider]` (a test through each)",
+		desc = "For finding problems: `status` (default; counts, state directory, timings), `logs [n]`, `level <LEVEL>`, `timers`, `clear` (logs and timers)",
 		nargs = "*",
 		complete = function(lead, cmdline)
 			local words = vim.split(vim.trim(cmdline), "%s+")
 			if (#words == 2 and lead == "") or #words >= 3 then
 				if words[2] == "level" then
 					return { "TRACE", "DEBUG", "INFO", "WARN", "ERROR" }
-				elseif words[2] == "notifications" then
-					return vim.tbl_keys(require("zortex.notifications").test)
 				end
 				return {}
 			end
 			return vim.tbl_filter(function(c)
 				return c:sub(1, #lead) == lead
-			end, { "status", "logs", "level", "timers", "clear", "notifications" })
+			end, { "status", "logs", "level", "timers", "clear" })
 		end,
 		run = debug_cmd,
 	},
 	{
+		id = "zortex",
+		command = "",
+		group = "System",
+		desc = "Zortex itself: " .. ZORTEX_DESC,
+		nargs = "*",
+		complete = ZORTEX_COMPLETE,
+		run = ZORTEX_RUN,
+	},
+	{
 		id = "help",
-		command = "Help",
 		key = "?",
 		group = "System",
-		desc = "List commands and keys",
+		desc = "List commands and keys (`:Zortex`)",
 		run = function()
 			M.show_help()
 		end,
 	},
+
 }
 
 M.by_id = {}
@@ -835,6 +870,14 @@ end
 -- Commands and keymaps
 -- =============================================================================
 
+-- An action this setup offers: XP's need xp.enabled
+local function offered(action)
+	if action.group ~= "XP" then
+		return true
+	end
+	return ((require("zortex.config").xp or {}).enabled ~= false)
+end
+
 local function keys_of(action, mappings)
 	local key = action.key
 	if mappings and mappings[action.id] ~= nil then
@@ -849,10 +892,10 @@ end
 --- Create :<prefix><Command> for every action with a command.
 function M.create_commands(prefix)
 	for _, a in ipairs(M.list) do
-		if a.command then
+		if a.command and offered(a) then
 			vim.api.nvim_create_user_command(prefix .. a.command, function(args)
 				a.run(args)
-			end, { desc = a.desc, nargs = a.nargs or 0, complete = a.complete, range = a.range })
+			end, { desc = a.desc, nargs = a.nargs or 0, complete = a.complete, range = a.range, bang = a.bang })
 		end
 	end
 end
@@ -861,7 +904,7 @@ end
 --- keys by id (a string, a list, or false to unmap).
 function M.create_keymaps(prefix, mappings)
 	for _, a in ipairs(M.list) do
-		for _, key in ipairs(keys_of(a, mappings)) do
+		for _, key in ipairs(offered(a) and keys_of(a, mappings) or {}) do
 			vim.keymap.set("n", prefix .. key, function()
 				a.run()
 			end, { silent = true, desc = a.desc })
@@ -889,7 +932,7 @@ function M.key_groups(prefix, mappings, names)
 	names = names or {}
 	local under, order = {}, {}
 	for _, a in ipairs(M.list) do
-		for _, key in ipairs(keys_of(a, mappings)) do
+		for _, key in ipairs(offered(a) and keys_of(a, mappings) or {}) do
 			local k = first_key(key)
 			if #k < #key then
 				if not under[k] then
@@ -949,7 +992,7 @@ function M.help_lines()
 	local kprefix = Config.keymaps and Config.keymaps.prefix or "<leader>z"
 	local mappings = Config.keymaps and Config.keymaps.mappings
 	local lines, group = {}, nil
-	for _, a in ipairs(M.list) do
+	for _, a in ipairs(vim.tbl_filter(offered, M.list)) do
 		if a.group ~= group then
 			group = a.group
 			lines[#lines + 1] = ""

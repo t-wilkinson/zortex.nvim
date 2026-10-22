@@ -38,7 +38,7 @@ local NOTE = {
 	"- [ ] Lap the valves", -- 7
 	"## Fix brakes", -- 8
 	"- [x] Order pads", -- 9
-	"# Someday ideas @progress(0/0)", -- 10 organizational: @progress is derived
+	"# Someday ideas @ideas", -- 10 organizational: a tag isn't a project attribute
 	"## Empty idea", -- 11 organizational: nothing at all
 	"# Learn piano @lg", -- 12 a project: an attribute
 	"# Parked @someday", -- 13 a project
@@ -108,15 +108,3 @@ T.test("a link from inside the heading doesn't count", function()
 	end)
 end)
 
-T.test("update_progress writes projects' and drops organizational headings'", function()
-	with_note(NOTE, nil, function(path)
-		vim.cmd("edit " .. vim.fn.fnameescape(path))
-		local buf = vim.api.nvim_get_current_buf()
-		P.update_progress(buf)
-		local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-		T.eq(lines[10], "# Someday ideas")
-		T.eq(lines[4], "# Car @cars")
-		T.eq(lines[14], "# Home @progress(0/2)")
-		vim.cmd("bwipeout!")
-	end)
-end)

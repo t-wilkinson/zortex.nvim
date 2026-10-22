@@ -8,10 +8,11 @@ dependencies (this folder's Go module).
   media, text), tags, broken links, and the notes not yet linked from the
   Structure note.
 - **Calendar** (home page): the days of `calendar.zortex` and the
-  notifications Neovim schedules from it (`POST /notify`). Due notifications
-  are sent through **ntfy** by the server itself (no cron, no database).
+  notifications Neovim sends from it (`POST /notify`). Due notifications
+  are sent through **ntfy** by the server itself (no cron, no database),
+  and kept for Neovim to show (`GET /api/alerts`).
 - **Pomodoro**: a clock owned by the server, driven from the home page and
-  from Neovim (`:ZortexPomodoro…`, `<leader>zoo`). Phase changes go out
+  from Neovim (`:ZortexPomodoro`, `<leader>zoo`). Phase changes go out
   through ntfy, each with its own tag so the desktop can play a different
   sound for starting work, starting a break and starting a new cycle
   ([`../contrib/ntfy`](../contrib/ntfy)).
@@ -71,7 +72,9 @@ the URL prefix when a proxy serves it below `/`, e.g. `/notes`), `-title`
 Editing: `-writable` (`ZORTEX_WRITABLE=1`; NixOS `web.writable`) lets the
 website edit notes ([Editing](../doc/Web.md#editing)); `-html-scripts`
 (`ZORTEX_HTML_SCRIPTS=1`; NixOS `web.htmlScripts`) lets HTML files run
-script in a sandbox ([Files](../doc/Web.md#files)).
+script in a sandbox ([Files](../doc/Web.md#files)). `-xp=false`
+(`ZORTEX_XP=0`; NixOS `web.xp = false`) hides XP, the season and its
+tiers, as `xp.enabled = false` does in Neovim.
 
 **Login.** There is none by default: keep the server on `127.0.0.1` and
 publish it through a proxy that has one (doc/Server.md). Without such a

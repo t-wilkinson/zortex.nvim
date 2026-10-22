@@ -12,7 +12,7 @@ A vision, then five layers, each linking to the one above:
 ```
 vision      what a good life looks like           areas.zortex       Vision: a calm home, a strong body, …
 area        what you care about over years       areas.zortex       # 1 Personal / ## 1.1 Health
-objective   what you'll change this season        okr.zortex         ## Build steady habits @a(1.1)
+objective   what you'll change this season        okr.zortex         ## 3M-2026-Q4 Build steady habits @area(1.1)
 key result  how you'll know                       okr.zortex         - KR1: [ ] Bake every weekend [P/#2.2 Bake a loaf]
 project     the work that moves a key result      projects.zortex    ## 2.2 Bake a good sourdough loaf
 task        the next step                         anywhere           - [ ] Feed the starter twice a day @size(sm)
@@ -24,16 +24,12 @@ task        the next step                         anywhere           - [ ] Feed 
   weekly review opens with them.
 - **Areas** are headings (and labels) in `areas.zortex`, nested: `1.2` is part
   of `1`. A `Vision:` label is not an area.
-- **Objectives** are the headings under a season heading in `okr.zortex`.
-  The season heading starts with when the season starts, then its name:
-  `# 2026-Q4 Season 10 Juniper` (also `# 2026-10 …`, `# 2026-October …`,
-  `# 2026-10-20 …`). Its objectives run from then to the day before the next
-  season heading starts: the quarter for `Qn`, at most
-  `xp.season.default_length` days (90) otherwise. `:ZortexSeason start` adds
-  the heading. An objective can also carry its own window instead,
-  `## 3M-2026-Q4 Title` (October to December; also `6M-2026-H2`,
-  `1M-2026-03`, `1Y-2026-Y`), anywhere in the note. Give each its area:
-  `@a(1.1)`.
+- **Objectives** are headings in `okr.zortex`, `##` or deeper, that start
+  with their span: `## 3M-2026-Q4 Build steady habits` runs October to
+  December (also `6M-2026-H2`, `1M-2026-03`, `1Y-2026-Y`). Top-level
+  headings only group them: `:ZortexSeason start` adds the season's,
+  `# 3M-2026-Q4 Season 10 Juniper`, above the others, and `# Current` or
+  `# Someday` work as well. Give each objective its area: `@area(1.1)`.
 - **Key results** are `- KRn:` items under an objective. Link the projects
   that move them: `[P/#2.2 Bake a good sourdough loaf]`. A key result's
   progress is its projects' effort points done (`@size` weighs tasks); a key
@@ -45,9 +41,9 @@ task        the next step                         anywhere           - [ ] Feed 
 - **Organizational headings** group projects without being one: a heading
   with no task of its own (done or not, sub-headings not counted) and no
   project attribute (`@size` or a bare size, `@p`, `@i`, `@due`, `@done`,
-  `@xp`, `@dur`/`@est` or a bare duration, `@a(…)`, `@someday`) stays out of
+  `@xp`, `@dur` or a bare duration, `@area(…)`, `@someday`) stays out of
   the reviews, the planner, XP and `/projects`. Tags (`@cars`, for `@[…]`
-  links) and `@progress` don't count. The projects under it are
+  links) don't count. The projects under it are
   sub-projects of the nearest project above, and still go through it in
   their links (`[P/#Car/#Rebuild engine]`). Linking it (a key result, the
   week's focus, any note) makes it a project again when it has projects
@@ -55,7 +51,7 @@ task        the next step                         anywhere           - [ ] Feed 
 
 **The canonical path** is task → project → key result → objective → area:
 the objective decides which area the work serves. A project can also carry
-its own `@a(...)` for work no objective covers (keeping a home, routine
+its own `@area(...)` for work no objective covers (keeping a home, routine
 health). That's legitimate, but it is maintenance; growth goes through an
 objective.
 
@@ -117,7 +113,7 @@ On a line of either review:
 | `f` | a project | adds it to the week's focus, or takes it out |
 | `L` | a key result | links a project to it (picked from the active ones) |
 | `R` | an objective | adds a key result |
-| `p` | an area | starts a project for it (a heading in the projects note with `@a(…)`) |
+| `p` | an area | starts a project for it (a heading in the projects note with `@area(…)`) |
 | `F` | a broken link | fixes it from the structural search |
 | `u` | | takes the last change back, in every note it touched (`:ZortexUndo`) |
 
@@ -191,7 +187,7 @@ Capacity: 5h30m planned (4 tasks, 1 unsized) · 3h on key results · 4h free (13
 ```
 
 - **planned**: the day's open tasks, by their `@size` hours (a copy weighs
-  its project task; `@dur` or `@est` on the line win; unsized counts md);
+  its project task; `@dur` on the line wins; unsized counts md);
 - **on key results**: the part of that on projects an open key result
   links (or their sub-projects): how much of the day moves the quarter;
 - **free**: what is left of `ui.planner.capacity.day` (from now, when
@@ -222,7 +218,7 @@ Outcomes:
 09:00 [P/#1 Programming/#1.4 - zortex]
   - [ ] [./-Improve website] @id(aB3x9)
   - [ ] [./-Change task sizes] @id(Kp2wQ)
-11:00 - 11:45 Dentist @event @n(30)
+11:00 - 11:45 Dentist @event @notify(30)
 14:00 Call the bank about [P/#2 Home/-Mortgage]
 - [ ] Buy milk
 ```
@@ -245,8 +241,8 @@ appointment, a flight, something that happens whether or not you planned
 it; the web month grid's dot marks days that have one), and loose to-dos
 last. Every timed line notifies at its time, events and planned blocks
 alike: a nudge to move on to the next thing, and out of deep focus.
-`@n(30)` adds a notification 30 minutes before, `@n(no)` silences a line,
-and `@n(0, end)` also notifies when a range ends.
+`@notify(30)` adds a notification 30 minutes before, `@notify(no)` silences a line,
+and `@notify(0, end)` also notifies when a range ends.
 
 - **Copies.** `- [ ] [./-Improve website] @id(aB3x9)` has the `@id` of the
   project's `- [ ] Improve website @id(aB3x9)`: lines with the same `@id` in
@@ -269,9 +265,8 @@ and `@n(0, end)` also notifies when a range ends.
   ticking one (`2x` in the calendar view, the box on the web) ticks the
   project's task, and the next takes its place. While it runs, the clocks
   count against the first.
-- **Timed tasks.** `16:00 [ ] Write the report` (also `16:00 - 17:00 [ ]`,
-  or `16:00 - [ ]`) is a task with a time: it notifies at its time like any
-  timed line, and not once it's done. Toggling a plain timed line
+- **Timed tasks.** `16:00 [ ] Write the report` (also `16:00 - 17:00 [ ]`)
+  is a task with a time: it notifies at its time like any timed line, and not once it's done. Toggling a plain timed line
   (`16:00 Report`) makes it one, keeping the time in front. Carried forward,
   it goes to today without its old time (the old line keeps it, marked
   `[>]`).
@@ -369,7 +364,7 @@ for everything:
 An unsized task counts as md, except a timed task (`16:00 [ ] Task`) or the
 only task under a calendar time: ticked without a size, it gets the size
 nearest its block's length (its own `16:00 - 17:30` range, else until the
-next timed line; by ratio, so 45 minutes is `@md`), in Neovim and on the web. A project without `@size` is the sum of its
+next timed line; by ratio, so 45 minutes is `@size(md)`), in Neovim and on the web. A project without `@size` is the sum of its
 tasks; an objective without `@size` is the projects its key results link (else
 md). `@xp(n)` sets a project, key result or objective outright. Tracked time
 (`@spent`, from the web clocks) is shown in the reviews but not paid: XP
@@ -385,11 +380,13 @@ Two measures come out of it:
    `316 × L^2.5` XP, so level 2 is about 180 hours of aligned work and level
    10 about 10,000. An area's total is its own XP plus `area.bubble` (75%) of
    each sub-area's.
-2. **Seasons**: progress on this period's objectives. A season is a date
-   window (started with `:ZortexSeason start`, which also adds its heading
-   to `okr.zortex` and names it `Season 10 Juniper`: a number and a word
-   whose letter moves on with it, `xp.season.names`; else the calendar
-   quarter); its progress is the progress of the objectives in it,
+2. **Seasons**: progress on this period's objectives. A season is the
+   calendar quarter, or a span you start with `:ZortexSeason start
+   3M-2026-Q4` (written like an objective's; the quarter by default). It is
+   named `Season 10 Juniper`, a number and a word whose letter moves on with
+   it (`xp.season.names`), and adds its heading to `okr.zortex`,
+   `# 3M-2026-Q4 Season 10 Juniper`, to put that season's objectives under;
+   the heading only groups them. Its progress is the progress of the objectives in it,
    weighted by their XP, so a large, important objective moves it more than a
    small one. Tiers are thresholds on that progress (Bronze 25%, Silver 50%,
    Gold 70%, Platinum 85%, Complete 100%: every objective done).
@@ -402,33 +399,33 @@ results. Both are read off the same notes and move the day the work is done.
 
 | source | when | worth | Mastery |
 |---|---|---|---|
-| **Project task** | a task in a project is checked; dated by its `@done(...)` | the project's pool, paid out over its tasks on the curve below | ×1.0 when a key result links the project (`alignment.key_result`), else ×0.2 when it has an `@a` (`alignment.project_area`) |
+| **Project task** | a task in a project is checked; dated by its `@done(...)` | the project's pool, paid out over its tasks on the curve below | ×1.0 when a key result links the project (`alignment.key_result`), else ×0.2 when it has an `@area(…)` (`alignment.project_area`) |
 | **Project done** | the project heading is marked `@done(...)` | whatever of the pool the curve hasn't paid yet | as above |
 | **Key result** | its linked projects are all done, or it is checked; dated by its `@done` or the last completion | 20% (`completion_bonus`) of its objective's XP, split over the objective's key results | ×1.0, to the objective's areas |
 | **Objective** | marked `@done(...)` | 20% of its XP | ×1.0, to its areas |
-| **Task** | a checked task anywhere else (calendar, any note); a calendar copy of a project task (same `@id`) is that project task instead | its hours × 10 × priority × importance | ×0.1 (`alignment.task_area`) to its own `@a(...)` |
+| **Task** | a checked task anywhere else (calendar, any note); a calendar copy of a project task (same `@id`) is that project task instead | its hours × 10 × priority × importance | ×0.1 (`alignment.task_area`) to its own `@area(...)` |
 
 An md objective (30 hours, 300 XP) finished through its key results earns
 300 for the work, 60 for its key results and 60 when you mark it done: 420
-Mastery XP. The same 30 hours on projects with only an `@a` earn 60.
+Mastery XP. The same 30 hours on projects with only an `@area` earn 60.
 
 **Which areas.** An award's Mastery share is split over its areas, first
 listed first, each getting `xp.area_split` of the one before (0.5 by
 default: ½, ¼, …; 1 splits evenly, 0.7 decays gently):
 
 - work on a project a key result links: the objectives' areas, then the
-  project's own (or inherited) `@a`, then the task's;
-- other work: the task's own `@a`, then the project's.
+  project's own (or inherited) `@area`, then the task's;
+- other work: the task's own `@area`, then the project's.
 
 **Task groups.** Tasks nested under a task make it a group, and the group's
 `@size` is shared by them:
 
 ```
-- [ ] Security audit @md                 the group: 1h in all
+- [ ] Security audit @size(md)           the group: 1h in all
     - [./z/generated/audit.md]           not a task: doesn't count
     - [ ] Cloudflare tunnel              15m (an equal share: all unsized)
     - [ ] Cloudflare cert                15m
-    - [ ] Wi-Fi password @lg             or, sized: in proportion to the sizes,
+    - [ ] Wi-Fi password @size(lg)       or, sized: in proportion to the sizes,
     - [ ] SSH host key                   the group's size still the total
 ```
 
@@ -474,11 +471,10 @@ not for the reviews.
 Nothing is recorded when you check a task: `services/xp/ledger` rebuilds
 every award from the notes whenever one changes. Unchecking, archiving, or
 editing a note on your phone simply changes the result. Only seasons (their
-names and dates, and the final progress and tier of past ones) and the
-levels and tier last announced are stored. An earlier version
-kept a transaction log and running totals; they drifted (double counting,
-XP kept after unchecking, lost completions from other devices), and deriving
-removes that whole class of problems.
+names, spans and dates, and the final progress and tier of past ones) and
+the levels and tier last announced are stored. Nothing to drift: no
+running totals to double count, keep after unchecking or miss from another
+device.
 
 ## Using it
 
@@ -489,7 +485,7 @@ removes that whole class of problems.
 | `:ZortexXPGuide` (`<leader>zxg`) | how XP is calibrated: hours per `@size`, Mastery, tiers; and what the line at the cursor is worth |
 | `:ZortexXP` (`<leader>zxx`) | one view: the season's objectives and tier, XP per day for two weeks and how much of that work went to key results, areas only or neither, projects in progress, recent awards, the area tree (`<CR>` opens a line's source, `e` explains a project, `g` the guide) |
 | `:ZortexXPExplain` (`<leader>zxe`) | how the project at the cursor earned its XP, award by award |
-| `:ZortexSeason start [name] [end] [start]` / `end` / `status` | a season of your own instead of the quarter |
+| `:ZortexSeason start [span] [name]` / `end` / `status` | a season of your own instead of the quarter (`start 6M-2026-H2`; without a span it asks, the quarter filled in); `start` adds its heading to `okr.zortex` |
 
 On the web, the home page of `zortex serve` shows the season (progress,
 tier, its objectives), Mastery XP per day for two weeks, top areas and recent
@@ -511,7 +507,10 @@ data). Events: `xp:awarded`, `xp:removed` (Mastery), `season:tier_reached`,
 
 ## Configuration
 
-`Config.xp` (see `lua/zortex/config.lua`): `xp_per_hour`,
+`Config.xp` (see `lua/zortex/config.lua`): `enabled` (false: no XP,
+Mastery, seasons or tiers in Neovim, and their commands and keys go;
+`@size` still weighs progress; the server's `-xp=false` hides them on the
+web), `xp_per_hour`,
 `sizes.task|project|objective` (hours per `@size`), `alignment.key_result|project_area|task_area`,
 `completion_bonus`, `area.level_curve`, `area.bubble`, `season.tiers`
 (`{ name, at }`, `at` a share of the season's objectives), `season.follow_quarter`,

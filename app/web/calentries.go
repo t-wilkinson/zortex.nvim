@@ -44,9 +44,9 @@ func durationMinutes(s string) float64 {
 	return total
 }
 
-// entryDuration: @dur(…), else @est(…), else a bare @2h, in minutes.
+// entryDuration: @dur(…), else a bare @2h, in minutes.
 func entryDuration(spans []syntax.Span) float64 {
-	var dur, est, bare float64
+	var dur, bare float64
 	for _, sp := range spans {
 		if sp.Type != "attribute" {
 			continue
@@ -55,19 +55,14 @@ func entryDuration(spans []syntax.Span) float64 {
 		switch {
 		case key == "dur" && dur == 0:
 			dur = durationMinutes(sp.Value)
-		case key == "est" && est == 0:
-			est = durationMinutes(sp.Value)
 		case sp.Value == "" && bareDur.MatchString(key) && bare == 0:
 			bare = durationMinutes(key)
 		}
 	}
-	switch {
-	case dur > 0:
+	if dur > 0 {
 		return dur
-	case bare > 0:
-		return bare
 	}
-	return est
+	return bare
 }
 
 // lastField: "2026-10-20 09:30" -> "09:30".

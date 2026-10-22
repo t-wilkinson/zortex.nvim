@@ -74,8 +74,6 @@ end
 -- Seasons in the OKR note
 -- =============================================================================
 
-M.parse_season = ObjectiveModule.parse_season
-
 -- Season words, alphabetical, so the letter moves on with the number:
 -- Season 1 Aspen, Season 2 Birch, … Season 10 Juniper. xp.season.names
 -- replaces them (false: numbers only).
@@ -89,20 +87,16 @@ local function okr_lines()
 	return require("zortex.core.workspace").get_lines(fs.get_okr_file())
 end
 
---- The season headings of the OKR note (objective.season_headings).
-function M.season_headings(lines)
-	return ObjectiveModule.season_headings(lines or okr_lines())
-end
-
 --- The number the next season gets: one more than the highest "Season N"
---- in the OKR note, else one more than the seasons ended so far.
+--- heading of the OKR note, else one more than the seasons ended so far.
 function M.next_season_number(lines)
 	local n = 0
-	for _, s in ipairs(M.season_headings(lines)) do
-		n = math.max(n, tonumber(s.name:match("[Ss]eason%s+(%d+)")) or 0)
+	for _, line in ipairs(lines or okr_lines()) do
+		local k = line:match("^#+%s.-[Ss]eason%s+(%d+)")
+		n = math.max(n, tonumber(k) or 0)
 	end
 	if n == 0 then
-		n = math.max(#M.season_headings(lines), #require("zortex.stores.xp").season_history())
+		n = #require("zortex.stores.xp").season_history()
 	end
 	return n + 1
 end
@@ -110,8 +104,7 @@ end
 --- "Season 10 Juniper": the next number, and its word from xp.season.names.
 function M.next_season_name(lines)
 	local n = M.next_season_number(lines)
-	local season_cfg = ((require("zortex.config").xp or {}).season or {})
-	local names = season_cfg.names
+	local names = ((require("zortex.config").xp or {}).season or {}).names
 	if names == nil then
 		names = M.SEASON_NAMES
 	end
@@ -121,52 +114,60 @@ function M.next_season_name(lines)
 	return "Season " .. n
 end
 
---- The token a season heading starts with: "2026-Q4" when the season is a
---- calendar quarter, else its start date.
-function M.season_token(start_date, end_date)
-	local q = ObjectiveModule.quarter(start_date)
-	if q.start_date == start_date and (end_date == nil or q.end_date == end_date) then
-		return (q.name:gsub("^(%d+) Q(%d)$", "%1-Q%2"))
+--- A span in the objectives' format ("3M-2026-Q4", "1M-2026-11",
+--- "6M-2026-H2") -> { span, start_date, end_date }, or nil.
+function M.parse_span(span)
+	local length, year, period = tostring(span or ""):match("^(%d*[MQHYmqhy])%-(%d%d%d%d)%-(%w+)$")
+	if not length then
+		return nil
 	end
-	return start_date
+	local s, e = ObjectiveModule.window(length, year, period)
+	if not s then
+		return nil
+	end
+	return { span = span:upper(), start_date = s, end_date = e }
 end
 
---- Add "# <token> <name>" to the OKR note for a new season, above the
---- newest season heading (or the first top-level heading), so the new
---- season's objectives go under it. Nothing when a heading for that start
---- already exists. Returns the line number of the heading, or nil, err.
-function M.add_season_heading(name, start_date, end_date)
+--- The calendar quarter around `date` as a span: "3M-2026-Q4".
+function M.quarter_span(date)
+	local q = ObjectiveModule.quarter(date)
+	local y, n = q.name:match("^(%d+) Q(%d)$")
+	return string.format("3M-%s-Q%s", y, n)
+end
+
+--- Add "# <span> <name>" to the OKR note (above its first top-level
+--- heading, so the newest season is on top), unless a top-level heading
+--- already starts with the span. Only for organizing: objectives keep
+--- their own windows. Returns the heading's line number, or nil, err.
+function M.add_season_heading(span, name)
 	local workspace = require("zortex.core.workspace")
 	local file = fs.get_okr_file()
 	if not file then
 		return nil, "no OKR note"
 	end
-	workspace.ensure_file(file, { "@@OKR", "" })
+	workspace.ensure_file(file, { "@@Objectives", "@@OKR", "" })
 	local lines = okr_lines()
-	for _, s in ipairs(M.season_headings(lines)) do
-		if s.level == 1 and s.start == start_date then
-			return s.lnum
-		end
-	end
-	local token = M.season_token(start_date, end_date)
-	local heading = "# " .. token .. (name and name ~= "" and (" " .. name) or "")
-	-- above the first top-level heading; at the end when there is none
-	local at
+	local first
 	for lnum, line in ipairs(lines) do
-		if line:match("^#%s") then
-			at = lnum
-			break
+		local text = line:match("^#%s+(.*)$")
+		if text then
+			if text:upper():sub(1, #span + 1) == (span:upper() .. " ") or text:upper() == span:upper() then
+				return lnum
+			end
+			first = first or lnum
 		end
 	end
-	local ok, err
-	if at then
-		ok, err = workspace.insert_lines(file, at, { heading, "" })
+	local heading = "# " .. span .. (name and name ~= "" and (" " .. name) or "")
+	local ok, err, at
+	if first then
+		at = first
+		ok, err = workspace.insert_lines(file, first, { heading, "" })
 	else
 		local add = { heading }
 		if #lines > 0 and lines[#lines] ~= "" then
 			table.insert(add, 1, "")
 		end
-		at = #lines + 1 + (#add - 1)
+		at = #lines + #add
 		ok, err = workspace.insert_lines(file, #lines + 1, add)
 	end
 	if not ok then

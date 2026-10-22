@@ -21,9 +21,9 @@ zortex.nvim is a plain-text life-management system: notes are `.zortex`
 files (a markdown dialect) that link to each other by structure,
 `[Sourdough/#Method]` or `[P/#1.1 Kitchen shelves]`. Projects, areas,
 objectives and the calendar are notes too. Notes live in `notes_dir`
-(default `~/zortex`); `z/` holds resources and archives. An optional server
-(`zortex serve`) shows them in a browser, with a calendar, a pomodoro and
-phone notifications through ntfy.
+(default `~/zortex`); `z/` holds resources and archives. The server
+(`zortex serve`) shows them in a browser and runs the calendar's
+notifications and the pomodoro (|zortex-server|).
 
 Requires Neovim 0.10 or newer. Optional: snacks.nvim, telescope.nvim or
 fzf-lua (pickers; `ui.picker`), blink.cmp or nvim-cmp (link completion).
@@ -50,9 +50,9 @@ Options go to setup(): >lua
       keymaps = { prefix = "<leader>z" },
     })
 <
-In a new (empty) notes folder, setup() creates the key notes from short
-templates: calendar, projects, areas, okr, structure and inbox. In a folder
-that has notes it only says what is missing; |:ZortexInit| creates them.
+setup() writes nothing. When key notes are missing (calendar, projects,
+areas, okr, structure, inbox) it says so once; `:Zortex init` creates the
+missing ones from short templates (|:Zortex|).
 
 Notes open folded to their headings (`features.folding.level`): |zR| opens
 every fold. A section marked `@fold` starts closed whenever the note is
@@ -64,15 +64,18 @@ shown, whatever its level.
 A note starts with a header: `@@Name` lines (the first is the article name,
 the rest aliases) and `@Tag` lines. The body has headings (`#`..`######`),
 bold headings (`**Next steps:**`), labels (`Ideas:`), list items and tasks
-(`- [ ] task @size(sm)`, `14:00 event`), attributes (`@p1`, `@due(2026-10-20)`,
-`@a(4.1)`, `@spent(1h25m)`) and links. A link's components narrow left to
-right: an article (or tag namespace like `P`), then `#heading`, `:label`,
-`*bold`, `-item` or `%text`, each matched by prefix, case-insensitively.
+(`- [ ] task @size(sm)`, `14:00 event`), attributes (`@p1`,
+`@due(2026-10-20)`, `@area(4.1)`, `@spent(1h25m)`; short forms: `@a(4.1)`,
+`@n(15)` for `@notify(15)`, `@sm`, `@90m` for `@dur(90m)`) and links. A
+link's components narrow left to right: an article (or tag namespace like
+`P`), then `#heading`, `:label`, `*bold`, `-item` or `%text`, each matched
+by prefix, case-insensitively.
 
 Special notes: projects.zortex (`@@P`; any note tagged `@P` is a project
-too), areas.zortex (`@@A`), okr.zortex (`## 3M-2026-Q1 Title` objectives
-with `- KR1: [ ]` key results), calendar.zortex (`YYYY-MM-DD:` days),
-structure.zortex (links to everything), inbox.zortex.
+too), areas.zortex (`@@A`), okr.zortex (`## 3M-2026-Q1 Title` objectives,
+grouped under top-level headings, with `- KR1: [ ]` key results),
+calendar.zortex (`YYYY-MM-DD:` days), structure.zortex (links to
+everything), inbox.zortex.
 
 ==============================================================================
 4. COMMANDS AND KEYS                                         *zortex-commands*
@@ -82,7 +85,7 @@ Every action is a command (`:Zortex...`), a key after `keymaps.prefix`
 `keymaps.mappings`: >lua
     keymaps = { mappings = { task_toggle = "t", search_articles = false } }
 <
-|:ZortexHelp| lists them with your prefixes.
+`:Zortex` (or `:Zortex help`) lists them with your prefixes.
 
 FIND ~
 
@@ -126,9 +129,6 @@ LINKS ~
     Links that resolve nowhere, then tags that go nowhere (quickfix). Keys:
     <leader>zB. Id: broken_links.
 
-:ZortexLinkIndexRebuild                              *:ZortexLinkIndexRebuild*
-    Rebuild the link index from scratch. Id: link_index_rebuild.
-
 STRUCTURE ~
 
 :ZortexSectionNext                                        *:ZortexSectionNext*
@@ -142,12 +142,8 @@ STRUCTURE ~
 :ZortexSectionParent                                    *:ZortexSectionParent*
     Parent section. Keys: <leader>z^. Id: section_parent.
 
-:ZortexFoldsUpdate                                        *:ZortexFoldsUpdate*
-    Recompute folds. Keys: <leader>zr. Id: folds_update.
-
-:ZortexLongLabels                                          *:ZortexLongLabels*
-    Lines ending in a colon that are too long to be labels (quickfix). Id:
-    long_labels.
+actions.folds_update                              *zortex-action-folds_update*
+    Recompute folds (:Zortex refold). Keys: <leader>zr. Id: folds_update.
 
 :ZortexRename                                                  *:ZortexRename*
     Rename the heading or label under the cursor and rewrite every link to it.
@@ -171,28 +167,14 @@ TASKS ~
     Toggle the task on this line (makes one if needed); on a project heading,
     mark the project done. Keys: <leader>zT. Id: task_toggle.
 
-:ZortexTaskComplete                                      *:ZortexTaskComplete*
-    Complete the task on this line. Keys: <leader>ztc. Id: task_complete.
-
-:ZortexTaskUncomplete                                  *:ZortexTaskUncomplete*
-    Reopen the task on this line. Keys: <leader>ztu. Id: task_uncomplete.
-
-:ZortexTaskConvert                                        *:ZortexTaskConvert*
-    Turn this line into a task. Keys: <leader>ztt. Id: task_convert.
-
-:ZortexProjectProgress                                *:ZortexProjectProgress*
-    Write @progress(done/total) on project headings in this buffer. Keys:
-    <leader>zu. Id: project_progress.
-
 PLAN ~
 
 :ZortexReview                                                  *:ZortexReview*
     Review: week (default), day (since the last daily review), or a number of
     days. Keys: <leader>zw. Id: review.
 
-:ZortexReviewDay                                            *:ZortexReviewDay*
-    Daily review: completed, XP, time spent and the calendar since the last
-    one. Keys: <leader>zW. Id: review_day.
+actions.review_day                                  *zortex-action-review_day*
+    Daily review (:ZortexReview day). Keys: <leader>zW. Id: review_day.
 
 :ZortexPlan                                                      *:ZortexPlan*
     Plan a day: calendar day (from its template) plus ranked tasks, projects,
@@ -225,68 +207,66 @@ actions.time_earlier                              *zortex-action-time_earlier*
 POMODORO ~
 
 :ZortexPomodoro                                              *:ZortexPomodoro*
-    Start, pause or resume the pomodoro. Keys: <leader>zoo. Id:
+    The pomodoro (the clock is the server's): toggle start, pause or resume
+    (default), skip end the phase now, restart begin a new cycle, stop stop
+    it, status where it is, settings show or change them: work=25 short=5
+    long=15 every=4 auto_break=yes auto_work=no. Keys: <leader>zoo. Id:
     pomodoro_toggle.
 
-:ZortexPomodoroSkip                                      *:ZortexPomodoroSkip*
-    End the current pomodoro phase now. Keys: <leader>zos. Id: pomodoro_skip.
+actions.pomodoro_skip                            *zortex-action-pomodoro_skip*
+    End the current pomodoro phase now (:ZortexPomodoro skip). Keys:
+    <leader>zos. Id: pomodoro_skip.
 
-:ZortexPomodoroRestart                                *:ZortexPomodoroRestart*
-    Begin a new pomodoro cycle. Keys: <leader>zor. Id: pomodoro_restart.
+actions.pomodoro_restart                      *zortex-action-pomodoro_restart*
+    Begin a new pomodoro cycle (:ZortexPomodoro restart). Keys: <leader>zor.
+    Id: pomodoro_restart.
 
-:ZortexPomodoroStop                                      *:ZortexPomodoroStop*
-    Stop the pomodoro. Keys: <leader>zox. Id: pomodoro_stop.
+actions.pomodoro_stop                            *zortex-action-pomodoro_stop*
+    Stop the pomodoro (:ZortexPomodoro stop). Keys: <leader>zox. Id:
+    pomodoro_stop.
 
-:ZortexPomodoroStatus                                  *:ZortexPomodoroStatus*
-    Show the pomodoro status. Keys: <leader>zoi. Id: pomodoro_status.
-
-:ZortexPomodoroSettings                              *:ZortexPomodoroSettings*
-    Show or change the pomodoro's settings (work=25 short=5 long=15 every=4
-    auto_break=yes auto_work=no). Id: pomodoro_settings.
+actions.pomodoro_status                        *zortex-action-pomodoro_status*
+    Show the pomodoro status (:ZortexPomodoro status). Keys: <leader>zoi. Id:
+    pomodoro_status.
 
 CALENDAR ~
 
-:ZortexNotify                                                  *:ZortexNotify*
-    Send a notification now through the configured channels: :ZortexNotify
-    <title> <message>. Id: notify.
-
-:ZortexNotificationList                              *:ZortexNotificationList*
-    List the scheduled notifications (calendar or pomodoro only). Id:
-    notification_list.
-
-:ZortexNotificationsSync                            *:ZortexNotificationsSync*
-    Sync calendar notifications (to the server if enabled); force resends
-    unchanged. Id: notifications_sync.
-
-:ZortexIcalImport                                          *:ZortexIcalImport*
-    Import an iCal file or URL into the calendar. Id: ical_import.
-
-:ZortexIcalExport                                          *:ZortexIcalExport*
-    Export the calendar to an iCal file. Id: ical_export.
+:ZortexNotifications                                    *:ZortexNotifications*
+    Calendar notifications (sent by the server): list the ones the server will
+    send (default), sync send the calendar's to the server now (force resends
+    unchanged), send <title> <message>: one now, through the server. Id:
+    notifications.
 
 FILES ~
 
-:ZortexInit                                                      *:ZortexInit*
-    Create missing key notes (calendar, projects, areas, okr, structure,
-    inbox). Id: init.
+:ZortexImportMarkdown                                  *:ZortexImportMarkdown*
+    Convert a Markdown file, or every one under a folder, to a note next to it
+    (--join flows wrapped lines; ! overwrites). Id: import_markdown.
 
-:ZortexOpenProjects                                      *:ZortexOpenProjects*
-    Open projects.zortex. Keys: <leader>zfp <leader>zP. Id: open_projects.
+:ZortexOpen                                                      *:ZortexOpen*
+    Open a note by its file name, without the extension (projects, calendar,
+    z/garden); the structure note without one. Id: open.
 
-:ZortexOpenAreas                                            *:ZortexOpenAreas*
-    Open areas.zortex. Keys: <leader>zfa. Id: open_areas.
+actions.open_projects                            *zortex-action-open_projects*
+    Open projects.zortex (:ZortexOpen projects). Keys: <leader>zfp. Id:
+    open_projects.
 
-:ZortexOpenOKR                                                *:ZortexOpenOKR*
-    Open okr.zortex. Keys: <leader>zfo. Id: open_okr.
+actions.open_areas                                  *zortex-action-open_areas*
+    Open areas.zortex (:ZortexOpen areas). Keys: <leader>zfa. Id: open_areas.
 
-:ZortexOpenCalendar                                      *:ZortexOpenCalendar*
-    Open calendar.zortex. Keys: <leader>zfc. Id: open_calendar.
+actions.open_okr                                      *zortex-action-open_okr*
+    Open okr.zortex (:ZortexOpen okr). Keys: <leader>zfo. Id: open_okr.
 
-:ZortexOpenStructure                                    *:ZortexOpenStructure*
-    Open structure.zortex. Keys: <leader>zfs. Id: open_structure.
+actions.open_calendar                            *zortex-action-open_calendar*
+    Open calendar.zortex (:ZortexOpen calendar). Keys: <leader>zfc. Id:
+    open_calendar.
 
-:ZortexOpenInbox                                            *:ZortexOpenInbox*
-    Open inbox.zortex. Keys: <leader>zfi. Id: open_inbox.
+actions.open_structure                          *zortex-action-open_structure*
+    Open structure.zortex (:ZortexOpen structure). Keys: <leader>zfs. Id:
+    open_structure.
+
+actions.open_inbox                                  *zortex-action-open_inbox*
+    Open inbox.zortex (:ZortexOpen inbox). Keys: <leader>zfi. Id: open_inbox.
 
 :ZortexPresent                                                *:ZortexPresent*
     Present this note as slides in the web app, from the slide under the
@@ -307,8 +287,9 @@ XP ~
     Id: xp_guide.
 
 :ZortexSeason                                                  *:ZortexSeason*
-    The season: status (default), start [name] [end YYYY-MM-DD] [start
-    YYYY-MM-DD] (prompts without a name), end. Id: season.
+    The season: status (default), start [span] [name] (a span like 3M-2026-Q4;
+    without one it asks, the quarter filled in; adds the season's heading to
+    the OKR note), end. Id: season.
 
 SYSTEM ~
 
@@ -318,11 +299,16 @@ SYSTEM ~
 
 :ZortexDebug                                                    *:ZortexDebug*
     For finding problems: status (default; counts, state directory, timings),
-    logs [n], level <LEVEL>, timers, clear (logs and timers), notifications
-    [provider] (a test through each). Id: debug.
+    logs [n], level <LEVEL>, timers, clear (logs and timers). Id: debug.
 
-:ZortexHelp                                                      *:ZortexHelp*
-    List commands and keys. Keys: <leader>z?. Id: help.
+:Zortex                                                              *:Zortex*
+    Zortex itself: help list commands and keys (default), init create the key
+    notes that are missing (calendar, projects, areas, okr, structure, inbox),
+    reindex rebuild the link index from scratch, refold recompute the folds of
+    this note. Id: zortex.
+
+actions.help                                              *zortex-action-help*
+    List commands and keys (:Zortex). Keys: <leader>z?. Id: help.
 
 KEYS IN ZORTEX BUFFERS AND PICKERS                               *zortex-keys*
 
@@ -431,12 +417,9 @@ setup() merges your options over these defaults: >lua
     {
       notes_dir = vim.fn.expand("~/zortex/"),
       extension = ".zortex",
-      -- A new notes folder gets calendar, projects, areas, okr, structure and
-      -- inbox notes from short templates (:ZortexInit adds missing ones later)
-      init_files = true,
       debug = false,
 
-      -- Commands and keymaps are generated from zortex.actions (:ZortexHelp lists them)
+      -- Commands and keymaps are generated from zortex.actions (:Zortex lists them)
       commands = {
         prefix = "Zortex", -- :ZortexSearch, :ZortexReview, ...
       },
@@ -463,11 +446,13 @@ setup() merges your options over these defaults: >lua
         },
       },
 
-      -- `zortex serve -data DIR` (app/): keeps the calendar's notifications and
-      -- the pomodoro clock, and sends both through ntfy. With a base path the
-      -- endpoint includes it, e.g. "https://zortex.home.lab/notes".
+      -- `zortex serve -data DIR` (app/), running on this computer or elsewhere:
+      -- the web app, the calendar's notifications and the pomodoro clock (both
+      -- sent through ntfy). With a base path the endpoint includes it, e.g.
+      -- "https://zortex.home.lab/notes". false: notes only (no notifications,
+      -- no pomodoro).
       server = {
-        enabled = false,
+        enabled = true,
         api_endpoint = "http://127.0.0.1:8090",
         api_key = nil, -- the server's -api-key / ZORTEX_API_KEY, if set
         user_id = "default",
@@ -489,8 +474,8 @@ setup() merges your options over these defaults: >lua
         -- "INFO" | "HINT"
         diagnostics = { enabled = true, severity = "WARN" },
         -- J in a note drops what only starts a line: the joined line's
-        -- "#"s, "-" (and "[ ]"), "1." or "> ", and the ":" of a label it is
-        -- joined onto. gJ joins as written.
+        -- "#"s, "-" (and "[ ]"), "1." or "> "; a label keeps its ":".
+        -- gJ joins as written.
         join = { enabled = true },
         -- Calendar feeds: `zortex serve -feeds` writes each feed's events
         -- (a Cozi or Google calendar's iCal link) into
@@ -506,79 +491,17 @@ setup() merges your options over these defaults: >lua
         },
       },
 
+      -- Notifications go through the server: every timed line of the calendar
+      -- notifies at its time (@notify(15) adds one 15 minutes before,
+      -- @notify(no) turns it off), and the server sends them, with the
+      -- pomodoro's phase changes, through ntfy (its -ntfy-* flags). The alerts
+      -- it raises also show in Neovim.
       notifications = {
-        -- Global settings
-        enabled = true,
-        check_interval_minutes = 5,
-        default_advance_minutes = 15,
-
-        -- Channel routing
-        channels = {
-          calendar = { "vim", "ntfy" },
-          pomodoro = { "vim", "system" }, -- only "ntfy" when ntfy is enabled (types.pomodoro.ntfy_only)
-          default = { "vim", "ntfy" },
-        },
-
-        -- Provider configuration
-        providers = {
-          vim = {
-            enabled = true,
-            timeout = 5000,
-            level = vim.log.levels.INFO,
-          },
-          system = {
-            enabled = true,
-            commands = {
-              macos = "terminal-notifier -title '%s' -message '%s' -sound default",
-              linux = "notify-send -u normal -t 10000 '%s' '%s'",
-              termux = "termux-notification --title '%s' --content '%s'",
-            },
-          },
-          ntfy = {
-            enabled = false,
-            server_url = "https://ntfy.sh",
-            -- Required: anyone who knows a topic can read it, so pick a
-            -- private, hard-to-guess one. Nothing is sent without it.
-            topic = nil,
-            priority = "default",
-            tags = { "zortex" },
-            auth_token = nil,
-          },
-        },
-
-        types = {
-          -- With server.enabled the clock runs in the server (shared with its
-          -- home page); these settings are pushed to it when they change.
-          pomodoro = {
-            work_duration = 25, -- minutes
-            short_break = 5, -- minutes
-            long_break = 15, -- minutes
-            long_break_after = 4, -- number of work sessions
-            auto_start_break = true,
-            auto_start_work = false,
-            use_server = true, -- false: always run the clock in Neovim
-            ntfy_only = true, -- ntfy enabled: alerts go only through ntfy
-            -- Played locally when alerts don't go through ntfy (paths, or false
-            -- for silence). Unset: freedesktop sounds (macOS: system sounds)
-            -- when present. With ntfy, contrib/ntfy/notify.sh picks the sound
-            -- from the message tags.
-            sounds = {
-              -- work_start = "~/sounds/work.oga",
-              -- break_start = "~/sounds/break.oga",
-              -- restart = "~/sounds/restart.oga",
-              -- work_end = ..., break_end = ...,
-            },
-            -- The player: a program, a string with arguments ("pw-play --volume
-            -- 0.5") or a list ({ "mpv", "--no-video", "%s" }); "%s" is the file,
-            -- else it goes last. Default: paplay (afplay on macOS)
-            sound_command = nil,
-          },
-
-          calendar = {
-            default_advance_minutes = 0,
-            sync_days = 30, -- How many days ahead to scan
-          },
-        },
+        enabled = true, -- send the calendar's notifications to the server
+        advance_minutes = 0, -- minutes before a timed line without @notify(...)
+        days = 30, -- how many days ahead
+        alerts = true, -- show the server's alerts in Neovim
+        poll_seconds = 15, -- how often Neovim asks for them
       },
 
       ui = {
@@ -744,6 +667,9 @@ setup() merges your options over these defaults: >lua
       -- @done dates, projects (a pool paid out over their tasks) and objectives
       -- marked @done. Nothing is stored but seasons; see doc/Planning.md.
       xp = {
+        -- false: no XP, Mastery, seasons or tiers (:ZortexXP, :ZortexSeason and
+        -- their keys go too); @size still weighs progress and the planner
+        enabled = true,
         stamp_done_on_save = true, -- tasks checked by hand get @done(today) on save
         notify_min = 5, -- announce awards of at least this much XP
         publish = true, -- write .z/xp_summary.json (and POST it to server) for the web app's home page
@@ -791,8 +717,8 @@ setup() merges your options over these defaults: >lua
         -- Mastery (area XP) = XP x how the work serves the plan
         alignment = {
           key_result = 1.0, -- a project a key result links (to the objective's areas first)
-          project_area = 0.2, -- a project with its own @a(...), no key result
-          task_area = 0.1, -- a task outside projects with @a(...)
+          project_area = 0.2, -- a project with its own @area(...), no key result
+          task_area = 0.1, -- a task outside projects with @area(...)
         },
 
         -- An award's Mastery share split over its areas, most specific first:
@@ -814,7 +740,6 @@ setup() merges your options over these defaults: >lua
         -- Seasons: progress on the objectives that fall in the season, weighted
         -- by their XP (size x priority x importance)
         season = {
-          default_length = 90, -- days
           -- :ZortexSeason start names seasons "Season 10 Juniper": a number and a
           -- word whose letter moves on with it. A list of your own words, or false
           -- for numbers only. nil: the built-in list (services/okr SEASON_NAMES).
@@ -856,13 +781,16 @@ See README.md (Lua API) for the full list.
 7. SERVER                                                      *zortex-server*
 
 `zortex serve` (Go, one binary) reads the notes folder: rendered notes,
-search, backlinks, the calendar with ntfy notifications, the pomodoro shared
-with Neovim, timers, alarms, a stopwatch and time tracking (`@spent`). Point
-the plugin at it: >lua
+search, backlinks, the calendar's notifications (through ntfy), the
+pomodoro, timers, alarms, a stopwatch and time tracking (`@spent`). The
+plugin expects it running, locally or elsewhere: notifications, the
+pomodoro and the alerts Neovim shows come from it. Its address: >lua
     require("zortex").setup({
-      server = { enabled = true, api_endpoint = "http://127.0.0.1:8090" },
+      server = { api_endpoint = "https://zortex.example.com", api_key = "…" },
     })
 <
+`server = { enabled = false }` leaves it out; the notes, links, projects,
+planning and XP work without it.
 doc/Server.md in the repository covers Docker, NixOS, a proxy with a login
 and ntfy.
 

@@ -66,13 +66,8 @@ function M.pretty(entry)
 		if time_str then
 			table.insert(parts, (entry:is_all_day() and "🗓️" or "🕐") .. " " .. time_str)
 		end
-		local duration, estimated = entry:get_duration()
-		if duration then
-			if estimated then
-				table.insert(parts, "⏱ ~" .. attributes.format_duration(duration))
-			elseif timing.buffer then
-				table.insert(parts, "⏱ +" .. attributes.format_duration(timing.buffer))
-			end
+		if entry:get_duration() and timing.buffer then
+			table.insert(parts, "⏱ +" .. attributes.format_duration(timing.buffer))
 		end
 		if entry:is_deadline() then
 			table.insert(parts, "⚠️ Deadline")
@@ -169,8 +164,6 @@ function M.simple(entry)
 	end
 	if attrs.dur then
 		table.insert(extra, attributes.format_duration(attrs.dur))
-	elseif attrs.est then
-		table.insert(extra, "~" .. (attributes.format_duration(attrs.est)))
 	end
 	if attrs.notify then
 		table.insert(extra, "!")

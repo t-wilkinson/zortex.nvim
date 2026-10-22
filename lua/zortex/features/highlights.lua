@@ -73,6 +73,7 @@ local LINKS = {
 	ZortexQuote = { from = "String", italic = true },
 	ZortexTableSeparator = { from = "Delimiter", bold = true },
 	ZortexTableBorder = "NonText",
+	ZortexRule = "NonText",
 }
 
 local function default_groups()
@@ -147,6 +148,7 @@ local ROSE_PINE = {
 	ZortexQuote = { fg = "#c4a7e7", italic = true },
 	ZortexTableSeparator = { fg = "#908caa", bold = true },
 	ZortexTableBorder = { fg = "#524f67" },
+	ZortexRule = { fg = "#524f67" },
 }
 
 local PRESETS = { ["rose-pine"] = ROSE_PINE }
@@ -456,6 +458,10 @@ local function paint_line(buf, row, line, d, spans)
 		end
 	elseif kind == "quote" then
 		paint(buf, row, "ZortexBlockQuote", 0, #line)
+	elseif kind == "rule" then
+		-- "---" drawn as a line across the text width
+		local width = vim.bo[buf].textwidth > 0 and vim.bo[buf].textwidth or 72
+		overlay(buf, row, 0, string.rep("─", math.max(width, #line)), "ZortexRule")
 	elseif kind == "footnote" then
 		paint(buf, row, "ZortexFootnote", 0, #line:match("^%[%^[^%]]+%]"))
 	end

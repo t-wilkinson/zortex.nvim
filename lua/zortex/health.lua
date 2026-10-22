@@ -80,12 +80,12 @@ function M.check()
 	if #missing == 0 then
 		health.ok("Key notes present (calendar, projects, areas, okr, structure, inbox)")
 	else
-		health.warn("Missing: " .. table.concat(missing, ", "), { ":ZortexInit creates them from short templates" })
+		health.warn("Missing: " .. table.concat(missing, ", "), { "`:Zortex init` creates them from short templates" })
 	end
 
 	health.info("State directory: " .. require("zortex.core.state").path(""):gsub("/%.json$", ""))
 
-	M.check_ntfy(health, Config)
+	M.check_server(health, Config)
 
 	health.start("Zortex integrations")
 	local picker = require("zortex.ui.picker").backend()
@@ -103,28 +103,29 @@ function M.check()
 	end
 end
 
---- ntfy: a topic is required and must be private (anyone who knows a
---- topic on a public server can read it).
-function M.check_ntfy(health, Config)
-	local ntfy = vim.tbl_get(Config, "notifications", "providers", "ntfy")
-	if not (ntfy and ntfy.enabled) then
+--- The server: reachable, with a data folder (notifications, the pomodoro)
+--- and ntfy (alerts on phones and desktops).
+function M.check_server(health, Config)
+	health.start("Zortex server")
+	local server = require("zortex.notifications.server")
+	if not server.enabled() then
+		health.info("server.enabled = false: notes only (no notifications, pomodoro or web app links)")
 		return
 	end
-	health.start("Zortex notifications (ntfy)")
-	local topic = type(ntfy.topic) == "string" and vim.trim(ntfy.topic) or ""
-	if topic == "" then
-		health.warn("ntfy is enabled but has no topic: nothing is sent", {
-			"Set notifications.providers.ntfy.topic to a private, hard-to-guess name",
+	local ok, body, err = server.request_sync("GET", "/healthz", nil, 3)
+	if not ok then
+		health.warn("Not reachable at " .. tostring((Config.server or {}).api_endpoint) .. ": " .. tostring(err), {
+			"Start it: zortex serve -dir " .. Config.notes_dir .. " -data <dir> (doc/Server.md)",
+			"Or point server.api_endpoint at where it runs",
 		})
-	elseif topic == "zortex-notify" and (ntfy.server_url or "https://ntfy.sh"):match("^https?://ntfy%.sh/?$") then
-		health.warn("ntfy topic is zortex-notify on the public ntfy.sh: anyone can read it", {
-			"Pick a private, hard-to-guess topic (and the same in the server's NTFY_TOPIC)",
-		})
-	else
-		health.ok("ntfy topic set (" .. (ntfy.server_url or "https://ntfy.sh") .. ")")
+		return
 	end
-	if type(ntfy.server_url) == "string" and ntfy.server_url:match("^http://") then
-		health.warn("ntfy server_url is plain http: notifications travel unencrypted", { "Use https://" })
+	health.ok(string.format("Reachable: %s notes, %s links", tostring(body.notes), tostring(body.links)))
+	if body.data == false then
+		health.warn("Started without -data: no notifications or pomodoro")
+	end
+	if body.ntfy == false then
+		health.info("No ntfy (-ntfy-url, -ntfy-topic): alerts show in Neovim only")
 	end
 end
 

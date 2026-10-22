@@ -63,10 +63,10 @@ func TestUpdateWritesTheNote(t *testing.T) {
 		`Written by zortex serve from the "cozi" feed; edits here are replaced.`,
 		"",
 		"**2026-10-19:**",
-		"09:00 - 09:30 Piano @n(no)",
+		"09:00 - 09:30 Piano @notify(no)",
 		"",
 		"**2026-10-21:**",
-		"16:00 - 17:00 Soccer (practice) ＠home · Field 3 @n(no)",
+		"16:00 - 17:00 Soccer (practice) ＠home · Field 3 @notify(no)",
 		"",
 		"**2026-10-24:**",
 		"- Camping",
@@ -75,11 +75,11 @@ func TestUpdateWritesTheNote(t *testing.T) {
 		"- Camping",
 		"",
 		"**2026-10-26:**",
-		"09:00 - 09:30 Piano @n(no)",
+		"09:00 - 09:30 Piano @notify(no)",
 		"",
 		"**2026-11-02:**",
 		// 13:00Z repeats at 13:00 UTC: 09:00 EDT, then 08:00 EST from November 1
-		"08:00 - 08:30 Piano @n(no)",
+		"08:00 - 08:30 Piano @notify(no)",
 	}, "\n") + "\n"
 	if got := string(raw); got != want {
 		t.Fatalf("note:\n%s\nwant:\n%s", raw, want)

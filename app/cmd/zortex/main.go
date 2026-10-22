@@ -172,6 +172,7 @@ func serveCmd(args []string) {
 	feedsFile := fs.String("feeds", os.Getenv("ZORTEX_FEEDS"), "JSON file of calendar feeds to fetch into z/feeds/<name>.zortex, e.g. a Cozi family member's iCal URL ($ZORTEX_FEEDS; see doc/Server.md)")
 	shareTokenFile := fs.String("share-token-file", os.Getenv("ZORTEX_SHARE_TOKEN_FILE"), "file holding the token that lets a calendar app subscribe to /calendar.ics?token=… (the calendar's @share lines) without the login ($ZORTEX_SHARE_TOKEN_FILE, or ZORTEX_SHARE_TOKEN)")
 	htmlScripts := fs.Bool("html-scripts", os.Getenv("ZORTEX_HTML_SCRIPTS") == "1" || os.Getenv("ZORTEX_HTML_SCRIPTS") == "true", "let HTML files in the notes folder run JavaScript, sandboxed away from the site ($ZORTEX_HTML_SCRIPTS=1)")
+	xpOn := fs.Bool("xp", os.Getenv("ZORTEX_XP") != "0" && os.Getenv("ZORTEX_XP") != "false", "show XP: the home page's XP panel and season tiers (-xp=false or $ZORTEX_XP=0 turns it off, as Neovim's xp.enabled = false)")
 	_ = fs.Parse(args)
 	if v := os.Getenv("ZORTEX_POLL"); v != "" && !flagSet(fs, "poll") {
 		if d, err := time.ParseDuration(v); err == nil {
@@ -244,6 +245,7 @@ func serveCmd(args []string) {
 		Accounts:   accounts,
 		Feeds:      feedList,
 		ShareToken: shareToken,
+		NoXP:       !*xpOn,
 		Logger:     logger,
 	})
 	if err != nil {

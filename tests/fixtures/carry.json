@@ -102,10 +102,6 @@
         {
           "line": "- [>] Ship the release @id(C0001)",
           "lnum": 5
-        },
-        {
-          "line": "09:00 - [>] Write the notes @id(C0002)",
-          "lnum": 7
         }
       ],
       "from": "2026-09-30",
@@ -113,8 +109,7 @@
         {
           "at": 11,
           "lines": [
-            "- [ ] Ship the release @id(C0001)",
-            "- [ ] Write the notes @id(C0002)"
+            "- [ ] Ship the release @id(C0001)"
           ]
         }
       ],
@@ -246,10 +241,6 @@
         {
           "line": "16:00 [>] Write the report @sm @id(C0001)",
           "lnum": 4
-        },
-        {
-          "line": "17:00 - [>] Call the bank @id(bank1)",
-          "lnum": 5
         }
       ],
       "from": "2026-09-30",
@@ -257,8 +248,7 @@
         {
           "at": 10,
           "lines": [
-            "- [ ] Write the report @sm @id(C0001)",
-            "- [ ] Call the bank @id(bank1)"
+            "- [ ] Write the report @sm @id(C0001)"
           ]
         }
       ],

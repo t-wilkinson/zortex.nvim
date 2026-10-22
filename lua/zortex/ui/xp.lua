@@ -140,7 +140,7 @@ function M.render(data)
 		))
 		hl(l, 0, #b, constants.HIGHLIGHTS.PROGRESS_BAR)
 		if #season.objectives == 0 then
-			add("No objectives in this season: add one under its heading in okr.zortex (## Title @a(…)).")
+			add("No objectives in this season: add one to okr.zortex (## 3M-YYYY-Qn Title @area(…)).")
 		end
 		for _, x in ipairs(season.objectives) do
 			local o = x.objective

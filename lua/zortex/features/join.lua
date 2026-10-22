@@ -9,9 +9,8 @@
 --   - first item      - first item second item  (the joined line's "-",
 --   - second item                                with its "[ ]", or "1.")
 --
---   Label:            Label text under it       (the label's ":" goes,
---   text under it                                "*Long label:*" -> "*Long label*",
---                                                "**Bold:**" -> "**Bold**")
+--   First line:       First line: Second line   (the joined item's "-"; the
+--   - Second line                                label keeps its ":")
 --
 --   > quoted          > quoted more             (the joined line's "> ")
 --   > more
@@ -25,23 +24,6 @@ local M = {}
 local Document = require("zortex.core.document")
 
 local CODE_KINDS = { code = true, fence = true, math = true, math_fence = true }
-
--- The line without its trailing label colon (a label or bold heading that
--- something is joined onto), or nil when it has none to drop.
-local function drop_colon(line, d)
-	if d.kind == "bold_heading" then
-		local s = line:gsub(":%*%*(%s*)$", "**%1", 1)
-		return s
-	end
-	if d.kind ~= "label" then
-		return nil
-	end
-	-- "*A longer label:*"
-	if line:match(":%*$") then
-		return (line:gsub(":%*$", "*"))
-	end
-	return (line:gsub(":$", ""))
-end
 
 -- The line without its start-of-line marker (a line joined onto the one
 -- above), or nil when it has none to drop.
@@ -65,7 +47,8 @@ local function drop_marker(line, d)
 end
 
 --- The text of lines first..last after dropping the markers a join drops
---- (they are then joined by Vim's J). Exposed for tests.
+--- (they are then joined by Vim's J). The first line is kept as written.
+--- Exposed for tests.
 ---@param lines string[] the lines first..last
 ---@param infos table[] their core/syntax descriptors
 ---@return string[]
@@ -76,13 +59,8 @@ function M.prepare(lines, infos)
 		if CODE_KINDS[d.kind] then
 			out[i] = line
 		else
-			-- syntax.classify on the original line: dropping one marker must
-			-- not change what the other rule sees
 			if i > 1 then
 				line = drop_marker(line, d) or line
-			end
-			if i < #lines then
-				line = drop_colon(line, d) or line
 			end
 			out[i] = line
 		end
@@ -141,7 +119,7 @@ function M.attach(buf)
 		pending = math.max(vim.v.count1, 2)
 		vim.o.operatorfunc = "v:lua.require'zortex.features.join'.operator"
 		vim.api.nvim_feedkeys("g@$", "n", false)
-	end, { buffer = buf, silent = true, desc = "Zortex: join lines (drops #, -, > and a label's :)" })
+	end, { buffer = buf, silent = true, desc = "Zortex: join lines (drops the joined lines' #, - and >)" })
 	vim.keymap.set("x", "J", function()
 		local a, b = vim.fn.line("v"), vim.fn.line(".")
 		if a > b then
@@ -149,7 +127,7 @@ function M.attach(buf)
 		end
 		vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "nx", false)
 		M.join(a, b - a + 1)
-	end, { buffer = buf, silent = true, desc = "Zortex: join lines (drops #, -, > and a label's :)" })
+	end, { buffer = buf, silent = true, desc = "Zortex: join lines (drops the joined lines' #, - and >)" })
 end
 
 return M

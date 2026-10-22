@@ -83,6 +83,7 @@ let
   ]
   ++ optionals web.writable [ "-writable" ]
   ++ optionals web.htmlScripts [ "-html-scripts" ]
+  ++ optionals (!web.xp) [ "-xp=false" ]
   ++ optionals (web.resourceExtensions != null) [
     "-resources"
     (concatStringsSep "," web.resourceExtensions)
@@ -395,6 +396,15 @@ in
           viewer. Scripts run in a sandbox with an opaque origin: they can't
           read the site's pages or files, and POSTs they send are
           refused. Only turn it on if you trust the HTML files you sync.
+        '';
+      };
+
+      xp = mkOption {
+        type = types.bool;
+        default = true;
+        description = ''
+          Show XP, the season and its tiers (the home page, /okr, the
+          weekly review). Set it as in Neovim (xp.enabled).
         '';
       };
 

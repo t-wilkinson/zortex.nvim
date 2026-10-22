@@ -223,14 +223,6 @@ function M.edit_line(line, op, opts)
 		end
 		local before, after = line:sub(1, task.mark_col), line:sub(task.mark_col + 4)
 		after = after:gsub("^ ", "", 1)
-		-- "16:00 - [ ] Task" -> "16:00 Task": the dash goes with the box
-		local it = require("zortex.core.syntax").item(line)
-		if it and it.marker_type == "time" then
-			local t = before:gsub("[ \t]+$", "")
-			if t:sub(-1) == "-" and #t > it.marker_col + #it.marker then
-				before = t:sub(1, -2):gsub("[ \t]+$", "") .. " "
-			end
-		end
 		return attributes.remove_attribute(before .. after, "done")
 	end
 	if op ~= "open" and op ~= "done" and op ~= "toggle" then
@@ -669,14 +661,6 @@ end
 
 function M.toggle_current_task()
 	return at_cursor(nil)
-end
-
-function M.complete_current_task()
-	return at_cursor(true)
-end
-
-function M.uncomplete_current_task()
-	return at_cursor(false)
 end
 
 return M

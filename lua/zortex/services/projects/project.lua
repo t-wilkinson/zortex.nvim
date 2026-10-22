@@ -7,7 +7,7 @@
 -- projects therefore have their own tasks too.
 --
 -- A heading with no task in its own content (done or not) and no project
--- attribute (@size, @p, @i, @due, @done, @xp, @dur, @est, @a, @someday) is
+-- attribute (@size, @p, @i, @due, @done, @xp, @dur, @a, @someday) is
 -- an organizational heading, not a project: it only groups the projects
 -- under it, which become sub-projects of the nearest project above. It still
 -- names them (their key and link go through it). Linking it (from a key
@@ -103,7 +103,7 @@ end
 --- Whether a heading of a project note is a project: it has a task (done or
 --- not) of its own, or a project attribute, or it is linked (from outside
 --- it) and has projects under it. Bare tags (@rust, for @[...] tag links)
---- and the derived @progress don't count.
+--- don't count.
 ---@param node table core/section heading
 ---@param doc table core/document
 ---@return boolean
@@ -116,7 +116,7 @@ function is_project_heading(node, doc, ctx)
 	local yes = false
 	local attrs = attributes.parse_project_attributes(doc.lines[node.start_line] or "")
 	for key in pairs(attrs) do
-		if key ~= "tags" and key ~= "progress" then
+		if key ~= "tags" then
 			yes = true
 		end
 	end

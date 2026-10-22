@@ -168,7 +168,7 @@ T.test("weekly review keys: L, R, n, z, a, p", function()
 		press("p", target, "Pick up running")
 		local projects = read(fs.get_projects_file())
 		T.ok(vim.iter(projects):any(function(l)
-			return l:match("^# Pick up running @a%(") ~= nil
+			return l:match("^# Pick up running @area%(") ~= nil
 		end), table.concat(projects, "\n"))
 	end)
 end)
@@ -177,7 +177,7 @@ T.test("daily review keys: x, d, t, a", function()
 	with_notes(function(proj)
 		local cal = fs.get_calendar_file()
 		local c = read(cal)
-		vim.list_extend(c, { "", "**" .. TODAY .. ":**", "14:00 - [ ] Write the notes" })
+		vim.list_extend(c, { "", "**" .. TODAY .. ":**", "14:00 [ ] Write the notes" })
 		-- a project task due today: listed under "Due today and tomorrow"
 		local p = read(proj)
 		p[5] = "- [ ] Dig the beds @due(" .. TODAY .. ")"
@@ -198,10 +198,10 @@ T.test("daily review keys: x, d, t, a", function()
 		press("t", "Write the notes", "")
 		local after = read(cal)
 		T.ok(vim.iter(after):any(function(l)
-			return l:match("^14:00 %- %[>%] Write the notes @id%(") ~= nil
+			return l:match("^14:00 %[>%] Write the notes @id%(") ~= nil
 		end), table.concat(after, "\n"))
 		local tomorrow = vim.fn.index(after, "**2026-10-12:**") + 1
-		T.ok(tomorrow > 0 and after[tomorrow + 1]:match("^14:00 %- %[ %] Write the notes @id%("), table.concat(after, "\n"))
+		T.ok(tomorrow > 0 and after[tomorrow + 1]:match("^14:00 %[ %] Write the notes @id%("), table.concat(after, "\n"))
 
 		-- a: a finished task on neither a key result nor an area goes to
 		-- z/archive.tasks.zortex

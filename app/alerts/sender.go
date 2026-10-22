@@ -7,6 +7,9 @@ import (
 )
 
 // Sender delivers due notifications through ntfy. Run it in a goroutine.
+// OnFire, when set, is called with every notification as it comes due
+// (sent through ntfy or not; not one skipped for being too late), so the
+// server can pass it on (GET /api/alerts, which Neovim shows).
 type Sender struct {
 	Store    *Store
 	Ntfy     *Ntfy
@@ -18,6 +21,7 @@ type Sender struct {
 	KeepSent  time.Duration // default 7 days
 	KeepStale time.Duration // pending but long overdue; default 30 days
 	Logger    *log.Logger
+	OnFire    func(Notification)
 
 	kick chan struct{}
 }
@@ -77,6 +81,12 @@ func (s *Sender) Run(ctx context.Context) {
 	}
 }
 
+func (s *Sender) fire(n Notification) {
+	if s.OnFire != nil {
+		s.OnFire(n)
+	}
+}
+
 // SendDue sends every notification due at now. Returns how many were sent.
 func (s *Sender) SendDue(ctx context.Context, now time.Time) int {
 	s.defaults()
@@ -91,6 +101,7 @@ func (s *Sender) SendDue(ctx context.Context, now time.Time) int {
 		if !s.Ntfy.Enabled() {
 			// Nothing to deliver through: keep the calendar view accurate
 			_ = s.Store.MarkSent(n.ID, now, true)
+			s.fire(n)
 			continue
 		}
 		err := s.Ntfy.Publish(ctx, Message{Title: n.Title, Message: n.Message, Priority: n.Priority, Tags: n.Tags})
@@ -99,6 +110,7 @@ func (s *Sender) SendDue(ctx context.Context, now time.Time) int {
 			continue // retried on the next tick
 		}
 		_ = s.Store.MarkSent(n.ID, now, false)
+		s.fire(n)
 		sent++
 	}
 	return sent

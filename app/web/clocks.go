@@ -32,10 +32,11 @@ type clocksView struct {
 func (s *Server) announceClock(e clocks.Event) {
 	s.events.publish("clocks", map[string]any{"event": e.Kind, "id": e.ID})
 	s.trackSync()
+	title, body, tags := clocks.Message(e)
+	s.fired.add("clock", title, body, time.Now())
 	if !s.cfg.Ntfy.Enabled() {
 		return
 	}
-	title, body, tags := clocks.Message(e)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	if err := s.cfg.Ntfy.Publish(ctx, alerts.Message{Title: title, Message: body, Priority: "high", Tags: tags}); err != nil {

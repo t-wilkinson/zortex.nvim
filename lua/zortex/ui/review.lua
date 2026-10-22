@@ -393,12 +393,15 @@ function M.render_plan(r, add, section, opts)
 	add("")
 	add("# Plan")
 	add("")
-	add("## XP (" .. require("zortex.services.xp.calculator").unit_text() .. ")")
-	local sl = season_line(r.season)
-	if sl then
-		add(sl)
+	local xp_on = require("zortex.services.xp.calculator").enabled()
+	if xp_on then
+		add("## XP (" .. require("zortex.services.xp.calculator").unit_text() .. ")")
+		local sl = season_line(r.season)
+		if sl then
+			add(sl)
+		end
+		add(xp_line(r.xp))
 	end
-	add(xp_line(r.xp))
 	if opts.brief then
 		-- the weekly review has them top down (render_top_down)
 		if r.time and r.time.minutes > 0 then
@@ -804,7 +807,7 @@ function M.add_key_result()
 	end)
 end
 
--- The @a(...) value that names `area`: its heading ("1.2 Vitality"), or
+-- The @area(...) value that names `area`: its heading ("1.2 Vitality"), or
 -- "<heading>/<label>" for a label
 local function area_value(area)
 	if area.kind == "heading" or not area.parent or area.parent:is_root() then
@@ -814,7 +817,7 @@ local function area_value(area)
 end
 
 --- p: start a project for the area (a heading at the end of the projects
---- note, with @a(...)).
+--- note, with @area(...)).
 function M.new_project()
 	local e = entity_here()
 	local area = e and e.area
@@ -825,7 +828,7 @@ function M.new_project()
 	ask("New project for " .. area.name .. ": ", nil, function(text)
 		fix("new project", { path }, function()
 			local lines = ws().get_lines(path)
-			local add = { "# " .. text .. " @a(" .. area_value(area) .. ")", "- [ ] " }
+			local add = { "# " .. text .. " @area(" .. area_value(area) .. ")", "- [ ] " }
 			if lines[#lines] and lines[#lines]:match("%S") then
 				table.insert(add, 1, "")
 			end

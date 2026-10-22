@@ -218,14 +218,11 @@ function M.item(line)
 			end
 		end
 	elseif item.marker_type == "time" then
-		-- a timed task: "16:00 [ ] Task", "16:00 - 17:00 [ ] Task", also
-		-- "16:00 - [ ] Task"
-		local text = line:sub(col + 1)
-		local dash = text:match("^%-%s+%[") and #text:match("^%-%s+") or 0
-		local mark, n = match_checkbox(text:sub(dash + 1))
+		-- a timed task: "16:00 [ ] Task", "16:00 - 17:00 [ ] Task"
+		local mark, n = match_checkbox(line:sub(col + 1))
 		if mark then
-			item.mark, item.mark_col = mark, col + dash
-			col = col + dash + n
+			item.mark, item.mark_col = mark, col
+			col = col + n
 		end
 	end
 	item.content_col = col
@@ -253,10 +250,12 @@ local function star_label(body)
 	return body:match("^%*([^*%s][^*]*):%*$")
 end
 
--- The old rule: any "Text:" line (no other colon, no ". "), whatever its length
+-- A "Text:" line: no other colon, no sentence (". "), and not bold or
+-- italic text before the colon ("**Bold**:" is text; a bold heading has its
+-- colon inside: "**Bold:**")
 local function colon_line(line)
 	local text = line:match("^([^:]+):$")
-	return text ~= nil and not text:find("%.%s")
+	return text ~= nil and not text:find("%.%s") and not text:find("%*$")
 end
 
 -- `body`: the line after its indent (and "- " for "- Label:")
@@ -265,17 +264,6 @@ local function is_label(line, body)
 		return true
 	end
 	return colon_line(line) and word_count(M.strip_attributes(body:sub(1, -2))) <= M.MAX_LABEL_WORDS
-end
-
---- A "Text:" line that is not a label because it has more than
---- MAX_LABEL_WORDS words (it would have been one before labels were
---- limited): :ZortexLongLabels lists them.
-function M.is_long_label(line)
-	if not colon_line(line) then
-		return false
-	end
-	local d = M.classify(line)
-	return d.kind == "text" or (d.kind == "item" and not d.item.mark)
 end
 
 local function count(s, ch)
@@ -344,6 +332,11 @@ function M.classify(line)
 			content_col = 2,
 			content_end = colon - 1,
 		}
+	end
+
+	-- "---": a rule, a separator (a slide break in a deck)
+	if line:match("^%-%-%-+%s*$") then
+		return { kind = "rule", indent = 0, content_col = 0 }
 	end
 
 	local fid = line:match("^%[%^([%w_.%-]+)%]:")

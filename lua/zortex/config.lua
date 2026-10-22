@@ -5,12 +5,9 @@ local constants = require("zortex.constants")
 local defaults = {
 	notes_dir = vim.fn.expand("~/zortex/"),
 	extension = ".zortex",
-	-- A new notes folder gets calendar, projects, areas, okr, structure and
-	-- inbox notes from short templates (:ZortexInit adds missing ones later)
-	init_files = true,
 	debug = false,
 
-	-- Commands and keymaps are generated from zortex.actions (:ZortexHelp lists them)
+	-- Commands and keymaps are generated from zortex.actions (:Zortex lists them)
 	commands = {
 		prefix = "Zortex", -- :ZortexSearch, :ZortexReview, ...
 	},
@@ -37,11 +34,13 @@ local defaults = {
 		},
 	},
 
-	-- `zortex serve -data DIR` (app/): keeps the calendar's notifications and
-	-- the pomodoro clock, and sends both through ntfy. With a base path the
-	-- endpoint includes it, e.g. "https://zortex.home.lab/notes".
+	-- `zortex serve -data DIR` (app/), running on this computer or elsewhere:
+	-- the web app, the calendar's notifications and the pomodoro clock (both
+	-- sent through ntfy). With a base path the endpoint includes it, e.g.
+	-- "https://zortex.home.lab/notes". false: notes only (no notifications,
+	-- no pomodoro).
 	server = {
-		enabled = false,
+		enabled = true,
 		api_endpoint = "http://127.0.0.1:8090",
 		api_key = nil, -- the server's -api-key / ZORTEX_API_KEY, if set
 		user_id = "default",
@@ -63,8 +62,8 @@ local defaults = {
 		-- "INFO" | "HINT"
 		diagnostics = { enabled = true, severity = "WARN" },
 		-- J in a note drops what only starts a line: the joined line's
-		-- "#"s, "-" (and "[ ]"), "1." or "> ", and the ":" of a label it is
-		-- joined onto. gJ joins as written.
+		-- "#"s, "-" (and "[ ]"), "1." or "> "; a label keeps its ":".
+		-- gJ joins as written.
 		join = { enabled = true },
 		-- Calendar feeds: `zortex serve -feeds` writes each feed's events
 		-- (a Cozi or Google calendar's iCal link) into
@@ -80,79 +79,17 @@ local defaults = {
 		},
 	},
 
+	-- Notifications go through the server: every timed line of the calendar
+	-- notifies at its time (@notify(15) adds one 15 minutes before,
+	-- @notify(no) turns it off), and the server sends them, with the
+	-- pomodoro's phase changes, through ntfy (its -ntfy-* flags). The alerts
+	-- it raises also show in Neovim.
 	notifications = {
-		-- Global settings
-		enabled = true,
-		check_interval_minutes = 5,
-		default_advance_minutes = 15,
-
-		-- Channel routing
-		channels = {
-			calendar = { "vim", "ntfy" },
-			pomodoro = { "vim", "system" }, -- only "ntfy" when ntfy is enabled (types.pomodoro.ntfy_only)
-			default = { "vim", "ntfy" },
-		},
-
-		-- Provider configuration
-		providers = {
-			vim = {
-				enabled = true,
-				timeout = 5000,
-				level = vim.log.levels.INFO,
-			},
-			system = {
-				enabled = true,
-				commands = {
-					macos = "terminal-notifier -title '%s' -message '%s' -sound default",
-					linux = "notify-send -u normal -t 10000 '%s' '%s'",
-					termux = "termux-notification --title '%s' --content '%s'",
-				},
-			},
-			ntfy = {
-				enabled = false,
-				server_url = "https://ntfy.sh",
-				-- Required: anyone who knows a topic can read it, so pick a
-				-- private, hard-to-guess one. Nothing is sent without it.
-				topic = nil,
-				priority = "default",
-				tags = { "zortex" },
-				auth_token = nil,
-			},
-		},
-
-		types = {
-			-- With server.enabled the clock runs in the server (shared with its
-			-- home page); these settings are pushed to it when they change.
-			pomodoro = {
-				work_duration = 25, -- minutes
-				short_break = 5, -- minutes
-				long_break = 15, -- minutes
-				long_break_after = 4, -- number of work sessions
-				auto_start_break = true,
-				auto_start_work = false,
-				use_server = true, -- false: always run the clock in Neovim
-				ntfy_only = true, -- ntfy enabled: alerts go only through ntfy
-				-- Played locally when alerts don't go through ntfy (paths, or false
-				-- for silence). Unset: freedesktop sounds (macOS: system sounds)
-				-- when present. With ntfy, contrib/ntfy/notify.sh picks the sound
-				-- from the message tags.
-				sounds = {
-					-- work_start = "~/sounds/work.oga",
-					-- break_start = "~/sounds/break.oga",
-					-- restart = "~/sounds/restart.oga",
-					-- work_end = ..., break_end = ...,
-				},
-				-- The player: a program, a string with arguments ("pw-play --volume
-				-- 0.5") or a list ({ "mpv", "--no-video", "%s" }); "%s" is the file,
-				-- else it goes last. Default: paplay (afplay on macOS)
-				sound_command = nil,
-			},
-
-			calendar = {
-				default_advance_minutes = 0,
-				sync_days = 30, -- How many days ahead to scan
-			},
-		},
+		enabled = true, -- send the calendar's notifications to the server
+		advance_minutes = 0, -- minutes before a timed line without @notify(...)
+		days = 30, -- how many days ahead
+		alerts = true, -- show the server's alerts in Neovim
+		poll_seconds = 15, -- how often Neovim asks for them
 	},
 
 	ui = {
@@ -318,6 +255,9 @@ local defaults = {
 	-- @done dates, projects (a pool paid out over their tasks) and objectives
 	-- marked @done. Nothing is stored but seasons; see doc/Planning.md.
 	xp = {
+		-- false: no XP, Mastery, seasons or tiers (:ZortexXP, :ZortexSeason and
+		-- their keys go too); @size still weighs progress and the planner
+		enabled = true,
 		stamp_done_on_save = true, -- tasks checked by hand get @done(today) on save
 		notify_min = 5, -- announce awards of at least this much XP
 		publish = true, -- write .z/xp_summary.json (and POST it to server) for the web app's home page
@@ -365,8 +305,8 @@ local defaults = {
 		-- Mastery (area XP) = XP x how the work serves the plan
 		alignment = {
 			key_result = 1.0, -- a project a key result links (to the objective's areas first)
-			project_area = 0.2, -- a project with its own @a(...), no key result
-			task_area = 0.1, -- a task outside projects with @a(...)
+			project_area = 0.2, -- a project with its own @area(...), no key result
+			task_area = 0.1, -- a task outside projects with @area(...)
 		},
 
 		-- An award's Mastery share split over its areas, most specific first:
@@ -388,7 +328,6 @@ local defaults = {
 		-- Seasons: progress on the objectives that fall in the season, weighted
 		-- by their XP (size x priority x importance)
 		season = {
-			default_length = 90, -- days
 			-- :ZortexSeason start names seasons "Season 10 Juniper": a number and a
 			-- word whose letter moves on with it. A list of your own words, or false
 			-- for numbers only. nil: the built-in list (services/okr SEASON_NAMES).

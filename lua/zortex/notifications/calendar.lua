@@ -1,7 +1,13 @@
--- notifications/types/calendar.lua - Calendar sync using unified scheduler
+-- notifications/calendar.lua - The calendar's notifications, sent to the server
+--
+-- Every timed line of the calendar notifies at its time (@notify(15) adds
+-- one 15 minutes before; @notify(no) turns it off). collect() lists them
+-- for the next `days`, and sync() hands them to `zortex serve`, which sends
+-- them through ntfy when they are due (and Neovim shows them as they fire:
+-- notifications/init.lua). Nothing is sent when the set is the one the
+-- server already has.
 local M = {}
 
-local manager = require("zortex.notifications.manager")
 local datetime = require("zortex.utils.datetime")
 local calendar_store = require("zortex.stores.calendar")
 local store = require("zortex.stores.notifications")
@@ -12,7 +18,7 @@ local cfg = {}
 
 -- Minutes before the entry to notify: @notify(10, 60) -> { 10, 60 };
 -- @notify(no) -> nil; none -> the configured default (0: at the time).
--- "end" among the values (@n(0, 30, end)) also notifies when a time range
+-- "end" among the values (@notify(0, 30, end)) also notifies when a time range
 -- ends; without it only the start notifies. Returns minutes, at_end.
 local function parse_notify_value(notify_attr)
 	if notify_attr == "no" or notify_attr == false then
@@ -28,7 +34,7 @@ local function parse_notify_value(notify_attr)
 		end
 	end
 	if #out == 0 then
-		out[1] = tonumber(cfg.default_advance_minutes) or 0
+		out[1] = tonumber(cfg.advance_minutes) or 0
 	end
 	return out, at_end
 end
@@ -116,7 +122,7 @@ function M.collect(now)
 		end
 	end
 
-	for day_offset = 0, cfg.sync_days or 30 do
+	for day_offset = 0, cfg.days or 30 do
 		local date_str = datetime.format_datetime(datetime.add_days(today, day_offset), "YYYY-MM-DD")
 		for _, entry in ipairs(calendar_store.get_entries_for_date(date_str)) do
 			local notify_values, at_end = parse_notify_value(entry.attributes.notify)
@@ -188,85 +194,42 @@ local function report(opts, msg)
 	end
 end
 
---- Sync calendar notifications to the server (Config.server) or, without
---- one, schedule them locally. Nothing is sent, and nobody is notified, when
---- the notifications are the same as the last successful sync.
+--- Send the calendar's notifications to the server (Config.server).
+--- Nothing is sent, and nobody is notified, when they are the same as the
+--- last successful sync.
 ---@param opts { force?: boolean, silent?: boolean, on_done?: fun(msg: string) }?
 ---@return integer count, boolean changed
 function M.sync(opts)
 	opts = opts or {}
-	local notifications = M.collect()
 	local server = require("zortex.notifications.server")
-	local target = server.enabled() and "server" or "local"
-
-	if not opts.force and not M.changed(notifications, target) then
+	if not server.enabled() then
+		report(opts, "Calendar notifications need `zortex serve` (Config.server)")
+		return 0, false
+	end
+	local notifications = M.collect()
+	if not opts.force and not M.changed(notifications, "server") then
 		Logger.debug("calendar", "sync skipped: unchanged", { count = #notifications })
-		if opts.on_done then
-			opts.on_done(string.format("Calendar unchanged (%d notifications)", #notifications))
-		end
+		report(opts, string.format("Calendar unchanged (%d notifications)", #notifications))
 		return #notifications, false
 	end
-
-	if target == "server" then
-		require("zortex.notifications.providers.server").sync(notifications, nil, function(ok, res, err)
-			if ok then
-				remember(notifications, "server")
-				local r = res or {}
-				report(opts, string.format("Calendar synced: %d notifications (%d added, %d updated, %d removed)", #notifications, r.added or 0, r.updated or 0, r.removed or 0))
-			else
-				Logger.error("calendar", "Failed to sync to server: " .. tostring(err))
-				M.sync_local(notifications)
-				remember(notifications, "local")
-				report(opts, "Server unreachable (" .. tostring(err) .. "); scheduled locally")
-			end
-		end)
-	else
-		M.sync_local(notifications)
-		remember(notifications, "local")
-		report(opts, string.format("Calendar: %d notifications scheduled", #notifications))
-	end
+	server.send_calendar(notifications, function(ok, res, err)
+		if ok then
+			remember(notifications, "server")
+			local r = res or {}
+			report(opts, string.format("Calendar synced: %d notifications (%d added, %d updated, %d removed)", #notifications, r.added or 0, r.updated or 0, r.removed or 0))
+		else
+			Logger.error("calendar", "Failed to sync to server: " .. tostring(err))
+			report(opts, "Server unreachable: " .. tostring(err))
+		end
+	end)
 	return #notifications, true
 end
 
---- Schedule calendar notifications with the local manager, replacing the
---- calendar notifications it already holds (moved or removed entries).
-function M.sync_local(notifications)
-	local wanted = {}
-	for _, n in ipairs(notifications) do
-		wanted[n.deduplication_key] = n
-	end
-	for _, existing in ipairs(manager.list_scheduled({ type = "calendar" })) do
-		local key = existing.options and existing.options.deduplication_key
-		local n = key and wanted[key]
-		if not n or n.trigger_time ~= existing.trigger_time or n.message ~= existing.message then
-			manager.cancel_notification(existing.id)
-		end
-	end
-
-	local scheduled_count = 0
-	for _, notification in ipairs(notifications) do
-		local id = manager.schedule_notification({
-			title = notification.title,
-			message = notification.message,
-			trigger_time = notification.trigger_time,
-			type = "calendar",
-			options = {
-				priority = notification.priority,
-				deduplication_key = notification.deduplication_key,
-				entry_text = notification.entry_text,
-				tags = notification.tags,
-			},
-		})
-		if id then
-			scheduled_count = scheduled_count + 1
-		end
-	end
-	return scheduled_count
-end
-
--- Setup
 function M.setup(opts)
-	cfg = opts
+	cfg = opts or {}
+	if not require("zortex.notifications.server").enabled() then
+		return
+	end
 
 	-- Initial sync (skipped when nothing changed since the last one)
 	vim.defer_fn(function()

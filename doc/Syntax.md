@@ -17,7 +17,7 @@ this page ever disagree, the test fails.
 @size(lg)
 
 # 1 Programming @p1
-## 1.4 - zortex @a(4.1)
+## 1.4 - zortex @area(4.1)
 **Next steps:**
 Ideas:
 - [ ] Write the server guide @size(sm) @due(2026-10-20)
@@ -32,7 +32,7 @@ itself; `z/` holds resources (PDFs, images, books) and archives
 **Header.** The note starts with its header: `@@Name` lines (the first is
 the article name, the rest are aliases) and `@Tag` lines. Blank lines are
 skipped; the header ends at the first other line. A header line like
-`@size(lg)` or `@a(4.1)` is an attribute of the whole note: a standalone
+`@size(lg)` or `@area(4.1)` is an attribute of the whole note: a standalone
 project's size, or its area.
 
 **Sections.** Headings, bold headings and labels open sections. Each has a
@@ -61,7 +61,7 @@ Nothing inside a code or math block is structure.
 | `#NotHeading` | `text` | the space is required |
 | `**Bold heading:**` | `bold_heading` | the colon is inside the closing `**`; only spaces may follow |
 | `**Not a heading**` | `text` | no colon: just bold text |
-| `**Old style**:` | `label` | the colon outside: a label whose text is bold |
+| `**Bold then colon**:` | `text` | the colon outside the stars: bold text, not a label |
 | `Label:` | `label` | text ending in `:` |
 | `Three word label:` | `label` | up to three words (`@attributes` don't count) |
 | `A line of four words:` | `text` | longer, it is a sentence ending in a colon, not a label |
@@ -85,12 +85,13 @@ Nothing inside a code or math block is structure.
 | `14:00 Timed entry [Flipping]` | `item` | a time item (calendar events) |
 | `16:00 - 17:00 Ranged entry` | `item` | a time range |
 | `16:00 [ ] timed task` | `item` | a timed task: a checkbox after the time (or the range, `16:00 - 17:00 [x] timed range task`) |
-| `16:00 - [ ] dashed timed task` | `item` | a timed task written with a dash; toggling keeps the form, making it text drops the dash too |
 | `16:00 - not a [ ] task` | `item` | a time item whose text has brackets later on, not a task |
 | `- 09:00 Bulleted time` | `item` | a bullet whose text starts with a time (not a time item) |
 | `09:00-10:30x not a range` | `text` | |
 | `\| col a \| col b \|` | `table` | rows start and end with `\|` |
 | `> a quote` | `quote` | `> ` and a space |
+| `---` | `rule` | three or more dashes alone on a line: a separator, a slide break in a deck ([slides](Web.md#slides)) |
+| `--- not a rule` | `text` | nothing may follow the dashes; `***` and `- - -` aren't rules either |
 | `\| not a quote` | `text` | `\|` without a closing `\|` is text |
 | `>not quote` | `text` | the space is required |
 | `` ```lua `` | `fence` | ` ``` ` or `~~~` fences; the closing fence uses the same character |
@@ -125,24 +126,33 @@ a span inside code.
 
 ## Attributes
 
-Attributes are `@key(value)` or bare `@word`. These are understood (tasks,
-projects, calendar entries):
+Attributes are `@key(value)` or bare `@word`. This reference writes each
+in full; most have a short form that means the same:
+
+| Written in full | Short |
+|---|---|
+| `@area(4.1)` | `@a(4.1)` |
+| `@notify(15)` | `@n(15)` |
+| `@size(sm)` | `@sm` |
+| `@dur(90m)` | `@90m` |
+| `@p(1)`, `@i(1)` | `@p1`, `@i1` |
+
+These are understood (tasks, projects, calendar entries):
 
 | Attribute | Meaning |
 |---|---|
 | `@id(4Fz9q)` | a task's id (added when a task is created); the same `@id` in the calendar and a project note is one task ([Planning](Planning.md#the-day-on-the-calendar)) |
 | `@done(2026-10-12)` | when a task was completed |
 | `@due(2026-10-20)` | due date |
-| `@p1` `@p2` `@p3`, `@i1` … `@i3` | priority, importance |
-| `@size(xs)` … `@size(5xl)`, or `@sm`, `@lg`, … | task size (projects also `epic`, `legendary`, `mythic`, `ultimate`); sizes weigh XP |
-| `@a(4.1)`, `@area(1.2/Fitness)` | area link: `4.1` is `[A/#4.1]`, `1.2/Fitness` is `[A/#1.2/:Fitness]`; comma-separated for several |
+| `@p1` `@p2` `@p3`, `@i1` … `@i3` | priority, importance (`@p(1)` is the same) |
+| `@size(xs)` … `@size(5xl)` | task size (projects also `epic`, `legendary`, `mythic`, `ultimate`); sizes weigh XP |
+| `@area(4.1)`, `@area(1.2/Fitness)` | area link: `4.1` is `[A/#4.1]`, `1.2/Fitness` is `[A/#1.2/:Fitness]`; comma-separated for several |
 | `@project(1.4)`, `@project(1/1.4)`, `@project(P/#Kitchen)` | the project a line belongs to (`1.4` is `[P/#1.4]`): `m` in the daily review moves it there, dropping the attribute |
-| `@progress(3/5)` | a project's progress (written back on request) |
 | `@someday` | a project parked on purpose: not listed as stale or unscheduled (`z` in the weekly review toggles it) |
 | `@xp(500)` | a project's XP pool |
-| `@2h`, `@dur(90m)`, `@est(3h)` | duration and estimate |
+| `@dur(90m)`, `@dur(2h)` | how long it takes (a calendar entry's length, a task's minutes in the planner) |
 | `@spent(1h25m)` | time worked on it, added by the web app's clocks ([time tracking](Web.md#time-tracking)) |
-| `@notify(15)`, `@n(0, 30)`, `@n(0, end)` | calendar: notify minutes before the start (several allowed; every timed line notifies at its time by default, `@n(no)` turns it off); `end` also notifies when a range ends |
+| `@notify(15)`, `@notify(0, 30)`, `@notify(0, end)` | calendar: notify minutes before the start (several allowed; every timed line notifies at its time by default, `@notify(no)` turns it off); `end` also notifies when a range ends |
 | `@event` | calendar: something fixed that you plan around (an appointment, a flight), not a block you planned; the web month grid marks its day, and it is listed under "Coming up" (as are timed lines and calendar notes that don't link a project) |
 | `@share` | calendar: the line is in the server's `/calendar.ics`, which other calendars (Cozi, Google, Apple) subscribe to; nothing else of the calendar is ([Other calendars](Server.md#6-other-calendars)) |
 | `@free` | calendar: a timed line that doesn't take your time: the planner's capacity line doesn't count it as busy (a calendar feed with `busy: false` writes it) |
@@ -317,12 +327,12 @@ Topics:
 |---|---|---|
 | `projects.zortex` | `@@Projects` / `@@P` | headings are projects and sub-projects; checkbox items are their tasks. A heading with no task of its own and no project attribute only groups the projects under it, unless it is linked ([Planning](Planning.md)). Any note tagged `@P` is a project too |
 | `areas.zortex` | `@@Areas` / `@@A` | headings and labels are areas (`# 1 Personal`, `## 1.2 Health`, `Fitness:`) |
-| `okr.zortex` | `@@Objectives` / `@@OKR` | headings under a season heading (`# 2026-Q4 Season 10`) are objectives, as are headings like `## 3M-2026-Q1 Title`; `- KRn: [ ] …` items are key results; project links on a KR drive its progress |
+| `okr.zortex` | `@@Objectives` / `@@OKR` | headings `## SPAN Title` and deeper are objectives (`## 3M-2026-Q4 Ship the release`: the span sets its window, see [Planning](Planning.md#the-plan)); top-level headings group them, like the season's (`# 3M-2026-Q4 Season 10 Juniper`, added by `:ZortexSeason start`); `- KRn: [ ] …` items are key results; project links on a KR drive its progress |
 | `calendar.zortex` | `@@Calendar` | days with entries under them: `**YYYY-MM-DD:**` (a bold heading, what new days get, so an `Outcomes:` label nests under it) or a plain `YYYY-MM-DD:` label; entries `- [ ] task`, `14:00 event`, `16:00 - 17:00 event`, `- note`. The items right under `Outcomes:` (to the first blank line) are the day's outcomes |
 | `structure.zortex` | `@@Structure` | links to your notes; notes nothing here links to are listed as unlinked. A note tagged `@Structure` adds all its links; a note with a top-level `# Structure` heading adds the links in that section: its own sub-notes, so a hub note can own its part of the tree |
 | `inbox.zortex` | `@@Inbox` | tasks and notes added from the web app |
-| `z/feeds/<name>.zortex` | `@@<title>`, tagged `@CalendarFeed` | written by the server from another calendar's iCal link ([Other calendars](Server.md#6-other-calendars)): days as in `calendar.zortex`, one line per event (`16:00 - 17:00 Soccer · Field 3 @n(no)`, `- Camping` for an all-day one). The calendar shows them read-only; edits are replaced on the next change |
+| `z/feeds/<name>.zortex` | `@@<title>`, tagged `@CalendarFeed` | written by the server from another calendar's iCal link ([Other calendars](Server.md#6-other-calendars)): days as in `calendar.zortex`, one line per event (`16:00 - 17:00 Soccer · Field 3 @notify(no)`, `- Camping` for an all-day one). The calendar shows them read-only; edits are replaced on the next change |
 
-`setup()` creates these from short templates in a new notes folder;
-`:ZortexInit` adds missing ones later. See [Projects.md](Projects.md) for
+`:Zortex init` creates the missing ones from short templates (`setup()`
+says when some are missing). See [Projects.md](Projects.md) for
 projects and areas in depth.

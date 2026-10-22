@@ -141,47 +141,4 @@ function M.tasks(opts)
 	return out
 end
 
--- =============================================================================
--- Actions
--- =============================================================================
-
--- Write @progress(done/total) (sub-projects included) on every heading
--- project of a buffer. Returns the number of headings updated.
-function M.update_progress(bufnr)
-	bufnr = (bufnr == nil or bufnr == 0) and vim.api.nvim_get_current_buf() or bufnr
-	local attributes = require("zortex.utils.attributes")
-	local doc = Document.from_buffer(bufnr)
-	if not M.is_source(doc) then
-		return 0
-	end
-	local updated = 0
-	local projects = {}
-	for _, root in ipairs(M.for_document(doc)) do
-		root:walk(function(p)
-			if p.kind == "heading" then
-				projects[p.lnum] = true
-				local r = p:rollup()
-				local line = doc.lines[p.lnum]
-				local new_line = attributes.update_progress_attribute(line, r.done, r.total)
-				if new_line ~= line then
-					vim.api.nvim_buf_set_lines(bufnr, p.lnum - 1, p.lnum, false, { new_line })
-					updated = updated + 1
-				end
-			end
-		end)
-	end
-	-- an organizational heading has no progress of its own: drop an old one
-	doc.tree:walk(function(n)
-		if n.type == "heading" and not projects[n.start_line] then
-			local line = doc.lines[n.start_line]
-			local new_line = attributes.remove_attribute(line, "progress")
-			if new_line ~= line then
-				vim.api.nvim_buf_set_lines(bufnr, n.start_line - 1, n.start_line, false, { new_line })
-				updated = updated + 1
-			end
-		end
-	end)
-	return updated
-end
-
 return M

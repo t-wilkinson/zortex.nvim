@@ -176,8 +176,8 @@ function M.lines(context)
 	heading("Mastery: the XP that counts for your areas")
 	local rows = {
 		{ "Work on a project a key result links", C.alignment("key_result"), "the objective's areas first" },
-		{ "A project with @a(...), no key result", C.alignment("project_area"), "its areas" },
-		{ "A task outside projects with @a(...)", C.alignment("task_area"), "its areas" },
+		{ "A project with @area(...), no key result", C.alignment("project_area"), "its areas" },
+		{ "A task outside projects with @area(...)", C.alignment("task_area"), "its areas" },
 		{ "Anything else", 0, "logged as work only" },
 	}
 	for _, r in ipairs(rows) do

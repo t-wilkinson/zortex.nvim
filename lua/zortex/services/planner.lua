@@ -614,12 +614,12 @@ local function clock_minutes(t)
 	return nil
 end
 
--- Minutes of work in a task: @dur / @est on its line, else its @size
+-- Minutes of work in a task: @dur on its line, else its @size
 -- (xp.sizes.task hours; unsized = md). `project_task`: the project's task
 -- it is a copy of; a group (services/task_groups) weighs its open work.
 local function task_minutes(attrs, project_task)
 	attrs = attrs or {}
-	local explicit = attrs.dur or attrs.est
+	local explicit = attrs.dur
 	if type(explicit) == "number" and explicit > 0 then
 		return explicit, false
 	end
@@ -637,7 +637,7 @@ end
 
 --- How the work planned on `date` compares with the free time it has.
 ---   planned  minutes of open tasks on the day (copies of project tasks
----            weigh the project task's @size; @dur / @est win)
+---            weigh the project task's @size; @dur wins)
 ---   done     minutes of the day's tasks already checked
 ---   busy     minutes of timed entries that aren't work on a project or task
 ---            (a lecture, a meeting) within the window still ahead; one

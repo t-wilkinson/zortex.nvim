@@ -151,12 +151,6 @@ func Line(line, op, today string, newID func() string) (string, error) {
 		}
 		before, after := line[:col], line[col+3:]
 		after = strings.TrimPrefix(after, " ")
-		// "16:00 - [ ] Task" -> "16:00 Task": the dash goes with the box
-		if it := syntax.ItemOf(line); it != nil && it.MarkerType == "time" {
-			if t := strings.TrimRight(before, " \t"); strings.HasSuffix(t, "-") && len(t) > it.MarkerCol+len(it.Marker) {
-				before = strings.TrimRight(t[:len(t)-1], " \t") + " "
-			}
-		}
 		return RemoveAttribute(before+after, "done"), nil
 	}
 	if op != Open && op != Done && op != Toggle {

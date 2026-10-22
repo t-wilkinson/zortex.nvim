@@ -16,7 +16,9 @@ import (
 // section slide; the header and whatever comes before the first of them is
 // the title slide. The level is @slides(n) in the header, or else the second
 // heading level the note uses (# and ##: ## are slides and # sections), or
-// the only one. Deeper headings stay inside their slide.
+// the only one. Deeper headings stay inside their slide. A "---" line starts
+// a new slide that carries on the one before it, under the same heading (a
+// note without headings is cut into slides by its rules alone).
 //
 // A "Notes:" label (or **Notes:**) is its slide's speaker notes: hidden on
 // the slide, shown in the presenter window. @step on a line reveals it (and
@@ -25,7 +27,8 @@ import (
 
 type slide struct {
 	Kind  string // "title", "section" or "slide"
-	Lnum  int    // first line
+	Lnum  int    // first line (a heading, a "---" or the note's first)
+	Head  int    // the heading it shows (0: none; the title slide's is the note's name)
 	End   int    // last line
 	Steps int    // reveal steps (0: all at once)
 	Body  template.HTML
@@ -68,6 +71,13 @@ func splitSlides(doc *notes.Document, ast *syntax.AST) []slide {
 	out := []slide{{Kind: "title", Lnum: 1}}
 	for lnum := ast.Header.LastLnum + 1; lnum <= n; lnum++ {
 		d := ast.Lines[lnum-1]
+		if d.Kind == syntax.KindRule {
+			// a break: the same heading again (a section's slides go on as slides)
+			prev := out[len(out)-1]
+			out[len(out)-1].End = lnum - 1
+			out = append(out, slide{Kind: "slide", Lnum: lnum, Head: prev.Head})
+			continue
+		}
 		if d.Kind != syntax.KindHeading || level == 0 || d.Heading > level {
 			continue
 		}
@@ -76,7 +86,7 @@ func splitSlides(doc *notes.Document, ast *syntax.AST) []slide {
 		if d.Heading < level {
 			kind = "section"
 		}
-		out = append(out, slide{Kind: kind, Lnum: lnum})
+		out = append(out, slide{Kind: kind, Lnum: lnum, Head: lnum})
 	}
 	out[len(out)-1].End = n
 	return out
@@ -90,17 +100,19 @@ func (s *Server) renderSlides(doc *notes.Document) []slide {
 		sl := &slides[i]
 		r := &noteRenderer{s: s, doc: doc, ast: ast, slides: true}
 		notesAt := speakerNotes(doc, ast, sl.Lnum, sl.End)
-		r.steps, sl.Steps = slideSteps(doc, ast, sl.Lnum, sl.End)
+		r.steps, sl.Steps = slideSteps(doc, ast, sl.Lnum, sl.End, sl.Head)
 
 		first := sl.Lnum
-		switch sl.Kind {
-		case "title":
+		switch {
+		case sl.Kind == "title":
 			r.w(`<h1 class="deck-title">`, esc(doc.Title()), `</h1>`)
-		default:
+		case sl.Head > 0:
 			r.w(`<header class="slide-head">`)
-			r.renderRange(sl.Lnum, sl.Lnum)
+			r.renderRange(sl.Head, sl.Head)
 			r.w(`</header>`)
 			first++
+		default:
+			first++ // a "---" with no heading above it
 		}
 		r.w(`<div class="slide-body">`)
 		for lnum := first; lnum <= sl.End; {
@@ -155,8 +167,9 @@ func speakerNotes(doc *notes.Document, ast *syntax.AST, first, last int) map[int
 }
 
 // slideSteps numbers the lines revealed one click at a time: lnum -> step.
-func slideSteps(doc *notes.Document, ast *syntax.AST, first, last int) (map[int]int, int) {
-	all := first <= len(ast.Lines) && ast.Lines[first-1].Kind == syntax.KindHeading && hasAttr(doc, first, "steps")
+// head: the slide's heading (@steps on it reveals its items one by one).
+func slideSteps(doc *notes.Document, ast *syntax.AST, first, last, head int) (map[int]int, int) {
+	all := head > 0 && head <= len(ast.Lines) && ast.Lines[head-1].Kind == syntax.KindHeading && hasAttr(doc, head, "steps")
 	top := -1 // the indent of the slide's top-level items, for @steps
 	if all {
 		for lnum := first + 1; lnum <= last; lnum++ {

@@ -47,7 +47,7 @@ T.test("key prefixes are named for which-key", function()
 	T.eq(groups["<leader>z"], "Zortex")
 	T.eq(groups["<leader>zC"], "Calendar") -- named in config
 	T.eq(groups["<leader>zx"], "XP") -- named after its actions' group
-	T.eq(groups["<leader>zt"], "Tasks")
+	T.eq(groups["<leader>zo"], "Pomodoro")
 	T.eq(groups["<leader>zz"], nil) -- a single key, not a prefix
 
 	-- overrides: a remapped action makes its prefix, false skips a name
@@ -57,6 +57,29 @@ T.test("key prefixes are named for which-key", function()
 	end
 	T.eq(custom["<leader>qr"], "Plan")
 	T.eq(custom["<leader>qx"], nil)
+end)
+
+T.test("xp.enabled = false: no XP commands, keys, key group or help lines", function()
+	local Config = require("zortex.config")
+	local saved = Config.xp
+	Config.xp = vim.tbl_extend("force", saved or {}, { enabled = false })
+	local ok, err = pcall(function()
+		actions.create_commands("ZxOff")
+		T.eq(vim.fn.exists(":ZxOffXP"), 0)
+		T.eq(vim.fn.exists(":ZxOffSeason"), 0)
+		T.eq(vim.fn.exists(":ZxOffPlan"), 2, "the rest stay")
+		actions.create_keymaps("<Plug>zxoff", {})
+		T.eq(vim.fn.maparg("<Plug>zxoffxx", "n"), "")
+		T.ok(vim.fn.maparg("<Plug>zxoffm", "n") ~= "")
+		for _, g in ipairs(actions.key_groups("<leader>z", {}, {})) do
+			T.ok(g[2] ~= "XP", g[1])
+		end
+		for _, line in ipairs(actions.help_lines()) do
+			T.ok(not line:match(":ZortexXP"), line)
+		end
+	end)
+	Config.xp = saved
+	assert(ok, err)
 end)
 
 T.test("which-key gets the groups when installed (v3 add, v2 register)", function()
@@ -129,25 +152,8 @@ T.test(":help zortex is up to date and its tags are valid", function()
 	vim.fn.writefile(vim.fn.readfile(gen.vimdoc), dir .. "/zortex.txt")
 	vim.cmd("helptags " .. vim.fn.fnameescape(dir)) -- errors on duplicate tags
 	local tags = table.concat(vim.fn.readfile(dir .. "/tags"), "\n")
-	for _, tag in ipairs({ "zortex", "zortex-config", ":ZortexSearch", ":ZortexInit", ":ZortexPomodoro" }) do
+	for _, tag in ipairs({ "zortex", "zortex-config", ":ZortexSearch", ":Zortex", ":ZortexPomodoro" }) do
 		T.ok(tags:find(tag .. "\t", 1, true), tag)
 	end
 end)
 
-T.test(":ZortexLongLabels lists the lines too long to be labels", function()
-	local action
-	for _, a in ipairs(require("zortex.actions").list) do
-		if a.id == "long_labels" then
-			action = a
-		end
-	end
-	T.ok(action, "long_labels action")
-	local items = action.run()
-	vim.cmd("cclose")
-	local texts = {}
-	for _, it in ipairs(items or {}) do
-		texts[#texts + 1] = it.text
-	end
-	T.ok(vim.tbl_contains(texts, "Things that grew too well:"), vim.inspect(texts))
-	T.ok(not vim.tbl_contains(texts, "*What to plant next spring:*"), vim.inspect(texts))
-end)

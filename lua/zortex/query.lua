@@ -364,6 +364,7 @@ function M.xp(opts)
 	return {
 		season = season and {
 			name = season.season.name,
+			span = season.season.span,
 			start_date = season.season.start_date,
 			end_date = season.season.end_date,
 			auto = season.season.auto or nil,
@@ -523,7 +524,7 @@ function M.export(dir)
 		areas = M.areas(),
 		objectives = M.objectives(),
 		review = M.review(),
-		xp = M.xp(),
+		xp = require("zortex.services.xp.calculator").enabled() and M.xp() or nil,
 	})
 	return dir, count
 end

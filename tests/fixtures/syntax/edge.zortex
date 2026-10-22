@@ -20,7 +20,7 @@ Mixed **[L] and `c` and $m$** *see [x]*
 **Bold heading:**
 **Bold with *star*:**
 **Spaced:**   
-**Old style**:
+**Bold then colon**:
 **Not a heading**
 **:**
 **
@@ -58,7 +58,7 @@ ab. not lettered
 9:00 single digit hour
 16:00 [ ] timed task
 16:00 - 17:00 [x] timed range task
-16:00 - [ ] dashed timed task
+16:00 - [ ] not a timed task
 16:00 - not a [ ] task
 16:00 [ ]
 16:00 [link] not a task
@@ -84,6 +84,12 @@ still inside (different fence char)
 $$
 # not a heading in math
 $$
+---
+------   
+ ---
+--- not a rule
+- - -
+***
 @@Not an article here
 @notatag here
 Unicode: café — “quotes” ☐ ✓ [lien éé] @tâche

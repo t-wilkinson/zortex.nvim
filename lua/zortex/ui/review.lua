@@ -165,14 +165,16 @@ function M.render(r, opts)
 
 	add("@@Weekly Review")
 	add(string.format("Today %s · looking back to %s, ahead to %s", r.today, r.from, r.to))
+	local broken = #r.broken_links > 0 and string.format(" · %d broken link%s", #r.broken_links, #r.broken_links == 1 and "" or "s")
+		or ""
 	add(
 		string.format(
-			"%d overdue · %d due soon · %d completed · %d stale · %d broken links · %d in the inbox",
+			"%d overdue · %d due soon · %d completed · %d stale%s · %d in the inbox",
 			#r.overdue,
 			#r.due_soon,
 			#r.completed,
 			#r.stale,
-			#r.broken_links,
+			broken,
 			#(r.inbox or {})
 		)
 	)
@@ -232,15 +234,21 @@ function M.render(r, opts)
 		return entity_line(p, project_summary(p))
 	end)
 
-	add("")
-	add("# Notes")
-	section("Broken links (F: fix from the search)", r.broken_links, function(ref)
-		return string.format("- %s:%d %s", rel(ref.file), ref.lnum, ref.text or ""),
-			{ file = ref.file, lnum = ref.lnum },
-			{ broken = ref }
-	end)
-	if r.mirror_issues and #r.mirror_issues > 0 then
-		section("Task ids that don't line up", r.mirror_issues, function(x)
+	-- the notes' health only when something is wrong: an empty list is noise
+	local mirror_issues = r.mirror_issues or {}
+	if #r.broken_links > 0 or #mirror_issues > 0 then
+		add("")
+		add("# Notes")
+	end
+	if #r.broken_links > 0 then
+		section("Broken links (F: fix from the search)", r.broken_links, function(ref)
+			return string.format("- %s:%d %s", rel(ref.file), ref.lnum, ref.text or ""),
+				{ file = ref.file, lnum = ref.lnum },
+				{ broken = ref }
+		end)
+	end
+	if #mirror_issues > 0 then
+		section("Task ids that don't line up", mirror_issues, function(x)
 			return string.format("- %s:%d %s: %s", rel(x.file), x.lnum, x.text or "", x.problem),
 				{ file = x.file, lnum = x.lnum }
 		end)

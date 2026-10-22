@@ -42,6 +42,15 @@ T.test("render: sections with counts and links", function()
 	end
 end)
 
+T.test("render: no broken links, no section and no count for them", function()
+	local r = require("zortex.services.agenda").review({ today = TODAY, days = 7 })
+	r.broken_links, r.mirror_issues = {}, {}
+	local lines = review.render(r)
+	T.ok(not find(lines, "Broken links"), "no broken links section")
+	T.ok(not find(lines, "# Notes"), "no empty Notes heading")
+	T.ok(not find(lines, "broken link"), "no 0 broken links in the summary")
+end)
+
 T.test("buffer: read-only, <CR> jumps to the source", function()
 	local buf = review.open({ today = TODAY })
 	T.eq(vim.api.nvim_buf_get_name(buf), "zortex://review")

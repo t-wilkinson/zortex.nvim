@@ -557,10 +557,13 @@ func (s *Server) handleBroken(w http.ResponseWriter, r *http.Request) {
 	sort.SliceStable(broken, func(i, j int) bool { return broken[i].From < broken[j].From })
 	snap := s.current()
 	orphans, structureOnly := s.orphanNotes(snap)
+	tags := s.tagProblems(all)
 	s.render(w, r, "broken", http.StatusOK, map[string]any{
-		"Title":         "Broken links",
-		"Broken":        broken,
-		"Tags":          s.tagProblems(all),
+		"Title":  "Broken links",
+		"Broken": broken,
+		// every list is shown only when it has something in it
+		"Clean":         len(broken) == 0 && len(orphans) == 0 && len(tags.Searches) == 0 && len(tags.Links) == 0,
+		"Tags":          tags,
 		"Orphans":       orphans,
 		"StructureOnly": structureOnly,
 		"HasStructure":  len(snap.structure.Sources) > 0,

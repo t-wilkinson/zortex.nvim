@@ -608,3 +608,19 @@ func TestDisplayTextLinks(t *testing.T) {
 	}
 	expect(t, ts, "/broken", 200, `Nowhere/#x`)
 }
+
+func TestBrokenPageOnlyListsProblems(t *testing.T) {
+	s, dir, ts := newTestServer(t, "")
+	// one broken link: its table; no tag search finds nothing here
+	os.WriteFile(filepath.Join(dir, "one.zortex"), []byte("@@One\n\n- [Nowhere/#x]\n"), 0o644)
+	s.Refresh()
+	body := expect(t, ts, "/broken", 200, `Nowhere/#x`)
+	for _, quiet := range []string{"Nothing is broken", "Every link resolves", "Every tag search finds something"} {
+		if strings.Contains(body, quiet) {
+			t.Errorf("/broken says %q", quiet)
+		}
+	}
+	if strings.Contains(body, "Tags that go nowhere") != strings.Contains(body, "finds nothing") && !strings.Contains(body, "no note has this tag") {
+		t.Error("the tags heading is shown without a problem under it")
+	}
+}

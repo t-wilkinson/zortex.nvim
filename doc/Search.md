@@ -57,7 +57,7 @@ articles rank above headings, which rank above bold headings and labels.
 Results from one note stay together in document order, so parents sit above
 their children; live notes come before archived ones (marked `(archive)`).
 Places you often open from search rank a little higher
-(`.z/search_history.json`), never above a better match. The web app keeps
+(kept per machine, outside the notes), never above a better match. The web app keeps
 its own history, in its `-data` folder (`search_history.json`), so a synced
 notes folder never has two programs writing one file.
 

@@ -612,9 +612,10 @@ git -C ~/zortex add -A && git -C ~/zortex commit -qm "notes $(date +%F)" || true
 ```
 
 Push to a private remote for an off-site copy. `.z/` is left out of the
-history (keep syncing it: the web app reads it): it holds caches (the link
-index), the search history, notification state and XP seasons you started
-by hand, all rebuilt or restarted without harm; `z/feeds/` holds the
+history (keep syncing it: the web app reads it): it holds the XP summaries
+the web app shows, time tracked on the web and XP seasons you started by
+hand, all rebuilt or restarted without harm (caches and search history are
+kept per machine, outside the folder); `z/feeds/` holds the
 notes the server writes from other calendars, rewritten as they change. With
 Syncthing, its file versioning ("Staggered") on that machine is a second
 net. To take back an edit zortex made across notes (a rename, a move, an

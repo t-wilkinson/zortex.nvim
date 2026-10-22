@@ -13,12 +13,15 @@ import (
 	"time"
 
 	"github.com/t-wilkinson/zortex.nvim/app/edit"
+	"github.com/t-wilkinson/zortex.nvim/app/notes"
 )
 
 // XP lives in Neovim (lua/zortex/services/xp/ledger: it is read off the
 // notes there). After every change Neovim publishes a small summary, both
-// into the synced notes folder (.z/xp_summary.json) and, when it talks to
-// this server, as POST /api/xp. The home page shows the newer of the two.
+// into the synced notes folder and, when it talks to this server, as POST
+// /api/xp. Each device writes its own file, .z/xp_summary.<device>.json (so
+// two devices never write the same synced file; older versions wrote
+// .z/xp_summary.json). The home page shows the newest of them all.
 //
 //	GET  /api/xp   the summary, or {"available": false}
 //	POST /api/xp   store a summary (X-API-Key when -api-key is set)
@@ -28,9 +31,27 @@ const xpFile = "xp_summary.json"
 type xpCache struct {
 	mu     sync.Mutex
 	posted []byte // last POSTed summary (also in DataDir)
-	// the notes folder's copy, re-read when its mtime changes
-	fileMod  time.Time
-	fileBody []byte
+	// the notes folder's copies (one per device), each re-read when its
+	// mtime changes
+	files map[string]xpFileCopy
+}
+
+type xpFileCopy struct {
+	mod  time.Time
+	body []byte
+}
+
+// xpFiles lists the summaries in the notes folder's .z (conflict copies and
+// temporary files left out).
+func (s *Server) xpFiles() []string {
+	matches, _ := filepath.Glob(filepath.Join(s.cfg.Root, ".z", "xp_summary*.json"))
+	out := matches[:0]
+	for _, m := range matches {
+		if !notes.IsConflictCopy(filepath.Base(m)) {
+			out = append(out, m)
+		}
+	}
+	return out
 }
 
 // generated reads the summary's "generated" time (zero when missing).
@@ -53,25 +74,28 @@ func (s *Server) xpSummary() []byte {
 			c.posted = raw
 		}
 	}
-	path := filepath.Join(s.cfg.Root, ".z", xpFile)
-	if st, err := os.Stat(path); err == nil {
-		if !st.ModTime().Equal(c.fileMod) {
-			if raw, err := os.ReadFile(path); err == nil && json.Valid(raw) {
-				c.fileBody, c.fileMod = raw, st.ModTime()
-			}
+	files := map[string]xpFileCopy{}
+	for _, path := range s.xpFiles() {
+		st, err := os.Stat(path)
+		if err != nil {
+			continue
 		}
-	} else {
-		c.fileBody, c.fileMod = nil, time.Time{}
+		if old, ok := c.files[path]; ok && old.mod.Equal(st.ModTime()) {
+			files[path] = old
+			continue
+		}
+		if raw, err := os.ReadFile(path); err == nil && json.Valid(raw) {
+			files[path] = xpFileCopy{mod: st.ModTime(), body: raw}
+		}
 	}
-	switch {
-	case c.posted == nil:
-		return c.fileBody
-	case c.fileBody == nil:
-		return c.posted
-	case generated(c.fileBody).After(generated(c.posted)):
-		return c.fileBody
+	c.files = files
+	best := c.posted
+	for _, f := range files {
+		if best == nil || generated(f.body).After(generated(best)) {
+			best = f.body
+		}
 	}
-	return c.posted
+	return best
 }
 
 func (s *Server) apiXP(w http.ResponseWriter, r *http.Request) {

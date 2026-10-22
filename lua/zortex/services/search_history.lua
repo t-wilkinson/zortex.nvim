@@ -1,7 +1,7 @@
 -- services/search_history.lua - What you open from search, with decay
 --
 -- Every result opened from the structural search is recorded in
--- notes_dir/.z/search_history.json:
+-- this machine's state folder (core/state, a device file: search_history.json):
 --
 --   files     per note, a frecency score that decays by `access_decay_rate`
 --             per day (Config.ui.search.access_decay_rate)
@@ -23,6 +23,7 @@ local FILE_WEIGHT, SECTION_WEIGHT = 50, 30 -- score points per log-unit (match q
 
 local store = require("zortex.core.state").open("search_history", {
 	version = VERSION,
+	device = true, -- rewritten on every pick: this machine's own
 	default = function()
 		return { files = {}, sections = {} }
 	end,

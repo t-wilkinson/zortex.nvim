@@ -199,6 +199,7 @@ local function status()
 		"objectives    " .. count(require("zortex.services.okr").objectives),
 		"broken links  " .. count(require("zortex.core.link_index").unresolved),
 		"state         " .. require("zortex.core.state").path(""):gsub("%.json$", ""),
+		"device state  " .. require("zortex.core.state").device_dir(),
 		"",
 		"events (count, avg ms):",
 	}

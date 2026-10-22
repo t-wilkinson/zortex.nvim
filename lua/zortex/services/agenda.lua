@@ -734,6 +734,13 @@ local function review_state()
 		default = function()
 			return {}
 		end,
+		-- two devices reviewed: the later review counts
+		merge = function(mine, other)
+			if (other.last_day or "") > (mine.last_day or "") then
+				return other
+			end
+			return mine
+		end,
 	})
 end
 

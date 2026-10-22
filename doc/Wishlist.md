@@ -277,7 +277,7 @@ keeps the notes folder in step, and the app polls it (no inotify needed).
    `search.json` (31 prompts); the web app resolves links while rendering,
    shows backlinks, broken links and tags, and has a live search page with
    the section, article and text modes and its own search history (in
-   `-data`, apart from `.z/search_history.json`).
+   `-data`, apart from Neovim's own).
 4. **Domain views — partly done:** the home page has the calendar (with
    notifications), the pomodoro, timers, alarms and a stopwatch, time
    tracking, season XP and the Structure check; notes can be edited

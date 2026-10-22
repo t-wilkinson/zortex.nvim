@@ -8,9 +8,10 @@ local function short(path)
 	return vim.fn.fnamemodify(path, ":t")
 end
 
-T.test("index is persisted under notes_dir/.z", function()
+T.test("index is persisted on this machine, not under notes_dir/.z", function()
 	link_index.rebuild()
-	T.ok(fs.file_exists(T.fixture(".z/link_index.json")), "link_index.json written")
+	T.ok(fs.file_exists(require("zortex.core.state").device_path("link_index")), "link_index.json written")
+	T.ok(not fs.file_exists(T.fixture(".z/link_index.json")), "a cache isn't synced")
 end)
 
 T.test("backlinks of a project (own content vs subtree)", function()

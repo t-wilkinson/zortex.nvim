@@ -4,9 +4,9 @@
 --   local stop = Logger.start_timer("xp.award"); ...; stop()
 --
 -- Entries go to an in-memory ring buffer (:ZortexLogs) and, when
--- core.logger.enabled is set, to notes_dir/.z/zortex.log. Timers record
--- operations slower than core.logger.performance_threshold ms
--- (:ZortexPerformance).
+-- core.logger.enabled is set, to zortex.log in this machine's state folder
+-- (core/state device_dir). Timers record operations slower than
+-- core.logger.performance_threshold ms (:ZortexPerformance).
 local M = {}
 
 M.levels = { TRACE = 1, DEBUG = 2, INFO = 3, WARN = 4, ERROR = 5 }
@@ -17,7 +17,7 @@ local entries = {}
 local timings = {} -- operation -> { count, total, max }
 
 local function log_path()
-	return require("zortex.core.state").path("zortex"):gsub("%.json$", ".log")
+	return require("zortex.core.state").device_dir() .. "/zortex.log"
 end
 
 local function record(level, category, message, data)

@@ -13,7 +13,8 @@
 --                                           path link, [./z/scan.pdf], when
 --                                           its file is missing)
 --
--- The index is persisted to notes_dir/.z/link_index.json and refreshed
+-- The index is persisted to this machine's state folder (core/state, a
+-- device file: link_index.json) and refreshed
 -- incrementally. A link only needs re-resolving when
 --   * its own note changed,
 --   * its current target's note changed,
@@ -50,6 +51,7 @@ end
 
 local store = require("zortex.core.state").open("link_index", {
 	version = VERSION,
+	device = true, -- a cache every Neovim rewrites: never synced
 	default = function()
 		return { files = {} }
 	end,

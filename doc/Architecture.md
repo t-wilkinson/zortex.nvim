@@ -23,7 +23,7 @@ and tags). Everything else is built on documents:
   thing when you follow it, when completion suggests it, and when projects,
   OKRs or the calendar look it up.
 - **A link index** records every link in every note and where it resolves,
-  persisted in `notes_dir/.z/link_index.json`. Backlinks, project schedules,
+  persisted per machine (`core/state`, a device file). Backlinks, project schedules,
   KR → project links and broken-link reports all read it.
 - **Projects**, **areas** and **objectives** are _entities_: objects derived
   from sections of the tree, each with a stable key (its tree path) and a
@@ -284,8 +284,9 @@ searches the Projects article first, then every `@P` note, so
 ### Link index — `core/link_index.lua`
 
 Every link span (`[...]`, `![...]`; from `doc:inline`) in every non-archived
-note, with where it resolves. Persisted to `notes_dir/.z/link_index.json`
-(through `core/state`; the version is bumped when extraction changes, which
+note, with where it resolves. Persisted to `link_index.json` in this
+machine's state folder (through `core/state`, a device file: a cache every
+Neovim rewrites is never synced; the version is bumped when extraction changes, which
 forces a rebuild). The file is written 10 s after a refresh changed the
 index and on exit, not on every refresh: encoding a large index is slow.
 
@@ -385,20 +386,35 @@ Every edit emits `workspace:lines_changed` `{ file, start_line, end_line, count 
 
 ### State — `core/state.lua`
 
-Everything Zortex keeps in `notes_dir/.z` is one JSON file per name, opened
-with `State.open(name, { version, default })`:
+Everything Zortex keeps outside the notes is one JSON file per name, opened
+with `State.open(name, { version, default, device?, merge? })`, in one of
+two places:
+
+- **synced**, `notes_dir/.z/<name>.json`: travels with the notes. Only
+  what every device shares and that changes rarely: `xp_state` (seasons)
+  and `review_state` (the last daily review).
+- **device** (`device = true`), `stdpath("state")/zortex/<folder>-<hash>/`:
+  this machine's own, for what every Neovim rewrites often: `link_index`,
+  `search_history`, `xp_seen` (levels announced), `notifications_state`,
+  `starter`, and the log. Two devices never write the same file, so a sync
+  tool has nothing to conflict over. A device file that doesn't exist yet
+  starts from the copy an older version left in `.z/`.
 
 | method                 | does                                                     |
 | ---------------------- | -------------------------------------------------------- |
 | `get()`                | the data table, loaded on first use                      |
-| `save()`               | atomic write (temp file, then rename)                    |
+| `save()`               | atomic write (temp file, then rename); nothing when the content is unchanged |
 | `reset()` / `reload()` | back to `default()` and save / forget the in-memory copy |
 
 Loading never fails: a missing file gives `default()`, a corrupt one is kept
 as `<name>.json.corrupt-<time>` and replaced, and a different version is
-replaced by `default()`. Files: `link_index`, `search_history`, `xp_state`,
-`notifications_state` (the calendar notifications last sent); logs go to
-`.z/zortex.log`. Stores save when they change.
+replaced by `default()`. A synced file with `merge(data, other)` folds the
+conflict copies a sync tool leaves beside it (`xp_state.sync-conflict-….json`)
+into its data when it loads, saves, and deletes them: seasons are the union
+of both histories, with the current season started last unless either copy
+ended it. `xp/publish` writes `.z/xp_summary.<device>.json` (the host name,
+or `Config.device`), one file per device, and deletes conflict copies of
+those (derived data). Logs go to `zortex.log` in the device folder.
 
 ### Events and logging
 
@@ -410,7 +426,8 @@ in priority order; errors are reported, never raised into the emitter.
 
 `core/logger` is a leveled logger (`trace` … `error`) with timers
 (`start_timer(op)` returns a stop function). Entries go to a ring buffer
-(`:ZortexDebug logs`) and, when `core.logger.enabled`, to `.z/zortex.log`;
+(`:ZortexDebug logs`) and, when `core.logger.enabled`, to `zortex.log` in
+this machine's state folder (`core/state` device_dir);
 `:ZortexDebug timers` shows timer statistics, `:ZortexDebug level DEBUG`
 changes the level, and `:ZortexDebug` alone shows counts, the state
 directory and event timings.
@@ -584,8 +601,8 @@ XP is derived, not recorded (see [Planning.md](Planning.md)):
   `season:leveled_up`, `area:leveled_up`. It also stamps `@done(today)` on
   tasks checked by hand when a note is saved.
 - `xp/publish` hands a summary to the web app after each refresh
-  (`.z/xp_summary.json`, and `POST /api/xp` with a server), only when it
-  changed.
+  (`.z/xp_summary.<device>.json`, and `POST /api/xp` with a server), only
+  when it changed; the server shows the newest.
 - `stores/xp` keeps only seasons (name, span, date window, history), the
   level curves and the levels last announced. A season started by hand
   (`xp/stats.start_season`) also adds its heading to the OKR note
@@ -748,8 +765,8 @@ calling `search.setup()` with no arguments resets to the defaults):
 | `access_decay_rate`  | per-day decay of a note's "opened from search" score (see history below)                                                                                                               |
 | `history`            | `{ enabled, max_entries, score_decay, propagation_decay }`: per-section history                                                                                                        |
 
-**Search history** (`services/search_history.lua`, stored in
-`notes_dir/.z/search_history.json`). Opening a result (or sending it to the
+**Search history** (`services/search_history.lua`, stored per machine,
+`search_history.json` in the `core/state` device folder). Opening a result (or sending it to the
 quickfix list) records it:
 
 - the note's score gets +1, decaying by `access_decay_rate` per day

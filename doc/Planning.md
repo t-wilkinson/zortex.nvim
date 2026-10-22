@@ -492,7 +492,7 @@ tier, its objectives), Mastery XP per day for two weeks, top areas and recent
 awards. Tasks completed on the web are listed as pending, with the XP they
 are estimated to earn (hours × XP per hour × priority × importance, from
 the calibration in the summary), until Neovim counts them. Neovim
-publishes that summary after every change (`.z/xp_summary.json`, and
+publishes that summary after every change (`.z/xp_summary.<device>.json`, and
 `POST /api/xp` when `server.enabled`; `xp.publish = false` turns it off). The
 server writes time tracked per day to `.z/time_spent.json`, which the daily
 review reads.

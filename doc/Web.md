@@ -46,7 +46,7 @@ the other to read notes; each reads the files.
 | Calendar notifications | reads them from `calendar.zortex` and sends them on save | keeps them and sends them through ntfy when due |
 | Alerts | shows the ones the server raised (`GET /api/alerts`, every `notifications.poll_seconds`) | raises them: calendar notifications, pomodoro phases, timers and alarms |
 | Pomodoro | `:ZortexPomodoro`, `<leader>zoo` drive the server's clock | the same clock on the home page |
-| XP | computes it; writes `.z/xp_summary.json`, posts `/api/xp` | shows the summary; counts web completions until Neovim catches up |
+| XP | computes it; writes `.z/xp_summary.<device>.json`, posts `/api/xp` | shows the summary; counts web completions until Neovim catches up |
 | Time | reads `.z/time_spent.json` in the reviews | tracks the clocks' time against a task, writes `@spent` and that file |
 | Links | `<leader>zgX` opens the link under the cursor on the website, in the tab you used last | |
 | Calendar feeds | shows `z/feeds/*` read-only | fetches them into `z/feeds/`; shows them with their dots |
@@ -379,8 +379,8 @@ login. What each side does:
   server's clock (`/api/pomodoro/*`), the one on the home page; the
   settings live on the server, changed from either side.
 - **XP.** Neovim computes XP from the notes and publishes a summary after
-  every change: `.z/xp_summary.json` in the notes folder (synced) and
-  `POST /api/xp`; the website shows the newer. With XP off
+  every change: `.z/xp_summary.<device>.json` in the notes folder (synced) and
+  `POST /api/xp`; the website shows the newest. With XP off
   (`xp.enabled = false` in Neovim, `-xp=false` on the server) neither side
   shows it.
   Tasks ticked on the website are counted by Neovim from their `@done`
@@ -449,7 +449,7 @@ Everything the pages use is plain HTTP with JSON. `X-API-Key` (Neovim's
 | `GET /api/pomodoro` | phase, running, remaining, ends_at, session, completed, today, settings, `next_alarm`, `ntfy` |
 | `POST /api/pomodoro/{start,pause,resume,toggle,skip,stop,restart}` | drive the clock |
 | `GET /api/xp` | the XP summary Neovim published (season, daily XP, areas, recent awards, calibration), or `{"available": false}`; plus `pending_web` (tasks completed on the web since, one per `@id`), `pending_xp` and `pending_tasks` (`{title, xp, hours}`: estimated from the task's `@size`, priority and importance with the summary's calibration) |
-| `POST /api/xp` | Neovim publishes it after every XP change (`X-API-Key` when set); it also writes `.z/xp_summary.json` into the notes folder, and the newer of the two is shown |
+| `POST /api/xp` | Neovim publishes it after every XP change (`X-API-Key` when set); it also writes `.z/xp_summary.<device>.json` into the notes folder, and the newest of them is shown |
 | `POST /api/edit` | `-writable` only: `{rel, lnum, expect, op, text?, kind?}` with `op` `open` / `done` / `toggle` / `text` (task state, exactly as Neovim's toggle: `@done(today)`, an `@id`), `set` (new text after the line's marker; `@id`/`@done` kept), `delete`, `insert` (after `lnum`; `kind` `task` / `note` / `text`), `move` (the line and the lines indented under it go before line `to`, `len+1` for the end, re-indented to fit; `expectTo` is that line's text). `expect` is the line as the page saw it: if the note changed since, nothing is written and the reply is 409 with the current note. Task ops keep copies in step: the other lines with the task's `@id` in the calendar and the project notes get the same state (not `[>]` lines), and on a calendar line without a checkbox whose link points at a task they toggle that task (the reply then carries `task: {rel, lnum, line}`) |
 | `POST /api/calendar/repeat` | `-writable` only: `{lnum, expect, date}`: tick the occurrence on `date` of the repeating task on line `lnum` of the calendar's `# Repeating` section (`expect`: that line): a done copy goes into today (made from its template when new), with `@for(date)` when it was due another day. `GET /api/calendar`'s days list the occurrences with `repeat`, `date`, and `copy` (the copy's line, then `lnum` and `src` are the copy's and `/api/edit` toggles it) |
 | `POST /api/calendar/carry` | `-writable` only: `{date?}` (default today): copy the open tasks of the 14 days before to the date with the same `@id` and mark the old lines `[>]`, as Neovim's `:ZortexCarryForward`; `{moved, added}`. `GET /api/calendar` has `carry`, how many there are for today (the home page offers a **Carry** button) |

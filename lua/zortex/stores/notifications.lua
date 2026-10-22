@@ -7,6 +7,7 @@ local State = require("zortex.core.state")
 
 local store = State.open("notifications_state", {
 	version = 1,
+	device = true, -- what this Neovim sent
 	default = function()
 		return {}
 	end,

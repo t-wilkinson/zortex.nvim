@@ -145,20 +145,17 @@ STRUCTURE ~
 actions.folds_update                              *zortex-action-folds_update*
     Recompute folds (:Zortex refold). Keys: <leader>zr. Id: folds_update.
 
-:ZortexRename                                                  *:ZortexRename*
-    Rename the heading or label under the cursor and rewrite every link to it.
-    Keys: <leader>zR. Id: rename.
-
 :ZortexArchiveSection                                  *:ZortexArchiveSection*
     Move the section under the cursor to the note's z/archive file. Keys:
     <leader>za. Id: archive_section.
 
 :ZortexMove                                                      *:ZortexMove*
-    Move the section or line under the cursor (or the selected lines) to a
-    place picked in the search. Keys: <leader>zM. Id: move.
+    Move or rename what is under the cursor (or the selected lines), keeping
+    every link to it: a new title renames a heading or label, a place picked
+    in the search (or a [link]) moves it. Keys: <leader>zM. Id: move.
 
 :ZortexUndo                                                      *:ZortexUndo*
-    Take back the last rename, move or inbox move in every note it changed.
+    Take back the last move, rename or inbox move in every note it changed.
     Keys: <leader>zU. Id: undo.
 
 TASKS ~

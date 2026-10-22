@@ -95,7 +95,9 @@ the section or line marked.
 
 `:ZortexMove` (`<leader>zM`) opens the same picker to choose where the
 section under the cursor (a heading, bold heading or label and everything
-in it), or the line with the lines nested under it, goes. A range or a
+in it), or the line with the lines nested under it, goes (on a section it
+first offers to rename it: keep the name to pick a place). Links to what
+moves are rewritten where they would no longer find it. A range or a
 visual selection moves exactly those lines. Here every section is offered
 whatever the number of words (a one-word search finds `### 6.3: Homelab`
 too), and there is no new-note key.

@@ -13,6 +13,18 @@
 --   M.move(src_file, src, dst_file, dst)
 --                                   the edit (core/workspace: buffers when
 --                                   loaded, else the files)
+--   M.link_edits(src_file, src, dst_file, dst)
+--                                   the lines whose links must change for
+--                                   the move to break none (below)
+--
+-- Links follow what moves. Before the move, every link that reaches into
+-- it (core/link_index) is checked: the components that find the moved lines
+-- are kept, and what comes before them is replaced by the new place's path
+-- only when that part no longer holds the new place ([P/#6.3 Tools] keeps
+-- working when 6.3 moves within Projects: headings match at any depth).
+-- Inside what moves, "./" links whose parent line stays behind are written
+-- out, and "/" links to the rest of the old note get its name when the
+-- lines go to another note.
 --
 -- Where things land:
 --   * a heading section goes last among the target's sub-sections, its
@@ -32,6 +44,10 @@ local SECTION = { heading = true, bold_heading = true, label = true }
 
 local function blank(line)
 	return not line or not line:find("%S")
+end
+
+local function link_mod()
+	return require("zortex.core.link")
 end
 
 local function indent_of(line)
@@ -237,6 +253,192 @@ function M.move(src_file, src, dst_file, dst)
 		at = at + 1
 	end
 	return at
+end
+
+-- =============================================================================
+-- Links that follow
+-- =============================================================================
+
+-- The components naming the place `dst` (Move.target) of `doc`: the target
+-- section's path, or the line's (its section's path and the line itself).
+local function place_components(doc, dst)
+	local L = link_mod()
+	local name = doc:name() or vim.fn.fnamemodify(doc.filepath or "", ":t:r")
+	if dst.node then
+		if dst.node:is_root() or dst.node.type == "article" then
+			return { name }
+		end
+		return L.node_components(doc, dst.node)
+	end
+	local node = doc:node_at(dst.lnum)
+	local comps = node and not node:is_root() and L.node_components(doc, node) or { name }
+	local line = doc.lines[dst.lnum]
+	comps[#comps + 1] = L.item_component(line) or ("%" .. L.extract_line_identifier(line))
+	return comps
+end
+
+-- The first place `def` finds, from line `lnum` of `doc`: { file, lnum, doc } or nil
+local function first(def, doc, lnum)
+	local ok, results = pcall(link_mod().resolve, "[" .. def .. "]", { doc = doc, lnum = lnum })
+	return ok and results and results[1] or nil
+end
+
+-- Whether a resolved place (a note, a section or a line) holds line `lnum` of `file`
+local function holds(r, file, lnum)
+	if not r or not same_file(r.file, file) then
+		return false
+	end
+	local doc = r.doc or workspace.document(r.file)
+	local header_end = (doc.header and doc.header.last_lnum) or 0
+	if r.lnum <= math.max(1, header_end) then
+		return true -- the note
+	end
+	local node = doc:node_starting_at(r.lnum)
+	local last = node and node.end_line or block_end(doc, r.lnum)
+	return lnum >= r.lnum and lnum <= last
+end
+
+-- The nearest less-indented line above `lnum` with a link (a "./" link's parent)
+local function parent_lnum(lines, lnum)
+	local want = indent_of(lines[lnum])
+	for l = lnum - 1, 1, -1 do
+		local text = lines[l]
+		if text:match("%S") and indent_of(text) < want then
+			if #link_mod().links_on(text) > 0 then
+				return l
+			end
+			want = indent_of(text)
+			if want == 0 then
+				return nil
+			end
+		end
+	end
+end
+
+--- The lines whose links have to change so that moving `src` of
+--- `src_file` to `dst` in `dst_file` breaks none: { { file, lnum, line,
+--- old }... } (old: the line now), in file and line order. Nothing is
+--- written; the edits keep every line where it is, so they can be made
+--- before Move.move.
+function M.link_edits(src_file, src, dst_file, dst)
+	local L = link_mod()
+	local dst_doc = workspace.document(dst_file)
+	local src_doc = workspace.document(src_file)
+	if not dst_doc or not src_doc then
+		return {}
+	end
+	local across = not same_file(src_file, dst_file)
+	-- a line of the moved block is somewhere else afterwards
+	local function inside(file, lnum)
+		return same_file(file, src_file) and lnum >= src.first and lnum <= src.last
+	end
+	-- dst.at is where the block will start (before the move's shifts):
+	-- enough to tell which section holds it
+	local landing = dst.node and (dst.node:is_root() and 1 or dst.node.start_line) or dst.lnum
+
+	local edits, order = {}, {}
+	local function sub(file, lnum, col, old, new)
+		local key = vim.fn.fnamemodify(file, ":p") .. ":" .. lnum
+		local e = edits[key]
+		if not e then
+			local line = workspace.get_lines(file)[lnum]
+			e = { file = file, lnum = lnum, line = line, old = line, subs = {} }
+			edits[key], order[#order + 1] = e, key
+		end
+		for _, x in ipairs(e.subs) do
+			if x.col == (col or 1) then
+				return -- one rewrite per link
+			end
+		end
+		e.subs[#e.subs + 1] = { col = col or 1, old = old, new = new }
+	end
+
+	-- 1. links into what moves
+	local ok, refs = pcall(require("zortex.core.link_index").references, src_file, src.first, src.last)
+	for _, ref in ipairs(ok and refs or {}) do
+		local ref_doc = workspace.document(ref.file)
+		local def = ref.definition
+		if L.is_parent_relative(def) then
+			def = L.absolute(def, ref_doc.lines, ref.lnum) or def
+		end
+		local comps, scope = L.split(def)
+		local i
+		for k = 1, #comps do
+			local prefix = (scope == "local" and "/" or scope == "home" and "~/" or "") .. table.concat(comps, "/", 1, k)
+			local r = first(prefix, ref_doc, ref.lnum)
+			if r and inside(r.file, r.lnum) then
+				i = k
+				break
+			end
+		end
+		if i then
+			local still
+			if i == 1 then
+				-- "/#Notes": the note the link is in, after the move
+				still = scope == "local" and same_file(inside(ref.file, ref.lnum) and dst_file or ref.file, dst_file)
+			else
+				local prefix = (scope == "local" and "/" or scope == "home" and "~/" or "") .. table.concat(comps, "/", 1, i - 1)
+				still = holds(first(prefix, ref_doc, ref.lnum), dst_file, landing)
+					and not (scope == "local" and across and inside(ref.file, ref.lnum))
+			end
+			if not still then
+				local new = vim.list_extend(vim.deepcopy(place_components(dst_doc, dst)), vim.list_slice(comps, i))
+				sub(ref.file, ref.lnum, ref.def_col or ref.col, ref.definition, L.build_link(new):sub(2, -2))
+			end
+		end
+	end
+
+	-- 2. links on the moved lines that depend on where they are
+	local src_name = src_doc:name() or vim.fn.fnamemodify(src_file, ":t:r")
+	for lnum = src.first, src.last do
+		local line = src_doc.lines[lnum]
+		if line:find("[", 1, true) and not src_doc:in_code(lnum) then
+			for _, span in ipairs(L.links_on(line)) do
+				local def = span.definition
+				local col = (span.def_s or span.s + 1) + 1
+				if L.is_parent_relative(def) then
+					local p = parent_lnum(src_doc.lines, lnum)
+					if p and p < src.first then
+						local abs = L.absolute(def, src_doc.lines, lnum)
+						if abs then
+							sub(src_file, lnum, col, def, abs)
+						end
+					end
+				elseif across and def:sub(1, 1) == "/" then
+					local r = first(def, src_doc, lnum)
+					if not (r and inside(r.file, r.lnum)) then
+						sub(src_file, lnum, col, def, L.component_text(src_name) .. def)
+					end
+				end
+			end
+		end
+	end
+
+	-- right to left, so each column still points at its link
+	local out = {}
+	for _, key in ipairs(order) do
+		local e = edits[key]
+		table.sort(e.subs, function(x, y)
+			return x.col > y.col
+		end)
+		for _, x in ipairs(e.subs) do
+			local at = e.line:find(x.old, x.col, true)
+			if at then
+				e.line = e.line:sub(1, at - 1) .. x.new .. e.line:sub(at + #x.old)
+			end
+		end
+		e.subs = nil
+		if e.line ~= e.old then
+			out[#out + 1] = e
+		end
+	end
+	table.sort(out, function(a, b)
+		if a.file ~= b.file then
+			return a.file < b.file
+		end
+		return a.lnum < b.lnum
+	end)
+	return out
 end
 
 return M

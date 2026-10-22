@@ -42,10 +42,11 @@ that share one folder of plain-text notes.
 - Links: follow, preview, open in the web app, complete while typing (with
   tags and area values), backlinks, broken links and tags that go nowhere
   (quickfix and diagnostics), from a persistent link index.
-- Editing across notes: `:ZortexRename` rewrites every link through a
-  heading or label, `:ZortexMove` moves a section or lines anywhere, and
-  `:ZortexUndo` takes either back in every note it changed. A note changed
-  on disk is never edited blind.
+- Editing across notes: `:ZortexMove` moves a section or lines anywhere,
+  or renames a heading or label (`:ZortexMove New title`), as `mv` does
+  files, and rewrites the links that would stop finding it, asking first
+  when they are in other notes. `:ZortexUndo` takes it back in every note
+  it changed. A note changed on disk is never edited blind.
 - Highlighting, concealing and folding for the whole format (`@fold`
   keeps a section closed), `J` that joins lines the way they read, a table
   of contents and slides (`:ZortexPresent`).

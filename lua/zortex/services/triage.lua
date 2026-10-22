@@ -92,8 +92,17 @@ end
 function M.move(item, link)
 	link = link or M.destination(item)
 	local target = link and require("zortex.core.link").resolve_first(link)
-	-- one batch (core/workspace): :ZortexUndo takes it back in both notes
-	return workspace.batch("inbox: move to " .. tostring(link), { item.file, target and target.file }, function()
+	-- one batch (core/workspace): :ZortexUndo takes it back in every note,
+	-- the ones whose links follow the line too (services/move.link_edits)
+	local files = { item.file, target and target.file }
+	local src = require("zortex.services.move").source(workspace.document(item.file), item.lnum)
+	if src then
+		local ok, refs = pcall(require("zortex.core.link_index").references, item.file, src.first, src.last)
+		for _, r in ipairs(ok and refs or {}) do
+			files[#files + 1] = r.file
+		end
+	end
+	return workspace.batch("inbox: move to " .. tostring(link), files, function()
 		return M._move(item, link)
 	end)
 end
@@ -125,6 +134,9 @@ function M._move(item, link)
 	if not dst then
 		workspace.set_line(item.file, item.lnum, line)
 		return nil, derr
+	end
+	for _, e in ipairs(Move.link_edits(item.file, src, target.file, dst)) do
+		workspace.set_line(e.file, e.lnum, e.line)
 	end
 	local at, merr = Move.move(item.file, src, target.file, dst)
 	if not at then

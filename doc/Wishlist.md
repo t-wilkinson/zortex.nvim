@@ -146,7 +146,7 @@ Deferred for now; listed so the pieces fit together later.
 
 ## 5. Editing and maintenance
 
-Renaming with link rewriting (`:ZortexRename`), broken-link diagnostics
+Moving and renaming with link rewriting (`:ZortexMove`), broken-link diagnostics
 and backlinks of the section under the cursor (`:ZortexBacklinks`, in the
 quickfix list) are done. Left:
 

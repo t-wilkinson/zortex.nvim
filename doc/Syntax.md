@@ -233,7 +233,7 @@ follow links keep the plain link colour.
 plugin](P/#1.4 - zortex)` goes where `[P/#1.4 - zortex]` goes and reads
 "the zortex plugin" (in Neovim the definition is concealed, on the web it is
 the link's tooltip). It is Markdown's form, so imported notes keep their
-link text, and the text survives a rename: `:ZortexRename` rewrites the
+link text, and the text survives a rename or a move: `:ZortexMove` rewrites the
 definition only. `![alt](./pic.png)` is an image with alt text.
 
 What is between the parentheses decides what the link is:

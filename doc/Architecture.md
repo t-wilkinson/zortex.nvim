@@ -369,8 +369,11 @@ wrong line. An unmodified buffer whose file changed is reloaded first
 Edits that reach several notes run in a **batch**: notes that aren't open
 are loaded into hidden buffers, edited there and saved, and the batch is
 remembered so `undo_last()` (`:ZortexUndo`, `u` in the review) takes it
-back in every note. Rename, `:ZortexMove` and inbox triage (`m`) use it;
-rename also asks first when it changes other notes.
+back in every note. `:ZortexMove` (moves and renames) and inbox triage
+(`m`) use it; `:ZortexMove` asks first when links change in other notes
+(`features/move.confirm`). Before a move, `services/move.link_edits`
+rewrites the links that would stop finding what moves (into it from
+anywhere, and the `./` and `/` links on the moved lines).
 
 | function                                   | does                                                                                   |
 | ------------------------------------------ | -------------------------------------------------------------------------------------- |
@@ -678,7 +681,7 @@ XP is derived, not recorded (see [Planning.md](Planning.md)):
 | `ui/keyhelp.lua`                                    | `keys.lua` (`?` in zortex buffers)                        |
 | `ui/xp_guide.lua`                                   | `xp` config (`:ZortexXPGuide`)                            |
 | `services/search_history.lua`                       | `services/search` (adds boosts); the picker records opens |
-| `features/rename.lua`, `features/move.lua` (+ `services/move.lua`) | `core/link_index` (links to rewrite), `core/workspace`, `ui/picker/search` (where to move) |
+| `features/move.lua` (+ `features/rename.lua`, `services/move.lua`) | `core/link_index` (links to rewrite), `core/workspace`, `ui/picker/search` (where to move) |
 | `features/archive.lua`                              | `core/workspace` (`z/archive.<note>.zortex`)              |
 | `features/diagnostics.lua`                          | `core/link_index.unresolved_in` (`vim.diagnostic`)        |
 | `features/present.lua`                              | `notifications/server` (the web app's slides)             |
@@ -995,8 +998,8 @@ to date; `app/links` and `app/search` must reproduce them.
 | `test_zq_planning_loop`  | tasks put off, `P`'s next tasks, the day's capacity, the week's focus from the reviews note                                                                                     |
 | `test_zt_starter`        | setup writes nothing and says what is missing; `:Zortex init` fills the gaps                                                                                                     |
 | `test_zu_triage`         | `@project(…)` on an inbox line and where `m` moves it                                                                                                                            |
-| `test_zw_move`           | `:ZortexMove`: sections and lines with what is nested under them, re-levelled and re-indented                                                                                   |
-| `test_zw_rename`         | `:ZortexRename` rewrites every link through a renamed heading or label                                                                                                           |
+| `test_zw_move`           | `:ZortexMove`: sections and lines with what is nested under them, re-levelled and re-indented; links follow; a title renames, a [link] moves                                 |
+| `test_zw_rename`         | the rename half of `:ZortexMove` rewrites every link through a renamed heading or label                                                                                          |
 | `test_zx_outside`        | notes outside `notes_dir` resolve in their own folder; `[~/…]` reaches `notes_dir`                                                                                               |
 | `test_zy_mirrors`        | task copies: one task per `@id` across the calendar and projects (state, XP, time)                                                                                               |
 | `test_zy_present`        | `:ZortexPresent` opens the web app's slides at the slide under the cursor                                                                                                        |

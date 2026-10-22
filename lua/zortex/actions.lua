@@ -431,17 +431,6 @@ M.list = {
 	},
 
 	{
-		id = "rename",
-		command = "Rename",
-		key = "R",
-		group = "Structure",
-		nargs = "?",
-		desc = "Rename the heading or label under the cursor and rewrite every link to it",
-		run = function(args)
-			require("zortex.features.rename").rename_current(args)
-		end,
-	},
-	{
 		id = "archive_section",
 		command = "ArchiveSection",
 		key = "a",
@@ -455,7 +444,8 @@ M.list = {
 		key = "M",
 		group = "Structure",
 		range = true,
-		desc = "Move the section or line under the cursor (or the selected lines) to a place picked in the search",
+		nargs = "?",
+		desc = "Move or rename what is under the cursor (or the selected lines), keeping every link to it: a new title renames a heading or label, a place picked in the search (or a [link]) moves it",
 		run = function(args)
 			require("zortex.features.move").move_current(args)
 		end,
@@ -465,7 +455,7 @@ M.list = {
 		command = "Undo",
 		key = "U",
 		group = "Structure",
-		desc = "Take back the last rename, move or inbox move in every note it changed",
+		desc = "Take back the last move, rename or inbox move in every note it changed",
 		run = function()
 			local label, err = require("zortex.core.workspace").undo_last()
 			if not label then

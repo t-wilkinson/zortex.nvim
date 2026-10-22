@@ -13,15 +13,16 @@ Wishlist.md (sections 8 and 9).
 - [ ] A tagged release with `zortex` binaries and a container image @p1 @size(sm)
 
 # 6 Proposed (review of 2026-10-16)
-From a review of what a new user meets first. Done since: `:ZortexRename`
-shows what it changes and asks, Markdown and Obsidian import
+From a review of what a new user meets first. Done since: `:ZortexMove`
+moves and renames, keeps links working, shows what it changes in other
+notes and asks, Markdown and Obsidian import
 (`:ZortexImportMarkdown`), backups and the format promise in the README,
 and Neovim's edits to notes that aren't open are checked like the web
 app's.
 
 ## 6.1 Before the tag
 - [ ] Use `release-prep` on a real vault for about a week before tagging v0.1.0: many features landed on 2026-10-16 and 2026-10-22 without real notes behind them @p1 @size(sm)
-- [ ] `m` (inbox triage) and `:ZortexMove` show what they will change and ask first, as `:ZortexRename` does, when they write notes that aren't open @p1 @size(sm)
+- [ ] `m` (inbox triage) shows what it will change and asks first, as `:ZortexMove` does, when it rewrites links in other notes @p2 @size(xs)
 - [ ] One command that checks a vault: long labels, broken links, tags that go nowhere, task ids that don't line up, conflict copies, the problems the calendar note flags (repeating rules), and state files older versions left in `.z/` @p2 @size(sm)
 - [ ] A shorter README: the pitch, the screenshot, the quickstart and a feature list; the generated command and key tables live in `:help` and the docs @p2 @size(sm)
 

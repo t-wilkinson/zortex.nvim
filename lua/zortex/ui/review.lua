@@ -1115,6 +1115,9 @@ function M.open(opts)
 		vim.wo[state.win].wrap = false
 	end
 	vim.api.nvim_win_set_buf(state.win, buf)
+	-- links read as their names: "[1.4 - zortex](P/…)" shows "1.4 - zortex"
+	vim.wo[state.win].conceallevel = 2
+	vim.wo[state.win].concealcursor = "nc"
 	vim.api.nvim_set_current_win(state.win)
 	M.refresh()
 	return buf

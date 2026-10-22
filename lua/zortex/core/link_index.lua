@@ -27,7 +27,7 @@ local M = {}
 
 local link_mod = require("zortex.core.link")
 
-local VERSION = 4 -- bump when link extraction changes (forces a rebuild)
+local VERSION = 5 -- bump when link extraction changes (forces a rebuild)
 local REFRESH_TTL_MS = 1000
 local SAVE_DELAY_MS = 10000
 
@@ -176,6 +176,7 @@ local function extract_links(doc)
 				links[#links + 1] = {
 					lnum = lnum,
 					col = span.s + 1,
+					def_col = span.def_s and span.def_s + 1, -- [text](definition)
 					text = line:sub(span.s + 1, span.e),
 					definition = span.definition,
 					first = first_component(span.definition),
@@ -344,6 +345,7 @@ local function as_ref(path, link)
 		file = path,
 		lnum = link.lnum,
 		col = link.col,
+		def_col = link.def_col,
 		text = link.text,
 		definition = link.definition,
 		target = link.target,

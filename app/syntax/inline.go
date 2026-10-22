@@ -6,6 +6,7 @@ import "strings"
 // Which other fields are set depends on Type:
 //
 //	link, live_link   Definition             [Projects/#Heading], ![Article]
+//	                  Text, DefS             [shown text](P/#Heading), ![alt](./pic.png)
 //	tag_search        Content                     @[cars parts], !@[...] (Embed)
 //	markdown          Text, URL              [text](https://...)
 //	footnote_ref      ID                     [^1]
@@ -24,6 +25,7 @@ type Span struct {
 	Display    bool
 	Embed      bool // tag_search written !@[...]: shown in place
 	Definition string
+	DefS       int // where Definition starts, for links written [text](definition)
 	Content    string
 	Text       string
 	URL        string
@@ -115,7 +117,18 @@ func scanLiveLink(line string, i int) *Span {
 		return nil
 	}
 	n := runUntil(line, i+2, notCloseBracket)
-	if n == 0 || at(line, i+2+n) != ']' {
+	if at(line, i+2+n) != ']' {
+		return nil
+	}
+	// ![alt](target): Markdown's image form; the alt text is optional
+	if at(line, i+3+n) == '(' {
+		d := i + 4 + n
+		un := runUntil(line, d, func(b byte) bool { return b == ')' })
+		if un > 0 && at(line, d+un) == ')' {
+			return &Span{Type: "live_link", S: i, E: d + un + 1, Definition: line[d : d+un], Text: line[i+2 : i+2+n], DefS: d}
+		}
+	}
+	if n == 0 {
 		return nil
 	}
 	return &Span{Type: "live_link", S: i, E: i + n + 3, Definition: line[i+2 : i+2+n]}
@@ -150,6 +163,58 @@ func scanAt(line string, i int) *Span {
 	return &Span{Type: "attribute", S: i, E: k, Key: key}
 }
 
+// IsLinkTarget reports whether the target of "[text](target)" is a zortex
+// link rather than a URL or a file (which keep the Markdown link): the same
+// rules as core/syntax.is_link_target in the plugin.
+func IsLinkTarget(target string) bool {
+	t := Trim(target)
+	if t == "" || strings.HasPrefix(t, "www.") {
+		return false
+	}
+	// a scheme: https:, mailto:
+	if isAlpha(t[0]) {
+		k := 1
+		for k < len(t) && (isAlnum(t[k]) || t[k] == '+' || t[k] == '.' || t[k] == '-') {
+			k++
+		}
+		if k < len(t) && t[k] == ':' {
+			return false
+		}
+	}
+	// a typed component, first or after a "/"
+	typed := func(b byte) bool { return strings.IndexByte("#:*%>@-", b) >= 0 }
+	if typed(t[0]) {
+		return true
+	}
+	for k := 0; k+1 < len(t); k++ {
+		if t[k] == '/' && typed(t[k+1]) {
+			return true
+		}
+	}
+	// a path: "/", "./", "../", "~/" (and "~./", "~../", as the plugin's pattern)
+	p := t
+	p = strings.TrimPrefix(p, "~")
+	p = strings.TrimPrefix(p, ".")
+	p = strings.TrimPrefix(p, ".")
+	if strings.HasPrefix(p, "/") {
+		return false
+	}
+	// a file extension at the end, before a #fragment or a "title"
+	for k := 0; k+1 < len(t); k++ {
+		if t[k] != '.' || !isAlpha(t[k+1]) {
+			continue
+		}
+		j := k + 2
+		for j < len(t) && isAlnum(t[j]) {
+			j++
+		}
+		if j == len(t) || t[j] == '#' || isSpace(t[j]) {
+			return false
+		}
+	}
+	return true
+}
+
 func scanBracket(line string, i int) *Span {
 	// footnote reference: [^id]
 	if at(line, i+1) == '^' {
@@ -166,6 +231,10 @@ func scanBracket(line string, i int) *Span {
 	if at(line, i+1+tn) == ']' && at(line, i+2+tn) == '(' {
 		un := runUntil(line, i+3+tn, func(b byte) bool { return b == ')' })
 		if un > 0 && at(line, i+3+tn+un) == ')' {
+			if tn > 0 && IsLinkTarget(line[i+3+tn:i+3+tn+un]) {
+				// [text](P/#1.4): a zortex link shown as its text
+				return &Span{Type: "link", S: i, E: i + tn + un + 4, Definition: line[i+3+tn : i+3+tn+un], Text: line[i+1 : i+1+tn], DefS: i + 3 + tn}
+			}
 			return &Span{Type: "markdown", S: i, E: i + tn + un + 4, Text: line[i+1 : i+1+tn], URL: line[i+3+tn : i+3+tn+un]}
 		}
 	}

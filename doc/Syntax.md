@@ -106,10 +106,12 @@ Nothing inside a code or math block is structure.
 | Example | Span | Notes |
 |---|---|---|
 | `[Link/#Heading]` | `link` | see Links below |
+| `[the zortex plugin](P/#1.4 - zortex)` | `link` | the same link shown as its text ([Display text](#display-text)) |
 | `![Live link]` | `live_link` | a link shown in place: an image or video on the web; other targets are reserved for showing zortex data in place |
+| `![a cat](./images/pic.png)` | `live_link` | an image with its alt text, as in Markdown |
 | `@[cars parts]` | `tag_search` | lines tagged `@cars` and `@parts` (words: all of them; commas: any); see Tag searches below |
 | `!@[R/rust async]` | `tag_search` | the same search shown in place: a table on the web; see Tag searches below |
-| `[text](https://example.com)` | `markdown` | a markdown link |
+| `[text](https://example.com)` | `markdown` | a markdown link: a URL, or a file (`[the scan](z/scan.pdf)`) |
 | `[^1]` | `footnote_ref` | a footnote reference |
 | `https://example.com` | `url` | |
 | `./images/pic.png` | `filepath` | `./`, `../`, `~/` or `/` paths, relative to the note |
@@ -224,6 +226,32 @@ follow links keep the plain link colour.
   still finds it.
 
 `doc/Architecture.md` (Links) has the exact resolution rules.
+
+### Display text
+
+`[text](definition)` is a link shown as its text: `[the zortex
+plugin](P/#1.4 - zortex)` goes where `[P/#1.4 - zortex]` goes and reads
+"the zortex plugin" (in Neovim the definition is concealed, on the web it is
+the link's tooltip). It is Markdown's form, so imported notes keep their
+link text, and the text survives a rename: `:ZortexRename` rewrites the
+definition only. `![alt](./pic.png)` is an image with alt text.
+
+What is between the parentheses decides what the link is:
+
+| Target | Is | Example |
+|---|---|---|
+| a URL: a scheme (`https:`, `mailto:`) or `www.` | a markdown link | `[docs](https://example.com)` |
+| anything with a typed component (`#` `:` `*` `-` `%` `>` `@`, first or after a `/`) | a zortex link | `[the plan](P/#1.4)`, `[here](/#Notes)`, `[step](./-Item)`, `[car](~/P/#Subaru)` |
+| a path (`./`, `../`, `/`, `~/`) or a name with a file extension | a file (a markdown link) | `[scan](./scan.pdf)`, `[scan](z/scan.pdf#page=2)` |
+| anything else | a zortex link to a note | `[my projects](Projects)` |
+
+A definition can't contain `)` there (a heading like `# Rye (dark)`, an
+`@p(1)` in the link): write those `[…]` as usual. The text is matched by a
+`-` component the way a markdown link's text is (`[P/-the plan]`), and by
+`>`. Other forms considered and left out: a `|` alias (`[P/#1.4|the
+plan]`) breaks table rows, which also use `|`, and reference-style
+`[text][id]` needs a definitions block per note; `[text](…)` is the one
+Markdown users already write.
 
 ## Tag searches
 

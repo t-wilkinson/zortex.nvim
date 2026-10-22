@@ -95,5 +95,6 @@ $$
 Unicode: café — “quotes” ☐ ✓ [lien éé] @tâche
 Trailing spaces label:   
 Unclosed ``` mid-line
+Display [a](./-Item) [b](/#Local) [c](notes.md#x) [d](www.x.com) [e](mailto:a@b) [f](~/P/#Subaru) [g](~/doc.pdf) [h](P/#v1.x) [i](Projects) [j](/abs/path) ![](https://x/y.png) ![alt](./a.png) ![alt](unclosed
 ```js
 unclosed block to end of file

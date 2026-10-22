@@ -859,6 +859,19 @@ function M.fix_link()
 		end
 		fix("fix a link", { ref.file }, function()
 			local line = ws().get_lines(ref.file)[ref.lnum]
+			if ref.def_col then
+				-- [text](definition): the text stays, the definition changes
+				local at = line:find("(" .. ref.definition .. ")", ref.def_col - 1, true)
+				if not at then
+					return nil, "the link isn't on its line any more"
+				end
+				local def = new:gsub("^%[", ""):gsub("%]$", "")
+				return ws().set_line(
+					ref.file,
+					ref.lnum,
+					line:sub(1, at) .. def .. line:sub(at + 1 + #ref.definition)
+				)
+			end
 			local s, f = line:find("[" .. ref.definition .. "]", 1, true)
 			if not s then
 				return nil, "the link isn't on its line any more"

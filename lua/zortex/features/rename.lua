@@ -91,7 +91,7 @@ function M.plan(file, lnum, new)
 					by_line[key] = { file = ref.file, lnum = ref.lnum, subs = {} }
 					order[#order + 1] = key
 				end
-				table.insert(by_line[key].subs, { col = ref.col, old = ref.definition, new = def })
+				table.insert(by_line[key].subs, { col = ref.def_col or ref.col, old = ref.definition, new = def })
 			end
 		end
 	end
@@ -107,7 +107,8 @@ function M.plan(file, lnum, new)
 			return a.col > b.col
 		end)
 		for _, sub in ipairs(l.subs) do
-			-- the definition starts after "[" (or "![")
+			-- the definition starts after "[" (or "!["), or after "](" in
+			-- [text](definition)
 			local at = line:find(sub.old, sub.col, true)
 			if at then
 				line = line:sub(1, at - 1) .. sub.new .. line:sub(at + #sub.old)

@@ -381,11 +381,11 @@ func (r *noteRenderer) span(line string, sp *syntax.Span) string {
 	switch sp.Type {
 	case "live_link":
 		if k := resourceKind(extOf(sp.Definition)); (k == "image" || k == "video") && r.s.fileLike(sp.Definition) {
-			return r.s.imageHTML(r.doc, sp.Definition)
+			return r.s.imageHTMLAlt(r.doc, sp.Definition, sp.Text)
 		}
-		return r.linkHTML(sp.Definition)
+		return r.linkHTMLText(sp.Definition, sp.Text)
 	case "link":
-		return r.linkHTML(sp.Definition)
+		return r.linkHTMLText(sp.Definition, sp.Text)
 	case "markdown":
 		href, ok := r.s.pathHref(r.doc, sp.URL)
 		cls := "md"
@@ -465,8 +465,19 @@ func externalAttrs(href string) string {
 // parent-relative one ([./-Item]) through its parent line's link, shown by
 // its text ("Item").
 func (r *noteRenderer) linkHTML(def string) string {
+	return r.linkHTMLText(def, "")
+}
+
+// linkHTMLText is linkHTML shown as `shown` ([shown](def)) when it isn't empty.
+func (r *noteRenderer) linkHTMLText(def, shown string) string {
+	if shown != "" && !links.IsParentRelative(def) {
+		return r.s.linkHTMLAs(r.doc, def, shown)
+	}
 	if links.IsParentRelative(def) {
 		text := strings.TrimSpace(syntax.Trim(def)[3:])
+		if shown != "" {
+			text = shown
+		}
 		abs, err := links.Absolute(r.doc.Lines, r.lnum, def)
 		if err != nil {
 			return `<a class="zl broken" title="` + esc(err.Error()) + `">` + esc(def) + `</a>`
@@ -647,14 +658,23 @@ func (s *Server) resolveFile(from *notes.Document, p string) (rel, frag string, 
 // imageHTML renders ![./pic.png] and ![./clip.mp4]: the image or video
 // itself (a missing file is a broken link, as [./pic.png] would be).
 func (s *Server) imageHTML(from *notes.Document, def string) string {
+	return s.imageHTMLAlt(from, def, "")
+}
+
+// imageHTMLAlt is imageHTML with alt text (![alt](./pic.png)); the file's
+// name when it is empty.
+func (s *Server) imageHTMLAlt(from *notes.Document, def, alt string) string {
+	if alt == "" {
+		alt = path.Base(def)
+	}
 	src, ok := s.rawHref(from, def)
 	if !ok {
 		return `<a class="zl broken" title="File not found">` + esc(def) + `</a>`
 	}
 	if resourceKind(extOf(def)) == "video" {
-		return `<video class="embed" src="` + esc(src) + `" controls preload="metadata" playsinline title="` + esc(path.Base(def)) + `"></video>`
+		return `<video class="embed" src="` + esc(src) + `" controls preload="metadata" playsinline title="` + esc(alt) + `"></video>`
 	}
-	return `<img class="embed" src="` + esc(src) + `" alt="` + esc(path.Base(def)) + `" loading="lazy">`
+	return `<img class="embed" src="` + esc(src) + `" alt="` + esc(alt) + `" loading="lazy">`
 }
 
 // tocEntry is a section in a note's outline.

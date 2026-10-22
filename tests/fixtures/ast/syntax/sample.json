@@ -635,6 +635,36 @@
         }
       ],
       "kind": "text"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [
+        {
+          "def_s": 38,
+          "definition": "P/#1.4 - zortex",
+          "e": 54,
+          "s": 18,
+          "text": "the zortex plugin",
+          "type": "link"
+        },
+        {
+          "def_s": 68,
+          "definition": "./images/pic.png",
+          "e": 85,
+          "s": 59,
+          "text": "a cat",
+          "type": "live_link"
+        },
+        {
+          "e": 115,
+          "s": 93,
+          "text": "the scan",
+          "type": "markdown",
+          "url": "z/scan.pdf"
+        }
+      ],
+      "kind": "text"
     }
   ],
   "sections": [

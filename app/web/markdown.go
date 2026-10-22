@@ -179,6 +179,16 @@ func (md *mdDoc) fixSpans(line string, spans []syntax.Span) []syntax.Span {
 				sp.Type, sp.S = "md_image", sp.S-1
 			}
 		case "link", "live_link":
+			if sp.DefS != 0 {
+				// [text](#anchor), [text](Note): a zortex link written with
+				// its text in a note, a Markdown link here
+				sp.Type = "markdown"
+				sp.URL, sp.Value = mdTarget(sp.Definition)
+				if bang {
+					sp.Type, sp.S = "md_image", sp.S-1
+				}
+				break
+			}
 			// [text][id] (the zortex grammar sees two links), then [id]
 			label, text, end := sp.Definition, sp.Definition, sp.E
 			if i+1 < len(spans) && spans[i+1].S == sp.E && (spans[i+1].Type == "link" || spans[i+1].Type == "live_link") {

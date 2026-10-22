@@ -588,3 +588,23 @@ func TestHoverCard(t *testing.T) {
 	expect(t, ts, "/api/hover?rel=nope.zortex", 404)
 	expect(t, ts, "/n/projects.zortex", 200, `/static/hover.js`)
 }
+
+func TestDisplayTextLinks(t *testing.T) {
+	s, dir, ts := newTestServer(t, "")
+	os.MkdirAll(filepath.Join(dir, "z/img"), 0o755)
+	os.WriteFile(filepath.Join(dir, "z/img/cat.png"), []byte("png"), 0o644)
+	os.WriteFile(filepath.Join(dir, "shown.zortex"), []byte("@@Shown\n\n"+
+		"- See [the zortex plan](P/#1.4 - zortex) and [nowhere](Nowhere/#x)\n"+
+		"- ![a cat](./z/img/cat.png) and [the docs](https://example.com)\n"), 0o644)
+	s.Refresh()
+
+	body := expect(t, ts, "/n/shown.zortex", 200,
+		`href="/n/projects.zortex#L14" title="Projects › 1 Programming › 1.4 - zortex">the zortex plan</a>`,
+		`>nowhere</a>`,
+		`alt="a cat"`,
+		`>the docs</a>`)
+	if strings.Contains(body, "](P/") {
+		t.Error("the link's definition is shown")
+	}
+	expect(t, ts, "/broken", 200, `Nowhere/#x`)
+}

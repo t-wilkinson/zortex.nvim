@@ -39,7 +39,9 @@
 -- Inline span (all columns 0-based, end exclusive):
 --   { type, s, e, ... }
 --   link         definition                      [Projects/#1 Programming]
+--                text, def_s (display text)      [the zortex plugin](P/#1.4)
 --   live_link    definition                      ![Article]
+--                text?, def_s                    ![alt text](./pic.png)
 --   tag_search   content                         @[cars parts]
 --                embed (true: shown in place)    !@[cars parts]
 --   markdown     text, url                       [text](https://...)
@@ -499,6 +501,28 @@ local function boundary_after(line, j)
 	return j > #line or not line:sub(j, j):match("[%w]")
 end
 
+--- Is `target` in "[text](target)" a zortex link, rather than a URL or a
+--- file (which keep the Markdown link)? A URL has a scheme (`https:`,
+--- `mailto:`) or starts with `www.`. A target with a typed component
+--- (`#`, `:`, `*`, `-`, `%`, `>` or `@`, first or after a `/`) is a link,
+--- so are "./" links continuing their parent's ([./-Item]). Otherwise a
+--- path ("./", "../", "/", "~/") or a name with a file extension
+--- ("z/scan.pdf", "notes.md#intro", 'a.png "title"') is a file, and anything else names a
+--- note ("Projects", "P/1.4"). app/syntax (IsLinkTarget) is the same.
+function M.is_link_target(target)
+	local t = trim(target or "")
+	if t == "" or t:match("^%a[%w+.%-]*:") or t:match("^www%.") then
+		return false
+	end
+	if t:match("^[#:%*%%>@%-]") or t:match("/[#:%*%%>@%-]") then
+		return true
+	end
+	if t:match("^~?%.?%.?/") then
+		return false
+	end
+	return not (t:match("%.%a%w*$") or t:match("%.%a%w*[#%s]"))
+end
+
 -- Each scanner tries to read a span starting at byte i (1-based) and returns
 -- the span (0-based columns) or nil.
 local scanners = {}
@@ -553,6 +577,18 @@ scanners["!"] = function(line, i)
 	if line:sub(i + 1, i + 1) ~= "[" then
 		return nil
 	end
+	local alt, target = line:match("^!%[([^%]]*)%]%(([^%)]+)%)", i)
+	if alt then
+		-- ![alt](target): Markdown's image form; the alt text is optional
+		return {
+			type = "live_link",
+			s = i - 1,
+			e = i + #alt + #target + 4,
+			definition = target,
+			text = alt ~= "" and alt or nil,
+			def_s = i + #alt + 3,
+		}
+	end
 	local content = line:match("^!%[([^%]]+)%]", i)
 	if content then
 		return { type = "live_link", s = i - 1, e = i + #content + 2, definition = content }
@@ -589,6 +625,17 @@ scanners["["] = function(line, i)
 	end
 	local text, url = line:match("^%[([^%]]*)%]%(([^%)]+)%)", i)
 	if text then
+		if text ~= "" and M.is_link_target(url) then
+			-- [text](P/#1.4): a zortex link shown as its text
+			return {
+				type = "link",
+				s = i - 1,
+				e = i + #text + #url + 3,
+				definition = url,
+				text = text,
+				def_s = i + #text + 2,
+			}
+		end
 		return { type = "markdown", s = i - 1, e = i + #text + #url + 3, text = text, url = url }
 	end
 	local content = line:match("^%[([^%]]+)%]", i)

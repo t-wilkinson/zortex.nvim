@@ -23,11 +23,12 @@
 --                      "> **Note:** Title"
 --   links              [[Note]], [[Note#Heading]], [text](note.md#slug) and
 --                      reference links -> [Name], [Name/#Heading] (when the
---                      text isn't the note's name it stays in front:
---                      "my notes [Sourdough]"); [[#Heading]] -> [/#Heading];
+--                      text isn't the note's name it is kept as the link's
+--                      text: "[my notes](Sourdough)"); [[#Heading]] -> [/#Heading];
 --                      other relative paths get "./" (relative to the note);
 --                      <https://…> -> https://…
---   images             ![alt](pic.png) -> ![./pic.png]; ![[pic.png]] finds the
+--   images             ![alt](pic.png) -> ![alt](./pic.png) (![./pic.png]
+--                      without alt text); ![[pic.png]] finds the
 --                      file among the imported folder's files
 --   emphasis           __bold__ -> **bold**, _italic_ -> *italic*
 --   tags               #tag -> @tag (#a/b -> @a-b; #123 stays)
@@ -476,7 +477,11 @@ local function note_link(text, name, heading, also)
 	for _, a in ipairs(also or {}) do
 		same = same or text:lower() == a:lower()
 	end
-	return same and link or (text .. " " .. link)
+	if same then
+		return link
+	end
+	-- "(" or ")" in the definition can't be written inside "(…)"
+	return def:find("[()]") and (text .. " " .. link) or ("[" .. text .. "](" .. def .. ")")
 end
 
 -- Segments of `line` that are code or math (left alone): { s, e } 1-based.
@@ -581,8 +586,12 @@ function M.inline(line, ctx)
 			local info = resolve(target)
 			return keep("![" .. link_text(info and info.name or target) .. "]")
 		end)
-		s = s:gsub("!%[([^%]]*)%]%(%s*<?([^%s)>]+)>?[^)]*%)", function(_, src)
-			return keep("![" .. local_path(src) .. "]")
+		s = s:gsub("!%[([^%]]*)%]%(%s*<?([^%s)>]+)>?[^)]*%)", function(alt, src)
+			alt = trim(alt)
+			if alt == "" then
+				return keep("![" .. local_path(src) .. "]")
+			end
+			return keep("![" .. alt .. "](" .. local_path(src) .. ")")
 		end)
 		-- wikilinks [[target#heading|text]]
 		s = s:gsub("%[%[([^%]]+)%]%]", function(inner)

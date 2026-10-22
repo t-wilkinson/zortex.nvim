@@ -588,3 +588,39 @@ func TestHoverCard(t *testing.T) {
 	expect(t, ts, "/api/hover?rel=nope.zortex", 404)
 	expect(t, ts, "/n/projects.zortex", 200, `/static/hover.js`)
 }
+
+func TestDisplayTextLinks(t *testing.T) {
+	s, dir, ts := newTestServer(t, "")
+	os.MkdirAll(filepath.Join(dir, "z/img"), 0o755)
+	os.WriteFile(filepath.Join(dir, "z/img/cat.png"), []byte("png"), 0o644)
+	os.WriteFile(filepath.Join(dir, "shown.zortex"), []byte("@@Shown\n\n"+
+		"- See [the zortex plan](P/#1.4 - zortex) and [nowhere](Nowhere/#x)\n"+
+		"- ![a cat](./z/img/cat.png) and [the docs](https://example.com)\n"), 0o644)
+	s.Refresh()
+
+	body := expect(t, ts, "/n/shown.zortex", 200,
+		`href="/n/projects.zortex#L14" title="Projects › 1 Programming › 1.4 - zortex">the zortex plan</a>`,
+		`>nowhere</a>`,
+		`alt="a cat"`,
+		`>the docs</a>`)
+	if strings.Contains(body, "](P/") {
+		t.Error("the link's definition is shown")
+	}
+	expect(t, ts, "/broken", 200, `Nowhere/#x`)
+}
+
+func TestBrokenPageOnlyListsProblems(t *testing.T) {
+	s, dir, ts := newTestServer(t, "")
+	// one broken link: its table; no tag search finds nothing here
+	os.WriteFile(filepath.Join(dir, "one.zortex"), []byte("@@One\n\n- [Nowhere/#x]\n"), 0o644)
+	s.Refresh()
+	body := expect(t, ts, "/broken", 200, `Nowhere/#x`)
+	for _, quiet := range []string{"Nothing is broken", "Every link resolves", "Every tag search finds something"} {
+		if strings.Contains(body, quiet) {
+			t.Errorf("/broken says %q", quiet)
+		}
+	}
+	if strings.Contains(body, "Tags that go nowhere") != strings.Contains(body, "finds nothing") && !strings.Contains(body, "no note has this tag") {
+		t.Error("the tags heading is shown without a problem under it")
+	}
+}

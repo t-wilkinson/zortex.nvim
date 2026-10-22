@@ -74,10 +74,6 @@ function M.pretty(entry)
 		end
 	end
 
-	if entry.attributes["repeat"] then
-		table.insert(parts, "🔁 " .. entry.attributes["repeat"])
-	end
-
 	table.insert(parts, " " .. entry.text)
 
 	local extra = {}
@@ -167,9 +163,6 @@ function M.simple(entry)
 	end
 	if attrs.notify then
 		table.insert(extra, "!")
-	end
-	if attrs["repeat"] then
-		table.insert(extra, "R:" .. attrs["repeat"])
 	end
 	if attrs.p then
 		table.insert(extra, "P" .. attrs.p)

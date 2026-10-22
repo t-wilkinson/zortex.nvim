@@ -3,7 +3,7 @@
 -- C0001, C0002, ... in order.
 return {
 	{
-		name = "a project block, a plain task, repeats, and an id already on today",
+		name = "a project block, plain tasks, and an id already on today",
 		today = "2026-10-14",
 		from = "2026-09-30",
 		lines = {
@@ -43,6 +43,22 @@ return {
 			"",
 			"2026-10-20:",
 			"10:00 Later",
+		},
+	},
+	{
+		name = "links shown by their text keep it, carried or written out",
+		today = "2026-10-14",
+		from = "2026-09-30",
+		lines = {
+			"@@Calendar",
+			"",
+			"2026-10-13:",
+			"09:00 [1.4 - zortex](P/#1.4 - zortex)",
+			"  - [ ] [Improve website](./-Improve website) @id(web02)",
+			"- [ ] [Change sizes](P/#1.4 - zortex/-Change task sizes)",
+			"- [x] [Docs](P/#1.4 - zortex/-Docs) @done(2026-10-13)",
+			"  - [ ] [Intro](./-Intro)",
+			"",
 		},
 	},
 	{

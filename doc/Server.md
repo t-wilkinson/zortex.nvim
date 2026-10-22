@@ -35,11 +35,20 @@ the inbox, carried tasks), so the sync has to run both ways.
 
 Whatever you use:
 
-- **Sync `.z/` too.** Neovim's state lives in `notes/.z/`. The web app
-  reads `.z/xp_summary.json` and `.z/time_spent.json` from there (Neovim
-  writes them as they change), so don't leave `.z` out of the sync
-  (`.stignore`). Leave it out of a git backup instead
-  ([Backups](../README.md#backups)): it is state, not notes.
+- **Sync `.z/` too.** The state devices share lives in `notes/.z/`: the
+  XP summaries the web app shows (`.z/xp_summary.<device>.json`, one per
+  Neovim, so two machines never write the same file), `.z/time_spent.json`
+  (written by the server), and XP seasons. Don't leave `.z` out of the sync
+  (`.stignore`); leave it out of a git backup instead
+  ([Backups](../README.md#backups)): it is state, not notes. Caches and
+  per-machine bookkeeping (the link index, search history, which levels
+  were announced) stay out of the folder, under Neovim's
+  `stdpath("state")/zortex`, and a conflict copy of the seasons
+  (`xp_state.sync-conflict-….json`) is merged and removed when Neovim
+  next loads it. Files an older version kept in `.z/`
+  (`link_index.json`, `search_history.json`, `notifications_state.json`,
+  `starter.json`, `xp_summary.json`) can be deleted once every device is
+  updated.
 - **Calendar feeds write into the folder.** With `-feeds`
   ([section 6](#6-other-calendars)) the server writes `z/feeds/<name>.zortex`
   itself, so it needs write access to the notes even without `-writable`,
@@ -49,7 +58,8 @@ Whatever you use:
   Nextcloud `note (… conflicted copy …).zortex`). Zortex leaves these copies
   out of the notes, so a copy of `projects.zortex` doesn't double every
   project, and the file browser hides them; `:checkhealth zortex` lists
-  them. Merge each into its note by hand and delete it.
+  them. Merge each into its note by hand and delete it. (State files in
+  `.z/` don't need this: see above.)
 - **Keep history.** A sync tool copies a mistake to every device; keep
   the folder in git on this machine (the README's
   [Backups](../README.md#backups) has a daily commit).

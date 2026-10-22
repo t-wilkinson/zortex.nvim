@@ -57,7 +57,7 @@ articles rank above headings, which rank above bold headings and labels.
 Results from one note stay together in document order, so parents sit above
 their children; live notes come before archived ones (marked `(archive)`).
 Places you often open from search rank a little higher
-(`.z/search_history.json`), never above a better match. The web app keeps
+(kept per machine, outside the notes), never above a better match. The web app keeps
 its own history, in its `-data` folder (`search_history.json`), so a synced
 notes folder never has two programs writing one file.
 
@@ -95,7 +95,9 @@ the section or line marked.
 
 `:ZortexMove` (`<leader>zM`) opens the same picker to choose where the
 section under the cursor (a heading, bold heading or label and everything
-in it), or the line with the lines nested under it, goes. A range or a
+in it), or the line with the lines nested under it, goes (on a section it
+first offers to rename it: keep the name to pick a place). Links to what
+moves are rewritten where they would no longer find it. A range or a
 visual selection moves exactly those lines. Here every section is offered
 whatever the number of words (a one-word search finds `### 6.3: Homelab`
 too), and there is no new-note key.

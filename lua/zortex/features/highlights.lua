@@ -258,9 +258,17 @@ local function paint_spans(buf, row, spans, kind)
 			if t == "tag_search" then
 				paint(buf, row, "ZortexTagSearchAt", s, s + 1)
 			end
-			paint(buf, row, link_group(t, span.definition), open + 1, e - 1)
-			icon(buf, row, open)
-			conceal(buf, row, e - 1, e)
+			if span.text then
+				-- [text](P/#1.4): the text, coloured as the link; "](…)" hidden
+				local text_e = span.def_s - 2
+				paint(buf, row, link_group(t, span.definition), open + 1, text_e)
+				icon(buf, row, open)
+				conceal(buf, row, text_e, e)
+			else
+				paint(buf, row, link_group(t, span.definition), open + 1, e - 1)
+				icon(buf, row, open)
+				conceal(buf, row, e - 1, e)
+			end
 		elseif t == "markdown" then
 			paint(buf, row, "ZortexMarkdownLink", s + 1, s + 1 + #span.text)
 			icon(buf, row, s)

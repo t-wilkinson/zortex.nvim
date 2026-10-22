@@ -44,6 +44,11 @@ local FILTER = { ["#"] = "heading", [":"] = "label", ["*"] = "bold_heading", ["-
 --- or nil when not inside a zortex link.
 function M.link_context(line, col)
 	local before = line:sub(1, col)
+	-- [text](P/#… : the definition after "](" completes like one in brackets
+	local paren = before:match(".*%[[^%]]+%]%(()[^%)]*$")
+	if paren then
+		before = before:sub(1, paren - 2) .. "[" .. before:sub(paren)
+	end
 	local open = before:match(".*()%[")
 	if not open then
 		return nil

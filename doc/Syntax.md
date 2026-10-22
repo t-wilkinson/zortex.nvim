@@ -106,10 +106,12 @@ Nothing inside a code or math block is structure.
 | Example | Span | Notes |
 |---|---|---|
 | `[Link/#Heading]` | `link` | see Links below |
+| `[the zortex plugin](P/#1.4 - zortex)` | `link` | the same link shown as its text ([Display text](#display-text)) |
 | `![Live link]` | `live_link` | a link shown in place: an image or video on the web; other targets are reserved for showing zortex data in place |
+| `![a cat](./images/pic.png)` | `live_link` | an image with its alt text, as in Markdown |
 | `@[cars parts]` | `tag_search` | lines tagged `@cars` and `@parts` (words: all of them; commas: any); see Tag searches below |
 | `!@[R/rust async]` | `tag_search` | the same search shown in place: a table on the web; see Tag searches below |
-| `[text](https://example.com)` | `markdown` | a markdown link |
+| `[text](https://example.com)` | `markdown` | a markdown link: a URL, or a file (`[the scan](z/scan.pdf)`) |
 | `[^1]` | `footnote_ref` | a footnote reference |
 | `https://example.com` | `url` | |
 | `./images/pic.png` | `filepath` | `./`, `../`, `~/` or `/` paths, relative to the note |
@@ -156,8 +158,8 @@ These are understood (tasks, projects, calendar entries):
 | `@event` | calendar: something fixed that you plan around (an appointment, a flight), not a block you planned; the web month grid marks its day, and it is listed under "Coming up" (as are timed lines and calendar notes that don't link a project) |
 | `@share` | calendar: the line is in the server's `/calendar.ics`, which other calendars (Cozi, Google, Apple) subscribe to; nothing else of the calendar is ([Other calendars](Server.md#6-other-calendars)) |
 | `@free` | calendar: a timed line that doesn't take your time: the planner's capacity line doesn't count it as busy (a calendar feed with `busy: false` writes it) |
-| `@repeat(weekly)`, `@repeat(03-14)`, `@repeat(mon, wed)` | calendar: an entry of the `# Repeating` section, shown on the days it lands on ([Planning](Planning.md#templates-and-repeating-entries)); under a day, it repeats from that day |
-| `@since(2026-10-06)`, `@until(2026-12-31)` | a repeating entry: when it starts (and what every n counts from) and ends |
+| `@repeat(weekly)`, `@repeat(2w)`, `@repeat(mon, wed)`, `@repeat(03-14)` | calendar, `# Repeating` section only: how often the entry shows ([Planning](Planning.md#templates-and-repeating-entries)); anywhere else it is not read (the calendar note flags it) |
+| `@from(2026-10-06)`, `@to(2026-12-31)` | a repeating entry: its first day (what every n counts from: `2w` needs one) and its last day, both optional otherwise; with a time instead (`@from(07:30) @to(08:15)`), a calendar line's time |
 | `@born(1990)` | a repeating entry: the age, shown after its text on the day |
 | `@for(2026-10-18)` | a repeating task's copy done on another day: the day it stands for |
 | `@fold` | on a heading, label or list item with nested lines: the section starts folded in Neovim each time the note is shown (`zo` opens it until then) |
@@ -224,6 +226,32 @@ follow links keep the plain link colour.
   still finds it.
 
 `doc/Architecture.md` (Links) has the exact resolution rules.
+
+### Display text
+
+`[text](definition)` is a link shown as its text: `[the zortex
+plugin](P/#1.4 - zortex)` goes where `[P/#1.4 - zortex]` goes and reads
+"the zortex plugin" (in Neovim the definition is concealed, on the web it is
+the link's tooltip). It is Markdown's form, so imported notes keep their
+link text, and the text survives a rename or a move: `:ZortexMove` rewrites the
+definition only. `![alt](./pic.png)` is an image with alt text.
+
+What is between the parentheses decides what the link is:
+
+| Target | Is | Example |
+|---|---|---|
+| a URL: a scheme (`https:`, `mailto:`) or `www.` | a markdown link | `[docs](https://example.com)` |
+| anything with a typed component (`#` `:` `*` `-` `%` `>` `@`, first or after a `/`) | a zortex link | `[the plan](P/#1.4)`, `[here](/#Notes)`, `[step](./-Item)`, `[car](~/P/#Subaru)` |
+| a path (`./`, `../`, `/`, `~/`) or a name with a file extension | a file (a markdown link) | `[scan](./scan.pdf)`, `[scan](z/scan.pdf#page=2)` |
+| anything else | a zortex link to a note | `[my projects](Projects)` |
+
+A definition can't contain `)` there (a heading like `# Rye (dark)`, an
+`@p(1)` in the link): write those `[…]` as usual. The text is matched by a
+`-` component the way a markdown link's text is (`[P/-the plan]`), and by
+`>`. Other forms considered and left out: a `|` alias (`[P/#1.4|the
+plan]`) breaks table rows, which also use `|`, and reference-style
+`[text][id]` needs a definitions block per note; `[text](…)` is the one
+Markdown users already write.
 
 ## Tag searches
 

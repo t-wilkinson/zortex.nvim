@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"sort"
 	"sync"
 	"time"
@@ -202,12 +201,13 @@ func (s *Server) notesChanged(rels []string) {
 	s.events.publish("notes", map[string]any{"rels": rels})
 }
 
-// checkXPFile announces a new .z/xp_summary.json (synced from Neovim).
+// checkXPFile announces a new .z/xp_summary*.json (synced from a Neovim).
 func (s *Server) checkXPFile() {
-	st, err := os.Stat(filepath.Join(s.cfg.Root, ".z", xpFile))
 	var mod time.Time
-	if err == nil {
-		mod = st.ModTime()
+	for _, path := range s.xpFiles() {
+		if st, err := os.Stat(path); err == nil && st.ModTime().After(mod) {
+			mod = st.ModTime()
+		}
 	}
 	s.xpFileMu.Lock()
 	changed := !mod.Equal(s.xpFileSeen)

@@ -233,3 +233,54 @@ T.test("heading and tag searches stay inside the range", function()
 	T.eq(lnums({ type = "tag", text = "beta" }, 3), { 5 })
 	T.eq(lnums({ type = "query", text = "beta" }, 2, 4), { 2, 4 })
 end)
+
+T.test("[text](link): a zortex link shown as its text; URLs and files stay Markdown", function()
+	local syntax = require("zortex.core.syntax")
+	local function kinds(line)
+		return vim.tbl_map(function(s)
+			return s.type .. ":" .. (s.definition or s.url or "")
+		end, syntax.inline(line))
+	end
+	T.eq(kinds("[the plan](P/#1.4 - zortex) [docs](https://x.org) [scan](z/scan.pdf)"), {
+		"link:P/#1.4 - zortex",
+		"markdown:https://x.org",
+		"markdown:z/scan.pdf",
+	})
+	T.eq(kinds("[a](./-Item) [b](/#Local) [c](~/P/#Subaru) [d](~/doc.pdf) [e](Projects) [f](P/#v1.x)"), {
+		"link:./-Item",
+		"link:/#Local",
+		"link:~/P/#Subaru",
+		"markdown:~/doc.pdf",
+		"link:Projects",
+		"link:P/#v1.x",
+	})
+	local span = syntax.inline("see [the plan](P/#1.4)")[1]
+	T.eq({ span.text, span.def_s }, { "the plan", 15 })
+	local img = syntax.inline("![a cat](./cat.png)")[1]
+	T.eq({ img.type, img.definition, img.text }, { "live_link", "./cat.png", "a cat" })
+
+	-- it resolves like [P/#1.4 - zortex], and is followed and matched by its text
+	T.eq(target("[P/#1.4 - zortex]"), "projects.zortex:14")
+	local at = links.at("x [the plan](P/#1.4 - zortex) y", 4)
+	T.eq({ at.type, at.definition, at.display_text, at.def_col }, { "link", "P/#1.4 - zortex", "the plan", 14 })
+	T.eq(links.link_text("- [the plan](P/#1.4) @p1", 2), "the plan @p1")
+	T.eq(links.follow_targets("- [Rust book](R/#Rust)")[1].text, "Rust book")
+end)
+
+T.test("completion works after ]( as inside brackets", function()
+	local completion = require("zortex.features.completion")
+	local line = "see [the plan](P/#1"
+	local ctx = completion.link_context(line, #line)
+	T.eq({ ctx.parts, ctx.typing, ctx.typing_col }, { { "P" }, "#1", 17 })
+	T.eq(completion.link_context("see [the plan](P/#1) and", 24), nil)
+end)
+
+T.test("shown and readable: a link by its text, for written lines and plain text", function()
+	T.eq(links.shown("1.4 - zortex", "[P/#1 Programming/#1.4 - zortex]"), "[1.4 - zortex](P/#1 Programming/#1.4 - zortex)")
+	T.eq(links.shown("Improve website", "./-Improve website"), "[Improve website](./-Improve website)")
+	T.eq(links.shown("", "P/#X"), "[P/#X]", "no text: the plain link")
+	T.eq(links.shown("Rye", "S/#Rye (dark)"), "[S/#Rye (dark)]", "a parenthesis can't go in (…)")
+	T.eq(links.shown("odd [x] text", "P/#X"), "[odd x text](P/#X)")
+	T.eq(links.readable("09:00 [P/#1.4 - zortex] and [the docs](https://e.org) @n(10)"), "09:00 1.4 - zortex and the docs")
+	T.eq(links.readable("- [ ] [Improve website](./-Improve website) @id(ab1)"), "- [ ] Improve website")
+end)

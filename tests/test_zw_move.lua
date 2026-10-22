@@ -161,3 +161,103 @@ T.test(":ZortexMove picks the place in the structural search", function()
 	vim.fn.delete(p)
 	vim.fn.delete(Config.notes_dir .. "move-other.zortex")
 end)
+
+T.test("links follow a move: into what moved, ./ and / links on the moved lines", function()
+	local Feature = require("zortex.features.move")
+	local a = note("mv-from.zortex", {
+		"@@Mv from", -- 1
+		"", -- 2
+		"# Garden", -- 3
+		"## Beds", -- 4
+		"- [ ] weed @id(wd001)", -- 5
+		"- see [/#Notes]", -- 6
+		"09:00 [Mv to/#Shed]", -- 7
+		"  - [ ] [./-oil]", -- 8
+		"# Notes", -- 9
+		"- [/#Beds] and [Mv from/#Garden/#Beds](Mv from/#Garden/#Beds)", -- 10
+	})
+	local b = note("mv-to.zortex", { "@@Mv to", "", "# Shed", "- oil", "# Yard" })
+	local c = note("mv-other.zortex", {
+		"@@Mv other",
+		"",
+		"- [Mv from/#Beds] another note now",
+		"- [Mv from/#Garden/#Beds/-weed] and [Mv from/-wd001]",
+	})
+	require("zortex.core.link_index").refresh(true)
+	local Doc = require("zortex.core.document")
+	-- "## Beds" (lines 4-8) under "# Yard" of another note
+	local src = assert(Move.source(Doc.get(a), 4))
+	local plan = assert(Feature.plan(a, src, { file = b, lnum = 5, text = "Yard" }))
+	local by = {}
+	for _, e in ipairs(plan.edits) do
+		by[vim.fn.fnamemodify(e.file, ":t") .. ":" .. e.lnum] = e.line
+	end
+	T.eq(by["mv-other.zortex:3"], "- [Mv to/#Yard/#Beds] another note now")
+	T.eq(by["mv-other.zortex:4"], "- [Mv to/#Yard/#Beds/-weed] and [Mv to/#Yard/-wd001]")
+	T.eq(by["mv-from.zortex:10"], "- [Mv to/#Yard/#Beds] and [Mv from/#Garden/#Beds](Mv to/#Yard/#Beds)")
+	T.eq(by["mv-from.zortex:6"], "- see [Mv from/#Notes]", "a / link on a moved line names its old note")
+	T.eq(by["mv-from.zortex:8"], nil, "its ./ parent moves with it")
+
+	T.ok(Feature.apply(plan))
+	local to = read(b)
+	T.eq(vim.list_slice(to, 5, 11), { "# Yard", "", "## Beds", "- [ ] weed @id(wd001)", "- see [Mv from/#Notes]", "09:00 [Mv to/#Shed]", "  - [ ] [./-oil]" })
+	Doc.invalidate(c)
+	require("zortex.core.link_index").refresh(true)
+	for _, def in ipairs({ "Mv to/#Yard/#Beds/-weed", "Mv to/#Yard/-wd001", "Mv from/#Notes" }) do
+		T.ok(require("zortex.core.link").resolve_first("[" .. def .. "]"), def)
+	end
+	T.eq(require("zortex.core.workspace").undo_last(), "move")
+	T.eq(read(c)[4], "- [Mv from/#Garden/#Beds/-weed] and [Mv from/-wd001]")
+end)
+
+T.test("a ./ link whose parent stays behind is written out", function()
+	local p = note("mv-rel.zortex", {
+		"@@Mv rel",
+		"",
+		"# A",
+		"09:00 [Mv rel/#B]",
+		"  - [ ] [./-thing]",
+		"# B",
+		"- thing",
+	})
+	require("zortex.core.link_index").refresh(true)
+	local src = assert(Move.source(require("zortex.core.document").get(p), 5))
+	local plan = assert(require("zortex.features.move").plan(p, src, { file = p, lnum = 6, text = "B" }))
+	T.eq(plan.edits[1].line, "  - [ ] [Mv rel/#B/-thing]")
+end)
+
+T.test("within one note, a link that still finds what moved is left alone", function()
+	local p = note("mv-same.zortex", { "@@Mv same", "", "# A", "## Deep", "- x", "# B", "- [Mv same/#Deep] [Mv same/#A/#Deep]" })
+	require("zortex.core.link_index").refresh(true)
+	local src = assert(Move.source(require("zortex.core.document").get(p), 4))
+	local plan = assert(require("zortex.features.move").plan(p, src, { file = p, lnum = 6, text = "B" }))
+	T.eq(#plan.edits, 1)
+	T.eq(plan.edits[1].line, "- [Mv same/#Deep] [Mv same/#B/#Deep]")
+end)
+
+T.test(":ZortexMove renames a heading given a title, moves it given a [link]", function()
+	local Feature = require("zortex.features.move")
+	local p = note("mv-cmd.zortex", { "@@Mv cmd", "", "# One", "- x", "# Two", "- [/#One]" })
+	require("zortex.core.link_index").refresh(true)
+	vim.cmd("edit! " .. vim.fn.fnameescape(p))
+	local bufnr = vim.api.nvim_get_current_buf()
+	vim.api.nvim_win_set_cursor(0, { 3, 0 })
+	Feature.move_current({ args = "Uno" })
+	local l = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+	T.eq({ l[3], l[6] }, { "# Uno", "- [/#Uno]" })
+	vim.cmd("silent write")
+	Feature.move_current({ args = "[/#Two]" })
+	l = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+	T.eq(vim.list_slice(l, 3, 7), { "# Two", "- [/#Uno]", "", "## Uno", "- x" })
+	-- a plain line can't be renamed
+	vim.api.nvim_win_set_cursor(0, { 4, 0 })
+	local msg
+	local orig = vim.notify
+	vim.notify = function(m)
+		msg = m
+	end
+	Feature.move_current({ args = "something" })
+	vim.notify = orig
+	T.ok(msg and msg:find("Only a heading"), msg)
+	vim.cmd("silent! bwipeout! " .. bufnr)
+end)

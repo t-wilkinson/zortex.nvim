@@ -15,7 +15,7 @@ Sunday:
 - Sam's birthday @repeat(10-16) @born(1990)
 ## Routines
 12:00 [ ] Weekly review @repeat(weekly, Sunday)
-- [ ] Bins out @repeat(2w) @since(2026-10-06) @at(18:00)
+- [ ] Bins out @repeat(2w) @from(2026-10-06) @at(18:00)
 
 # Days
 

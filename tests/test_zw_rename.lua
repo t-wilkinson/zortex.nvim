@@ -1,4 +1,4 @@
--- features/rename (:ZortexRename): a heading or label renamed, and every
+-- features/rename (the rename half of :ZortexMove): a heading or label renamed, and every
 -- link through it rewritten where it no longer finds it.
 local T = require("helpers")
 local Document = require("zortex.core.document")
@@ -89,5 +89,23 @@ T.test("rename asks before changing other notes, not for one note", function()
 	local p = note("rn-ask.zortex", { "@@Rn ask", "", "# Alone", "- [/#Alone]" })
 	require("zortex.core.link_index").refresh(true)
 	local plan = assert(Rename.plan(p, 3, "Still alone"))
-	T.ok(Rename.ask(plan, "Alone"), "one note: no question")
+	T.ok(require("zortex.features.move").confirm("Rename.", plan.links, p), "one note: no question")
+end)
+
+T.test("rename rewrites the definition of a [text](link), not its text", function()
+	local p = note("rn-shown.zortex", {
+		"@@Rn shown",
+		"",
+		"# 5 Garden beds",
+	})
+	local o = note("rn-shown-other.zortex", {
+		"@@Rn shown other",
+		"",
+		"- [Rn shown/#5 Garden beds](Rn shown/#5 Garden beds) and [the beds](Rn shown/#5 Garden beds)",
+	})
+	require("zortex.core.link_index").refresh(true)
+	local plan = assert(Rename.plan(p, 3, "6 Raised beds"))
+	T.eq(plan.count, 2)
+	Rename.apply(plan)
+	T.eq(read(o)[3], "- [Rn shown/#5 Garden beds](Rn shown/#6 Raised beds) and [the beds](Rn shown/#6 Raised beds)")
 end)

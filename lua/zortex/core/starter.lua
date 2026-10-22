@@ -156,6 +156,7 @@ end
 local function state()
 	return require("zortex.core.state").open("starter", {
 		version = 1,
+		device = true,
 		default = function()
 			return { reported = {} }
 		end,

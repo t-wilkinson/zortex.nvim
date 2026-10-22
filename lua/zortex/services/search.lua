@@ -36,7 +36,7 @@
 --   history             { enabled, max_entries, score_decay, propagation_decay }
 --                       per-section history (see services/search_history);
 --                       both add a boost so frequently/recently opened places
---                       rank higher. Stored in notes_dir/.z/search_history.json
+--                       rank higher. Stored per machine (core/state, search_history.json)
 --
 -- No UI here: ui/picker/search.lua is the picker, zortex.query.search the
 -- plain-data entry point.

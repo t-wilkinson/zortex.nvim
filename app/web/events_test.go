@@ -285,3 +285,18 @@ func TestClientAddr(t *testing.T) {
 		}
 	}
 }
+
+func TestXPSummaryPerDevice(t *testing.T) {
+	s, dir, ts := newTestServer(t, "")
+	z := filepath.Join(dir, ".z")
+	os.MkdirAll(z, 0o755)
+	os.WriteFile(filepath.Join(z, "xp_summary.laptop.json"), []byte(`{"generated":"2026-10-12T11:00:00Z","week":1}`), 0o644)
+	os.WriteFile(filepath.Join(z, "xp_summary.desktop.json"), []byte(`{"generated":"2026-10-12T12:00:00Z","week":2}`), 0o644)
+	os.WriteFile(filepath.Join(z, "xp_summary.json"), []byte(`{"generated":"2026-10-01T12:00:00Z","week":3}`), 0o644)
+	os.WriteFile(filepath.Join(z, "xp_summary.desktop.sync-conflict-20261012-120000-ABC.json"), []byte(`{"generated":"2026-10-13T12:00:00Z","week":4}`), 0o644)
+	s.Refresh()
+	_, got := getJSON(t, ts, "/api/xp")
+	if got["week"] != float64(2) {
+		t.Errorf("the newest device's summary wins, conflict copies are ignored: week %v", got["week"])
+	}
+}

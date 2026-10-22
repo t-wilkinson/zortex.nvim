@@ -130,7 +130,7 @@ T.test("the planner offers the group, not its tasks", function()
 		local texts = {}
 		for _, t in ipairs(c.tasks) do
 			if t.project_name == "Homelab" then
-				texts[#texts + 1] = t.text:match("^(.-) %[")
+				texts[#texts + 1] = t.title
 				if t.text:find("Security audit", 1, true) then
 					T.ok(vim.tbl_contains(t.badges, "5 of 6 tasks open"), vim.inspect(t.badges))
 				end

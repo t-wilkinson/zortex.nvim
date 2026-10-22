@@ -2,7 +2,9 @@
 --
 -- A link in a note that resolves nowhere (link_index.unresolved_in), or a
 -- path to a file that isn't there, is a diagnostic on its span: ]d / [d
--- move between them, and :ZortexBrokenLinks lists those of every note.
+-- move between them, and :ZortexBrokenLinks lists those of every note. In
+-- the calendar note, so are repeating entries that can't work
+-- (services/calendar_rules.problems).
 -- Updated when a note is opened, saved, or after changes settle.
 local M = {}
 
@@ -25,6 +27,21 @@ function M.compute(bufnr)
 		return {}
 	end
 	local out = {}
+	local fs = require("zortex.utils.filesystem")
+	local cal_ok, cal = pcall(fs.get_calendar_file)
+	if cal_ok and cal and vim.fn.fnamemodify(cal, ":p") == vim.fn.fnamemodify(name, ":p") then
+		local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+		for _, p in ipairs(require("zortex.services.calendar_rules").problems(lines)) do
+			out[#out + 1] = {
+				lnum = p.lnum - 1,
+				col = p.col,
+				end_col = p.end_col,
+				severity = severity(),
+				source = "zortex",
+				message = p.message,
+			}
+		end
+	end
 	for _, ref in ipairs(refs) do
 		out[#out + 1] = {
 			lnum = ref.lnum - 1,

@@ -2,13 +2,50 @@
 --
 -- XP itself is not stored: services/xp/ledger derives every award from the
 -- notes, services/xp/season the season's progress. This store keeps what
--- can't be derived: a season started by hand (a name and a date window),
--- past seasons, and the area levels and season tier last announced (so each
--- is announced once).
+-- can't be derived, in two files (core/state):
+--
+--   xp_state  synced: a season started by hand (a name and a date window)
+--             and past seasons. Written only when a season starts or ends;
+--             conflict copies from two devices are merged (merge_seasons).
+--   xp_seen   this machine's: the area levels and season tier last
+--             announced, so each is announced once per device. It changes
+--             on every XP refresh, so it never travels with the notes.
 local M = {}
 
 local Events = require("zortex.core.event_bus")
 local State = require("zortex.core.state")
+
+local function season_key(s)
+	return (s.name or "") .. "|" .. (s.start_date or "")
+end
+
+--- Two copies of the seasons (a sync conflict) as one: every past season
+--- of either, and the current season started last unless it has ended in
+--- either copy.
+function M.merge_seasons(mine, other)
+	local out = { version = mine.version, season_history = {} }
+	local seen = {}
+	for _, list in ipairs({ mine.season_history or {}, other.season_history or {} }) do
+		for _, record in ipairs(list) do
+			local key = season_key(record)
+			if not seen[key] then
+				seen[key] = true
+				out.season_history[#out.season_history + 1] = record
+			end
+		end
+	end
+	table.sort(out.season_history, function(a, b)
+		return (a.end_date or "") < (b.end_date or "")
+	end)
+	local current
+	for _, c in ipairs({ mine.current_season or false, other.current_season or false }) do
+		if c and not seen[season_key(c)] and (not current or (c.start_time or 0) > (current.start_time or 0)) then
+			current = c
+		end
+	end
+	out.current_season = current
+	return out
+end
 
 local store = State.open("xp_state", {
 	version = 3,
@@ -16,8 +53,16 @@ local store = State.open("xp_state", {
 		return {
 			current_season = nil, -- { name, span, start_date, end_date, start_time }
 			season_history = {}, -- { name, span, start_date, end_date, final_progress, final_tier }
-			seen = { season = nil, season_tier = 0, area_levels = {} },
 		}
+	end,
+	merge = M.merge_seasons,
+})
+
+local seen_store = State.open("xp_seen", {
+	version = 1,
+	device = true,
+	default = function()
+		return { season = nil, season_tier = 0, area_levels = {} }
 	end,
 })
 
@@ -29,10 +74,31 @@ end
 
 local function data()
 	local d = store:get()
-	d.seen = d.seen or { season_tier = 0, area_levels = {} }
-	d.seen.area_levels = d.seen.area_levels or {}
 	d.season_history = d.season_history or {}
 	return d
+end
+
+-- What was announced on this machine. Older versions kept it in xp_state
+-- (synced): it moves here the first time, and leaves xp_state at its next
+-- save.
+local function seen()
+	local s = seen_store:get()
+	local d = store:get()
+	if d.seen then
+		if next(s.area_levels or {}) == nil and s.season == nil then
+			s.season, s.season_tier, s.area_levels = d.seen.season, d.seen.season_tier, d.seen.area_levels
+		end
+		d.seen = nil
+	end
+	s.area_levels = s.area_levels or {}
+	s.season_tier = s.season_tier or 0
+	return s
+end
+
+local function forget_season_seen()
+	local s = seen()
+	s.season, s.season_tier = nil, 0
+	seen_store:save()
 end
 
 -- =============================================================================
@@ -125,8 +191,8 @@ function M.start_season(name, end_date, start_date, span)
 		end_date = end_date,
 		start_time = os.time(),
 	}
-	d.seen.season, d.seen.season_tier = nil, 0
 	store:save()
+	forget_season_seen()
 	Events.emit("season:started", { name = name, end_date = end_date })
 end
 
@@ -150,8 +216,8 @@ function M.end_season(final)
 	}
 	table.insert(d.season_history, record)
 	d.current_season = nil
-	d.seen.season, d.seen.season_tier = nil, 0
 	store:save()
+	forget_season_seen()
 	Events.emit("season:ended", { season = record })
 	return record
 end
@@ -159,8 +225,8 @@ end
 function M.reset_season()
 	local d = data()
 	d.current_season = nil
-	d.seen.season, d.seen.season_tier = nil, 0
 	store:save()
+	forget_season_seen()
 end
 
 -- =============================================================================
@@ -170,28 +236,28 @@ end
 --- Record the season tier (by index, for the season named season_key) and
 --- area levels just computed; returns what went up since last time:
 --- { season = { old, new }?, areas = { { key, old, new }, ... } }
-function M.update_seen(season_key, season_tier, area_levels)
-	local seen = data().seen
+function M.update_seen(current_key, season_tier, area_levels)
+	local s = seen()
 	local ups = { areas = {} }
-	if season_key then
-		if seen.season ~= season_key then
+	if current_key then
+		if s.season ~= current_key then
 			-- a new season: start from its current tier without announcing it
-			seen.season, seen.season_tier = season_key, season_tier or 0
-		elseif (season_tier or 0) > (seen.season_tier or 0) then
-			ups.season = { old = seen.season_tier or 0, new = season_tier }
-			seen.season_tier = season_tier
+			s.season, s.season_tier = current_key, season_tier or 0
+		elseif (season_tier or 0) > (s.season_tier or 0) then
+			ups.season = { old = s.season_tier or 0, new = season_tier }
+			s.season_tier = season_tier
 		else
-			seen.season_tier = season_tier or 0
+			s.season_tier = season_tier or 0
 		end
 	end
 	for key, level in pairs(area_levels or {}) do
-		local old = seen.area_levels[key]
+		local old = s.area_levels[key]
 		if old and level > old then
 			ups.areas[#ups.areas + 1] = { key = key, old = old, new = level }
 		end
-		seen.area_levels[key] = level
+		s.area_levels[key] = level
 	end
-	store:save()
+	seen_store:save() -- written only when something changed (core/state)
 	return ups
 end
 

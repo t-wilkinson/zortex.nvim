@@ -10,6 +10,8 @@ package.path = root .. "/tests/?.lua;" .. package.path
 -- create files inside notes_dir. Config.setup is skipped on purpose.
 local notes_dir = vim.fn.tempname() .. "/notes/"
 vim.fn.mkdir(notes_dir, "p")
+-- and this machine's state (core/state device files) in a throwaway folder
+vim.env.XDG_STATE_HOME = vim.fn.tempname() .. "/state"
 vim.fn.system({ "cp", "-r", root .. "/tests/fixtures/notes/.", notes_dir })
 -- ZORTEX_TEST_PLUGINS=dir: the plugins in dir (telescope.nvim, plenary.nvim,
 -- snacks.nvim, fzf-lua, blink.cmp; fzf in dir/bin) for the integration tests

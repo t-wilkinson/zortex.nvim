@@ -83,7 +83,18 @@ function M.check()
 		health.warn("Missing: " .. table.concat(missing, ", "), { "`:Zortex init` creates them from short templates" })
 	end
 
-	health.info("State directory: " .. require("zortex.core.state").path(""):gsub("/%.json$", ""))
+	local State = require("zortex.core.state")
+	health.info("Shared state: " .. State.path(""):gsub("/%.json$", "") .. " (synced with the notes)")
+	health.info("This machine's state: " .. State.device_dir() .. " (device " .. State.device_name() .. ")")
+	local copies = {}
+	for _, name in ipairs({ "xp_state", "review_state", "xp_summary" }) do
+		vim.list_extend(copies, State.conflict_copies(State.path(name)))
+	end
+	if #copies > 0 then
+		health.info(
+			string.format("%d sync conflict copies in .z/: merged or removed the next time each is loaded", #copies)
+		)
+	end
 
 	M.check_server(health, Config)
 

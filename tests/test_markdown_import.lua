@@ -126,7 +126,7 @@ end)
 
 T.test("inline: links, images, emphasis and tags; code is left alone", function()
 	local notes = {
-		["sourdough"] = { name = "Sourdough", headings = { { text = "Method", slug = "method" } } },
+		["sourdough"] = { name = "Sourdough", headings = { { text = "Method", slug = "method" }, { text = "Rye (dark)", slug = "rye-dark" } } },
 		["guide"] = { name = "The Guide", headings = {} },
 	}
 	local opts = {
@@ -142,15 +142,16 @@ T.test("inline: links, images, emphasis and tags; code is left alone", function(
 		return convert({ line }, opts)[3]
 	end
 	T.eq(one("See [[Sourdough]] and [[Sourdough#Method]]."), "See [Sourdough] and [Sourdough/#Method].")
-	T.eq(one("My [[Sourdough|bread notes]] here"), "My bread notes [Sourdough] here")
+	T.eq(one("My [[Sourdough|bread notes]] here"), "My [bread notes](Sourdough) here")
 	T.eq(one("Block [[Sourdough#^abc123]]"), "Block [Sourdough]")
 	T.eq(one("Local [[#Method]]"), "Local [/#Method]")
 	T.eq(one("Unknown [[Some Note]]"), "Unknown [Some Note]")
-	T.eq(one("[this guide](guide.md) and [Sourdough](./sourdough.md#method)"), "this guide [The Guide] and [Sourdough/#Method]")
+	T.eq(one("[this guide](guide.md) and [Sourdough](./sourdough.md#method)"), "[this guide](The Guide) and [Sourdough/#Method]")
 	T.eq(one("[the guide](guide.md)"), "[The Guide]", "the text is the name: the link alone")
+	T.eq(one("[rye](sourdough.md#rye-dark)"), "rye [Sourdough/#Rye (dark)]", "parentheses can't go in (…): text, then the link")
 	T.eq(one("[web](https://example.com/a_b_c#x) and <https://example.org>"), "[web](https://example.com/a_b_c#x) and https://example.org")
 	T.eq(one("[pdf](papers/x.pdf)"), "[pdf](./papers/x.pdf)")
-	T.eq(one('![alt](img/a.png "title") ![[pic.png|300]] ![[Sourdough]]'), "![./img/a.png] ![./attachments/pic.png] ![Sourdough]")
+	T.eq(one('![alt](img/a.png "title") ![[pic.png|300]] ![[Sourdough]]'), "![alt](./img/a.png) ![./attachments/pic.png] ![Sourdough]")
 	T.eq(one("__bold__ and _italic_ but snake_case_name"), "**bold** and *italic* but snake_case_name")
 	T.eq(one("#idea and #projects/home but not #123 or a#b"), "@idea and @projects-home but not #123 or a#b")
 	T.eq(one("code `_x_ #tag [[Link]]` and $a_1 + b_2$ stay"), "code `_x_ #tag [[Link]]` and $a_1 + b_2$ stay")
@@ -227,13 +228,13 @@ T.test("a folder: notes next to the files, links between them, embeds found", fu
 	T.eq(vim.fn.readfile(dir .. "/index.zortex"), {
 		"@@Home Page",
 		"",
-		"Go to [Garden] or deep notes [Deep].",
+		"Go to [Garden] or [deep notes](Deep).",
 		"![./attachments/pic.png]",
 	})
-	T.eq(vim.fn.readfile(dir .. "/Garden.zortex"), { "@@Garden", "", "## Raised beds", "", "Back home [Home Page]." })
+	T.eq(vim.fn.readfile(dir .. "/Garden.zortex"), { "@@Garden", "", "## Raised beds", "", "Back [home](Home Page)." })
 	T.eq(vim.fn.readfile(dir .. "/sub/Deep.zortex"), { "@@Kept" }, "kept without force")
 	res = MI.import(dir, { force = true })
-	T.eq(vim.fn.readfile(dir .. "/sub/Deep.zortex"), { "@@Deep", "", "See beds [Garden/#Raised beds]." })
+	T.eq(vim.fn.readfile(dir .. "/sub/Deep.zortex"), { "@@Deep", "", "See [beds](Garden/#Raised beds)." })
 	T.eq(vim.fn.filereadable(dir .. "/.obsidian/x.zortex"), 0, "hidden folders are skipped")
 	vim.fn.delete(vim.fn.fnamemodify(dir, ":h"), "rf")
 end)

@@ -157,7 +157,8 @@ subfolders work too. A note starts with a header:
 The body has headings (`#` … `######`), bold headings (`**Next steps:**`),
 labels (`Ideas:`), list items and tasks (`- [ ] task @size(sm)`,
 `14:00 event`), attributes (`@p1`, `@due(2026-10-20)`, `@area(4.1)`), links
-(`[P/#1.4 - zortex]`, `[A/#1.2/:Fitness]`, `[/#Local heading]`) and the
+(`[P/#1.4 - zortex]`, `[A/#1.2/:Fitness]`, `[/#Local heading]`, or shown
+by its text: `[the plugin](P/#1.4 - zortex)`) and the
 usual markdown blocks and inline markup. **[doc/Syntax.md](doc/Syntax.md)** is
 the complete reference; a test checks its examples against the parser.
 Attributes are written in full in these docs; most have a short form that
@@ -199,13 +200,15 @@ Special notes:
   every line instead; `<M-t>` in the picker cycles section, article and text
   search (`ui.search.keys.cycle_mode` changes the key, e.g. `<M-m>` when a
   terminal or zellij takes `<M-t>`).
-- **Moving things** (`<leader>zM`, `:ZortexMove`, or a visual selection):
-  the section under the cursor, or a line with what is nested under it,
-  goes to a section or line you pick in the structural search, in the same
-  note or another one. Headings are re-levelled and lines re-indented to
-  fit where they land.
-- **Edits across notes are undoable**: a rename, a move or an inbox move
-  shows what it changes in other notes (rename asks first), loads the notes
+- **Moving and renaming** (`<leader>zM`, `:ZortexMove`, or a visual
+  selection), as `mv` does files: on a heading or label it asks for a new
+  name (`:ZortexMove New title` renames straight away); leave the name as
+  it is to pick a place in the structural search instead (or give one:
+  `:ZortexMove [P/#7 Home]`). The section, or a line with what is nested
+  under it, lands there re-levelled and re-indented. Either way every link
+  to it keeps working: the links that would stop finding it are rewritten.
+- **Edits across notes are undoable**: a move, a rename or an inbox move
+  says what it changes in other notes and asks first, loads the notes
   that aren't open, changes and saves them, and `:ZortexUndo`
   (`<leader>zU`) takes the whole thing back. A note that changed on disk
   since it was read (the web app, a phone) is never edited blind: the edit
@@ -218,8 +221,7 @@ Special notes:
   preview in a float (`<leader>zK`, or on hover with
   `ui = { preview = { on_hover = true } }`), complete while typing (tags
   too, after `@` and in `@[...]`), backlinks and broken links in the
-  quickfix list, broken links as diagnostics where they are, and
-  `:ZortexRename` to rename a heading and rewrite the links to it. A
+  quickfix list, and broken links as diagnostics where they are. A
   persistent link index keeps this fast.
 - **Highlighting and folding** for the whole format, with concealed markers;
   `@fold` keeps a section folded. `J` joins lines the way they read: the
@@ -327,10 +329,9 @@ require("zortex").setup({
 | `:ZortexSectionPrev` | `<leader>z[` | `section_prev` | Previous section at the same or higher level |
 | `:ZortexSectionParent` | `<leader>z^` | `section_parent` | Parent section |
 |  | `<leader>zr` | `folds_update` | Recompute folds (`:Zortex refold`) |
-| `:ZortexRename …` | `<leader>zR` | `rename` | Rename the heading or label under the cursor and rewrite every link to it |
 | `:ZortexArchiveSection` | `<leader>za` | `archive_section` | Move the section under the cursor to the note's z/archive file |
-| `:ZortexMove` | `<leader>zM` | `move` | Move the section or line under the cursor (or the selected lines) to a place picked in the search |
-| `:ZortexUndo` | `<leader>zU` | `undo` | Take back the last rename, move or inbox move in every note it changed |
+| `:ZortexMove …` | `<leader>zM` | `move` | Move or rename what is under the cursor (or the selected lines), keeping every link to it: a new title renames a heading or label, a place picked in the search (or a [link]) moves it |
+| `:ZortexUndo` | `<leader>zU` | `undo` | Take back the last move, rename or inbox move in every note it changed |
 
 **Tasks**
 
@@ -612,9 +613,10 @@ git -C ~/zortex add -A && git -C ~/zortex commit -qm "notes $(date +%F)" || true
 ```
 
 Push to a private remote for an off-site copy. `.z/` is left out of the
-history (keep syncing it: the web app reads it): it holds caches (the link
-index), the search history, notification state and XP seasons you started
-by hand, all rebuilt or restarted without harm; `z/feeds/` holds the
+history (keep syncing it: the web app reads it): it holds the XP summaries
+the web app shows, time tracked on the web and XP seasons you started by
+hand, all rebuilt or restarted without harm (caches and search history are
+kept per machine, outside the folder); `z/feeds/` holds the
 notes the server writes from other calendars, rewritten as they change. With
 Syncthing, its file versioning ("Staggered") on that machine is a second
 net. To take back an edit zortex made across notes (a rename, a move, an

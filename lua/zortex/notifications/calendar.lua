@@ -52,7 +52,8 @@ local function create_dedup_key(entry, date_str, event_type, advance_minutes)
 	)
 end
 
--- Title and message of a calendar notification: the entry's text, and when.
+-- Title and message of a calendar notification: the entry's text as it
+-- reads, and when.
 local function format_notification(entry, event_type, minutes_until, at)
 	local when
 	if minutes_until <= 0 then
@@ -73,7 +74,8 @@ local function format_notification(entry, event_type, minutes_until, at)
 		local range = end_time and (clock .. "–" .. os.date("%H:%M", os.time(end_time))) or clock
 		message = minutes_until <= 0 and range or string.format("%s (%s)", range, when)
 	end
-	return entry.text, message
+	-- links read as their text: "[1.4 - zortex](P/#…)" or "[P/#1.4 - zortex]" -> "1.4 - zortex"
+	return require("zortex.core.link").readable(entry.text), message
 end
 
 -- ===========================================================================

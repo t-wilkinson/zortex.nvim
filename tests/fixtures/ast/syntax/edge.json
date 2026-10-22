@@ -23,10 +23,10 @@
       "start": 84
     },
     {
-      "finish": 99,
+      "finish": 100,
       "kind": "code",
       "lang": "js",
-      "start": 98
+      "start": 99
     }
   ],
   "header": {
@@ -1274,6 +1274,109 @@
       "content_col": 0,
       "indent": 0,
       "inline": [],
+      "kind": "text"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [
+        {
+          "def_s": 12,
+          "definition": "./-Item",
+          "e": 20,
+          "s": 8,
+          "text": "a",
+          "type": "link"
+        },
+        {
+          "def_s": 25,
+          "definition": "/#Local",
+          "e": 33,
+          "s": 21,
+          "text": "b",
+          "type": "link"
+        },
+        {
+          "e": 49,
+          "s": 34,
+          "text": "c",
+          "type": "markdown",
+          "url": "notes.md#x"
+        },
+        {
+          "e": 64,
+          "s": 50,
+          "text": "d",
+          "type": "markdown",
+          "url": "www.x.com"
+        },
+        {
+          "e": 80,
+          "s": 65,
+          "text": "e",
+          "type": "markdown",
+          "url": "mailto:a@b"
+        },
+        {
+          "def_s": 85,
+          "definition": "~/P/#Subaru",
+          "e": 97,
+          "s": 81,
+          "text": "f",
+          "type": "link"
+        },
+        {
+          "e": 112,
+          "s": 98,
+          "text": "g",
+          "type": "markdown",
+          "url": "~/doc.pdf"
+        },
+        {
+          "def_s": 117,
+          "definition": "P/#v1.x",
+          "e": 125,
+          "s": 113,
+          "text": "h",
+          "type": "link"
+        },
+        {
+          "def_s": 130,
+          "definition": "Projects",
+          "e": 139,
+          "s": 126,
+          "text": "i",
+          "type": "link"
+        },
+        {
+          "e": 154,
+          "s": 140,
+          "text": "j",
+          "type": "markdown",
+          "url": "/abs/path"
+        },
+        {
+          "def_s": 159,
+          "definition": "https://x/y.png",
+          "e": 175,
+          "s": 155,
+          "type": "live_link"
+        },
+        {
+          "def_s": 183,
+          "definition": "./a.png",
+          "e": 191,
+          "s": 176,
+          "text": "alt",
+          "type": "live_link"
+        },
+        {
+          "definition": "alt",
+          "e": 198,
+          "s": 192,
+          "type": "live_link"
+        }
+      ],
       "kind": "text"
     },
     {

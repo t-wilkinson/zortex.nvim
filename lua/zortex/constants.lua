@@ -19,8 +19,10 @@ M.FILES = {
 	-- System library
 	SYSTEM_LIBRARY = ".z",
 
-	-- State files live in .z/<name>.json (core/state): link_index,
-	-- search_history, xp_state, notifications_state. Logs: .z/zortex.log
+	-- State shared by every device lives in .z/<name>.json (core/state):
+	-- xp_state, review_state, and each device's xp_summary.<device>.json.
+	-- The rest (link_index, search_history, ...) and the log are kept per
+	-- machine under stdpath("state")/zortex.
 }
 
 -- Section types

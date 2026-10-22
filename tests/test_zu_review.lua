@@ -24,22 +24,31 @@ T.test("render: sections with counts and links", function()
 	T.ok(find(lines, "## Broken links (F: fix from the search) (1)"), "broken links header")
 
 	local i, line = find(lines, "Change task sizes")
-	T.ok(line:find("[P/", 1, true), line) -- due task links its project
+	T.ok(line:find("[1.4 - zortex](P/", 1, true), line) -- due task links its project, by name
 	T.eq(locations[i].lnum > 0, true)
 
-	local _, kr = find(lines, "- KR1: ")
-	T.ok(kr and kr:find("[O/", 1, true), kr)
+	local _, kr = find(lines, "- [KR1: ")
+	T.ok(kr and kr:find("](O/", 1, true), kr)
 
 	-- every link rendered resolves (except the broken ones, listed last)
 	local resolver = require("zortex.core.link")
 	local broken = find(lines, "## Broken links")
 	for n, l in ipairs(lines) do
-		for link in l:gmatch("%[([PAO]/[^%]]+)%]") do
+		for _, span in ipairs(require("zortex.core.syntax").links(l)) do
 			if n < broken then
-				T.ok(resolver.resolve_first(link), "resolves: " .. link)
+				T.ok(resolver.resolve_first(span.definition), "resolves: " .. span.definition)
 			end
 		end
 	end
+end)
+
+T.test("render: no broken links, no section and no count for them", function()
+	local r = require("zortex.services.agenda").review({ today = TODAY, days = 7 })
+	r.broken_links, r.mirror_issues = {}, {}
+	local lines = review.render(r)
+	T.ok(not find(lines, "Broken links"), "no broken links section")
+	T.ok(not find(lines, "# Notes"), "no empty Notes heading")
+	T.ok(not find(lines, "broken link"), "no 0 broken links in the summary")
 end)
 
 T.test("buffer: read-only, <CR> jumps to the source", function()

@@ -124,7 +124,7 @@ T.test("weekly review: the plan top down, from the vision to the projects", func
 		T.ok(area and vision and obj and kr and area < vision and vision < obj and obj < kr, table.concat(lines, "\n"))
 		T.ok(find(lines, "no project moves it: L links one"), "a key result with no project")
 		T.ok(find(lines, "no key results: R adds one"), "an objective with no key results")
-		T.ok(find(lines, "[P/Fix proj/#Garden]") and select(2, find(lines, "[P/Fix proj/#Garden]")):find("area only", 1, true), "area-only projects")
+		T.ok(find(lines, "[Garden](P/Fix proj/#Garden)") and select(2, find(lines, "[Garden](P/Fix proj/#Garden)")):find("area only", 1, true), "area-only projects")
 	end)
 end)
 
@@ -135,7 +135,7 @@ T.test("weekly review keys: L, R, n, z, a, p", function()
 
 		press("L", "KR1: A harvest", "[P/Fix proj/#Garden]")
 		T.ok(vim.iter(read(okr)):any(function(l)
-			return l == "- KR1: [ ] A harvest [P/Fix proj/#Garden]"
+			return l == "- KR1: [ ] A harvest [Garden](P/Fix proj/#Garden)"
 		end), table.concat(read(okr), "\n"))
 
 		press("R", "No key results yet", "Plant three beds")
@@ -144,10 +144,10 @@ T.test("weekly review keys: L, R, n, z, a, p", function()
 		vim.fn.maparg("u", "n", false, true).callback()
 		T.ok(not vim.tbl_contains(read(okr), "- KR1: [ ] Plant three beds"), "undone")
 
-		press("n", "- [P/Fix proj/#Garden]", "Buy seeds")
+		press("n", "- [Garden](P/Fix proj/#Garden)", "Buy seeds")
 		T.eq(vim.list_slice(read(proj), 4, 6), { "# Garden @a(4.1)", "- [ ] Dig the beds", "- [ ] Buy seeds" })
 
-		press("z", "- [P/Fix proj/#Garden]", "")
+		press("z", "- [Garden](P/Fix proj/#Garden)", "")
 		T.eq(read(proj)[4], "# Garden @a(4.1) @someday")
 		local r = require("zortex.services.agenda").review({ today = TODAY, days = 7 })
 		for _, p in ipairs(r.stale) do
@@ -155,9 +155,9 @@ T.test("weekly review keys: L, R, n, z, a, p", function()
 		end
 
 		-- a: a done project goes to its archive; an open one stays
-		press("a", "- [P/Fix proj/#Garden]", "")
+		press("a", "- [Garden](P/Fix proj/#Garden)", "")
 		T.ok(vim.tbl_contains(read(proj), "# Garden @a(4.1) @someday"), "open: kept")
-		press("a", "- [P/Fix proj/#Shed]", "")
+		press("a", "- [Shed](P/Fix proj/#Shed)", "")
 		T.ok(not vim.tbl_contains(read(proj), "# Shed @a(4.1)"), "done: archived")
 		T.ok(vim.tbl_contains(read(fs.joinpath(Config.notes_dir, "z/archive.fix-proj.zortex")), "# Shed @a(4.1)"))
 

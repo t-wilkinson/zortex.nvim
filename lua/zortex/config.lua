@@ -6,6 +6,9 @@ local defaults = {
 	notes_dir = vim.fn.expand("~/zortex/"),
 	extension = ".zortex",
 	debug = false,
+	-- This machine's name in the synced folder (.z/xp_summary.<device>.json),
+	-- so devices never write the same file; nil: the host name
+	device = nil,
 
 	-- Commands and keymaps are generated from zortex.actions (:Zortex lists them)
 	commands = {
@@ -260,7 +263,7 @@ local defaults = {
 		enabled = true,
 		stamp_done_on_save = true, -- tasks checked by hand get @done(today) on save
 		notify_min = 5, -- announce awards of at least this much XP
-		publish = true, -- write .z/xp_summary.json (and POST it to server) for the web app's home page
+		publish = true, -- write .z/xp_summary.<device>.json (and POST it to server) for the web app's home page
 
 		-- One unit for everything: XP is estimated work, 10 XP = 1 hour of it.
 		-- :ZortexXPGuide shows the whole table with your settings.

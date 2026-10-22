@@ -3,11 +3,14 @@
 -- `zortex serve` can't read the ledger (it lives in Neovim), so after every
 -- XP refresh a small summary is published:
 --
---   notes_dir/.z/xp_summary.json   synced along with the notes
---   POST <server>/api/xp           when Config.server is enabled (immediate)
+--   notes_dir/.z/xp_summary.<device>.json   synced along with the notes
+--   POST <server>/api/xp                    when Config.server is enabled (immediate)
 --
--- The home page shows whichever is newer. Nothing is written or sent when
--- the summary didn't change.
+-- Each device writes its own file (core/state device_name: the host name,
+-- or Config.device), so two Neovims never write the same synced file; the
+-- server shows the newest of them and of what was POSTed. Nothing is
+-- written or sent when the summary didn't change. Conflict copies of these
+-- files (derived data) are deleted.
 local M = {}
 
 local last_body = nil
@@ -98,17 +101,18 @@ function M.summary()
 	}
 end
 
+--- This device's summary file.
+function M.path()
+	local State = require("zortex.core.state")
+	return State.path("xp_summary." .. State.device_name())
+end
+
 local function write_file(body)
-	local path = require("zortex.core.state").path("xp_summary")
-	vim.fn.mkdir(vim.fn.fnamemodify(path, ":h"), "p")
-	local tmp = path .. ".tmp." .. vim.uv.getpid()
-	local f = io.open(tmp, "w")
-	if not f then
-		return false
+	local State = require("zortex.core.state")
+	for _, copy in ipairs(State.conflict_copies(State.path("xp_summary"))) do
+		os.remove(copy) -- derived: the next publish says the same
 	end
-	f:write(body)
-	f:close()
-	return os.rename(tmp, path)
+	return State.write_file(M.path(), body)
 end
 
 --- Publish the summary if it changed. opts.force publishes regardless.

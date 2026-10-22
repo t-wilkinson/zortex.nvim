@@ -169,6 +169,11 @@ function M.entries(lines)
 	return { weeks = weeks, order = order }
 end
 
+-- A focus line's link: the project shown by its name
+local function focus_link(project)
+	return require("zortex.core.link").shown(project.name, project.link) or project.link
+end
+
 -- The project a line links (its first link that resolves to one)
 local function project_on(lines, lnum)
 	local link = require("zortex.core.link")
@@ -352,11 +357,11 @@ function M.toggle_focus(week, project)
 		end
 	end
 	if not e.focus then
-		workspace().insert_lines(path, e.lnum + 1, { "Focus:", "- " .. project.link })
+		workspace().insert_lines(path, e.lnum + 1, { "Focus:", "- " .. focus_link(project) })
 		return true
 	end
 	local indent = lines[e.focus.lnum]:match(FOCUS_LABEL) or ""
-	workspace().insert_lines(path, e.focus.to + 1, { indent .. "- " .. project.link })
+	workspace().insert_lines(path, e.focus.to + 1, { indent .. "- " .. focus_link(project) })
 	return true
 end
 

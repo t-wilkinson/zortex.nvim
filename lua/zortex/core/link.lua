@@ -217,7 +217,9 @@ local function link_info(line, span)
 	elseif t == "markdown" then
 		info.type, info.display_text, info.url = "markdown", span.text, span.url
 	elseif t == "live_link" or t == "link" then
-		info.type, info.display_text, info.definition = t, span.definition, span.definition
+		-- [text](P/#1.4) is shown as its text
+		info.type, info.display_text, info.definition = t, span.text or span.definition, span.definition
+		info.text, info.def_col = span.text, span.def_s and span.def_s + 1
 	elseif t == "tag_search" then
 		info.type, info.display_text = "tag_search", span.content
 	elseif t == "url" then
@@ -244,8 +246,9 @@ function M.at(line, col)
 	return span and link_info(line, span) or nil
 end
 
---- `line` from byte `from` (0-based) on, with markdown links replaced by
---- their text: "[The Rust Book](https://…) @rust" -> "The Rust Book @rust".
+--- `line` from byte `from` (0-based) on, with markdown links and links
+--- written with their text replaced by that text: "[The Rust Book](https://…)
+--- @rust" -> "The Rust Book @rust", "[the plan](P/#1.4)" -> "the plan".
 --- List items match a "-" component by this text.
 function M.link_text(line, from)
 	from = from or 0
@@ -254,7 +257,7 @@ function M.link_text(line, from)
 	end
 	local spans = {}
 	syntax.walk_spans(syntax.inline(line), function(span)
-		if span.type == "markdown" and span.s >= from then
+		if (span.type == "markdown" or (span.type == "link" and span.text)) and span.s >= from then
 			spans[#spans + 1] = span
 		end
 	end)
@@ -1163,6 +1166,54 @@ function M.item_component(line)
 	return "-" .. M.component_text(M.link_text(item.text))
 end
 
+--- A link shown as `text`: "[text](definition)" (core/syntax display text).
+--- `def` with or without its brackets. Without text, or when the
+--- definition holds a parenthesis (which can't be written inside "(…)"),
+--- the plain "[definition]".
+---@param text string?
+---@param def string?
+---@return string?
+function M.shown(text, def)
+	if not def then
+		return nil
+	end
+	def = syntax.trim(def):gsub("^%[(.*)%]$", "%1")
+	text = syntax.trim(((text or ""):gsub("[%[%]]", "")):gsub("%s+", " "))
+	if text == "" or def:find("[()]") or not syntax.is_link_target(def) then
+		return "[" .. def .. "]"
+	end
+	return "[" .. text .. "](" .. def .. ")"
+end
+
+--- `text` as it reads: links by their text (a link written "[text](…)",
+--- a markdown link's text, else the last component of the link: "[P/#1.4 -
+--- zortex]" -> "1.4 - zortex"), attributes left out. For notifications and
+--- other plain-text places.
+function M.readable(text)
+	text = text or ""
+	if not text:find("[", 1, true) then
+		return syntax.strip_attributes(text)
+	end
+	local out, pos = {}, 1
+	for _, span in ipairs(syntax.inline(text)) do
+		local shown
+		if span.type == "markdown" or ((span.type == "link" or span.type == "live_link") and span.text) then
+			shown = span.text
+		elseif span.type == "link" then
+			local comps = M.split(span.definition)
+			local last = comps[#comps] or span.definition
+			shown = M.parse_component(last).text or last
+		end
+		if shown then
+			out[#out + 1] = text:sub(pos, span.s)
+			out[#out + 1] = shown
+			pos = span.e + 1
+		end
+	end
+	out[#out + 1] = text:sub(pos)
+	return syntax.strip_attributes(table.concat(out))
+end
+
 --- Canonical link to a section node, e.g. "[Projects/#1 Programming/#1.4 - zortex]".
 function M.link_for_node(doc, node)
 	local parts = M.node_components(doc, node)
@@ -1218,7 +1269,7 @@ end
 --- after the link.
 function M.follow_title(line, target)
 	line = line or ""
-	if target and target.type == "markdown" and target.display_text ~= "" then
+	if target and (target.type == "markdown" or target.text) and target.display_text ~= "" then
 		return target.display_text
 	end
 	local col = target and target.col or 1
@@ -1237,7 +1288,7 @@ end
 --- (shortened like other components).
 function M.follow_text(line, target)
 	line = line or ""
-	if target and target.type == "markdown" then
+	if target and (target.type == "markdown" or target.text) then
 		return M.component_text(target.display_text)
 	end
 	local text = target and target.col and M.component_text(line_text(line:sub(1, target.col - 1))) or ""

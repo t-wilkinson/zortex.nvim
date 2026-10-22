@@ -179,7 +179,8 @@ local function noon(d)
 end
 
 --- Whether the entry shows on `date` ("YYYY-MM-DD"): a from/to range that
---- covers it, its own date, or a @repeat that lands on it.
+--- covers it, or its own date. (Repeating entries are rules of the
+--- # Repeating section: services/calendar_rules, stores/calendar.occurrences.)
 function Entry:is_active_on_date(date)
 	local target = datetime.parse_date(date)
 	if not target then
@@ -192,59 +193,7 @@ function Entry:is_active_on_date(date)
 			return true
 		end
 	end
-	if self.date_context == date then
-		return true
-	end
-	if attrs["repeat"] and self.date_context then
-		local start = datetime.parse_date(self.date_context)
-		if start and self:is_repeat_active(start, target) then
-			return true
-		end
-	end
-	return false
-end
-
---- Whether @repeat (daily, weekly, monthly, yearly, Nd, Nw, Nm, Ny) starting
---- on `start_date` lands on `target_date`.
-function Entry:is_repeat_active(start_date, target_date)
-	local pattern = self.attributes["repeat"]
-	if not pattern then
-		return false
-	end
-	start_date = vim.tbl_extend("force", {}, start_date, { hour = 12, min = 0, sec = 0 })
-	target_date = vim.tbl_extend("force", {}, target_date, { hour = 12, min = 0, sec = 0 })
-	local start_time, target_time = os.time(start_date), os.time(target_date)
-	if target_time < start_time then
-		return false
-	end
-	local days = math.floor((target_time - start_time) / 86400)
-	local same_day_of_month = target_date.day == start_date.day
-	local same_day_of_year = target_date.month == start_date.month and same_day_of_month
-
-	if pattern == "daily" then
-		return true
-	elseif pattern == "weekly" then
-		return days % 7 == 0
-	elseif pattern == "monthly" then
-		return same_day_of_month
-	elseif pattern == "yearly" then
-		return same_day_of_year
-	end
-	local num, unit = pattern:match("^(%d+)([dwmy])$")
-	num = tonumber(num)
-	if not num then
-		return false
-	end
-	if unit == "d" then
-		return days % num == 0
-	elseif unit == "w" then
-		return days % (num * 7) == 0
-	elseif unit == "m" then
-		local months = (target_date.year - start_date.year) * 12 + (target_date.month - start_date.month)
-		return months % num == 0 and same_day_of_month
-	else -- "y"
-		return (target_date.year - start_date.year) % num == 0 and same_day_of_year
-	end
+	return self.date_context == date
 end
 
 -- =============================================================================

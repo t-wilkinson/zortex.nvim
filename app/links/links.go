@@ -183,8 +183,9 @@ type Match struct {
 	Link      *syntax.Span
 }
 
-// LinkText is line from byte from on, with markdown links replaced by their
-// text ("[The Rust Book](https://…) @rust" -> "The Rust Book @rust"). List
+// LinkText is line from byte from on, with markdown links and links written
+// with their text replaced by that text ("[The Rust Book](https://…) @rust"
+// -> "The Rust Book @rust", "[the plan](P/#1.4)" -> "the plan"). List
 // items match a listitem component by this text.
 func LinkText(line string, from int) string {
 	if !strings.Contains(line[from:], "](") {
@@ -192,7 +193,7 @@ func LinkText(line string, from int) string {
 	}
 	var spans []syntax.Span
 	syntax.Walk(syntax.Inline(line, 0, len(line)), func(sp *syntax.Span) {
-		if sp.Type == "markdown" && sp.S >= from {
+		if (sp.Type == "markdown" || (sp.Type == "link" && sp.Text != "")) && sp.S >= from {
 			spans = append(spans, *sp)
 		}
 	})
@@ -232,12 +233,16 @@ func FollowTargets(line string) []FollowTarget {
 }
 
 // SpanText is the text a follow component matches for a link span: a
-// markdown link's text, a zortex link's definition, a URL or a path.
+// markdown link's text, a zortex link's text ([text](P/#1.4)) or definition,
+// a URL or a path.
 func SpanText(sp *syntax.Span) string {
 	switch sp.Type {
 	case "markdown":
 		return sp.Text
 	case "link", "live_link":
+		if sp.Text != "" {
+			return sp.Text
+		}
 		return sp.Definition
 	case "url":
 		return sp.URL

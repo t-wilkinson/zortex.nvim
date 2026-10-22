@@ -251,12 +251,12 @@ func ParseRepeat(spec string) RepeatSpec {
 
 // Rule is an item of the Repeating section.
 type Rule struct {
-	Lnum         int
-	Line         string
-	Spec         RepeatSpec
-	Since, Until string // "YYYY-MM-DD" or ""
-	Anchor       string // @since, else @born's date
-	Born         int    // @born's year, 0 without
+	Lnum     int
+	Line     string
+	Spec     RepeatSpec
+	From, To string // "YYYY-MM-DD" or "" (@from, @to; @since, @until, their old names)
+	Anchor   string // @from, else @born's date
+	Born     int    // @born's year, 0 without
 }
 
 func attrValue(line, name string) (string, bool) {
@@ -273,19 +273,28 @@ func RuleOf(line string, lnum int) *Rule {
 	if !ok {
 		return nil
 	}
+	// the first @name(YYYY-MM-DD) (a @from holding a time is skipped)
 	date := func(name string) string {
-		if v, ok := attrValue(line, name); ok && isoDateRe.MatchString(strings.TrimSpace(v)) {
-			return strings.TrimSpace(v)
+		for _, m := range regexp.MustCompile(`@`+name+`\(([^)]*)\)`).FindAllStringSubmatch(line, -1) {
+			if v := strings.TrimSpace(m[1]); isoDateRe.MatchString(v) {
+				return v
+			}
 		}
 		return ""
 	}
-	r := &Rule{Lnum: lnum, Line: line, Spec: ParseRepeat(spec), Since: date("since"), Until: date("until")}
+	either := func(name, old string) string {
+		if v := date(name); v != "" {
+			return v
+		}
+		return date(old)
+	}
+	r := &Rule{Lnum: lnum, Line: line, Spec: ParseRepeat(spec), From: either("from", "since"), To: either("to", "until")}
 	if born, ok := attrValue(line, "born"); ok {
 		if m := yearRe.FindStringSubmatch(strings.TrimSpace(born)); m != nil {
 			r.Born, _ = strconv.Atoi(m[1])
 		}
 	}
-	r.Anchor = r.Since
+	r.Anchor = r.From
 	if r.Anchor == "" {
 		r.Anchor = date("born")
 	}
@@ -321,7 +330,7 @@ func (r *Rule) Matches(date string) bool {
 	if s.Bad {
 		return false
 	}
-	if (r.Since != "" && date < r.Since) || (r.Until != "" && date > r.Until) {
+	if (r.From != "" && date < r.From) || (r.To != "" && date > r.To) {
 		return false
 	}
 	t, err := time.Parse("2006-01-02", date)
@@ -376,13 +385,17 @@ func (r *Rule) Matches(date string) bool {
 	return (t.Year()-a.Year())%s.N == 0 && (constrained || (t.Month() == a.Month() && t.Day() == a.Day()))
 }
 
-// PlainLine: the rule's line as a day's line: no indent, no rule attributes.
+// datedFromTo: @from(YYYY-MM-DD) and @to(…) with the spaces before them
+var datedFromTo = regexp.MustCompile(`[ \t\n\v\f\r]*@(?:from|to)\([ \t\n\v\f\r]*\d{4}-\d{2}-\d{2}[ \t\n\v\f\r]*\)`)
+
+// PlainLine: the rule's line as a day's line: no indent, no rule attributes
+// (@from and @to only when they hold a date: @from(07:00) is a time).
 func PlainLine(line string) string {
 	line = strings.TrimSpace(line)
 	for _, name := range []string{"repeat", "since", "until", "born"} {
 		line = RemoveAttribute(line, name)
 	}
-	return line
+	return datedFromTo.ReplaceAllString(line, "")
 }
 
 // DoneCopy: the line ticking the rule's occurrence on `date` writes into

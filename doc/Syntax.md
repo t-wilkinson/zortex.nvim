@@ -159,7 +159,7 @@ These are understood (tasks, projects, calendar entries):
 | `@share` | calendar: the line is in the server's `/calendar.ics`, which other calendars (Cozi, Google, Apple) subscribe to; nothing else of the calendar is ([Other calendars](Server.md#6-other-calendars)) |
 | `@free` | calendar: a timed line that doesn't take your time: the planner's capacity line doesn't count it as busy (a calendar feed with `busy: false` writes it) |
 | `@repeat(weekly)`, `@repeat(03-14)`, `@repeat(mon, wed)` | calendar: an entry of the `# Repeating` section, shown on the days it lands on ([Planning](Planning.md#templates-and-repeating-entries)); under a day, it repeats from that day |
-| `@since(2026-10-06)`, `@until(2026-12-31)` | a repeating entry: when it starts (and what every n counts from) and ends |
+| `@from(2026-10-06)`, `@to(2026-12-31)` | a repeating entry: the first day (what every n counts from) and the last day; with a time instead (`@from(07:30) @to(08:15)`), a calendar line's time |
 | `@born(1990)` | a repeating entry: the age, shown after its text on the day |
 | `@for(2026-10-18)` | a repeating task's copy done on another day: the day it stands for |
 | `@fold` | on a heading, label or list item with nested lines: the section starts folded in Neovim each time the note is shown (`zo` opens it until then) |

@@ -302,8 +302,8 @@ Sunday:
 - Dad @repeat(yearly) @born(1961-07-02)
 ## Routines
 12:00 [ ] Weekly review @repeat(weekly, Sunday)
-- [ ] Bins out @repeat(2w) @since(2026-10-06) @at(18:00)
-- 07:00 Run @repeat(mon, wed, fri) @until(2026-12-31)
+- [ ] Bins out @repeat(2w) @from(2026-10-06) @at(18:00)
+- 07:00 Run @repeat(mon, wed, fri) @to(2026-12-31)
 
 # Days
 ```
@@ -318,12 +318,16 @@ Sunday:
   Each shows on the days it lands on, in the calendar view, the planner,
   notifications and the web calendar, without being written into them.
   `@repeat` takes `daily`, `weekly`, `monthly`, `yearly`, every n (`2d`,
-  `3w`, `6m`, `2y`, counted from `@since(YYYY-MM-DD)`), days of the week
+  `3w`, `6m`, `2y`, counted from `@from(YYYY-MM-DD)`), days of the week
   (`sun`, `mon, wed, fri`, `weekdays`, `weekends`), a date every year
   (`03-14`) or a day of the month (`15`, `1st`); `weekly, Sunday` is every
-  Sunday, `2w tue` every other Tuesday from `@since`. `@since` and
-  `@until(YYYY-MM-DD)` bound it. `@born(1990)` shows the age: `Sam's
-  birthday (36)`; `@born(1961-07-02)` also anchors `yearly`.
+  Sunday, `2w tue` every other Tuesday from `@from`. `@from(YYYY-MM-DD)`
+  and `@to(YYYY-MM-DD)` bound it (both days included), the words a span of
+  days uses elsewhere in the calendar; a `@from` or `@to` holding a time
+  (`@from(07:30) @to(08:15)`) is still the entry's time. (`@since` and
+  `@until`, the names before 0.1.0, are still read.) `@born(1990)` shows
+  the age: `Sam's birthday (36)`; `@born(1961-07-02)` also anchors
+  `yearly`.
 - **A repeating task** (`[ ]`) is ticked where it shows (`x` in the calendar
   view, its box on the web): it is copied, done, into the day you did it
   (today), with `@for(2026-10-18)` when that was another day. The copy

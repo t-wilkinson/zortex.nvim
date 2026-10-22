@@ -19,16 +19,19 @@
 --   - Dad @repeat(yearly) @born(1961-07-02)   a rule, shown on the days it
 --   ## Routines                               lands on (not copied):
 --   12:00 [ ] Weekly review @repeat(sun)
---   - [ ] Bins out @repeat(2w) @since(2026-10-06) @at(18:00)
+--   - [ ] Bins out @repeat(2w) @from(2026-10-06) @at(18:00)
 --
 -- @repeat(…) takes, comma- or space-separated:
 --   daily · weekly · monthly · yearly · 2d / 3w / 6m / 2y (every n, counted
---   from @since(YYYY-MM-DD), or the date in @born(YYYY-MM-DD))
+--   from @from(YYYY-MM-DD), or the date in @born(YYYY-MM-DD))
 --   sun … sat, weekdays, weekends          on those days of the week
 --   03-14                                  on that day every year
 --   1, 15th                                on that day of every month
--- "weekly, Sunday" is every Sunday; "2w sun" every other Sunday from @since.
--- @since and @until(YYYY-MM-DD) bound it. @born(1990) adds the age to the
+-- "weekly, Sunday" is every Sunday; "2w sun" every other Sunday from @from.
+-- @from(YYYY-MM-DD) and @to(YYYY-MM-DD) bound it, as they bound a span of
+-- days elsewhere in the calendar; a @from or @to holding a time
+-- (@from(07:00)) is the entry's time, as on any calendar line. @since and
+-- @until, their old names, are still read. @born(1990) adds the age to the
 -- text on the day: "Sam (36)".
 --
 -- A repeating task isn't ticked in place: ticking it copies it, done, into
@@ -213,14 +216,14 @@ local function day_number(date)
 	return math.floor(os.time({ year = tonumber(y), month = tonumber(m), day = tonumber(d), hour = 12 }) / 86400)
 end
 
---- Whether a rule (parse_spec, plus anchor/since/until dates) lands on
+--- Whether a rule (parse_spec, plus anchor/from/to dates) lands on
 --- `date` ("YYYY-MM-DD").
 function M.matches(rule, date)
 	local r = rule.spec
 	if not r or r.bad then
 		return false
 	end
-	if (rule.since and date < rule.since) or (rule["until"] and date > rule["until"]) then
+	if (rule.from and date < rule.from) or (rule.to and date > rule.to) then
 		return false
 	end
 	local y, m, d = date:match("^(%d+)%-(%d+)%-(%d+)$")
@@ -275,17 +278,31 @@ local function attr(line, name)
 	return line:match("@" .. name .. "%(([^)]*)%)")
 end
 
+-- Attributes that only describe the rule (dropped from its entries);
+-- @from and @to only when they hold a date (DATE_ATTRS)
 local RULE_ATTRS = { "repeat", "since", "until", "born" }
+local DATE_ATTRS = { "from", "to" }
+
+local function date_of(v)
+	return v and vim.trim(v):match("^(%d%d%d%d%-%d%d%-%d%d)$") or nil
+end
+
+-- The first @name(YYYY-MM-DD) on the line (a @from holding a time is skipped)
+local function dated(line, name)
+	for v in line:gmatch("@" .. name .. "%(([^)]*)%)") do
+		local d = date_of(v)
+		if d then
+			return d
+		end
+	end
+end
 
 --- The rule on a line of the Repeating section, or nil:
---- { lnum, line, spec, since?, until?, anchor?, born? (year) }
+--- { lnum, line, spec, from?, to?, anchor?, born? (year) }
 function M.rule(line, lnum)
 	local spec = attr(line, "repeat")
 	if not spec then
 		return nil
-	end
-	local function date_of(v)
-		return v and vim.trim(v):match("^(%d%d%d%d%-%d%d%-%d%d)$") or nil
 	end
 	local born = attr(line, "born")
 	local born_date = date_of(born)
@@ -293,11 +310,11 @@ function M.rule(line, lnum)
 		lnum = lnum,
 		line = line,
 		spec = M.parse_spec(spec),
-		since = date_of(attr(line, "since")),
-		["until"] = date_of(attr(line, "until")),
+		from = dated(line, "from") or dated(line, "since"),
+		to = dated(line, "to") or dated(line, "until"),
 		born = born and tonumber(vim.trim(born):match("^(%d%d%d%d)")) or nil,
 	}
-	rule.anchor = rule.since or born_date
+	rule.anchor = rule.from or born_date
 	return rule
 end
 
@@ -330,6 +347,9 @@ function M.plain_line(line)
 	line = vim.trim(line)
 	for _, name in ipairs(RULE_ATTRS) do
 		line = line:gsub("%s*@" .. name .. "%b()", "")
+	end
+	for _, name in ipairs(DATE_ATTRS) do
+		line = line:gsub("%s*@" .. name .. "%(%s*%d%d%d%d%-%d%d%-%d%d%s*%)", "")
 	end
 	return line
 end

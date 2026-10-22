@@ -1,7 +1,7 @@
 local T = require("helpers")
 local R = require("zortex.services.calendar_rules")
 
-T.test("@repeat specs: days of the week, dates, days of the month, every n from @since", function()
+T.test("@repeat specs: days of the week, dates, days of the month, every n from @from", function()
 	local function on(line, date)
 		return R.matches(R.rule(line, 1), date)
 	end
@@ -14,14 +14,22 @@ T.test("@repeat specs: days of the week, dates, days of the month, every n from 
 	T.eq(on("- Standup @repeat(weekdays)", "2026-10-23"), true)
 	T.eq(on("- Rent @repeat(monthly 15)", "2026-11-15"), true)
 	T.eq(on("- Rent @repeat(1st)", "2026-11-01"), true)
+	T.eq(on("- Bins @repeat(2w) @from(2026-10-06)", "2026-10-20"), true)
+	T.eq(on("- Bins @repeat(2w) @from(2026-10-06)", "2026-10-13"), false)
+	T.eq(on("- Bins @repeat(2w) @from(2026-10-06)", "2026-09-22"), false, "not before @from")
+	T.eq(on("- Bins @repeat(2w)", "2026-10-20"), false, "every n needs @from")
+	T.eq(on("- Run @repeat(daily) @to(2026-10-21)", "2026-10-22"), false)
+	T.eq(on("- Run @repeat(daily) @to(2026-10-21)", "2026-10-21"), true, "@to is the last day")
+	-- the old names
 	T.eq(on("- Bins @repeat(2w) @since(2026-10-06)", "2026-10-20"), true)
-	T.eq(on("- Bins @repeat(2w) @since(2026-10-06)", "2026-10-13"), false)
-	T.eq(on("- Bins @repeat(2w) @since(2026-10-06)", "2026-09-22"), false, "not before @since")
-	T.eq(on("- Bins @repeat(2w)", "2026-10-20"), false, "every n needs @since")
 	T.eq(on("- Run @repeat(daily) @until(2026-10-21)", "2026-10-22"), false)
+	-- a time in @from / @to is the entry's time, not a bound
+	T.eq(on("- Swim @repeat(sat) @from(07:30) @to(08:15)", "2026-10-24"), true)
+	T.eq(R.plain_line("- Swim @repeat(sat) @from(07:30) @to(08:15) @from(2026-10-17)"), "- Swim @from(07:30) @to(08:15)")
 	T.eq(on("- Dad @repeat(yearly) @born(1961-10-13)", "2030-10-13"), true)
 	T.eq(on("- Typo @repeat(fortnightly)", "2026-10-13"), false)
 	T.eq(R.label(R.rule("- Sam @repeat(03-14) @born(1990)", 1), "Sam", "2026-03-14"), "Sam (36)")
+	T.eq(R.plain_line("  - [ ] Bins out @repeat(2w) @from(2026-10-06) @to(2026-12-31) @at(18:00)"), "- [ ] Bins out @at(18:00)")
 	T.eq(R.plain_line("  - [ ] Bins out @repeat(2w) @since(2026-10-06) @at(18:00)"), "- [ ] Bins out @at(18:00)")
 end)
 

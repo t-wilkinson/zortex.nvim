@@ -30,8 +30,7 @@
 -- "weekly, Sunday" is every Sunday; "2w sun" every other Sunday from @from.
 -- @from(YYYY-MM-DD) and @to(YYYY-MM-DD) bound it (both days included); a
 -- @from or @to holding a time (@from(07:00)) is the entry's time, as on any
--- calendar line. @since and @until, their old names, are still read.
--- @born(1990) adds the age to the text on the day: "Sam (36)".
+-- calendar line. @born(1990) adds the age to the text on the day: "Sam (36)".
 --
 -- A repeating task isn't ticked in place: ticking it copies it, done, into
 -- the day you did it (today), with @for(YYYY-MM-DD) when that isn't the day
@@ -279,7 +278,7 @@ end
 
 -- Attributes that only describe the rule (dropped from its entries);
 -- @from and @to only when they hold a date (DATE_ATTRS)
-local RULE_ATTRS = { "repeat", "since", "until", "born" }
+local RULE_ATTRS = { "repeat", "born" }
 local DATE_ATTRS = { "from", "to" }
 
 local function date_of(v)
@@ -309,8 +308,8 @@ function M.rule(line, lnum)
 		lnum = lnum,
 		line = line,
 		spec = M.parse_spec(spec),
-		from = dated(line, "from") or dated(line, "since"),
-		to = dated(line, "to") or dated(line, "until"),
+		from = dated(line, "from"),
+		to = dated(line, "to"),
 		born = born and tonumber(vim.trim(born):match("^(%d%d%d%d)")) or nil,
 	}
 	rule.anchor = rule.from or born_date
@@ -338,6 +337,58 @@ function M.rules(lines)
 			end
 		end
 	end
+	return out
+end
+
+-- Whether a spec needs a first day: every n (2w, 3d), or a bare weekly /
+-- monthly / yearly with no day to land on
+local function needs_anchor(spec)
+	if not spec.unit then
+		return false
+	end
+	local constrained = next(spec.weekdays) or next(spec.dates) or next(spec.monthdays)
+	return not (spec.n == 1 and (constrained or spec.unit == "d"))
+end
+
+--- What is wrong with the calendar's repeating entries, for diagnostics:
+--- { { lnum, col (0-based), end_col, message } }. A rule has @repeat(how
+--- often) and may have @from(first day) and @to(last day); every n needs
+--- @from (or @born). @repeat anywhere else is not read.
+function M.problems(lines)
+	local out = {}
+	local function add(lnum, pattern, message)
+		local s, e = lines[lnum]:find(pattern)
+		out[#out + 1] = { lnum = lnum, col = (s or 1) - 1, end_col = e or #lines[lnum], message = message }
+	end
+	local in_rules = {}
+	for _, r in ipairs(M.rules(lines)) do
+		in_rules[r.lnum] = true
+		local line = r.line
+		if r.spec.bad then
+			add(r.lnum, "@repeat%b()", "Not a repeat: daily, weekly, 2w, mon, weekdays, 03-14, 15th")
+		elseif needs_anchor(r.spec) and not r.anchor then
+			add(r.lnum, "@repeat%b()", "Every n counts from a first day: add @from(YYYY-MM-DD)")
+		end
+		if r.from and r.to and r.to < r.from then
+			add(r.lnum, "@to%b()", "@to is before @from: it never shows")
+		end
+		for _, old in ipairs({ { "since", "from" }, { "until", "to" } }) do
+			if line:find("@" .. old[1] .. "(", 1, true) then
+				add(r.lnum, "@" .. old[1] .. "%b()", string.format("@%s is now @%s", old[1], old[2]))
+			end
+		end
+	end
+	local in_code = false
+	for lnum, line in ipairs(lines) do
+		if fence(line) then
+			in_code = not in_code
+		elseif not in_code and not in_rules[lnum] and line:find("@repeat(", 1, true) then
+			add(lnum, "@repeat%b()", "@repeat is read only in the # Repeating section")
+		end
+	end
+	table.sort(out, function(a, b)
+		return a.lnum < b.lnum
+	end)
 	return out
 end
 

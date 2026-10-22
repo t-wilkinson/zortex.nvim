@@ -158,8 +158,8 @@ These are understood (tasks, projects, calendar entries):
 | `@event` | calendar: something fixed that you plan around (an appointment, a flight), not a block you planned; the web month grid marks its day, and it is listed under "Coming up" (as are timed lines and calendar notes that don't link a project) |
 | `@share` | calendar: the line is in the server's `/calendar.ics`, which other calendars (Cozi, Google, Apple) subscribe to; nothing else of the calendar is ([Other calendars](Server.md#6-other-calendars)) |
 | `@free` | calendar: a timed line that doesn't take your time: the planner's capacity line doesn't count it as busy (a calendar feed with `busy: false` writes it) |
-| `@repeat(weekly)`, `@repeat(03-14)`, `@repeat(mon, wed)` | calendar: an entry of the `# Repeating` section, shown on the days it lands on ([Planning](Planning.md#templates-and-repeating-entries)); under a day, it repeats from that day |
-| `@from(2026-10-06)`, `@to(2026-12-31)` | a repeating entry: the first day (what every n counts from) and the last day; with a time instead (`@from(07:30) @to(08:15)`), a calendar line's time |
+| `@repeat(weekly)`, `@repeat(2w)`, `@repeat(mon, wed)`, `@repeat(03-14)` | calendar, `# Repeating` section only: how often the entry shows ([Planning](Planning.md#templates-and-repeating-entries)); anywhere else it is not read (the calendar note flags it) |
+| `@from(2026-10-06)`, `@to(2026-12-31)` | a repeating entry: its first day (what every n counts from: `2w` needs one) and its last day, both optional otherwise; with a time instead (`@from(07:30) @to(08:15)`), a calendar line's time |
 | `@born(1990)` | a repeating entry: the age, shown after its text on the day |
 | `@for(2026-10-18)` | a repeating task's copy done on another day: the day it stands for |
 | `@fold` | on a heading, label or list item with nested lines: the section starts folded in Neovim each time the note is shown (`zo` opens it until then) |

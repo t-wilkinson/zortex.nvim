@@ -3,7 +3,7 @@
 -- C0001, C0002, ... in order.
 return {
 	{
-		name = "a project block, a plain task, repeats, and an id already on today",
+		name = "a project block, plain tasks, and an id already on today",
 		today = "2026-10-14",
 		from = "2026-09-30",
 		lines = {

@@ -254,7 +254,7 @@ type Rule struct {
 	Lnum     int
 	Line     string
 	Spec     RepeatSpec
-	From, To string // "YYYY-MM-DD" or "" (@from, @to; @since, @until, their old names)
+	From, To string // "YYYY-MM-DD" or "" (@from, @to)
 	Anchor   string // @from, else @born's date
 	Born     int    // @born's year, 0 without
 }
@@ -282,13 +282,7 @@ func RuleOf(line string, lnum int) *Rule {
 		}
 		return ""
 	}
-	either := func(name, old string) string {
-		if v := date(name); v != "" {
-			return v
-		}
-		return date(old)
-	}
-	r := &Rule{Lnum: lnum, Line: line, Spec: ParseRepeat(spec), From: either("from", "since"), To: either("to", "until")}
+	r := &Rule{Lnum: lnum, Line: line, Spec: ParseRepeat(spec), From: date("from"), To: date("to")}
 	if born, ok := attrValue(line, "born"); ok {
 		if m := yearRe.FindStringSubmatch(strings.TrimSpace(born)); m != nil {
 			r.Born, _ = strconv.Atoi(m[1])
@@ -392,7 +386,7 @@ var datedFromTo = regexp.MustCompile(`[ \t\n\v\f\r]*@(?:from|to)\([ \t\n\v\f\r]*
 // (@from and @to only when they hold a date: @from(07:00) is a time).
 func PlainLine(line string) string {
 	line = strings.TrimSpace(line)
-	for _, name := range []string{"repeat", "since", "until", "born"} {
+	for _, name := range []string{"repeat", "born"} {
 		line = RemoveAttribute(line, name)
 	}
 	return datedFromTo.ReplaceAllString(line, "")

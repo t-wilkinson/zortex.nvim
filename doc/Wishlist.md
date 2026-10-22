@@ -424,8 +424,10 @@ A definition with `)` can't use the form; such links stay `[…]`.
 what every n counts from), instead of `@since` and `@until`: the same
 words as a calendar line's times, so a rule can carry both
 (`@from(07:30) @to(08:15) @from(2026-10-17)`): a date is a bound, a time is
-the entry's time. The old names are still read until the vault check can
-point at them.
+the entry's time. `@since` and `@until` are gone (nothing was released
+with them); the calendar note flags them. `@repeat` is read only in the
+`# Repeating` section: the Neovim-only "repeat under a day" is gone, so
+Neovim and the web app show the same days.
 
 ### Sync conflicts
 

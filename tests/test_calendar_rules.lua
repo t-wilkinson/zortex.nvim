@@ -20,9 +20,9 @@ T.test("@repeat specs: days of the week, dates, days of the month, every n from 
 	T.eq(on("- Bins @repeat(2w)", "2026-10-20"), false, "every n needs @from")
 	T.eq(on("- Run @repeat(daily) @to(2026-10-21)", "2026-10-22"), false)
 	T.eq(on("- Run @repeat(daily) @to(2026-10-21)", "2026-10-21"), true, "@to is the last day")
-	-- the old names
-	T.eq(on("- Bins @repeat(2w) @since(2026-10-06)", "2026-10-20"), true)
-	T.eq(on("- Run @repeat(daily) @until(2026-10-21)", "2026-10-22"), false)
+	-- @since and @until are gone: not bounds, and left on the line
+	T.eq(on("- Bins @repeat(2w) @since(2026-10-06)", "2026-10-20"), false, "no anchor")
+	T.eq(on("- Run @repeat(daily) @until(2026-10-21)", "2026-10-22"), true)
 	-- a time in @from / @to is the entry's time, not a bound
 	T.eq(on("- Swim @repeat(sat) @from(07:30) @to(08:15)", "2026-10-24"), true)
 	T.eq(R.plain_line("- Swim @repeat(sat) @from(07:30) @to(08:15) @from(2026-10-17)"), "- Swim @from(07:30) @to(08:15)")
@@ -30,7 +30,6 @@ T.test("@repeat specs: days of the week, dates, days of the month, every n from 
 	T.eq(on("- Typo @repeat(fortnightly)", "2026-10-13"), false)
 	T.eq(R.label(R.rule("- Sam @repeat(03-14) @born(1990)", 1), "Sam", "2026-03-14"), "Sam (36)")
 	T.eq(R.plain_line("  - [ ] Bins out @repeat(2w) @from(2026-10-06) @to(2026-12-31) @at(18:00)"), "- [ ] Bins out @at(18:00)")
-	T.eq(R.plain_line("  - [ ] Bins out @repeat(2w) @since(2026-10-06) @at(18:00)"), "- [ ] Bins out @at(18:00)")
 end)
 
 T.test("templates by name, the most specific first; sections end at the first day", function()
@@ -124,4 +123,34 @@ T.test("the calendar shows the rules' occurrences; ticking one copies it into to
 	require("zortex.core.document").invalidate(cal)
 	store.load()
 	T.ok(ok, err)
+end)
+
+T.test("problems: a rule that can't work, @repeat outside # Repeating, the old names", function()
+	local lines = {
+		"@@Calendar",
+		"",
+		"# Repeating",
+		"- Bins @repeat(2w)", -- 4: no first day
+		"- Typo @repeat(fortnightly)", -- 5
+		"- Run @repeat(daily) @from(2026-10-21) @to(2026-10-01)", -- 6
+		"- Old @repeat(2w) @since(2026-10-06)", -- 7
+		"- Fine @repeat(2w tue) @from(2026-10-06) @to(2026-12-31)", -- 8
+		"- Sam @repeat(03-14) @born(1990)", -- 9
+		"",
+		"2026-10-20:",
+		"- [ ] Water plants @repeat(daily)", -- 12
+	}
+	local got = vim.tbl_map(function(p)
+		return p.lnum .. " " .. p.message
+	end, R.problems(lines))
+	T.eq(got, {
+		"4 Every n counts from a first day: add @from(YYYY-MM-DD)",
+		"5 Not a repeat: daily, weekly, 2w, mon, weekdays, 03-14, 15th",
+		"6 @to is before @from: it never shows",
+		"7 Every n counts from a first day: add @from(YYYY-MM-DD)",
+		"7 @since is now @from",
+		"12 @repeat is read only in the # Repeating section",
+	})
+	local p = R.problems(lines)[1]
+	T.eq(lines[4]:sub(p.col + 1, p.end_col), "@repeat(2w)")
 end)

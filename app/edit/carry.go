@@ -222,8 +222,7 @@ func Carry(lines []string, today, from string, newID func() string) CarryPlan {
 				continue
 			}
 			it := syntax.ItemOf(line)
-			if it == nil || it.Mark != " " || it.MarkCol == nil ||
-				strings.Contains(line, "@repeat(") {
+			if it == nil || it.Mark != " " || it.MarkCol == nil {
 				continue
 			}
 			// the nearest linked line above it that isn't a task (head), and

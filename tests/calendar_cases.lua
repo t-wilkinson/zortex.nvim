@@ -30,7 +30,7 @@ return {
 	"- [ ] Bins out @repeat(2w) @from(2026-10-06) @at(18:00)",
 	"- 07:00 Run @repeat(mon, wed, fri) @to(2026-10-21)",
 	"- [ ] Pay rent @repeat(monthly 15)",
-	"- [ ] Water plants @repeat(3d) @since(2026-10-10)", -- the old names still work
+	"- [ ] Water plants @repeat(3d) @from(2026-10-10)",
 	"- Standup @repeat(weekdays) @at(09:30)",
 	"- a plain line, no rule",
 	"  - [ ] Stretch @repeat(daily)",

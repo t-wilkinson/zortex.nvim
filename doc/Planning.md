@@ -323,8 +323,11 @@ Sunday:
   (`03-14`) or a day of the month (`15`, `1st`); `weekly, Sunday` is every
   Sunday, `2w tue` every other Tuesday from `@from`. `@from(YYYY-MM-DD)`
   and `@to(YYYY-MM-DD)` bound it (both days included); a `@from` or `@to`
-  holding a time (`@from(07:30) @to(08:15)`) is still the entry's time. (`@since` and
-  `@until`, the names before 0.1.0, are still read.) `@born(1990)` shows
+  holding a time (`@from(07:30) @to(08:15)`) is still the entry's time.
+  So a rule has up to three: `@repeat` (how often), `@from` (first day)
+  and `@to` (last day). `@repeat` is read only in this section; the
+  calendar note marks one elsewhere, a rule every n without `@from`, and a
+  `@repeat(…)` it can't read. `@born(1990)` shows
   the age: `Sam's birthday (36)`; `@born(1961-07-02)` also anchors
   `yearly`.
 - **A repeating task** (`[ ]`) is ticked where it shows (`x` in the calendar

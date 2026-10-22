@@ -15,6 +15,10 @@
           "lnum": 9
         },
         {
+          "line": "- [>] Water plants @repeat(daily) @id(C0003)",
+          "lnum": 10
+        },
+        {
           "line": "- [>] [P/#1.4 - zortex/-Improve website] @id(web01)",
           "lnum": 15
         },
@@ -31,7 +35,8 @@
             "- [P/#1.4 - zortex]",
             "  - [ ] [./-Improve website] @id(web01)",
             "  - [ ] [./-Change task sizes] @id(C0001)",
-            "- [ ] Call the mechanic @id(C0002)"
+            "- [ ] Call the mechanic @id(C0002)",
+            "- [ ] Water plants @repeat(daily) @id(C0003)"
           ]
         }
       ],
@@ -58,7 +63,7 @@
         "07:00 Morning routine",
         "- [ ] Buy milk @id(milk1)"
       ],
-      "name": "a project block, a plain task, repeats, and an id already on today",
+      "name": "a project block, plain tasks, and an id already on today",
       "today": "2026-10-14"
     },
     {

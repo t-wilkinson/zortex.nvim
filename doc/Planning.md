@@ -77,17 +77,23 @@ what:
 # Vision, areas, objectives, key results, projects
 Vision: a calm home, a strong body, and a craft I keep getting better at
 
-## [A/#1 Personal/#1.1 Health]
+## [1.1 Health](A/#1 Personal/#1.1 Health)
 Vision: fit enough to say yes to any hike
-- [O/#Current/#3M-2026-Q4 Run a half marathon] 40% (expected 60% by now)
-    - KR1: Run 3 times a week 50% · 10% behind [O/…/-KR1]
-        - [P/#1.1 Training plan] (6/14 done) · focus
-    - KR2: A 21 km long run 0% · 60% behind
+- [Run a half marathon](O/#Current/#3M-2026-Q4 Run a half marathon) 40% (expected 60% by now)
+    - [KR1: Run 3 times a week](O/…/-KR1) 50% · 10% behind
+        - [1.1 Training plan](P/#1.1 Training plan) (6/14 done) · focus
+    - [KR2: A 21 km long run](O/…/-KR2) 0% · 60% behind
         no project moves it: L links one
-  - [P/#1.2 Fix the bike] (0/3 done) · area only
-## [A/#2 Growth/#2.1 Reading]
+  - [1.2 Fix the bike](P/#1.2 Fix the bike) (0/3 done) · area only
+## [2.1 Reading](A/#2 Growth/#2.1 Reading)
   no objective this period
 ```
+
+Everything links by its name: the reviews, the planner and the lines they
+write (focus projects, copies on the calendar, a project linked to a key
+result) use `[name](link)`, so a line reads as text and still goes where it
+points (in Neovim the link part is hidden). Where it is listed (under its
+area, its objective, its project) says the rest.
 
 Each area shows its vision, the objectives this period that name it,
 their key results and the projects those link; then the area's projects no
@@ -130,8 +136,8 @@ first:
 
 # 2026-W43
 Focus:
-- [P/#3 Car/#3.1 Rebuild the engine]
-- [P/#2 School/#2.1 Signals and systems]
+- [3.1 Rebuild the engine](P/#3 Car/#3.1 Rebuild the engine)
+- [2.1 Signals and systems](P/#2 School/#2.1 Signals and systems)
 Wins:
 - Head is back from the machine shop
 Lessons:
@@ -215,9 +221,9 @@ Outcomes:
 - [ ] The website's new search is live
 - Rested enough for the long run tomorrow
 
-09:00 [P/#1 Programming/#1.4 - zortex]
-  - [ ] [./-Improve website] @id(aB3x9)
-  - [ ] [./-Change task sizes] @id(Kp2wQ)
+09:00 [1.4 - zortex](P/#1 Programming/#1.4 - zortex)
+  - [ ] [Improve website](./-Improve website) @id(aB3x9)
+  - [ ] [Change task sizes](./-Change task sizes) @id(Kp2wQ)
 11:00 - 11:45 Dentist @event @notify(30)
 14:00 Call the bank about [P/#2 Home/-Mortgage]
 - [ ] Buy milk
@@ -244,7 +250,7 @@ alike: a nudge to move on to the next thing, and out of deep focus.
 `@notify(30)` adds a notification 30 minutes before, `@notify(no)` silences a line,
 and `@notify(0, end)` also notifies when a range ends.
 
-- **Copies.** `- [ ] [./-Improve website] @id(aB3x9)` has the `@id` of the
+- **Copies.** `- [ ] [Improve website](./-Improve website) @id(aB3x9)` has the `@id` of the
   project's `- [ ] Improve website @id(aB3x9)`: lines with the same `@id` in
   the calendar and the project notes are one task. It is done when any of
   them is checked (its `@done` the earliest), so the project's progress, the
@@ -255,8 +261,8 @@ and `@notify(0, end)` also notifies when a range ends.
   write a copy by hand: `- [ ] [./-Improve website]` with no `@id` takes the
   task's `@id` the first time you toggle it (the task gets one first if it
   has none).
-- **Blocks.** `09:00 [P/#1.4 - zortex]` with tasks nested under it: the
-  tasks' `[./-Item]` links continue the block's link
+- **Blocks.** `09:00 [1.4 - zortex](P/#1.4 - zortex)` with tasks nested under it: the
+  tasks' `./-Item` links continue the block's link
   ([Syntax](Syntax.md#links)), and while the block runs the web app's clocks
   count against its first open task, then the next once that one is ticked.
 - **Project blocks.** `13:00 [P/#2.2]` alone, with nothing under it: the

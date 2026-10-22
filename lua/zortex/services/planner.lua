@@ -81,19 +81,28 @@ function M.item_link(base_link, line)
 	return base_link:sub(1, -2) .. "/" .. comp .. "]"
 end
 
--- Text without its links ("Ship it [P/#X]" -> "Ship it"): the candidate
--- gets one explicit link of its own.
+-- Text without its links ("Ship it [P/#X]" -> "Ship it"; a link written
+-- with its text keeps the text): the candidate gets one link of its own.
 local function plain(text)
 	local syntax = require("zortex.core.syntax")
 	local out, pos = {}, 1
 	for _, span in ipairs(syntax.links(text)) do
 		out[#out + 1] = text:sub(pos, span.s)
+		if span.text then
+			out[#out + 1] = span.text
+		end
 		pos = span.e + 1
 	end
 	out[#out + 1] = text:sub(pos)
 	return vim.trim((table.concat(out):gsub("%s+", " ")))
 end
 M.plain = plain
+
+-- A candidate's text: `text` linking `link`, "[text](link)" (the link
+-- shown as its text: under its project the task's name says enough)
+local function shown(text, link)
+	return require("zortex.core.link").shown(text, link) or text
+end
 
 local function todo_project()
 	local link = cfg().todo_link
@@ -295,7 +304,8 @@ function M.candidates(opts)
 						todo = p:is_root() or (ctx.todo ~= nil and in_subtree(p, ctx.todo)) or nil,
 						project_name = p.name,
 						kind = "task",
-						text = plain(task.text) .. " " .. M.item_link(p.link, task.raw_text),
+						text = shown(plain(task.text), M.item_link(p.link, task.raw_text)),
+						title = plain(task.text),
 						link = M.item_link(p.link, task.raw_text),
 						component = require("zortex.core.link").item_component(task.raw_text),
 						project_key = p.key,
@@ -327,7 +337,7 @@ function M.candidates(opts)
 				local base = node and require("zortex.core.link").link_for_node(doc, node)
 				tasks[#tasks + 1] = {
 					kind = "task",
-					text = plain(item.text) .. " " .. (M.item_link(base, item.entry.raw_text) or ""),
+					text = shown(plain(item.text), M.item_link(base, item.entry.raw_text)),
 					badges = { "overdue " .. item.date:sub(6), "calendar" },
 					score = M.weights.overdue,
 					file = item.file,
@@ -365,7 +375,7 @@ function M.candidates(opts)
 		end
 		return {
 			kind = "project",
-			text = p.link,
+			text = shown(p.name, p.link),
 			project_key = p.key,
 			project_link = p.link,
 			badges = badges,
@@ -398,7 +408,7 @@ function M.candidates(opts)
 				end
 				krs[#krs + 1] = {
 					kind = "key_result",
-					text = plain(kr.text) .. " " .. (kr.link or o.link),
+					text = shown(plain(kr.text), kr.link or o.link),
 					badges = badges,
 					-- furthest behind first, then least done
 					score = lag * 10 + (1 - progress),
@@ -437,7 +447,7 @@ function M.candidates(opts)
 			end
 			areas[#areas + 1] = {
 				kind = "area",
-				text = a.link,
+				text = shown(a.name, a.link),
 				badges = badges,
 				score = (with_objective[a.key] and -10 or 0) - active,
 				file = a.file,
@@ -472,7 +482,8 @@ function M.candidates(opts)
 			elseif open and not r then
 				rest[#rest + 1] = {
 					kind = "task",
-					text = plain(task.text) .. " " .. M.item_link(p.link, task.raw_text),
+					text = shown(plain(task.text), M.item_link(p.link, task.raw_text)),
+					title = plain(task.text),
 					link = M.item_link(p.link, task.raw_text),
 					component = require("zortex.core.link").item_component(task.raw_text),
 					project_key = p.key,
@@ -498,7 +509,7 @@ function M.candidates(opts)
 					depth = depth,
 					project = {
 						kind = "project",
-						text = child.link,
+						text = shown(child.name, child.link),
 						project_key = child.key,
 						project_link = child.link,
 						file = child.file,
@@ -581,7 +592,13 @@ function M.group(tasks, plist, make_project)
 			if not g then
 				local project = listed[t.project_key]
 					or (make_project and make_project(t.project_key))
-					or { kind = "project", text = t.project_link, project_key = t.project_key, project_link = t.project_link, badges = {} }
+					or {
+						kind = "project",
+						text = shown(t.project_name, t.project_link),
+						project_key = t.project_key,
+						project_link = t.project_link,
+						badges = {},
+					}
 				g = { project = project, tasks = {} }
 				by_key[t.project_key] = g
 				groups[#groups + 1] = g
@@ -893,16 +910,17 @@ local function day_block(date)
 	return block, workspace.get_lines(target)
 end
 
---- The copy of a project task candidate (file, lnum, link, component):
---- "[ ] <link> @id(x)", the task getting its @id first when it has none.
---- opts.relative: "[ ] [./-Item] @id(x)", for under the project's block.
+--- The copy of a project task candidate (file, lnum, link, component,
+--- title): "[ ] [title](link) @id(x)", the task getting its @id first when
+--- it has none. opts.relative: "[ ] [title](./-Item) @id(x)", for under the
+--- project's block. Without a title, the plain "[link]".
 function M.copy_text(c, opts)
 	local id, err = require("zortex.services.mirrors").ensure_id(c.file, c.lnum)
 	if not id then
 		return nil, err
 	end
-	local link = (opts and opts.relative and c.component) and ("[./" .. c.component .. "]") or c.link
-	return "[ ] " .. link .. " @id(" .. id .. ")", id
+	local def = (opts and opts.relative and c.component) and ("./" .. c.component) or c.link
+	return "[ ] " .. shown(c.title, def) .. " @id(" .. id .. ")", id
 end
 
 --- Put a project task (a candidate with file, lnum, link, component,
@@ -964,7 +982,7 @@ function M.add_project(date, c, opts)
 	local head = M.find_block(lines, block, p.key)
 	if not head then
 		head = block.last_lnum + 1
-		workspace.insert_lines(calendar_target(), head, { "- " .. p.link })
+		workspace.insert_lines(calendar_target(), head, { "- " .. shown(p.name, p.link) })
 	end
 	local added, taken = 0, 0
 	for _, t in ipairs(p:tasks()) do
@@ -978,6 +996,7 @@ function M.add_project(date, c, opts)
 				file = t.file,
 				lnum = t.lnum,
 				link = M.item_link(p.link, t.raw_text),
+				title = plain(t.text),
 				component = link_mod().item_component(t.raw_text),
 				project_key = p.key,
 			})
@@ -1015,7 +1034,7 @@ local function absolute_text(lines, lnum, from)
 			local abs = link_mod().absolute(span.definition, lines, lnum)
 			if abs then
 				out[#out + 1] = line:sub(pos, span.s)
-				out[#out + 1] = "[" .. abs .. "]"
+				out[#out + 1] = span.text and ("[" .. span.text .. "](" .. abs .. ")") or ("[" .. abs .. "]")
 				pos = span.e + 1
 			end
 		end
@@ -1038,8 +1057,8 @@ end
 --- [P/#1.4 - zortex]") is copied under a copy of that line ("- [P/#1.4 -
 --- zortex]", the time dropped; same lines merge), its [./-Item] links kept
 --- when that line is their parent; other tasks become "- [ ] ..." with
---- their [./-Item] links written out. Repeating entries (@repeat) stay
---- where they are; a task whose @id is already on today is only marked.
+--- their [./-Item] links written out (a link with its text keeps it); a
+--- task whose @id is already on today is only marked.
 ---@param opts { from?: string, new_id: fun(): string }
 function M.carry(lines, today, opts)
 	local syntax = require("zortex.core.syntax")

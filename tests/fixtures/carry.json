@@ -105,6 +105,48 @@
     {
       "edits": [
         {
+          "line": "  - [>] [Improve website](./-Improve website) @id(web02)",
+          "lnum": 5
+        },
+        {
+          "line": "- [>] [Change sizes](P/#1.4 - zortex/-Change task sizes) @id(C0001)",
+          "lnum": 6
+        },
+        {
+          "line": "  - [>] [Intro](./-Intro) @id(C0002)",
+          "lnum": 8
+        }
+      ],
+      "from": "2026-09-30",
+      "inserts": [
+        {
+          "at": 10,
+          "lines": [
+            "**2026-10-14:**",
+            "- [1.4 - zortex](P/#1.4 - zortex)",
+            "  - [ ] [Improve website](./-Improve website) @id(web02)",
+            "- [ ] [Change sizes](P/#1.4 - zortex/-Change task sizes) @id(C0001)",
+            "- [ ] [Intro](P/#1.4 - zortex/-Docs/-Intro) @id(C0002)"
+          ]
+        }
+      ],
+      "lines": [
+        "@@Calendar",
+        "",
+        "2026-10-13:",
+        "09:00 [1.4 - zortex](P/#1.4 - zortex)",
+        "  - [ ] [Improve website](./-Improve website) @id(web02)",
+        "- [ ] [Change sizes](P/#1.4 - zortex/-Change task sizes)",
+        "- [x] [Docs](P/#1.4 - zortex/-Docs) @done(2026-10-13)",
+        "  - [ ] [Intro](./-Intro)",
+        ""
+      ],
+      "name": "links shown by their text keep it, carried or written out",
+      "today": "2026-10-14"
+    },
+    {
+      "edits": [
+        {
           "line": "- [>] Ship the release @id(C0001)",
           "lnum": 5
         }

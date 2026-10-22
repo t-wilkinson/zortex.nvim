@@ -116,7 +116,11 @@ func absoluteText(lines []string, lnum, from int) string {
 		if sp.S >= from && links.IsParentRelative(sp.Definition) {
 			if abs, err := links.Absolute(lines, lnum, sp.Definition); err == nil {
 				b.WriteString(line[pos:sp.S])
-				b.WriteString("[" + abs + "]")
+				if sp.Text != "" {
+					b.WriteString("[" + sp.Text + "](" + abs + ")") // [text](./-Item) keeps its text
+				} else {
+					b.WriteString("[" + abs + "]")
+				}
 				pos = sp.E
 			}
 		}
@@ -144,9 +148,9 @@ func dayNumber(date string) int {
 //   - a task under a linked line that isn't a task ("09:00 [P/#1.4 - zortex]")
 //     goes under a copy of that line ("- [P/#1.4 - zortex]"), its [./-Item]
 //     links kept when that line is their parent; other tasks become
-//     "- [ ] ..." with [./-Item] links written out
-//   - repeating entries (@repeat) stay; a task whose @id is already
-//     on today is only marked
+//     "- [ ] ..." with [./-Item] links written out ([text](./-Item) keeps
+//     its text)
+//   - a task whose @id is already on today is only marked
 func Carry(lines []string, today, from string, newID func() string) CarryPlan {
 	type block struct {
 		date          string

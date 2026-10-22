@@ -60,6 +60,10 @@ that share one folder of plain-text notes.
   (`@repeat(…)` bounded by `@from(date)` and `@to(date)`, birthdays with
   `@born`); a month view, `:ZortexToday`,
   `:ZortexNow` and `:ZortexTimeShift`; other calendars' events, read-only.
+- The planner, the reviews and the lines they write (focus projects,
+  calendar copies, a project linked to a key result) show links by their
+  names: `[1.4 - zortex](P/#1 Programming/#1.4 - zortex)`. Calendar
+  notifications read links as their text.
 - A day planner that ranks the week's focus and key-result work first,
   carries open tasks forward and weighs the day against its free time; a
   daily and a weekly review written in `reviews.zortex`, read top down from

@@ -1166,6 +1166,54 @@ function M.item_component(line)
 	return "-" .. M.component_text(M.link_text(item.text))
 end
 
+--- A link shown as `text`: "[text](definition)" (core/syntax display text).
+--- `def` with or without its brackets. Without text, or when the
+--- definition holds a parenthesis (which can't be written inside "(…)"),
+--- the plain "[definition]".
+---@param text string?
+---@param def string?
+---@return string?
+function M.shown(text, def)
+	if not def then
+		return nil
+	end
+	def = syntax.trim(def):gsub("^%[(.*)%]$", "%1")
+	text = syntax.trim(((text or ""):gsub("[%[%]]", "")):gsub("%s+", " "))
+	if text == "" or def:find("[()]") or not syntax.is_link_target(def) then
+		return "[" .. def .. "]"
+	end
+	return "[" .. text .. "](" .. def .. ")"
+end
+
+--- `text` as it reads: links by their text (a link written "[text](…)",
+--- a markdown link's text, else the last component of the link: "[P/#1.4 -
+--- zortex]" -> "1.4 - zortex"), attributes left out. For notifications and
+--- other plain-text places.
+function M.readable(text)
+	text = text or ""
+	if not text:find("[", 1, true) then
+		return syntax.strip_attributes(text)
+	end
+	local out, pos = {}, 1
+	for _, span in ipairs(syntax.inline(text)) do
+		local shown
+		if span.type == "markdown" or ((span.type == "link" or span.type == "live_link") and span.text) then
+			shown = span.text
+		elseif span.type == "link" then
+			local comps = M.split(span.definition)
+			local last = comps[#comps] or span.definition
+			shown = M.parse_component(last).text or last
+		end
+		if shown then
+			out[#out + 1] = text:sub(pos, span.s)
+			out[#out + 1] = shown
+			pos = span.e + 1
+		end
+	end
+	out[#out + 1] = text:sub(pos)
+	return syntax.strip_attributes(table.concat(out))
+end
+
 --- Canonical link to a section node, e.g. "[Projects/#1 Programming/#1.4 - zortex]".
 function M.link_for_node(doc, node)
 	local parts = M.node_components(doc, node)

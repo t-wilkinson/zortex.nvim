@@ -37,6 +37,18 @@ local function rel(path)
 	return vim.fn.fnamemodify(path, ":~:.")
 end
 
+-- An entity (project, area, objective, key result) as a link shown by its
+-- name: "[1.4 - zortex](P/#1 Programming/#1.4 - zortex)". Where it is
+-- listed (under its area, its objective, its project) says the rest.
+local function shown(e)
+	local L = require("zortex.core.link")
+	local name = e.title or e.name
+	if e.id and e.text then -- a key result: "KR2: Search works"
+		name = e.id .. ": " .. require("zortex.services.planner").plain(e.text)
+	end
+	return L.shown(name, e.link) or name or "?"
+end
+
 local function pct(x)
 	return string.format("%d%%", math.floor((x or 0) * 100 + 0.5))
 end
@@ -61,7 +73,7 @@ local function item_line(item)
 	end
 	local where
 	if item.project and item.project.link then
-		where = item.project.link
+		where = shown(item.project)
 	elseif item.entry then
 		where = "(calendar)"
 	end
@@ -99,7 +111,8 @@ local function inbox_line(x)
 end
 
 local function entity_line(e, suffix)
-	return "- " .. (e.link or e.name) .. (suffix and (" " .. vim.trim(suffix)) or ""), { file = e.file, lnum = e.lnum }, e
+	local s = suffix and vim.trim(suffix) or ""
+	return "- " .. shown(e) .. (s ~= "" and (" " .. s) or ""), { file = e.file, lnum = e.lnum }, e
 end
 
 local function is_project(e)
@@ -110,7 +123,7 @@ end
 local function put_off_line(x)
 	local line = string.format("- ×%d %s", x.count, x.text or "")
 	if x.project and x.project.link then
-		line = line .. " " .. x.project.link
+		line = line .. " " .. shown(x.project)
 	elseif x.file then
 		line = line .. " (calendar)"
 	end
@@ -208,11 +221,7 @@ function M.render(r, opts)
 	add("")
 	add("# Goals")
 	section("Key results without projects (L links one)", r.krs_without_projects, function(kr)
-		local line = "- " .. (kr.id and (kr.id .. ": ") or "") .. (kr.text or "")
-		local link = kr.link or (kr.objective and kr.objective.link)
-		if link then
-			line = line .. " " .. link
-		end
+		local line = "- " .. shown({ id = kr.id or "KR", text = kr.text or "", link = kr.link or (kr.objective and kr.objective.link) })
 		if kr.is_stuck and kr:is_stuck() then
 			line = line .. "  (stuck: no checkbox either, nothing can move it)"
 		end
@@ -279,7 +288,7 @@ function M.render_top_down(r, add)
 			tags[#tags + 1] = suffix
 		end
 		local summary = project_summary(p)
-		return string.format("%s- %s%s%s", indent, p.link, summary ~= "" and (" " .. summary) or "", #tags > 0 and (" · " .. table.concat(tags, " · ")) or ""),
+		return string.format("%s- %s%s%s", indent, shown(p), summary ~= "" and (" " .. summary) or "", #tags > 0 and (" · " .. table.concat(tags, " · ")) or ""),
 			{ file = p.file, lnum = p.lnum },
 			p
 	end
@@ -295,7 +304,7 @@ function M.render_top_down(r, add)
 		local base = string.rep("  ", math.max(0, (node.depth or 1) - 1))
 		add("")
 		if area then
-			add(string.format("%s%s %s", string.rep("#", math.min(6, 1 + (node.depth or 1))), "", area.link or area.name), { file = area.file, lnum = area.lnum }, { area = area })
+			add(string.format("%s %s", string.rep("#", math.min(6, 1 + (node.depth or 1))), shown(area)), { file = area.file, lnum = area.lnum }, { area = area })
 			if node.vision then
 				add(base .. "Vision: " .. node.vision, { file = area.file, lnum = area.lnum })
 			end
@@ -307,7 +316,7 @@ function M.render_top_down(r, add)
 		end
 		for _, x in ipairs(node.objectives) do
 			local o = x.objective
-			local line = string.format("%s- %s %s", base, o.link or o.name, pct(x.progress))
+			local line = string.format("%s- %s %s", base, shown(o), pct(x.progress))
 			if x.expected then
 				line = line .. string.format(" (expected %s by now)", pct(x.expected))
 			end
@@ -318,11 +327,8 @@ function M.render_top_down(r, add)
 			for _, k in ipairs(x.krs) do
 				local kr = k.kr
 				local status = kr:is_done() and "done" or (k.lag >= 0.05 and (pct(k.lag) .. " behind") or "on track")
-				add(
-					string.format("%s    - %s: %s %s · %s %s", base, kr.id or "KR", kr.text or "", pct(k.progress), status, kr.link or ""),
-					{ file = kr.file, lnum = kr.lnum },
-					{ kr = kr }
-				)
+				-- the projects that move it follow, under it
+				add(string.format("%s    - %s %s · %s", base, shown(kr), pct(k.progress), status), { file = kr.file, lnum = kr.lnum }, { kr = kr })
 				if not kr:is_done() and #(k.projects or {}) == 0 then
 					add(base .. "        no project moves it: L links one", { file = kr.file, lnum = kr.lnum }, { kr = kr })
 				end
@@ -414,7 +420,7 @@ function M.render_plan(r, add, section, opts)
 		-- the weekly review has them top down (render_top_down)
 		if r.time and r.time.minutes > 0 then
 			section("Time spent: " .. fmt_time(r.time.minutes), r.time.tasks, function(t)
-				return string.format("- %s %s (%s)", fmt_time(t.minutes), t.text or "", t.rel or ""),
+				return string.format("- %s %s (%s)", fmt_time(t.minutes), require("zortex.core.link").readable(t.text), t.rel or ""),
 					t.file and { file = t.file, lnum = t.lnum }
 			end)
 		end
@@ -422,7 +428,7 @@ function M.render_plan(r, add, section, opts)
 	end
 	section("Objectives", r.objectives or {}, function(x)
 		local o = x.objective
-		local line = string.format("- %s %s", o.link or o.name, pct(x.progress))
+		local line = string.format("- %s %s", shown(o), pct(x.progress))
 		if x.expected then
 			line = line .. string.format(" (expected %s by now)", pct(x.expected))
 		end
@@ -436,10 +442,7 @@ function M.render_plan(r, add, section, opts)
 			for _, k in ipairs(x.krs) do
 				local kr = k.kr
 				local status = kr:is_done() and "done" or (k.lag >= 0.05 and (pct(k.lag) .. " behind") or "on track")
-				add(
-					string.format("- %s: %s %s · %s %s", kr.id, kr.text or "", pct(k.progress), status, kr.link or ""),
-					{ file = kr.file, lnum = kr.lnum }
-				)
+				add(string.format("- %s %s · %s", shown(kr), pct(k.progress), status), { file = kr.file, lnum = kr.lnum })
 			end
 		end
 	end
@@ -794,8 +797,8 @@ function M.link_project()
 		end
 		fix("link a project", { kr.file }, function()
 			local line = ws().get_lines(kr.file)[kr.lnum]
-			return ws().set_line(kr.file, kr.lnum, line .. " " .. p.link)
-		end, (kr.id or "Key result") .. " → " .. p.link)
+			return ws().set_line(kr.file, kr.lnum, line .. " " .. shown(p))
+		end, (kr.id or "Key result") .. " → " .. p.name)
 	end)
 end
 

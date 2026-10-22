@@ -46,6 +46,22 @@ return {
 		},
 	},
 	{
+		name = "links shown by their text keep it, carried or written out",
+		today = "2026-10-14",
+		from = "2026-09-30",
+		lines = {
+			"@@Calendar",
+			"",
+			"2026-10-13:",
+			"09:00 [1.4 - zortex](P/#1.4 - zortex)",
+			"  - [ ] [Improve website](./-Improve website) @id(web02)",
+			"- [ ] [Change sizes](P/#1.4 - zortex/-Change task sizes)",
+			"- [x] [Docs](P/#1.4 - zortex/-Docs) @done(2026-10-13)",
+			"  - [ ] [Intro](./-Intro)",
+			"",
+		},
+	},
+	{
 		name = "bold day headings (what new days get), with Outcomes: under a day",
 		today = "2026-10-14",
 		from = "2026-09-30",

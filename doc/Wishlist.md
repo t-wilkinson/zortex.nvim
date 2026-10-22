@@ -418,6 +418,13 @@ out: `[P/#1.4|the plan]` (the `|` breaks table rows) and reference links
 `[the plan][p14]` with a definitions block (more to maintain per note).
 A definition with `)` can't use the form; such links stay `[…]`.
 
+Everything zortex writes or shows uses it where a name says more than
+the path: the planner (a task under its project is just its name), the
+daily and weekly reviews (areas, objectives, key results, projects), the
+week's `Focus:` lines, calendar copies (`- [ ] [Improve website](./-Improve
+website) @id(…)`), carried tasks (their text kept) and the project `L`
+links to a key result. Notifications read links as their text.
+
 ### Repeating entries: @from and @to
 
 `@from(date)` and `@to(date)` bound a `# Repeating` rule (the first day is

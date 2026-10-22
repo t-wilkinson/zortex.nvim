@@ -126,14 +126,14 @@ T.test("P puts the project's next open tasks on the day, not all of them", funct
 		T.eq(added, 2)
 		local lines = day_lines()
 		T.eq(#lines, 3, vim.inspect(lines))
-		T.eq(lines[1], "- " .. p.link)
-		T.ok(lines[2]:find("[./-Add research-ready references]", 1, true), lines[2])
-		T.ok(lines[3]:find("[./-Improve website]", 1, true), lines[3])
+		T.eq(lines[1], "- [1.4 - zortex](P/#1 Programming/#1.4 - zortex)")
+		T.ok(lines[2]:find("[Add research-ready references](./-Add research-ready references)", 1, true), lines[2])
+		T.ok(lines[3]:find("[Improve website](./-Improve website)", 1, true), lines[3])
 		-- again with the default (3): the first two are there; one more comes
 		refresh()
 		_, added = planner.add_project("2026-10-20", c)
 		T.eq(added, 1)
-		T.ok(day_lines()[4]:find("[./-Change task sizes]", 1, true), vim.inspect(day_lines()))
+		T.ok(day_lines()[4]:find("[Change task sizes](./-Change task sizes)", 1, true), vim.inspect(day_lines()))
 	end)
 end)
 
@@ -224,8 +224,8 @@ T.test("reviews note: weeks newest first, days inside them, focus links", functi
 			"",
 			"# 2026-W42",
 			"Focus:",
-			"- [P/#1 Programming/#1.4 - esp32]",
-			"- [P/#1 Programming/#1.4 - zortex]",
+			"- [1.4 - esp32](P/#1 Programming/#1.4 - esp32)",
+			"- [1.4 - zortex](P/#1 Programming/#1.4 - zortex)",
 			"",
 			"Wins:",
 			"",
@@ -302,16 +302,16 @@ T.test(":ZortexReview opens the week's entry beside the findings; f picks the fo
 		T.ok(at("# Week 2026-W42"), vim.inspect(lines()))
 		T.ok(at("## Focus (f on a project adds or removes it) (0)"), vim.inspect(lines()))
 		-- f on an active project adds it to the week's focus
-		local row = at("- [P/#1 Programming/#1.4 - esp32]")
+		local row = at("- [1.4 - esp32](P/#1 Programming/#1.4 - esp32)")
 		T.ok(row and row > at("## Active projects"), vim.inspect(lines()))
 		vim.api.nvim_set_current_win(st.win)
 		vim.api.nvim_win_set_cursor(st.win, { row, 0 })
 		vim.fn.maparg("f", "n", false, true).callback()
 		T.ok(at("## Focus (f on a project adds or removes it) (1)"), vim.inspect(lines()))
 		local note = vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(st.note_win), 0, -1, false)
-		T.ok(vim.tbl_contains(note, "- [P/#1 Programming/#1.4 - esp32]"), vim.inspect(note))
+		T.ok(vim.tbl_contains(note, "- [1.4 - esp32](P/#1 Programming/#1.4 - esp32)"), vim.inspect(note))
 		-- and saved, for the web app
-		T.ok(vim.tbl_contains(vim.fn.readfile(fs.get_reviews_file()), "- [P/#1 Programming/#1.4 - esp32]"), "written")
+		T.ok(vim.tbl_contains(vim.fn.readfile(fs.get_reviews_file()), "- [1.4 - esp32](P/#1 Programming/#1.4 - esp32)"), "written")
 		T.eq(vim.bo[vim.api.nvim_win_get_buf(st.note_win)].modified, false)
 		-- the daily review: the day's entry inside the week
 		ui.open({ scope = "day", today = "2026-10-16" })

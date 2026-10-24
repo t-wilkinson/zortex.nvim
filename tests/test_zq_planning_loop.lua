@@ -204,8 +204,8 @@ T.test("reviews note: weeks newest first, days inside them, focus links", functi
 		local path = fs.get_reviews_file()
 		vim.fn.delete(path)
 		local P = require("zortex.services.projects")
-		T.eq(R.ensure_week("2026-W42"), 3)
-		T.eq(R.ensure_week("2026-W42"), 3) -- already there
+		T.eq(R.ensure_week("2026-W42"), 15) -- after the templates a new note starts with
+		T.eq(R.ensure_week("2026-W42"), 15) -- already there
 		R.ensure_week("2026-W43") -- newer: on top
 		R.ensure_week("2026-W41") -- older: at the end
 		T.eq(R.ensure_day("2026-10-14"), R.entries(vim.fn.readfile(path)).weeks["2026-W42"].days["2026-10-14"])
@@ -214,6 +214,18 @@ T.test("reviews note: weeks newest first, days inside them, focus links", functi
 		T.eq(R.toggle_focus("2026-W42", P.get(ZORTEX)), true)
 		T.eq(vim.fn.readfile(path), {
 			"@@Reviews",
+			"",
+			"# Templates",
+			"## Weekly",
+			"Focus:",
+			"",
+			"Wins:",
+			"",
+			"Lessons:",
+			"## Daily",
+			"Done:",
+			"Blocked:",
+			"First thing tomorrow:",
 			"",
 			"# 2026-W43",
 			"Focus:",
@@ -260,6 +272,55 @@ T.test("reviews note: weeks newest first, days inside them, focus links", functi
 	end)
 end)
 
+T.test("reviews note: the note's # Templates make new weeks and days; weeks stay above templates at the end", function()
+	with_notes({}, {}, function()
+		local R = require("zortex.services.review")
+		local path = fs.get_reviews_file()
+		vim.fn.writefile({
+			"@@Reviews",
+			"",
+			"# 2026-W42",
+			"Focus:",
+			"",
+			"# Templates",
+			"## Weekly",
+			"  Intentions:",
+			"  - ",
+			"",
+			"Daily:",
+			"Gratitude:",
+			"",
+		}, path)
+		require("zortex.core.document").invalidate(path)
+		T.eq(R.templates(vim.fn.readfile(path)), { weekly = { "Intentions:", "- " }, daily = { "Gratitude:" } })
+		R.ensure_week("2026-W41") -- older: before the templates
+		R.ensure_day("2026-10-14")
+		T.eq(vim.fn.readfile(path), {
+			"@@Reviews",
+			"",
+			"# 2026-W42",
+			"Focus:",
+			"",
+			"## 2026-10-14",
+			"Gratitude:",
+			"",
+			"# 2026-W41",
+			"Intentions:",
+			"- ",
+			"",
+			"# Templates",
+			"## Weekly",
+			"  Intentions:",
+			"  - ",
+			"",
+			"Daily:",
+			"Gratitude:",
+			"",
+		})
+		vim.fn.delete(path)
+	end)
+end)
+
 T.test("planner: the week's focus projects come first", function()
 	with_notes({}, {}, function()
 		local R = require("zortex.services.review")
@@ -288,7 +349,7 @@ T.test(":ZortexReview opens the week's entry beside the findings; f picks the fo
 		T.eq(st.week, "2026-W42")
 		T.ok(vim.api.nvim_win_is_valid(st.note_win) and st.note_win ~= st.win, "two windows")
 		T.eq(vim.api.nvim_buf_get_name(vim.api.nvim_win_get_buf(st.note_win)), vim.fn.fnamemodify(fs.get_reviews_file(), ":p"))
-		T.eq(vim.api.nvim_win_get_cursor(st.note_win)[1], 3) -- "# 2026-W42"
+		T.eq(vim.api.nvim_win_get_cursor(st.note_win)[1], 15) -- "# 2026-W42", after the templates
 		local function lines()
 			return vim.api.nvim_buf_get_lines(buf, 0, -1, false)
 		end

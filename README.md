@@ -109,7 +109,7 @@ Then, in five minutes:
    completion offers `Bread`; `[Bread/#Method]` links to the heading.
 5. **Search** with `<leader>zz`: type `bread meth` (words match the section
    path in order).
-6. **Plan the day** with `<leader>zm`: today's calendar next to your tasks;
+6. **Plan the day** with `<leader>zp`: today's calendar next to your tasks;
    `p` puts one on the day.
 
 **Coming from Markdown or Obsidian?** `:ZortexImportMarkdown ~/vault`
@@ -183,9 +183,10 @@ Special notes:
   it (`- [ ] task`, `14:00 event`, `16:00 [ ] timed task`, `- note`). Start
   the day with `Outcomes:` and the two or three things that would make it
   a success. Above the first day, `# Templates` holds a new day's lines by
-  name (`Weekday:`, `Sunday:`, …) and `# Repeating` the entries that
-  repeat (`- Sam @repeat(03-14) @born(1990)`, `12:00 [ ] Weekly review
-  @repeat(sun)`), shown on their days without being copied.
+  name (`## Daily`, `## Weekday`, `## Sunday`, …) and `# Repeating` the
+  entries that repeat (`- Sam @on(03-14) @born(1990)`, `- [ ] Weekly review
+  @repeat(weekly) @on(sun) @at(12:00)`), shown on their days; planning a
+  day writes its repeating tasks into it.
 - Notes tagged `@Archive` (or named `z/archive.*`) are left out of links,
   projects and search ranking.
 
@@ -232,7 +233,7 @@ Special notes:
 - **Today** (`<leader>zd`, `:ZortexToday [date]`): today's block in the
   calendar, added from your day template when it isn't there yet, with the
   cursor on it.
-- **Day planner** (`<leader>zm`): opens today's calendar day (created from
+- **Day planner** (`<leader>zp`): opens today's calendar day (created from
   your weekday/Saturday/Sunday template) next to ranked candidates: the
   week's focus projects first, then tasks on key results (the further a key
   result is behind schedule, the higher), then work with only an area, then
@@ -245,8 +246,8 @@ Special notes:
   adds an item (with a link to it) to the day and stays in the list; `P` a
   project with its next three tasks; `i`/`o`/`O` put it on the
   current/next/previous line and let you type its time.
-- **Reviews**: daily (`<leader>zW`, since the last one) and weekly
-  (`<leader>zw`), written in `reviews.zortex` (a week's entry with its days
+- **Reviews**: daily (`<leader>zr`, since the last one) and weekly
+  (`<leader>zR`), written in `reviews.zortex` (a week's entry with its days
   inside) with the findings beside it. The daily review opens with how the
   day's work served the plan (hours on key results, areas only, neither),
   then the inbox, focus, objectives and time; what wasn't done (`t`: same
@@ -294,7 +295,7 @@ folds. Change a key with
 require("zortex").setup({
   keymaps = {
     prefix = "<leader>z",
-    mappings = { task_toggle = "t", search_articles = false, review = { "w", "R" } },
+    mappings = { task_toggle = "t", search_articles = false, review = { "R", "w" } },
   },
 })
 ```
@@ -307,7 +308,7 @@ require("zortex").setup({
 | `:ZortexSearch` | `<leader>zz` | `search` | Search sections and lines (structural search) |
 | `:ZortexSearchArticles` | `<leader>zZ` | `search_articles` | Search article names |
 | `:ZortexSearchText` | `<leader>z/` | `search_text` | Search plain text in every line (smart case) |
-| `:ZortexProjects` | `<leader>zp` | `projects` | Browse projects |
+| `:ZortexProjects` | `<leader>zP` | `projects` | Browse projects |
 | `:ZortexTOC` | `<leader>zl` | `toc` | Table of contents of this note |
 | `:ZortexTOCPopup` | `<leader>zL` | `toc_popup` | Table of contents in a popup |
 
@@ -328,7 +329,7 @@ require("zortex").setup({
 | `:ZortexSectionNext` | `<leader>z]` | `section_next` | Next section at the same or higher level |
 | `:ZortexSectionPrev` | `<leader>z[` | `section_prev` | Previous section at the same or higher level |
 | `:ZortexSectionParent` | `<leader>z^` | `section_parent` | Parent section |
-|  | `<leader>zr` | `folds_update` | Recompute folds (`:Zortex refold`) |
+|  | `<leader>zF` | `folds_update` | Recompute folds (`:Zortex refold`) |
 | `:ZortexArchiveSection` | `<leader>za` | `archive_section` | Move the section under the cursor to the note's z/archive file |
 | `:ZortexMove …` | `<leader>zM` | `move` | Move or rename what is under the cursor (or the selected lines), keeping every link to it: a new title renames a heading or label, a place picked in the search (or a [link]) moves it |
 | `:ZortexUndo` | `<leader>zU` | `undo` | Take back the last move, rename or inbox move in every note it changed |
@@ -343,9 +344,9 @@ require("zortex").setup({
 
 | Command | Keys | Action id | Does |
 |---|---|---|---|
-| `:ZortexReview …` | `<leader>zw` | `review` | Review: week (default), day (since the last daily review), or a number of days |
-|  | `<leader>zW` | `review_day` | Daily review (`:ZortexReview day`) |
-| `:ZortexPlan …` | `<leader>zm` | `plan` | Plan a day: calendar day (from its template) plus ranked tasks, projects, KRs and areas to put on it |
+| `:ZortexReview …` | `<leader>zR` | `review` | Review: week (default), day (since the last daily review), or a number of days |
+|  | `<leader>zr` | `review_day` | Daily review (`:ZortexReview day`) |
+| `:ZortexPlan …` | `<leader>zp` | `plan` | Plan a day: calendar day (from its template) plus ranked tasks, projects, KRs and areas to put on it |
 | `:ZortexToday …` | `<leader>zd` | `today` | Go to today in the calendar (or a date), adding the day from its template when it isn't there |
 | `:ZortexNow` | `<leader>zn` | `now` | Go to today in the calendar, at the entry for the time now (the latest one that has started) |
 | `:ZortexTimeShift …` | `<leader>z+` | `time_later` | Move the times on the line (or the selected lines) later by an offset: 1h30m takes 12:00 to 13:30; -15m moves them earlier |

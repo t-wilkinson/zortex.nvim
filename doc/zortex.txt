@@ -101,7 +101,7 @@ FIND ~
     search_text.
 
 :ZortexProjects                                              *:ZortexProjects*
-    Browse projects. Keys: <leader>zp. Id: projects.
+    Browse projects. Keys: <leader>zP. Id: projects.
 
 :ZortexTOC                                                        *:ZortexTOC*
     Table of contents of this note. Keys: <leader>zl. Id: toc.
@@ -143,7 +143,7 @@ STRUCTURE ~
     Parent section. Keys: <leader>z^. Id: section_parent.
 
 actions.folds_update                              *zortex-action-folds_update*
-    Recompute folds (:Zortex refold). Keys: <leader>zr. Id: folds_update.
+    Recompute folds (:Zortex refold). Keys: <leader>zF. Id: folds_update.
 
 :ZortexArchiveSection                                  *:ZortexArchiveSection*
     Move the section under the cursor to the note's z/archive file. Keys:
@@ -168,14 +168,14 @@ PLAN ~
 
 :ZortexReview                                                  *:ZortexReview*
     Review: week (default), day (since the last daily review), or a number of
-    days. Keys: <leader>zw. Id: review.
+    days. Keys: <leader>zR. Id: review.
 
 actions.review_day                                  *zortex-action-review_day*
-    Daily review (:ZortexReview day). Keys: <leader>zW. Id: review_day.
+    Daily review (:ZortexReview day). Keys: <leader>zr. Id: review_day.
 
 :ZortexPlan                                                      *:ZortexPlan*
     Plan a day: calendar day (from its template) plus ranked tasks, projects,
-    KRs and areas to put on it. Keys: <leader>zm. Id: plan.
+    KRs and areas to put on it. Keys: <leader>zp. Id: plan.
 
 :ZortexToday                                                    *:ZortexToday*
     Go to today in the calendar (or a date), adding the day from its template
@@ -427,7 +427,7 @@ setup() merges your options over these defaults: >lua
         enabled = true,
         prefix = "<leader>z",
         -- Per-action overrides by action id: a key, a list of keys, or false.
-        -- e.g. { task_toggle = "t", search_articles = false, review = { "w", "R" } }
+        -- e.g. { task_toggle = "t", search_articles = false, review = { "R", "w" } }
         mappings = {},
         -- which-key names for key prefixes (when which-key is installed):
         -- <prefix> is "Zortex", and a prefix like "x" of "xs" is named after
@@ -499,6 +499,10 @@ setup() merges your options over these defaults: >lua
       notifications = {
         enabled = true, -- send the calendar's notifications to the server
         advance_minutes = 0, -- minutes before a timed line without @notify(...)
+        -- when all-day lines notify (a date range, or an untimed line with
+        -- @notify; @notify(1d) the day before): "HH:MM", or false for never.
+        -- @notify(07:30) on a line notifies at that time of its day instead
+        all_day_time = "09:00",
         days = 30, -- how many days ahead
         alerts = true, -- show the server's alerts in Neovim
         poll_seconds = 15, -- how often Neovim asks for them
@@ -528,6 +532,10 @@ setup() merges your options over these defaults: >lua
           todo_link = "P/#TODOs", -- tasks under this project rank higher
           max_tasks = 30,
           project_tasks = 3, -- P puts a project's next this many open tasks on the day (5P: five)
+          -- :ZortexPlan and :ZortexToday write the repeating tasks due on the
+          -- day (the calendar's # Repeating) into it; false leaves them shown
+          -- on the day without writing them
+          repeating_tasks = true,
           -- "Coming up": the events of this many days after the day (timed
           -- lines, @event, calendar notes), in the plan and the calendar
           -- view; 0 hides them

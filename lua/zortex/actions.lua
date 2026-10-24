@@ -469,7 +469,7 @@ M.list = {
 	},
 	{
 		id = "folds_update",
-		key = "r",
+		key = "F",
 		group = "Structure",
 		desc = "Recompute folds (`:Zortex refold`)",
 		run = function()
@@ -526,7 +526,7 @@ M.list = {
 	{
 		id = "review",
 		command = "Review",
-		key = "w",
+		key = "R",
 		group = "Plan",
 		desc = "Review: week (default), day (since the last daily review), or a number of days",
 		nargs = "?",
@@ -543,7 +543,7 @@ M.list = {
 	},
 	{
 		id = "review_day",
-		key = "W",
+		key = "r",
 		group = "Plan",
 		desc = "Daily review (`:ZortexReview day`)",
 		run = function()

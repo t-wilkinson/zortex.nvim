@@ -154,11 +154,13 @@ These are understood (tasks, projects, calendar entries):
 | `@xp(500)` | a project's XP pool |
 | `@dur(90m)`, `@dur(2h)` | how long it takes (a calendar entry's length, a task's minutes in the planner) |
 | `@spent(1h25m)` | time worked on it, added by the web app's clocks ([time tracking](Web.md#time-tracking)) |
-| `@notify(15)`, `@notify(0, 30)`, `@notify(0, end)` | calendar: notify minutes before the start (several allowed; every timed line notifies at its time by default, `@notify(no)` turns it off); `end` also notifies when a range ends |
+| `@at(14:00)` | calendar: the line's time, as `14:00` at the start of the line does (`@from(14:00) @to(15:30)` for a range) |
+| `@notify(15)`, `@notify(0, 30)`, `@notify(0, end)`, `@notify(07:30)`, `@notify` | calendar: notify minutes before the start (several allowed; every timed line notifies at its time by default, `@notify(no)` turns it off); `end` also notifies when a range ends; a time of day (`07:30`) notifies then, on the line's day. An all-day line (a date range, or an untimed line with `@notify`) notifies on its first day at `notifications.all_day_time` (09:00), minutes (`@notify(1d)`) before that |
 | `@event` | calendar: something fixed that you plan around (an appointment, a flight), not a block you planned; the web month grid marks its day, and it is listed under "Coming up" (as are timed lines and calendar notes that don't link a project) |
 | `@share` | calendar: the line is in the server's `/calendar.ics`, which other calendars (Cozi, Google, Apple) subscribe to; nothing else of the calendar is ([Other calendars](Server.md#6-other-calendars)) |
 | `@free` | calendar: a timed line that doesn't take your time: the planner's capacity line doesn't count it as busy (a calendar feed with `busy: false` writes it) |
 | `@repeat(weekly)`, `@repeat(2w)`, `@repeat(mon, wed)`, `@repeat(03-14)` | calendar, `# Repeating` section only: how often the entry shows ([Planning](Planning.md#templates-and-repeating-entries)); anywhere else it is not read (the calendar note flags it) |
+| `@on(sun)`, `@on(15th)`, `@on(03-14)`, `@on(2nd tue)`, `@on(last fri)`, `@on(last)` | calendar, `# Repeating` section only: which days a repeating entry lands on (`@repeat(monthly) @on(last thu)`); alone, it repeats on those days (`@on(weekdays)`) |
 | `@from(2026-10-06)`, `@to(2026-12-31)` | a repeating entry: its first day (what every n counts from: `2w` needs one) and its last day, both optional otherwise; with a time instead (`@from(07:30) @to(08:15)`), a calendar line's time |
 | `@born(1990)` | a repeating entry: the age, shown after its text on the day |
 | `@for(2026-10-18)` | a repeating task's copy done on another day: the day it stands for |

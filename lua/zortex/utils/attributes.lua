@@ -301,8 +301,8 @@ function M.parse_attributes(text, schema, parser_context)
 			return space
 		end
 
-		-- Boolean flags
-		if schema and schema[key] and schema[key].type == "boolean" then
+		-- Boolean flags, and a bare @notify (notify with the defaults)
+		if schema and type(schema[key]) == "table" and (schema[key].type == "boolean" or schema[key].type == "notify") then
 			attrs[key] = true
 		elseif not seen[key] then
 			-- Otherwise it's a tag (@rust, @home)

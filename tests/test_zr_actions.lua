@@ -70,7 +70,7 @@ T.test("xp.enabled = false: no XP commands, keys, key group or help lines", func
 		T.eq(vim.fn.exists(":ZxOffPlan"), 2, "the rest stay")
 		actions.create_keymaps("<Plug>zxoff", {})
 		T.eq(vim.fn.maparg("<Plug>zxoffxx", "n"), "")
-		T.ok(vim.fn.maparg("<Plug>zxoffm", "n") ~= "")
+		T.ok(vim.fn.maparg("<Plug>zxoffp", "n") ~= "")
 		for _, g in ipairs(actions.key_groups("<leader>z", {}, {})) do
 			T.ok(g[2] ~= "XP", g[1])
 		end

@@ -720,7 +720,10 @@ fences never opens a fold.
 **Structural search** (`services/search.lua` for matching and ranking,
 `ui/picker/search.lua` for the picker; [Search.md](Search.md) is the user's
 guide). Results are sections shown as **full breadcrumbs** of their
-hierarchy, followed by lines that contain every word.
+hierarchy, followed by lines matched by their section's path and then the
+line itself (the last word on the line), grouped by file the same way. A
+scope (`scope_of(result)`, the picker's narrow key) keeps only what is in one
+section, at any depth and without the cap.
 
 **Matching follows the path in order.** Search words are matched against a
 section's path (article → headings → … → the section itself):

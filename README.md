@@ -514,6 +514,8 @@ the title, with the picker's own help key: telescope `<C-/>` (insert mode; `?` i
 |---|---|
 | `<C-o>` | a new note named after the query |
 | `<M-t>` | cycle section / article / text search |
+| `<M-n>` | search inside the section under the cursor (every line, no cap); type on after the prompt |
+| `<M-p>` | back out of the last narrowing |
 
 **Projects** (`:ZortexProjects`) · picker
 

@@ -162,6 +162,8 @@ local defaults = {
 			keys = {
 				cycle_mode = "<M-t>", -- section / article / text search
 				new_note = "<C-o>", -- a new note named after the query
+				narrow = "<M-n>", -- search inside the section under the cursor
+				widen = "<M-p>", -- back out of the last narrowing
 			},
 			access_decay_rate = 0.1, -- per day
 			history = {

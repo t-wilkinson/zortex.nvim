@@ -1,7 +1,8 @@
 // Package search is the structural search: words match a section's path in
 // order (earlier words on ancestors, the last word on the section itself),
 // results are ranked by match quality and hierarchy, grouped by file, then
-// followed by lines containing every word. It ports services/search from the
+// followed by the lines whose path (their section's, then the line) the
+// words match, the last word on the line. It ports services/search from the
 // plugin; search_test.go checks it against tests/fixtures/search.json.
 //
 // Search history boosts (services/search_history) are not ported yet: scores
@@ -70,6 +71,7 @@ type section struct {
 // uppercase letters, so most lines cost no copy.
 type line struct {
 	lnum  int32
+	sec   int32 // the innermost section it is in (file.sections), -1 none
 	lower string
 }
 
@@ -99,7 +101,18 @@ func Build(ix *notes.Index, rels []string) *Index {
 		f := file{rel: rel, stem: fileStem(rel), archived: ix.IsArchived(rel), text: doc.Lines}
 		stem := syntax.Lower(fileStem(rel))
 		structural := map[int]bool{}
+		// owner[lnum-1]: the innermost section a line is in; sections come
+		// in document order, so a sub-section overwrites its parent
+		owner := make([]int32, len(doc.Lines))
+		for i := range owner {
+			owner[i] = -1
+		}
 		for _, n := range doc.Sections() {
+			for l := n.Start; l <= n.End && l <= len(owner); l++ {
+				if l >= 1 {
+					owner[l-1] = int32(len(f.sections))
+				}
+			}
 			structural[n.Start] = true
 			if n.Type == "article" && f.article == 0 {
 				f.article = n.Start
@@ -127,7 +140,7 @@ func Build(ix *notes.Index, rels []string) *Index {
 		for i, text := range doc.Lines {
 			lnum := i + 1
 			if !structural[lnum] && syntax.Trim(text) != "" {
-				f.lines = append(f.lines, line{lnum: int32(lnum), lower: syntax.Lower(text)})
+				f.lines = append(f.lines, line{lnum: int32(lnum), sec: owner[i], lower: syntax.Lower(text)})
 			}
 		}
 		out.files = append(out.files, f)
@@ -290,7 +303,7 @@ type Result struct {
 	Lnum       int
 	Node       *notes.Node // sections
 	Breadcrumb string      // sections
-	Score      int         // sections
+	Score      int         // sections and lines (word quality only)
 	Child      bool        // listed because its parent matched
 	Archived   bool
 	Line       string // lines
@@ -385,30 +398,61 @@ func matchSections(idx *Index, tokens []Token, allowed func(*section) bool, with
 	return out
 }
 
+// matchLines: the lines whose path (their section's, then the line) the
+// words match, the last word on the line; grouped by file (best first, live
+// before archived), in line order inside a file.
 func matchLines(idx *Index, tokens []Token) []Result {
-	if len(tokens) == 0 {
+	if len(tokens) == 0 || tokens[len(tokens)-1].Type != "general" {
 		return nil
 	}
-	var out []Result
+	last := tokens[len(tokens)-1].Text
+	var groups []group
 	for _, f := range idx.files {
+		g := group{archived: f.archived}
+		haveBest := false
 		for _, ln := range f.lines {
-			all := true
-			for _, t := range tokens {
-				if !strings.Contains(ln.lower, t.Text) {
-					all = false
-					break
-				}
+			// the cheap test first: the last word is on the line
+			if !strings.Contains(ln.lower, last) {
+				continue
 			}
-			if all {
-				out = append(out, Result{Type: "line", Rel: f.rel, Lnum: int(ln.lnum), Line: f.text[ln.lnum-1], Archived: f.archived})
+			var path []element
+			if ln.sec >= 0 {
+				path = append(path, f.sections[ln.sec].path...)
+			}
+			path = append(path, element{typ: "line", texts: []string{syntax.Trim(ln.lower)}})
+			q := pathMatch(path, tokens)
+			if q == 0 {
+				continue
+			}
+			score := q * 100
+			g.results = append(g.results, Result{Type: "line", Rel: f.rel, Lnum: int(ln.lnum), Line: f.text[ln.lnum-1], Score: score, Archived: f.archived})
+			if !haveBest || score > g.best {
+				g.best, haveBest = score, true
 			}
 		}
+		if len(g.results) > 0 {
+			groups = append(groups, g)
+		}
+	}
+	sort.SliceStable(groups, func(i, j int) bool {
+		a, b := groups[i], groups[j]
+		if a.archived != b.archived {
+			return !a.archived
+		}
+		if a.best != b.best {
+			return a.best > b.best
+		}
+		return a.results[0].Rel < b.results[0].Rel
+	})
+	var out []Result
+	for _, g := range groups {
+		out = append(out, g.results...)
 	}
 	return out
 }
 
 // Query searches the index. mode "section" (default): sections (with their
-// direct sub-sections), then lines with every word. "article": articles only.
+// direct sub-sections), then lines (matchLines). "article": articles only.
 // "text": lines holding the prompt as typed (matchText).
 func (c Config) Query(idx *Index, prompt, mode string) []Result {
 	if mode == "" {
@@ -430,7 +474,10 @@ func (c Config) Query(idx *Index, prompt, mode string) []Result {
 			allowed = func(*section) bool { return true }
 		}
 		results = matchSections(idx, tokens, allowed, true, c.History)
-		results = append(results, matchLines(idx, tokens)...)
+		// lines come after the sections: none would show past the cap
+		if c.MaxResults <= 0 || len(results) < c.MaxResults {
+			results = append(results, matchLines(idx, tokens)...)
+		}
 	}
 	if c.MaxResults > 0 && len(results) > c.MaxResults {
 		results = results[:c.MaxResults]

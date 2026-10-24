@@ -4,7 +4,13 @@
 -- lines. Search words are matched against a section's PATH, in order:
 -- earlier words match ancestors, the last word matches the section itself,
 -- and consecutive words may share one section. So "2 4" finds 1 › 2 › 3 › 4,
--- 2 › 4 and 2 › 3 › 4, but not 4 › 2.
+-- 2 › 4 and 2 › 3 › 4, but not 4 › 2. A line's path is its section's path
+-- and then the line, so "car oil" finds "- oil change" under "Car", and a
+-- line holding every word still matches (the words share the line).
+--
+-- A scope ({ filepath, first, last, depth }: a section, from the picker's
+-- narrow key) keeps only what is inside it: every section at any depth and
+-- every line, no result cap, and the words match the path below the scope.
 --
 -- Word syntax: "@@name" articles only, "#name" headings only, ":name" labels
 -- only, "*name" bold headings only, plain words any section. "_" or "\ "
@@ -184,7 +190,8 @@ function M.build_index(files)
 
 				-- Pre-compute section candidates: each carries its typed,
 				-- lower-cased path (ancestors + self) for fast matching.
-				local sections = {}
+				-- owner[lnum]: the innermost section a line is in.
+				local sections, owner = {}, {}
 				local nodes = tree:get_descendants()
 				for _, node in ipairs(nodes) do
 					local root_level = true
@@ -207,13 +214,23 @@ function M.build_index(files)
 							typed[#typed + 1] = { type = p.type, text = texts[1], texts = texts }
 						end
 					end
-					sections[#sections + 1] = {
+					local hay = {}
+					for _, el in ipairs(typed) do
+						hay[#hay + 1] = table.concat(el.texts, "\0")
+					end
+					local sec = {
 						node = node,
 						filepath = filepath,
 						breadcrumb = node:get_breadcrumb(" › "),
 						path = typed,
+						hay = table.concat(hay, "\0"), -- every text of the path, for a quick test
 						root_level = root_level,
 					}
+					sections[#sections + 1] = sec
+					-- document order: a sub-section overwrites its parent
+					for l = node.start_line, node.end_line or node.start_line do
+						owner[l] = sec
+					end
 				end
 
 				-- Pre-compute line candidates (skip structural + blank lines).
@@ -227,6 +244,8 @@ function M.build_index(files)
 							line = line,
 							lower = lower_lines[lnum],
 							article_name = article and article.text or nil,
+							sec = owner[lnum],
+							el = { type = "line", texts = { vim.trim(lower_lines[lnum]) } },
 						}
 					end
 				end
@@ -310,32 +329,43 @@ end
 
 -- Best total word quality for matching the words along `path` in order, with
 -- the LAST word on the last element (the section itself). Consecutive words
--- may share an element. nil when there is no such match.
+-- may share an element. nil when there is no such match. `from` skips the
+-- elements before it (a scope's), `extra` is one more element after the
+-- path (a line), so neither needs a new table.
 -- best[j][i]: words 1..j matched, word j on element i.
-local function path_match(path, tokens)
-	local n, m = #path, #tokens
-	if n == 0 then
+local prev_s, cur_s = {}, {} -- reused: this runs for many lines per keystroke
+local function path_match(path, tokens, from, extra)
+	from = from or 1
+	local count = #path - from + 1
+	local n, m = count + (extra and 1 or 0), #tokens
+	if n <= 0 then
 		return nil
 	end
-	local prev = {}
+	if m == 1 then
+		-- one word: on the last element
+		local q = token_score(tokens[1], extra or path[#path])
+		return q > 0 and q or nil
+	end
+	local function el(i)
+		return i <= count and path[from + i - 1] or extra
+	end
+	local prev, cur = prev_s, cur_s
 	for i = 1, n do
-		local q = token_score(tokens[1], path[i])
-		prev[i] = q > 0 and q or nil
+		local q = token_score(tokens[1], el(i))
+		prev[i] = q > 0 and q or false
 	end
 	for j = 2, m do
-		local cur, run = {}, nil -- run = best of prev[1..i]
+		local run = false -- best of prev[1..i]
 		for i = 1, n do
 			if prev[i] and (not run or prev[i] > run) then
 				run = prev[i]
 			end
-			local q = token_score(tokens[j], path[i])
-			if run and q > 0 then
-				cur[i] = run + q
-			end
+			local q = run and token_score(tokens[j], el(i)) or 0
+			cur[i] = (run and q > 0) and (run + q) or false
 		end
-		prev = cur
+		prev, cur = cur, prev
 	end
-	return prev[n]
+	return prev[n] or nil
 end
 
 local function type_bonus(node)
@@ -370,7 +400,18 @@ end
 -- in document order within a file.
 --   allowed(entry)    which sections may be results
 --   with_children     also list the direct sub-sections of each match
-local function match_sections(index, tokens, allowed, with_children)
+-- Whether line `lnum` of `file` is inside `scope` (a section, its own
+-- start line left out); everything is without a scope.
+local function in_scope(scope, file, lnum)
+	return not scope or (file.filepath == scope.filepath and lnum > scope.first and lnum <= scope.last)
+end
+
+-- The part of a path below the scope (the whole path without one)
+local function below(scope)
+	return scope and (scope.depth + 1) or 1
+end
+
+local function match_sections(index, tokens, allowed, with_children, scope)
 	local history = require("zortex.services.search_history")
 	local now = os.time()
 	local groups = {}
@@ -381,13 +422,15 @@ local function match_sections(index, tokens, allowed, with_children)
 		for _, sec in ipairs(file.sections) do
 			local node = sec.node
 			local score
-			if #tokens == 0 then
-				-- Empty prompt: top-level sections only
-				if #sec.path == 1 and allowed(sec) then
+			if not in_scope(scope, file, node.start_line) then
+				score = nil
+			elseif #tokens == 0 then
+				-- Empty prompt: top-level sections only (in a scope, all of them)
+				if (scope or #sec.path == 1) and allowed(sec) then
 					score = type_bonus(node)
 				end
 			elseif allowed(sec) then
-				local q = path_match(sec.path, tokens)
+				local q = path_match(sec.path, tokens, below(scope))
 				score = q and (q * 100 + type_bonus(node)) or nil
 			end
 
@@ -423,33 +466,79 @@ local function match_sections(index, tokens, allowed, with_children)
 	return out
 end
 
--- AND match: every token must appear somewhere in the line.
-local function match_lines(index, tokens)
-	local results = {}
-	if #tokens == 0 then
-		return results
+local NO_PATH = {}
+
+-- Whether every word is somewhere on the line or its section's path (a
+-- quick test before path_match; in a scope, path_match alone decides)
+local function maybe(ln, tokens, scope)
+	if scope then
+		return true
+	end
+	local hay = ln.sec and ln.sec.hay or ""
+	for _, tok in ipairs(tokens) do
+		if not (ln.lower:find(tok.text, 1, true) or hay:find(tok.text, 1, true)) then
+			return false
+		end
+	end
+	return true
+end
+
+-- Lines whose path (their section's, then the line) the words match, the
+-- last word on the line: grouped by file (best first, live before
+-- archived), in document order inside a file. In a scope, an empty prompt
+-- lists every line in it.
+local function match_lines(index, tokens, scope)
+	local groups = {}
+	local last = tokens[#tokens]
+	if (#tokens == 0 and not scope) or (last and last.type ~= "general") then
+		return {}
 	end
 	for _, file in ipairs(index) do
+		local results, best = {}, -math.huge
 		for _, ln in ipairs(file.lines) do
-			local all = true
-			for _, tok in ipairs(tokens) do
-				if not ln.lower:find(tok.text, 1, true) then
-					all = false
-					break
-				end
+			local score
+			if not in_scope(scope, file, ln.lnum) then
+				score = nil
+			elseif #tokens == 0 then
+				score = 0
+			elseif ln.lower:find(last.text, 1, true) and maybe(ln, tokens, scope) then
+				-- the cheap tests first: the last word is on the line, and
+				-- every word is on the line or its section's path
+				local q = path_match(ln.sec and ln.sec.path or NO_PATH, tokens, below(scope), ln.el)
+				score = q and q * 100 or nil
 			end
-			if all then
+			if score then
 				results[#results + 1] = {
 					result_type = "line",
 					filepath = ln.filepath,
 					lnum = ln.lnum,
 					line = ln.line,
 					article_name = ln.article_name,
+					section_node = ln.sec and ln.sec.node, -- what narrowing on it keeps
+					score = score,
+					archived = file.archived,
 				}
+				best = math.max(best, score)
 			end
 		end
+		if #results > 0 then
+			groups[#groups + 1] = { file = file, results = results, best = best }
+		end
 	end
-	return results
+	table.sort(groups, function(a, b)
+		if a.file.archived ~= b.file.archived then
+			return not a.file.archived
+		end
+		if a.best ~= b.best then
+			return a.best > b.best
+		end
+		return a.results[1].filepath < b.results[1].filepath
+	end)
+	local out = {}
+	for _, g in ipairs(groups) do
+		vim.list_extend(out, g.results)
+	end
+	return out
 end
 
 -- Plain text: every line containing `prompt` literally (smart case), live
@@ -517,21 +606,54 @@ local function match_text(index, prompt)
 	return results
 end
 
+--- The scope of a result: what a search narrowed on it keeps. A section's
+--- own, a line's section's (the line found by its path), nil for a line
+--- outside any section.
+function M.scope_of(r)
+	local node = r and (r.result_type == "section" and r.node or r.section_node)
+	if not node then
+		return nil
+	end
+	local depth = 0
+	local crumbs = {}
+	for _, p in ipairs(node:get_full_path()) do
+		if not p:is_root() then
+			depth = depth + 1
+			crumbs[#crumbs + 1] = p.text or ""
+		end
+	end
+	return {
+		filepath = r.filepath,
+		first = node.start_line,
+		last = node.end_line or node.start_line,
+		depth = depth,
+		breadcrumb = table.concat(crumbs, " › "),
+	}
+end
+
 -- Full query over a pre-built index.
 --   "section" mode: section matches (with their direct sub-sections), then
---                   lines containing every word
+--                   lines whose path the words match (match_lines)
 --   "article" mode: articles only
 --   "text" mode:    lines containing the prompt as typed (match_text)
--- Results are capped at max_results and numbered (`rank`) for the picker.
----@param opts { mode?: "section"|"article"|"text" }?
+-- opts.scope (M.scope_of): only what is inside that section, every section
+-- type, and no cap. Results are capped at max_results and numbered (`rank`)
+-- for the picker.
+---@param opts { mode?: "section"|"article"|"text", scope?: table, all_sections?: boolean }?
 function M.query_index(index, prompt, opts)
 	local c = cfg()
 	local mode = (opts and opts.mode) or c.default_mode or "section"
+	local scope = opts and opts.scope
 	local tokens = tokenize(prompt)
 
 	local results
 	if mode == "text" then
 		results = match_text(index, prompt)
+		if scope then
+			results = vim.tbl_filter(function(r)
+				return r.filepath == scope.filepath and r.lnum > scope.first and r.lnum <= scope.last
+			end, results)
+		end
 	elseif mode == "article" then
 		results = match_sections(index, tokens, function(entry)
 			return entry.node.type == "article"
@@ -545,15 +667,18 @@ function M.query_index(index, prompt, opts)
 		end
 		-- opts.all_sections: every section at any depth (picking a place to
 		-- move something to, where a deep label is as likely as a note)
-		local allowed = (typed or (opts and opts.all_sections)) and function()
+		local allowed = (typed or scope or (opts and opts.all_sections)) and function()
 			return true
 		end or section_filter(#tokens)
-		results = match_sections(index, tokens, allowed, true)
-		vim.list_extend(results, match_lines(index, tokens))
+		results = match_sections(index, tokens, allowed, true, scope)
+		-- lines come after the sections: none would show past the cap
+		if scope or not c.max_results or #results < c.max_results then
+			vim.list_extend(results, match_lines(index, tokens, scope))
+		end
 	end
 
 	local max = c.max_results
-	if max and #results > max then
+	if max and not scope and #results > max then
 		results = vim.list_slice(results, 1, max)
 	end
 	for i, r in ipairs(results) do

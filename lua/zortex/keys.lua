@@ -147,6 +147,8 @@ M.PICKERS = {
 		keys = {
 			{ nil, "new_note", "a new note named after the query", "new note" },
 			{ nil, "cycle_mode", "cycle section / article / text search", "mode" },
+			{ nil, "narrow", "search inside the section under the cursor (every line, no cap); type on after the prompt", "narrow" },
+			{ nil, "widen", "back out of the last narrowing", "widen" },
 		},
 	},
 	{

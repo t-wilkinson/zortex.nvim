@@ -397,6 +397,8 @@ LINK PREVIEW (<leader>zK) ~
 SEARCH (:ZortexSearch, keys in ui.search.keys, picker) ~
   <C-o>  a new note named after the query
   <M-t>  cycle section / article / text search
+  <M-n>  search inside the section under the cursor (every line, no cap); type on after the prompt
+  <M-p>  back out of the last narrowing
 
 PROJECTS (:ZortexProjects, picker) ~
   <C-l>  insert the project's link
@@ -572,6 +574,8 @@ setup() merges your options over these defaults: >lua
           keys = {
             cycle_mode = "<M-t>", -- section / article / text search
             new_note = "<C-o>", -- a new note named after the query
+            narrow = "<M-n>", -- search inside the section under the cursor
+            widen = "<M-p>", -- back out of the last narrowing
           },
           access_decay_rate = 0.1, -- per day
           history = {

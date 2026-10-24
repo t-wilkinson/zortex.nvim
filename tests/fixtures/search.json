@@ -307,11 +307,6 @@
         "type": "line"
       },
       {
-        "lnum": 2,
-        "rel": "z/archive.projects.zortex",
-        "type": "line"
-      },
-      {
         "lnum": 3,
         "rel": "z/day-plan.zortex",
         "type": "line"
@@ -394,6 +389,11 @@
       {
         "lnum": 32,
         "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 2,
+        "rel": "z/archive.projects.zortex",
         "type": "line"
       }
     ]
@@ -554,6 +554,11 @@
         "type": "section"
       },
       {
+        "lnum": 24,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
         "lnum": 5,
         "rel": "calendar.zortex",
         "type": "line"
@@ -622,6 +627,11 @@
         "lnum": 15,
         "rel": "okr.zortex",
         "type": "line"
+      },
+      {
+        "lnum": 24,
+        "rel": "projects.zortex",
+        "type": "line"
       }
     ]
   },
@@ -653,6 +663,16 @@
         "type": "line"
       },
       {
+        "lnum": 15,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 27,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
         "lnum": 5,
         "rel": "z/day-plan.zortex",
         "type": "line"
@@ -669,6 +689,16 @@
         "rel": "projects.zortex",
         "score": 1250,
         "type": "section"
+      },
+      {
+        "lnum": 15,
+        "rel": "projects.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 27,
+        "rel": "projects.zortex",
+        "type": "line"
       },
       {
         "lnum": 15,
@@ -735,16 +765,6 @@
         "type": "line"
       },
       {
-        "lnum": 14,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 15,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
         "lnum": 3,
         "rel": "z/day-plan.zortex",
         "type": "line"
@@ -757,6 +777,16 @@
       {
         "lnum": 9,
         "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 14,
+        "rel": "okr.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "okr.zortex",
         "type": "line"
       }
     ]
@@ -796,16 +826,6 @@
         "rel": "okr.zortex",
         "score": 1000,
         "type": "section"
-      },
-      {
-        "lnum": 10,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 11,
-        "rel": "okr.zortex",
-        "type": "line"
       }
     ]
   },
@@ -1018,426 +1038,6 @@
         "rel": "z/archive.projects.zortex",
         "score": 1000,
         "type": "section"
-      },
-      {
-        "lnum": 2,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 3,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 7,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 10,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 11,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 14,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 15,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 17,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 18,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 2,
-        "rel": "calendar.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 5,
-        "rel": "calendar.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 6,
-        "rel": "calendar.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 7,
-        "rel": "calendar.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 10,
-        "rel": "calendar.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 11,
-        "rel": "calendar.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 14,
-        "rel": "calendar.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 15,
-        "rel": "calendar.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 2,
-        "rel": "flipping.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 3,
-        "rel": "flipping.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 4,
-        "rel": "flipping.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 7,
-        "rel": "flipping.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 8,
-        "rel": "flipping.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 9,
-        "rel": "flipping.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 12,
-        "rel": "flipping.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 13,
-        "rel": "flipping.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 2,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 3,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 4,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 9,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 10,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 11,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 14,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 15,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 2,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 5,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 8,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 9,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 12,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 15,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 16,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 17,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 18,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 19,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 20,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 21,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 24,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 27,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 31,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 32,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 2,
-        "rel": "z/archive.projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 3,
-        "rel": "z/archive.projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 7,
-        "rel": "z/archive.projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 3,
-        "rel": "z/day-plan.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 4,
-        "rel": "z/day-plan.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 5,
-        "rel": "z/day-plan.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 6,
-        "rel": "z/day-plan.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 8,
-        "rel": "z/day-plan.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 9,
-        "rel": "z/day-plan.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 10,
-        "rel": "z/day-plan.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 2,
-        "rel": "z/garden.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 4,
-        "rel": "z/garden.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 7,
-        "rel": "z/garden.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 9,
-        "rel": "z/garden.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 10,
-        "rel": "z/garden.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 2,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 3,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 5,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 6,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 9,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 10,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 11,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 12,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 13,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 14,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 16,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 17,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 20,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 21,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 22,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 26,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 28,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 31,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 32,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 34,
-        "rel": "z/resources.zortex",
-        "type": "line"
       }
     ]
   },
@@ -1482,41 +1082,6 @@
         "rel": "z/archive.projects.zortex",
         "score": 2200,
         "type": "section"
-      },
-      {
-        "lnum": 18,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 14,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 15,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 8,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 9,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 27,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 6,
-        "rel": "z/day-plan.zortex",
-        "type": "line"
       }
     ]
   },
@@ -1722,426 +1287,6 @@
         "rel": "z/archive.projects.zortex",
         "score": 2100,
         "type": "section"
-      },
-      {
-        "lnum": 2,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 3,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 7,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 10,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 11,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 14,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 15,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 17,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 18,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 2,
-        "rel": "calendar.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 5,
-        "rel": "calendar.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 6,
-        "rel": "calendar.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 7,
-        "rel": "calendar.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 10,
-        "rel": "calendar.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 11,
-        "rel": "calendar.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 14,
-        "rel": "calendar.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 15,
-        "rel": "calendar.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 2,
-        "rel": "flipping.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 3,
-        "rel": "flipping.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 4,
-        "rel": "flipping.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 7,
-        "rel": "flipping.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 8,
-        "rel": "flipping.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 9,
-        "rel": "flipping.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 12,
-        "rel": "flipping.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 13,
-        "rel": "flipping.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 2,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 3,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 4,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 9,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 10,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 11,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 14,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 15,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 2,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 5,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 8,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 9,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 12,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 15,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 16,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 17,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 18,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 19,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 20,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 21,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 24,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 27,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 31,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 32,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 2,
-        "rel": "z/archive.projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 3,
-        "rel": "z/archive.projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 7,
-        "rel": "z/archive.projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 3,
-        "rel": "z/day-plan.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 4,
-        "rel": "z/day-plan.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 5,
-        "rel": "z/day-plan.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 6,
-        "rel": "z/day-plan.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 8,
-        "rel": "z/day-plan.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 9,
-        "rel": "z/day-plan.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 10,
-        "rel": "z/day-plan.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 2,
-        "rel": "z/garden.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 4,
-        "rel": "z/garden.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 7,
-        "rel": "z/garden.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 9,
-        "rel": "z/garden.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 10,
-        "rel": "z/garden.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 2,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 3,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 5,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 6,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 9,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 10,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 11,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 12,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 13,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 14,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 16,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 17,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 20,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 21,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 22,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 26,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 28,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 31,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 32,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 34,
-        "rel": "z/resources.zortex",
-        "type": "line"
       }
     ]
   },
@@ -2162,21 +1307,6 @@
         "rel": "z/day-plan.zortex",
         "score": 600,
         "type": "section"
-      },
-      {
-        "lnum": 11,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 14,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 21,
-        "rel": "z/resources.zortex",
-        "type": "line"
       }
     ]
   },
@@ -2246,426 +1376,6 @@
         "rel": "z/resources.zortex",
         "score": 400,
         "type": "section"
-      },
-      {
-        "lnum": 2,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 3,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 7,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 10,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 11,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 14,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 15,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 17,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 18,
-        "rel": "areas.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 2,
-        "rel": "calendar.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 5,
-        "rel": "calendar.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 6,
-        "rel": "calendar.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 7,
-        "rel": "calendar.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 10,
-        "rel": "calendar.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 11,
-        "rel": "calendar.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 14,
-        "rel": "calendar.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 15,
-        "rel": "calendar.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 2,
-        "rel": "flipping.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 3,
-        "rel": "flipping.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 4,
-        "rel": "flipping.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 7,
-        "rel": "flipping.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 8,
-        "rel": "flipping.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 9,
-        "rel": "flipping.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 12,
-        "rel": "flipping.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 13,
-        "rel": "flipping.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 2,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 3,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 4,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 9,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 10,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 11,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 14,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 15,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 2,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 5,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 8,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 9,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 12,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 15,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 16,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 17,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 18,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 19,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 20,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 21,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 24,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 27,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 31,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 32,
-        "rel": "projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 2,
-        "rel": "z/archive.projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 3,
-        "rel": "z/archive.projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 7,
-        "rel": "z/archive.projects.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 3,
-        "rel": "z/day-plan.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 4,
-        "rel": "z/day-plan.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 5,
-        "rel": "z/day-plan.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 6,
-        "rel": "z/day-plan.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 8,
-        "rel": "z/day-plan.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 9,
-        "rel": "z/day-plan.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 10,
-        "rel": "z/day-plan.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 2,
-        "rel": "z/garden.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 4,
-        "rel": "z/garden.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 7,
-        "rel": "z/garden.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 9,
-        "rel": "z/garden.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 10,
-        "rel": "z/garden.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 2,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 3,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 5,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 6,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 9,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 10,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 11,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 12,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 13,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 14,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 16,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 17,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 20,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 21,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 22,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 26,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 28,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 31,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 32,
-        "rel": "z/resources.zortex",
-        "type": "line"
-      },
-      {
-        "lnum": 34,
-        "rel": "z/resources.zortex",
-        "type": "line"
       }
     ]
   },
@@ -2696,6 +1406,33 @@
         "type": "line"
       }
     ]
+  },
+  {
+    "mode": "section",
+    "prompt": "garden mint",
+    "results": [
+      {
+        "lnum": 10,
+        "rel": "z/garden.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": "spring mint",
+    "results": [
+      {
+        "lnum": 10,
+        "rel": "z/garden.zortex",
+        "type": "line"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": "mint garden",
+    "results": []
   },
   {
     "mode": "section",
@@ -2871,11 +1608,6 @@
         "type": "section"
       },
       {
-        "lnum": 11,
-        "rel": "okr.zortex",
-        "type": "line"
-      },
-      {
         "lnum": 9,
         "rel": "z/resources.zortex",
         "type": "line"
@@ -2893,6 +1625,11 @@
       {
         "lnum": 31,
         "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 11,
+        "rel": "okr.zortex",
         "type": "line"
       }
     ]

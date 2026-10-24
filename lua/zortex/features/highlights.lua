@@ -249,7 +249,37 @@ local function link_group(span_type, definition)
 	return LINK_GROUPS[require("zortex.core.link").kind(definition) or ""] or "ZortexLink"
 end
 
-local function paint_spans(buf, row, spans, kind)
+-- The "/" between a link's parts, shown as ui.highlights.link_separator
+-- ("›"): each top-level "/" of the definition from byte `s` to `e`
+-- (0-based, end exclusive), not a leading "/" (a link in this note) or "~/"
+-- (the notes folder), nor one inside parentheses ("@(a/b)").
+local function separators(buf, row, line, s, e)
+	local sep = ((require("zortex.config").ui or {}).highlights or {}).link_separator
+	if sep == nil then
+		sep = "›"
+	end
+	if not sep or sep == "" or sep == "/" then
+		return
+	end
+	local depth, first = 0, s
+	if line:sub(s + 1, s + 2) == "~/" then
+		first = s + 2
+	elseif line:sub(s + 1, s + 1) == "/" then
+		first = s + 1
+	end
+	for i = first, e - 1 do
+		local c = line:sub(i + 1, i + 1)
+		if c == "(" then
+			depth = depth + 1
+		elseif c == ")" then
+			depth = math.max(0, depth - 1)
+		elseif c == "/" and depth == 0 then
+			mark(buf, row, i, { end_col = i + 1, conceal = sep, hl_group = "ZortexLinkDelimiter" })
+		end
+	end
+end
+
+local function paint_spans(buf, row, spans, kind, line)
 	for _, span in ipairs(spans) do
 		local t, s, e = span.type, span.s, span.e
 		if t == "link" or t == "live_link" or t == "tag_search" then
@@ -268,6 +298,9 @@ local function paint_spans(buf, row, spans, kind)
 				paint(buf, row, link_group(t, span.definition), open + 1, e - 1)
 				icon(buf, row, open)
 				conceal(buf, row, e - 1, e)
+				if t ~= "tag_search" and line then
+					separators(buf, row, line, open + 1, e - 1)
+				end
 			end
 		elseif t == "markdown" then
 			paint(buf, row, "ZortexMarkdownLink", s + 1, s + 1 + #span.text)
@@ -281,7 +314,7 @@ local function paint_spans(buf, row, spans, kind)
 			paint(buf, row, t == "bold" and "ZortexBold" or "ZortexItalic", s, e)
 			conceal(buf, row, s, span.inner_s)
 			conceal(buf, row, span.inner_e, e)
-			paint_spans(buf, row, span.children or {}, kind)
+			paint_spans(buf, row, span.children or {}, kind, line)
 		elseif t == "code" then
 			paint(buf, row, "ZortexCodeInline", s, e)
 		elseif t == "math" then
@@ -474,7 +507,7 @@ local function paint_line(buf, row, line, d, spans)
 		paint(buf, row, "ZortexFootnote", 0, #line:match("^%[%^[^%]]+%]"))
 	end
 
-	paint_spans(buf, row, spans, kind)
+	paint_spans(buf, row, spans, kind, line)
 	if kind ~= "article" and kind ~= "tag" then
 		paint_decorations(buf, row, line, spans, d.content_col or 0)
 	end

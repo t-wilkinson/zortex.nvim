@@ -388,7 +388,7 @@ M.list = {
 		command = "TOC",
 		key = "l",
 		group = "Find",
-		desc = "Table of contents of this note",
+		desc = "Table of contents of this note, in a split that follows the note as you edit and move",
 		run = call("zortex.features.toc", "show_toc"),
 	},
 	{

@@ -185,8 +185,10 @@ First thing tomorrow:
 
 Above the candidates, the plan lists what's coming up in the next seven
 days (`ui.planner.upcoming_days`; 0 hides it): the events you plan around
-(`@event` lines, timed lines and calendar notes that don't link a
-project), not your own planned work or tasks. The calendar view shows the
+(`@event` lines, timed lines and date ranges without a checkbox that don't
+link a project, calendar feeds' events, and the repeating notes such as
+birthdays), not your own planned work, tasks or plain notes (tag a note
+`@event` to list it). The calendar view shows the
 same list under the selected day.
 
 Other calendars count too. With the server's calendar feeds

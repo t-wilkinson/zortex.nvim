@@ -111,6 +111,10 @@ local defaults = {
 		highlights = {
 			preset = nil,
 			groups = {},
+			-- shown for the "/" between a link's parts ([P/#1 Code/#1.4] reads
+			-- "P›#1 Code›#1.4"); the "/" comes back on the cursor's line. A
+			-- single character, or false to show the "/"
+			link_separator = "›",
 		},
 
 		-- Link preview float (<prefix>K / :ZortexLinkPreview)
@@ -127,9 +131,9 @@ local defaults = {
 			-- day (the calendar's # Repeating) into it; false leaves them shown
 			-- on the day without writing them
 			repeating_tasks = true,
-			-- "Coming up": the events of this many days after the day (timed
-			-- lines, @event, calendar notes), in the plan and the calendar
-			-- view; 0 hides them
+			-- "Coming up": the events of this many days after the day (@event,
+			-- timed lines without a checkbox, repeating notes), in the plan
+			-- and the calendar view; 0 hides them
 			upcoming_days = 7,
 			-- The capacity line: open tasks on the day (their @size hours) against
 			-- the free time left in `day`, after timed entries that aren't project

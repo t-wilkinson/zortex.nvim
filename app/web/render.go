@@ -489,13 +489,51 @@ func (r *noteRenderer) linkHTMLText(def, shown string) string {
 
 // linkHTML renders a zortex link, resolved from `from`: it points at the
 // canonical target (the first result, as following the link in Neovim does).
+// It reads as its parts, the "/" between them shown as "›" (as Neovim's
+// ui.highlights.link_separator).
 func (s *Server) linkHTML(from *notes.Document, def string) string {
-	return s.linkHTMLAs(from, def, def)
+	return s.linkHTMLText(from, def, linkPathHTML(def))
+}
+
+// linkPathHTML: a link's definition, escaped, with each "/" between its
+// parts as a "›" (not a leading "/" or "~/", nor one inside parentheses).
+func linkPathHTML(def string) string {
+	var b strings.Builder
+	depth, start := 0, 0
+	if strings.HasPrefix(def, "~/") {
+		start = 2
+	} else if strings.HasPrefix(def, "/") {
+		start = 1
+	}
+	b.WriteString(esc(def[:start]))
+	last := start
+	for i := start; i < len(def); i++ {
+		switch def[i] {
+		case '(':
+			depth++
+		case ')':
+			if depth > 0 {
+				depth--
+			}
+		case '/':
+			if depth == 0 {
+				b.WriteString(esc(def[last:i]))
+				b.WriteString(`<span class="zl-sep" aria-hidden="true">›</span><span class="zl-slash">/</span>`)
+				last = i + 1
+			}
+		}
+	}
+	b.WriteString(esc(def[last:]))
+	return b.String()
 }
 
 // linkHTMLAs is linkHTML for `def` shown as `written`.
 func (s *Server) linkHTMLAs(from *notes.Document, def, written string) string {
-	text := esc(written)
+	return s.linkHTMLText(from, def, esc(written))
+}
+
+// linkHTMLText is linkHTML for `def` shown as `text` (HTML).
+func (s *Server) linkHTMLText(from *notes.Document, def, text string) string {
 	if s.fileLike(def) {
 		if href, ok := s.pathHref(from, def); ok {
 			return `<a class="zl file" href="` + esc(href) + `">` + text + `</a>`

@@ -309,7 +309,7 @@ require("zortex").setup({
 | `:ZortexSearchArticles` | `<leader>zZ` | `search_articles` | Search article names |
 | `:ZortexSearchText` | `<leader>z/` | `search_text` | Search plain text in every line (smart case) |
 | `:ZortexProjects` | `<leader>zP` | `projects` | Browse projects |
-| `:ZortexTOC` | `<leader>zl` | `toc` | Table of contents of this note |
+| `:ZortexTOC` | `<leader>zl` | `toc` | Table of contents of this note, in a split that follows the note as you edit and move |
 | `:ZortexTOCPopup` | `<leader>zL` | `toc_popup` | Table of contents in a popup |
 
 **Links**

@@ -550,8 +550,9 @@ result nor an area) and, for the weekly review, `vision` and `top_down`
 it with their key results and the projects those link, and its projects no
 key result covers). Projects marked `@someday` are never stale or
 unscheduled. `upcoming_events({ date,
-days })` is the events of the days after `date` (`@event` lines, and timed
-lines and calendar notes that don't link a project), which the planner and
+days })` is the events of the days after `date` (`@event` lines, timed
+lines without a checkbox that don't link a project, feed events and
+repeating notes), which the planner and
 the calendar view list as "Coming up" (`ui.planner.upcoming_days`).
 
 ### Reviews — `services/review.lua`

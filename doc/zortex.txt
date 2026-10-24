@@ -104,7 +104,8 @@ FIND ~
     Browse projects. Keys: <leader>zP. Id: projects.
 
 :ZortexTOC                                                        *:ZortexTOC*
-    Table of contents of this note. Keys: <leader>zl. Id: toc.
+    Table of contents of this note, in a split that follows the note as you
+    edit and move. Keys: <leader>zl. Id: toc.
 
 :ZortexTOCPopup                                              *:ZortexTOCPopup*
     Table of contents in a popup. Keys: <leader>zL. Id: toc_popup.
@@ -520,6 +521,10 @@ setup() merges your options over these defaults: >lua
         highlights = {
           preset = nil,
           groups = {},
+          -- shown for the "/" between a link's parts ([P/#1 Code/#1.4] reads
+          -- "P›#1 Code›#1.4"); the "/" comes back on the cursor's line. A
+          -- single character, or false to show the "/"
+          link_separator = "›",
         },
 
         -- Link preview float (<prefix>K / :ZortexLinkPreview)
@@ -536,9 +541,9 @@ setup() merges your options over these defaults: >lua
           -- day (the calendar's # Repeating) into it; false leaves them shown
           -- on the day without writing them
           repeating_tasks = true,
-          -- "Coming up": the events of this many days after the day (timed
-          -- lines, @event, calendar notes), in the plan and the calendar
-          -- view; 0 hides them
+          -- "Coming up": the events of this many days after the day (@event,
+          -- timed lines without a checkbox, repeating notes), in the plan
+          -- and the calendar view; 0 hides them
           upcoming_days = 7,
           -- The capacity line: open tasks on the day (their @size hours) against
           -- the free time left in `day`, after timed entries that aren't project
@@ -660,7 +665,9 @@ setup() merges your options over these defaults: >lua
         -- Saturday and Sunday reviews pick the coming week's focus)
         next_week_from = "saturday",
         -- a new week's lines; the projects linked under "Focus:" are the week's
-        -- focus, ranked first by the planner
+        -- focus, ranked first by the planner. The reviews note's own
+        -- "# Templates" section (## Weekly, ## Daily) wins over these; a new
+        -- reviews note starts with one made from them
         week = { "Focus:", "", "Wins:", "", "Lessons:" },
         -- a new day's lines
         day = { "Done:", "Blocked:", "First thing tomorrow:" },

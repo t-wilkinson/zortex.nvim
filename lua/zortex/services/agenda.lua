@@ -221,9 +221,11 @@ function M.upcoming(days, opts)
 end
 
 -- An event: what you plan around rather than work you planned. Lines marked
--- @event, and timed lines and calendar notes that don't link a project
--- ("14:00 Dentist", "- Mum's birthday"); not tasks without a time, lines
--- standing for a task, or blocks of project work ("09:00 [P/#1.4 …]").
+-- @event; timed lines and date ranges without a checkbox that don't link a
+-- project ("14:00 Dentist", "- Trip @from(…) @to(…)"); a calendar feed's
+-- events; and the notes of the # Repeating rules (birthdays, holidays).
+-- Not tasks (timed or not), plain notes, lines standing for a task, or
+-- blocks of project work ("09:00 [P/#1.4 …]").
 local function is_event(item)
 	local entry = item.entry
 	if not entry or item.ref or entry.outcome then
@@ -232,10 +234,10 @@ local function is_event(item)
 	if vim.tbl_contains(entry.attributes.tags or {}, "event") then
 		return true
 	end
-	if item.project then
+	if item.project or entry.type == "task" then
 		return false
 	end
-	return item.time ~= nil or item.kind == "note"
+	return entry.type == "event" or entry.feed ~= nil or entry.rule ~= nil
 end
 
 --- The events of the `days` days after `date` (default today; `days`

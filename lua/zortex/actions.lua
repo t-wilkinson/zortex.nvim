@@ -388,7 +388,7 @@ M.list = {
 		command = "TOC",
 		key = "l",
 		group = "Find",
-		desc = "Table of contents of this note",
+		desc = "Table of contents of this note, in a split that follows the note as you edit and move",
 		run = call("zortex.features.toc", "show_toc"),
 	},
 	{
@@ -469,7 +469,7 @@ M.list = {
 	},
 	{
 		id = "folds_update",
-		key = "r",
+		key = "F",
 		group = "Structure",
 		desc = "Recompute folds (`:Zortex refold`)",
 		run = function()
@@ -526,7 +526,7 @@ M.list = {
 	{
 		id = "review",
 		command = "Review",
-		key = "w",
+		key = "R",
 		group = "Plan",
 		desc = "Review: week (default), day (since the last daily review), or a number of days",
 		nargs = "?",
@@ -543,7 +543,7 @@ M.list = {
 	},
 	{
 		id = "review_day",
-		key = "W",
+		key = "r",
 		group = "Plan",
 		desc = "Daily review (`:ZortexReview day`)",
 		run = function()
@@ -691,6 +691,19 @@ M.list = {
 		complete = "file",
 		run = function(args)
 			require("zortex.features.markdown_import").command(args)
+		end,
+	},
+	{
+		id = "conflicts",
+		command = "Conflicts",
+		group = "Files",
+		desc = "Merge a sync tool's conflict copy of a note in a diff beside the note; `done` saves the note and deletes the copy",
+		nargs = "?",
+		complete = function()
+			return { "done" }
+		end,
+		run = function(args)
+			require("zortex.features.conflicts").command(args)
 		end,
 	},
 	{

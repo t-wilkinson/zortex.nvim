@@ -44,6 +44,39 @@ T.test("calendar: a timed task notifies until it is done; carried and done ones 
 	end)
 end)
 
+T.test("calendar: all-day lines notify at all_day_time on their first day; @notify(07:30) at that time", function()
+	local cal = require("zortex.notifications.calendar")
+	local day = os.date("%Y-%m-%d", os.time() + 2 * 86400)
+	local after = os.date("%Y-%m-%d", os.time() + 4 * 86400)
+	with_calendar({
+		"@@Calendar",
+		"",
+		day .. ":",
+		"- Trip @from(" .. day .. ") @to(" .. after .. ")", -- all day: on its first day only
+		"- Sam's birthday @notify", -- untimed, asked for
+		"- Call the bank @notify(1d)", -- the day before
+		"- [ ] Pay rent @notify(07:30)", -- a clock time
+		"14:00 Dentist @notify(08:00, 10)", -- a clock time and minutes before
+		"- just a note", -- untimed, nothing asked: no notification
+	}, function()
+		local saved = cal._cfg()
+		cal.setup(vim.tbl_extend("force", saved, { all_day_time = "08:15" }))
+		local got = vim.tbl_map(function(n)
+			return os.date("%Y-%m-%d %H:%M", n.trigger_time) .. " " .. n.tags[2] .. " " .. n.title .. " | " .. n.message
+		end, cal.collect())
+		cal.setup(saved)
+		local before = os.date("%Y-%m-%d", os.time() + 86400)
+		T.eq(got, {
+			before .. " 08:15 allday Call the bank | tomorrow",
+			day .. " 07:30 at Pay rent | today",
+			day .. " 08:00 at Dentist | today 14:00",
+			day .. " 08:15 allday Sam's birthday | today",
+			day .. " 08:15 allday Trip | today",
+			day .. " 13:50 start Dentist | 14:00 (in 10 min)",
+		})
+	end)
+end)
+
 T.test("without a server: nothing is sent, and the commands say why", function()
 	Config.server = { enabled = false }
 	local msg

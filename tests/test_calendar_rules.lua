@@ -20,9 +20,6 @@ T.test("@repeat specs: days of the week, dates, days of the month, every n from 
 	T.eq(on("- Bins @repeat(2w)", "2026-10-20"), false, "every n needs @from")
 	T.eq(on("- Run @repeat(daily) @to(2026-10-21)", "2026-10-22"), false)
 	T.eq(on("- Run @repeat(daily) @to(2026-10-21)", "2026-10-21"), true, "@to is the last day")
-	-- @since and @until are gone: not bounds, and left on the line
-	T.eq(on("- Bins @repeat(2w) @since(2026-10-06)", "2026-10-20"), false, "no anchor")
-	T.eq(on("- Run @repeat(daily) @until(2026-10-21)", "2026-10-22"), true)
 	-- a time in @from / @to is the entry's time, not a bound
 	T.eq(on("- Swim @repeat(sat) @from(07:30) @to(08:15)", "2026-10-24"), true)
 	T.eq(R.plain_line("- Swim @repeat(sat) @from(07:30) @to(08:15) @from(2026-10-17)"), "- Swim @from(07:30) @to(08:15)")
@@ -30,6 +27,29 @@ T.test("@repeat specs: days of the week, dates, days of the month, every n from 
 	T.eq(on("- Typo @repeat(fortnightly)", "2026-10-13"), false)
 	T.eq(R.label(R.rule("- Sam @repeat(03-14) @born(1990)", 1), "Sam", "2026-03-14"), "Sam (36)")
 	T.eq(R.plain_line("  - [ ] Bins out @repeat(2w) @from(2026-10-06) @to(2026-12-31) @at(18:00)"), "- [ ] Bins out @at(18:00)")
+end)
+
+T.test("@on: which days, with @repeat or alone; a weekday of the month; the last day", function()
+	local function on(line, date)
+		return R.matches(R.rule(line, 1), date)
+	end
+	T.eq(on("- Review @repeat(weekly) @on(sun)", "2026-10-18"), true)
+	T.eq(on("- Review @repeat(weekly) @on(sun)", "2026-10-19"), false)
+	T.eq(on("- Yoga @on(tue, thu)", "2026-10-22"), true, "@on alone repeats")
+	T.eq(on("- Yoga @on(tue, thu)", "2026-10-23"), false)
+	T.eq(on("- Rent @repeat(monthly) @on(1st)", "2026-11-01"), true)
+	T.eq(on("- Sam @on(03-14)", "2027-03-14"), true)
+	T.eq(on("- Club @repeat(monthly) @on(last thu)", "2026-10-29"), true)
+	T.eq(on("- Club @repeat(monthly) @on(last thu)", "2026-10-22"), false)
+	T.eq(on("- Club @on(first mon)", "2026-11-02"), true)
+	T.eq(on("- Club @on(2nd tue)", "2026-11-10"), true)
+	T.eq(on("- Club @on(2nd tue)", "2026-11-03"), false)
+	T.eq(on("- Bills @on(last)", "2026-02-28"), true)
+	T.eq(on("- Bills @on(last)", "2028-02-28"), false, "a leap year")
+	T.eq(on("- Bills @on(last)", "2028-02-29"), true)
+	T.eq(on("- Every other @repeat(2m) @on(last fri) @from(2026-10-01)", "2026-12-25"), true)
+	T.eq(on("- Every other @repeat(2m) @on(last fri) @from(2026-10-01)", "2026-11-27"), false)
+	T.eq(R.plain_line("- [ ] Taxes @repeat(yearly) @on(04-15) @at(09:00)"), "- [ ] Taxes @at(09:00)")
 end)
 
 T.test("templates by name, the most specific first; sections end at the first day", function()
@@ -79,7 +99,7 @@ T.test("the calendar shows the rules' occurrences; ticking one copies it into to
 		-- Water plants was done the next day (@for)
 		local on13 = texts("2026-10-13")
 		table.sort(on13)
-		T.eq(on13, { "Dad (65)", "Standup", "Water plants ✓" })
+		T.eq(on13, { "Dad (65)", "Standup", "Water plants ✓", "Yoga" })
 		local occ
 		for _, e in ipairs(store.occurrences("2026-10-18")) do
 			if e.text == "Weekly review" then
@@ -125,7 +145,40 @@ T.test("the calendar shows the rules' occurrences; ticking one copies it into to
 	T.ok(ok, err)
 end)
 
-T.test("problems: a rule that can't work, @repeat outside # Repeating, the old names", function()
+T.test("planning a day writes its repeating tasks into it, once", function()
+	local fs = require("zortex.utils.filesystem")
+	local store = require("zortex.stores.calendar")
+	local workspace = require("zortex.core.workspace")
+	local cal = fs.get_calendar_file()
+	local before = vim.fn.readfile(cal)
+	local ok, err = pcall(function()
+		vim.fn.writefile(require("calendar_cases"), cal)
+		require("zortex.core.document").invalidate(cal)
+		store.load()
+		-- 2026-10-18, a Sunday: the Sunday template already has the weekly
+		-- review; Stretch (daily) is the one task left to write
+		T.eq(store.add_repeating_tasks("2026-10-18"), 1)
+		local block = store.date_block("2026-10-18")
+		local lines = workspace.get_lines(cal)
+		T.eq(vim.list_slice(lines, block.heading_lnum + 1, block.last_lnum), { "12:00 Weekly review", "- [ ] Stretch" })
+		T.eq(store.add_repeating_tasks("2026-10-18"), 0, "already there")
+		-- the copy stands for the occurrence: no second Stretch on the day
+		local n = 0
+		for _, e in ipairs(store.get_day_entries("2026-10-18")) do
+			n = n + (e.text == "Stretch" and 1 or 0)
+		end
+		T.eq(n, 1)
+		-- 2026-10-13: Stretch done, Water plants done for it on 10-14 (@for):
+		-- nothing to write; a day with no repeating task isn't created
+		T.eq(store.add_repeating_tasks("2026-10-13"), 0)
+	end)
+	vim.fn.writefile(before, cal)
+	require("zortex.core.document").invalidate(cal)
+	store.load()
+	T.ok(ok, err)
+end)
+
+T.test("problems: a rule that can't work, @repeat or @on outside # Repeating", function()
 	local lines = {
 		"@@Calendar",
 		"",
@@ -136,20 +189,23 @@ T.test("problems: a rule that can't work, @repeat outside # Repeating, the old n
 		"- Old @repeat(2w) @since(2026-10-06)", -- 7
 		"- Fine @repeat(2w tue) @from(2026-10-06) @to(2026-12-31)", -- 8
 		"- Sam @repeat(03-14) @born(1990)", -- 9
+		"- Gym @repeat(mon) @on(weekly)", -- 10: how often in @on
 		"",
 		"2026-10-20:",
-		"- [ ] Water plants @repeat(daily)", -- 12
+		"- [ ] Water plants @repeat(daily)", -- 13
+		"- Dentist @on(fri)", -- 14
 	}
 	local got = vim.tbl_map(function(p)
 		return p.lnum .. " " .. p.message
 	end, R.problems(lines))
 	T.eq(got, {
 		"4 Every n counts from a first day: add @from(YYYY-MM-DD)",
-		"5 Not a repeat: daily, weekly, 2w, mon, weekdays, 03-14, 15th",
+		"5 Not a repeat: daily, weekly, 2w, mon, weekdays, 03-14, 15th, 2nd tue, last",
 		"6 @to is before @from: it never shows",
 		"7 Every n counts from a first day: add @from(YYYY-MM-DD)",
-		"7 @since is now @from",
-		"12 @repeat is read only in the # Repeating section",
+		"10 @on takes days (mon, weekdays, 15th, 03-14, 2nd tue, last fri); how often goes in @repeat",
+		"13 @repeat is read only in the # Repeating section",
+		"14 @on is read only in the # Repeating section",
 	})
 	local p = R.problems(lines)[1]
 	T.eq(lines[4]:sub(p.col + 1, p.end_col), "@repeat(2w)")

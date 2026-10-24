@@ -148,6 +148,11 @@ M.SEARCHES = {
 	{ prompt = ":" },
 	{ prompt = "*bold" },
 	{ prompt = "subaru" },
+	-- a line by its section's path: "garden mint", "spring mint" (Garden ›
+	-- What to plant next spring › - mint); not "mint garden" (order)
+	{ prompt = "garden mint" },
+	{ prompt = "spring mint" },
+	{ prompt = "mint garden" },
 	{ prompt = "car subaru" },
 	{ prompt = "fitness" },
 	{ prompt = "vitality fitness" },

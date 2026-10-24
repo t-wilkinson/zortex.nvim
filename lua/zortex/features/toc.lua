@@ -82,8 +82,9 @@ local function setup_toc_buffer(orig_buf, toc_lines)
 	return toc_buf
 end
 
--- --- Helper: Applies window settings and local keymaps
-local function setup_toc_window(toc_win, toc_buf, orig_win, orig_buf, toc_mappings)
+-- --- Helper: Applies window settings and local keymaps. `view` is the
+-- TOC's state ({ orig_win, orig_buf, mappings }), which live() keeps current.
+local function setup_toc_window(toc_win, toc_buf, view)
 	-- Window local options for a clean UI
 	vim.wo[toc_win].wrap = false
 	vim.wo[toc_win].number = false
@@ -96,9 +97,13 @@ local function setup_toc_window(toc_win, toc_buf, orig_win, orig_buf, toc_mappin
 	require("zortex.keys").map(toc_buf, "toc", {
 		jump = function()
 			local cursor = vim.api.nvim_win_get_cursor(toc_win)
-			local target_lnum = toc_mappings[cursor[1]]
-			if target_lnum and vim.api.nvim_win_is_valid(orig_win) then
+			local target_lnum = view.mappings[cursor[1]]
+			local orig_win, orig_buf = view.orig_win, view.orig_buf
+			if target_lnum and vim.api.nvim_win_is_valid(orig_win) and vim.api.nvim_buf_is_valid(orig_buf) then
 				vim.api.nvim_set_current_win(orig_win)
+				if vim.api.nvim_win_get_buf(orig_win) ~= orig_buf then
+					vim.api.nvim_win_set_buf(orig_win, orig_buf)
+				end
 				-- the target line may have gone since the TOC was made
 				local safe_lnum = math.min(target_lnum, vim.api.nvim_buf_line_count(orig_buf))
 				vim.api.nvim_win_set_cursor(orig_win, { safe_lnum, 0 })
@@ -115,11 +120,110 @@ local function setup_toc_window(toc_win, toc_buf, orig_win, orig_buf, toc_mappin
 	})
 end
 
+-- The TOC row of the section the source cursor is in: the last mapped line
+-- at or above it.
+local function row_for(mappings, lnum)
+	local best, best_line
+	for row, l in pairs(mappings) do
+		if l <= lnum and (not best_line or l > best_line) then
+			best, best_line = row, l
+		end
+	end
+	return best
+end
+
+-- Keep the TOC current: rebuilt (debounced) as its note changes, following
+-- the source cursor, and, for the split, following the note shown in the
+-- source window. Everything stops when the TOC buffer goes.
+local function live(toc_buf, toc_win, view, opts)
+	local group = vim.api.nvim_create_augroup("ZortexTOC_" .. toc_buf, { clear = true })
+	local timer = vim.uv.new_timer()
+	local function set_lines(lines)
+		vim.bo[toc_buf].modifiable = true
+		vim.bo[toc_buf].readonly = false
+		vim.api.nvim_buf_set_lines(toc_buf, 0, -1, false, lines)
+		vim.bo[toc_buf].modifiable = false
+		vim.bo[toc_buf].readonly = true
+	end
+	local function follow_cursor()
+		if not (vim.api.nvim_win_is_valid(toc_win) and vim.api.nvim_win_is_valid(view.orig_win)) then
+			return
+		end
+		if vim.api.nvim_get_current_win() == toc_win or vim.api.nvim_win_get_buf(view.orig_win) ~= view.orig_buf then
+			return
+		end
+		local row = row_for(view.mappings, vim.api.nvim_win_get_cursor(view.orig_win)[1])
+		if row then
+			pcall(vim.api.nvim_win_set_cursor, toc_win, { row, 0 })
+		end
+	end
+	local function rebuild()
+		if not (vim.api.nvim_buf_is_valid(toc_buf) and vim.api.nvim_buf_is_valid(view.orig_buf)) then
+			return
+		end
+		local lines, mappings = get_toc_data(view.orig_buf)
+		view.mappings = mappings or {}
+		local row = vim.api.nvim_win_is_valid(toc_win) and vim.api.nvim_win_get_cursor(toc_win)[1] or 1
+		set_lines(lines or { "(no headings, bold headings or labels)" })
+		if vim.api.nvim_win_is_valid(toc_win) then
+			pcall(vim.api.nvim_win_set_cursor, toc_win, { math.min(row, vim.api.nvim_buf_line_count(toc_buf)), 0 })
+		end
+		follow_cursor()
+	end
+	local function schedule()
+		timer:stop()
+		timer:start(150, 0, vim.schedule_wrap(rebuild))
+	end
+	local function watch(buf)
+		vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", "BufWritePost" }, {
+			group = group,
+			buffer = buf,
+			callback = schedule,
+		})
+		vim.api.nvim_create_autocmd("CursorMoved", { group = group, buffer = buf, callback = follow_cursor })
+	end
+	watch(view.orig_buf)
+	if opts and opts.follow_buffer then
+		-- the split: another note in the source window becomes the TOC's
+		vim.api.nvim_create_autocmd("BufEnter", {
+			group = group,
+			callback = function(ev)
+				local win = vim.api.nvim_get_current_win()
+				if win == toc_win or ev.buf == view.orig_buf or vim.bo[ev.buf].filetype ~= "zortex" then
+					return
+				end
+				if vim.api.nvim_win_get_config(win).relative ~= "" then
+					return -- a float (a preview, a picker)
+				end
+				view.orig_win, view.orig_buf = win, ev.buf
+				watch(ev.buf)
+				local name = vim.api.nvim_buf_get_name(ev.buf)
+				pcall(vim.api.nvim_buf_set_name, toc_buf, "Zortex TOC - " .. (name == "" and "unnamed" or vim.fn.fnamemodify(name, ":t")))
+				rebuild()
+			end,
+		})
+	end
+	vim.api.nvim_create_autocmd({ "BufWipeout", "BufDelete" }, {
+		group = group,
+		buffer = toc_buf,
+		once = true,
+		callback = function()
+			timer:stop()
+			if not timer:is_closing() then
+				timer:close()
+			end
+			pcall(vim.api.nvim_del_augroup_by_id, group)
+		end,
+	})
+	follow_cursor()
+end
+
 -- ============================================================================
 -- Public API
 -- ============================================================================
 
--- Shows the Table of Contents in a vertical split on the left
+-- Shows the Table of Contents in a vertical split on the left; it follows
+-- the note as you edit it, and the note shown in the window you came from
 function M.show_toc()
 	local orig_win = vim.api.nvim_get_current_win()
 	local orig_buf = vim.api.nvim_get_current_buf()
@@ -137,7 +241,10 @@ function M.show_toc()
 	local toc_win = vim.api.nvim_get_current_win()
 	vim.api.nvim_win_set_buf(toc_win, toc_buf)
 
-	setup_toc_window(toc_win, toc_buf, orig_win, orig_buf, toc_mappings)
+	local view = { orig_win = orig_win, orig_buf = orig_buf, mappings = toc_mappings }
+	setup_toc_window(toc_win, toc_buf, view)
+	live(toc_buf, toc_win, view, { follow_buffer = true })
+	return toc_buf, toc_win
 end
 
 -- Shows the Table of Contents in a floating popup window
@@ -176,8 +283,14 @@ function M.show_toc_popup()
 	-- Open floating window
 	local toc_win = vim.api.nvim_open_win(toc_buf, true, win_opts)
 
-	setup_toc_window(toc_win, toc_buf, orig_win, orig_buf, toc_mappings)
-	-- No notification needed for popups, as they command focus visually immediately
+	local view = { orig_win = orig_win, orig_buf = orig_buf, mappings = toc_mappings }
+	setup_toc_window(toc_win, toc_buf, view)
+	-- the popup opens on the section the cursor is in
+	local at = row_for(toc_mappings, vim.api.nvim_win_get_cursor(orig_win)[1])
+	if at then
+		pcall(vim.api.nvim_win_set_cursor, toc_win, { at, 0 })
+	end
+	return toc_buf, toc_win
 end
 
 return M

@@ -3,10 +3,10 @@
 --   Logger.info("calendar", "Loaded", { entries = 12 })
 --   local stop = Logger.start_timer("xp.award"); ...; stop()
 --
--- Entries go to an in-memory ring buffer (:ZortexLogs) and, when
+-- Entries go to an in-memory ring buffer (:ZortexDebug logs) and, when
 -- core.logger.enabled is set, to zortex.log in this machine's state folder
 -- (core/state device_dir). Timers record operations slower than
--- core.logger.performance_threshold ms (:ZortexPerformance).
+-- core.logger.performance_threshold ms (:ZortexDebug timers).
 local M = {}
 
 M.levels = { TRACE = 1, DEBUG = 2, INFO = 3, WARN = 4, ERROR = 5 }

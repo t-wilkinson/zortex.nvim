@@ -145,7 +145,7 @@ T.test("the search picker's spec: live, in services/search's order", function()
 	T.ok(spec.title():find("(section)", 1, true))
 	-- the keys (zortex.keys) and the backend's help key follow the title
 	local full = Picker.title(spec, "telescope")
-	T.ok(full:find("<C-o> new note · <M-t> mode · <C-/> help", 1, true), full)
+	T.ok(full:find("<C-o> new note · <M-n> narrow · <M-p> widen · <M-t> mode · <C-/> help", 1, true), full)
 	T.eq(Picker.title(spec, "select"), spec.title()) -- no keys in vim.ui.select
 	spec.keys["<M-t>"].fn()
 	T.ok(spec.title():find("(article)", 1, true), spec.title())
@@ -153,7 +153,7 @@ T.test("the search picker's spec: live, in services/search's order", function()
 	-- other keys (ui.search.keys): mapped and named in the title; false: off
 	local search = require("zortex.services.search")
 	local saved = search.config
-	search.setup({ keys = { cycle_mode = "<C-t>", new_note = false } })
+	search.setup({ keys = { cycle_mode = "<C-t>", new_note = false, narrow = false, widen = false } })
 	local ok, err = pcall(function()
 		local s2 = require("zortex.ui.picker.search").spec({ mode = "section" })
 		T.eq(vim.tbl_keys(s2.keys), { "<C-t>" })
@@ -161,6 +161,32 @@ T.test("the search picker's spec: live, in services/search's order", function()
 	end)
 	search.config = saved
 	assert(ok, err)
+end)
+
+T.test("the search picker narrows to a section and backs out", function()
+	local spec = require("zortex.ui.picker.search").spec({ mode = "section" })
+	local garden
+	for _, r in ipairs(spec.query("garden")) do
+		if r.result_type == "section" and r.breadcrumb == "Garden" then
+			garden = r
+		end
+	end
+	T.ok(garden, "the Garden article")
+	spec.keys["<M-n>"].fn(garden, { prompt = "garden" })
+	T.ok(spec.title():find("in Garden", 1, true), spec.title())
+	-- the prompt typed so far stays: nothing after it lists everything inside
+	local all = spec.query("garden")
+	T.eq(vim.tbl_map(function(r)
+		return r.breadcrumb or vim.trim(r.line)
+	end, all), { "Garden › What to plant next spring", "@P", "- [ ] Plant tomatoes @id(tom01)", "- beans", "Things that grew too well:", "- mint" })
+	T.eq(#spec.query("garden mint"), 1)
+	-- narrowing on a line keeps its section
+	spec.keys["<M-n>"].fn(spec.query("garden mint")[1], { prompt = "garden mint" })
+	T.ok(spec.title():find("in Garden › What to plant next spring", 1, true), spec.title())
+	T.eq(#spec.query("garden mint"), 3, "beans, the label, mint")
+	spec.keys["<M-p>"].fn()
+	spec.keys["<M-p>"].fn()
+	T.ok(not spec.title():find(" in ", 1, true), spec.title())
 end)
 
 T.test("blink.cmp registration: one provider, listed for zortex buffers, yours kept", function()

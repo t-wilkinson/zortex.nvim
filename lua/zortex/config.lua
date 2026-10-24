@@ -18,7 +18,7 @@ local defaults = {
 		enabled = true,
 		prefix = "<leader>z",
 		-- Per-action overrides by action id: a key, a list of keys, or false.
-		-- e.g. { task_toggle = "t", search_articles = false, review = { "w", "R" } }
+		-- e.g. { task_toggle = "t", search_articles = false, review = { "R", "w" } }
 		mappings = {},
 		-- which-key names for key prefixes (when which-key is installed):
 		-- <prefix> is "Zortex", and a prefix like "x" of "xs" is named after
@@ -90,6 +90,10 @@ local defaults = {
 	notifications = {
 		enabled = true, -- send the calendar's notifications to the server
 		advance_minutes = 0, -- minutes before a timed line without @notify(...)
+		-- when all-day lines notify (a date range, or an untimed line with
+		-- @notify; @notify(1d) the day before): "HH:MM", or false for never.
+		-- @notify(07:30) on a line notifies at that time of its day instead
+		all_day_time = "09:00",
 		days = 30, -- how many days ahead
 		alerts = true, -- show the server's alerts in Neovim
 		poll_seconds = 15, -- how often Neovim asks for them
@@ -107,6 +111,10 @@ local defaults = {
 		highlights = {
 			preset = nil,
 			groups = {},
+			-- shown for the "/" between a link's parts ([P/#1 Code/#1.4] reads
+			-- "P›#1 Code›#1.4"); the "/" comes back on the cursor's line. A
+			-- single character, or false to show the "/"
+			link_separator = "›",
 		},
 
 		-- Link preview float (<prefix>K / :ZortexLinkPreview)
@@ -119,9 +127,13 @@ local defaults = {
 			todo_link = "P/#TODOs", -- tasks under this project rank higher
 			max_tasks = 30,
 			project_tasks = 3, -- P puts a project's next this many open tasks on the day (5P: five)
-			-- "Coming up": the events of this many days after the day (timed
-			-- lines, @event, calendar notes), in the plan and the calendar
-			-- view; 0 hides them
+			-- :ZortexPlan and :ZortexToday write the repeating tasks due on the
+			-- day (the calendar's # Repeating) into it; false leaves them shown
+			-- on the day without writing them
+			repeating_tasks = true,
+			-- "Coming up": the events of this many days after the day (@event,
+			-- timed lines without a checkbox, repeating notes), in the plan
+			-- and the calendar view; 0 hides them
 			upcoming_days = 7,
 			-- The capacity line: open tasks on the day (their @size hours) against
 			-- the free time left in `day`, after timed entries that aren't project
@@ -150,6 +162,8 @@ local defaults = {
 			keys = {
 				cycle_mode = "<M-t>", -- section / article / text search
 				new_note = "<C-o>", -- a new note named after the query
+				narrow = "<M-n>", -- search inside the section under the cursor
+				widen = "<M-p>", -- back out of the last narrowing
 			},
 			access_decay_rate = 0.1, -- per day
 			history = {
@@ -243,7 +257,9 @@ local defaults = {
 		-- Saturday and Sunday reviews pick the coming week's focus)
 		next_week_from = "saturday",
 		-- a new week's lines; the projects linked under "Focus:" are the week's
-		-- focus, ranked first by the planner
+		-- focus, ranked first by the planner. The reviews note's own
+		-- "# Templates" section (## Weekly, ## Daily) wins over these; a new
+		-- reviews note starts with one made from them
 		week = { "Focus:", "", "Wins:", "", "Lessons:" },
 		-- a new day's lines
 		day = { "Done:", "Blocked:", "First thing tomorrow:" },

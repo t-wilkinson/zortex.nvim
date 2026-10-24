@@ -62,7 +62,7 @@ func CalendarSections(lines []string) (templates, repeating []Span) {
 
 var (
 	headingRe  = regexp.MustCompile(`^(#+)\s+(.*?)\s*$`)
-	templateRe = regexp.MustCompile(`^\s*([A-Za-z]+):\s*$`)
+	templateRe = regexp.MustCompile(`^(?:\s*([A-Za-z]+):|#+\s+([A-Za-z]+))\s*$`)
 )
 
 func isCalFence(line string) bool {
@@ -72,13 +72,14 @@ func isCalFence(line string) bool {
 
 var dayNames = []string{"sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"}
 
-// templateName: the template a label names ("Weekday:" -> "weekday"), or "".
+// templateName: the template a label or a heading names ("Weekday:",
+// "## Weekday" -> "weekday"), or "".
 func templateName(line string) string {
 	m := templateRe.FindStringSubmatch(line)
 	if m == nil {
 		return ""
 	}
-	switch n := strings.ToLower(m[1]); n {
+	switch n := strings.ToLower(m[1] + m[2]); n {
 	case "daily":
 		return n
 	case "weekday", "weekdays":
@@ -170,14 +171,22 @@ func Template(lines []string, date string) []string {
 	return []string{}
 }
 
-// RepeatSpec is @repeat(…)'s value read.
+// RepeatSpec is @repeat(…) and @on(…)'s values read.
 type RepeatSpec struct {
 	Weekdays  map[int]bool
 	Dates     map[string]bool // "MM-DD"
 	Monthdays map[int]bool
-	Unit      string // "d" | "w" | "m" | "y" | ""
+	Nth       map[[2]int]bool // {2, 3}: the 2nd Tuesday; {-1, 6}: the last Friday
+	LastDay   bool            // the month's last day
+	Unit      string          // "d" | "w" | "m" | "y" | ""
 	N         int
 	Bad       bool
+}
+
+// ordinals: "2nd tue", which weekday of the month (-1: the last)
+var ordinals = map[string]int{
+	"1st": 1, "first": 1, "2nd": 2, "second": 2, "3rd": 3, "third": 3,
+	"4th": 4, "fourth": 4, "5th": 5, "fifth": 5, "last": -1,
 }
 
 var weekdayNames = map[string]int{
@@ -194,12 +203,27 @@ var (
 	yearRe     = regexp.MustCompile(`^(\d{4})`)
 )
 
-// ParseRepeat reads @repeat(…): days of the week (sun … sat, weekdays,
-// weekends), dates (03-14), days of the month (15, 1st), and daily /
-// weekly / monthly / yearly or every n days/weeks/months/years (2w).
+// ParseRepeat reads @repeat(…) and @on(…): days of the week (sun … sat,
+// weekdays, weekends), dates (03-14), days of the month (15, 1st), a
+// weekday of the month (2nd tue, last fri), the month's last day (last),
+// and daily / weekly / monthly / yearly or every n days/weeks/months/years
+// (2w).
 func ParseRepeat(spec string) RepeatSpec {
-	r := RepeatSpec{Weekdays: map[int]bool{}, Dates: map[string]bool{}, Monthdays: map[int]bool{}}
-	for _, tok := range strings.FieldsFunc(strings.ToLower(spec), func(c rune) bool { return c == ',' || c == ' ' || c == '\t' }) {
+	r := RepeatSpec{Weekdays: map[int]bool{}, Dates: map[string]bool{}, Monthdays: map[int]bool{}, Nth: map[[2]int]bool{}}
+	toks := strings.FieldsFunc(strings.ToLower(spec), func(c rune) bool { return c == ',' || c == ' ' || c == '\t' })
+	for i := 0; i < len(toks); i++ {
+		tok := toks[i]
+		if n, ok := ordinals[tok]; ok && i+1 < len(toks) {
+			if d, ok := weekdayNames[toks[i+1]]; ok {
+				r.Nth[[2]int{n, d}] = true
+				i++
+				continue
+			}
+		}
+		if tok == "last" {
+			r.LastDay = true
+			continue
+		}
 		if d, ok := weekdayNames[tok]; ok {
 			r.Weekdays[d] = true
 			continue
@@ -253,10 +277,11 @@ func ParseRepeat(spec string) RepeatSpec {
 type Rule struct {
 	Lnum     int
 	Line     string
-	Spec     RepeatSpec
-	From, To string // "YYYY-MM-DD" or "" (@from, @to)
-	Anchor   string // @from, else @born's date
-	Born     int    // @born's year, 0 without
+	Spec     RepeatSpec // @repeat and @on together
+	From, To string     // "YYYY-MM-DD" or "" (@from, @to)
+	Anchor   string     // @from, else @born's date
+	Born     int        // @born's year, 0 without
+	BadOn    bool       // @on holds how often, not days
 }
 
 func attrValue(line, name string) (string, bool) {
@@ -267,10 +292,11 @@ func attrValue(line, name string) (string, bool) {
 	return m[1], true
 }
 
-// RuleOf: the rule on a line, or nil without @repeat(…).
+// RuleOf: the rule on a line, or nil without @repeat(…) or @on(…).
 func RuleOf(line string, lnum int) *Rule {
-	spec, ok := attrValue(line, "repeat")
-	if !ok {
+	spec, hasRepeat := attrValue(line, "repeat")
+	on, hasOn := attrValue(line, "on")
+	if !hasRepeat && !hasOn {
 		return nil
 	}
 	// the first @name(YYYY-MM-DD) (a @from holding a time is skipped)
@@ -282,7 +308,8 @@ func RuleOf(line string, lnum int) *Rule {
 		}
 		return ""
 	}
-	r := &Rule{Lnum: lnum, Line: line, Spec: ParseRepeat(spec), From: date("from"), To: date("to")}
+	r := &Rule{Lnum: lnum, Line: line, Spec: ParseRepeat(spec + "," + on), From: date("from"), To: date("to")}
+	r.BadOn = hasOn && ParseRepeat(on).Unit != ""
 	if born, ok := attrValue(line, "born"); ok {
 		if m := yearRe.FindStringSubmatch(strings.TrimSpace(born)); m != nil {
 			r.Born, _ = strconv.Atoi(m[1])
@@ -344,9 +371,17 @@ func (r *Rule) Matches(date string) bool {
 			return false
 		}
 	}
-	if len(s.Monthdays) > 0 {
+	last := time.Date(t.Year(), t.Month()+1, 0, 12, 0, 0, 0, time.UTC).Day()
+	if len(s.Monthdays) > 0 || s.LastDay {
 		constrained = true
-		if !s.Monthdays[t.Day()] {
+		if !s.Monthdays[t.Day()] && !(s.LastDay && t.Day() == last) {
+			return false
+		}
+	}
+	if len(s.Nth) > 0 {
+		constrained = true
+		wd := int(t.Weekday()) + 1
+		if !s.Nth[[2]int{(t.Day()-1)/7 + 1, wd}] && !(t.Day()+7 > last && s.Nth[[2]int{-1, wd}]) {
 			return false
 		}
 	}
@@ -386,7 +421,7 @@ var datedFromTo = regexp.MustCompile(`[ \t\n\v\f\r]*@(?:from|to)\([ \t\n\v\f\r]*
 // (@from and @to only when they hold a date: @from(07:00) is a time).
 func PlainLine(line string) string {
 	line = strings.TrimSpace(line)
-	for _, name := range []string{"repeat", "born"} {
+	for _, name := range []string{"repeat", "on", "born"} {
 		line = RemoveAttribute(line, name)
 	}
 	return datedFromTo.ReplaceAllString(line, "")

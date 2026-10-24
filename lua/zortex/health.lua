@@ -72,7 +72,7 @@ function M.check()
 				#conflicts == 1 and "copy" or "copies",
 				table.concat(names, ", ")
 			),
-			{ "Merge each into its note by hand, then delete it" }
+			{ ":ZortexConflicts merges each into its note in a diff, then deletes it" }
 		)
 	end
 

@@ -16,10 +16,22 @@
 --   Blocked:
 --   First thing tomorrow:
 --
--- :ZortexReview opens the week's entry (made from review.week when it is
+-- :ZortexReview opens the week's entry (made from its template when it is
 -- missing) next to the generated findings (ui/review); :ZortexReview day the
--- day's entry (review.day) under the week it falls in. What you write stays
--- yours: nothing in the note is regenerated.
+-- day's entry under the week it falls in. What you write stays yours:
+-- nothing in the note is regenerated.
+--
+-- The templates are the note's own, in a "# Templates" section (a new note
+-- starts with one, from review.week and review.day):
+--
+--   # Templates
+--   ## Weekly                 a new week's lines
+--   Focus:
+--   Wins:
+--   ## Daily                  a new day's lines
+--   Done:
+--
+-- Without one (or without one of the two), review.week / review.day.
 --
 -- The week's **focus** is the projects linked under its "Focus:" label.
 -- The planner ranks their tasks first (services/planner, weights.focus).
@@ -263,9 +275,101 @@ end
 local DEFAULT_WEEK = { "Focus:", "", "Wins:", "", "Lessons:" }
 local DEFAULT_DAY = { "Done:", "Blocked:", "First thing tomorrow:" }
 
+-- "## Weekly" / "Weekly:" -> "weekly" (Week, Day too)
+local TEMPLATE_NAMES = { weekly = "weekly", week = "weekly", daily = "daily", day = "daily" }
+
+local function template_name(line)
+	local name = line:match("^#+%s+(%a+)%s*$") or line:match("^%s*(%a+):%s*$")
+	return name and TEMPLATE_NAMES[name:lower()] or nil
+end
+
+--- The "# Templates" section of the reviews note's `lines`: { lnum (its
+--- heading), last } or nil. It runs to the next top-level heading.
+function M.templates_section(lines)
+	local fence = false
+	for lnum, line in ipairs(lines) do
+		local t = vim.trim(line)
+		if t:sub(1, 3) == "```" or t:sub(1, 3) == "~~~" then
+			fence = not fence
+		elseif not fence and line:match("^#%s+[Tt]emplates%s*$") then
+			local last = #lines
+			for l = lnum + 1, #lines do
+				if lines[l]:match("^#%s") then
+					last = l - 1
+					break
+				end
+			end
+			return { lnum = lnum, last = last }
+		end
+	end
+	return nil
+end
+
+--- The note's templates: { weekly = { lines }?, daily = { lines }? }, each
+--- without its leading and trailing blank lines and common indent.
+function M.templates(lines)
+	local out = {}
+	local sec = M.templates_section(lines)
+	if not sec then
+		return out
+	end
+	local cur
+	for lnum = sec.lnum + 1, sec.last do
+		local name = template_name(lines[lnum])
+		if name then
+			cur = {}
+			out[name] = cur
+		elseif cur then
+			cur[#cur + 1] = lines[lnum]
+		end
+	end
+	for name, t in pairs(out) do
+		while #t > 0 and not t[1]:match("%S") do
+			table.remove(t, 1)
+		end
+		while #t > 0 and not t[#t]:match("%S") do
+			table.remove(t)
+		end
+		local indent
+		for _, l in ipairs(t) do
+			if l:match("%S") then
+				local w = #l:match("^%s*")
+				indent = indent and math.min(indent, w) or w
+			end
+		end
+		for i, l in ipairs(t) do
+			t[i] = l:sub((indent or 0) + 1)
+		end
+		out[name] = t
+	end
+	return out
+end
+
+-- A new week's or day's lines: the note's template, else the config's
+local function template(lines, kind)
+	local t = M.templates(lines)[kind]
+	if t then
+		return vim.deepcopy(t)
+	end
+	if kind == "weekly" then
+		return vim.deepcopy(cfg().week or DEFAULT_WEEK)
+	end
+	return vim.deepcopy(cfg().day or DEFAULT_DAY)
+end
+
+-- A new reviews note: its header and the templates, to edit there
+local function new_note()
+	local out = { "@@Reviews", "", "# Templates", "## Weekly" }
+	vim.list_extend(out, cfg().week or DEFAULT_WEEK)
+	out[#out + 1] = "## Daily"
+	vim.list_extend(out, cfg().day or DEFAULT_DAY)
+	out[#out + 1] = ""
+	return out
+end
+
 local function ensure_note()
 	local path = M.path()
-	workspace().ensure_file(path, { "@@Reviews", "" })
+	workspace().ensure_file(path, new_note())
 	return path
 end
 
@@ -302,10 +406,17 @@ function M.ensure_week(week)
 		end
 	end
 	if not at then
+		-- the oldest week: at the end, or before the templates when they
+		-- come after every week
 		at = #lines + 1
+		local sec = M.templates_section(lines)
+		local last_week = data.order[#data.order]
+		if sec and last_week and sec.lnum > data.weeks[last_week].lnum then
+			at = sec.lnum
+		end
 	end
 	local block = { "# " .. week }
-	vim.list_extend(block, cfg().week or DEFAULT_WEEK)
+	vim.list_extend(block, template(lines, "weekly"))
 	return insert_block(path, lines, at, block)
 end
 
@@ -339,7 +450,7 @@ function M.ensure_day(date)
 		end
 	end
 	local block = { "## " .. date }
-	vim.list_extend(block, cfg().day or DEFAULT_DAY)
+	vim.list_extend(block, template(lines, "daily"))
 	return insert_block(path, lines, at, block)
 end
 

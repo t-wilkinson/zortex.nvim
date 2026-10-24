@@ -4,6 +4,10 @@
 --   <CR>   open (split / vsplit / tab: the picker's own keys)
 --   <C-o>  new note named after the query          (ui.search.keys.new_note)
 --   <M-t>  cycle section / article / text search   (ui.search.keys.cycle_mode)
+--   <M-n>  narrow to the section under the cursor  (ui.search.keys.narrow):
+--          only what is inside it, every line, no cap; the prompt typed so
+--          far stays and what you type after it searches inside
+--   <M-p>  back out of the last narrowing          (ui.search.keys.widen)
 -- The title shows the keys.
 local search = require("zortex.services.search")
 local Picker = require("zortex.ui.picker")
@@ -118,8 +122,22 @@ function M.new_note(name)
 end
 
 -- the keys go after it (ui/picker title, from zortex.keys)
-local function title(mode)
-	return mode == "text" and "Zortex Text Search" or ("Zortex Structural Search (" .. mode .. ")")
+local function title(mode, scope)
+	local t = mode == "text" and "Zortex Text Search" or ("Zortex Structural Search (" .. mode .. ")")
+	if scope then
+		t = t .. " in " .. scope.breadcrumb
+	end
+	return t
+end
+
+-- The prompt inside a narrowing: what was typed after the words that found
+-- the section (the whole prompt when those were changed)
+local function inside(prompt, prefix)
+	prompt = prompt or ""
+	if prefix ~= "" and prompt:sub(1, #prefix) == prefix then
+		return prompt:sub(#prefix + 1)
+	end
+	return prompt
 end
 
 -- section -> article -> text -> section
@@ -141,12 +159,21 @@ function M.spec(opts)
 	-- Every note is read and parsed once, here; typing only filters the index
 	local index = search.build_index(search.files())
 	local history = require("zortex.services.search_history")
+	-- narrowings, innermost last: { scope, prefix (the prompt then) }
+	local scopes = {}
+	local function current()
+		return scopes[#scopes]
+	end
 	return {
 		title = function()
-			return title(mode)
+			return title(mode, current() and current().scope)
 		end,
 		query = function(prompt)
-			return search.query_index(index, prompt, { mode = mode, all_sections = opts.all_sections })
+			local cur = current()
+			if cur then
+				prompt = inside(prompt, cur.prefix)
+			end
+			return search.query_index(index, prompt, { mode = mode, all_sections = opts.all_sections, scope = cur and cur.scope })
 		end,
 		format = M.format,
 		location = M.location,
@@ -167,6 +194,21 @@ function M.spec(opts)
 				refresh = true,
 				fn = function()
 					mode = next_mode(mode)
+				end,
+			},
+			narrow = {
+				refresh = true,
+				fn = function(item, ctx)
+					local scope = search.scope_of(item)
+					if scope then
+						scopes[#scopes + 1] = { scope = scope, prefix = ctx.prompt or "" }
+					end
+				end,
+			},
+			widen = {
+				refresh = true,
+				fn = function()
+					scopes[#scopes] = nil
 				end,
 			},
 		}),

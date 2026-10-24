@@ -17,7 +17,7 @@ and fzf-lua.
 
 | Mode      | Opens with                            | Finds                                                                   |
 | --------- | ------------------------------------- | ----------------------------------------------------------------------- |
-| `section` | `:ZortexSearch`, `<leader>zz`         | sections whose path matches the words, then lines containing every word |
+| `section` | `:ZortexSearch`, `<leader>zz`         | sections whose path matches the words, then lines whose path does       |
 | `article` | `:ZortexSearchArticles`, `<leader>zZ` | article names only                                                      |
 | `text`    | `:ZortexSearchText`, `<leader>z/`     | every line containing the prompt as typed, headings and `@@` lines too  |
 
@@ -37,8 +37,12 @@ down to the section itself (`Projects › 1 Programming › 1.4 - zortex`).
 - An article's names count: its `@@` aliases and its **file name**
   (`okr` finds `@@Objectives` in `okr.zortex`).
 - The direct sub-sections of a match are listed under it.
-- After the sections come the other lines that contain every word, each
-  shown as `Article › line`.
+- After the sections come the lines. A line's path is its section's path
+  and then the line itself, matched the same way with the last word on the
+  line: `car oil` finds `- oil change` under `## Car`, and a line holding
+  every word (`oil change`) is found wherever it is. Typed words (`#car`)
+  match sections only, so `#car oil` is the lines with `oil` under a `car`
+  heading. Each is shown as `Article › line`.
 
 | Word               | Matches                                         |
 | ------------------ | ----------------------------------------------- |
@@ -80,7 +84,7 @@ the cursor on the match.
 | `#habits`            | headings named like `habits`                                              |
 | `@@proj #1.4`        | `1.4` headings in articles named like `proj`                              |
 | `:notes`             | labels named like `notes`                                                 |
-| `car subaru`         | `subaru` sections under `car`, then any lines with both words             |
+| `car subaru`         | `subaru` sections under `car`, then lines with `subaru` under `car` (or with both words) |
 | `okr` (article mode) | the Objectives article, by its file name                                  |
 
 ## In the picker
@@ -90,6 +94,23 @@ own keys), `<C-o>` creates a note named after the query
 (`2026-10-15.042.zortex`; the web file browser hides these generated names
 until "show all"), and `<M-t>` changes mode. The preview shows the note with
 the section or line marked.
+
+## Narrowing to a section
+
+`<M-n>` on a result narrows the search to its section (a line: the section
+it is in). The title says where (`… in Projects › 1 Programming`), and
+inside it nothing is left out: every section at any depth, every line, and
+no `max_results` cap. Keep typing after what is already in the prompt: those
+words search inside the section, matched against the path below it, and an
+empty remainder lists everything in it. `<M-n>` again narrows further;
+`<M-p>` backs out one level. So `prog` `<M-n>` `zortex` `<M-n>` `todo`
+finds the `todo` lines of one project without ever reaching the cap. The
+keys are `ui.search.keys.narrow` and `.widen`.
+
+Outside a narrowing, two limits keep each keystroke fast on a large folder:
+one or two words only reach shallow sections (`ui.search.token_filters`;
+typed words reach any depth), and results stop at `ui.search.max_results`
+(500). A line is only tested against its path when it holds the last word.
 
 ## Moving things with it
 

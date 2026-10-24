@@ -456,6 +456,18 @@ function M.close()
 	state.win = nil
 end
 
+-- The repeating tasks due on the day (the calendar's # Repeating), written
+-- into it (ui.planner.repeating_tasks)
+local function add_repeating(date)
+	if cfg().repeating_tasks == false then
+		return
+	end
+	local n = require("zortex.stores.calendar").add_repeating_tasks(date)
+	if n > 0 then
+		vim.notify(string.format("Added %d repeating task%s to %s", n, n == 1 and "" or "s", date), vim.log.levels.INFO, { title = "Zortex" })
+	end
+end
+
 --- :ZortexToday [date] (<leader>zd): today's day in calendar.zortex, made
 --- from the day's template (the calendar's # Templates) when it isn't there yet,
 --- opened in this window with the cursor on its first line. Unlike
@@ -475,6 +487,7 @@ function M.open_day(date)
 		vim.notify("Couldn't add " .. date .. " to the calendar: " .. tostring(created), vim.log.levels.ERROR, { title = "Zortex" })
 		return nil
 	end
+	add_repeating(date)
 	-- the buffer as is: the day may have just been written into it unsaved
 	-- (":edit" would stop at E37)
 	local path = vim.fn.fnamemodify(require("zortex.utils.filesystem").get_calendar_file(), ":p")
@@ -520,6 +533,8 @@ function M.open(opts)
 			vim.notify(string.format("Marked %d task%s carried ([>])", moved, moved == 1 and "" or "s"), vim.log.levels.INFO, { title = "Zortex" })
 		end
 	end
+	-- after carrying: a repeating task carried from yesterday is today's
+	add_repeating(date)
 
 	-- Calendar on the left, at the day. Its buffer is shown as is: the day
 	-- and the carried tasks were just written into it when it is loaded, so

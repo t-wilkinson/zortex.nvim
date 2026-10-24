@@ -37,8 +37,10 @@ that share one folder of plain-text notes.
 ### Neovim
 
 - Structural search (`:ZortexSearch`): words match a section's path in
-  order, ranked by hierarchy and by what you open; article and plain-text
-  modes. Pickers on snacks.picker, telescope, fzf-lua or `vim.ui.select`.
+  order, and a line's path is its section's and then the line; ranked by
+  hierarchy and by what you open; `<M-n>` narrows to a section (every line
+  in it, no cap); article and plain-text modes. Pickers on snacks.picker,
+  telescope, fzf-lua or `vim.ui.select`.
 - Links: follow, preview, open in the web app, complete while typing (with
   tags and area values), backlinks, broken links and tags that go nowhere
   (quickfix and diagnostics), from a persistent link index.
@@ -49,25 +51,32 @@ that share one folder of plain-text notes.
   it changed. A note changed on disk is never edited blind.
 - Highlighting, concealing and folding for the whole format (`@fold`
   keeps a section closed), `J` that joins lines the way they read, a table
-  of contents and slides (`:ZortexPresent`).
+  of contents that follows the note as you edit, link parts read as
+  `P › #1.4`, and slides (`:ZortexPresent`).
 - Projects, areas, objectives and key results as entities with progress.
   Objectives are `## 3M-2026-Q4 Title` headings, grouped under top-level
   headings; key results are `- KRn:` items whose linked projects drive
   their progress. Organizational headings group projects without being
   one; tasks nested under a task share its `@size`.
 - The calendar note: days as `**YYYY-MM-DD:**`, timed entries and tasks,
-  `# Templates` for new days and `# Repeating` for entries that recur
-  (`@repeat(…)` bounded by `@from(date)` and `@to(date)`, birthdays with
-  `@born`); a month view, `:ZortexToday`,
-  `:ZortexNow` and `:ZortexTimeShift`; other calendars' events, read-only.
+  `# Templates` for new days (`## Daily`, `## Weekday`, `## Sunday`, …)
+  and `# Repeating` for entries that recur (`@repeat(…)` how often, `@on(…)`
+  which days, including `2nd tue` and `last fri`, `@at(…)` what time,
+  bounded by `@from(date)` and `@to(date)`, birthdays with `@born`); the
+  planner writes a day's repeating tasks into it; a month view whose
+  "Coming up" lists events, `:ZortexToday`, `:ZortexNow` and
+  `:ZortexTimeShift`; notifications for timed lines, and for all-day lines
+  at `notifications.all_day_time`; other calendars' events, read-only.
 - The planner, the reviews and the lines they write (focus projects,
   calendar copies, a project linked to a key result) show links by their
   names: `[1.4 - zortex](P/#1 Programming/#1.4 - zortex)`. Calendar
   notifications read links as their text.
 - A day planner that ranks the week's focus and key-result work first,
   carries open tasks forward and weighs the day against its free time; a
-  daily and a weekly review written in `reviews.zortex`, read top down from
-  the vision, with each fix one key away.
+  daily and a weekly review written in `reviews.zortex` (from its own
+  `# Templates`), read top down from the vision, with each fix one key away.
+- Sync conflict copies of notes are left out of the notes and merged in a
+  diff with `:ZortexConflicts`.
 - Task copies: lines sharing an `@id` (a project task and its calendar
   copy) are one task, ticked together.
 - XP that follows the plan: 10 XP is an hour of estimated work (`@size`),

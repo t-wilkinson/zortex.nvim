@@ -26,8 +26,7 @@
 -- Loading never fails: a missing file gives default(); a file that is not
 -- valid JSON is kept as <name>.json.corrupt-<time> and replaced by default();
 -- a file with another version is replaced by default() (bump the version
--- when the shape of the data changes). A device file that doesn't exist yet
--- starts from the synced copy older versions wrote (.z/<name>.json).
+-- when the shape of the data changes).
 --
 -- Sync conflicts: a synced file with spec.merge(data, other) folds the
 -- conflict copies a sync tool leaves next to it (Syncthing's
@@ -176,11 +175,6 @@ function State:get()
 	end
 	local path = self:path()
 	local data, content = self:load(path)
-	if not data and self.device then
-		-- written by an older version into the synced folder
-		data = self:load(M.path(self.name))
-		content = nil
-	end
 	if not data then
 		data = self.default()
 	end

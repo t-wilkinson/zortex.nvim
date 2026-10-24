@@ -182,6 +182,9 @@ a.zl-bold { --link: var(--link-bold); }
 a.zl-item { --link: var(--link-item); }
 a.zl[class*="zl-"] { color: var(--link); border-bottom-color: color-mix(in srgb, var(--link) 40%, transparent); }
 a.zl[class*="zl-"]:hover { border-bottom-color: var(--link); }
+/* the "/" between a link's parts reads as "›"; the "/" stays for copying */
+.zl-sep { opacity: .6; margin: 0 .1em; }
+.zl-slash { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 a.zl::before { content: "["; color: var(--dim); }
 a.zl::after { content: "]"; color: var(--dim); }
 a.zl.multi::after { content: "]⁺"; }

@@ -34,7 +34,7 @@ T.test("range skips empty days unless asked", function()
 	T.eq(#A.upcoming(3, { today = "2026-10-09" }), 2)
 end)
 
-T.test("upcoming events: appointments and notes of the days after a date, not tasks or project work", function()
+T.test("upcoming events: appointments of the days after a date, not tasks, notes or project work", function()
 	local fs = require("zortex.utils.filesystem")
 	local cal = T.fixture("calendar.zortex")
 	local original = fs.read_lines(cal)
@@ -46,7 +46,8 @@ T.test("upcoming events: appointments and notes of the days after a date, not ta
 		"- Feel rested",
 		"",
 		"14:00 - 15:00 Dentist",
-		"- Mum's birthday",
+		"- Mum's birthday @event",
+		"- a plain note",
 		"- [ ] Untimed task",
 		"16:00 [ ] Timed task",
 		"10:00 [P/#1.4 - zortex]",
@@ -60,7 +61,7 @@ T.test("upcoming events: appointments and notes of the days after a date, not ta
 		-- 10-09 / 10-10 (before) and their project blocks: left out
 		T.eq(#days, 1)
 		T.eq(days[1].date, "2026-10-15")
-		T.eq(texts(days[1].items), { "11:00 Launch [P/#1.4 - zortex]", "14:00 Dentist", "16:00 Timed task", "Mum's birthday" })
+		T.eq(texts(days[1].items), { "11:00 Launch [P/#1.4 - zortex]", "14:00 Dentist", "Mum's birthday" })
 		T.eq(#A.upcoming_events({ date = "2026-10-12", days = 2 }), 0, "two days end on 10-14")
 		-- the day's outcomes: what's under its Outcomes: label, not events
 		T.eq(vim.tbl_map(function(e)

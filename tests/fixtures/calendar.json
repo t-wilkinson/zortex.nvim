@@ -3,25 +3,25 @@
     {
       "date": "2026-10-18",
       "line": "12:00 [x] Weekly review @id(rep01) @done(2026-10-18)",
-      "lnum": 22,
+      "lnum": 25,
       "today": "2026-10-18"
     },
     {
       "date": "2026-10-11",
       "line": "12:00 [x] Weekly review @id(rep01) @done(2026-10-13) @for(2026-10-11)",
-      "lnum": 22,
+      "lnum": 25,
       "today": "2026-10-13"
     },
     {
       "date": "2026-10-20",
       "line": "- [x] Bins out @at(18:00) @id(rep01) @done(2026-10-20)",
-      "lnum": 23,
+      "lnum": 26,
       "today": "2026-10-20"
     },
     {
       "date": "2026-10-14",
       "line": "- [x] Stretch @id(rep01) @done(2026-10-15) @for(2026-10-14)",
-      "lnum": 29,
+      "lnum": 32,
       "today": "2026-10-15"
     }
   ],
@@ -31,7 +31,7 @@
         "depth": 0,
         "done": false,
         "end": "10:30",
-        "lnum": 37,
+        "lnum": 45,
         "moved": false,
         "task": false,
         "text": "Deep work on [P/#2.1]",
@@ -41,7 +41,7 @@
         "depth": 1,
         "done": true,
         "end": "",
-        "lnum": 38,
+        "lnum": 46,
         "moved": false,
         "task": true,
         "text": "Outline",
@@ -51,7 +51,7 @@
         "depth": 1,
         "done": false,
         "end": "",
-        "lnum": 39,
+        "lnum": 47,
         "moved": false,
         "task": true,
         "text": "Draft",
@@ -61,7 +61,7 @@
         "depth": 1,
         "done": false,
         "end": "",
-        "lnum": 40,
+        "lnum": 48,
         "moved": false,
         "task": false,
         "text": "a note under the block",
@@ -71,7 +71,7 @@
         "depth": 0,
         "done": true,
         "end": "",
-        "lnum": 41,
+        "lnum": 49,
         "moved": false,
         "task": true,
         "text": "Call the hardware store",
@@ -81,7 +81,7 @@
         "depth": 0,
         "done": false,
         "end": "",
-        "lnum": 42,
+        "lnum": 50,
         "moved": true,
         "task": true,
         "text": "Carried",
@@ -91,7 +91,7 @@
         "depth": 0,
         "done": false,
         "end": "",
-        "lnum": 43,
+        "lnum": 51,
         "moved": false,
         "task": false,
         "text": "Lunch with Sam",
@@ -101,7 +101,7 @@
         "depth": 0,
         "done": false,
         "end": "",
-        "lnum": 44,
+        "lnum": 52,
         "moved": false,
         "task": false,
         "text": "Dentist",
@@ -111,7 +111,7 @@
         "depth": 0,
         "done": false,
         "end": "15:30",
-        "lnum": 45,
+        "lnum": 53,
         "moved": false,
         "task": false,
         "text": "Standup",
@@ -121,7 +121,7 @@
         "depth": 0,
         "done": false,
         "end": "18:00",
-        "lnum": 46,
+        "lnum": 54,
         "moved": false,
         "task": false,
         "text": "Report",
@@ -131,7 +131,7 @@
         "depth": 2,
         "done": false,
         "end": "",
-        "lnum": 47,
+        "lnum": 55,
         "moved": false,
         "task": true,
         "text": "Four-space task",
@@ -141,7 +141,7 @@
         "depth": 3,
         "done": false,
         "end": "",
-        "lnum": 48,
+        "lnum": 56,
         "moved": false,
         "task": true,
         "text": "Its step",
@@ -151,7 +151,7 @@
         "depth": 0,
         "done": false,
         "end": "",
-        "lnum": 49,
+        "lnum": 57,
         "moved": false,
         "task": false,
         "text": "plain note",
@@ -161,7 +161,7 @@
         "depth": 0,
         "done": false,
         "end": "",
-        "lnum": 50,
+        "lnum": 58,
         "moved": false,
         "task": true,
         "text": "Timed task",
@@ -171,7 +171,7 @@
         "depth": 0,
         "done": true,
         "end": "18:00",
-        "lnum": 51,
+        "lnum": 59,
         "moved": false,
         "task": true,
         "text": "Timed range task",
@@ -181,7 +181,7 @@
         "depth": 0,
         "done": false,
         "end": "",
-        "lnum": 52,
+        "lnum": 60,
         "moved": false,
         "task": false,
         "text": "- [ ] Dashed timed task",
@@ -191,7 +191,7 @@
         "depth": 0,
         "done": false,
         "end": "",
-        "lnum": 68,
+        "lnum": 76,
         "moved": false,
         "task": true,
         "text": "The same day again",
@@ -203,7 +203,7 @@
         "depth": 0,
         "done": false,
         "end": "",
-        "lnum": 59,
+        "lnum": 67,
         "moved": false,
         "task": false,
         "text": "Run",
@@ -213,7 +213,7 @@
         "depth": 0,
         "done": false,
         "end": "",
-        "lnum": 60,
+        "lnum": 68,
         "moved": false,
         "task": true,
         "text": "Feed the starter",
@@ -223,7 +223,7 @@
         "depth": 0,
         "done": true,
         "end": "",
-        "lnum": 61,
+        "lnum": 69,
         "moved": false,
         "task": true,
         "text": "Stretch",
@@ -233,7 +233,7 @@
         "depth": 0,
         "done": true,
         "end": "",
-        "lnum": 62,
+        "lnum": 70,
         "moved": false,
         "task": true,
         "text": "Water plants",
@@ -243,7 +243,7 @@
         "depth": 0,
         "done": false,
         "end": "",
-        "lnum": 65,
+        "lnum": 73,
         "moved": false,
         "task": true,
         "text": "under a label that isn't a date",
@@ -255,7 +255,7 @@
         "depth": 0,
         "done": false,
         "end": "",
-        "lnum": 72,
+        "lnum": 80,
         "moved": false,
         "task": true,
         "text": "Ship the release",
@@ -265,7 +265,7 @@
         "depth": 0,
         "done": false,
         "end": "",
-        "lnum": 74,
+        "lnum": 82,
         "moved": false,
         "task": false,
         "text": "Bold-headed day",
@@ -289,6 +289,9 @@
     "Daily:",
     "- a daily line",
     "",
+    "## Saturday",
+    "- [ ] Groceries",
+    "",
     "# Repeating",
     "## Birthdays",
     "- Sam's birthday @repeat(03-14) @born(1990)",
@@ -307,6 +310,11 @@
     "- Never @repeat(fortnightly)",
     "- Every other Tuesday @repeat(2w tue) @from(2026-10-06)",
     "- Swim @repeat(sat) @from(07:30) @to(08:15) @from(2026-10-17)",
+    "- [ ] Pay bills @repeat(monthly) @on(last)",
+    "- Book club @repeat(monthly) @on(last thu) @at(19:00)",
+    "- Market @on(2nd sat, 4th sat)",
+    "- Yoga @repeat(weekly) @on(tue, thu) @to(2026-10-15)",
+    "- [ ] Taxes @repeat(yearly) @on(10-20)",
     "",
     "# Days",
     "",
@@ -356,7 +364,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 27,
+        "rule": 30,
         "task": false,
         "text": "Standup",
         "time": "09:30"
@@ -365,9 +373,18 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
+        "time": ""
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 39,
+        "task": false,
+        "text": "Yoga",
         "time": ""
       }
     ],
@@ -376,7 +393,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 24,
+        "rule": 27,
         "task": false,
         "text": "Run",
         "time": "07:00"
@@ -385,7 +402,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 27,
+        "rule": 30,
         "task": false,
         "text": "Standup",
         "time": "09:30"
@@ -394,7 +411,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
@@ -405,7 +422,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
@@ -416,7 +433,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 22,
+        "rule": 25,
         "task": true,
         "text": "Weekly review",
         "time": "12:00"
@@ -425,7 +442,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
@@ -436,7 +453,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 24,
+        "rule": 27,
         "task": false,
         "text": "Run",
         "time": "07:00"
@@ -445,7 +462,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 27,
+        "rule": 30,
         "task": false,
         "text": "Standup",
         "time": "09:30"
@@ -454,7 +471,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
@@ -465,7 +482,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 23,
+        "rule": 26,
         "task": true,
         "text": "Bins out",
         "time": "18:00"
@@ -474,7 +491,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 27,
+        "rule": 30,
         "task": false,
         "text": "Standup",
         "time": "09:30"
@@ -483,7 +500,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
@@ -492,9 +509,18 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 31,
+        "rule": 34,
         "task": false,
         "text": "Every other Tuesday",
+        "time": ""
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 39,
+        "task": false,
+        "text": "Yoga",
         "time": ""
       }
     ],
@@ -503,7 +529,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 24,
+        "rule": 27,
         "task": false,
         "text": "Run",
         "time": "07:00"
@@ -512,7 +538,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 27,
+        "rule": 30,
         "task": false,
         "text": "Standup",
         "time": "09:30"
@@ -521,7 +547,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
@@ -532,7 +558,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 27,
+        "rule": 30,
         "task": false,
         "text": "Standup",
         "time": "09:30"
@@ -541,9 +567,18 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
+        "time": ""
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 39,
+        "task": false,
+        "text": "Yoga",
         "time": ""
       }
     ],
@@ -552,7 +587,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 24,
+        "rule": 27,
         "task": false,
         "text": "Run",
         "time": "07:00"
@@ -561,7 +596,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 27,
+        "rule": 30,
         "task": false,
         "text": "Standup",
         "time": "09:30"
@@ -570,7 +605,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
@@ -581,7 +616,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 26,
+        "rule": 29,
         "task": true,
         "text": "Water plants",
         "time": ""
@@ -590,9 +625,18 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
+        "time": ""
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 38,
+        "task": false,
+        "text": "Market",
         "time": ""
       }
     ],
@@ -601,7 +645,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 22,
+        "rule": 25,
         "task": true,
         "text": "Weekly review",
         "time": "12:00"
@@ -610,7 +654,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
@@ -621,7 +665,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 24,
+        "rule": 27,
         "task": false,
         "text": "Run",
         "time": "07:00"
@@ -630,7 +674,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
@@ -641,16 +685,16 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 18,
+        "rule": 21,
         "task": false,
         "text": "Dad (65)",
         "time": ""
       },
       {
-        "copy": 62,
+        "copy": 70,
         "done": true,
         "end": "",
-        "rule": 26,
+        "rule": 29,
         "task": true,
         "text": "Water plants",
         "time": ""
@@ -659,10 +703,19 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 27,
+        "rule": 30,
         "task": false,
         "text": "Standup",
         "time": "09:30"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 39,
+        "task": false,
+        "text": "Yoga",
+        "time": ""
       }
     ],
     "2026-10-14": [
@@ -670,7 +723,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 24,
+        "rule": 27,
         "task": false,
         "text": "Run",
         "time": "07:00"
@@ -679,7 +732,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 27,
+        "rule": 30,
         "task": false,
         "text": "Standup",
         "time": "09:30"
@@ -688,7 +741,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
@@ -699,7 +752,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 25,
+        "rule": 28,
         "task": true,
         "text": "Pay rent",
         "time": ""
@@ -708,7 +761,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 27,
+        "rule": 30,
         "task": false,
         "text": "Standup",
         "time": "09:30"
@@ -717,9 +770,18 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
+        "time": ""
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 39,
+        "task": false,
+        "text": "Yoga",
         "time": ""
       }
     ],
@@ -728,7 +790,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 24,
+        "rule": 27,
         "task": false,
         "text": "Run",
         "time": "07:00"
@@ -737,7 +799,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 26,
+        "rule": 29,
         "task": true,
         "text": "Water plants",
         "time": ""
@@ -746,7 +808,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 27,
+        "rule": 30,
         "task": false,
         "text": "Standup",
         "time": "09:30"
@@ -755,7 +817,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
@@ -766,7 +828,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
@@ -775,7 +837,7 @@
         "copy": 0,
         "done": false,
         "end": "08:15",
-        "rule": 32,
+        "rule": 35,
         "task": false,
         "text": "Swim",
         "time": "07:30"
@@ -786,7 +848,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 22,
+        "rule": 25,
         "task": true,
         "text": "Weekly review",
         "time": "12:00"
@@ -795,7 +857,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
@@ -806,7 +868,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 24,
+        "rule": 27,
         "task": false,
         "text": "Run",
         "time": "07:00"
@@ -815,7 +877,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 26,
+        "rule": 29,
         "task": true,
         "text": "Water plants",
         "time": ""
@@ -824,7 +886,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 27,
+        "rule": 30,
         "task": false,
         "text": "Standup",
         "time": "09:30"
@@ -833,7 +895,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
@@ -844,7 +906,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 23,
+        "rule": 26,
         "task": true,
         "text": "Bins out",
         "time": "18:00"
@@ -853,7 +915,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 27,
+        "rule": 30,
         "task": false,
         "text": "Standup",
         "time": "09:30"
@@ -862,7 +924,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
@@ -871,9 +933,18 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 31,
+        "rule": 34,
         "task": false,
         "text": "Every other Tuesday",
+        "time": ""
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 40,
+        "task": true,
+        "text": "Taxes",
         "time": ""
       }
     ],
@@ -882,7 +953,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 24,
+        "rule": 27,
         "task": false,
         "text": "Run",
         "time": "07:00"
@@ -891,7 +962,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 27,
+        "rule": 30,
         "task": false,
         "text": "Standup",
         "time": "09:30"
@@ -900,7 +971,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
@@ -911,7 +982,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 26,
+        "rule": 29,
         "task": true,
         "text": "Water plants",
         "time": ""
@@ -920,7 +991,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 27,
+        "rule": 30,
         "task": false,
         "text": "Standup",
         "time": "09:30"
@@ -929,7 +1000,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
@@ -940,7 +1011,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 27,
+        "rule": 30,
         "task": false,
         "text": "Standup",
         "time": "09:30"
@@ -949,7 +1020,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
@@ -960,7 +1031,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
@@ -969,10 +1040,19 @@
         "copy": 0,
         "done": false,
         "end": "08:15",
-        "rule": 32,
+        "rule": 35,
         "task": false,
         "text": "Swim",
         "time": "07:30"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 38,
+        "task": false,
+        "text": "Market",
+        "time": ""
       }
     ],
     "2026-10-25": [
@@ -980,7 +1060,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 22,
+        "rule": 25,
         "task": true,
         "text": "Weekly review",
         "time": "12:00"
@@ -989,7 +1069,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 26,
+        "rule": 29,
         "task": true,
         "text": "Water plants",
         "time": ""
@@ -998,7 +1078,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
@@ -1009,7 +1089,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 27,
+        "rule": 30,
         "task": false,
         "text": "Standup",
         "time": "09:30"
@@ -1018,7 +1098,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
@@ -1029,7 +1109,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 27,
+        "rule": 30,
         "task": false,
         "text": "Standup",
         "time": "09:30"
@@ -1038,7 +1118,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
@@ -1049,7 +1129,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 26,
+        "rule": 29,
         "task": true,
         "text": "Water plants",
         "time": ""
@@ -1058,7 +1138,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 27,
+        "rule": 30,
         "task": false,
         "text": "Standup",
         "time": "09:30"
@@ -1067,7 +1147,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
@@ -1078,7 +1158,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 27,
+        "rule": 30,
         "task": false,
         "text": "Standup",
         "time": "09:30"
@@ -1087,10 +1167,19 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 37,
+        "task": false,
+        "text": "Book club",
+        "time": "19:00"
       }
     ],
     "2026-10-30": [
@@ -1098,7 +1187,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 27,
+        "rule": 30,
         "task": false,
         "text": "Standup",
         "time": "09:30"
@@ -1107,7 +1196,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
@@ -1118,7 +1207,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 26,
+        "rule": 29,
         "task": true,
         "text": "Water plants",
         "time": ""
@@ -1127,7 +1216,7 @@
         "copy": 0,
         "done": false,
         "end": "",
-        "rule": 29,
+        "rule": 32,
         "task": true,
         "text": "Stretch",
         "time": ""
@@ -1136,10 +1225,19 @@
         "copy": 0,
         "done": false,
         "end": "08:15",
-        "rule": 32,
+        "rule": 35,
         "task": false,
         "text": "Swim",
         "time": "07:30"
+      },
+      {
+        "copy": 0,
+        "done": false,
+        "end": "",
+        "rule": 36,
+        "task": true,
+        "text": "Pay bills",
+        "time": ""
       }
     ]
   },
@@ -1153,7 +1251,7 @@
       "  09:00"
     ],
     "2026-10-17": [
-      "- a daily line"
+      "- [ ] Groceries"
     ]
   }
 }

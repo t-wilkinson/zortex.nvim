@@ -59,10 +59,10 @@ objective.
 
 | when | what | command |
 |---|---|---|
-| weekly | **Weekly review.** Opens the week's entry in `reviews.zortex` (made when missing; on a weekend, the coming week's) beside the findings, top down: the inbox; then [the plan from the vision down](#the-weekly-review-top-down): the vision, each area with its vision, the objectives that name it against the time passed, their key results and the projects those link, and the area's projects no key result covers, with the gaps marked where they are; then [the week](#the-week): its focus projects, tasks put off again and again, and the active projects to pick the focus from (`f`); XP and time over seven days; overdue and due tasks, stale and unscheduled projects, projects without a next action, done projects to archive, the alignment gaps again as lists, broken links. Every line links to its source and has its [fix one key away](#review-keys); what you write goes in the note; `?` lists the keys. | `:ZortexReview` (`<leader>zw`) |
-| morning | **Plan the day.** Write the day's `Outcomes:` first ([the day](#the-day-on-the-calendar)): the two or three results that would make it a success, each serving a key result or a focus project where it can. Yesterday's open tasks come along ([carried forward](#the-day-on-the-calendar)). Today's calendar next to what's [coming up](#coming-up) and ranked candidates: the week's focus projects and their tasks first; then tasks on key results, the further their key result is behind schedule the higher; then tasks of projects that only have an area; then the rest. Due dates, priority, the TODO project and how often a task was put off add on top. Key results are listed most behind first, areas without a current objective first. A project a key result links keeps the rest of its tree under it, folded: its other open tasks and each sub-project with its own (`zo` opens one). Put tasks (`p`) and projects (`P`, with their next three tasks) on the day, until the [capacity line](#capacity) says the day is full, and check how much of it is on key results. | `:ZortexPlan` (`<leader>zm`) |
+| weekly | **Weekly review.** Opens the week's entry in `reviews.zortex` (made when missing; on a weekend, the coming week's) beside the findings, top down: the inbox; then [the plan from the vision down](#the-weekly-review-top-down): the vision, each area with its vision, the objectives that name it against the time passed, their key results and the projects those link, and the area's projects no key result covers, with the gaps marked where they are; then [the week](#the-week): its focus projects, tasks put off again and again, and the active projects to pick the focus from (`f`); XP and time over seven days; overdue and due tasks, stale and unscheduled projects, projects without a next action, done projects to archive, the alignment gaps again as lists, broken links. Every line links to its source and has its [fix one key away](#review-keys); what you write goes in the note; `?` lists the keys. | `:ZortexReview` (`<leader>zR`) |
+| morning | **Plan the day.** Write the day's `Outcomes:` first ([the day](#the-day-on-the-calendar)): the two or three results that would make it a success, each serving a key result or a focus project where it can. Yesterday's open tasks come along ([carried forward](#the-day-on-the-calendar)). Today's calendar next to what's [coming up](#coming-up) and ranked candidates: the week's focus projects and their tasks first; then tasks on key results, the further their key result is behind schedule the higher; then tasks of projects that only have an area; then the rest. Due dates, priority, the TODO project and how often a task was put off add on top. Key results are listed most behind first, areas without a current objective first. A project a key result links keeps the rest of its tree under it, folded: its other open tasks and each sub-project with its own (`zo` opens one). Put tasks (`p`) and projects (`P`, with their next three tasks) on the day, until the [capacity line](#capacity) says the day is full, and check how much of it is on key results. | `:ZortexPlan` (`<leader>zp`) |
 | during | **Work.** Tick tasks on the calendar or a project's page (Neovim or the web); their copies are ticked with them. On the web home page the clocks (pomodoro, timer, stopwatch) count against the task you're working on, by default the first open task of the current calendar block, and add it to its `@spent(...)`. Before you stop, a line in the project's log (its web page, or a `Log:` label in the note) says where you left off. | `zortex serve` |
-| evening | **Daily review.** Opens the day's entry in `reviews.zortex` (inside its week) beside the findings since the last daily review (a skipped evening rolls into the next, at most a week): first how the work done served the plan (`Work done: 3h30m · 60% on key results · 25% on areas only · 15% on neither`); what is left in the inbox (from Neovim or the web app's "Add to inbox"), with `m` to move each line to its project (an inbox line or any task marked `@project(1.4)`; without one, to `review.inbox_default` or a place you pick), the week's focus, tasks put off, objectives and key results against the time passed, XP earned, time spent per task, what you completed, what wasn't done (`t` puts it on tomorrow at the same time; tomorrow's plan carries the rest), what you finished that served neither a key result nor an area (`a` archives it to `z/archive.tasks.zortex`, or give it a home with `@project`), overdue, due by tomorrow. | `:ZortexReview day` (`<leader>zW`) |
+| evening | **Daily review.** Opens the day's entry in `reviews.zortex` (inside its week) beside the findings since the last daily review (a skipped evening rolls into the next, at most a week): first how the work done served the plan (`Work done: 3h30m · 60% on key results · 25% on areas only · 15% on neither`); what is left in the inbox (from Neovim or the web app's "Add to inbox"), with `m` to move each line to its project (an inbox line or any task marked `@project(1.4)`; without one, to `review.inbox_default` or a place you pick), the week's focus, tasks put off, objectives and key results against the time passed, XP earned, time spent per task, what you completed, what wasn't done (`t` puts it on tomorrow at the same time; tomorrow's plan carries the rest), what you finished that served neither a key result nor an area (`a` archives it to `z/archive.tasks.zortex`, or give it a home with `@project`), overdue, due by tomorrow. | `:ZortexReview day` (`<leader>zr`) |
 
 "Behind schedule" is the share of the objective's window that has passed
 minus the key result's progress: a key result at 20% when half the quarter
@@ -134,6 +134,16 @@ first:
 ```
 @@Reviews
 
+# Templates
+## Weekly
+Focus:
+Wins:
+Lessons:
+## Daily
+Done:
+Blocked:
+First thing tomorrow:
+
 # 2026-W43
 Focus:
 - [3.1 Rebuild the engine](P/#3 Car/#3.1 Rebuild the engine)
@@ -154,7 +164,9 @@ First thing tomorrow:
 - `:ZortexReview` opens the week's entry and the findings beside it; on
   Saturday and Sunday it is the coming week's (`review.next_week_from`).
   `:ZortexReview day` opens the day's entry inside its week. New entries
-  come from `review.week` and `review.day`; nothing in the note is
+  come from the note's `# Templates` (`## Weekly` and `## Daily`; a new
+  reviews note starts with them, from `review.week` and `review.day`, which
+  are also used when the note has none); nothing in the note is
   regenerated, so it is yours to write in, and it syncs like any note.
 - **Focus.** `f` on a project in the weekly review's findings adds it under
   the week's `Focus:` label, or takes it out; you can also write the links
@@ -173,8 +185,10 @@ First thing tomorrow:
 
 Above the candidates, the plan lists what's coming up in the next seven
 days (`ui.planner.upcoming_days`; 0 hides it): the events you plan around
-(`@event` lines, timed lines and calendar notes that don't link a
-project), not your own planned work or tasks. The calendar view shows the
+(`@event` lines, timed lines and date ranges without a checkbox that don't
+link a project, calendar feeds' events, and the repeating notes such as
+birthdays), not your own planned work, tasks or plain notes (tag a note
+`@event` to list it). The calendar view shows the
 same list under the selected day.
 
 Other calendars count too. With the server's calendar feeds
@@ -248,7 +262,11 @@ it; the web month grid's dot marks days that have one), and loose to-dos
 last. Every timed line notifies at its time, events and planned blocks
 alike: a nudge to move on to the next thing, and out of deep focus.
 `@notify(30)` adds a notification 30 minutes before, `@notify(no)` silences a line,
-and `@notify(0, end)` also notifies when a range ends.
+and `@notify(0, end)` also notifies when a range ends. Lines without a time
+notify only when asked: `- Sam's birthday @notify` notifies on the day at
+`notifications.all_day_time` (09:00), `@notify(1d)` a day before that, and
+`@notify(07:30)` at 07:30 of the line's day (on a timed line too). A date range
+(`@from(2026-11-02) @to(2026-11-06)`) is all day and notifies on its first day.
 
 - **Copies.** `- [ ] [Improve website](./-Improve website) @id(aB3x9)` has the `@id` of the
   project's `- [ ] Improve website @id(aB3x9)`: lines with the same `@id` in
@@ -295,47 +313,56 @@ day, so a `# Days` heading after them keeps the days out of them):
 
 ```
 # Templates
-Weekday:
+## Weekday
 Outcomes:
 - [ ]
 09:00
-Sunday:
+## Sunday
 12:00 Weekly review
 
 # Repeating
 ## Birthdays
-- Sam's birthday @repeat(03-14) @born(1990)
+- Sam's birthday @on(03-14) @born(1990)
 - Dad @repeat(yearly) @born(1961-07-02)
 ## Routines
-12:00 [ ] Weekly review @repeat(weekly, Sunday)
+- [ ] Weekly review @repeat(weekly) @on(sun) @at(12:00)
 - [ ] Bins out @repeat(2w) @from(2026-10-06) @at(18:00)
-- 07:00 Run @repeat(mon, wed, fri) @to(2026-12-31)
+- [ ] Pay rent @repeat(monthly) @on(1st)
+- Book club @repeat(monthly) @on(last thu) @at(19:00)
+- 07:00 Run @on(mon, wed, fri) @to(2026-12-31)
 
 # Days
 ```
 
 - **Templates** are the lines a new day starts with (`:ZortexToday`, the
-  planner, ticking a repeating task on a day not written yet). A label names
-  which days: `Monday:` … `Sunday:` (or `Mon:` …), `Weekday:`, `Weekend:`,
-  `Daily:`; the most specific wins. Everything up to the next such label is
-  the template, other labels (`Outcomes:`) included.
+  planner, ticking a repeating task on a day not written yet). A heading
+  below `# Templates` or a label names which days: `## Monday` … `## Sunday`
+  (or `Mon`, …), `## Weekday` (or `Weekdays`), `## Weekend` (or `Weekends`),
+  `## Daily`; `Daily:`, `Sunday:` and so on work the same. The most specific
+  wins (`Sunday` over `Weekend` over `Daily`). Everything up to the next such
+  name is the template, other labels (`Outcomes:`) included.
 - **Repeating entries** are the items with `@repeat(…)` in the Repeating
   section; headings, labels and plain lines around them only organize it.
   Each shows on the days it lands on, in the calendar view, the planner,
-  notifications and the web calendar, without being written into them.
-  `@repeat` takes `daily`, `weekly`, `monthly`, `yearly`, every n (`2d`,
-  `3w`, `6m`, `2y`, counted from `@from(YYYY-MM-DD)`), days of the week
-  (`sun`, `mon, wed, fri`, `weekdays`, `weekends`), a date every year
-  (`03-14`) or a day of the month (`15`, `1st`); `weekly, Sunday` is every
-  Sunday, `2w tue` every other Tuesday from `@from`. `@from(YYYY-MM-DD)`
+  notifications and the web calendar, without being written into them;
+  `:ZortexPlan` and `:ZortexToday` write the day's repeating **tasks** into
+  it (`ui.planner.repeating_tasks`), so you see and tick them in the note.
+  A rule says how often with `@repeat`, which days with `@on` and what time
+  with `@at`. `@repeat` takes `daily`, `weekly`, `monthly`, `yearly`, every
+  n (`2d`, `3w`, `6m`, `2y`, counted from `@from(YYYY-MM-DD)`). `@on` takes
+  days of the week (`sun`, `mon, wed, fri`, `weekdays`, `weekends`), a date
+  every year (`03-14`), a day of the month (`15`, `1st`), a weekday of the
+  month (`2nd tue`, `last fri`) or the month's last day (`last`):
+  `@repeat(2w) @on(tue)` is every other Tuesday from `@from`,
+  `@repeat(monthly) @on(last thu)` the last Thursday of every month. `@on`
+  alone repeats on its days (`@on(weekdays)`, `@on(03-14)`), and the days
+  may also go in `@repeat` (`@repeat(weekly, sun)`). `@from(YYYY-MM-DD)`
   and `@to(YYYY-MM-DD)` bound it (both days included); a `@from` or `@to`
   holding a time (`@from(07:30) @to(08:15)`) is still the entry's time.
-  So a rule has up to three: `@repeat` (how often), `@from` (first day)
-  and `@to` (last day). `@repeat` is read only in this section; the
-  calendar note marks one elsewhere, a rule every n without `@from`, and a
-  `@repeat(…)` it can't read. `@born(1990)` shows
-  the age: `Sam's birthday (36)`; `@born(1961-07-02)` also anchors
-  `yearly`.
+  `@repeat` and `@on` are read only in this section; the calendar note marks
+  one elsewhere, a rule every n without `@from`, and a value it can't read.
+  `@born(1990)` shows the age: `Sam's birthday (36)`; `@born(1961-07-02)`
+  also anchors `yearly`.
 - **A repeating task** (`[ ]`) is ticked where it shows (`x` in the calendar
   view, its box on the web): it is copied, done, into the day you did it
   (today), with `@for(2026-10-18)` when that was another day. The copy
@@ -343,7 +370,7 @@ Sunday:
   day the occurrence takes its state (ticking it again reopens the copy).
   The copy is a calendar task like any other, so it counts for XP.
 
-The planner (`<leader>zm`) lists projects first, each under a heading with
+The planner (`<leader>zp`) lists projects first, each under a heading with
 its ranked tasks, then key results, then to-dos (the TODO project,
 `ui.planner.todo_link`, the Projects note's own tasks and calendar tasks
 left open), then areas, then what is left in the inbox; the week's focus projects come
@@ -492,7 +519,7 @@ device.
 
 | command | |
 |---|---|
-| `:ZortexPlan` (`<leader>zm`) | plan a day |
+| `:ZortexPlan` (`<leader>zp`) | plan a day |
 | `:ZortexReview day` / `:ZortexReview` | daily / weekly review |
 | `:ZortexXPGuide` (`<leader>zxg`) | how XP is calibrated: hours per `@size`, Mastery, tiers; and what the line at the cursor is worth |
 | `:ZortexXP` (`<leader>zxx`) | one view: the season's objectives and tier, XP per day for two weeks and how much of that work went to key results, areas only or neither, projects in progress, recent awards, the area tree (`<CR>` opens a line's source, `e` explains a project, `g` the guide) |

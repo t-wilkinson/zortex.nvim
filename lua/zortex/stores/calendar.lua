@@ -531,6 +531,47 @@ function M.occurrences(date_str)
 	return out
 end
 
+--- Write the repeating tasks due on `date_str` into its day (made from its
+--- template when missing), at the end of the day: the rule's line without
+--- its rule attributes, so the copy stands for the occurrence. Tasks already
+--- on the day (or done for it on another day, @for) are skipped. Returns how
+--- many were added.
+function M.add_repeating_tasks(date_str)
+	local rules_mod = require("zortex.services.calendar_rules")
+	local function due()
+		local add = {}
+		for _, occ in ipairs(M.occurrences(date_str)) do
+			if occ.type == "task" and not occ.copy then
+				add[#add + 1] = rules_mod.plain_line(occ.rule.line)
+			end
+		end
+		return add
+	end
+	if #due() == 0 then
+		return 0
+	end
+	-- the day first: its template may already hold some of them
+	local heading, err = M.ensure_date(date_str, M.template(date_str))
+	if not heading then
+		return 0, err
+	end
+	M.ensure_loaded()
+	local add = due()
+	if #add == 0 then
+		return 0
+	end
+	local block = M.date_block(date_str)
+	if not block then
+		return 0, "no day " .. date_str
+	end
+	local ok, ins_err = workspace().insert_lines(calendar_path(), block.last_lnum + 1, add)
+	if not ok then
+		return 0, ins_err
+	end
+	notify_changed("calendar:entry_added", { date = date_str })
+	return #add
+end
+
 --- Tick a repeating task's occurrence (M.occurrences): its copy is ticked
 --- when it has one, else the task goes, done, into the day `today` (made
 --- from its template when new) with @for(date) when it was due another day.

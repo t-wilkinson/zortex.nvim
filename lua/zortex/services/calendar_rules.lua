@@ -7,30 +7,40 @@
 --
 --   # Templates
 --   Weekday:                 the lines a new day starts with, by its name:
---   Outcomes:                monday … sunday (mon … sun), weekday, weekend,
---   - [ ]                    daily; the most specific one wins (sunday over
---   09:00                    weekend over daily). Every line up to the next
---   Sunday:                  such label is the template, other labels
---   12:00 Weekly review      included.
+--   Outcomes:                monday … sunday (mon … sun), weekday(s),
+--   - [ ]                    weekend(s), daily; the most specific one wins
+--   09:00                    (sunday over weekend over daily). Every line up
+--   ## Sunday                to the next such name is the template, other
+--   12:00 Weekly review      labels included. A name is a label ("Daily:")
+--                            or a heading below # Templates ("## Daily").
 --
 --   # Repeating
 --   ## Birthdays             headings, labels and plain lines organize it;
---   - Sam @repeat(03-14) @born(1990)          every item with @repeat(…) is
---   - Dad @repeat(yearly) @born(1961-07-02)   a rule, shown on the days it
---   ## Routines                               lands on (not copied):
---   12:00 [ ] Weekly review @repeat(sun)
+--   - Sam @on(03-14) @born(1990)              every item with @repeat(…)
+--   - Dad @repeat(yearly) @born(1961-07-02)   or @on(…) is a rule, shown on
+--   ## Routines                               the days it lands on:
+--   - [ ] Weekly review @repeat(weekly) @on(sun) @at(12:00)
 --   - [ ] Bins out @repeat(2w) @from(2026-10-06) @at(18:00)
+--   - [ ] Pay rent @repeat(monthly) @on(1st)
+--   - Book club @repeat(monthly) @on(last thu) @at(19:00)
 --
--- @repeat(…) takes, comma- or space-separated:
+-- @repeat(…) is how often, @on(…) which days, @at(…) what time:
 --   daily · weekly · monthly · yearly · 2d / 3w / 6m / 2y (every n, counted
 --   from @from(YYYY-MM-DD), or the date in @born(YYYY-MM-DD))
 --   sun … sat, weekdays, weekends          on those days of the week
 --   03-14                                  on that day every year
 --   1, 15th                                on that day of every month
--- "weekly, Sunday" is every Sunday; "2w sun" every other Sunday from @from.
+--   2nd tue, last fri, last                that weekday of the month (1st …
+--                                          5th, last), the month's last day
+-- Days may go in @repeat too ("@repeat(weekly, sun)", "@repeat(15)"), and
+-- @on alone repeats on its days ("@on(weekdays)" is every weekday).
+-- "2w sun" is every other Sunday from @from.
 -- @from(YYYY-MM-DD) and @to(YYYY-MM-DD) bound it (both days included); a
 -- @from or @to holding a time (@from(07:00)) is the entry's time, as on any
 -- calendar line. @born(1990) adds the age to the text on the day: "Sam (36)".
+--
+-- The planner writes the repeating tasks due on a day into it when it opens
+-- the day (ui.planner.repeating_tasks); the copy stands for the occurrence.
 --
 -- A repeating task isn't ticked in place: ticking it copies it, done, into
 -- the day you did it (today), with @for(YYYY-MM-DD) when that isn't the day
@@ -107,9 +117,10 @@ for _, name in ipairs(DAY_NAMES) do
 	SELECTOR[name:sub(1, 3)] = { name, 3 }
 end
 
---- The template label a line is ("Weekday:" -> "weekday"), or nil.
+--- The template a line names ("Weekday:" or "## Weekday" -> "weekday"), or
+--- nil.
 function M.template_name(line)
-	local name = line:match("^%s*(%a+):%s*$")
+	local name = line:match("^%s*(%a+):%s*$") or line:match("^#+%s+(%a+)%s*$")
 	local sel = name and SELECTOR[name:lower()]
 	return sel and sel[1] or nil
 end
@@ -178,15 +189,34 @@ local WEEKDAY = {
 	fri = 6, friday = 6, sat = 7, saturday = 7,
 }
 local UNITS = { daily = "d", weekly = "w", monthly = "m", yearly = "y", annually = "y" }
+-- "2nd tue": which weekday of the month (-1: the last)
+local ORDINAL = {
+	["1st"] = 1, first = 1, ["2nd"] = 2, second = 2, ["3rd"] = 3, third = 3,
+	["4th"] = 4, fourth = 4, ["5th"] = 5, fifth = 5, last = -1,
+}
 
---- @repeat(…)'s value -> { weekdays = set, dates = set ("MM-DD"),
---- monthdays = set, unit?, n?, bad? }
+--- @repeat(…) / @on(…)'s value -> { weekdays = set, dates = set ("MM-DD"),
+--- monthdays = set, nth = set ("2:3" = 2nd Tuesday, "-1:6" = last Friday),
+--- last_day?, unit?, n?, bad? }
 function M.parse_spec(spec)
-	local r = { weekdays = {}, dates = {}, monthdays = {} }
+	local r = { weekdays = {}, dates = {}, monthdays = {}, nth = {} }
+	local toks = {}
 	for tok in tostring(spec or ""):lower():gmatch("[^,%s]+") do
+		toks[#toks + 1] = tok
+	end
+	local i = 0
+	while i < #toks do
+		i = i + 1
+		local tok = toks[i]
 		local n, unit = tok:match("^(%d+)([dwmy])$")
 		local md = tok:match("^(%d%d?)$") or tok:match("^(%d%d?)[snrt][tdh]$")
-		if WEEKDAY[tok] then
+		local next_day = toks[i + 1] and WEEKDAY[toks[i + 1]]
+		if ORDINAL[tok] and next_day then
+			r.nth[ORDINAL[tok] .. ":" .. next_day] = true
+			i = i + 1
+		elseif tok == "last" then
+			r.last_day = true
+		elseif WEEKDAY[tok] then
 			r.weekdays[WEEKDAY[tok]] = true
 		elseif tok == "weekdays" or tok == "weekday" then
 			for d = 2, 6 do
@@ -207,6 +237,10 @@ function M.parse_spec(spec)
 		end
 	end
 	return r
+end
+
+local function days_in_month(y, m)
+	return os.date("*t", os.time({ year = y, month = m + 1, day = 0, hour = 12 })).day
 end
 
 local function day_number(date)
@@ -239,9 +273,17 @@ function M.matches(rule, date)
 			return false
 		end
 	end
-	if next(r.monthdays) then
+	if next(r.monthdays) or r.last_day then
 		constrained = true
-		if not r.monthdays[d] then
+		if not (r.monthdays[d] or (r.last_day and d == days_in_month(y, m))) then
+			return false
+		end
+	end
+	if next(r.nth) then
+		constrained = true
+		local wday = weekday_of(date)
+		local from_end = d + 7 > days_in_month(y, m)
+		if not (r.nth[math.ceil(d / 7) .. ":" .. wday] or (from_end and r.nth["-1:" .. wday])) then
 			return false
 		end
 	end
@@ -278,7 +320,7 @@ end
 
 -- Attributes that only describe the rule (dropped from its entries);
 -- @from and @to only when they hold a date (DATE_ATTRS)
-local RULE_ATTRS = { "repeat", "born" }
+local RULE_ATTRS = { "repeat", "on", "born" }
 local DATE_ATTRS = { "from", "to" }
 
 local function date_of(v)
@@ -295,11 +337,12 @@ local function dated(line, name)
 	end
 end
 
---- The rule on a line of the Repeating section, or nil:
---- { lnum, line, spec, from?, to?, anchor?, born? (year) }
+--- The rule on a line of the Repeating section (an item with @repeat(…)
+--- or @on(…)), or nil: { lnum, line, spec, from?, to?, anchor?, born?
+--- (year), bad_on? (@on holds how often, not days) }
 function M.rule(line, lnum)
-	local spec = attr(line, "repeat")
-	if not spec then
+	local spec, on = attr(line, "repeat"), attr(line, "on")
+	if not spec and not on then
 		return nil
 	end
 	local born = attr(line, "born")
@@ -307,7 +350,8 @@ function M.rule(line, lnum)
 	local rule = {
 		lnum = lnum,
 		line = line,
-		spec = M.parse_spec(spec),
+		spec = M.parse_spec((spec or "") .. "," .. (on or "")),
+		bad_on = on and M.parse_spec(on).unit ~= nil or nil,
 		from = dated(line, "from"),
 		to = dated(line, "to"),
 		born = born and tonumber(vim.trim(born):match("^(%d%d%d%d)")) or nil,
@@ -316,7 +360,7 @@ function M.rule(line, lnum)
 	return rule
 end
 
---- Every rule of the calendar's `lines` (items with @repeat in the
+--- Every rule of the calendar's `lines` (items with @repeat or @on in the
 --- Repeating sections), in file order.
 function M.rules(lines)
 	local out = {}
@@ -346,14 +390,15 @@ local function needs_anchor(spec)
 	if not spec.unit then
 		return false
 	end
-	local constrained = next(spec.weekdays) or next(spec.dates) or next(spec.monthdays)
+	local constrained = next(spec.weekdays) or next(spec.dates) or next(spec.monthdays) or next(spec.nth) or spec.last_day
 	return not (spec.n == 1 and (constrained or spec.unit == "d"))
 end
 
 --- What is wrong with the calendar's repeating entries, for diagnostics:
 --- { { lnum, col (0-based), end_col, message } }. A rule has @repeat(how
---- often) and may have @from(first day) and @to(last day); every n needs
---- @from (or @born). @repeat anywhere else is not read.
+--- often) and/or @on(which days), and may have @from(first day) and
+--- @to(last day); every n needs @from (or @born). @repeat and @on anywhere
+--- else are not read.
 function M.problems(lines)
 	local out = {}
 	local function add(lnum, pattern, message)
@@ -364,31 +409,43 @@ function M.problems(lines)
 	for _, r in ipairs(M.rules(lines)) do
 		in_rules[r.lnum] = true
 		local line = r.line
-		if r.spec.bad then
-			add(r.lnum, "@repeat%b()", "Not a repeat: daily, weekly, 2w, mon, weekdays, 03-14, 15th")
+		local which = attr(line, "repeat") and "@repeat%b()" or "@on%b()"
+		if r.bad_on then
+			add(r.lnum, "@on%b()", "@on takes days (mon, weekdays, 15th, 03-14, 2nd tue, last fri); how often goes in @repeat")
+		elseif r.spec.bad then
+			add(r.lnum, which, "Not a repeat: daily, weekly, 2w, mon, weekdays, 03-14, 15th, 2nd tue, last")
 		elseif needs_anchor(r.spec) and not r.anchor then
 			add(r.lnum, "@repeat%b()", "Every n counts from a first day: add @from(YYYY-MM-DD)")
 		end
 		if r.from and r.to and r.to < r.from then
 			add(r.lnum, "@to%b()", "@to is before @from: it never shows")
 		end
-		for _, old in ipairs({ { "since", "from" }, { "until", "to" } }) do
-			if line:find("@" .. old[1] .. "(", 1, true) then
-				add(r.lnum, "@" .. old[1] .. "%b()", string.format("@%s is now @%s", old[1], old[2]))
-			end
-		end
 	end
 	local in_code = false
 	for lnum, line in ipairs(lines) do
 		if fence(line) then
 			in_code = not in_code
-		elseif not in_code and not in_rules[lnum] and line:find("@repeat(", 1, true) then
-			add(lnum, "@repeat%b()", "@repeat is read only in the # Repeating section")
+		elseif not in_code and not in_rules[lnum] then
+			for _, name in ipairs({ "repeat", "on" }) do
+				if line:find("@" .. name .. "(", 1, true) then
+					add(lnum, "@" .. name .. "%b()", "@" .. name .. " is read only in the # Repeating section")
+				end
+			end
 		end
 	end
+	-- stable: problems of one line keep the order they were found in
+	for i, p in ipairs(out) do
+		p.order = i
+	end
 	table.sort(out, function(a, b)
-		return a.lnum < b.lnum
+		if a.lnum ~= b.lnum then
+			return a.lnum < b.lnum
+		end
+		return a.order < b.order
 	end)
+	for _, p in ipairs(out) do
+		p.order = nil
+	end
 	return out
 end
 

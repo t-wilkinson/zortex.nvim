@@ -1,7 +1,10 @@
 -- notifications/calendar.lua - The calendar's notifications, sent to the server
 --
 -- Every timed line of the calendar notifies at its time (@notify(15) adds
--- one 15 minutes before; @notify(no) turns it off). collect() lists them
+-- one 15 minutes before; @notify(no) turns it off). All-day lines (a date
+-- range, or an untimed line with @notify) notify on their first day at
+-- notifications.all_day_time (09:00); @notify(07:30) notifies at that time
+-- of the entry's day instead. collect() lists them
 -- for the next `days`, and sync() hands them to `zortex serve`, which sends
 -- them through ntfy when they are due (and Neovim shows them as they fire:
 -- notifications/init.lua). Nothing is sent when the set is the one the
@@ -16,27 +19,43 @@ local Config = require("zortex.config")
 
 local cfg = {}
 
--- Minutes before the entry to notify: @notify(10, 60) -> { 10, 60 };
--- @notify(no) -> nil; none -> the configured default (0: at the time).
--- "end" among the values (@notify(0, 30, end)) also notifies when a time range
--- ends; without it only the start notifies. Returns minutes, at_end.
+-- When to notify, from @notify(…): minutes before the entry
+-- (@notify(10, 1h) -> { 10, 60 }), clock times on its day (@notify(07:30)),
+-- and "end" (@notify(0, 30, end): also when a time range ends; without it
+-- only the start notifies). @notify(no) -> nil. Returns minutes (only the
+-- ones written), at_end, clocks.
 local function parse_notify_value(notify_attr)
-	if notify_attr == "no" or notify_attr == false then
+	if notify_attr == nil or notify_attr == "no" or notify_attr == false then
 		return nil
 	end
-	local out, at_end = {}, false
+	local out, at_end, clocks = {}, false, {}
 	local values = type(notify_attr) == "table" and notify_attr or { notify_attr }
 	for _, v in ipairs(values) do
-		if type(v) == "string" and vim.trim(v):lower() == "end" then
+		local text = type(v) == "string" and vim.trim(v):lower() or nil
+		local h, m = (text or ""):match("^(%d%d?):(%d%d)$")
+		if text == "end" then
 			at_end = true
+		elseif h and tonumber(h) < 24 and tonumber(m) < 60 then
+			clocks[#clocks + 1] = { hour = tonumber(h), min = tonumber(m) }
 		elseif tonumber(v) then
 			out[#out + 1] = tonumber(v)
 		end
 	end
-	if #out == 0 then
-		out[1] = tonumber(cfg.advance_minutes) or 0
+	return out, at_end, clocks
+end
+
+-- "09:00" (notifications.all_day_time) -> { hour, min }, or nil (false: all-day
+-- entries don't notify)
+local function all_day_clock()
+	local v = cfg.all_day_time
+	if v == nil then
+		v = "09:00"
 	end
-	return out, at_end
+	local h, m = tostring(v):match("^(%d%d?):(%d%d)$")
+	if v == false or not h then
+		return nil
+	end
+	return { hour = tonumber(h), min = tonumber(m) }
 end
 
 -- Create a deduplication key for a calendar notification
@@ -47,14 +66,32 @@ local function create_dedup_key(entry, date_str, event_type, advance_minutes)
 		"cal_%s_%s_%s_%d",
 		date_str,
 		text_part,
-		event_type, -- "start" or "end"
+		event_type, -- "start", "end", "allday" or "at" (a clock time)
 		advance_minutes
 	)
 end
 
 -- Title and message of a calendar notification: the entry's text as it
 -- reads, and when.
-local function format_notification(entry, event_type, minutes_until, at)
+local function format_notification(entry, event_type, minutes_until, at, day)
+	-- an all-day entry, or a clock time from @notify(07:30): the day it is on
+	if event_type == "allday" or event_type == "at" then
+		local today = os.date("%Y-%m-%d", at)
+		local message
+		if day == today then
+			message = "today"
+		elseif day == os.date("%Y-%m-%d", at + 86400) then
+			message = "tomorrow"
+		else
+			local y, mo, d = day:match("^(%d+)%-(%d+)%-(%d+)$")
+			message = os.date("%a %b %d", os.time({ year = tonumber(y), month = tonumber(mo), day = tonumber(d), hour = 12 }))
+		end
+		local start = event_type == "at" and entry:get_start_time()
+		if start and start.hour then
+			message = message .. string.format(" %02d:%02d", start.hour, start.min)
+		end
+		return require("zortex.core.link").readable(entry.text), message
+	end
 	local when
 	if minutes_until <= 0 then
 		when = "now"
@@ -107,7 +144,10 @@ function M.collect(now)
 		for _, advance_minutes in ipairs(notify_values) do
 			local trigger_time = at - (advance_minutes * 60)
 			if trigger_time > now then
-				local title, message = format_notification(entry, event_type, advance_minutes, at)
+				local title, message = format_notification(entry, event_type, advance_minutes, trigger_time, date_str)
+				if event_type ~= "allday" and event_type ~= "at" then
+					title, message = format_notification(entry, event_type, advance_minutes, at)
+				end
 				out[#out + 1] = {
 					title = title,
 					message = message,
@@ -118,7 +158,7 @@ function M.collect(now)
 					tags = { "calendar", event_type },
 					entry_id = entry.text,
 					entry_text = entry.text,
-					deduplication_key = create_dedup_key(entry, date_str, event_type, advance_minutes),
+					deduplication_key = create_dedup_key(entry, date_str, event_type == "at" and ("at" .. os.date("%H%M", at)) or event_type, advance_minutes),
 				}
 			end
 		end
@@ -126,14 +166,42 @@ function M.collect(now)
 
 	for day_offset = 0, cfg.days or 30 do
 		local date_str = datetime.format_datetime(datetime.add_days(today, day_offset), "YYYY-MM-DD")
+		local y, m, d = date_str:match("^(%d+)%-(%d+)%-(%d+)$")
+		local function on_day(clock)
+			return { year = tonumber(y), month = tonumber(m), day = tonumber(d), hour = clock.hour, min = clock.min }
+		end
 		for _, entry in ipairs(calendar_store.get_entries_for_date(date_str)) do
-			local notify_values, at_end = parse_notify_value(entry.attributes.notify)
+			local notify_values, at_end, clocks = parse_notify_value(entry.attributes.notify)
 			-- a task done (or carried to another day, [>]) has nothing to remind you of
 			if entry.completed or entry.mark == ">" then
 				notify_values = nil
 			end
+			local start_time = entry:get_start_time()
+			local timed = start_time and start_time.hour ~= nil
+			-- clock times from @notify(07:30): on the entry's day (a range's
+			-- first day)
+			local first_day = (start_time and not timed) and datetime.format_datetime(start_time, "YYYY-MM-DD") or date_str
+			if notify_values and first_day == date_str then
+				for _, clock in ipairs(clocks or {}) do
+					add(entry, { 0 }, date_str, on_day(clock), "at")
+				end
+			end
+			if notify_values and not timed then
+				-- all day (a date range, or an untimed line with @notify): at
+				-- notifications.all_day_time on its first day (the minutes of
+				-- @notify(1d) before that), unless @notify gave clock times
+				local clock = all_day_clock()
+				if clock and #clocks == 0 and first_day == date_str then
+					add(entry, #notify_values > 0 and notify_values or { 0 }, date_str, on_day(clock), "allday")
+				end
+				notify_values = nil
+			elseif notify_values and #notify_values == 0 then
+				-- a timed line: at its time, or advance_minutes before, unless
+				-- @notify gave only clock times
+				notify_values = #clocks == 0 and { tonumber(cfg.advance_minutes) or 0 } or nil
+			end
 			if notify_values then
-				local start_time, end_time = entry:get_start_time(), entry:get_end_time()
+				local end_time = entry:get_end_time()
 				if start_time then
 					add(entry, notify_values, date_str, start_time, "start")
 				end
@@ -225,6 +293,11 @@ function M.sync(opts)
 		end
 	end)
 	return #notifications, true
+end
+
+-- The options setup() was given (for tests)
+function M._cfg()
+	return cfg
 end
 
 function M.setup(opts)

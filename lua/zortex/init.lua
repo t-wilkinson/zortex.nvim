@@ -28,8 +28,12 @@ function api.setup(opts)
 
 	api.helptags()
 
-	-- Say which key notes are missing (:Zortex init creates them)
+	-- Say which key notes are missing (:Zortex init creates them), and
+	-- whether a sync tool left conflict copies (:ZortexConflicts)
 	require("zortex.core.starter").setup()
+	if Config.notes_dir then
+		require("zortex.features.conflicts").setup()
+	end
 
 	-- Core: logger, events, workspace, link index, XP pipeline
 	require("zortex.core").setup(Config)

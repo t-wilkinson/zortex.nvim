@@ -241,6 +241,10 @@ FILES ~
     Convert a Markdown file, or every one under a folder, to a note next to it
     (--join flows wrapped lines; ! overwrites). Id: import_markdown.
 
+:ZortexConflicts                                            *:ZortexConflicts*
+    Merge a sync tool's conflict copy of a note in a diff beside the note;
+    done saves the note and deletes the copy. Id: conflicts.
+
 :ZortexOpen                                                      *:ZortexOpen*
     Open a note by its file name, without the extension (projects, calendar,
     z/garden); the structure note without one. Id: open.

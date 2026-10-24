@@ -375,6 +375,7 @@ require("zortex").setup({
 | Command | Keys | Action id | Does |
 |---|---|---|---|
 | `:ZortexImportMarkdown …` |  | `import_markdown` | Convert a Markdown file, or every one under a folder, to a note next to it (`--join` flows wrapped lines; `!` overwrites) |
+| `:ZortexConflicts …` |  | `conflicts` | Merge a sync tool's conflict copy of a note in a diff beside the note; `done` saves the note and deletes the copy |
 | `:ZortexOpen …` |  | `open` | Open a note by its file name, without the extension (`projects`, `calendar`, `z/garden`); the structure note without one |
 |  | `<leader>zfp` | `open_projects` | Open projects.zortex (`:ZortexOpen projects`) |
 |  | `<leader>zfa` | `open_areas` | Open areas.zortex (`:ZortexOpen areas`) |

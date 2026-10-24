@@ -420,11 +420,6 @@ function M.problems(lines)
 		if r.from and r.to and r.to < r.from then
 			add(r.lnum, "@to%b()", "@to is before @from: it never shows")
 		end
-		for _, old in ipairs({ { "since", "from" }, { "until", "to" } }) do
-			if line:find("@" .. old[1] .. "(", 1, true) then
-				add(r.lnum, "@" .. old[1] .. "%b()", string.format("@%s is now @%s", old[1], old[2]))
-			end
-		end
 	end
 	local in_code = false
 	for lnum, line in ipairs(lines) do

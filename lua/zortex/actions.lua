@@ -694,6 +694,19 @@ M.list = {
 		end,
 	},
 	{
+		id = "conflicts",
+		command = "Conflicts",
+		group = "Files",
+		desc = "Merge a sync tool's conflict copy of a note in a diff beside the note; `done` saves the note and deletes the copy",
+		nargs = "?",
+		complete = function()
+			return { "done" }
+		end,
+		run = function(args)
+			require("zortex.features.conflicts").command(args)
+		end,
+	},
+	{
 		id = "open",
 		command = "Open",
 		group = "Files",

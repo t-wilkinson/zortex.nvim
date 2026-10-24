@@ -45,10 +45,7 @@ Whatever you use:
   were announced) stay out of the folder, under Neovim's
   `stdpath("state")/zortex`, and a conflict copy of the seasons
   (`xp_state.sync-conflict-….json`) is merged and removed when Neovim
-  next loads it. Files an older version kept in `.z/`
-  (`link_index.json`, `search_history.json`, `notifications_state.json`,
-  `starter.json`, `xp_summary.json`) can be deleted once every device is
-  updated.
+  next loads it.
 - **Calendar feeds write into the folder.** With `-feeds`
   ([section 6](#6-other-calendars)) the server writes `z/feeds/<name>.zortex`
   itself, so it needs write access to the notes even without `-writable`,
@@ -57,9 +54,11 @@ Whatever you use:
   keeps both (Syncthing writes `note.sync-conflict-….zortex`, Dropbox and
   Nextcloud `note (… conflicted copy …).zortex`). Zortex leaves these copies
   out of the notes, so a copy of `projects.zortex` doesn't double every
-  project, and the file browser hides them; `:checkhealth zortex` lists
-  them. Merge each into its note by hand and delete it. (State files in
-  `.z/` don't need this: see above.)
+  project, and the file browser hides them. Neovim says so when it starts,
+  and `:ZortexConflicts` opens each in a diff beside its note (`do` takes a
+  change from the copy, `dp` on the copy's side puts one into the note);
+  `:ZortexConflicts done` saves the note, deletes the copy and opens the
+  next one. (State files in `.z/` don't need this: see above.)
 - **Keep history.** A sync tool copies a mistake to every device; keep
   the folder in git on this machine (the README's
   [Backups](../README.md#backups) has a daily commit).
@@ -336,6 +335,31 @@ access_control:
 
 Caddy with `basic_auth`: a `handle /calendar.ics` block without it, as for
 the app icons ([Installing it as an app](Web.md#installing-it-as-an-app)).
+
+## Without the internet
+
+`zortex serve` needs nothing outside your network: it is one static binary
+with no Go module dependencies, its pages, scripts, fonts and KaTeX are
+built into it, and nothing is fetched from a CDN.
+
+- **Build** on any machine with Go 1.22 or newer, no network needed:
+  `cd app && GOTOOLCHAIN=local GOPROXY=off CGO_ENABLED=0 go build -trimpath -o zortex ./cmd/zortex`.
+  Or build it (`GOOS`/`GOARCH` for another machine) or download a release
+  binary where you have the internet, and copy the file over. The Docker
+  image's build pulls `golang` and `alpine` and runs `apk add`, so build
+  it online and move it with `docker save` / `docker load`; with Nix,
+  build once online and `nix copy` the closure.
+- **Time zone.** The binary carries its own time zone database, so `TZ`
+  works without one on the host.
+- **Notifications.** Without ntfy, due notifications still fire: Neovim
+  shows them (`notifications.alerts`), and the web app's clocks ring in
+  open pages. For phones, run ntfy on your network (`ntfy serve`) and point
+  `-ntfy-url` at it; the ntfy app subscribes to it directly (iOS push goes
+  through ntfy.sh, so it needs the internet).
+- **Not offline:** calendar feeds (`-feeds` fetches iCal links), and
+  installing the web app on a phone, which needs HTTPS: on a home network,
+  a proxy with its own certificate authority (Caddy's `tls internal`, or
+  mkcert) gives it one.
 
 ## Installing it as an app
 

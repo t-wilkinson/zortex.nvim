@@ -28,6 +28,9 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	// the time zone database, so TZ works on a host without one (a minimal
+	// container, an offline machine)
+	_ "time/tzdata"
 
 	"github.com/t-wilkinson/zortex.nvim/app/alerts"
 	"github.com/t-wilkinson/zortex.nvim/app/links"

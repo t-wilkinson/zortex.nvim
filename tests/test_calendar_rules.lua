@@ -20,9 +20,6 @@ T.test("@repeat specs: days of the week, dates, days of the month, every n from 
 	T.eq(on("- Bins @repeat(2w)", "2026-10-20"), false, "every n needs @from")
 	T.eq(on("- Run @repeat(daily) @to(2026-10-21)", "2026-10-22"), false)
 	T.eq(on("- Run @repeat(daily) @to(2026-10-21)", "2026-10-21"), true, "@to is the last day")
-	-- @since and @until are gone: not bounds, and left on the line
-	T.eq(on("- Bins @repeat(2w) @since(2026-10-06)", "2026-10-20"), false, "no anchor")
-	T.eq(on("- Run @repeat(daily) @until(2026-10-21)", "2026-10-22"), true)
 	-- a time in @from / @to is the entry's time, not a bound
 	T.eq(on("- Swim @repeat(sat) @from(07:30) @to(08:15)", "2026-10-24"), true)
 	T.eq(R.plain_line("- Swim @repeat(sat) @from(07:30) @to(08:15) @from(2026-10-17)"), "- Swim @from(07:30) @to(08:15)")
@@ -181,7 +178,7 @@ T.test("planning a day writes its repeating tasks into it, once", function()
 	T.ok(ok, err)
 end)
 
-T.test("problems: a rule that can't work, @repeat outside # Repeating, the old names", function()
+T.test("problems: a rule that can't work, @repeat or @on outside # Repeating", function()
 	local lines = {
 		"@@Calendar",
 		"",
@@ -206,7 +203,6 @@ T.test("problems: a rule that can't work, @repeat outside # Repeating, the old n
 		"5 Not a repeat: daily, weekly, 2w, mon, weekdays, 03-14, 15th, 2nd tue, last",
 		"6 @to is before @from: it never shows",
 		"7 Every n counts from a first day: add @from(YYYY-MM-DD)",
-		"7 @since is now @from",
 		"10 @on takes days (mon, weekdays, 15th, 03-14, 2nd tue, last fri); how often goes in @repeat",
 		"13 @repeat is read only in the # Repeating section",
 		"14 @on is read only in the # Repeating section",

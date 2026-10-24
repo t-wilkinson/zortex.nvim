@@ -400,8 +400,7 @@ two places:
   this machine's own, for what every Neovim rewrites often: `link_index`,
   `search_history`, `xp_seen` (levels announced), `notifications_state`,
   `starter`, and the log. Two devices never write the same file, so a sync
-  tool has nothing to conflict over. A device file that doesn't exist yet
-  starts from the copy an older version left in `.z/`.
+  tool has nothing to conflict over.
 
 | method                 | does                                                     |
 | ---------------------- | -------------------------------------------------------- |

@@ -44,7 +44,10 @@ local function open_note(name)
 	end
 	local getter = KEY_NOTES[name:lower()]
 	local path = getter and fs[getter]()
-		or fs.joinpath(Config.notes_dir, name:sub(-#Config.extension) == Config.extension and name or (name .. Config.extension))
+		or fs.joinpath(
+			Config.notes_dir,
+			name:sub(-#Config.extension) == Config.extension and name or (name .. Config.extension)
+		)
 	vim.cmd("edit " .. vim.fn.fnameescape(path))
 end
 
@@ -94,11 +97,14 @@ local function subcommands(list)
 			local s = by[words[2]]
 			return s and s[4] and s[4](lead) or {}
 		end
-		return vim.tbl_filter(function(c)
-			return c:sub(1, #lead) == lead
-		end, vim.tbl_map(function(x)
-			return x[1]
-		end, list))
+		return vim.tbl_filter(
+			function(c)
+				return c:sub(1, #lead) == lead
+			end,
+			vim.tbl_map(function(x)
+				return x[1]
+			end, list)
+		)
 	end
 	local descs = vim.tbl_map(function(x)
 		return "`" .. x[1] .. "` " .. x[2]
@@ -209,8 +215,6 @@ local function status()
 	notify(table.concat(lines, "\n"))
 end
 
-
-
 -- :ZortexDebug [status|logs [n]|level LEVEL|timers|clear]
 local function debug_cmd(args)
 	local words = vim.split(vim.trim(args and args.args or ""), "%s+", { trimempty = true })
@@ -233,21 +237,41 @@ end
 
 -- :ZortexPomodoro [toggle|skip|restart|stop|status|settings key=value…]
 local POMODORO_RUN, POMODORO_COMPLETE, POMODORO_DESC = subcommands({
-	{ "toggle", "start, pause or resume (default)", function()
-		require("zortex.notifications.pomodoro").toggle()
-	end },
-	{ "skip", "end the phase now", function()
-		require("zortex.notifications.pomodoro").skip()
-	end },
-	{ "restart", "begin a new cycle", function()
-		require("zortex.notifications.pomodoro").restart()
-	end },
-	{ "stop", "stop it", function()
-		require("zortex.notifications.pomodoro").stop()
-	end },
-	{ "status", "where it is", function()
-		require("zortex.notifications.pomodoro").show_status()
-	end },
+	{
+		"toggle",
+		"start, pause or resume (default)",
+		function()
+			require("zortex.notifications.pomodoro").toggle()
+		end,
+	},
+	{
+		"skip",
+		"end the phase now",
+		function()
+			require("zortex.notifications.pomodoro").skip()
+		end,
+	},
+	{
+		"restart",
+		"begin a new cycle",
+		function()
+			require("zortex.notifications.pomodoro").restart()
+		end,
+	},
+	{
+		"stop",
+		"stop it",
+		function()
+			require("zortex.notifications.pomodoro").stop()
+		end,
+	},
+	{
+		"status",
+		"where it is",
+		function()
+			require("zortex.notifications.pomodoro").show_status()
+		end,
+	},
 	{
 		"settings",
 		"show or change them: work=25 short=5 long=15 every=4 auto_break=yes auto_work=no",
@@ -262,9 +286,13 @@ local POMODORO_RUN, POMODORO_COMPLETE, POMODORO_DESC = subcommands({
 
 -- :ZortexNotifications [list|sync [force]|send <title> <message>]
 local NOTIFICATIONS_RUN, NOTIFICATIONS_COMPLETE, NOTIFICATIONS_DESC = subcommands({
-	{ "list", "the ones the server will send (default)", function()
-		require("zortex.notifications").show_list()
-	end },
+	{
+		"list",
+		"the ones the server will send (default)",
+		function()
+			require("zortex.notifications").show_list()
+		end,
+	},
 	{
 		"sync",
 		"send the calendar's to the server now (`force` resends unchanged)",
@@ -275,26 +303,46 @@ local NOTIFICATIONS_RUN, NOTIFICATIONS_COMPLETE, NOTIFICATIONS_DESC = subcommand
 			return { "force" }
 		end,
 	},
-	{ "send", "<title> <message>: one now, through the server", function(fargs)
-		require("zortex.notifications").send(fargs[1], table.concat(vim.list_slice(fargs, 2), " "))
-	end },
+	{
+		"send",
+		"<title> <message>: one now, through the server",
+		function(fargs)
+			require("zortex.notifications").send(fargs[1], table.concat(vim.list_slice(fargs, 2), " "))
+		end,
+	},
 })
 
 -- :Zortex [help|init|reindex|refold]
 local ZORTEX_RUN, ZORTEX_COMPLETE, ZORTEX_DESC = subcommands({
-	{ "help", "list commands and keys (default)", function()
-		M.show_help()
-	end },
-	{ "init", "create the key notes that are missing (calendar, projects, areas, okr, structure, inbox)", function()
-		require("zortex.core.starter").init_command()
-	end },
-	{ "reindex", "rebuild the link index from scratch", function()
-		require("zortex.core.link_index").rebuild()
-		notify("Link index rebuilt")
-	end },
-	{ "refold", "recompute the folds of this note", function()
-		require("zortex.features.folding").update_folds(0)
-	end },
+	{
+		"help",
+		"list commands and keys (default)",
+		function()
+			M.show_help()
+		end,
+	},
+	{
+		"init",
+		"create the key notes that are missing (calendar, projects, areas, okr, structure, inbox)",
+		function()
+			require("zortex.core.starter").init_command()
+		end,
+	},
+	{
+		"reindex",
+		"rebuild the link index from scratch",
+		function()
+			require("zortex.core.link_index").rebuild()
+			notify("Link index rebuilt")
+		end,
+	},
+	{
+		"refold",
+		"recompute the folds of this note",
+		function()
+			require("zortex.features.folding").update_folds(0)
+		end,
+	},
 })
 
 -- =============================================================================
@@ -330,7 +378,7 @@ M.list = {
 	{
 		id = "projects",
 		command = "Projects",
-		key = "p",
+		key = "P",
 		group = "Find",
 		desc = "Browse projects",
 		run = call("zortex.ui.picker.projects", "open"),
@@ -393,7 +441,6 @@ M.list = {
 		desc = "Links that resolve nowhere, then tags that go nowhere (quickfix)",
 		run = call("zortex.core.link_index", "broken_links_quickfix"),
 	},
-
 
 	-- Structure ----------------------------------------------------------------
 	{
@@ -507,7 +554,7 @@ M.list = {
 	{
 		id = "plan",
 		command = "Plan",
-		key = "m",
+		key = "p",
 		group = "Plan",
 		desc = "Plan a day: calendar day (from its template) plus ranked tasks, projects, KRs and areas to put on it",
 		nargs = "?",
@@ -622,11 +669,6 @@ M.list = {
 		run = call("zortex.notifications.pomodoro", "show_status"),
 	},
 
-
-
-
-
-
 	{
 		id = "notifications",
 		command = "Notifications",
@@ -636,9 +678,6 @@ M.list = {
 		complete = NOTIFICATIONS_COMPLETE,
 		run = NOTIFICATIONS_RUN,
 	},
-
-
-
 
 	-- Files --------------------------------------------------------------------
 
@@ -721,11 +760,6 @@ M.list = {
 			open_note("inbox")
 		end,
 	},
-
-
-
-
-
 
 	{
 		id = "present",
@@ -833,7 +867,6 @@ M.list = {
 			M.show_help()
 		end,
 	},
-
 }
 
 M.by_id = {}

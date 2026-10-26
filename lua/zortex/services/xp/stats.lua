@@ -98,7 +98,8 @@ function M.project_stats()
 	return out
 end
 
--- { total_areas, areas_with_xp, total_xp, max_level }
+-- { total_areas, areas_with_xp, total_xp (every area's own XP, summed:
+-- no sub-area counted twice), max_level }
 function M.area_stats()
 	local l = ledger().get()
 	local stats = { total_areas = 0, areas_with_xp = 0, total_xp = 0, max_level = 0 }
@@ -125,18 +126,37 @@ function M.recent(limit, days)
 	return list
 end
 
---- Mastery XP per day for the last `days` days: { { date, xp }, ... }
---- oldest first.
+--- XP per day for the last `days` days, oldest first: { { date, xp (area
+--- XP, Mastery), season (season XP), effort (the work's XP), kr, area,
+--- none (effort by how it served the plan) }, ... }, rounded.
 function M.daily(days)
 	days = days or 14
 	local by_day = {}
 	for _, e in ipairs(ledger().between(os.date("%Y-%m-%d", os.time() - (days - 1) * 86400), nil)) do
-		by_day[e.date] = (by_day[e.date] or 0) + (e.mastery or 0)
+		local d = by_day[e.date] or { xp = 0, season = 0, effort = 0, kr = 0, area = 0, none = 0 }
+		by_day[e.date] = d
+		d.xp = d.xp + (e.mastery or 0)
+		d.season = d.season + (e.season or 0)
+		d.effort = d.effort + (e.xp or 0)
+		local k = e.aligned == "kr" and "kr" or e.aligned == "area" and "area" or "none"
+		d[k] = d[k] + (e.xp or 0)
+	end
+	local function r(x)
+		return math.floor((x or 0) + 0.5)
 	end
 	local out = {}
 	for i = days - 1, 0, -1 do
-		local d = os.date("%Y-%m-%d", os.time() - i * 86400)
-		out[#out + 1] = { date = d, xp = math.floor((by_day[d] or 0) + 0.5) }
+		local date = os.date("%Y-%m-%d", os.time() - i * 86400)
+		local d = by_day[date] or {}
+		out[#out + 1] = {
+			date = date,
+			xp = r(d.xp),
+			season = r(d.season),
+			effort = r(d.effort),
+			kr = r(d.kr),
+			area = r(d.area),
+			none = r(d.none),
+		}
 	end
 	return out
 end

@@ -80,7 +80,22 @@ that share one folder of plain-text notes.
 - Task copies: lines sharing an `@id` (a project task and its calendar
   copy) are one task, ticked together.
 - XP that follows the plan: 10 XP is an hour of estimated work (`@size`),
-  Mastery per area, and seasons with tiers measured on their objectives.
+  counted twice and kept apart: area XP (Mastery: all of every piece of
+  work's XP for the areas it serves, `xp.area_transfer`; work with no area
+  earns for `@a(0.1)`, `xp.default_area`) and season XP (only work a key
+  result links, `xp.season_transfer`, plus the key-result and objective
+  bonuses), with seasons whose tiers are measured on their objectives.
+  `@p` and `@i` rank work; they multiply XP only when `xp.modifiers` says
+  so (1 by default). The old `xp.alignment` shares are gone
+  (`:checkhealth` warns).
+- The daily review lists work finished without an area (`A` gives it one,
+  on its project's heading or the task) and writes `@a(0.1)` on the rest
+  when it closes (`review.default_area_on_close`).
+- `:Zortex attributes` lists every attribute and how it is written, and a
+  bare `@` completes them, each with its format as documentation.
+- The planner keeps a task's links' names in its text (`Read [./doc-1]` and
+  `Read [./doc-2]` no longer both read `Read`), and links tasks that would
+  link the same by their `@id`.
   `:ZortexSeason start [span] [name]` starts one (`Season 10 Juniper`, the
   word moving on with the number) and adds its heading to the OKR note.
   `xp.enabled = false` turns XP off.
@@ -119,7 +134,16 @@ that share one folder of plain-text notes.
   installed app), the pomodoro, timers, alarms, a stopwatch, time tracking
   on the task you're working on (`@spent`), the week's focus and XP.
 - `/projects`, `/project`, `/okr` (objectives against the time passed, each
-  season's name and tier, key results nothing can move) and `/review`.
+  season's name and tier, key results nothing can move), `/areas` (every
+  area with its XP, level, objectives and projects, and the area XP of all
+  of them) and `/attributes`.
+- The daily and weekly reviews on the web (`/review?day=today`, `/review`),
+  with their fixes under `-writable`: tick, tomorrow, due, move inbox lines
+  to a project, give finished work an area, pick the week's focus, write
+  the entry in `reviews.zortex`, and finish the daily review (shared with
+  Neovim through `.z/review_state.json`).
+- The web editor offers the common attributes as chips; the inbox box adds
+  a note by default.
 - Calendar notifications, pomodoro phases, timers and alarms through ntfy,
   and to Neovim (`GET /api/alerts`).
 - `-writable`: tick, edit, add, move and delete lines from any browser,

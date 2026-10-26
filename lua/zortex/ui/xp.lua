@@ -2,12 +2,14 @@
 --
 -- A float with, top to bottom:
 --
---   Season         the season's objectives, its tier and the next one
+--   Season         the season's objectives, its tier and the next one, and
+--                  the season XP earned in it (work on key results)
 --   Last 14 days   XP per day, and how much of the work done went to key
---                  results, to areas only, or to neither
+--                  results, to areas only, or had no area
 --   Projects       the projects in progress, by XP earned
 --   Recent         the latest awards
---   Areas          the area tree with levels and progress to the next one
+--   Areas          the area XP of every area together, and the area tree
+--                  with levels and progress to the next one
 --
 -- XP is estimated work: 10 XP = 1 hour (xp.xp_per_hour); hours sit next to
 -- it. <CR> on a project, award or area line opens where it is written; g
@@ -61,14 +63,15 @@ end
 
 --- The work done in the last `days` days, from the ledger: XP and Mastery
 --- XP per day (oldest first), and how it served the plan by the awards'
---- `aligned`: { days = { { date, xp, mastery } }, kr, area, none, total }.
+--- `aligned`: { days = { { date, xp, mastery, season } }, kr, area, none,
+--- total, mastery, season }.
 function M.recent_work(days)
 	days = days or 14
-	local out = { days = {}, kr = 0, area = 0, none = 0, total = 0, mastery = 0 }
+	local out = { days = {}, kr = 0, area = 0, none = 0, total = 0, mastery = 0, season = 0 }
 	local by = {}
 	for i = days - 1, 0, -1 do
 		local d = os.date("%Y-%m-%d", os.time() - i * 86400)
-		by[d] = { date = d, xp = 0, mastery = 0 }
+		by[d] = { date = d, xp = 0, mastery = 0, season = 0 }
 		out.days[#out.days + 1] = by[d]
 	end
 	for _, e in ipairs(require("zortex.services.xp.ledger").between(out.days[1].date, nil)) do
@@ -77,6 +80,8 @@ function M.recent_work(days)
 			local xp = e.xp or 0
 			day.xp = day.xp + xp
 			day.mastery = day.mastery + (e.mastery or 0)
+			day.season = day.season + (e.season or 0)
+			out.season = out.season + (e.season or 0)
 			local k = e.aligned == "kr" and "kr" or e.aligned == "area" and "area" or "none"
 			out[k] = out[k] + xp
 			out.total = out.total + xp
@@ -139,6 +144,7 @@ function M.render(data)
 			season.next_tier and string.format(" · %s at %.0f%%", season.next_tier.name, season.next_tier.at * 100) or " · every objective done"
 		))
 		hl(l, 0, #b, constants.HIGHLIGHTS.PROGRESS_BAR)
+		add(string.format("Season XP %d (%s on key results) of %d planned", round(season.season_xp or 0), hours(season.season_xp or 0), round(season.value or 0)))
 		if #season.objectives == 0 then
 			add("No objectives in this season: add one to okr.zortex (## 3M-YYYY-Qn Title @area(…)).")
 		end
@@ -165,20 +171,21 @@ function M.render(data)
 	end
 	local today = work.days[#work.days] and work.days[#work.days].xp or 0
 	add(string.format(
-		"XP %s  %d (%s) · 7 days %d · today %d · Mastery %d",
+		"XP %s  %d (%s) · 7 days %d · today %d · area XP %d · season XP %d",
 		sparkline(values),
 		round(work.total),
 		hours(work.total),
 		round(week),
 		round(today),
-		round(work.mastery)
+		round(work.mastery),
+		round(work.season)
 	))
 	if work.total > 0 then
 		local function pct(x)
 			return round(x / work.total * 100)
 		end
 		add(string.format(
-			"Work done: %d%% on key results · %d%% on areas only · %d%% on neither",
+			"Work done: %d%% on key results · %d%% on areas only · %d%% with no area",
 			pct(work.kr),
 			pct(work.area),
 			pct(work.none)
@@ -227,10 +234,20 @@ function M.render(data)
 			e.file and { file = e.file, lnum = e.lnum } or nil
 		)
 	end
-	add("  (+ Mastery XP; · work on neither a key result nor an area)")
+	add("  (+ area XP; · none)")
 
 	-- Areas
 	section("Areas")
+	if tree then
+		local total = data.area_total
+		if total == nil then
+			local ok_s, st = pcall(function()
+				return stats().area_stats()
+			end)
+			total = ok_s and st.total_xp or 0
+		end
+		add(string.format("All areas: %d area XP (%s of work)", round(total), hours(total)))
+	end
 	if not tree then
 		add("No areas.zortex yet.")
 	else

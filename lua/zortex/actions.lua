@@ -312,13 +312,20 @@ local NOTIFICATIONS_RUN, NOTIFICATIONS_COMPLETE, NOTIFICATIONS_DESC = subcommand
 	},
 })
 
--- :Zortex [help|init|reindex|refold]
+-- :Zortex [help|attributes|init|reindex|refold]
 local ZORTEX_RUN, ZORTEX_COMPLETE, ZORTEX_DESC = subcommands({
 	{
 		"help",
 		"list commands and keys (default)",
 		function()
 			M.show_help()
+		end,
+	},
+	{
+		"attributes",
+		"what each @attribute means and how it is written",
+		function()
+			require("zortex.attributes_help").show()
 		end,
 	},
 	{
@@ -805,7 +812,7 @@ M.list = {
 		command = "XPGuide",
 		key = "xg",
 		group = "XP",
-		desc = "How XP is calibrated: hours per @size, Mastery, tiers",
+		desc = "How XP is calibrated: hours per @size, area XP and season XP, tiers",
 		run = call("zortex.ui.xp_guide", "show"),
 	},
 	{

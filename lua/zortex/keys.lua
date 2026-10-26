@@ -43,6 +43,7 @@ M.BUFFERS = {
 			{ "u", "undo", "take the last change back (:ZortexUndo)" },
 			{ "t", "next_day", "a task left undone: same time tomorrow" },
 			{ "a", "archive", "archive it: a finished task to z/archive.tasks.zortex, a done project to its archive" },
+			{ "A", "area", "give finished work without an area one (@a on its project or the task)" },
 			{ "x", "complete", "tick the task" },
 			{ "d", "due", "set or move the task's @due" },
 			{ "s", "schedule", "put the task, or a block of the project, on a day" },

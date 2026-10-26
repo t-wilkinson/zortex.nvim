@@ -1,11 +1,12 @@
 -- services/xp/calculator.lua - XP formulas (pure: no state, no files)
 --
 -- XP is estimated effort: @size -> hours (xp.sizes) x xp.xp_per_hour x
--- priority x importance. This module says how much a task, a project and an
--- objective are worth, how a project's pool is paid out over its tasks (the
--- initiation / execution / completion curve), and how an award's Mastery
--- share is split between areas. services/xp/ledger applies it to the notes;
--- :ZortexXPGuide shows the numbers.
+-- priority x importance (1 by default: @p and @i rank work, they don't pay
+-- more unless xp.modifiers says so). This module says how much a task, a
+-- project and an objective are worth, how a project's pool is paid out over
+-- its tasks (the initiation / execution / completion curve), and how an
+-- award's area XP is split between areas. services/xp/ledger applies it to
+-- the notes; :ZortexXPGuide shows the numbers.
 local M = {}
 
 local constants = require("zortex.constants")
@@ -117,16 +118,31 @@ function M.project_points(size)
 	return M.hours("project", size)
 end
 
---- How an award's Mastery share is scaled: "key_result", "project_area",
---- "task_area" (anything else: 0).
-function M.alignment(kind)
-	local a = conf().alignment or {}
-	local defaults = { key_result = 1.0, project_area = 0.2, task_area = 0.1 }
-	local v = a[kind]
+--- The share of a piece of work's XP that goes to its areas (area XP,
+--- Mastery): xp.area_transfer, the same however the area was given.
+function M.area_transfer()
+	local v = tonumber(conf().area_transfer)
+	return v or 1.0
+end
+
+--- The share of a piece of work's XP that counts for the season when a key
+--- result links it: xp.season_transfer.
+function M.season_transfer()
+	local v = tonumber(conf().season_transfer)
+	return v or 1.0
+end
+
+--- The @area(…) value work without an area anywhere earns for
+--- (xp.default_area, "0.1"), or nil when that is off.
+function M.default_area_value()
+	local v = conf().default_area
 	if v == nil then
-		v = defaults[kind]
+		return "0.1"
 	end
-	return v or 0
+	if v == false or v == "" then
+		return nil
+	end
+	return tostring(v)
 end
 
 function M.completion_bonus()

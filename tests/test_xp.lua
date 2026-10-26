@@ -52,15 +52,13 @@ T.test("@size is hours (xp.sizes) x xp_per_hour; unsized and unknown sizes count
 	T.eq(calculator.calculate_task_xp({ attributes = { size = "5xl" } }), 200)
 	T.eq(calculator.task_points("nonsense"), 1)
 	T.eq(calculator.task_points(nil), 1)
-	T.eq(calculator.calculate_task_xp({ attributes = { size = "md", p = "1" } }), 15)
+	-- @p and @i rank work; by default they don't change XP
+	T.eq(calculator.calculate_task_xp({ attributes = { size = "md", p = "1", i = "1" } }), 10)
 	T.eq(calculator.calculate_project_total_xp({ attributes = { xp = 42 } }, {}), 42)
 	T.eq(calculator.calculate_project_total_xp({ attributes = { size = "lg" } }, {}), 200)
 	T.eq(calculator.hours("objective", "md"), 30)
-	T.eq(
-		{ calculator.alignment("key_result"), calculator.alignment("project_area"), calculator.alignment("task_area") },
-		{ 1.0, 0.2, 0.1 }
-	)
-	T.eq(calculator.alignment("nothing"), 0)
+	T.eq({ calculator.area_transfer(), calculator.season_transfer() }, { 1.0, 1.0 })
+	T.eq(calculator.default_area_value(), "0.1")
 end)
 
 T.test("objective value: @size, else its key results' projects, else md", function()
@@ -69,42 +67,45 @@ T.test("objective value: @size, else its key results' projects, else md", functi
 	for _, o in ipairs(okr.objectives()) do
 		by_title[o.title] = o
 	end
-	-- @sm: 10 hours, @p2 x1.2
+	-- @sm: 10 hours (its @p2 ranks it, it doesn't pay more)
 	local habits = by_title["Establish and maintain good habits/routine"]
 	T.eq({ calculator.objective_hours(habits) }, { 10, "size" })
-	T.ok(approx(calculator.objective_value(habits), 120))
-	-- no @size: 1.4 - zortex (@size(lg), 20h) + 1.4.1 (an sm task, 0.5h); @p1 x1.5
+	T.ok(approx(calculator.objective_value(habits), 100))
+	-- no @size: 1.4 - zortex (@size(lg), 20h) + 1.4.1 (an sm task, 0.5h)
 	local ship = by_title["Ship zortex projects"]
 	T.eq({ calculator.objective_hours(ship) }, { 20.5, "projects" })
-	T.ok(approx(calculator.objective_value(ship), 307.5))
-	T.ok(approx(calculator.calculate_objective_xp(ship), 61.5)) -- the 20% completion bonus
+	T.ok(approx(calculator.objective_value(ship), 205))
+	T.ok(approx(calculator.calculate_objective_xp(ship), 41)) -- the 20% completion bonus
 	T.eq({ calculator.objective_hours({ attributes = {}, key_results = {} }) }, { 30, "default" })
 end)
 
-T.test("project awards: pool over live and archived tasks, areas via key result", function()
+T.test("project awards: pool over live and archived tasks; area XP and season XP", function()
 	ledger.invalidate()
 	local entries, total = ledger.for_project(ZORTEX)
 	-- @size(lg): 20 hours = 200 XP over 6 tasks (5 live + 1 archived) ->
 	-- medium curve; 3 done = the initiation phase (25%)
 	T.eq(#entries, 3)
 	T.ok(approx(total, 200 * 0.25), tostring(total))
-	-- a key result links the project, so its area gets the whole award
+	-- a key result links the project: its area gets the whole award as area
+	-- XP, and the season the whole award as season XP
 	local to_area = 0
 	for _, e in ipairs(entries) do
 		to_area = to_area + (e.areas[AREA41] or 0)
 		T.eq(e.aligned, "kr")
 		T.ok(approx(e.mastery, e.xp))
+		T.ok(approx(e.season, e.xp))
+		T.eq(e.unassigned, nil)
 	end
 	T.ok(approx(to_area, 200 * 0.25), tostring(to_area))
-	-- plus the reached key result ("KR1: [x] Projects API"): 20% of the
-	-- objective's 307.5 XP over its 2 key results, to the objective's area
-	T.ok(approx(ledger.area_xp(AREA41), 200 * 0.25 + 30.75), tostring(ledger.area_xp(AREA41)))
+	-- the reached key result ("KR1: [x] Projects API") is season XP only:
+	-- the area has the work
+	T.ok(approx(ledger.area_xp(AREA41), 200 * 0.25), tostring(ledger.area_xp(AREA41)))
 	-- the parent gets 75% of it
 	local parent = require("zortex.services.areas").get("Areas/4 Learning & Education")
-	T.ok(approx(parent:total_xp(), 0.75 * (200 * 0.25 + 30.75)))
+	T.ok(approx(parent:total_xp(), 0.75 * (200 * 0.25)))
 end)
 
-T.test("key results: reached ones award their objective's areas", function()
+T.test("key results: reached ones are season XP, not area XP", function()
 	ledger.invalidate()
 	local krs = {}
 	for _, e in ipairs(ledger.get().entries) do
@@ -122,8 +123,11 @@ T.test("key results: reached ones award their objective's areas", function()
 		end
 	end
 	T.ok(projects_api, "KR1 Projects API")
-	T.ok(approx(projects_api.xp, 30.75), tostring(projects_api.xp))
-	T.ok(approx(projects_api.areas[AREA41], 30.75))
+	-- 20% of the objective's 205 XP over its 2 key results
+	T.ok(approx(projects_api.xp, 20.5), tostring(projects_api.xp))
+	T.ok(approx(projects_api.season, 20.5))
+	T.eq(projects_api.areas, {})
+	T.eq(projects_api.mastery, 0)
 end)
 
 T.test("objective areas come first for work on a key result", function()
@@ -160,11 +164,11 @@ T.test("a season is progress on its objectives; tiers are thresholds on it", fun
 	store.start_season("Test", "2026-03-31", "2026-01-01")
 	local s = season.status(store.started_season())
 	T.eq(#s.objectives, 2)
-	-- largest value first: Ship zortex (307.5, KR1 done, KR2 open: 50%),
-	-- habits (120: KR2 half its project's points, the others 0: 1/6)
+	-- largest value first: Ship zortex (205, KR1 done, KR2 open: 50%),
+	-- habits (100: KR2 half its project's points, the others 0: 1/6)
 	T.eq(s.objectives[1].objective.title, "Ship zortex projects")
-	T.ok(approx(s.objectives[1].share, 307.5 / 427.5))
-	local expected = (307.5 * 0.5 + 120 / 6) / 427.5
+	T.ok(approx(s.objectives[1].share, 205 / 305))
+	local expected = (205 * 0.5 + 100 / 6) / 305
 	T.ok(approx(s.progress, expected), tostring(s.progress))
 	T.eq(s.tier.name, "Bronze")
 	T.eq(s.next_tier.name, "Silver")
@@ -179,12 +183,15 @@ T.test("a season is progress on its objectives; tiers are thresholds on it", fun
 		end
 	end)
 	s = season.status(store.started_season())
-	T.ok(approx(s.progress, (307.5 + 20) / 427.5), tostring(s.progress))
-	T.eq(s.tier.name, "Gold")
-	local record = stats.end_season()
-	T.eq(record.final_tier, "Gold")
-	T.ok(approx(record.final_progress, (307.5 + 20) / 427.5))
+	local ok, err = pcall(function()
+		T.ok(approx(s.progress, (205 + 100 / 6) / 305), tostring(s.progress))
+		T.eq(s.tier.name, "Gold")
+		local record = stats.end_season()
+		T.eq(record.final_tier, "Gold")
+		T.ok(approx(record.final_progress, (205 + 100 / 6) / 305))
+	end)
 	restore()
+	assert(ok, err)
 
 	-- a season without objectives in its window has none to make progress on
 	store.start_season("Later", "2026-12-31", "2026-10-01")
@@ -231,7 +238,7 @@ T.test("a project marked @done pays out the rest of its pool", function()
 	restore()
 end)
 
-T.test("objectives marked @done earn area XP", function()
+T.test("objectives marked @done earn season XP", function()
 	local path = fs.get_okr_file()
 	local restore = edit(path, function(lines)
 		for i, l in ipairs(lines) do
@@ -248,11 +255,12 @@ T.test("objectives marked @done earn area XP", function()
 		end
 	end
 	T.ok(obj, "objective award")
-	-- 20% of the objective's 307.5 XP, all to 4.1
-	T.ok(approx(obj.xp, 61.5), tostring(obj.xp))
-	T.ok(approx(obj.areas[AREA41], 61.5))
-	T.eq(obj.aligned, "kr")
 	restore()
+	-- 20% of the objective's 205 XP, all season XP
+	T.ok(approx(obj.xp, 41), tostring(obj.xp))
+	T.ok(approx(obj.season, 41))
+	T.eq(obj.areas, {})
+	T.eq(obj.aligned, "kr")
 end)
 
 T.test("tasks checked by hand get @done on save", function()
@@ -296,7 +304,10 @@ T.test("publish: summary for the web app, written only when it changes", functio
 	publish._reset()
 	store.start_season("Pub", "2026-12-31", "2026-10-01")
 	local s = publish.summary()
-	T.eq(s.version, 2)
+	T.eq(s.version, 3)
+	T.ok(#s.days == 60 and s.days[60].season ~= nil, "60 days of totals")
+	T.ok(#s.area_tree > 0 and s.area_tree[1].key and s.area_total >= 0, vim.inspect(s.area_tree[1]))
+	T.eq(s.calibration.default_area, "0.1")
 	T.eq(s.season.name, "Pub")
 	T.ok(s.season.progress >= 0 and s.season.progress <= 1)
 	T.eq(#s.season.tiers, 5)
@@ -341,9 +352,10 @@ T.test(":ZortexXPGuide spells out the calibration from the config", function()
 	T.ok(text:find("  lg             2h      20   lg            20h     200   lg            60h     600\n", 1, true), text)
 	T.ok(text:find("  5xl           20h     200   ultimate   2,500h  25,000\n", 1, true), text)
 	T.ok(text:find("10: 9,993h", 1, true), text)
-	T.ok(text:find("@p1 ×1.5", 1, true), text)
-	T.ok(text:find("×0.2", 1, true) and text:find("×0.1", 1, true), text)
-	T.ok(text:find("earns 420 Mastery XP", 1, true), text)
+	T.ok(text:find("@p1 ×1", 1, true), text)
+	T.ok(text:find("100% of its XP (xp.area_transfer)", 1, true), text)
+	T.ok(text:find("@a(0.1) (xp.default_area)", 1, true), text)
+	T.ok(text:find("420 season XP, 300 area XP", 1, true), text)
 	T.ok(text:find("Bronze 25%", 1, true), text)
 
 	-- at the cursor: a project task and its project
@@ -356,7 +368,7 @@ T.test(":ZortexXPGuide spells out the calibration from the config", function()
 		end
 	end
 	local ctx = table.concat(guide.context(buf, lnum), "\n")
-	T.ok(ctx:find("Task (@xl): 3h → 30 XP ×1.5 = 45 XP", 1, true), ctx)
+	T.ok(ctx:find("Task (@xl): 3h → 30 XP", 1, true), ctx)
 	T.ok(ctx:find("Project 1.4 - zortex: 200 XP, 20h of estimated work (@lg: 20h)", 1, true), ctx)
 	T.ok(ctx:find("linked from a key result", 1, true), ctx)
 	local _, win = guide.show()
@@ -374,7 +386,7 @@ T.test(":ZortexXPGuide spells out the calibration from the config", function()
 	end
 	ctx = table.concat(guide.context(buf, lnum), "\n")
 	T.ok(not ctx:find("Task", 1, true), ctx)
-	T.ok(ctx:find("Objective Ship zortex projects: 21h (its key results' projects) → 308 XP · 50% done", 1, true), ctx)
+	T.ok(ctx:find("Objective Ship zortex projects: 21h (its key results' projects) → 205 XP · 50% done", 1, true), ctx)
 	vim.cmd("bwipeout!")
 end)
 

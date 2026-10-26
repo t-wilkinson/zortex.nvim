@@ -3,14 +3,18 @@
 -- The season (stores/xp: started by hand, else the calendar quarter) is a
 -- date window. Its objectives are the ones whose window overlaps it
 -- (3M-2026-Q4 for Q4 2026). Season progress is their progress weighted by
--- their value (calculator.objective_value: estimated hours x XP per hour x
--- priority x importance), so a large, important objective moves the season
--- more than a small one, and every task on a key result moves it a little.
--- Tiers are thresholds on that progress (xp.season.tiers); the last one is
--- every objective done.
+-- their value (calculator.objective_value: estimated hours x XP per hour),
+-- so a large objective moves the season more than a small one, and every
+-- task on a key result moves it a little. Tiers are thresholds on that
+-- progress (xp.season.tiers); the last one is every objective done.
+--
+-- Season XP is the XP earned in the season's window by work a key result
+-- links (and the key result and objective bonuses): the ledger's `season`
+-- share of each award. Work no key result reaches earns none, however much
+-- area XP it earns.
 --
 --   local S = require("zortex.services.xp.season")
---   S.status()   -- { season, progress, tier, tier_index, next_tier, objectives, value, days_left }
+--   S.status()   -- { season, progress, tier, tier_index, next_tier, objectives, value, season_xp, days_left }
 local M = {}
 
 local function cfg()
@@ -108,6 +112,18 @@ function M.status(season)
 	end
 	local progress = total > 0 and done / total or 0
 	local tier, index, nxt = M.tier_for(progress)
+	local season_xp = 0
+	local ok, l = pcall(function()
+		return require("zortex.services.xp.ledger").get({ cached = true })
+	end)
+	if ok and l then
+		local from, to = season.start_date or "0000-00-00", season.end_date or "9999-12-31"
+		for _, e in ipairs(l.entries) do
+			if e.date and e.date >= from and e.date <= to then
+				season_xp = season_xp + (e.season or 0)
+			end
+		end
+	end
 	return {
 		season = season,
 		progress = progress,
@@ -117,6 +133,7 @@ function M.status(season)
 		objectives = objectives,
 		value = total,
 		value_done = done,
+		season_xp = season_xp,
 		days_left = days_left(season.end_date),
 	}
 end

@@ -17,13 +17,18 @@ import (
 	"github.com/t-wilkinson/zortex.nvim/app/syntax"
 )
 
-// The domain views the plugin has in Neovim, read-only on the web:
+// The domain views the plugin has in Neovim, on the web:
 //
-//	/okr     objectives by period: progress against the time passed, their
-//	         key results and the projects behind them (services/okr)
-//	/review  the week: inbox, focus, objectives, what got done, what is due,
-//	         projects without a next action, time spent and XP
-//	         (ui/review's weekly findings)
+//	/okr               objectives by period: progress against the time
+//	                   passed, their key results and the projects behind them
+//	                   (services/okr)
+//	/review            the week: inbox, focus, objectives, what got done,
+//	                   what is due, projects without a next action, time
+//	                   spent and XP (ui/review's weekly findings); with
+//	                   -writable, its fixes (reviewapi.go): tick and date
+//	                   tasks, move inbox lines, pick the focus, write the
+//	                   week's entry
+//	/review?day=today  the daily review (reviewday.go)
 
 // areaLinks: links to the areas @a(...) values name.
 func (s *Server) areaLinks(values []string, from string) []linkedItem {
@@ -225,17 +230,21 @@ type reviewTask struct {
 	Done    string
 	PutOff  int
 	URL     string
+	// what the review's buttons need (-writable): the line and where it is
+	Rel    string
+	Lnum   int
+	Src    string
+	Open   bool   // an open task: tick it
+	Cal    bool   // on the calendar: put it on tomorrow
+	Dest   string // an inbox line's @project(…)
+	DestTo string // the project it names, "rel:lnum"
+	Inbox  bool   // a line of inbox.zortex (else marked @project elsewhere)
 }
 
 type reviewSpent struct {
 	Text    string
 	URL     string
 	Minutes int
-}
-
-type reviewInbox struct {
-	HTML template.HTML
-	URL  string
 }
 
 // weekBounds: the ISO week "2026-W42" (or today's when empty or invalid):
@@ -412,7 +421,20 @@ func (s *Server) weekNotes(week string) (template.HTML, string) {
 	return template.HTML(r.b.String()), s.noteURL(d.Rel, head.Start)
 }
 
+// planWeek: the week a weekly review held on `today` plans: this one, or
+// the next from Saturday on (review.next_week_from), as Neovim's.
+func planWeek(today time.Time) string {
+	if wd := today.Weekday(); wd == time.Saturday || wd == time.Sunday {
+		return isoWeek(today.AddDate(0, 0, 7))
+	}
+	return isoWeek(today)
+}
+
 func (s *Server) handleReview(w http.ResponseWriter, r *http.Request) {
+	if day := r.URL.Query().Get("day"); day != "" {
+		s.handleReviewDay(w, r, day)
+		return
+	}
 	now := time.Now()
 	week, monday, sunday := weekBounds(r.URL.Query().Get("week"), now)
 	from, to := monday.Format("2006-01-02"), sunday.Format("2006-01-02")
@@ -420,42 +442,35 @@ func (s *Server) handleReview(w http.ResponseWriter, r *http.Request) {
 	soon := now.AddDate(0, 0, 7).Format("2006-01-02")
 	all := s.allProjects()
 	krs := s.keyResults(all, now)
-
-	// inbox: what has no home yet
-	var inbox []reviewInbox
-	if d := s.ix.Doc(inboxRel); d != nil {
-		rr := &noteRenderer{s: s, doc: d}
-		for i, line := range d.Lines {
-			lnum := i + 1
-			if lnum <= d.Header().LastLnum || d.InCode(lnum) || strings.TrimSpace(line) == "" {
-				continue
-			}
-			it := syntax.ItemOf(line)
-			if it != nil && (it.Mark == "x" || it.Mark == "X") {
-				continue
-			}
-			col := 0
-			if it != nil {
-				col = it.ContentCol
-			}
-			inbox = append(inbox, reviewInbox{HTML: template.HTML(strings.TrimSpace(rr.entryHTML(line, lnum, col))), URL: s.noteURL(d.Rel, lnum)})
-		}
+	// the week the focus and notes go to: the one shown, or on a weekend
+	// looking at this week, the next (Neovim's weekly review plans it then)
+	plan := week
+	if r.URL.Query().Get("week") == "" {
+		plan = planWeek(now)
 	}
 
+	// inbox: what has no home yet
+	inbox := s.reviewInboxItems()
+
 	// focus and the projects without a next action
-	_, focus, earlier := s.focus(all, monday)
+	planMonday := monday
+	if plan != week {
+		_, planMonday, _ = weekBounds(plan, now)
+	}
+	focusWeek, focus, earlier := s.focus(all, planMonday)
 	focused := map[*webProject]bool{}
 	var focusRows []projectRow
 	for _, p := range focus {
 		focused[p] = true
 		focusRows = append(focusRows, s.row(p, focused, krs))
 	}
-	var quiet []projectRow
+	var quiet, active []projectRow
 	var completed, overdue, dueSoon, putOff []reviewTask
 	for _, p := range all {
 		pname, purl := p.Name, s.projectURL(p)
 		for _, t := range p.Tasks {
-			rt := reviewTask{Project: pname, PURL: purl, HTML: t.HTML, Due: t.Due, Done: t.DoneDate, PutOff: t.PutOff, URL: t.URL}
+			rt := reviewTask{Project: pname, PURL: purl, HTML: t.HTML, Due: t.Due, Done: t.DoneDate, PutOff: t.PutOff, URL: t.URL,
+				Rel: p.Rel, Lnum: t.Lnum, Src: t.Line, Open: !t.Done}
 			switch {
 			case t.Done:
 				if t.DoneDate >= from && t.DoneDate <= to {
@@ -470,12 +485,35 @@ func (s *Server) handleReview(w http.ResponseWriter, r *http.Request) {
 				putOff = append(putOff, rt)
 			}
 		}
-		if p.Root && len(p.Tasks) == 0 || p.isDone() || len(p.Children) > 0 {
+		if p.Root || p.isDone() {
+			continue
+		}
+		own := 0
+		for _, t := range p.Tasks {
+			if !t.Done {
+				own++
+			}
+		}
+		if own > 0 && !focused[p] {
+			active = append(active, s.row(p, focused, krs))
+		}
+		if len(p.Children) > 0 {
 			continue
 		}
 		if ru := p.rollup(); ru.Open == 0 {
 			quiet = append(quiet, s.row(p, focused, krs))
 		}
+	}
+	// the projects to pick the focus from: on key results first, then the
+	// most open work
+	sort.SliceStable(active, func(i, j int) bool {
+		if (len(active[i].KRs) > 0) != (len(active[j].KRs) > 0) {
+			return len(active[i].KRs) > 0
+		}
+		return active[i].Rollup.Open > active[j].Rollup.Open
+	})
+	if len(active) > 20 {
+		active = active[:20]
 	}
 	sort.SliceStable(completed, func(i, j int) bool { return completed[i].Done > completed[j].Done })
 	sort.SliceStable(overdue, func(i, j int) bool { return overdue[i].Due < overdue[j].Due })
@@ -518,14 +556,28 @@ func (s *Server) handleReview(w http.ResponseWriter, r *http.Request) {
 	hasXP = hasXP && !s.cfg.NoXP
 	broken := len(s.current().broken)
 
-	notesHTML, notesURL := s.weekNotes(week)
+	notesHTML, notesURL := s.weekNotes(plan)
+	labels := []string{"Wins", "Lessons"}
+	if d := s.reviewsDoc(); d != nil {
+		if from, to, ok := entryRange(d.Lines, plan, ""); ok {
+			labels = entryLabels(d.Lines, from, to)
+		} else {
+			labels = labelsOf(reviewTemplate(d.Lines, "weekly"))
+		}
+	}
 
 	prev, _, _ := weekBounds("", monday.AddDate(0, 0, -7))
 	next, _, _ := weekBounds("", monday.AddDate(0, 0, 7))
 	s.render(w, r, "review", http.StatusOK, map[string]any{
 		"Title":       "Review · " + week,
-		"NavTab":      "projects",
+		"Scope":       "week",
 		"Week":        week,
+		"PlanWeek":    plan,
+		"FocusWeek":   focusWeek,
+		"Active":      active,
+		"Writable":    s.cfg.Writable,
+		"MoveTargets": s.moveTargets(all),
+		"EntryLabels": labels,
 		"Range":       monday.Format("Jan 2") + " – " + sunday.Format("Jan 2, 2006"),
 		"ThisWeek":    week == isoWeek(now),
 		"Prev":        prev,

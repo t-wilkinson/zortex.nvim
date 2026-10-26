@@ -469,7 +469,18 @@ are areas, and the namespace is `A`.
   and `objectives({ descendants })`.
 - Module helpers: `from_attributes(attrs)` and `resolve_links(attrs)` (for
   `@area(...)` values), `keys_for(...)` (XP area keys for tasks, projects and
-  objectives; projects inherit areas from ancestors), `top(n)`, `get_area_tree()`.
+  objectives; projects inherit areas from ancestors), `top(n)`, `get_area_tree()`,
+  `value(area)` (the short `@area(…)` value naming it: `1.2`, `1.2/Fitness`),
+  `default_area()` / `is_default(area)` / `chosen(list)` (the area
+  `xp.default_area` names, where work without one earns; `chosen` leaves it
+  out, so the planner and the reviews don't count it as an area you chose).
+- `areas/assign`: finished work without an area. `unassigned(from, to)`
+  (from the ledger's `unassigned` awards: one item per project, its tasks
+  in `tasks`, one per loose task; archived notes left out), `set(item,
+  value)` (`@a(value)` on the project's heading or the task, one undoable
+  batch), `stamp(items)` (`@a(<default>)` on each, when the default area
+  resolves). The daily review lists them (`A`) and stamps the rest when it
+  closes.
 
 ### OKR — `services/okr/`
 
@@ -544,7 +555,8 @@ last `days`), `no_next_action` (leaf projects without tasks),
 `broken_links`, `put_off` (open tasks planned on two or more earlier days
 and not done, from `services/mirrors.copies`), `done_projects` (to archive),
 `unaligned_done` (tasks finished in the window that served neither a key
-result nor an area) and, for the weekly review, `vision` and `top_down`
+result nor an area), `unassigned` (finished work without an area, from the
+last daily review's day: `areas/assign.unassigned`) and, for the weekly review, `vision` and `top_down`
 (each area two levels deep with its vision, the current objectives naming
 it with their key results and the projects those link, and its projects no
 key result covers). Projects marked `@someday` are never stale or
@@ -594,10 +606,20 @@ XP is derived, not recorded (see [Planning.md](Planning.md)):
   project's pool paid out on the curve, live and archived tasks grouped by
   project key, dated by `@done`), other completed tasks (a cheap line scan of
   every note, not a full parse), key results reached, and objectives marked
-  `@done`. Each award carries `aligned` (`"kr"`, `"area"` or nil). It is cached
-  by the notes' mtimes / changedticks and rebuilt only when one changes.
+  `@done`. Each award carries its `xp` (estimated work), its area XP
+  (`areas`, summed in `mastery`: `xp × xp.area_transfer` over its areas, or
+  the default area when it has none, then `unassigned = true`), its season
+  XP (`season`: `xp × xp.season_transfer` when a key result links the
+  work, and the key-result and objective bonuses, which have no area XP)
+  and `aligned` (`"kr"`, `"area"` or nil; the default area doesn't make it
+  `"area"`). It is cached by the notes' mtimes / changedticks and rebuilt
+  only when one changes.
 - `xp/calculator` holds the formulas (task XP, project pool and curve,
-  objective XP, area shares); it is pure.
+  objective XP, area shares, `area_transfer`, `season_transfer`,
+  `default_area_value`); it is pure. Priority and importance multiply XP
+  only through `xp.modifiers`, 1 by default.
+- `xp/season` measures the season: its objectives' progress (tiers) and the
+  season XP of the awards in its window (`season_xp`).
 - `xp/core` rebuilds after `task:completed/uncompleted` and saves of notes,
   once no key has been pressed for a second (a rebuild blocks input),
   compares with the last totals and emits `xp:awarded/removed`,
@@ -800,8 +822,16 @@ After a section, its sub-sections, children first. `#`, `:` and `*` narrow to
 headings, labels and bold headings; `-` lists the section's list items (its
 own first). `[./` completes as if the parent line's link were typed
 (`link.parent_link`), so `[./-` under `09:00 [P/#1.4 - zortex]` lists that
-project's items. Every suggestion resolves.
+project's items. Every suggestion resolves. A bare `@` offers the tags in
+use, then the attributes (`attributes_help.lua`: `@due(`, `@a(`, … each
+with how it is written and what it does as its documentation).
 `get_completions(line, col, opts)` is the testable core.
+
+**Attribute help** (`attributes_help.lua`): one table of every attribute
+(its formats, what it goes on, what it does) for `:Zortex attributes` (a
+float), the completion documentation, and the web app (`tests/gen_docs.lua`
+writes it to `app/web/static/attributes.json`, which `/attributes` and the
+web editor's attribute chips read).
 
 **Hover preview:** with `ui.preview.on_hover = true`, resting the cursor on a
 link (`CursorHold`; `'updatetime'` is the delay) previews it without taking
@@ -831,7 +861,8 @@ earlier days) and **Areas**.
   then by adding signals (`planner.weights`): in the TODO project
   (`ui.planner.todo_link`, default `P/#TODOs`) 3, `@p1/2/3` 3/2/1, `@i1/2`
   2/1, overdue 4, due today 3, within 3 days 2, within a week 1, project
-  linked from an open KR 2 (up to 4 more when it is behind), put off 1 per
+  linked from an open KR 2 (up to 4 more when it is behind), with an area
+  you chose 1 (not the default `@a(0.1)`), put off 1 per
   earlier day it was on the calendar and not done (up to 5); overdue
   calendar tasks are included, except copies of project tasks (the task is
   listed).
@@ -842,6 +873,11 @@ earlier days) and **Areas**.
 - `planner.to_next_day(lnum)`: an open calendar task to the next day at the
   same time (`[>]` on the old line, a copy with its `@id`), the daily
   review's `t`.
+- A task's text in the plan (`planner.plain`) keeps its links' names
+  (`Read [./doc-1]` reads `Read doc-1`), so tasks that differ only by a link
+  stay apart; and when two tasks of a project would link the same
+  (`-Read`), `planner.task_link` links them by their `@id` (the copy gets
+  one), so the calendar copy points at the right task.
 - `P` (`planner.add_project`) copies the project's next
   `ui.planner.project_tasks` open tasks (or a count) under its block.
 - **Projects** that are OKR-linked or high priority/importance, **key
@@ -897,8 +933,9 @@ result survives `vim.json.encode`.
 
 **XP view** (`ui/xp.lua`, `:ZortexXP`): the season's objectives and tier
 from `xp/stats`, XP per day for two weeks with the share of that work on
-key results, areas only or neither (the ledger's `aligned`), projects in
-progress, recent awards and the area tree with levels from `total_xp`.
+key results, areas only or no area (the ledger's `aligned`), season XP,
+projects in progress, recent awards, the area XP of all areas and the area
+tree with levels from `total_xp`.
 `render()` is pure (lines, highlights, line → location); `<CR>` opens the
 line's source, `e` explains a project, `g` opens the guide. The highlight
 groups `ZortexMasteryLevel1..4` and `ZortexProgressBar` default-link to

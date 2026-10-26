@@ -268,6 +268,10 @@ local defaults = {
 		-- link like "P/#Areas" (a heading of the projects note for small
 		-- tasks that aren't projects); nil asks, with :ZortexMove's search
 		inbox_default = nil,
+		-- closing the daily review (q, or leaving its window) writes
+		-- @a(<xp.default_area>) on the finished work it listed with no area,
+		-- so the area it earned for is in the note. false: only A assigns
+		default_area_on_close = true,
 	},
 
 	-- XP is read off the notes (services/xp/ledger): completed tasks with their
@@ -321,20 +325,30 @@ local defaults = {
 			},
 		},
 
-		-- Mastery (area XP) = XP x how the work serves the plan
-		alignment = {
-			key_result = 1.0, -- a project a key result links (to the objective's areas first)
-			project_area = 0.2, -- a project with its own @area(...), no key result
-			task_area = 0.1, -- a task outside projects with @area(...)
-		},
+		-- Two measures, kept apart. Area XP (Mastery): the share of a piece of
+		-- work's XP its areas get, whatever the area came from (the objective
+		-- a key result links it to, the project's @area(…) or the task's).
+		area_transfer = 1.0,
+		-- Work with no area anywhere (task, project, objective): its area XP
+		-- goes to this area, an @area(…) value ("0.1" is [A/#0.1]; give
+		-- areas.zortex a "## 0.1 Unassigned" heading). The daily review lists
+		-- it so you can give it a real one, and writes @a(<this>) on what is
+		-- left when it closes (review.default_area_on_close). false: such work
+		-- earns no area XP.
+		default_area = "0.1",
+		-- Season XP: the share of a piece of work's XP that counts for the
+		-- season when a key result links it (its project or a project above
+		-- it). Work no key result reaches earns no season XP.
+		season_transfer = 1.0,
 
-		-- An award's Mastery share split over its areas, most specific first:
+		-- An award's area XP split over its areas, most specific first:
 		-- each area gets this ratio of the one before (1: even, 0.5: half,
 		-- 0.7: gently decaying)
 		area_split = 0.5,
 
 		-- Reaching a key result pays this share of its objective's XP (split
-		-- over its key results); completing the objective (@done) pays it again
+		-- over its key results) as season XP; completing the objective
+		-- (@done) pays it again. Bonuses are season XP only, not area XP.
 		completion_bonus = 0.2,
 
 		-- Areas: long-term mastery. Level L at base * L^exponent XP; with 10 XP
@@ -345,7 +359,7 @@ local defaults = {
 		},
 
 		-- Seasons: progress on the objectives that fall in the season, weighted
-		-- by their XP (size x priority x importance)
+		-- by their XP (their size), plus the season XP earned in its window
 		season = {
 			-- :ZortexSeason start names seasons "Season 10 Juniper": a number and a
 			-- word whose letter moves on with it. A list of your own words, or false
@@ -363,9 +377,12 @@ local defaults = {
 			},
 		},
 
+		-- @p and @i rank work (the planner, the projects picker); by default
+		-- they don't change XP (1 everywhere). Raise one (say [1] = 1.5) to
+		-- pay important work more.
 		modifiers = {
-			priority_multipliers = { [1] = 1.5, [2] = 1.2, [3] = 1.0, default = 1 },
-			importance_multipliers = { [1] = 1.5, [2] = 1.2, [3] = 1.0, default = 1 },
+			priority_multipliers = { [1] = 1.0, [2] = 1.0, [3] = 1.0, default = 1 },
+			importance_multipliers = { [1] = 1.0, [2] = 1.0, [3] = 1.0, default = 1 },
 		},
 	},
 }

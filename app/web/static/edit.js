@@ -371,6 +371,7 @@
     var save = document.createElement("button"); save.type = "submit"; save.textContent = "Save"; save.className = "primary";
     form.appendChild(save);
     form.appendChild(button("Cancel", "", closeBar));
+    form.appendChild(attrChips(input));
     form.addEventListener("submit", function (ev) {
       ev.preventDefault();
       if (!input.value.trim()) { input.focus(); return; }
@@ -380,6 +381,50 @@
     bar.appendChild(form);
     input.focus();
     input.setSelectionRange(input.value.length, input.value.length);
+  }
+
+  // Attributes a tap away: each chip puts "@due()" (or "@p1") at the
+  // cursor, the cursor inside its parentheses; its title says what it means
+  // (static/attributes.json, the plugin's attributes_help). "@ help" opens
+  // the whole list (/attributes) in a new tab, the edit kept.
+  var CHIPS = ["due", "area", "size", "p", "project", "notify", "dur"];
+  var helpData = null;
+  function loadHelp() {
+    if (helpData) return Promise.resolve(helpData);
+    return fetch(base + "/static/attributes.json", { credentials: "same-origin" })
+      .then(function (r) { return r.ok ? r.json() : { attributes: [] }; })
+      .then(function (d) { helpData = {}; (d.attributes || []).forEach(function (a) { helpData[a.key] = a; }); return helpData; })
+      .catch(function () { helpData = {}; return helpData; });
+  }
+  function attrChips(input) {
+    var row = document.createElement("div");
+    row.className = "attr-chips";
+    loadHelp().then(function (help) {
+      CHIPS.forEach(function (key) {
+        var a = help[key] || { insert: "@" + key + "(", formats: [] };
+        var b = document.createElement("button");
+        b.type = "button"; b.className = "chip";
+        b.textContent = a.insert.slice(-1) === "(" ? a.insert + "…)" : (key === "p" ? "@p1" : a.insert);
+        b.title = (a.formats || []).join("  ") + (a.desc ? "\n" + a.desc : "");
+        b.addEventListener("click", function () {
+          var ins = a.insert.slice(-1) === "(" ? a.insert + ")" : (key === "p" ? "@p1" : a.insert);
+          var v = input.value, at = input.selectionStart == null ? v.length : input.selectionStart;
+          var pre = v.slice(0, at), post = v.slice(at);
+          if (pre && !/\s$/.test(pre)) pre += " ";
+          input.value = pre + ins + (post && !/^\s/.test(post) ? " " : "") + post;
+          var cur = pre.length + (ins.slice(-1) === ")" ? ins.length - 1 : ins.length);
+          input.focus();
+          input.setSelectionRange(cur, cur);
+        });
+        row.appendChild(b);
+      });
+      var more = document.createElement("a");
+      more.href = base + "/attributes"; more.target = "_blank"; more.rel = "noopener";
+      more.className = "dim small"; more.textContent = "@ help";
+      more.title = "Every attribute and how it is written";
+      row.appendChild(more);
+    });
+    return row;
   }
 
   function editText(n) {

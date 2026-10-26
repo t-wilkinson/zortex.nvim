@@ -165,8 +165,10 @@ func defaultCalibration() calibration {
 			"2xl": 5, "3xl": 8, "4xl": 13, "5xl": 20,
 		},
 		DefaultSize: "md",
-		Priority:    map[string]float64{"1": 1.5, "2": 1.2, "3": 1},
-		Importance:  map[string]float64{"1": 1.5, "2": 1.2, "3": 1},
+		// @p and @i rank work; by default they don't change XP (Neovim's
+		// xp.modifiers, which the summary carries when set otherwise)
+		Priority:   map[string]float64{"1": 1, "2": 1, "3": 1},
+		Importance: map[string]float64{"1": 1, "2": 1, "3": 1},
 	}
 }
 

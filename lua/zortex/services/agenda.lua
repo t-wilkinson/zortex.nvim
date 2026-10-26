@@ -318,8 +318,13 @@ end
 ---   time                    time tracked on tasks in the window
 ---                           (services/time_spent)
 ---   areas_without_objective areas (two levels) no current objective names
+---                           (the default area, xp.default_area, left out)
 ---   unaligned               active projects with neither a key result nor
----                           an area
+---                           an area (the default area doesn't count)
+---   unassigned              finished work with no area (its area XP went
+---                           to the default area), from the day before the
+---                           window on (the last daily review's day):
+---                           services/areas/assign.unassigned
 ---   calendar                calendar entries in the window: { entries,
 ---                           tasks, done, open = { items } }
 ---   inbox                   what is left in inbox.zortex (M.inbox), then
@@ -336,9 +341,11 @@ function M.review(opts)
 	local days = opts.days or 7
 	local today = today_str(opts)
 	local past, future
+	local area_from
 	if scope == "day" then
 		past = opts.from or M.day_window(today)
 		future = add_days(today, 1)
+		area_from = M.area_window(today, past)
 	else
 		past = opts.from or add_days(today, -days)
 		future = add_days(today, days - 1)
@@ -348,6 +355,7 @@ function M.review(opts)
 		today = today,
 		from = past,
 		to = future,
+		area_from = area_from,
 		overdue = {},
 		due_soon = {},
 		completed = {},
@@ -450,7 +458,7 @@ function M.review(opts)
 		local active = vim.tbl_filter(function(p)
 			return not p:is_done()
 		end, area:projects({ descendants = true }))
-		if #active == 0 then
+		if #active == 0 and not M.default_only(area) then
 			table.insert(r.areas_without_projects, area)
 		end
 	end
@@ -551,6 +559,13 @@ function M.plan_findings(r, today)
 			r.unaligned_done[#r.unaligned_done + 1] = e
 		end
 	end
+	-- finished work with no area at all (its area XP went to the default
+	-- area): the daily review asks for one. From the last daily review's day
+	-- on, so what was finished after that review is asked about too.
+	local ok_u, unassigned = pcall(function()
+		return require("zortex.services.areas.assign").unassigned(r.area_from or r.from, today)
+	end)
+	r.unassigned = ok_u and unassigned or {}
 	local ok_s, season = pcall(function()
 		return require("zortex.services.xp.season").status()
 	end)
@@ -570,7 +585,7 @@ function M.plan_findings(r, today)
 	end
 	r.areas_without_objective = {}
 	for _, area in ipairs(require("zortex.services.areas").all({ include_roots = false })) do
-		if area.depth <= 2 and not named[area.key] then
+		if area.depth <= 2 and not named[area.key] and not M.default_only(area) then
 			local below = false
 			for key in pairs(named) do
 				if key:sub(1, #area.key + 1) == area.key .. "/" then
@@ -639,7 +654,7 @@ function M.plan_findings(r, today)
 			end
 		end
 		for _, area in ipairs(areas_mod.all({ include_roots = false })) do
-			if area.depth <= 2 then
+			if area.depth <= 2 and not (M.default_only(area) and not by_area[area.key]) then
 				local area_only = {}
 				for _, p in ipairs(area:projects({ descendants = area.depth == 2 })) do
 					local covered = false
@@ -700,7 +715,7 @@ function M.plan_findings(r, today)
 				on_kr = linked[x.key] == true
 				x = x.parent
 			end
-			if not on_kr and #p:areas({ inherit = true }) == 0 then
+			if not on_kr and #require("zortex.services.areas").chosen(p:areas({ inherit = true })) == 0 then
 				r.unaligned[#r.unaligned + 1] = p
 			end
 		end
@@ -766,6 +781,50 @@ function M.day_window(today)
 		from = today
 	end
 	return from
+end
+
+--- The first day the daily review asks about finished work without an
+--- area: the last daily review's day (work finished after it was reviewed),
+--- else the review's own window.
+function M.area_window(today, from)
+	local st = review_state():get()
+	local last = st.last_day
+	if last and last < from and last >= add_days(today, -7) then
+		return last
+	end
+	return from
+end
+
+--- The default area (xp.default_area), or an area holding nothing else: not
+--- a place to plan for, so the reviews don't ask for objectives or projects
+--- there.
+function M.default_only(area)
+	local A = require("zortex.services.areas")
+	local d = A.default_area()
+	if not d then
+		return false
+	end
+	if area.key == d.key then
+		return true
+	end
+	if not area:contains(d) then
+		return false
+	end
+	local function only(a)
+		if a.key == d.key then
+			return true
+		end
+		if #(a.children or {}) == 0 then
+			return false
+		end
+		for _, c in ipairs(a.children) do
+			if not only(c) then
+				return false
+			end
+		end
+		return true
+	end
+	return only(area)
 end
 
 --- Remember that the daily review covered from..today.

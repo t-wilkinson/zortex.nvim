@@ -38,11 +38,12 @@
   <label class="sr-only" for="inbox-text">Add to the inbox</label>
   <input type="text" id="inbox-text" name="text" placeholder="Add to inbox…" required>
   <div class="seg" role="radiogroup" aria-label="Kind">
-    <label><input type="radio" name="kind" value="task" checked> Task</label>
-    <label><input type="radio" name="kind" value="note"> Note</label>
+    <label><input type="radio" name="kind" value="note" checked> Note</label>
+    <label><input type="radio" name="kind" value="task"> Task</label>
   </div>
   <button type="submit">Add</button>
   <a class="dim small" href="{{noteURL "inbox.zortex" 0}}">inbox</a>
+  <a class="dim small" href="{{u "/attributes"}}" title="How to write @due(…), @a(…), @project(…) and the other attributes">@ help</a>
   <span class="small" id="inbox-status" role="status" aria-live="polite"></span>
 </form>
 {{end}}

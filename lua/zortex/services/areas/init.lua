@@ -87,6 +87,61 @@ function M.resolve_links(attrs)
 	return out
 end
 
+-- =============================================================================
+-- The default area (xp.default_area)
+-- =============================================================================
+
+--- The @area(…) value that names `area` the short way: "1.2" for a heading
+--- "1.2 Vitality" (its leading number), the heading itself otherwise, and
+--- "<heading>/<label>" for a label.
+function M.value(area)
+	if not area then
+		return nil
+	end
+	local function short(a)
+		return (a.name or ""):match("^(%d[%d%.]*)%f[%s%z]") or a.name
+	end
+	if area.kind == "heading" or area.kind == "bold_heading" or not area.parent or area.parent:is_root() then
+		return short(area)
+	end
+	local head = area.parent
+	while head.parent and not head.parent:is_root() and head.kind ~= "heading" and head.kind ~= "bold_heading" do
+		head = head.parent
+	end
+	return short(head) .. "/" .. area.name
+end
+
+--- The area work without one earns for (xp.default_area, @a(0.1)), or nil
+--- when that is off or names no area of areas.zortex.
+function M.default_area()
+	local value = require("zortex.services.xp.calculator").default_area_value()
+	if not value then
+		return nil
+	end
+	local attrs = require("zortex.utils.attributes").parse_attributes(
+		"@area(" .. value .. ")",
+		require("zortex.utils.attributes").schemas.task
+	)
+	return M.from_attributes(attrs)[1]
+end
+
+--- Is `area` the default area (xp.default_area)?
+function M.is_default(area)
+	local d = area and M.default_area()
+	return d ~= nil and d.key == area.key
+end
+
+--- `list` without the default area: areas someone chose.
+function M.chosen(list)
+	local d = M.default_area()
+	if not d then
+		return list
+	end
+	return vim.tbl_filter(function(a)
+		return a.key ~= d.key
+	end, list)
+end
+
 -- Unique area keys for a set of XP sources (tasks, projects, objectives).
 -- Projects inherit areas from their ancestors.
 function M.keys_for(...)

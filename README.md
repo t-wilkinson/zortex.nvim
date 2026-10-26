@@ -35,11 +35,12 @@ text you own and sync however you like.
   fills the calendar, focus and key-result work first, ranks up tasks put
   off again and again, and says when the day is full.
 - **XP that follows the plan**: finished tasks pay XP by their estimated
-  hours (10 XP = 1 hour of estimated work, shown next to every XP), work on
-  a project a key result links counts toward that
-  objective's areas, and the season is progress on this quarter's
-  objectives. Getting PARA work done shows up as OKR results, with no
-  bookkeeping.
+  hours (10 XP = 1 hour of estimated work, shown next to every XP), in two
+  measures kept apart: **area XP** (every piece of work, for the areas it
+  serves; work without one waits in `@a(0.1)` until the daily review gives
+  it a home) and **season XP** (only work a key result links, plus the
+  key-result bonuses), next to the season's progress on this quarter's
+  objectives. `@p`/`@i` rank work; they don't inflate XP.
 - **Pomodoro** shared by Neovim and the browser; its time goes to the
   calendar task you're on (`@spent(1h25m)`).
 - **Inbox**: jot a thought down from the web app (even offline, on your
@@ -53,7 +54,10 @@ text you own and sync however you like.
 - **Project pages**: progress, next tasks, the key results they move, a log
   of where you left off, the days they were on the calendar, and the notes
   and files they link; **objectives** against the time passed in their
-  period, and the **weekly review** to read anywhere.
+  period; **areas** with their XP, levels, objectives and projects; and the
+  **daily and weekly reviews** with their fixes (tick, tomorrow, due, move
+  the inbox, give work an area, pick the focus, write the entry), on your
+  phone.
 - A **note graph**: the Structure note as cards, the notes each one links
   with marked on hover, and the notes it doesn't reach.
 - **Other calendars in yours**: a family calendar's iCal link (Cozi,
@@ -249,10 +253,11 @@ Special notes:
 - **Reviews**: daily (`<leader>zr`, since the last one) and weekly
   (`<leader>zR`), written in `reviews.zortex` (a week's entry with its days
   inside) with the findings beside it. The daily review opens with how the
-  day's work served the plan (hours on key results, areas only, neither),
+  day's work served the plan (hours on key results, areas only, no area),
   then the inbox, focus, objectives and time; what wasn't done (`t`: same
-  time tomorrow) and what you finished that served nothing (`a`: archive
-  it). The weekly review reads top down: the vision, each area with its
+  time tomorrow) and what you finished without an area (`A`: give it one,
+  `a`: archive it; closing the review writes `@a(0.1)` on the rest). Both
+  reviews work on the web too, fixes included, for your phone. The weekly review reads top down: the vision, each area with its
   vision, objectives, key results and the projects they link, with the
   gaps marked where they are; then the week's focus (`f`, as many as you
   like), stale and unscheduled projects, done ones to archive, broken
@@ -274,10 +279,12 @@ Special notes:
 - **Planning and XP**: areas → objectives → key results → projects → tasks,
   a week's focus projects, a day planner that puts focus and key-result
   work first, daily and weekly reviews,
-  and XP that mirrors it (seasons for this quarter's objectives, Mastery for
-  areas; `xp = { enabled = false }` turns it off). `:ZortexXP` (`<leader>zxx`) shows it in one view: the season, the
+  and XP that mirrors it (season XP and progress for this quarter's
+  objectives, area XP for areas; `xp = { enabled = false }` turns it off). `:ZortexXP` (`<leader>zxx`) shows it in one view: the season, the
   last two weeks and how much of that work went to key results, projects
-  in progress, recent awards and the area tree. See
+  in progress, recent awards and the area tree with the area XP of all
+  areas. `:Zortex attributes` lists every `@attribute` and how it is
+  written (typing `@` completes them). See
   [doc/Planning.md](doc/Planning.md).
 - **Export** (`:ZortexExport`): the notes and the whole model as JSON.
 
@@ -391,7 +398,7 @@ require("zortex").setup({
 |---|---|---|---|
 | `:ZortexXP` | `<leader>zxx` | `xp` | Season, the last two weeks, projects in progress, recent awards and the area tree in one view |
 | `:ZortexXPExplain` | `<leader>zxe` | `xp_explain` | How the project at the cursor earned its XP |
-| `:ZortexXPGuide` | `<leader>zxg` | `xp_guide` | How XP is calibrated: hours per @size, Mastery, tiers |
+| `:ZortexXPGuide` | `<leader>zxg` | `xp_guide` | How XP is calibrated: hours per @size, area XP and season XP, tiers |
 | `:ZortexSeason …` |  | `season` | The season: `status` (default), `start [span] [name]` (a span like 3M-2026-Q4; without one it asks, the quarter filled in; adds the season's heading to the OKR note), `end` |
 
 **System**
@@ -400,7 +407,7 @@ require("zortex").setup({
 |---|---|---|---|
 | `:ZortexExport …` |  | `export` | Export notes and the model as JSON (default notes_dir/.z/export) |
 | `:ZortexDebug …` |  | `debug` | For finding problems: `status` (default; counts, state directory, timings), `logs [n]`, `level <LEVEL>`, `timers`, `clear` (logs and timers) |
-| `:Zortex …` |  | `zortex` | Zortex itself: `help` list commands and keys (default), `init` create the key notes that are missing (calendar, projects, areas, okr, structure, inbox), `reindex` rebuild the link index from scratch, `refold` recompute the folds of this note |
+| `:Zortex …` |  | `zortex` | Zortex itself: `help` list commands and keys (default), `attributes` what each @attribute means and how it is written, `init` create the key notes that are missing (calendar, projects, areas, okr, structure, inbox), `reindex` rebuild the link index from scratch, `refold` recompute the folds of this note |
 |  | `<leader>z?` | `help` | List commands and keys (`:Zortex`) |
 <!-- actions:end -->
 
@@ -437,6 +444,7 @@ the title, with the picker's own help key: telescope `<C-/>` (insert mode; `?` i
 | `u` | take the last change back (:ZortexUndo) |
 | `t` | a task left undone: same time tomorrow |
 | `a` | archive it: a finished task to z/archive.tasks.zortex, a done project to its archive |
+| `A` | give finished work without an area one (@a on its project or the task) |
 | `x` | tick the task |
 | `d` | set or move the task's @due |
 | `s` | put the task, or a block of the project, on a day |
@@ -653,7 +661,7 @@ From 1.0 on, the note format changes only in a major release.
   [app/README.md](app/README.md) has every flag
 - [doc/Projects.md](doc/Projects.md): projects and areas reference
 - [doc/Planning.md](doc/Planning.md): the plan (areas, OKRs, projects),
-  the daily and weekly loop, and how XP, Mastery and seasons work
+  the daily and weekly loop, and how XP (area XP and season XP) and seasons work
 - [doc/Architecture.md](doc/Architecture.md): how the plugin is built (syntax,
   documents, links, entities, domain, state, query API, UI) and the rules
   modules share

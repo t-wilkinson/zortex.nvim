@@ -62,7 +62,7 @@ objective.
 | weekly | **Weekly review.** Opens the week's entry in `reviews.zortex` (made when missing; on a weekend, the coming week's) beside the findings, top down: the inbox; then [the plan from the vision down](#the-weekly-review-top-down): the vision, each area with its vision, the objectives that name it against the time passed, their key results and the projects those link, and the area's projects no key result covers, with the gaps marked where they are; then [the week](#the-week): its focus projects, tasks put off again and again, and the active projects to pick the focus from (`f`); XP and time over seven days; overdue and due tasks, stale and unscheduled projects, projects without a next action, done projects to archive, the alignment gaps again as lists, broken links. Every line links to its source and has its [fix one key away](#review-keys); what you write goes in the note; `?` lists the keys. | `:ZortexReview` (`<leader>zR`) |
 | morning | **Plan the day.** Write the day's `Outcomes:` first ([the day](#the-day-on-the-calendar)): the two or three results that would make it a success, each serving a key result or a focus project where it can. Yesterday's open tasks come along ([carried forward](#the-day-on-the-calendar)). Today's calendar next to what's [coming up](#coming-up) and ranked candidates: the week's focus projects and their tasks first; then tasks on key results, the further their key result is behind schedule the higher; then tasks of projects that only have an area; then the rest. Due dates, priority, the TODO project and how often a task was put off add on top. Key results are listed most behind first, areas without a current objective first. A project a key result links keeps the rest of its tree under it, folded: its other open tasks and each sub-project with its own (`zo` opens one). Put tasks (`p`) and projects (`P`, with their next three tasks) on the day, until the [capacity line](#capacity) says the day is full, and check how much of it is on key results. | `:ZortexPlan` (`<leader>zp`) |
 | during | **Work.** Tick tasks on the calendar or a project's page (Neovim or the web); their copies are ticked with them. On the web home page the clocks (pomodoro, timer, stopwatch) count against the task you're working on, by default the first open task of the current calendar block, and add it to its `@spent(...)`. Before you stop, a line in the project's log (its web page, or a `Log:` label in the note) says where you left off. | `zortex serve` |
-| evening | **Daily review.** Opens the day's entry in `reviews.zortex` (inside its week) beside the findings since the last daily review (a skipped evening rolls into the next, at most a week): first how the work done served the plan (`Work done: 3h30m · 60% on key results · 25% on areas only · 15% on neither`); what is left in the inbox (from Neovim or the web app's "Add to inbox"), with `m` to move each line to its project (an inbox line or any task marked `@project(1.4)`; without one, to `review.inbox_default` or a place you pick), the week's focus, tasks put off, objectives and key results against the time passed, XP earned, time spent per task, what you completed, what wasn't done (`t` puts it on tomorrow at the same time; tomorrow's plan carries the rest), what you finished that served neither a key result nor an area (`a` archives it to `z/archive.tasks.zortex`, or give it a home with `@project`), overdue, due by tomorrow. | `:ZortexReview day` (`<leader>zr`) |
+| evening | **Daily review.** Opens the day's entry in `reviews.zortex` (inside its week) beside the findings since the last daily review (a skipped evening rolls into the next, at most a week): first how the work done served the plan (`Work done: 3h30m · 60% on key results · 25% on areas only · 15% with no area`); what is left in the inbox (from Neovim or the web app's "Add to inbox"), with `m` to move each line to its project (an inbox line or any task marked `@project(1.4)`; without one, to `review.inbox_default` or a place you pick), the week's focus, tasks put off, objectives and key results against the time passed, XP earned, time spent per task, what you completed, what wasn't done (`t` puts it on tomorrow at the same time; tomorrow's plan carries the rest), what you finished with no area (its area XP goes to the default area, `@a(0.1)`; `A` gives it a real one: a project's tasks on its heading, a loose task on its line; `a` archives a task), overdue, due by tomorrow. Closing the review writes `@a(0.1)` on what is still without an area ([Area XP](#area-xp-and-season-xp)). The web app has the same review, with its fixes, for your phone ([Web](Web.md#reviews)). | `:ZortexReview day` (`<leader>zr`) |
 
 "Behind schedule" is the share of the objective's window that has passed
 minus the key result's progress: a key result at 20% when half the quarter
@@ -115,7 +115,8 @@ On a line of either review:
 | `t` | a task not done (daily review) | puts it on the next day at the same time (`[>]` on the old line) |
 | `n` | a project | adds a next action to it |
 | `z` | a project | parks it (`@someday`: no longer stale or unscheduled), or brings it back |
-| `a` | a done project / a finished task on neither a key result nor an area | moves the project to its note's archive / the task to `z/archive.tasks.zortex` |
+| `a` | a done project / a finished task without an area | moves the project to its note's archive / the task to `z/archive.tasks.zortex` |
+| `A` | finished work without an area (daily review) | gives it an area, picked from `areas.zortex`: `@a(…)` on the project's heading (its sub-projects inherit it), or on a loose task |
 | `f` | a project | adds it to the week's focus, or takes it out |
 | `L` | a key result | links a project to it (picked from the active ones) |
 | `R` | an objective | adds a key result |
@@ -388,8 +389,10 @@ whose link points at another task); so does the web app's `/broken`.
 XP is **estimated work**: **10 XP = 1 hour of estimated work**
 (`xp.xp_per_hour`). `@size` says how long something takes, in hours
 (`xp.sizes`); wherever XP is shown, its hours are next to it. Priority
-(`@p1` ×1.5, `@p2` ×1.2) and importance (`@i1`, `@i2`) multiply it. One scale
-for everything:
+(`@p1`) and importance (`@i1`) rank work (the planner, the projects
+picker); they don't change XP unless you say so
+(`xp.modifiers.priority_multipliers`, `importance_multipliers`: 1 by
+default). One scale for everything:
 
 | `@size` | task | project | objective |
 |---|---|---|---|
@@ -411,46 +414,84 @@ rewards finishing what you planned, not hours logged. **`:ZortexXPGuide`
 (`<leader>zxg`) shows these tables from your own config**, and what the task,
 project or objective at the cursor is worth.
 
-Two measures come out of it:
+What changes a piece of work's XP: its `@size` (or its share of a task
+group's, or its project's pool), `@xp(n)`, the size a calendar block gives
+an unsized timed task, and the multipliers if you set them. Where it is
+linked doesn't change its XP; it decides which of the two measures below
+it counts for.
 
-1. **Mastery** (areas): long-term growth. Every award has a Mastery share
-   that depends on how the work serves the plan (`xp.alignment`), split over
-   the areas it is linked to. Each area levels up over years: level `L` at
-   `316 × L^2.5` XP, so level 2 is about 180 hours of aligned work and level
-   10 about 10,000. An area's total is its own XP plus `area.bubble` (75%) of
-   each sub-area's.
-2. **Seasons**: progress on this period's objectives. A season is the
-   calendar quarter, or a span you start with `:ZortexSeason start
-   3M-2026-Q4` (written like an objective's; the quarter by default). It is
-   named `Season 10 Juniper`, a number and a word whose letter moves on with
-   it (`xp.season.names`), and adds its heading to `okr.zortex`,
-   `# 3M-2026-Q4 Season 10 Juniper`, to put that season's objectives under;
-   the heading only groups them. Its progress is the progress of the objectives in it,
-   weighted by their XP, so a large, important objective moves it more than a
-   small one. Tiers are thresholds on that progress (Bronze 25%, Silver 50%,
-   Gold 70%, Platinum 85%, Complete 100%: every objective done).
+### Area XP and season XP
 
-So the season measures how far you got with what you planned, and Mastery
-how much work you pointed at your areas, with the most for work on key
-results. Both are read off the same notes and move the day the work is done.
+Every award counts twice, separately:
+
+1. **Area XP** (Mastery): long-term growth. All of a piece of work's XP
+   (`xp.area_transfer`, 1.0) goes to the areas it is linked to, however
+   it got the area: the objective a key result links its project to, the
+   project's own (or a parent project's) `@area(…)`, the task's own.
+   Each area levels up over years: level `L` at `316 × L^2.5` XP, so level
+   2 is about 180 hours of work and level 10 about 10,000. An area's total
+   is its own XP plus `area.bubble` (75%) of each sub-area's.
+2. **Season XP**: progress on this period's plan. Work counts for the season
+   (all of its XP, `xp.season_transfer`, every time) only when a key result
+   links its project, or a project above it; everything else earns none,
+   however much area XP it earns. Reaching a key result and finishing an
+   objective add their bonuses here (season XP only: the work behind them
+   already paid its areas).
+
+**Work without an area.** A task or project with no area anywhere (not its
+own, not its project's, not through an objective) earns its area XP for the
+default area, `@a(0.1)` (`xp.default_area`; `false` turns that off and such
+work earns no area XP). Give `areas.zortex` a heading for it:
+
+```
+# 0 General
+## 0.1 Unassigned
+```
+
+The daily review lists what was finished that way since the last daily
+review (a project's tasks together under the project), so you can give it a
+real area (`A`, or **Give it an area** on the web); a project's area goes on
+its heading. When the review closes (`q`, or leaving its window; **Finish
+review** on the web), what is still without an area gets `@a(0.1)` written
+on it (on the project's heading, or the loose task), so the note says where
+its XP went (`review.default_area_on_close`). The reviews and the planner
+don't count the default area as an area you chose: such work still ranks
+and reports as "no area", and the review doesn't ask for objectives or
+projects in it.
+
+**Seasons.** A season is the calendar quarter, or a span you start with
+`:ZortexSeason start 3M-2026-Q4` (written like an objective's; the quarter
+by default). It is named `Season 10 Juniper`, a number and a word whose
+letter moves on with it (`xp.season.names`), and adds its heading to
+`okr.zortex`, `# 3M-2026-Q4 Season 10 Juniper`, to put that season's
+objectives under; the heading only groups them. Its progress is the
+progress of the objectives in it, weighted by their XP, so a large
+objective moves it more than a small one. Tiers are thresholds on that
+progress (Bronze 25%, Silver 50%, Gold 70%, Platinum 85%, Complete 100%:
+every objective done). Next to it, the season XP earned in its window.
+
+So the season measures how far you got with what you planned, and area XP
+how much work you did in each area. Both are read off the same notes and
+move the day the work is done.
 
 ### Where XP comes from
 
-| source | when | worth | Mastery |
-|---|---|---|---|
-| **Project task** | a task in a project is checked; dated by its `@done(...)` | the project's pool, paid out over its tasks on the curve below | ×1.0 when a key result links the project (`alignment.key_result`), else ×0.2 when it has an `@area(…)` (`alignment.project_area`) |
-| **Project done** | the project heading is marked `@done(...)` | whatever of the pool the curve hasn't paid yet | as above |
-| **Key result** | its linked projects are all done, or it is checked; dated by its `@done` or the last completion | 20% (`completion_bonus`) of its objective's XP, split over the objective's key results | ×1.0, to the objective's areas |
-| **Objective** | marked `@done(...)` | 20% of its XP | ×1.0, to its areas |
-| **Task** | a checked task anywhere else (calendar, any note); a calendar copy of a project task (same `@id`) is that project task instead | its hours × 10 × priority × importance | ×0.1 (`alignment.task_area`) to its own `@area(...)` |
+| source | when | worth | area XP | season XP |
+|---|---|---|---|---|
+| **Project task** | a task in a project is checked; dated by its `@done(...)` | the project's pool, paid out over its tasks on the curve below | all of it, to its areas (else the default area) | all of it when a key result links the project (`season_transfer`) |
+| **Project done** | the project heading is marked `@done(...)` | whatever of the pool the curve hasn't paid yet | as above | as above |
+| **Task** | a checked task anywhere else (calendar, any note); a calendar copy of a project task (same `@id`) is that project task instead | its hours × 10 | all of it, to its own `@area(...)` (else the default area) | none |
+| **Key result** | its linked projects are all done, or it is checked; dated by its `@done` or the last completion | 20% (`completion_bonus`) of its objective's XP, split over the objective's key results | none | all of it |
+| **Objective** | marked `@done(...)` | 20% of its XP | none | all of it |
 
 An md objective (30 hours, 300 XP) finished through its key results earns
-300 for the work, 60 for its key results and 60 when you mark it done: 420
-Mastery XP. The same 30 hours on projects with only an `@area` earn 60.
+300 area XP for the work, and 300 + 60 for its key results + 60 when you
+mark it done: 420 season XP. The same 30 hours on projects with only an
+`@area` earn 300 area XP and no season XP.
 
-**Which areas.** An award's Mastery share is split over its areas, first
-listed first, each getting `xp.area_split` of the one before (0.5 by
-default: ½, ¼, …; 1 splits evenly, 0.7 decays gently):
+**Which areas.** An award's area XP is split over its areas, first listed
+first, each getting `xp.area_split` of the one before (0.5 by default: ½,
+¼, …; 1 splits evenly, 0.7 decays gently):
 
 - work on a project a key result links: the objectives' areas, then the
   project's own (or inherited) `@area`, then the task's;
@@ -471,8 +512,7 @@ default: ½, ¼, …; 1 splits evenly, 0.7 decays gently):
 Sized tasks share in proportion to their sizes (unsized ones count as md, a
 sub-group as its own total), so the group's size wins either way; a group
 without `@size` is the sum of its tasks. The group adds nothing of its own:
-progress, project pools and XP count its tasks, each paid its share (with the
-group's priority and importance when it has none of its own). Checking the
+progress, project pools and XP count its tasks, each paid its share. Checking the
 group checks its open tasks, checking its last open task checks it, and
 reopening a task reopens the groups above it; reopening the group leaves its
 tasks as they are. The planner offers the group, not its tasks ("4 of 6 tasks
@@ -480,8 +520,8 @@ open"), and its calendar copy weighs what is left of it: tick the tasks in
 the note (follow the copy's link). Indentation makes the group, through other
 lines (a label or a link between them is fine); a heading ends it.
 
-A project's **pool** is `@xp(n)` when given, else its `@size` in hours × 10
-(× priority × importance), else the sum of its tasks' XP. Tasks
+A project's **pool** is `@xp(n)` when given, else its `@size` in hours × 10,
+else the sum of its tasks' XP. Tasks
 moved to `z/archive.*` still count under the same project, so archiving never
 takes XP away.
 
@@ -502,8 +542,8 @@ is paid its share).
 
 **Dates.** Toggling a task adds `@done(today)`. A task checked by hand gets
 `@done(today)` when the note is saved, if it was newly checked in that edit
-(`xp.stamp_done_on_save`). Completions without a date count for Mastery but
-not for the reviews.
+(`xp.stamp_done_on_save`). Completions without a date count for area XP but
+not for the reviews or the season.
 
 ### Read off the notes
 
@@ -521,16 +561,18 @@ device.
 |---|---|
 | `:ZortexPlan` (`<leader>zp`) | plan a day |
 | `:ZortexReview day` / `:ZortexReview` | daily / weekly review |
-| `:ZortexXPGuide` (`<leader>zxg`) | how XP is calibrated: hours per `@size`, Mastery, tiers; and what the line at the cursor is worth |
-| `:ZortexXP` (`<leader>zxx`) | one view: the season's objectives and tier, XP per day for two weeks and how much of that work went to key results, areas only or neither, projects in progress, recent awards, the area tree (`<CR>` opens a line's source, `e` explains a project, `g` the guide) |
+| `:ZortexXPGuide` (`<leader>zxg`) | how XP is calibrated: hours per `@size`, area XP and season XP, tiers; and what the line at the cursor is worth |
+| `:ZortexXP` (`<leader>zxx`) | one view: the season's objectives, tier and season XP, XP per day for two weeks and how much of that work went to key results, areas only or no area, projects in progress, recent awards, the area XP of all areas and the area tree (`<CR>` opens a line's source, `e` explains a project, `g` the guide) |
 | `:ZortexXPExplain` (`<leader>zxe`) | how the project at the cursor earned its XP, award by award |
 | `:ZortexSeason start [span] [name]` / `end` / `status` | a season of your own instead of the quarter (`start 6M-2026-H2`; without a span it asks, the quarter filled in); `start` adds its heading to `okr.zortex` |
 
 On the web, the home page of `zortex serve` shows the season (progress,
-tier, its objectives), Mastery XP per day for two weeks, top areas and recent
-awards. Tasks completed on the web are listed as pending, with the XP they
-are estimated to earn (hours × XP per hour × priority × importance, from
-the calibration in the summary), until Neovim counts them. Neovim
+tier, its objectives, its season XP), area XP per day for two weeks, top
+areas and recent awards; `/areas` every area with its XP and level, the
+area XP of all of them together, and each area's objectives and projects.
+Tasks completed on the web are listed as pending, with the XP they are
+estimated to earn (hours × XP per hour, from the calibration in the
+summary), until Neovim counts them. Neovim
 publishes that summary after every change (`.z/xp_summary.<device>.json`, and
 `POST /api/xp` when `server.enabled`; `xp.publish = false` turns it off). The
 server writes time tracked per day to `.z/time_spent.json`, which the daily
@@ -538,32 +580,41 @@ review reads.
 
 From Lua: `require("zortex").query.xp()` (plain data: season, areas, daily
 XP, recent awards), `require("zortex.services.xp.season").status()` (the
-season's objectives, progress and tier), `require("zortex.services.xp.ledger").get()` (every
-award, each with `aligned` = `"kr"`, `"area"` or nil),
+season's objectives, progress, tier and `season_xp`), `require("zortex.services.xp.ledger").get()` (every
+award: `xp`, `areas` and `mastery` (area XP), `season` (season XP),
+`aligned` = `"kr"`, `"area"` or nil, `unassigned` when its area XP went to
+the default area), `require("zortex.services.areas.assign").unassigned(from, to)`
+(finished work without an area),
 `require("zortex.services.agenda").review({ scope = "day" })` (the review's
-data). Events: `xp:awarded`, `xp:removed` (Mastery), `season:tier_reached`,
+data). Events: `xp:awarded`, `xp:removed` (area XP), `season:tier_reached`,
 `area:leveled_up`.
 
 ## Configuration
 
 `Config.xp` (see `lua/zortex/config.lua`): `enabled` (false: no XP,
-Mastery, seasons or tiers in Neovim, and their commands and keys go;
+area XP, seasons or tiers in Neovim, and their commands and keys go;
 `@size` still weighs progress; the server's `-xp=false` hides them on the
 web), `xp_per_hour`,
-`sizes.task|project|objective` (hours per `@size`), `alignment.key_result|project_area|task_area`,
+`sizes.task|project|objective` (hours per `@size`), `area_transfer` (1.0),
+`season_transfer` (1.0), `default_area` (`"0.1"`, or false), `area_split`,
 `completion_bonus`, `area.level_curve`, `area.bubble`, `season.tiers`
 (`{ name, at }`, `at` a share of the season's objectives), `season.follow_quarter`,
-`modifiers.priority_multipliers|importance_multipliers`,
+`modifiers.priority_multipliers|importance_multipliers` (1 by default: `@p`
+and `@i` only rank work; `{ [1] = 1.5 }` pays `@p1` work half again),
 `stamp_done_on_save`, `notify_min`. The task sizes are also the effort points
 that weigh project and key-result progress; a size the config doesn't list
 counts as md. The planner's weights are `require("zortex.services.planner").weights`.
+`Config.review.default_area_on_close` (true) writes `@a(<default_area>)` on
+what the daily review listed without an area when it closes. The old
+`xp.alignment` shares (Mastery ×1 / ×0.2 / ×0.1) are gone; `:checkhealth
+zortex` warns when a config still sets them.
 
 ## Keeping it honest
 
 The risk of any points system is optimizing for points (Goodhart's law). The
 XP here only follows work you planned, and pays most for work on what you
-said matters this quarter. Inflating a size does raise its XP, but then
-Mastery stops meaning hours of real work, which is the only thing that makes
+said matters this quarter (season XP). Inflating a size does raise its XP, but then
+area XP stops meaning hours of real work, which is the only thing that makes
 it worth reading; the guide's table is there to keep estimates honest and
 comparable. When an estimate turns out wrong, change the size (or set
 `@xp(n)`) and every total follows. Use it as a mirror in the reviews, not as a

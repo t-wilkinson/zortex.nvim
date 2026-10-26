@@ -26,12 +26,13 @@ func TestPendingXPEstimate(t *testing.T) {
 		_ = json.Unmarshal([]byte(expect(t, ts, "/api/xp", 200)), &x)
 		return x
 	}
-	// the copy: xl (3h) x 10 XP/h x 1.5 (@p1) = 45, titled as the project task
+	// the copy: xl (3h) x 10 XP/h = 30 (@p1 ranks it, it doesn't pay more by
+	// default), titled as the project task
 	if code, out := postJSON(t, ts.URL, "/api/edit", map[string]any{"rel": "calendar.zortex", "lnum": 4, "expect": copyLine, "op": "done"}); code != 200 {
 		t.Fatalf("%d %v", code, out)
 	}
 	x := xp()
-	if x["pending_web"].(float64) != 1 || x["pending_xp"].(float64) != 45 {
+	if x["pending_web"].(float64) != 1 || x["pending_xp"].(float64) != 30 {
 		t.Fatalf("copy: %v", x)
 	}
 	if task := x["pending_tasks"].([]any)[0].(map[string]any); task["title"] != "Improve website" || task["hours"].(float64) != 3 {
@@ -54,5 +55,10 @@ func TestPendingXPEstimate(t *testing.T) {
 	postJSON(t, ts.URL, "/api/edit", map[string]any{"rel": "calendar.zortex", "lnum": 5, "expect": lines[4], "op": "done"})
 	if x = xp(); x["pending_xp"].(float64) != 10 { // sm: 0.5h x 20
 		t.Fatalf("calibrated: %v", x)
+	}
+	// Neovim's multipliers, when its xp.modifiers sets them, still apply
+	c := calibrationOf([]byte(`{"calibration": {"priority": {"1": 1.5}}}`))
+	if got := c.taskXP("xl", "1", ""); got != 45 {
+		t.Fatalf("@p1 x1.5 from the summary: %v", got)
 	}
 }

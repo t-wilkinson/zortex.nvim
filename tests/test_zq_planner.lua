@@ -55,8 +55,36 @@ T.test("put: spacing, markers, blank lines", function()
 	T.eq(planner.put("", 0, "Read"), "- Read")
 	T.eq(planner.put("  ", 1, "Read"), "  - Read")
 	T.eq(planner.put("a b", 0, "X"), "a X b")
-	T.eq(planner.plain("Search works [P/#1.4.1] now"), "Search works now")
+	-- a bare link reads as its name, so tasks that differ by a link stay apart
+	T.eq(planner.plain("Search works [P/#1.4.1] now"), "Search works 1.4.1 now")
+	T.eq(planner.plain("Read [./doc-1]"), "Read doc-1")
+	T.eq(planner.plain("Read [./doc-2]"), "Read doc-2")
+	T.eq(planner.plain("Read [z/books/type-theory.pdf]"), "Read type-theory.pdf")
+	T.eq(planner.plain("Fix [P/#2 Home/#2.1 Garden/-Water it]"), "Fix Water it")
 	T.eq(planner.plain("Read [the book](R/#Rust) now"), "Read the book now", "a link's text stays")
+	-- a key result's links name the projects listed under it: they go
+	T.eq(planner.plain("Search works [P/#1.4.1] now", { drop_links = true }), "Search works now")
+end)
+
+T.test("tasks that read the same link by their @id", function()
+	local project = {
+		link = "[P/#1 Reading]",
+		tasks = function()
+			return {
+				{ raw_text = "- [ ] Read [./doc-1] @id(aaa01)", attributes = { id = "aaa01" } },
+				{ raw_text = "- [ ] Read [./doc-2]", attributes = {} },
+				{ raw_text = "- [ ] Write it up", attributes = {} },
+			}
+		end,
+	}
+	local list = project:tasks()
+	project.tasks = function()
+		return list
+	end
+	T.eq({ planner.task_link(project, list[1]) }, { "[P/#1 Reading/-aaa01]", "-aaa01", true })
+	-- no @id yet: the copy gets one (copy_text), and links by it
+	T.eq({ planner.task_link(project, list[2]) }, { "[P/#1 Reading/-Read]", "-Read", true })
+	T.eq({ planner.task_link(project, list[3]) }, { "[P/#1 Reading/-Write it up]", "-Write it up", false })
 end)
 
 T.test("templates by weekday", function()

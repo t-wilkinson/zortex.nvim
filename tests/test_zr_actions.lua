@@ -144,6 +144,17 @@ T.test("README command table is up to date", function()
 	T.eq(gen.render_readme(lines), lines, "regenerate with: nvim --headless -u NONE -l tests/gen_docs.lua")
 end)
 
+T.test("the web app's attribute help is up to date", function()
+	local gen = dofile(T.root .. "/tests/gen_docs.lua")
+	T.eq(gen.attributes_lines(), vim.fn.readfile(gen.attributes), "regenerate with: nvim --headless -u NONE -l tests/gen_docs.lua")
+	-- valid JSON, every entry with an example and a description
+	local data = vim.json.decode(table.concat(vim.fn.readfile(gen.attributes), "\n"))
+	T.ok(#data.attributes > 10)
+	for _, e in ipairs(data.attributes) do
+		T.ok(#e.formats > 0 and e.desc ~= "", e.key)
+	end
+end)
+
 T.test(":help zortex is up to date and its tags are valid", function()
 	local gen = dofile(T.root .. "/tests/gen_docs.lua")
 	T.eq(gen.vimdoc_lines(), vim.fn.readfile(gen.vimdoc), "regenerate with: nvim --headless -u NONE -l tests/gen_docs.lua")

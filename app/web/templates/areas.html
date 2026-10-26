@@ -1,0 +1,49 @@
+{{define "areaNode"}}
+<li class="area area-d{{.Depth}}{{if .Default}} is-default{{end}}">
+  <div class="area-head">
+    <a class="area-name" href="{{.URL}}">{{.Name}}</a>
+    {{if .Default}}<span class="pill" title="Work finished with no area earns here (xp.default_area): the daily review asks for a better one">unassigned work</span>{{end}}
+    {{if .HasXP}}{{if .TotalXP}}<span class="pill tier">Lvl {{.Level}}</span>{{end}}{{end}}
+    <span class="area-xp small dim nums">{{if .HasXP}}{{if .TotalXP}}{{printf "%.0f" .TotalXP}} XP · {{hours .Hours}}{{if .Subtree}} <span title="its own, without its sub-areas'">({{printf "%.0f" .XP}} own)</span>{{end}}{{else}}no XP yet{{end}}{{end}}</span>
+  </div>
+  {{if .HasXP}}{{if .TotalXP}}<div class="meter thin" title="{{.ProgressPercent}}% to level {{inc .Level}} · {{printf "%.0f" .ToNext}} XP to go"><div class="meter-fill" style="width: {{.ProgressPercent}}%"></div></div>{{end}}{{end}}
+  {{with .Vision}}<p class="area-vision small">{{.}}</p>{{end}}
+  {{if .Objectives}}
+  <ul class="rv-list area-objs">
+    {{range .Objectives}}
+    <li class="rv-obj">
+      <a href="{{.URL}}">{{.Title}}</a> <span class="dim small">{{.Span}}</span>
+      <span class="okr-progress small"><span class="bar okr-bar" aria-hidden="true"><span style="width: {{.Percent}}%"></span><i style="left: {{.ElapsedPercent}}%"></i></span> <span class="nums">{{.Percent}}%</span>{{if .Behind}} <span class="pill warn">behind</span>{{end}}</span>
+    </li>
+    {{end}}
+  </ul>
+  {{end}}
+  {{if .Projects}}<ul class="prows">{{range .Projects}}{{template "projectRow" .}}{{end}}</ul>{{end}}
+  {{if and (not .Default) (le .Depth 2) (not .Objectives) (not .Projects) (not .Children)}}<p class="small dim">No objective this period and no active project.</p>{{end}}
+  {{if .Children}}<ul class="area-list">{{range .Children}}{{template "areaNode" .}}{{end}}</ul>{{end}}
+</li>
+{{end}}
+
+{{define "content"}}
+<section class="narrow wide areas-page">
+  <div class="rv-top">
+    <h1>Areas</h1>
+    {{if .AreasURL}}<a class="dim small" href="{{.AreasURL}}">areas.zortex ↗</a>{{end}}
+  </div>
+  {{if not .HasAreas}}
+  <p class="dim">No areas note: areas are the headings and labels of <code>areas.zortex</code> (<code>@@Areas</code>), nested (<code># 1 Personal</code>, <code>## 1.1 Health</code>). Projects and objectives name theirs with <code>@area(1.1)</code>.</p>
+  {{else}}
+  {{if .HasXP}}
+  <div class="rv-stats">
+    <div class="tile"><span class="tile-label">Area XP</span><span class="tile-value nums">{{printf "%.0f" .Total}}</span><span class="tile-label">{{hours .Hours}} of work, all areas</span></div>
+    <div class="tile"><span class="tile-label">Areas</span><span class="tile-value nums">{{.Count}}</span><span class="tile-label">highest level {{.MaxLevel}}</span></div>
+  </div>
+  {{else}}
+  <p class="dim small">XP comes from Neovim: it publishes it after every change (<code>.z/xp_summary.*.json</code>).</p>
+  {{end}}
+  {{with .Vision}}<p class="area-vision">Vision: {{.}}</p>{{end}}
+  <ul class="area-list area-roots">{{range .Roots}}{{template "areaNode" .}}{{end}}</ul>
+  {{if .HasXP}}<p class="small dim">An area's XP is its own plus a share of its sub-areas' (Neovim's <code>xp.area.bubble</code>); the total at the top counts each area's own XP once. {{printf "%.0f" .XPPerHour}} XP = 1 hour of estimated work.</p>{{end}}
+  {{end}}
+</section>
+{{end}}

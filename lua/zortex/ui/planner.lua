@@ -215,7 +215,7 @@ function M.put()
 	local buf = vim.api.nvim_win_get_buf(win)
 	local row, col = unpack(vim.api.nvim_win_get_cursor(win))
 	local line = vim.api.nvim_buf_get_lines(buf, row - 1, row, false)[1] or ""
-	local new, end_col = planner.put(line, col, item.text)
+	local new, end_col = planner.put(line, col, planner.reference_text(item))
 	require("zortex.core.workspace").set_line(buf, row, new)
 	vim.api.nvim_win_set_cursor(win, { row, math.max(0, end_col) })
 	M.update_capacity()
@@ -239,14 +239,15 @@ function M.place(where)
 	local row = vim.api.nvim_win_get_cursor(win)[1]
 	local line = vim.api.nvim_buf_get_lines(buf, row - 1, row, false)[1] or ""
 	local indent = line:match("^%s*")
+	local text = planner.reference_text(item)
 	local target
 	if where == "current" then
 		target = row
-		local new = line:find("%S") and (line:gsub("%s*$", "") .. " " .. item.text) or (indent .. item.text)
+		local new = line:find("%S") and (line:gsub("%s*$", "") .. " " .. text) or (indent .. text)
 		workspace.set_line(buf, row, new)
 	else
 		target = where == "next" and row + 1 or row
-		workspace.insert_lines(buf, target, { indent .. item.text })
+		workspace.insert_lines(buf, target, { indent .. text })
 	end
 	vim.api.nvim_set_current_win(win)
 	vim.api.nvim_win_set_cursor(win, { target, #indent })

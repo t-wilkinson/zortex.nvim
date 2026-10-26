@@ -108,7 +108,7 @@
       var text = form.elements.text.value.trim();
       if (!text) return;
       var checked = form.querySelector("input[name=kind]:checked");
-      var item = { id: newID(), text: text, kind: checked ? checked.value : "task", at: new Date().toISOString() };
+      var item = { id: newID(), text: text, kind: checked ? checked.value : "note", at: new Date().toISOString() };
       var keep = function () {
         var q = load();
         q.push(item);

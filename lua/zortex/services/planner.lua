@@ -81,15 +81,88 @@ function M.item_link(base_link, line)
 	return base_link:sub(1, -2) .. "/" .. comp .. "]"
 end
 
--- Text without its links ("Ship it [P/#X]" -> "Ship it"; a link written
--- with its text keeps the text): the candidate gets one link of its own.
-local function plain(text)
+-- How many items of a project each link component ("-Read") names
+local counts_cache = setmetatable({}, { __mode = "k" })
+local function component_counts(project)
+	local c = counts_cache[project]
+	if c then
+		return c
+	end
+	c = {}
+	local link = require("zortex.core.link")
+	for _, t in ipairs(project.tasks and project:tasks() or {}) do
+		local comp = t.raw_text and link.item_component(t.raw_text)
+		if comp then
+			c[comp] = (c[comp] or 0) + 1
+		end
+	end
+	counts_cache[project] = c
+	return c
+end
+
+--- A project task's link and its last component. By its text ("-Read"),
+--- unless another task of the project reads the same ("- [ ] Read
+--- [./doc-1]" and "- [ ] Read [./doc-2]" both link as "-Read"): then by its
+--- @id, which names it exactly. Returns link, component, ambiguous.
+function M.task_link(project, task)
+	local link = require("zortex.core.link")
+	local comp = link.item_component(task.raw_text)
+	local ambiguous = comp ~= nil and (component_counts(project)[comp] or 0) > 1
+	local id = task.attributes and task.attributes.id
+	if ambiguous and id then
+		comp = "-" .. id
+	end
+	if not comp or not project.link then
+		return project.link, comp, ambiguous
+	end
+	return project.link:sub(1, -2) .. "/" .. comp .. "]", comp, ambiguous
+end
+
+--- What a candidate puts on a calendar line (<CR>, i, o): its text, the
+--- task linked by its @id when its text is ambiguous (given one now).
+function M.reference_text(c)
+	if not (c and c.ambiguous and c.file and c.lnum and c.project_link) then
+		return c and c.text
+	end
+	local id = require("zortex.services.mirrors").ensure_id(c.file, c.lnum)
+	if not id then
+		return c.text
+	end
+	return require("zortex.core.link").shown(c.title, c.project_link:sub(1, -2) .. "/-" .. id .. "]") or c.text
+end
+
+-- What a bare link reads as: its last component's name ("[./doc-1]" ->
+-- "doc-1", "[P/#2 Home/#2.1 Garden]" -> "2.1 Garden", "[z/b/x.pdf]" ->
+-- "x.pdf")
+local function link_name(def)
+	local link = require("zortex.core.link")
+	local ok, comps = pcall(link.split, def)
+	local last = ok and comps[#comps] or def
+	local okc, c = pcall(link.parse_component, last)
+	local name = okc and c and c.text or last
+	name = vim.trim((name or ""):gsub("^%.%.?/", ""):gsub("^[#:%*%%>@%-]", ""))
+	if name == "" then
+		return def
+	end
+	return name
+end
+M._link_name = link_name
+
+-- Text without its links' brackets: the candidate gets one link of its
+-- own. A link written with its text keeps the text ("[the plan](P/#X)" ->
+-- "the plan"); a bare one reads as its name, so "Read [./doc-1]" and "Read
+-- [./doc-2]" stay apart ("Read doc-1", "Read doc-2"). opts.drop_links: bare
+-- links go (a key result's links name the projects listed under it).
+local function plain(text, opts)
+	local drop = opts and opts.drop_links
 	local syntax = require("zortex.core.syntax")
 	local out, pos = {}, 1
 	for _, span in ipairs(syntax.links(text)) do
 		out[#out + 1] = text:sub(pos, span.s)
 		if span.text then
 			out[#out + 1] = span.text
+		elseif not drop and span.definition and span.definition ~= "" then
+			out[#out + 1] = link_name(span.definition)
 		end
 		pos = span.e + 1
 	end
@@ -161,7 +234,11 @@ local function alignment(project, task, ctx)
 		end
 		return w.okr + w.kr_behind * behind, { "OKR", badge }
 	end
-	local has_area = (task and task.attributes and task.attributes.area) or #project:areas({ inherit = true }) > 0
+	-- an area someone chose: the default one (xp.default_area, where work
+	-- without one earns) doesn't rank work higher
+	local A = require("zortex.services.areas")
+	local has_area = (task and task.attributes and task.attributes.area and #A.chosen(A.from_attributes(task.attributes)) > 0)
+		or #A.chosen(project:areas({ inherit = true })) > 0
 	if has_area then
 		return w.area, { "area" }
 	end
@@ -298,16 +375,18 @@ function M.candidates(opts)
 				local focused = focus_of(p, ctx)
 				if s > 0 or focused then
 					badges[#badges + 1] = p.name
+					local tlink, tcomp, tamb = M.task_link(p, task)
 					tasks[#tasks + 1] = {
 						-- a to-do rather than project work: in the TODO project
 						-- (ui.planner.todo_link) or the Projects note's own list
 						todo = p:is_root() or (ctx.todo ~= nil and in_subtree(p, ctx.todo)) or nil,
 						project_name = p.name,
 						kind = "task",
-						text = shown(plain(task.text), M.item_link(p.link, task.raw_text)),
+						text = shown(plain(task.text), tlink),
 						title = plain(task.text),
-						link = M.item_link(p.link, task.raw_text),
-						component = require("zortex.core.link").item_component(task.raw_text),
+						link = tlink,
+						component = tcomp,
+						ambiguous = tamb or nil,
 						project_key = p.key,
 						project_link = p.link,
 						badges = badges,
@@ -408,7 +487,7 @@ function M.candidates(opts)
 				end
 				krs[#krs + 1] = {
 					kind = "key_result",
-					text = shown(plain(kr.text), kr.link or o.link),
+					text = shown(plain(kr.text, { drop_links = true }), kr.link or o.link),
 					badges = badges,
 					-- furthest behind first, then least done
 					score = lag * 10 + (1 - progress),
@@ -433,8 +512,9 @@ function M.candidates(opts)
 			end
 		end
 	end
+	local agenda = require("zortex.services.agenda")
 	for _, a in ipairs(require("zortex.services.areas").all({ include_roots = false })) do
-		if a.depth <= 2 then
+		if a.depth <= 2 and not agenda.default_only(a) then
 			local active = 0
 			for _, p in ipairs(a:projects({ descendants = true })) do
 				if not p:is_done() then
@@ -480,12 +560,14 @@ function M.candidates(opts)
 			if open and r and not skip_ranked then
 				first[#first + 1] = r
 			elseif open and not r then
+				local tlink, tcomp, tamb = M.task_link(p, task)
 				rest[#rest + 1] = {
 					kind = "task",
-					text = shown(plain(task.text), M.item_link(p.link, task.raw_text)),
+					text = shown(plain(task.text), tlink),
 					title = plain(task.text),
-					link = M.item_link(p.link, task.raw_text),
-					component = require("zortex.core.link").item_component(task.raw_text),
+					link = tlink,
+					component = tcomp,
+					ambiguous = tamb or nil,
 					project_key = p.key,
 					project_link = p.link,
 					project_name = p.name,
@@ -919,7 +1001,15 @@ function M.copy_text(c, opts)
 	if not id then
 		return nil, err
 	end
-	local def = (opts and opts.relative and c.component) and ("./" .. c.component) or c.link
+	local component, link = c.component, c.link
+	if c.ambiguous then
+		-- another task of the project reads the same: link this one by its @id
+		component = "-" .. id
+		if c.project_link then
+			link = c.project_link:sub(1, -2) .. "/" .. component .. "]"
+		end
+	end
+	local def = (opts and opts.relative and component) and ("./" .. component) or link
 	return "[ ] " .. shown(c.title, def) .. " @id(" .. id .. ")", id
 end
 
@@ -992,12 +1082,15 @@ function M.add_project(date, c, opts)
 		-- a group goes as one task; its tasks stay in the note
 		if not t.completed and not t.parent_task and (t.leaf ~= false or (t.open_leaves or 0) > 0) then
 			taken = taken + 1
+			local tlink, tcomp, tamb = M.task_link(p, t)
 			local _, ok = M.add_task(date, {
 				file = t.file,
 				lnum = t.lnum,
-				link = M.item_link(p.link, t.raw_text),
+				link = tlink,
 				title = plain(t.text),
-				component = link_mod().item_component(t.raw_text),
+				component = tcomp,
+				ambiguous = tamb or nil,
+				project_link = p.link,
 				project_key = p.key,
 			})
 			if ok then

@@ -1,0 +1,243 @@
+{
+  "groups": [
+    {"id": "plan", "title": "Planning: tasks, projects, objectives"},
+    {"id": "calendar", "title": "The calendar"},
+    {"id": "notes", "title": "Notes and slides"}
+  ],
+  "attributes": [
+    {
+      "key": "size",
+      "group": "plan",
+      "short": ["@xs", "@sm", "@md", "@lg", "@xl"],
+      "insert": "@size(",
+      "formats": ["@size(sm)", "@sm", "@size(2xl)", "@epic (projects)"],
+      "where": "task, project, objective",
+      "desc": "How long it takes: xs 15m, sm 30m, md 1h, lg 2h, xl 3h, 2xl–5xl 5–20h for a task (projects: xs 2h … ultimate 2,500h). Unsized tasks count as md. Weighs progress and XP (10 XP = 1 hour)."
+    },
+    {
+      "key": "due",
+      "group": "plan",
+      "short": [],
+      "insert": "@due(",
+      "formats": ["@due(2026-10-20)"],
+      "where": "task, project",
+      "desc": "Due date: the reviews list it as due or overdue, and the planner ranks it higher as it nears."
+    },
+    {
+      "key": "p",
+      "group": "plan",
+      "short": ["@p1", "@p2", "@p3"],
+      "insert": "@p",
+      "formats": ["@p1", "@p(1)"],
+      "where": "task, project, objective",
+      "desc": "Priority, 1 the highest: ranks work in the planner and the projects picker. XP is unchanged unless xp.modifiers says otherwise."
+    },
+    {
+      "key": "i",
+      "group": "plan",
+      "short": ["@i1", "@i2", "@i3"],
+      "insert": "@i",
+      "formats": ["@i1", "@i(2)"],
+      "where": "task, project, objective",
+      "desc": "Importance, 1 the highest: ranks work like @p."
+    },
+    {
+      "key": "area",
+      "group": "plan",
+      "short": ["@a(…)"],
+      "insert": "@a(",
+      "formats": ["@area(4.1)", "@a(4.1)", "@a(1.2\/Fitness)", "@a(4.1, 2.1)"],
+      "where": "task, project, objective",
+      "desc": "The area it serves: 4.1 is [A\/#4.1], 1.2\/Fitness the label Fitness under 1.2. Its XP counts for that area (area XP). Work with none earns for @a(0.1) until the daily review gives it one."
+    },
+    {
+      "key": "project",
+      "group": "plan",
+      "short": [],
+      "insert": "@project(",
+      "formats": ["@project(1.4)", "@project(1\/1.4)", "@project(P\/#Kitchen)"],
+      "where": "inbox line, task",
+      "desc": "The project a line belongs to (1.4 is [P\/#1.4]): m in the daily review, or Move on the web review, puts it there and drops the attribute."
+    },
+    {
+      "key": "done",
+      "group": "plan",
+      "short": [],
+      "insert": "@done(",
+      "formats": ["@done(2026-10-12)"],
+      "where": "task, project, objective",
+      "desc": "When it was finished (added when you tick it). Dates its XP; on a project or objective heading it marks the whole thing done."
+    },
+    {
+      "key": "id",
+      "group": "plan",
+      "short": [],
+      "insert": "@id(",
+      "formats": ["@id(4Fz9q)"],
+      "where": "task",
+      "desc": "A task's id, added for you: lines with the same @id in the calendar and a project are one task (a copy)."
+    },
+    {
+      "key": "xp",
+      "group": "plan",
+      "short": [],
+      "insert": "@xp(",
+      "formats": ["@xp(500)"],
+      "where": "project, key result, objective",
+      "desc": "Its XP outright, instead of what its @size or tasks add up to."
+    },
+    {
+      "key": "someday",
+      "group": "plan",
+      "short": [],
+      "insert": "@someday",
+      "formats": ["@someday"],
+      "where": "project",
+      "desc": "Parked on purpose: not listed as stale or unscheduled (z in the weekly review toggles it)."
+    },
+    {
+      "key": "dur",
+      "group": "plan",
+      "short": ["@90m", "@2h"],
+      "insert": "@dur(",
+      "formats": ["@dur(90m)", "@90m", "@2h"],
+      "where": "task, calendar line",
+      "desc": "How long it takes: a calendar entry's length, a task's minutes in the planner's capacity."
+    },
+    {
+      "key": "spent",
+      "group": "plan",
+      "short": [],
+      "insert": "@spent(",
+      "formats": ["@spent(1h25m)"],
+      "where": "task",
+      "desc": "Time worked on it, added by the web app's clocks. Shown in the reviews; it doesn't pay XP."
+    },
+    {
+      "key": "at",
+      "group": "calendar",
+      "short": [],
+      "insert": "@at(",
+      "formats": ["@at(14:00)"],
+      "where": "calendar line",
+      "desc": "The line's time, as 14:00 at the start of the line does (@from(14:00) @to(15:30) for a range)."
+    },
+    {
+      "key": "notify",
+      "group": "calendar",
+      "short": ["@n(…)"],
+      "insert": "@n(",
+      "formats": ["@notify(15)", "@n(0, 30)", "@n(0, end)", "@n(07:30)", "@n(1d)", "@notify", "@n(no)"],
+      "where": "calendar line",
+      "desc": "Notify minutes before (several allowed), at the end of a range, at a time of day, or a day before; @notify alone on an untimed line notifies on the day at 09:00; no silences it. Timed lines notify at their time anyway."
+    },
+    {
+      "key": "event",
+      "group": "calendar",
+      "short": [],
+      "insert": "@event",
+      "formats": ["@event"],
+      "where": "calendar line",
+      "desc": "Something you plan around (an appointment, a flight): listed under Coming up and marked on the web's month grid."
+    },
+    {
+      "key": "share",
+      "group": "calendar",
+      "short": [],
+      "insert": "@share",
+      "formats": ["@share"],
+      "where": "calendar line",
+      "desc": "Published in the server's \/calendar.ics for other calendars to subscribe to."
+    },
+    {
+      "key": "free",
+      "group": "calendar",
+      "short": [],
+      "insert": "@free",
+      "formats": ["@free"],
+      "where": "calendar line",
+      "desc": "A timed line that doesn't take your time: the planner's capacity doesn't count it as busy."
+    },
+    {
+      "key": "repeat",
+      "group": "calendar",
+      "short": [],
+      "insert": "@repeat(",
+      "formats": ["@repeat(daily)", "@repeat(weekly)", "@repeat(2w)", "@repeat(monthly)", "@repeat(yearly)"],
+      "where": "calendar, # Repeating only",
+      "desc": "How often the entry shows: daily, weekly, monthly, yearly, or every n days\/weeks\/months\/years (2d, 3w, 6m, 2y, counted from @from)."
+    },
+    {
+      "key": "on",
+      "group": "calendar",
+      "short": [],
+      "insert": "@on(",
+      "formats": ["@on(sun)", "@on(mon, wed, fri)", "@on(weekdays)", "@on(15)", "@on(1st)", "@on(2nd tue)", "@on(last fri)", "@on(03-14)"],
+      "where": "calendar, # Repeating only",
+      "desc": "Which days a repeating entry lands on; alone it repeats on those days."
+    },
+    {
+      "key": "from",
+      "group": "calendar",
+      "short": [],
+      "insert": "@from(",
+      "formats": ["@from(2026-10-06)", "@to(2026-12-31)", "@from(07:30) @to(08:15)"],
+      "where": "calendar line",
+      "desc": "A range: the first and last day (both included), or a time range on the line."
+    },
+    {
+      "key": "born",
+      "group": "calendar",
+      "short": [],
+      "insert": "@born(",
+      "formats": ["@born(1990)", "@born(1961-07-02)"],
+      "where": "calendar, # Repeating only",
+      "desc": "Shows the age after the entry's text on the day (a birthday)."
+    },
+    {
+      "key": "for",
+      "group": "calendar",
+      "short": [],
+      "insert": "@for(",
+      "formats": ["@for(2026-10-18)"],
+      "where": "calendar task",
+      "desc": "A repeating task's copy done on another day: the day it stands for (added for you)."
+    },
+    {
+      "key": "fold",
+      "group": "notes",
+      "short": [],
+      "insert": "@fold",
+      "formats": ["@fold"],
+      "where": "heading, label, list item",
+      "desc": "The section starts folded in Neovim each time the note is shown."
+    },
+    {
+      "key": "slides",
+      "group": "notes",
+      "short": [],
+      "insert": "@slides(",
+      "formats": ["@slides(2)"],
+      "where": "note header",
+      "desc": "The heading level that starts a slide when the note is shown as slides."
+    },
+    {
+      "key": "step",
+      "group": "notes",
+      "short": [],
+      "insert": "@step",
+      "formats": ["@step", "@steps (on a slide's heading)"],
+      "where": "line, slide heading",
+      "desc": "Slides: reveal this line (or each item of the slide) one click at a time."
+    },
+    {
+      "key": "tag",
+      "group": "notes",
+      "short": [],
+      "insert": "@",
+      "formats": ["@rust", "@home", "@ai-model"],
+      "where": "any line, note header",
+      "desc": "Any other bare @word is a tag, found by tag searches (@[rust]). In a note's header it tags the note."
+    }
+  ]
+}

@@ -221,6 +221,17 @@ T.test("tags: after a bare @ and inside @[...], most used first", function()
 	T.ok(by["@rust"].detail:match("^%d+ lines$"), by["@rust"].detail)
 	T.ok(not by["@p1"] and not by["@sm"], "shortcut attributes aren't tags")
 	T.eq(items[1].label, "@rust") -- the most used tag in the fixtures
+	-- then the attributes, each with how it is written and what it does
+	T.ok(by["@due(…)"], vim.inspect(vim.tbl_keys(by)))
+	T.ok(by["@due(…)"].documentation:find("@due(2026-10-20)", 1, true), by["@due(…)"].documentation)
+	local lsp_due
+	for _, i in ipairs(C.lsp_items("prose @du", 0, 0)) do
+		if i.label == "@due(…)" then
+			lsp_due = i
+		end
+	end
+	T.eq(lsp_due.textEdit.newText, "@due(")
+	T.eq(lsp_due.filterText, "prose @due") -- what nvim-cmp compares with "prose @du"
 
 	-- inside a search: plain words, replacing only the word being typed
 	local line = "@[R/rust a"

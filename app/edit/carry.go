@@ -1,6 +1,8 @@
 package edit
 
 import (
+	"errors"
+	"fmt"
 	"regexp"
 	"sort"
 	"strings"
@@ -393,4 +395,108 @@ func Carry(lines []string, today, from string, newID func() string) CarryPlan {
 	}
 	inserts = append(inserts, Insert{At: at, Lines: add})
 	return finish()
+}
+
+// AbsoluteText is line lnum from byte `from` on, its parent-relative links
+// written out in full where they resolve (for a line leaving its block).
+func AbsoluteText(lines []string, lnum, from int) string { return absoluteText(lines, lnum, from) }
+
+// ToNextDay puts the open calendar task on line lnum on the next day, at the
+// same time, as Neovim's services/planner.to_next_day (the daily review's
+// t): the line is marked [>] (and gets an @id, newID, if it has none); its
+// copy, with the same @id, goes into the next day (made from the calendar's
+// template when missing): a timed task as written, before the first later
+// timed line, anything else as "- [ ] …" with its links made absolute, at
+// the end of the day. Returns the new lines, the next day and the copy's
+// line.
+func ToNextDay(lines []string, lnum int, newID func() string) ([]string, string, int, error) {
+	if lnum < 1 || lnum > len(lines) {
+		return nil, "", 0, fmt.Errorf("no line %d", lnum)
+	}
+	line := lines[lnum-1]
+	it := syntax.ItemOf(line)
+	if it == nil || it.Mark == "" || it.MarkCol == nil {
+		return nil, "", 0, errors.New("not a calendar task")
+	}
+	if it.Mark != " " {
+		return nil, "", 0, errors.New("only an open task moves on")
+	}
+	date := ""
+	for l := lnum; l >= 1 && date == ""; l-- {
+		date, _ = DateHeading(lines[l-1])
+	}
+	if date == "" {
+		return nil, "", 0, errors.New("not under a day of the calendar")
+	}
+	t, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		return nil, "", 0, err
+	}
+	next := t.AddDate(0, 0, 1).Format("2006-01-02")
+
+	id := ID(line)
+	marked := withMark(line, *it.MarkCol, Moved)
+	if id == "" {
+		id = newID()
+		marked = AddAttribute(marked, "id", id)
+	}
+	timed := it.MarkerType == "time" && it.Time != nil
+	var copyLine string
+	if timed {
+		copyLine = strings.TrimSpace(line)
+	} else {
+		copyLine = "- " + absoluteText(lines, lnum, *it.MarkCol)
+	}
+	copyLine = AddAttribute(copyLine, "id", id)
+
+	out := append([]string(nil), lines...)
+	out[lnum-1] = marked
+	var day *Day
+	for _, d := range Days(out) {
+		if d.Date == next {
+			d := d
+			day = &d
+			break
+		}
+	}
+	if day == nil {
+		out = AddToDay(out, next, Template(out, next), []string{copyLine})
+		for _, d := range Days(out) {
+			if d.Date == next {
+				return out, next, d.Last, nil
+			}
+		}
+		return out, next, 0, nil
+	}
+	at := day.Last + 1
+	if timed {
+		start := it.Time.At
+		if start == "" {
+			start = it.Time.From
+		}
+		if mine, ok := hm(start); ok {
+			for l := day.Heading + 1; l <= day.Last; l++ {
+				other := out[l-1]
+				if indentOf(other) != 0 {
+					continue
+				}
+				o := syntax.ItemOf(other)
+				if o == nil || o.MarkerType != "time" || o.Time == nil {
+					continue
+				}
+				os := o.Time.At
+				if os == "" {
+					os = o.Time.From
+				}
+				if m, ok := hm(os); ok && m > mine {
+					at = l
+					break
+				}
+			}
+		}
+	}
+	res := append([]string(nil), out[:at-1]...)
+	res = append(res, copyLine)
+	res = append(res, out[at-1:]...)
+	return res, next, at, nil
 }

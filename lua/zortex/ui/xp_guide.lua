@@ -2,10 +2,10 @@
 --
 -- A popup that spells out what the xp config means: how many hours each
 -- @size stands for (tasks, projects, objectives) and the XP that makes, the
--- priority and importance multipliers, how much of it counts as Mastery for
--- each way of linking work to the plan, the completion bonuses, the Mastery
--- level thresholds in hours and the season tiers. When the cursor is on a
--- task, project or objective, it also shows what that one is worth.
+-- priority and importance multipliers, how XP counts for areas (area XP,
+-- Mastery) and for the season (season XP), the completion bonuses, the
+-- Mastery level thresholds in hours and the season tiers. When the cursor
+-- is on a task, project or objective, it also shows what that one is worth.
 local M = {}
 
 local constants = require("zortex.constants")
@@ -147,8 +147,8 @@ function M.lines(context)
 
 	heading("How XP is calibrated")
 	add(string.format("  XP is estimated work: %s XP = 1 hour (xp.xp_per_hour).", M.format_number(xph)))
-	add("  @size says how long something takes (xp.sizes); priority and importance")
-	add("  multiply it. Time you track (@spent) is shown next to it, not paid.")
+	add("  @size says how long something takes (xp.sizes). Time you track (@spent)")
+	add("  is shown next to it, not paid.")
 	add("")
 	size_tables(lines)
 	add("")
@@ -168,32 +168,48 @@ function M.lines(context)
 	)
 	add("  @xp(n) on a project, key result or objective sets its XP outright.")
 
-	heading("Multipliers")
+	heading("Priority and importance")
 	local mods = cfg.modifiers or {}
 	add(multiplier_line("Priority", "p", mods.priority_multipliers))
 	add(multiplier_line("Importance", "i", mods.importance_multipliers))
+	add("  They rank work in the planner and the projects picker; ×1 leaves XP alone")
+	add("  (xp.modifiers).")
 
-	heading("Mastery: the XP that counts for your areas")
-	local rows = {
-		{ "Work on a project a key result links", C.alignment("key_result"), "the objective's areas first" },
-		{ "A project with @area(...), no key result", C.alignment("project_area"), "its areas" },
-		{ "A task outside projects with @area(...)", C.alignment("task_area"), "its areas" },
-		{ "Anything else", 0, "logged as work only" },
-	}
-	for _, r in ipairs(rows) do
-		add(string.format("  %-40s%6s   %s", r[1], times(r[2]), r[3]))
+	local A = require("zortex.services.areas")
+	local default = C.default_area_value()
+	heading("Area XP (Mastery): every piece of work, for its areas")
+	add(string.format("  %s of its XP (xp.area_transfer), to the areas it is linked to:", percent(C.area_transfer())))
+	add("    on a key result: the objective's areas, then the project's @area, the task's")
+	add("    otherwise:       the task's own @area, then the project's")
+	if default then
+		add(
+			string.format(
+				"    no area at all:  @a(%s) (xp.default_area)%s; the daily review asks for one",
+				default,
+				A.default_area() and "" or " · add that heading to areas.zortex"
+			)
+		)
+	else
+		add("    no area at all:  no area XP (xp.default_area = false)")
 	end
+	if (cfg.area_split or 0.5) ~= 1 then
+		add(string.format("  Several areas share it, each %s of the one before (xp.area_split).", percent(cfg.area_split or 0.5)))
+	end
+
+	heading("Season XP: work on a key result, for the season")
 	local bonus = C.completion_bonus()
 	local md = (C.hours("objective", "md") or 30) * xph
-	add("")
+	add(string.format("  %s of its XP (xp.season_transfer) when a key result links its project", percent(C.season_transfer())))
+	add("  (or a project above it); anything else earns none.")
 	add(string.format("  A key result reached:  +%s of its objective's XP, split over its key results", percent(bonus)))
-	add(string.format("  An objective @done:    +%s of its XP", percent(bonus)))
+	add(string.format("  An objective @done:    +%s of its XP (bonuses are season XP only)", percent(bonus)))
 	add(
 		string.format(
-			"  So an md objective (%s, %s XP) done through its key results earns %s Mastery XP.",
+			"  So an md objective (%s, %s XP) done through its key results: %s season XP, %s area XP.",
 			M.format_hours(C.hours("objective", "md") or 30),
 			M.format_number(md),
-			M.format_number(md * C.alignment("key_result") + md * bonus * 2 * C.alignment("key_result"))
+			M.format_number(md * C.season_transfer() + md * bonus * 2 * C.season_transfer()),
+			M.format_number(md * C.area_transfer())
 		)
 	)
 
@@ -204,7 +220,7 @@ function M.lines(context)
 		local xp = store.calculate_area_level_xp(level)
 		parts[#parts + 1] = string.format("%d: %s", level, M.format_hours(xp / xph))
 	end
-	add("  Hours of fully aligned work to reach a level (xp.area.level_curve):")
+	add("  Hours of work in an area to reach a level (xp.area.level_curve):")
 	add("  " .. table.concat(parts, " · "))
 	local bubble = (cfg.area or {}).bubble
 	if bubble then
@@ -326,17 +342,14 @@ function M.context(bufnr, lnum)
 			return require("zortex.services.projects.relations").key_results(project, { inherit = true })
 		end)
 		local linked = ok_k and krs and #krs > 0
-		local has_areas = project.areas and #project:areas({ inherit = true }) > 0
+		local A = require("zortex.services.areas")
+		local has_areas = project.areas and #A.chosen(project:areas({ inherit = true })) > 0
+		local area_text = has_areas and string.format("area XP %s to its areas", times(C.area_transfer()))
+			or (C.default_area_value() and string.format("no @a: area XP to @a(%s) until it gets one", C.default_area_value()) or "no @a: no area XP")
 		if linked then
-			out[#out + 1] = string.format("  linked from a key result: Mastery %s", times(C.alignment("key_result")))
-		elseif has_areas then
-			out[#out + 1] = string.format(
-				"  own @a, no key result: Mastery %s (link it from a key result for %s)",
-				times(C.alignment("project_area")),
-				times(C.alignment("key_result"))
-			)
+			out[#out + 1] = string.format("  linked from a key result: season XP %s · %s", times(C.season_transfer()), area_text)
 		else
-			out[#out + 1] = "  no key result and no @a: no Mastery yet"
+			out[#out + 1] = string.format("  no key result: no season XP · %s", area_text)
 		end
 	end
 

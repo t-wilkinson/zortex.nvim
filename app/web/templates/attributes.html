@@ -1,0 +1,31 @@
+{{define "content"}}
+<section class="narrow attrs-page">
+  <h1>Attributes</h1>
+  <p class="dim">Attributes are <code>@key(value)</code>, or a bare <code>@word</code>, anywhere on a line as long as they start a word (<code>me@example.com</code> is text). Most have a short form: <code>@a(4.1)</code> for <code>@area(4.1)</code>, <code>@sm</code> for <code>@size(sm)</code>. In Neovim, typing <code>@</code> completes them and <code>:Zortex attributes</code> shows this list.</p>
+  <label class="sr-only" for="attr-filter">Filter</label>
+  <input type="search" id="attr-filter" class="attr-filter" placeholder="Filter: due, area, notify…" autocomplete="off">
+  {{range .Groups}}
+  <h2 class="section-title">{{.Title}}</h2>
+  <dl class="attrs">
+    {{range .List}}
+    <div class="attr-row" data-key="{{.Key}} {{.Desc}} {{range .Formats}}{{.}} {{end}}">
+      <dt>{{range $i, $f := .Formats}}{{if $i}} {{end}}<code>{{$f}}</code>{{end}}</dt>
+      <dd>{{.Desc}} <span class="dim small">· on {{.Where}}</span></dd>
+    </div>
+    {{end}}
+  </dl>
+  {{end}}
+</section>
+<script>
+(function () {
+  var box = document.getElementById("attr-filter");
+  if (!box) return;
+  box.addEventListener("input", function () {
+    var q = box.value.trim().toLowerCase();
+    document.querySelectorAll(".attr-row").forEach(function (row) {
+      row.hidden = q !== "" && row.dataset.key.toLowerCase().indexOf(q) < 0;
+    });
+  });
+})();
+</script>
+{{end}}

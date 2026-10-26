@@ -10,28 +10,38 @@
 --                   completion curve, one award per completed task, dated by
 --                   the task's @done; a project marked @done pays the rest
 --   other tasks     a completed task anywhere else (calendar, any note):
---                   its @size in hours x XP per hour x priority x importance;
---                   a calendar copy of a project task (same @id,
---                   services/mirrors) pays nothing itself: checking it
---                   completes the project task, which pays
+--                   its @size in hours x XP per hour (x priority x
+--                   importance, 1 by default); a calendar copy of a project
+--                   task (same @id, services/mirrors) pays nothing itself:
+--                   checking it completes the project task, which pays
 --   key results     a key result reached (its linked projects done, or the
 --                   KR checked): the completion bonus of its objective's
---                   value over its key results, to the objective's areas
+--                   value over its key results (season XP only)
 --   objectives      an objective marked @done: the completion bonus of its
---                   value, to its areas
+--                   value (season XP only)
 --
 -- Archived projects (z/archive.*) keep counting under the same project key,
 -- so archiving never takes XP away. Unchecking a task, editing a note on your
 -- phone or renaming a heading all simply change the result; nothing drifts.
 --
 -- Each award's xp is estimated effort (calculator: @size -> hours x XP per
--- hour); its Mastery share (`areas`, summed in `mastery`) is that times how
--- the work serves the plan (xp.alignment), split over the areas it is linked
--- to: for work on a key result, the objective's areas first. Seasons are not
--- XP: services/xp/season measures progress on the season's objectives.
+-- hour). It counts twice, separately:
+--
+--   area XP    (`areas`, summed in `mastery`) xp x xp.area_transfer, split
+--              over the areas the work is linked to (for work on a key
+--              result, the objective's areas first, then the project's, then
+--              the task's). Work with no area anywhere goes to
+--              xp.default_area (@a(0.1)) and is marked `unassigned`: the
+--              daily review lists it to give it a home.
+--   season XP  (`season`) xp x xp.season_transfer when a key result links
+--              the work (its project or a project above it), plus the key
+--              result and objective bonuses; 0 for everything else.
+--
+-- services/xp/season sums the season XP in the season's window next to the
+-- season's progress on its objectives.
 --
 --   local L = require("zortex.services.xp.ledger")
---   L.get()          -- { entries, area_xp, total, built } (cached until a note changes)
+--   L.get()          -- { entries, area_xp, total, mastery, season, built } (cached until a note changes)
 --   L.area_xp(key)
 local M = {}
 
@@ -197,19 +207,42 @@ end
 -- =============================================================================
 
 -- An award. `aligned` says how it serves the plan: "kr" (work on a key
--- result, a key result or an objective), "area" (has an area, no key
--- result) or nil (neither). The reviews report the share of each.
+-- result, a key result or an objective), "area" (an area someone chose, no
+-- key result) or nil (neither: its area XP, if any, went to the default
+-- area). The reviews report the share of each.
 local function entry(source, fields)
 	fields.source = source
+	fields.areas = fields.areas or {}
+	fields.season = fields.season or 0
 	local mastery = 0
-	for _, amount in pairs(fields.areas or {}) do
+	for _, amount in pairs(fields.areas) do
 		mastery = mastery + amount
 	end
 	fields.mastery = mastery
-	if fields.aligned == nil and next(fields.areas or {}) ~= nil then
+	if fields.aligned == nil and next(fields.areas) ~= nil and not fields.unassigned then
 		fields.aligned = "area"
 	end
 	return fields
+end
+
+-- The default area's key (xp.default_area), or false; looked up once per
+-- build
+local function default_area_key()
+	local ok, area = pcall(function()
+		return require("zortex.services.areas").default_area()
+	end)
+	return ok and area and area.key or false
+end
+
+-- Area shares of an award: its areas, else the default area (unassigned)
+local function area_award(xp, areas, ctx)
+	if #areas > 0 then
+		return calculator.area_shares(xp, areas, calculator.area_transfer()), false
+	end
+	if ctx.default_key then
+		return calculator.area_shares(xp, { ctx.default_key }, calculator.area_transfer()), true
+	end
+	return {}, true
 end
 
 -- Projects (live and archived) grouped by key:
@@ -317,7 +350,7 @@ end
 
 M._award_areas = award_areas
 
-local function project_entries(out, group, kr_index)
+local function project_entries(out, group, kr_index, ctx)
 	local project, tasks = group.project, group.tasks
 	if #tasks == 0 then
 		return
@@ -347,55 +380,60 @@ local function project_entries(out, group, kr_index)
 	local steps = calculator.curve_steps(pool, #tasks, #done)
 	local paid = 0
 	local p_areas, via_kr = project_areas(project, kr_index)
-	local share = calculator.alignment(via_kr and "key_result" or "project_area")
+	local season_share = via_kr and calculator.season_transfer() or 0
 	for k, t in ipairs(done) do
 		local xp = steps[k]
 		paid = paid + xp
-		local areas = award_areas(t, p_areas)
+		local areas, unassigned = area_award(xp, award_areas(t, p_areas), ctx)
 		out[#out + 1] = entry("project_task", {
 			aligned = via_kr and "kr" or nil,
+			unassigned = unassigned or nil,
 			title = t.text,
 			project = project.key,
 			file = t.file,
 			lnum = t.lnum,
 			date = date_string(done_date(t)),
 			xp = xp,
-			areas = calculator.area_shares(xp, areas, share),
+			areas = areas,
+			season = xp * season_share,
 		})
 	end
 	-- A project marked done pays what the curve hasn't yet
 	local done_date = project.attributes and project.attributes.done
 	if done_date and pool - paid > 0.5 then
 		local xp = pool - paid
-		local areas = award_areas(nil, p_areas)
+		local areas, unassigned = area_award(xp, award_areas(nil, p_areas), ctx)
 		out[#out + 1] = entry("project_done", {
 			aligned = via_kr and "kr" or nil,
+			unassigned = unassigned or nil,
 			title = project.name .. " (completed)",
 			project = project.key,
 			file = project.file,
 			lnum = project.lnum,
 			date = date_string(done_date),
 			xp = xp,
-			areas = calculator.area_shares(xp, areas, share),
+			areas = areas,
+			season = xp * season_share,
 		})
 	end
 end
 
-local function task_entries(out, path, skip_ids, modified)
-	local share = calculator.alignment("task_area")
+local function task_entries(out, path, skip_ids, modified, ctx)
 	for _, t in ipairs(checked_tasks(path, modified)) do
 		local id = t.attributes and t.attributes.id
 		if not (id and skip_ids and skip_ids[id]) then
 			local xp = calculator.calculate_task_xp(t)
-			local areas, add = area_list()
+			local list, add = area_list()
 			task_areas(t, add)
+			local areas, unassigned = area_award(xp, list, ctx)
 			out[#out + 1] = entry("task", {
+				unassigned = unassigned or nil,
 				title = t.text,
 				file = path,
 				lnum = t.lnum,
 				date = date_string(t.done_date or t.attributes.done),
 				xp = xp,
-				areas = calculator.area_shares(xp, areas, share),
+				areas = areas,
 			})
 		end
 	end
@@ -409,14 +447,11 @@ local function key_result_entries(out)
 	if not ok then
 		return
 	end
-	local share = calculator.alignment("key_result")
+	-- a bonus is season XP: the work behind it already paid its areas
+	local share = calculator.season_transfer()
 	for _, kr in ipairs(krs) do
 		if kr:is_done() then
 			local xp = calculator.calculate_key_result_xp(kr)
-			local areas, add = area_list()
-			for _, area in ipairs(kr.objective and kr.objective:areas() or {}) do
-				add(area)
-			end
 			out[#out + 1] = entry("key_result", {
 				aligned = "kr",
 				title = kr.id .. ": " .. (kr.text or ""),
@@ -424,7 +459,7 @@ local function key_result_entries(out)
 				lnum = kr.lnum,
 				date = kr:done_date(),
 				xp = xp,
-				areas = calculator.area_shares(xp, areas, share),
+				season = xp * share,
 			})
 		end
 	end
@@ -437,14 +472,10 @@ local function objective_entries(out)
 	if not ok then
 		return
 	end
-	local share = calculator.alignment("key_result")
+	local share = calculator.season_transfer()
 	for _, o in ipairs(objectives) do
 		if o.completed then
 			local xp = calculator.calculate_objective_xp(o)
-			local areas, add = area_list()
-			for _, area in ipairs(o:areas()) do
-				add(area)
-			end
 			out[#out + 1] = entry("objective", {
 				aligned = "kr",
 				title = o.title or o.name,
@@ -452,7 +483,7 @@ local function objective_entries(out)
 				lnum = o.lnum,
 				date = date_string(o.attributes.done),
 				xp = xp,
-				areas = calculator.area_shares(xp, areas, share),
+				season = xp * share,
 			})
 		end
 	end
@@ -491,10 +522,11 @@ function M.build()
 	end
 
 	local entries = {}
+	local ctx = { default_key = default_area_key() }
 	local groups, order = project_groups(project_paths)
 	local kr_index = key_result_index()
 	for _, key in ipairs(order) do
-		project_entries(entries, groups[key], kr_index)
+		project_entries(entries, groups[key], kr_index, ctx)
 	end
 	-- calendar copies of project tasks are paid by their project
 	local project_ids = {}
@@ -506,15 +538,16 @@ function M.build()
 	local calendar = normalize(require("zortex.utils.filesystem").get_calendar_file())
 	local modified = require("zortex.utils.buffer").modified_map()
 	for _, path in ipairs(task_paths) do
-		task_entries(entries, path, path == calendar and project_ids or nil, modified)
+		task_entries(entries, path, path == calendar and project_ids or nil, modified, ctx)
 	end
 	key_result_entries(entries)
 	objective_entries(entries)
 
-	local area_xp, total, mastery = {}, 0, 0
+	local area_xp, total, mastery, season = {}, 0, 0, 0
 	for _, e in ipairs(entries) do
 		total = total + e.xp
 		mastery = mastery + e.mastery
+		season = season + e.season
 		for key, amount in pairs(e.areas) do
 			area_xp[key] = (area_xp[key] or 0) + amount
 		end
@@ -527,7 +560,16 @@ function M.build()
 		end
 		return (a.lnum or 0) < (b.lnum or 0)
 	end)
-	return { entries = entries, area_xp = area_xp, total = total, mastery = mastery, built = os.time(), projects = groups }
+	return {
+		entries = entries,
+		area_xp = area_xp,
+		total = total,
+		mastery = mastery,
+		season = season,
+		default_area = ctx.default_key or nil,
+		built = os.time(),
+		projects = groups,
+	}
 end
 
 --- The ledger, rebuilt only when a note (or buffer) changed.
@@ -543,7 +585,16 @@ function M.get(opts)
 	local c = calculator.conf()
 	local sig = signature(files)
 		.. "|"
-		.. vim.inspect({ c.xp_per_hour, c.sizes, c.alignment, c.completion_bonus, c.modifiers, c.area_split })
+		.. vim.inspect({
+			c.xp_per_hour,
+			c.sizes,
+			c.area_transfer,
+			c.season_transfer,
+			c.default_area,
+			c.completion_bonus,
+			c.modifiers,
+			c.area_split,
+		})
 	if (opts and opts.force) or cache.signature ~= sig or not cache.ledger then
 		cache.ledger = M.build()
 		cache.signature = sig
@@ -566,15 +617,17 @@ function M.area_xp(key)
 end
 
 --- Awards dated in [from, to] ("YYYY-MM-DD"), and their totals:
---- { entries, xp (effort), mastery, by_alignment = { kr, area, none } (effort) }
+--- { entries, xp (effort), mastery (area XP), season (season XP),
+---   by_alignment = { kr, area, none } (effort) }
 function M.window_totals(from, to, ledger)
 	ledger = ledger or M.get()
-	local out = { entries = {}, xp = 0, mastery = 0, by_alignment = { kr = 0, area = 0, none = 0 } }
+	local out = { entries = {}, xp = 0, mastery = 0, season = 0, by_alignment = { kr = 0, area = 0, none = 0 } }
 	for _, e in ipairs(ledger.entries) do
 		if e.date and e.date >= from and e.date <= to then
 			out.entries[#out.entries + 1] = e
 			out.xp = out.xp + e.xp
 			out.mastery = out.mastery + (e.mastery or 0)
+			out.season = out.season + (e.season or 0)
 			local k = e.aligned or "none"
 			out.by_alignment[k] = out.by_alignment[k] + e.xp
 		end

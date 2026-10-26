@@ -26,6 +26,8 @@
   <nav class="links">
     <a href="{{u "/projects"}}"{{if eq .Nav "projects"}} aria-current="page"{{end}}>Projects</a>
     <a href="{{u "/okr"}}"{{if eq .Nav "okr"}} aria-current="page"{{end}}>Objectives</a>
+    <a href="{{u "/areas"}}"{{if eq .Nav "areas"}} aria-current="page"{{end}}>Areas</a>
+    <a href="{{u "/review"}}?day=today"{{if eq .Nav "review"}} aria-current="page"{{end}}>Review</a>
     <a href="{{fileURL ""}}"{{if eq .Nav "files"}} aria-current="page"{{end}}>Files</a>
     <a href="{{u "/broken"}}"{{if eq .Nav "broken"}} aria-current="page"{{end}}>Broken</a>
     <a href="{{u "/graph"}}"{{if eq .Nav "graph"}} aria-current="page"{{end}}>Graph</a>

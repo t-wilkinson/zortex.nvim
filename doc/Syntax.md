@@ -129,7 +129,10 @@ a span inside code.
 ## Attributes
 
 Attributes are `@key(value)` or bare `@word`. This reference writes each
-in full; most have a short form that means the same:
+in full; most have a short form that means the same. The short version of
+this list is a key away: `:Zortex attributes` in Neovim (typing `@`
+completes them, each with how it is written), `/attributes` on the web
+(and the attribute chips of the web editor):
 
 | Written in full | Short |
 |---|---|
@@ -146,9 +149,9 @@ These are understood (tasks, projects, calendar entries):
 | `@id(4Fz9q)` | a task's id (added when a task is created); the same `@id` in the calendar and a project note is one task ([Planning](Planning.md#the-day-on-the-calendar)) |
 | `@done(2026-10-12)` | when a task was completed |
 | `@due(2026-10-20)` | due date |
-| `@p1` `@p2` `@p3`, `@i1` … `@i3` | priority, importance (`@p(1)` is the same) |
+| `@p1` `@p2` `@p3`, `@i1` … `@i3` | priority, importance (`@p(1)` is the same): they rank work in the planner and the projects picker; XP only if `xp.modifiers` says so |
 | `@size(xs)` … `@size(5xl)` | task size (projects also `epic`, `legendary`, `mythic`, `ultimate`); sizes weigh XP |
-| `@area(4.1)`, `@area(1.2/Fitness)` | area link: `4.1` is `[A/#4.1]`, `1.2/Fitness` is `[A/#1.2/:Fitness]`; comma-separated for several |
+| `@area(4.1)`, `@area(1.2/Fitness)` | area link: `4.1` is `[A/#4.1]`, `1.2/Fitness` is `[A/#1.2/:Fitness]`; comma-separated for several. The work's area XP goes there; work with no area earns for `@a(0.1)` (`xp.default_area`), which the daily review writes when it closes ([Planning](Planning.md#area-xp-and-season-xp)) |
 | `@project(1.4)`, `@project(1/1.4)`, `@project(P/#Kitchen)` | the project a line belongs to (`1.4` is `[P/#1.4]`): `m` in the daily review moves it there, dropping the attribute |
 | `@someday` | a project parked on purpose: not listed as stale or unscheduled (`z` in the weekly review toggles it) |
 | `@xp(500)` | a project's XP pool |

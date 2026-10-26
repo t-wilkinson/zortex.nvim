@@ -12,6 +12,9 @@
 --   f      on a project: add it to (or take it out of) the week's focus
 --   m      on an inbox line: move it to its @project(...), else to
 --          review.inbox_default, else to a place picked in the search
+--   A      on finished work without an area: give it one (@a(…) on its
+--          project's heading, or on the task); closing the daily review
+--          writes @a(<xp.default_area>) on what is left
 --   u      take the last move back (:ZortexUndo)
 --   <Tab>  go to the reviews note
 --   gx     follow the link on the line
@@ -44,7 +47,7 @@ local function shown(e)
 	local L = require("zortex.core.link")
 	local name = e.title or e.name
 	if e.id and e.text then -- a key result: "KR2: Search works"
-		name = e.id .. ": " .. require("zortex.services.planner").plain(e.text)
+		name = e.id .. ": " .. require("zortex.services.planner").plain(e.text, { drop_links = true })
 	end
 	return L.shown(name, e.link) or name or "?"
 end
@@ -368,7 +371,7 @@ function M.render_week(r, add, section)
 end
 
 
--- "+120 XP, 12h of estimated work: 70% on key results, 20% areas only, 10% neither · +60 Mastery XP"
+-- "+120 XP, 12h of estimated work: 70% on key results, 20% areas only, 10% no area · +120 area XP · +84 season XP"
 local function xp_line(xp)
 	if not xp or xp.xp <= 0 then
 		return "  no XP in this window"
@@ -376,27 +379,29 @@ local function xp_line(xp)
 	local a = xp.by_alignment
 	local calc = require("zortex.services.xp.calculator")
 	return string.format(
-		"  +%d XP, %s of estimated work: %s on key results, %s areas only, %s neither · +%d Mastery XP",
+		"  +%d XP, %s of estimated work: %s on key results, %s areas only, %s no area · +%d area XP · +%d season XP",
 		math.floor(xp.xp + 0.5),
 		calc.hours_text(xp.xp),
 		pct(a.kr / xp.xp),
 		pct(a.area / xp.xp),
 		pct(a.none / xp.xp),
-		math.floor(xp.mastery + 0.5)
+		math.floor(xp.mastery + 0.5),
+		math.floor((xp.season or 0) + 0.5)
 	)
 end
 
--- "  Season Q4 2026: 42% of its objectives · Silver · Gold at 70%"
+-- "  Season Q4 2026: 42% of its objectives · Silver · Gold at 70% · 840 season XP"
 local function season_line(s)
 	if not s then
 		return nil
 	end
 	return string.format(
-		"  %s: %s of its objectives%s%s",
+		"  %s: %s of its objectives%s%s · %d season XP",
 		require("zortex.services.xp.season").label(s.season),
 		pct(s.progress),
 		s.tier and (" · " .. s.tier.name) or "",
-		s.next_tier and string.format(" · %s at %s", s.next_tier.name, pct(s.next_tier.at)) or ""
+		s.next_tier and string.format(" · %s at %s", s.next_tier.name, pct(s.next_tier.at)) or "",
+		math.floor((s.season_xp or 0) + 0.5)
 	)
 end
 
@@ -462,6 +467,61 @@ function M.render_inbox(r, section)
 	end
 end
 
+--- Finished work with no area (its area XP went to the default area): A
+--- gives it one; what is left gets @a(<default>) when the review closes.
+function M.render_unassigned(r, add, section)
+	local calc = require("zortex.services.xp.calculator")
+	if not calc.enabled() then
+		return
+	end
+	local value = calc.default_area_value()
+	local A = require("zortex.services.areas")
+	local title
+	if not value then
+		title = "Done without an area: no area XP (A: give it one; a: archive a task)"
+	elseif not A.default_area() then
+		title = string.format("Done without an area (A: give it one; a: archive a task) · add \"## %s Unassigned\" to areas.zortex for @a(%s)", value, value)
+	elseif ((require("zortex.config").review or {}).default_area_on_close) == false then
+		title = string.format("Done without an area: it earns for @a(%s) (A: give it one; a: archive a task)", value)
+	else
+		title = string.format("Done without an area (A: give it one; a: archive a task) · the rest get @a(%s) when you close this", value)
+	end
+	local function task_line(it, indent)
+		return string.format("%s- %s %s (%s, %s)", indent, it.date or "", it.title or "", calc.hours_text(it.xp or 0), rel(it.file)),
+			{ file = it.file, lnum = it.lnum },
+			{ assign = it, archive_task = { file = it.file, lnum = it.lnum, title = it.title } }
+	end
+	local list = r.unassigned or {}
+	add("")
+	add(string.format("## %s (%d)", title, #list))
+	if #list == 0 then
+		add("  nothing")
+		return
+	end
+	for _, it in ipairs(list) do
+		if it.kind == "project" then
+			add(
+				string.format(
+					"- %s %s · %d task%s · %s%s",
+					it.date or "",
+					require("zortex.core.link").shown(it.title, it.link) or it.title,
+					it.count,
+					it.count == 1 and "" or "s",
+					calc.hours_text(it.xp or 0),
+					it.kr and " · on a key result" or ""
+				),
+				{ file = it.file, lnum = it.lnum },
+				{ assign = it }
+			)
+			for _, t in ipairs(it.tasks or {}) do
+				add(task_line(t, "    "))
+			end
+		else
+			add(task_line(it, ""))
+		end
+	end
+end
+
 --- The daily review: what today (or since the last daily review) added up to.
 function M.render_day(r, add, section)
 	local since = r.from == r.today and "today" or ("since " .. r.from)
@@ -485,7 +545,7 @@ function M.render_day(r, add, section)
 		local calc = require("zortex.services.xp.calculator")
 		local a = xp.by_alignment
 		add(string.format(
-			"Work done: %s · %s on key results · %s on areas only · %s on neither",
+			"Work done: %s · %s on key results · %s on areas only · %s with no area",
 			calc.hours_text(xp.xp),
 			pct((a.kr or 0) / xp.xp),
 			pct((a.area or 0) / xp.xp),
@@ -511,12 +571,7 @@ function M.render_day(r, add, section)
 		local line, loc = item_line(item)
 		return line, loc, { next_day = item.lnum, task_item = item, file = loc.file, lnum = loc.lnum }
 	end)
-	section("Done on neither a key result nor an area (a: archive it)", r.unaligned_done or {}, function(e)
-		local calc = require("zortex.services.xp.calculator")
-		return string.format("- %s %s (%s, %s)", e.date or "", e.title or "", calc.hours_text(e.xp or 0), rel(e.file)),
-			{ file = e.file, lnum = e.lnum },
-			{ archive_task = { file = e.file, lnum = e.lnum, title = e.title } }
-	end)
+	M.render_unassigned(r, add, section)
 	section("Overdue", r.overdue, task_line)
 	section("Due today and tomorrow", r.due_soon, task_line)
 end
@@ -607,6 +662,65 @@ end
 -- =============================================================================
 -- One-key fixes (the weekly review; most work in the daily one too)
 -- =============================================================================
+
+--- A: give the finished work on the line an area (picked from areas.zortex):
+--- @a(…) on its project's heading, or on the task.
+function M.assign_area()
+	local e = entity_here()
+	local item = e and e.assign
+	if not item then
+		return say("Not a line of work without an area", true)
+	end
+	local A = require("zortex.services.areas")
+	local list = vim.tbl_filter(function(a)
+		return not A.is_default(a)
+	end, A.all({ include_roots = false }))
+	if #list == 0 then
+		return say("No areas in areas.zortex yet", true)
+	end
+	vim.ui.select(list, {
+		prompt = "Area for " .. (item.title or "it"),
+		format_item = function(a)
+			return a:breadcrumb(" › ")
+		end,
+	}, function(area)
+		if not area then
+			return
+		end
+		local value = A.value(area)
+		local ok, err = require("zortex.services.areas.assign").set(item, value)
+		if not ok then
+			return say("Area: " .. tostring(err), true)
+		end
+		M.refresh()
+		say(string.format("%s → @a(%s) (u takes it back)", item.title or "it", value))
+	end)
+end
+
+--- The daily review closes: what it listed without an area gets
+--- @a(<xp.default_area>) (review.default_area_on_close).
+function M.stamp_default_area()
+	if state.scope ~= "day" or state.stamped then
+		return
+	end
+	state.stamped = true
+	if ((require("zortex.config").review or {}).default_area_on_close) == false then
+		return
+	end
+	if not require("zortex.services.xp.calculator").enabled() then
+		return
+	end
+	local assign = require("zortex.services.areas.assign")
+	-- what is still without one (A may have given some an area since)
+	local ok, items = pcall(assign.unassigned, state.area_from or state.from or os.date("%Y-%m-%d"), state.today or os.date("%Y-%m-%d"))
+	if not ok or #items == 0 then
+		return
+	end
+	local n = assign.stamp(items)
+	if n and n > 0 then
+		say(string.format("%d without an area: @a(%s) written (:ZortexUndo takes it back)", n, require("zortex.services.xp.calculator").default_area_value()))
+	end
+end
 
 local function ws()
 	return require("zortex.core.workspace")
@@ -976,6 +1090,7 @@ local function get_buffer()
 		add_kr = M.add_key_result,
 		new_project = M.new_project,
 		fix_link = M.fix_link,
+		area = M.assign_area,
 		note = function()
 			local win = note_window()
 			if win then
@@ -997,6 +1112,17 @@ local function get_buffer()
 		help = function()
 			require("zortex.ui.keyhelp").show("review")
 		end,
+	})
+
+	-- leaving the daily review (q, :q, another buffer here) ends it: what it
+	-- listed without an area gets the default one
+	vim.api.nvim_create_autocmd("BufWinLeave", {
+		group = vim.api.nvim_create_augroup("ZortexReviewClose", { clear = true }),
+		buffer = buf,
+		callback = function()
+			pcall(M.stamp_default_area)
+		end,
+		desc = "Zortex: the daily review closes",
 	})
 
 	state.bufnr = buf
@@ -1027,6 +1153,7 @@ function M.refresh()
 	if state.scope == "day" then
 		-- refreshing keeps the window; the next day's review starts after it
 		state.from = r.from
+		state.area_from = r.area_from
 		agenda.mark_day_reviewed(r.today, r.from)
 		r.week = review.week_of(r.today)
 		local f = review.focus(r.today)
@@ -1060,6 +1187,7 @@ function M.refresh()
 end
 
 function M.close()
+	pcall(M.stamp_default_area)
 	if state.win and vim.api.nvim_win_is_valid(state.win) and #vim.api.nvim_list_wins() > 1 then
 		vim.api.nvim_win_close(state.win, true)
 	elseif state.bufnr and vim.api.nvim_buf_is_valid(state.bufnr) then
@@ -1081,6 +1209,8 @@ function M.open(opts)
 	state.today = opts.today
 	state.scope = opts.scope or "week"
 	state.from = nil
+	state.area_from = nil
+	state.stamped = false
 	local today = opts.today or os.date("%Y-%m-%d")
 	state.week = state.scope == "week" and review.review_week(today) or review.week_of(today)
 

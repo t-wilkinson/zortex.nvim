@@ -31,7 +31,7 @@ local function link_mod()
 end
 
 -- LSP CompletionItemKind values
-local KIND = { article = 17, tag = 14, heading = 22, bold_heading = 13, label = 10, follow = 18, line_tag = 21, item = 12 }
+local KIND = { article = 17, tag = 14, heading = 22, bold_heading = 13, label = 10, follow = 18, line_tag = 21, item = 12, attribute = 5 }
 local PREFIX = { heading = "#", label = ":", bold_heading = "*" }
 local FILTER = { ["#"] = "heading", [":"] = "label", ["*"] = "bold_heading", ["-"] = "item" }
 
@@ -300,6 +300,28 @@ function M.tag_context(line, col)
 	return nil
 end
 
+-- The attributes (attributes_help) for a bare "@…": "@due(" with what it
+-- means and how it is written, after the tags
+local function attribute_items()
+	local items = {}
+	for i, e in ipairs(require("zortex.attributes_help").list) do
+		if e.key ~= "tag" then
+			items[#items + 1] = {
+				label = "@" .. e.key .. (e.insert:sub(-1) == "(" and "(…)" or ""),
+				filterText = "@" .. e.key,
+				kind = KIND.attribute,
+				detail = e.formats[1] .. " · " .. e.where,
+				documentation = require("zortex.attributes_help").documentation(e),
+				area_value = e.insert, -- what is inserted (lsp_items)
+				sortText = string.format("9%05d", i),
+				data = { zortex_order = 100000 + i },
+			}
+		end
+	end
+	return items
+end
+M._attribute_items = attribute_items
+
 local function line_tag_items(ctx)
 	local items = {}
 	-- in a tag search, "is:" words narrow it to a kind of line
@@ -324,6 +346,9 @@ local function line_tag_items(ctx)
 			sortText = string.format("%06d", i),
 			data = { zortex_order = i }, -- see order_comparator
 		}
+	end
+	if ctx.tag == "bare" then
+		vim.list_extend(items, attribute_items())
 	end
 	return items
 end
@@ -590,7 +615,7 @@ function M.lsp_items(before, row, bufnr)
 	local kw = before:match(".*[%[/(,]()") or 1
 	local typed_before = ctx.tag and before:sub(kw, ctx.typing_col):gsub("^%s+", "") or ""
 	for _, item in ipairs(items) do
-		item.filterText = item.filterText or (typed_before .. item.label)
+		item.filterText = (item.filterText and (typed_before .. item.filterText)) or (typed_before .. item.label)
 		item.textEdit = {
 			newText = item.area_value or item.label,
 			range = {

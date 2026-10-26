@@ -318,9 +318,11 @@ function M.areas()
 	return out
 end
 
---- XP: the current season (progress on its objectives), every area with
---- Mastery XP, and awards of the last
---- `opts.days` days (default 30), newest first. All derived from the notes.
+--- XP: the current season (progress on its objectives, and the season XP
+--- earned in it), every area with area XP (Mastery), the whole area tree
+--- (`area_tree`: every area, its own and total XP and level), the area XP of
+--- all areas together (`area_total`), and awards of the last `opts.days`
+--- days (default 30), newest first. All derived from the notes.
 function M.xp(opts)
 	opts = opts or {}
 	local stats = require("zortex.services.xp.stats")
@@ -342,6 +344,31 @@ function M.xp(opts)
 			parent = a.area and a.area.parent and a.area.parent.key or nil,
 		}
 	end
+	-- every area, in note order, with its XP (own and with its sub-areas')
+	local area_tree, area_total = {}, 0
+	local A = require("zortex.services.areas")
+	local default = A.default_area()
+	local l = require("zortex.services.xp.ledger").get({ cached = true })
+	for _, a in ipairs(A.all({ include_roots = false })) do
+		local d = a:xp_data(l)
+		local p = store.get_level_progress(d.total_xp, d.level or 1, store.calculate_area_level_xp)
+		area_total = area_total + d.xp
+		area_tree[#area_tree + 1] = {
+			key = a.key,
+			name = a.name,
+			value = A.value(a),
+			parent = a.parent and not a.parent:is_root() and a.parent.key or nil,
+			depth = a.depth,
+			rel = a.file and rel(a.file),
+			lnum = a.lnum,
+			xp = round(d.xp),
+			total_xp = round(d.total_xp),
+			level = d.level,
+			progress = p.progress,
+			xp_to_next = round(p.xp_to_next),
+			default = (default and default.key == a.key) or nil,
+		}
+	end
 	local awards = {}
 	for _, e in ipairs(stats.recent(opts.limit or 200, opts.days or 30)) do
 		local shares = {}
@@ -353,6 +380,8 @@ function M.xp(opts)
 			xp = math.floor(e.xp * 10 + 0.5) / 10,
 			mastery = math.floor((e.mastery or 0) * 10 + 0.5) / 10,
 			aligned = e.aligned,
+			unassigned = e.unassigned,
+			season = math.floor((e.season or 0) * 10 + 0.5) / 10,
 			source = e.source,
 			title = e.title,
 			project = e.project,
@@ -374,6 +403,8 @@ function M.xp(opts)
 			next_at = season.next_tier and season.next_tier.at or nil,
 			tiers = require("zortex.services.xp.season").tiers(),
 			days_left = season.days_left,
+			season_xp = round(season.season_xp or 0),
+			value = round(season.value or 0),
 			objectives = vim.tbl_map(function(x)
 				local o = x.objective
 				return {
@@ -389,6 +420,9 @@ function M.xp(opts)
 		history = vim.deepcopy(store.season_history()),
 		daily = stats.daily(14),
 		areas = areas,
+		area_tree = area_tree,
+		area_total = round(area_total),
+		default_area = require("zortex.services.xp.calculator").default_area_value(),
 		awards = awards,
 	}
 end

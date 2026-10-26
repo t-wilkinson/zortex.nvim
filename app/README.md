@@ -35,8 +35,10 @@ Notes are read-only unless `-writable` is set. The server's own state
 (`notifications.json`, `pomodoro.json`, `clocks.json`, `track.json` and
 `track_log.jsonl`, `search_history.json`, `web_completions.json`, the XP summary)
 lives in `-data`. Without `-data` it serves the notes only. The server never
-creates notes of its own except `inbox.zortex` (web edits) and the calendar
-feeds' `z/feeds/<name>.zortex` (`-feeds`); Neovim's
+creates notes of its own except `inbox.zortex` (web edits),
+`reviews.zortex` (the web reviews, when you write in one before Neovim made
+it) and the calendar feeds' `z/feeds/<name>.zortex` (`-feeds`); finishing
+a daily review on the web writes `.z/review_state.json`, as Neovim does; Neovim's
 `setup()` creates the key notes in a new folder.
 
 ## Quick start
@@ -161,10 +163,15 @@ feed's note is removed.
   plugin's frecency boosts, kept in `-data/search_history.json`).
 - `edit/`: single-line edits the way the plugin makes them (task open /
   done with `@done` and `@id`, text to task and back), task groups
-  (`Groups`, `Cascade`), carrying tasks forward and the calendar auto-size,
+  (`Groups`, `Cascade`), carrying tasks forward (`Carry`, and `ToNextDay`
+  for the daily review's tomorrow) and the calendar auto-size,
   checked against `../tests/fixtures/{edits,groups,carry,autosize}.json`.
 - `web/`: the web app (handlers, note rendering, file browser, calendar,
-  pomodoro and structure pages); templates and static files are embedded.
+  pomodoro and structure pages; projects, objectives, areas (`areas.go`)
+  and the daily and weekly reviews with their fixes (`review.go`,
+  `reviewday.go`, `reviewapi.go`, `reviewsnote.go` for writing
+  `reviews.zortex`); `/attributes` from `static/attributes.json`, which
+  `tests/gen_docs.lua` writes); templates and static files are embedded.
   `web_test.go` and `state_test.go` run it over the fixtures.
 - `alerts/`: the notification store (a JSON file), the ntfy client and the
   sender loop.

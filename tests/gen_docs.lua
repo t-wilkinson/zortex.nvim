@@ -4,8 +4,9 @@
 --
 -- README.md: the table between <!-- actions:start --> and <!-- actions:end -->,
 -- from zortex.actions. doc/zortex.txt (:help zortex): the whole file, from
--- zortex.actions and the defaults in lua/zortex/config.lua. test_zr_actions
--- fails when either is out of date.
+-- zortex.actions and the defaults in lua/zortex/config.lua.
+-- app/web/static/attributes.json: the web app's attribute help, from
+-- zortex.attributes_help. test_zr_actions fails when any is out of date.
 local root = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p:h:h")
 vim.opt.rtp:prepend(root)
 
@@ -363,11 +364,52 @@ function M.vimdoc_lines()
 	return out
 end
 
+-- The attribute help the web app embeds (app/web/static/attributes.json),
+-- from lua/zortex/attributes_help.lua: JSON with its keys in a fixed order,
+-- so the file only changes when the help does.
+M.attributes = root .. "/app/web/static/attributes.json"
+
+function M.attributes_lines()
+	local help = require("zortex.attributes_help")
+	local function str(v)
+		return vim.json.encode(v)
+	end
+	local function list(t)
+		local parts = {}
+		for _, v in ipairs(t or {}) do
+			parts[#parts + 1] = str(v)
+		end
+		return "[" .. table.concat(parts, ", ") .. "]"
+	end
+	local out = { "{", '  "groups": [' }
+	for i, g in ipairs(help.GROUPS) do
+		out[#out + 1] = string.format('    {"id": %s, "title": %s}%s', str(g.id), str(g.title), i < #help.GROUPS and "," or "")
+	end
+	out[#out + 1] = "  ],"
+	out[#out + 1] = '  "attributes": ['
+	for i, e in ipairs(help.list) do
+		out[#out + 1] = "    {"
+		out[#out + 1] = '      "key": ' .. str(e.key) .. ","
+		out[#out + 1] = '      "group": ' .. str(e.group) .. ","
+		out[#out + 1] = '      "short": ' .. list(e.short) .. ","
+		out[#out + 1] = '      "insert": ' .. str(e.insert) .. ","
+		out[#out + 1] = '      "formats": ' .. list(e.formats) .. ","
+		out[#out + 1] = '      "where": ' .. str(e.where) .. ","
+		out[#out + 1] = '      "desc": ' .. str(e.desc)
+		out[#out + 1] = "    }" .. (i < #help.list and "," or "")
+	end
+	out[#out + 1] = "  ]"
+	out[#out + 1] = "}"
+	return out
+end
+
 if not package.loaded["helpers"] then
 	vim.fn.writefile(M.render_readme(vim.fn.readfile(M.readme)), M.readme)
 	print("updated " .. M.readme)
 	vim.fn.writefile(M.vimdoc_lines(), M.vimdoc)
 	print("updated " .. M.vimdoc)
+	vim.fn.writefile(M.attributes_lines(), M.attributes)
+	print("updated " .. M.attributes)
 	os.exit(0)
 end
 

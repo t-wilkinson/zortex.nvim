@@ -203,12 +203,11 @@ T.test("daily review keys: x, d, t, a", function()
 		local tomorrow = vim.fn.index(after, "**2026-10-12:**") + 1
 		T.ok(tomorrow > 0 and after[tomorrow + 1]:match("^14:00 %[ %] Write the notes @id%("), table.concat(after, "\n"))
 
-		-- a: a finished task on neither a key result nor an area goes to
-		-- z/archive.tasks.zortex
+		-- a: a finished task without an area goes to z/archive.tasks.zortex
 		lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
-		local i = find(lines, "Done on neither a key result nor an area")
+		local i = find(lines, "Done without an area")
 		T.ok(i, table.concat(lines, "\n"))
-		press("a", "Wash the car (", "") -- the line under "Done on neither…"
+		press("a", "Wash the car (", "") -- the task under its project, under "Done without an area"
 		local archive = read(require("zortex.features.archive").tasks_archive_path())
 		T.ok(vim.tbl_contains(archive, "# Fix proj"), table.concat(archive, "\n"))
 		T.ok(vim.iter(archive):any(function(l)

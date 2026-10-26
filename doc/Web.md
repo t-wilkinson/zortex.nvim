@@ -2,8 +2,9 @@
 
 `zortex serve` shows your notes folder as a website: the notes rendered
 with working links, search, a file browser, the calendar, the pomodoro and
-other clocks, projects, objectives and the weekly review, and with
-`-writable` light editing from a phone. It reads the same folder Neovim
+other clocks, projects, objectives, areas and the daily and weekly
+reviews, and with `-writable` light editing from a phone, the reviews'
+fixes included. It reads the same folder Neovim
 edits (synced to the server, or on the same machine) and keeps its own
 state apart (`-data`).
 
@@ -17,6 +18,7 @@ it running (sync, Docker, NixOS, a login, ntfy) is in
 - [The home page](#the-home-page)
 - [Reading notes](#reading-notes)
 - [Editing](#editing)
+- [Reviews](#reviews)
 - [Time tracking](#time-tracking)
 - [Slides](#slides)
 - [Other calendars](#other-calendars)
@@ -69,8 +71,11 @@ The details, and the settings, are in [Working with Neovim](#working-with-neovim
 | `/resources` | redirects to `/f/?show=all` (`?dir=` becomes the path): file pages show their own "Linked from", folder listings count links and unlinked files |
 | `/projects` | the week's focus projects (the `Focus:` of the week's entry in `reviews.zortex`), then every project with open work and those without a next action: progress (task `@size` hours, done when a task or its calendar copy is checked), key results, the next task and how often it was put off |
 | `/project?rel=&lnum=` | one project: progress, time tracked (all and this week), its next tasks (put off ×n, the day it's planned, due), sub-projects, done tasks, the key results it moves (progress, how far behind its objective's window), its `Log:`, the days it was on the calendar, the notes and files it links and the notes that link it. With `-writable`: tick tasks (calendar copies follow) and add a dated line to its log (`POST /api/project/log` `{rel, lnum, expect, text}`) |
+| `/areas` | every area of `areas.zortex`, nested: its vision, its XP (its own and with its sub-areas', its level and the way to the next, from Neovim's XP summary), the objectives running now that name it, the active projects that carry it (their own `@area` or a parent's); the area XP of all areas together at the top. The default area (`xp.default_area`, `0.1`) is marked as where work without one earns |
+| `/attributes` | every `@attribute`: how it is written (`@due(2026-10-20)`, `@a(1.2/Fitness)`, …), what it goes on and what it does, with a filter; the same list as Neovim's `:Zortex attributes` (`static/attributes.json`, written from the plugin's `attributes_help.lua`) |
 | `/okr` | objectives (`## 3M-2026-Q4 …`) by period; the period of a season shows its name and tier (Neovim's, from the XP summary or its history; for the current quarter without one, estimated here from its objectives' mean progress); a key result with no project and no checkbox is marked stuck: progress (the mean of their key results) against the share of the period gone, marked when behind; each key result with the projects it links; objectives whose period ended without `@done`, later ones, and the latest done |
-| `/review?week=` | the weekly review (`:ZortexReview`'s findings), read-only: done this week, time tracked, XP and its hours, the inbox, the week's focus, objectives against the time passed, tasks put off on 2+ days, overdue and due in a week, projects without a next action, key results no project moves, time per task; `‹ ›` to other weeks |
+| `/review?week=` | the weekly review (`:ZortexReview`'s findings): done this week, time tracked, XP and its hours, the inbox, the week's focus (on a weekend, the coming week's) and its entry in `reviews.zortex`, objectives against the time passed, tasks put off on 2+ days, overdue and due in a week, projects without a next action, key results no project moves, the active projects to pick the focus from, time per task; `‹ ›` to other weeks. With `-writable`, its fixes ([Reviews](#reviews)) |
+| `/review?day=today` | the daily review (`:ZortexReview day`'s findings) since the last daily review: completed, how the work served the plan, the inbox, the calendar's open tasks, work finished without an area, overdue and due by tomorrow, the week's focus, objectives, time tracked, the day's entry in `reviews.zortex`; `?day=2026-10-21` for another day. With `-writable`, its fixes ([Reviews](#reviews)) |
 | `/broken` | links that don't resolve (notes and files), and task ids that don't line up (a project task's `@id` on two lines, a calendar copy whose link points at another task); the notes nothing reaches (not in the structure, and no other note links them; how many more a note links but the structure doesn't) and how many files nothing links to; then the tags that go nowhere: tag searches that find nothing, `[@Tag]` links to a tag no note has, bare tags no tag search asks for |
 | `/offline` | the page the installed app shows for a page never opened while offline: the saved pages, and the inbox box ([Installing it as an app](#installing-it-as-an-app)) |
 | `/calendar.ics?token=` | the calendar's lines tagged `@share` as an iCal feed for other calendars ([Other calendars](#other-calendars)) |
@@ -81,8 +86,8 @@ endpoints behind the pages are under [API](#api).
 
 ## The home page
 
-- **Inbox** (`-writable`): a box that adds a task or a note to the bottom of
-  `inbox.zortex`. It works offline too
+- **Inbox** (`-writable`): a box that adds a note (the default) or a task
+  to the bottom of `inbox.zortex`; **@ help** opens the attribute list. It works offline too
   ([Installing it as an app](#installing-it-as-an-app)); the reviews in
   Neovim list the inbox first.
 - **Calendar**: the selected day of `calendar.zortex` as written (tasks
@@ -101,10 +106,11 @@ endpoints behind the pages are under [API](#api).
   with no page open. With `-writable` their time goes to a task
   ([Time tracking](#time-tracking)).
 - **Focus**: the week's focus projects from the weekly review.
-- **Season and XP**: level and tier, progress to the next level, XP per day
-  for two weeks, top areas, recent awards, from the summary Neovim
-  publishes; tasks ticked on the web with their estimated XP until Neovim
-  counts them.
+- **Season and XP**: the season's progress on its objectives and its tier,
+  its season XP (work on key results), area XP per day for two weeks, top
+  areas (all of them on `/areas`) and the area XP of all areas, recent
+  awards, from the summary Neovim publishes; tasks ticked on the web with
+  their estimated XP until Neovim counts them.
 - Recently changed notes, notes not yet in the structure, counts.
 
 ## Reading notes
@@ -209,7 +215,11 @@ pages get clickable checkboxes and an Edit mode (the button sits above the
 outline on wide screens; tap a line: To-do · Done · Plain · Edit text · Add
 below · Move up/down · Delete; drag a line's ⠿ handle to move it, with the
 lines indented under it); the home page checks off calendar tasks and adds
-tasks and notes to `inbox.zortex`. The inbox box also works offline (in the
+tasks and notes to `inbox.zortex`. Editing a line's text (or adding one)
+shows chips for the common attributes (`@due(…)`, `@a(…)`, `@size(…)`,
+`@p1`, `@project(…)`, `@n(…)`, `@dur(…)`): a tap puts one at the cursor,
+the cursor inside its parentheses, and its title says how it is written;
+**@ help** opens [`/attributes`](#pages) in a new tab. The inbox box also works offline (in the
 installed app, or when the server is down): what you add waits in the
 browser and is appended to the bottom of the inbox, in order, when the
 connection is back (`app/web/static/inbox.js`). Edits are line-level,
@@ -221,6 +231,39 @@ plugin's `tasks.edit_line`. XP isn't computed on the server: Neovim counts
 completed tasks from their `@done` dates when it next runs (it reloads
 changed notes on focus), and until then the home page shows how many web
 completions are waiting.
+
+## Reviews
+
+`/review?day=today` and `/review` are Neovim's daily and weekly reviews
+(`:ZortexReview day`, `:ZortexReview`), to do on a phone. They read the
+same notes and write the same lines, so a review done on the web is done:
+
+- **The window.** The daily review covers the days since the last daily
+  review (at most a week back), from `.z/review_state.json`, which Neovim
+  and the web share; **Finish review** marks the day reviewed there, and
+  Neovim's next daily review starts after it (and the other way round).
+- **Tick** (`x`): a task's checkbox, as `/api/edit` does (copies follow).
+- **→ Tomorrow** (`t`): an open calendar task goes on the next day at the
+  same time, `[>]` on the old line (made from the calendar's template when
+  the day is new).
+- **Due…** (`d`): sets or moves `@due` (`2026-10-21`, `+3`, `tomorrow`).
+- **Move** (`m`): an inbox line, with the lines indented under it, goes to
+  the end of the project picked (the line's `@project(…)` picked for you),
+  without `@project`.
+- **Give it an area** (`A`): finished work without an area gets `@a(…)`: a
+  project on its heading (its tasks listed under it), a loose task on its
+  line. **Finish review** writes `@a(0.1)` (Neovim's `xp.default_area`,
+  from its summary) on what is still without one, when `areas.zortex` has
+  that area ([Planning](Planning.md#area-xp-and-season-xp)).
+- **+ Focus / − Focus** (`f`, weekly): the project in or out of the
+  week's `Focus:` (on a weekend, the coming week's, as Neovim plans it).
+- **Write a line** under a label of the entry (`Done:`, `Blocked:`, `Wins:`,
+  …): the day's or the week's entry in `reviews.zortex`, made from the
+  note's `# Templates` when missing, the label added when it has none.
+
+Each fix names the line it expects: when the note changed since the page
+loaded (Neovim, Syncthing), nothing is written and the page says to reload.
+After a fix the page reloads where it was.
 
 ## Time tracking
 
@@ -448,13 +491,20 @@ Everything the pages use is plain HTTP with JSON. `X-API-Key` (Neovim's
 | `GET /api/summary` | for home dashboards (Homepage, Home Assistant, …): pending count, upcoming notifications as text/HTML, the pomodoro |
 | `GET /api/pomodoro` | phase, running, remaining, ends_at, session, completed, today, settings, `next_alarm`, `ntfy` |
 | `POST /api/pomodoro/{start,pause,resume,toggle,skip,stop,restart}` | drive the clock |
-| `GET /api/xp` | the XP summary Neovim published (season, daily XP, areas, recent awards, calibration), or `{"available": false}`; plus `pending_web` (tasks completed on the web since, one per `@id`), `pending_xp` and `pending_tasks` (`{title, xp, hours}`: estimated from the task's `@size`, priority and importance with the summary's calibration) |
+| `GET /api/xp` | the XP summary Neovim published (version 3: the season with its `season_xp`; `daily` area XP for 14 days and `days`, 60 days of area, season and work XP and how the work served the plan; the top `areas`, every area in `area_tree` and their `area_total`; recent awards with their area and season XP; the calibration, with `default_area`), or `{"available": false}`; plus `pending_web` (tasks completed on the web since, one per `@id`), `pending_xp` and `pending_tasks` (`{title, xp, hours}`: estimated from the task's `@size`, priority and importance with the summary's calibration) |
 | `POST /api/xp` | Neovim publishes it after every XP change (`X-API-Key` when set); it also writes `.z/xp_summary.<device>.json` into the notes folder, and the newest of them is shown |
 | `POST /api/edit` | `-writable` only: `{rel, lnum, expect, op, text?, kind?}` with `op` `open` / `done` / `toggle` / `text` (task state, exactly as Neovim's toggle: `@done(today)`, an `@id`), `set` (new text after the line's marker; `@id`/`@done` kept), `delete`, `insert` (after `lnum`; `kind` `task` / `note` / `text`), `move` (the line and the lines indented under it go before line `to`, `len+1` for the end, re-indented to fit; `expectTo` is that line's text). `expect` is the line as the page saw it: if the note changed since, nothing is written and the reply is 409 with the current note. Task ops keep copies in step: the other lines with the task's `@id` in the calendar and the project notes get the same state (not `[>]` lines), and on a calendar line without a checkbox whose link points at a task they toggle that task (the reply then carries `task: {rel, lnum, line}`) |
 | `POST /api/calendar/repeat` | `-writable` only: `{lnum, expect, date}`: tick the occurrence on `date` of the repeating task on line `lnum` of the calendar's `# Repeating` section (`expect`: that line): a done copy goes into today (made from its template when new), with `@for(date)` when it was due another day. `GET /api/calendar`'s days list the occurrences with `repeat`, `date`, and `copy` (the copy's line, then `lnum` and `src` are the copy's and `/api/edit` toggles it) |
 | `POST /api/calendar/carry` | `-writable` only: `{date?}` (default today): copy the open tasks of the 14 days before to the date with the same `@id` and mark the old lines `[>]`, as Neovim's `:ZortexCarryForward`; `{moved, added}`. `GET /api/calendar` has `carry`, how many there are for today (the home page offers a **Carry** button) |
 | `GET /api/note?rel=` | a rendered note: `{body, mod, src?}` (`src` with `-writable`) |
 | `GET /api/events` | server-sent events for open pages: `notes` (`{rels}` added, changed or removed; seen on the next rescan, `-poll`), `xp` (a new summary), `pomodoro` (the clock changed), `clocks` (timers, alarms, stopwatch), `track` (time tracking). Pages redraw right away; behind nginx the stream needs `proxy_buffering off` (the server also sends `X-Accel-Buffering: no`) |
+| `POST /api/review/note` | `-writable` only: `{week, date?, label, text}`: `- text` under the label of the week's entry (or the day's, with `date`) in `reviews.zortex`, made from its template when missing; `{rel, lnum, url}` |
+| `POST /api/review/focus` | `-writable` only: `{week, rel, lnum}`: the project (its heading) in or out of the week's `Focus:`; `{added, project}` |
+| `POST /api/review/move` | `-writable` only: `{rel, lnum, expect, to: "rel:lnum"}`: the line and the lines under it, without `@project`, to the end of that project's own lines |
+| `POST /api/review/tomorrow` | `-writable` only: `{lnum, expect}`: the open calendar task on that line to the next day, same time, `[>]` on the old line; `{date}` |
+| `POST /api/review/due` | `-writable` only: `{rel, lnum, expect, due}` (`YYYY-MM-DD`, `+N`, `tomorrow`): sets `@due` |
+| `POST /api/review/area` | `-writable` only: `{rel, lnum, expect, area}`: `@a(area)` on the line (any other `@area`/`@a` replaced); the area must exist in `areas.zortex` |
+| `POST /api/review/finish` | `-writable` only: `{date?}`: `@a(<default area>)` on the finished work of the daily review's window still without an area, and the day marked reviewed in `.z/review_state.json`; `{stamped, area, date}` |
 | `POST /api/inbox` | `-writable` only: `{text, kind: "task" \| "note", id?}` appended to the bottom of `inbox.zortex` (created when missing). `id` is set by the offline queue: a capture sent again with the same id (its answer was lost) is added once |
 | `GET /api/clocks` | timers, alarms and the stopwatch: `{timers, alarms, stopwatch, now, ntfy}` |
 | `POST /api/clocks/timers` | `{label, seconds}` starts a timer; `POST /api/clocks/timers/{id}/{pause,resume,restart,remove}` |

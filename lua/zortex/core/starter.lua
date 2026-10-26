@@ -64,6 +64,8 @@ M.templates = {
 			"@@Areas",
 			"@@A",
 			"",
+			"# 0 General",
+			"## 0.1 Unassigned",
 			"# 1 Personal",
 			"## 1.1 Health",
 			"## 1.2 Learning",

@@ -457,7 +457,7 @@
     function show(g) {
       var d = new Date(g.dataset.date + "T12:00:00");
       tip.innerHTML = "<span class='tip-date'>" + esc(d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })) +
-        "</span> <strong>" + esc(num(Number(g.dataset.xp))) + " Mastery XP</strong>";
+        "</span> <strong>" + esc(num(Number(g.dataset.xp))) + " area XP</strong>";
       tip.hidden = false;
       var box = wrap.getBoundingClientRect(), r = g.querySelector(".hit").getBoundingClientRect();
       var left = r.left - box.left + r.width / 2;
@@ -514,7 +514,8 @@
       }).join("");
       $("xp-next").textContent = !objectives.length ? "No objective in this season's window: add a 3M-YYYY-Qn objective to OKRs" :
         s.next_tier ? s.next_tier + " at " + Math.round(s.next_at * 100) + "%" : "Every objective done";
-      $("xp-season").textContent = pct + "%";
+      // season XP: the work on its key results (and their bonuses)
+      $("xp-season").textContent = s.season_xp != null ? num(s.season_xp) : pct + "%";
       objs.innerHTML = objectives.map(function (o) {
         var p = Math.round((o.progress || 0) * 100);
         var title = esc(o.title || "");
@@ -542,10 +543,12 @@
     $("xp-areas").innerHTML = areas.length ? areas.map(function (a) {
       var pct = Math.round((a.progress || 0) * 100);
       return '<li><div class="area-row"><span class="area-name" title="' + esc(a.key) + '">' + esc(a.name) + "</span>" +
-        '<span class="area-level">Lvl ' + esc(a.level || 1) + " · " + esc(num(a.xp)) + " Mastery XP</span></div>" +
+        '<span class="area-level">Lvl ' + esc(a.level || 1) + " · " + esc(num(a.xp)) + " XP</span></div>" +
         '<div class="meter thin" role="progressbar" aria-label="' + esc(a.name) + ' progress to the next level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '">' +
         '<div class="meter-fill" style="width:' + pct + '%"></div></div></li>';
-    }).join("") : '<li class="dim">No Mastery XP yet: give objectives areas with @a(...) and link projects to key results</li>';
+    }).join("") : '<li class="dim">No area XP yet: finish work on projects with @a(...), or on key results of objectives with one</li>';
+    var total = $("xp-area-total");
+    if (total) total.textContent = x.area_total != null ? num(x.area_total) + " XP in all" : "";
 
     var awards = list(x.awards);
     $("xp-awards").innerHTML = awards.length ? awards.map(function (e) {
@@ -554,7 +557,8 @@
       var kind = e.source === "objective" ? " · objective" : e.source === "project_done" ? " · project done" : "";
       var award = e.xp > 0 ? "+" + num(e.xp) : "·";
       var effort = e.effort != null ? e.effort : e.xp;
-      return '<li><span class="award-xp" title="+' + esc(num(e.xp)) + " Mastery XP for " + esc(num(effort)) + " XP (" + esc(workHours(effort, x)) + ') of estimated work">' + esc(award) + "</span>" +
+      var season = e.season > 0 ? ", +" + num(e.season) + " season XP" : "";
+      return '<li><span class="award-xp" title="+' + esc(num(e.xp)) + " area XP" + esc(season) + " for " + esc(num(effort)) + " XP (" + esc(workHours(effort, x)) + ') of estimated work">' + esc(award) + "</span>" +
         '<span class="award-title">' + title + '<span class="dim small"> ' + esc(e.date ? e.date.slice(5).replace("-", "/") : "") + " · " + esc(workHours(effort, x)) + esc(kind) + "</span></span></li>";
     }).join("") : '<li class="dim">Nothing completed in the last 30 days</li>';
 

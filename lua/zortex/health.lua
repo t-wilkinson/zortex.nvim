@@ -48,6 +48,29 @@ function M.check()
 		end
 	end
 
+	-- XP: the default area must name an area, and the old Mastery shares are gone
+	local xpc = Config.xp or {}
+	if xpc.enabled ~= false then
+		local calc = require("zortex.services.xp.calculator")
+		local value = calc.default_area_value()
+		if value then
+			local ok_d, area = pcall(require("zortex.services.areas").default_area)
+			if ok_d and area then
+				health.ok(string.format("Default area @a(%s): %s", value, area.name))
+			else
+				health.warn(
+					string.format("xp.default_area @a(%s) names no area: work without an area earns no area XP", value),
+					{ string.format("Add a heading for it to areas.zortex: # 0 General / ## %s Unassigned", value) }
+				)
+			end
+		end
+		if type(xpc.alignment) == "table" then
+			health.warn("xp.alignment is no longer read: every piece of work pays its areas xp.area_transfer (1.0)", {
+				"Remove xp.alignment from setup(); set xp.area_transfer and xp.season_transfer instead (doc/Planning.md)",
+			})
+		end
+	end
+
 	local broken_ok, broken = pcall(require("zortex.core.link_index").unresolved)
 	if broken_ok then
 		if #broken == 0 then

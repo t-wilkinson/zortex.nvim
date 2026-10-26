@@ -19,9 +19,11 @@ local function round(x)
 	return math.floor(x + 0.5)
 end
 
---- The summary: the season (progress on its objectives), Mastery XP per day
---- (14 days), top areas, recent awards, and the calibration (XP per hour,
---- hours per task @size, priority and importance multipliers).
+--- The summary: the season (progress on its objectives, its season XP),
+--- area XP per day (14 days; `days`: 60 days of area, season and work XP and
+--- how the work served the plan), top areas, every area (`area_tree`) and
+--- their total, recent awards, and the calibration (XP per hour, hours per
+--- task @size, priority and importance multipliers, the default area).
 function M.summary()
 	local q = require("zortex.query").xp({ days = 30, limit = 8 })
 	local today, week = 0, 0
@@ -53,6 +55,8 @@ function M.summary()
 			date = e.date,
 			xp = round(e.mastery or 0),
 			effort = round(e.xp),
+			season = round(e.season or 0),
+			aligned = e.aligned,
 			title = e.title,
 			source = e.source,
 			project = e.project,
@@ -81,6 +85,9 @@ function M.summary()
 		xp_per_hour = calc.xp_per_hour(),
 		task_hours = task_hours,
 		default_size = require("zortex.constants").DEFAULT_TASK_SIZE,
+		default_area = calc.default_area_value() or "",
+		area_transfer = calc.area_transfer(),
+		season_transfer = calc.season_transfer(),
 		priority = {},
 		importance = {},
 	}
@@ -89,13 +96,18 @@ function M.summary()
 		calibration.importance[n] = calc.get_importance_multiplier(n)
 	end
 	return {
-		version = 2, -- 2: the season is progress on its objectives (no levels)
+		-- 2: the season is progress on its objectives (no levels); 3: area XP
+		-- and season XP apart, the whole area tree, 60 days of totals
+		version = 3,
 		calibration = calibration,
 		season = q.season,
 		today = today,
 		week = week,
 		daily = q.daily,
+		days = require("zortex.services.xp.stats").daily(60),
 		areas = areas,
+		area_tree = q.area_tree,
+		area_total = q.area_total,
 		awards = awards,
 		history = history,
 	}

@@ -297,3 +297,33 @@ func TestGraphWideCards(t *testing.T) {
 		t.Error("a small card is wide")
 	}
 }
+
+// A note's count leaves out the note that lists it (every listed note has
+// that link): Rust links Reading, Loose and its own two and is linked by
+// Async; Async only links back to Rust, which lists it, so it shows none.
+func TestGraphCountsWithoutTheLister(t *testing.T) {
+	ts := newSlidesServer(t, graphNotes)
+	page := expect(t, ts, "/graph", 200)
+	count := func(rel string) string {
+		i := strings.Index(page, `data-rel="`+rel+`"`)
+		if i < 0 {
+			t.Fatalf("no %s", rel)
+		}
+		rest := page[i:]
+		rest = rest[strings.Index(rest, "</a>")+4:]
+		if strings.HasPrefix(rest, ` <span class="gt-count dim"`) {
+			rest = rest[strings.Index(rest, ">")+1:]
+			return rest[:strings.Index(rest, "<")]
+		}
+		return ""
+	}
+	if got := count("rust.zortex"); got != "4" {
+		t.Errorf("Rust: %q, want 4 (Async, Loose, Reading, Rust book notes)", got)
+	}
+	if got := count("reading.zortex"); got != "1" {
+		t.Errorf("Reading: %q, want 1 (Rust)", got)
+	}
+	if got := count("async.zortex"); got != "" {
+		t.Errorf("Async: %q, want no count", got)
+	}
+}

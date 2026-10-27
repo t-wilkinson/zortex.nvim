@@ -230,7 +230,7 @@ case-insensitive and by prefix: `[P/#1.4]` finds `## 1.4 - zortex`.
 | `#` heading | `[P/#1.4 - zortex]` | a heading at any depth in the range |
 | `:` label | `[A/#1.2/:Fitness]` | a label |
 | `*` bold | `[Note/*Next steps]` | a bold heading or bold text |
-| `-` item | `[O/#Current/-KR1]`, `[P/-aB3x9]` | a list item by its key or text (a markdown link counts as its text: `-The Rust Book`), or a task by its `@id` (exactly), which survives renaming the task |
+| `-` item | `[O/#Current/-KR1]`, `[P/-aB3x9]` | a list item by its key or text, its links without their brackets (`- To [this link]` and `- To [this link](./x)` are both `-To this link`; a markdown link counts as its text: `-The Rust Book`), or a task by its `@id` (exactly), which survives renaming the task |
 | `%` query | `[Note/%sparkplug]` | any line containing the text |
 | `>` follow | `[R/#Rust/>The Rust Book]` | a link in the range, by its text or its line's text; following it opens what that link points to (last component only) |
 

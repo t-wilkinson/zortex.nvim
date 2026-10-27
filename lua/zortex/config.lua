@@ -144,7 +144,8 @@ local defaults = {
 		-- :ZortexPlan (ui/planner.lua, services/planner.lua)
 		planner = {
 			todo_link = "P/#TODOs", -- tasks under this project rank higher
-			max_tasks = 30,
+			max_tasks = 30, -- project tasks in the plan (# Projects), best first
+			max_todos = 10, -- to-dos in the plan (# Tasks: the TODO project, the Projects note's own, earlier days' open calendar tasks)
 			project_tasks = 3, -- P puts a project's next this many open tasks on the day (5P: five)
 			-- :ZortexPlan and :ZortexToday write the repeating tasks due on the
 			-- day (the calendar's # Repeating) into it; false leaves them shown

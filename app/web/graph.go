@@ -275,7 +275,8 @@ func curve(x1, y1, x2, y2 int, class, extra string) string {
 type treeNode struct {
 	Rel      string // a note, or "" for a section of a structure
 	Text     string
-	Lnum     int // where its parent lists it
+	Lnum     int    // where its parent lists it
+	From     string // the note whose lines list it
 	Children []*treeNode
 	Again    bool // already in the tree above: not expanded again
 	Root     bool // a Structure note (else a hub the tree doesn't reach)
@@ -396,7 +397,7 @@ func (s *Server) structureOf(rel string) []*treeNode {
 					}
 				}
 				if c == nil {
-					c = &treeNode{Rel: t, Text: s.noteTitle(t), Lnum: lnum}
+					c = &treeNode{Rel: t, Text: s.noteTitle(t), Lnum: lnum, From: rel}
 					parent.Children = append(parent.Children, c)
 				}
 				c.indent = indent
@@ -426,8 +427,9 @@ func prune(list []*treeNode) []*treeNode {
 
 // gtNote is a note in /graph: its link, with the notes it links with (for
 // hover) and its header tags (for the tag filter) as data, and (count) how
-// many notes those are.
-func (s *Server) gtNote(rel, text string, count bool) string {
+// many notes those are, not counting `lister`, the note that lists it here
+// (every listed note has that one link).
+func (s *Server) gtNote(rel, text string, count bool, lister string) string {
 	snap := s.current()
 	var rels []string
 	for _, l := range snap.forward[rel] {
@@ -451,8 +453,18 @@ func (s *Server) gtNote(rel, text string, count bool) string {
 		a += ` data-tags="` + esc(strings.Join(tags, " ")) + `"`
 	}
 	a += `>` + esc(text) + `</a>`
-	if count && len(rels) > 0 {
-		a += ` <span class="gt-count dim" title="Notes it links to or that link to it">` + strconv.Itoa(len(rels)) + `</span>`
+	n := len(rels)
+	if lister != "" && lister != rel {
+		if i := sort.SearchStrings(rels, lister); i < len(rels) && rels[i] == lister {
+			n--
+		}
+	}
+	if count && n > 0 {
+		title := "Notes it links to or that link to it"
+		if lister != "" {
+			title = "Other notes it links to or that link to it (besides the one listing it here)"
+		}
+		a += ` <span class="gt-count dim" title="` + title + `">` + strconv.Itoa(n) + `</span>`
 	}
 	return a
 }
@@ -595,7 +607,7 @@ func (s *Server) graphHTML(roots []*treeNode) template.HTML {
 				b.WriteString(`</details></li>`)
 				continue
 			}
-			a := s.gtNote(n.Rel, n.Text, true)
+			a := s.gtNote(n.Rel, n.Text, true, n.From)
 			heads := ""
 			if n.Again {
 				if h := home[n.Rel]; h != nil && ids[h] != "" {
@@ -626,7 +638,7 @@ func (s *Server) graphHTML(roots []*treeNode) template.HTML {
 	}
 	for _, root := range roots {
 		if !root.Root {
-			card(s.gtNote(root.Rel, root.Text, false), root.Children, s.gtHeadings(root.Rel), idAttr(root))
+			card(s.gtNote(root.Rel, root.Text, false, ""), root.Children, s.gtHeadings(root.Rel), idAttr(root))
 			continue
 		}
 		var loose []*treeNode
@@ -637,7 +649,7 @@ func (s *Server) graphHTML(roots []*treeNode) template.HTML {
 		}
 		first := idAttr(root) // a Structure note's children start at its first card
 		if len(loose) > 0 {
-			card(s.gtNote(root.Rel, root.Text, false), loose, "", first)
+			card(s.gtNote(root.Rel, root.Text, false, ""), loose, "", first)
 			first = ""
 		}
 		for _, c := range root.Children {
@@ -650,7 +662,7 @@ func (s *Server) graphHTML(roots []*treeNode) template.HTML {
 				if id == "" {
 					id, first = first, ""
 				}
-				card(s.gtNote(c.Rel, c.Text, false), c.Children, s.gtHeadings(c.Rel), id)
+				card(s.gtNote(c.Rel, c.Text, false, ""), c.Children, s.gtHeadings(c.Rel), id)
 			}
 		}
 	}
@@ -705,13 +717,13 @@ func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
 	info := snap.structure
 	var unlinked []template.HTML
 	for _, u := range info.Unlinked {
-		unlinked = append(unlinked, template.HTML(s.gtNote(u, s.noteTitle(u), true)))
+		unlinked = append(unlinked, template.HTML(s.gtNote(u, s.noteTitle(u), true, "")))
 	}
 	roots := s.structureTree()
 	var main []template.HTML // the Structure notes, named in the intro
 	for _, n := range roots {
 		if n.Root {
-			main = append(main, template.HTML(s.gtNote(n.Rel, n.Text, false)))
+			main = append(main, template.HTML(s.gtNote(n.Rel, n.Text, false, "")))
 		}
 	}
 	s.render(w, r, "graph", http.StatusOK, map[string]any{

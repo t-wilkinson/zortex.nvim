@@ -256,17 +256,17 @@ T.test("planner: a task goes on the day as a copy, under its project's block whe
 	-- the project with its open tasks: a block, the ones already on the day skipped
 	local head, n = planner.add_project(day, { project_key = ZORTEX })
 	cal = fs.read_lines(CAL)
-	T.eq(cal[head], "- [1.4 - zortex](P/#1 Programming/#1.4 - zortex)")
+	T.eq(cal[head], "- [P/#1 Programming/#1.4 - zortex]")
 	T.eq(n, 2) -- Add research-ready references, Change task sizes
-	-- shown by their text under the project's line
-	T.ok(cal[head + 1]:match("^  %- %[ %] %[Add research%-ready references%]%(%./%-Add research%-ready references%) @id%(%w+%)$"), cal[head + 1])
-	T.ok(cal[head + 2]:match("^  %- %[ %] %[Change task sizes%]%(%./%-Change task sizes%) @id%(%w+%)$"), cal[head + 2])
+	-- ./ links under the project's line
+	T.ok(cal[head + 1]:match("^  %- %[ %] %[%./%-Add research%-ready references%] @id%(%w+%)$"), cal[head + 1])
+	T.ok(cal[head + 2]:match("^  %- %[ %] %[%./%-Change task sizes%] @id%(%w+%)$"), cal[head + 2])
 	-- a task added later goes under the block, with a ./ link
 	local next_day = "2026-10-21"
 	planner.add_project(next_day, { project_key = ZORTEX })
 	at = planner.add_task(next_day, candidate("Improve website"))
 	cal = fs.read_lines(CAL)
-	T.eq(cal[at], "  - [ ] [Improve website](./-Improve website) @id(" .. id .. ")", "already in the block: " .. cal[at])
+	T.eq(cal[at], "  - [ ] [./-Improve website] @id(" .. id .. ")", "already in the block: " .. cal[at])
 	T.eq(mirrors.issues(), {})
 	restore()
 end)

@@ -24,6 +24,8 @@ that share one folder of plain-text notes.
   `[A/#1.2/:Fitness]`, `[/#Local heading]`, `[./-Item]` (continuing the
   link above), `[R/#Rust/>The Rust Book]` (a link to a link), `[P/-aB3x9]`
   (a task by its `@id`). Matching is by prefix, case-insensitive.
+  A list item matches by its text with its links' brackets left out:
+  `[P/-To this link]` finds `- To [this link]` and `- To [this link](./x)`.
   `[the plan](P/#1.4)` is the same link shown as its text (Markdown's form,
   so imported notes keep their link text; a rename rewrites only the part
   in parentheses); URLs and files in parentheses stay Markdown links.
@@ -82,10 +84,13 @@ that share one folder of plain-text notes.
   "Coming up" lists events, `:ZortexToday`, `:ZortexNow` and
   `:ZortexTimeShift`; notifications for timed lines, and for all-day lines
   at `notifications.all_day_time`; other calendars' events, read-only.
-- The planner, the reviews and the lines they write (focus projects,
-  calendar copies, a project linked to a key result) show links by their
-  names: `[1.4 - zortex](P/#1 Programming/#1.4 - zortex)`. Calendar
-  notifications read links as their text.
+- The reviews and the lines they write (focus projects, a project linked
+  to a key result) show links by their names:
+  `[1.4 - zortex](P/#1 Programming/#1.4 - zortex)`; the planner and the
+  copies it puts on the calendar use the links themselves
+  (`[P/#1 Programming/#1.4 - zortex]`, `[./-Improve website]`). Calendar
+  notifications read links as their text. The plan lists up to
+  `ui.planner.max_tasks` project tasks (30) and `max_todos` to-dos (10).
 - A day planner that ranks the week's focus and key-result work first,
   carries open tasks forward and weighs the day against its free time; a
   daily and a weekly review written in `reviews.zortex` (from its own

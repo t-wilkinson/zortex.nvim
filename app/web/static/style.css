@@ -687,14 +687,19 @@ svg.graph .ga { fill: var(--dim); }
    plain grid above stays. */
 .gt-cols.masonry { grid-auto-rows: 4px; row-gap: 0; grid-auto-flow: row dense; }
 .gt-cols.masonry > .gt-card { margin-bottom: 0.9rem; }
-.gt-card { border: 1px solid var(--rule); border-radius: 8px; padding: 0.55rem 0.8rem 0.65rem; background: var(--panel); min-width: 0; }
-.gt-card h2 { font-size: 1rem; margin: 0 0 0.35rem; overflow-wrap: anywhere; }
+/* a card is at most the window's height; longer ones scroll inside, their
+   title staying on top */
+.gt-card { border: 1px solid var(--rule); border-radius: 8px; padding: 0.55rem 0.8rem 0.65rem; background: var(--panel); min-width: 0;
+  max-height: calc(100vh - 1.5rem); max-height: calc(100dvh - 1.5rem); overflow-y: auto; overscroll-behavior: contain; }
+.gt-card h2 { font-size: 1rem; margin: -0.55rem 0 0.35rem; padding: 0.55rem 0 0.2rem; overflow-wrap: anywhere;
+  position: sticky; top: -0.55rem; background: var(--panel); z-index: 1; }
 /* a big card: two grid columns, its top-level entries in two columns
    inside, none split between them (only where two grid columns fit) */
 @container (min-width: 31rem) {
   .gt-card.gt-wide { grid-column: span 2; }
-  .gt-card.gt-wide > ul.gt { columns: 2; column-gap: 1.4rem; }
-  .gt-card.gt-wide > ul.gt > li { break-inside: avoid; }
+  /* a grid, not CSS columns: a height-capped multi-column list would
+     overflow sideways */
+  .gt-card.gt-wide > ul.gt { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 1.4rem; align-items: start; }
 }
 .gt-goto { font-size: 0.8rem; }
 .graph-tree li.gt-flash > details > summary, .gt-card.gt-flash { animation: gt-flash 1.6s ease-out; border-radius: 4px; }

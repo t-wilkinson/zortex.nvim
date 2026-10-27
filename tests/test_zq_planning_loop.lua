@@ -126,14 +126,14 @@ T.test("P puts the project's next open tasks on the day, not all of them", funct
 		T.eq(added, 2)
 		local lines = day_lines()
 		T.eq(#lines, 3, vim.inspect(lines))
-		T.eq(lines[1], "- [1.4 - zortex](P/#1 Programming/#1.4 - zortex)")
-		T.ok(lines[2]:find("[Add research-ready references](./-Add research-ready references)", 1, true), lines[2])
-		T.ok(lines[3]:find("[Improve website](./-Improve website)", 1, true), lines[3])
+		T.eq(lines[1], "- [P/#1 Programming/#1.4 - zortex]")
+		T.ok(lines[2]:find("[./-Add research-ready references]", 1, true), lines[2])
+		T.ok(lines[3]:find("[./-Improve website]", 1, true), lines[3])
 		-- again with the default (3): the first two are there; one more comes
 		refresh()
 		_, added = planner.add_project("2026-10-20", c)
 		T.eq(added, 1)
-		T.ok(day_lines()[4]:find("[Change task sizes](./-Change task sizes)", 1, true), vim.inspect(day_lines()))
+		T.ok(day_lines()[4]:find("[./-Change task sizes]", 1, true), vim.inspect(day_lines()))
 	end)
 end)
 

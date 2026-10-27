@@ -113,15 +113,15 @@ T.test("candidates: signals add up; every line carries a resolving link", functi
 				improve = t
 			end
 		end
-		-- shown by its text: "[Improve website](P/…/-Improve website)"
-		T.eq(improve and improve.text, "[Improve website](P/#1 Programming/#1.4 - zortex/-Improve website)")
+		-- its link as written, naming it by its text
+		T.eq(improve and improve.text, "[P/#1 Programming/#1.4 - zortex/-Improve website]")
 		T.ok(vim.tbl_contains(improve.badges, "TODO") and vim.tbl_contains(improve.badges, "P1"), vim.inspect(improve.badges))
 		local overdue = vim.tbl_filter(function(t)
 			return t.text:find("Morning routine", 1, true)
 		end, c.tasks)[1]
 		T.ok(overdue and overdue.badges[1]:find("overdue"), vim.inspect(overdue))
 		T.ok(#c.projects > 0 and #c.key_results > 0 and #c.areas > 0, "all sections")
-		T.ok(c.key_results[1].text:find("/%-KR%d+%)$"), c.key_results[1].text)
+		T.ok(c.key_results[1].text:find("/%-KR%d+%]$"), c.key_results[1].text)
 
 		local resolver = require("zortex.core.link")
 		for key, section in pairs(c) do
@@ -130,6 +130,22 @@ T.test("candidates: signals add up; every line carries a resolving link", functi
 				T.ok(span and resolver.resolve_first(span.definition), "resolves: " .. item.text)
 			end
 		end
+	end)
+end)
+
+T.test("project tasks and to-dos have limits of their own", function()
+	with_config({ todo_link = "P/#1 Programming/#1.4 - zortex/#1.4.1 - zortex search", max_tasks = 1 }, function()
+		local c = planner.candidates({ today = TODAY })
+		local in_groups = 0
+		for _, g in ipairs(c.groups) do
+			in_groups = in_groups + #g.tasks
+		end
+		T.eq(in_groups, 1, "one project task")
+		T.eq(#c.todos, 2, "the to-dos aren't crowded out")
+		T.eq(#planner.candidates({ today = TODAY, max_todos = 1 }).todos, 1)
+	end)
+	with_config({ todo_link = "P/#1 Programming/#1.4 - zortex/#1.4.1 - zortex search", max_todos = 0 }, function()
+		T.eq(#planner.candidates({ today = TODAY }).todos, 0, "ui.planner.max_todos")
 	end)
 end)
 
@@ -147,11 +163,11 @@ T.test("plan buffer: a heading per project with its tasks; Tasks holds the to-do
 		local projects, krs, todos, areas = at("# Projects ("), at("# Key results ("), at("# Tasks ("), at("# Areas (")
 		T.ok(projects < krs and krs < todos and todos < areas, "sections in order")
 		-- a project task sits under its project's heading
-		local heading = at("## [1.4 - zortex](P/#1 Programming/#1.4 - zortex)")
-		local improve = at("[Improve website](P/")
+		local heading = at("## [P/#1 Programming/#1.4 - zortex]")
+		local improve = at("/-Improve website]")
 		T.ok(heading and heading > projects and improve > heading and improve < krs, vim.inspect(lines))
 		-- a TODO-project task and an overdue calendar task are to-dos
-		T.ok(at("[Fix project search](P/") > todos, "TODO project task under Tasks")
+		T.ok(at("/-Fix project search]") > todos, "TODO project task under Tasks")
 		T.ok(at("Call the mechanic") > todos, "calendar task under Tasks")
 		for _, g in ipairs(c.groups) do
 			for _, t in ipairs(g.tasks) do
@@ -196,7 +212,7 @@ T.test("plan buffer puts items into the calendar day", function()
 		vim.api.nvim_win_set_cursor(st.win, { first, 0 })
 		vim.fn.maparg("<CR>", "n", false, true).callback()
 		local put = vim.api.nvim_buf_get_lines(st.cal_buf, h, h + 1, false)[1]
-		T.ok(put:match("^09:00 %[Improve website%]%(P/"), put)
+		T.ok(put:match("^09:00 %[P/.*/%-Improve website%]$"), put)
 
 		-- the calendar sees it as an event on that day, linked to the project
 		require("zortex.core.link_index").refresh(true)
@@ -243,7 +259,7 @@ T.test("plan buffer puts items into the calendar day", function()
 		T.ok(id, "the project task has an @id")
 		T.eq(
 			vim.api.nvim_buf_get_lines(st.cal_buf, block.last_lnum - 1, block.last_lnum, false)[1],
-			"- [ ] [Improve website](P/#1 Programming/#1.4 - zortex/-Improve website) @id(" .. id .. ")"
+			"- [ ] [P/#1 Programming/#1.4 - zortex/-Improve website] @id(" .. id .. ")"
 		)
 		T.eq(block.last_lnum, h + 3) -- 09:00 …, 12:00 Lunch, then the new entry
 		-- again: it's already on the day
@@ -472,15 +488,15 @@ T.test("a project a key result links: the rest of its tree, folded", function()
 			return { sec.depth, sec.own and "own" or sec.project.text, #sec.tasks }
 		end, g.more)
 		-- each sub-project with its open tasks, nested; done ones left out
-		T.eq(titles, { { 1, "[Site](P/Fold proj/#Launch/#Site)", 1 }, { 2, "[Copy](P/Fold proj/#Launch/#Site/#Copy)", 1 } })
+		T.eq(titles, { { 1, "[P/Fold proj/#Launch/#Site]", 1 }, { 2, "[P/Fold proj/#Launch/#Site/#Copy]", 1 } })
 		-- shown under the project, not as groups of their own
 		for _, x in ipairs(c.groups) do
 			T.ok(not x.project.project_key:find("^Fold proj/Launch/"), x.project.project_key)
 		end
 
 		local lines, _, items, folds = require("zortex.ui.planner").render({ groups = { g } }, TODAY)
-		local site = vim.fn.index(lines, "### [Site](P/Fold proj/#Launch/#Site)") + 1
-		local copy = vim.fn.index(lines, "#### [Copy](P/Fold proj/#Launch/#Site/#Copy)") + 1
+		local site = vim.fn.index(lines, "### [P/Fold proj/#Launch/#Site]") + 1
+		local copy = vim.fn.index(lines, "#### [P/Fold proj/#Launch/#Site/#Copy]") + 1
 		T.ok(site > 0 and copy > site, vim.inspect(lines))
 		T.ok(items[site + 1] and items[site + 1].kind == "task", "p works on a folded task")
 		local spans = {}

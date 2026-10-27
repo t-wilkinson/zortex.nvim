@@ -409,6 +409,11 @@
         "type": "line"
       },
       {
+        "lnum": 43,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
         "lnum": 2,
         "rel": "z/archive.projects.zortex",
         "type": "line"
@@ -1050,6 +1055,13 @@
         "type": "section"
       },
       {
+        "breadcrumb": "Resources › To read",
+        "lnum": 41,
+        "rel": "z/resources.zortex",
+        "score": 1050,
+        "type": "section"
+      },
+      {
         "breadcrumb": "Projects › 1 Programming",
         "lnum": 5,
         "rel": "z/archive.projects.zortex",
@@ -1301,6 +1313,14 @@
         "breadcrumb": "Resources › Papers",
         "child": true,
         "lnum": 36,
+        "rel": "z/resources.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Resources › To read",
+        "child": true,
+        "lnum": 41,
         "rel": "z/resources.zortex",
         "score": 2100,
         "type": "section"

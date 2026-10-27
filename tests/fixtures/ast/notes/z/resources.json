@@ -652,6 +652,62 @@
         "marker_type": "bullet"
       },
       "kind": "item"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 2,
+      "heading": 1,
+      "indent": 0,
+      "inline": [],
+      "kind": "heading",
+      "level": 1,
+      "section": true,
+      "text": "To read"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [
+        {
+          "definition": "Garden",
+          "e": 21,
+          "s": 13,
+          "type": "link"
+        }
+      ],
+      "item": {
+        "content_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [
+        {
+          "def_s": 20,
+          "definition": "/-nested note",
+          "e": 34,
+          "s": 7,
+          "text": "the scraps",
+          "type": "link"
+        }
+      ],
+      "item": {
+        "content_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
     }
   ],
   "sections": [
@@ -723,6 +779,12 @@
       "level": 1,
       "lnum": 36,
       "text": "Papers",
+      "type": "heading"
+    },
+    {
+      "level": 1,
+      "lnum": 41,
+      "text": "To read",
       "type": "heading"
     }
   ],

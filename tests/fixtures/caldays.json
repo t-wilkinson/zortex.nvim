@@ -1,0 +1,498 @@
+{
+  "cases": [
+    {
+      "days": [
+        {
+          "date": "2026-10-09",
+          "heading": 3,
+          "last": 4,
+          "stop": 5
+        },
+        {
+          "date": "2026-10-10",
+          "heading": 6,
+          "last": 7,
+          "stop": 8
+        },
+        {
+          "date": "2026-09-28",
+          "heading": 9,
+          "last": 10,
+          "stop": 10
+        }
+      ],
+      "grouped": [
+        "@@Calendar",
+        "",
+        "# September 2026",
+        "",
+        "2026-09-28:",
+        "- [ ] C",
+        "",
+        "# October 2026",
+        "",
+        "2026-10-09:",
+        "14:00 A",
+        "",
+        "2026-10-10:",
+        "09:00 B"
+      ],
+      "lines": [
+        "@@Calendar",
+        "",
+        "2026-10-09:",
+        "14:00 A",
+        "",
+        "2026-10-10:",
+        "09:00 B",
+        "",
+        "2026-09-28:",
+        "- [ ] C"
+      ],
+      "months": [],
+      "moved": 3,
+      "name": "ungrouped days, no headings",
+      "place": [
+        {
+          "at": 9,
+          "date": "2026-10-11",
+          "group": true,
+          "heading": 9,
+          "lines": [
+            "**2026-10-11:**",
+            "- new",
+            ""
+          ]
+        },
+        {
+          "at": 11,
+          "date": "2026-10-11",
+          "group": false,
+          "heading": 12,
+          "lines": [
+            "",
+            "**2026-10-11:**",
+            "- new"
+          ]
+        },
+        {
+          "at": 11,
+          "date": "2026-09-29",
+          "group": false,
+          "heading": 12,
+          "lines": [
+            "",
+            "**2026-09-29:**",
+            "- new"
+          ]
+        }
+      ]
+    },
+    {
+      "days": [
+        {
+          "date": "2026-09-28",
+          "heading": 8,
+          "last": 9,
+          "stop": 10
+        },
+        {
+          "date": "2026-10-09",
+          "heading": 13,
+          "last": 14,
+          "stop": 15
+        },
+        {
+          "date": "2026-10-12",
+          "heading": 16,
+          "last": 17,
+          "stop": 18
+        },
+        {
+          "date": "2026-12-24",
+          "heading": 20,
+          "last": 21,
+          "stop": 21
+        }
+      ],
+      "grouped": [
+        "@@Calendar",
+        "",
+        "# Repeating",
+        "- Sam @born(1990)",
+        "",
+        "# September 2026",
+        "",
+        "2026-09-28:",
+        "- [ ] C",
+        "",
+        "# October 2026",
+        "",
+        "2026-10-09:",
+        "14:00 A",
+        "",
+        "**2026-10-12:**",
+        "09:00 B",
+        "",
+        "# Dec 2026",
+        "**2026-12-24:**",
+        "- Eve"
+      ],
+      "lines": [
+        "@@Calendar",
+        "",
+        "# Repeating",
+        "- Sam @born(1990)",
+        "",
+        "# September 2026",
+        "",
+        "2026-09-28:",
+        "- [ ] C",
+        "",
+        "# October 2026",
+        "",
+        "2026-10-09:",
+        "14:00 A",
+        "",
+        "**2026-10-12:**",
+        "09:00 B",
+        "",
+        "# Dec 2026",
+        "**2026-12-24:**",
+        "- Eve"
+      ],
+      "months": [
+        {
+          "heading": 6,
+          "last": 9,
+          "level": 1,
+          "stop": 10,
+          "ym": "2026-09"
+        },
+        {
+          "heading": 11,
+          "last": 17,
+          "level": 1,
+          "stop": 18,
+          "ym": "2026-10"
+        },
+        {
+          "heading": 19,
+          "last": 21,
+          "level": 1,
+          "stop": 21,
+          "ym": "2026-12"
+        }
+      ],
+      "moved": 0,
+      "name": "months, a Repeating section above",
+      "place": [
+        {
+          "at": 16,
+          "date": "2026-10-10",
+          "group": true,
+          "heading": 16,
+          "lines": [
+            "**2026-10-10:**",
+            "- new",
+            ""
+          ]
+        },
+        {
+          "at": 16,
+          "date": "2026-10-11",
+          "group": true,
+          "heading": 16,
+          "lines": [
+            "**2026-10-11:**",
+            "- new",
+            ""
+          ]
+        },
+        {
+          "at": 19,
+          "date": "2026-10-31",
+          "group": true,
+          "heading": 19,
+          "lines": [
+            "**2026-10-31:**",
+            "- new",
+            ""
+          ]
+        },
+        {
+          "at": 13,
+          "date": "2026-10-01",
+          "group": true,
+          "heading": 13,
+          "lines": [
+            "**2026-10-01:**",
+            "- new",
+            ""
+          ]
+        },
+        {
+          "at": 19,
+          "date": "2026-11-03",
+          "group": true,
+          "heading": 21,
+          "lines": [
+            "# November 2026",
+            "",
+            "**2026-11-03:**",
+            "- new",
+            ""
+          ]
+        },
+        {
+          "at": 20,
+          "date": "2026-11-03",
+          "group": false,
+          "heading": 21,
+          "lines": [
+            "",
+            "**2026-11-03:**",
+            "- new",
+            ""
+          ]
+        },
+        {
+          "at": 22,
+          "date": "2027-01-02",
+          "group": true,
+          "heading": 25,
+          "lines": [
+            "",
+            "# January 2027",
+            "",
+            "**2027-01-02:**",
+            "- new"
+          ]
+        },
+        {
+          "at": 6,
+          "date": "2026-08-15",
+          "group": true,
+          "heading": 8,
+          "lines": [
+            "# August 2026",
+            "",
+            "**2026-08-15:**",
+            "- new",
+            ""
+          ]
+        },
+        {
+          "at": 20,
+          "date": "2026-12-01",
+          "group": true,
+          "heading": 21,
+          "lines": [
+            "",
+            "**2026-12-01:**",
+            "- new",
+            ""
+          ]
+        }
+      ]
+    },
+    {
+      "days": [
+        {
+          "date": "2026-10-20",
+          "heading": 10,
+          "last": 15,
+          "stop": 16
+        }
+      ],
+      "grouped": [
+        "@@Calendar",
+        "",
+        "# Templates",
+        "Daily:",
+        "- [ ] Plan",
+        "",
+        "# Days",
+        "",
+        "## 2026-10",
+        "2026-10-20:",
+        "```",
+        "2026-10-21:",
+        "# not a heading",
+        "```",
+        "- after the code",
+        "",
+        "# Notes",
+        "- not a day's line"
+      ],
+      "lines": [
+        "@@Calendar",
+        "",
+        "# Templates",
+        "Daily:",
+        "- [ ] Plan",
+        "",
+        "# Days",
+        "",
+        "## 2026-10",
+        "2026-10-20:",
+        "```",
+        "2026-10-21:",
+        "# not a heading",
+        "```",
+        "- after the code",
+        "",
+        "# Notes",
+        "- not a day's line"
+      ],
+      "months": [
+        {
+          "heading": 9,
+          "last": 15,
+          "level": 2,
+          "stop": 16,
+          "ym": "2026-10"
+        }
+      ],
+      "moved": 0,
+      "name": "a Days heading, a section after it, a code block",
+      "place": [
+        {
+          "at": 17,
+          "date": "2026-10-22",
+          "group": true,
+          "heading": 17,
+          "lines": [
+            "**2026-10-22:**",
+            "- new",
+            ""
+          ]
+        },
+        {
+          "at": 17,
+          "date": "2026-11-01",
+          "group": true,
+          "heading": 19,
+          "lines": [
+            "## November 2026",
+            "",
+            "**2026-11-01:**",
+            "- new",
+            ""
+          ]
+        },
+        {
+          "at": 9,
+          "date": "2026-09-30",
+          "group": true,
+          "heading": 11,
+          "lines": [
+            "## September 2026",
+            "",
+            "**2026-09-30:**",
+            "- new",
+            ""
+          ]
+        }
+      ]
+    },
+    {
+      "days": [
+        {
+          "date": "2026-10-20",
+          "heading": 4,
+          "last": 5,
+          "stop": 6
+        }
+      ],
+      "grouped": [
+        "@@Calendar",
+        "",
+        "# Days",
+        "",
+        "## October 2026",
+        "",
+        "2026-10-20:",
+        "- x",
+        "",
+        "# Notes",
+        "- keep"
+      ],
+      "lines": [
+        "@@Calendar",
+        "",
+        "# Days",
+        "2026-10-20:",
+        "- x",
+        "",
+        "# Notes",
+        "- keep"
+      ],
+      "months": [],
+      "moved": 1,
+      "name": "a Days heading, no months yet",
+      "place": [
+        {
+          "at": 7,
+          "date": "2026-10-21",
+          "group": true,
+          "heading": 7,
+          "lines": [
+            "**2026-10-21:**",
+            "- new",
+            ""
+          ]
+        },
+        {
+          "at": 9,
+          "date": "2026-10-21",
+          "group": false,
+          "heading": 10,
+          "lines": [
+            "",
+            "**2026-10-21:**",
+            "- new"
+          ]
+        }
+      ]
+    },
+    {
+      "days": [],
+      "grouped": [
+        "@@Calendar"
+      ],
+      "lines": [
+        "@@Calendar"
+      ],
+      "months": [],
+      "moved": 0,
+      "name": "empty calendar",
+      "place": [
+        {
+          "at": 2,
+          "date": "2026-10-21",
+          "group": true,
+          "heading": 5,
+          "lines": [
+            "",
+            "# October 2026",
+            "",
+            "**2026-10-21:**",
+            "- new"
+          ]
+        },
+        {
+          "at": 2,
+          "date": "2026-10-21",
+          "group": false,
+          "heading": 3,
+          "lines": [
+            "",
+            "**2026-10-21:**",
+            "- new"
+          ]
+        }
+      ]
+    }
+  ]
+}

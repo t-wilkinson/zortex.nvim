@@ -331,6 +331,9 @@ table.res-files { table-layout: fixed; }
 .event-title { min-width: 0; overflow-wrap: anywhere; }
 .event-item.current .event-title { font-weight: 600; }
 .event-item.past .event-time, .event-item.past .event-title { color: var(--dim); }
+.event-item.resume .event-title, .event-item.resume .event-time { color: var(--dim); }
+.event-item.resume.current .event-title { color: inherit; }
+.resume-mark { display: inline-block; width: 1.1em; margin-right: 0.35rem; color: var(--dim); }
 .event-item.virtual .event-title { color: color-mix(in srgb, var(--ink) 80%, var(--dim)); font-style: italic; }
 .event-item.done .event-title { color: var(--dim); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--dim) 50%, transparent); }
 .event-title .box { margin-right: 0.4rem; }

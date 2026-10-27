@@ -1107,11 +1107,6 @@ end
 
 
 
-local function day_number(date_str)
-	local y, m, d = date_str:match("^(%d+)%-(%d+)%-(%d+)$")
-	return math.floor(os.time({ year = tonumber(y), month = tonumber(m), day = tonumber(d), hour = 12 }) / 86400)
-end
-
 local function is_fence(line)
 	local t = vim.trim(line)
 	return t:sub(1, 3) == "```" or t:sub(1, 3) == "~~~"
@@ -1152,31 +1147,13 @@ end
 --- when that line is their parent; other tasks become "- [ ] ..." with
 --- their [./-Item] links written out (a link with its text keeps it); a
 --- task whose @id is already on today is only marked.
----@param opts { from?: string, new_id: fun(): string }
+---@param opts { from?: string, new_id: fun(): string, group?: "month"|false }
 function M.carry(lines, today, opts)
 	local syntax = require("zortex.core.syntax")
 	local attributes = require("zortex.utils.attributes")
 	local moved = require("zortex.services.mirrors").MOVED
-	local blocks, fence = {}, false
-	for i, l in ipairs(lines) do
-		if is_fence(l) then
-			fence = not fence
-		elseif not fence then
-			local date = datetime.date_heading(l)
-			if date then
-				blocks[#blocks + 1] = { date = date, heading = i }
-			end
-		end
-	end
-	for i, b in ipairs(blocks) do
-		local stop = blocks[i + 1] and (blocks[i + 1].heading - 1) or #lines
-		b.last = b.heading
-		for l = b.heading + 1, stop do
-			if lines[l]:match("%S") then
-				b.last = l
-			end
-		end
-	end
+	local calendar_days = require("zortex.services.calendar_days")
+	local blocks = calendar_days.days(lines)
 	local today_block
 	for _, b in ipairs(blocks) do
 		if b.date == today and not today_block then
@@ -1331,38 +1308,14 @@ function M.carry(lines, today, opts)
 		inserts[#inserts + 1] = { at = today_block.last + 1, lines = out }
 		return finish()
 	end
-	-- a new day, next to its nearest neighbour in time (as stores/calendar)
-	local target = day_number(today)
-	local before_i, before_n, after_i, after_n
-	for i, b in ipairs(blocks) do
-		local n = day_number(b.date)
-		if n < target and (not before_n or n >= before_n) then
-			before_i, before_n = i, n
-		elseif n > target and (not after_n or n < after_n) then
-			after_i, after_n = i, n
-		end
+	-- a new day, in its month next to its nearest neighbour in time (as
+	-- stores/calendar)
+	local group = opts.group
+	if group == nil then
+		group = require("zortex.stores.calendar").group_days()
 	end
-	local at = #lines + 1
-	if after_i then
-		if before_i and (target - before_n) <= (after_n - target) then
-			at = blocks[before_i + 1] and blocks[before_i + 1].heading or (#lines + 1)
-		else
-			at = blocks[after_i].heading
-		end
-	end
-	local new = { datetime.date_heading_line(today) }
-	vim.list_extend(new, out)
-	new[#new + 1] = ""
-	if at > #lines then
-		at = #lines + 1
-		if #lines > 0 and lines[#lines]:match("%S") then
-			table.insert(new, 1, "")
-		end
-		table.remove(new)
-	elseif at > 1 and lines[at - 1]:match("%S") then
-		table.insert(new, 1, "")
-	end
-	inserts[#inserts + 1] = { at = at, lines = new }
+	local ins = calendar_days.insert_day(lines, today, out, { group = group })
+	inserts[#inserts + 1] = { at = ins.at, lines = ins.lines }
 	return finish()
 end
 
@@ -1417,13 +1370,8 @@ function M.to_next_day(lnum)
 		if it.mark ~= " " then
 			return nil, "only an open task moves on"
 		end
-		local date
-		for l = lnum, 1, -1 do
-			date = datetime.date_heading(lines[l])
-			if date then
-				break
-			end
-		end
+		local day = require("zortex.services.calendar_days").day_of(lines, lnum)
+		local date = day and day.date
 		if not date then
 			return nil, "not under a day of the calendar"
 		end

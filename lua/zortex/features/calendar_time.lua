@@ -192,26 +192,30 @@ end
 
 --- The line of the day's entry for `now` ("HH:MM") among `lines` (the
 --- calendar), in the day whose heading is at `heading`: the latest entry
---- that started by then (a range still running counts), else nil.
+--- that started by then (a range still running counts), or the block a
+--- break has handed back to (services/calendar_breaks), else nil.
 function M.line_for_time(lines, heading, now, date)
-	local datetime = require("zortex.utils.datetime")
 	local entries = require("zortex.services.calendar_entry")
-	local best, best_time
+	local own = {}
 	for lnum = heading + 1, #lines do
 		local line = lines[lnum]
-		if datetime.date_heading(line) then
+		if require("zortex.services.calendar_days").is_boundary(line) then
 			break
 		end
 		local entry = entries.from_text(line, date)
-		local t = entry and entry:get_time_string()
-		if t and #t == 4 then
-			t = "0" .. t
-		end
-		if t and t <= now and (not best_time or t >= best_time) then
-			best, best_time = lnum, t
+		if entry then
+			entry.lnum = lnum
+			own[#own + 1] = entry
 		end
 	end
-	return best
+	local breaks = require("zortex.services.calendar_breaks")
+	local rows = breaks.rows(require("zortex.stores.calendar").day_layout(own))
+	local h, m = now:match("^(%d+):(%d+)")
+	if not h then
+		return nil
+	end
+	local row = breaks.current(rows, breaks.resumes(rows), tonumber(h) * 60 + tonumber(m))
+	return row and row.lnum or nil
 end
 
 --- Today in the calendar note, with the cursor on the entry for the time now.

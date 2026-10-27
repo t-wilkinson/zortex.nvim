@@ -105,6 +105,10 @@ type calEntry struct {
 	Depth  int    `json:"depth,omitempty"`  // nesting under another entry
 	Notify bool   `json:"notify,omitempty"` // written with @notify(…) / @n(…) (not @notify(no))
 	Event  bool   `json:"event,omitempty"`  // tagged @event: fixed, planned around (the month grid's dot)
+	// Resume: a block handed back after a break inside it ("12:00 Break
+	// @15m" under "10:00 Study": Study again from 12:15, calbreaks.go);
+	// Lnum, Text and URL are the block's, Time and End when it's back
+	Resume bool `json:"resume,omitempty"`
 	// a project's next open task, listed under a project block (a line
 	// holding only the project's link): Rel, Lnum and Src are the task's
 	Virtual bool `json:"virtual,omitempty"`
@@ -151,6 +155,7 @@ func (s *Server) calendarDays(from, to string) map[string][]calEntry {
 	var all []*webProject // loaded when a day has a project block
 	for date, entries := range days {
 		var out []calEntry
+		breaks := calResumes(entries) // before references take their task's state
 		for i := range entries {
 			e := &entries[i]
 			line := doc.Lines[e.Lnum-1]
@@ -185,7 +190,7 @@ func (s *Server) calendarDays(from, to string) map[string][]calEntry {
 				}
 			}
 		}
-		days[date] = out
+		days[date] = withResumes(out, entries, breaks)
 	}
 	// the calendar feeds' events (z/feeds/*.zortex), among the day's own
 	for _, fd := range s.feedDocs() {

@@ -170,8 +170,38 @@ function M.collect(now)
 		local function on_day(clock)
 			return { year = tonumber(y), month = tonumber(m), day = tonumber(d), hour = clock.hour, min = clock.min }
 		end
+		-- a break hands its block back: "Back to Study" when it ends (instead
+		-- of the break's own end)
+		local resumed = {}
+		for _, r in ipairs(calendar_store.resumes(date_str)) do
+			local block_notify = parse_notify_value(r.block.attributes.notify)
+			if block_notify then
+				resumed[r.after] = true
+				local h, mi = r.from:match("^(%d+):(%d+)$")
+				local at = on_day({ hour = tonumber(h), min = tonumber(mi) })
+				local trigger = os.time(at)
+				if trigger > now then
+					local text = require("zortex.core.link").readable(r.block.text)
+					out[#out + 1] = {
+						title = "Back to " .. text,
+						message = r.to and (r.from .. "–" .. r.to) or r.from,
+						trigger_time = trigger,
+						scheduled_time = trigger,
+						type = "calendar",
+						priority = r.block.attributes.p and ("p" .. r.block.attributes.p) or "default",
+						tags = { "calendar", "resume" },
+						entry_id = r.block.text,
+						entry_text = r.block.text,
+						deduplication_key = create_dedup_key(r.block, date_str, "resume" .. r.from:gsub(":", ""), 0),
+					}
+				end
+			end
+		end
 		for _, entry in ipairs(calendar_store.get_entries_for_date(date_str)) do
 			local notify_values, at_end, clocks = parse_notify_value(entry.attributes.notify)
+			if resumed[entry] then
+				at_end = false
+			end
 			-- a task done (or carried to another day, [>]) has nothing to remind you of
 			if entry.completed or entry.mark == ">" then
 				notify_values = nil

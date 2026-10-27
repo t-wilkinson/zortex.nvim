@@ -291,8 +291,26 @@ function M.month(date, state, cfg, win_width)
 			time_highlight(highlights, #lines, entry_line, #left_pad_str + #MARGIN_STR, cfg)
 		end
 
+		-- breaks hand their block back when they end (services/calendar_breaks)
+		local resume_after = {}
+		for _, r in ipairs(calendar_store.resumes(date_str)) do
+			resume_after[r.after] = r
+		end
+
+		-- resume rows wait until the rows nested under their break are done
+		-- (an inner break's first), as the web's withResumes
+		local pending = {}
+		local function flush(depth)
+			while #pending > 0 and pending[#pending].depth >= depth do
+				local p = table.remove(pending)
+				row(p.depth, "↩", p.text)
+				table.insert(highlights, { line = #lines, col = #left_pad_str + #MARGIN_STR, end_col = #lines[#lines], hl = cfg.colors.footer })
+			end
+		end
+
 		if #entries > 0 then
 			for _, entry in ipairs(entries) do
+				flush(entry.depth or 0)
 				-- notifying entries get a plain bullet here; a task its box
 				local notifies = entry.attributes.notify and entry.attributes.notify ~= "no"
 				local icon = (notifies and entry.type ~= "task") and "•" or entry_icon(entry, cfg)
@@ -327,7 +345,13 @@ function M.month(date, state, cfg, win_width)
 						end
 					end
 				end
+				local r = resume_after[entry]
+				if r then
+					local when = r.to and (r.from .. " - " .. r.to) or r.from
+					pending[#pending + 1] = { depth = entry.depth or 0, text = when .. " " .. (r.block.text or "") }
+				end
 			end
+			flush(-1)
 		else
 			table.insert(lines, left_pad_str .. MARGIN_STR .. "  (no entries)")
 		end

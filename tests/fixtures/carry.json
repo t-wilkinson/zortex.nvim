@@ -28,6 +28,7 @@
         }
       ],
       "from": "2026-09-30",
+      "group": true,
       "inserts": [
         {
           "at": 22,
@@ -78,6 +79,7 @@
         }
       ],
       "from": "2026-09-30",
+      "group": true,
       "inserts": [
         {
           "at": 7,
@@ -105,6 +107,72 @@
     {
       "edits": [
         {
+          "line": "- [>] Pick up parcel @id(C0001)",
+          "lnum": 4
+        }
+      ],
+      "from": "2026-09-30",
+      "group": false,
+      "inserts": [
+        {
+          "at": 6,
+          "lines": [
+            "**2026-10-14:**",
+            "- [ ] Pick up parcel @id(C0001)",
+            ""
+          ]
+        }
+      ],
+      "lines": [
+        "@@Calendar",
+        "",
+        "2026-10-13:",
+        "- [ ] Pick up parcel",
+        "",
+        "2026-10-20:",
+        "10:00 Later"
+      ],
+      "name": "no day for today yet, no month headings made (group_days = false)",
+      "today": "2026-10-14"
+    },
+    {
+      "edits": [
+        {
+          "line": "- [>] Pick up parcel @id(C0001)",
+          "lnum": 6
+        }
+      ],
+      "from": "2026-09-30",
+      "group": true,
+      "inserts": [
+        {
+          "at": 8,
+          "lines": [
+            "**2026-10-14:**",
+            "- [ ] Pick up parcel @id(C0001)",
+            ""
+          ]
+        }
+      ],
+      "lines": [
+        "@@Calendar",
+        "",
+        "# October 2026",
+        "",
+        "2026-10-13:",
+        "- [ ] Pick up parcel",
+        "",
+        "# November 2026",
+        "",
+        "2026-11-02:",
+        "10:00 Later"
+      ],
+      "name": "today goes into its month, before the next month",
+      "today": "2026-10-14"
+    },
+    {
+      "edits": [
+        {
           "line": "  - [>] [Improve website](./-Improve website) @id(web02)",
           "lnum": 5
         },
@@ -118,6 +186,7 @@
         }
       ],
       "from": "2026-09-30",
+      "group": true,
       "inserts": [
         {
           "at": 10,
@@ -152,6 +221,7 @@
         }
       ],
       "from": "2026-09-30",
+      "group": true,
       "inserts": [
         {
           "at": 11,
@@ -178,6 +248,7 @@
     {
       "edits": [],
       "from": "2026-10-10",
+      "group": true,
       "inserts": [],
       "lines": [
         "@@Calendar",
@@ -214,6 +285,7 @@
         }
       ],
       "from": "2026-09-30",
+      "group": true,
       "inserts": [
         {
           "at": 13,
@@ -260,6 +332,7 @@
         }
       ],
       "from": "2026-09-30",
+      "group": true,
       "inserts": [
         {
           "at": 9,
@@ -291,6 +364,7 @@
         }
       ],
       "from": "2026-09-30",
+      "group": true,
       "inserts": [
         {
           "at": 10,

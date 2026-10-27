@@ -367,7 +367,7 @@ func (s *Server) blockTask(doc *notes.Document, lnum int) *tracker.Target {
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
-		if _, day := edit.DateHeading(line); edit.Indent(line) <= base || day {
+		if edit.Indent(line) <= base || edit.DayBoundary(line) {
 			break
 		}
 		it := syntax.ItemOf(line)

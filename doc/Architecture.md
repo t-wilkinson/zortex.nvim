@@ -402,7 +402,7 @@ two places:
 - **synced**, `notes_dir/.z/<name>.json`: travels with the notes. Only
   what every device shares and that changes rarely: `xp_state` (seasons),
   `review_state` (the last daily review) and `syntax` (the label word
-  count, for the server).
+  count and `group_days`, for the server).
 - **device** (`device = true`), `stdpath("state")/zortex/<folder>-<hash>/`:
   this machine's own, for what every Neovim rewrites often: `link_index`,
   `search_history`, `xp_seen` (levels announced), `notifications_state`,
@@ -523,10 +523,31 @@ heading is an entity; headings matching `3M-2026-Q1 Title` are objectives
   blank line, are the day's outcomes (`entry.outcome`, `outcomes(date)`).
 - **Edits are line edits** through `core/workspace`. `add_entry` inserts under
   the date's last entry (formatted like its siblings, `- ` for untimed
-  entries) or creates the date heading in date order. `update_entry` replaces
+  entries) or creates the date heading in its month. `update_entry` replaces
   one line keeping its indentation. `delete_entry` (an entry from
   `get_entries_for_date`) removes one line. The
   header, notes, ordering and spacing are never rewritten.
+- **Days and months** (`services/calendar_days`, plain Lua over lines): a
+  day runs to the next day or heading (`days`, `day_of`, `is_boundary`);
+  month headings (`# October 2026`, `# 2026-10`) group them (`months`).
+  `insert_day` places a new day (in its month, next to its nearest
+  neighbour in time; with `ui.calendar.group_days` a missing month heading
+  is made in month order) for `ensure_date`, `add_entry` and
+  `planner.carry`; `group` moves every day into its month
+  (`group_by_month`, `:ZortexCalendarGroup`). `app/edit/caldays.go` is the
+  same in Go (`InsertDay`, used by `AddToDay` and `Carry`), checked against
+  `tests/fixtures/caldays.json` (`tests/caldays_cases.lua`). The server
+  learns `group_days = false` from `.z/syntax.json`.
+- **Breaks** (`services/calendar_breaks`): over a day's own entries (file
+  order, with depth), `resumes` finds the timed lines with an end that
+  interrupt a running block (the latest earlier line still on, or the line
+  they're nested under) and when the block runs again; `current` is what's
+  on at a time. `stores/calendar.resumes(date)` feeds the "Back to …"
+  notification (`notifications/calendar`), the calendar view's `↩` row
+  and `:ZortexNow` (`features/calendar_time.line_for_time`).
+  `app/web/calbreaks.go` is the same in Go (resume rows in `calendarDays`,
+  which the home page and time tracking read), checked against
+  `tests/fixtures/calendar.json` (`resumes`).
 - `projects/relations.schedule_index()` maps calendar links to projects through
   the link index; `project:schedule({ descendants, from, to })` reads it.
 - **Calendar feeds.** The notes the server writes from other calendars
@@ -978,7 +999,7 @@ nvim --headless -u NONE -l tests/run.lua            # everything
 nvim --headless -u NONE -l tests/run.lua projects   # files whose name contains "projects"
 nvim --headless -u NONE -l tests/gen_ast.lua        # regenerate the AST fixtures (after a grammar change)
 nvim --headless -u NONE -l tests/gen_links.lua      # regenerate the resolve/search fixtures (after a resolver or search change)
-nvim --headless -u NONE -l tests/gen_edits.lua      # regenerate the edit, calendar, group and auto-size fixtures the Go app checks against
+nvim --headless -u NONE -l tests/gen_edits.lua      # regenerate the edit, calendar, day, group and auto-size fixtures the Go app checks against
 nvim --headless -u NONE -l tests/gen_docs.lua       # regenerate the README tables and doc/zortex.txt (after an action, key or config change)
 go -C app test ./...                                # Go parser, resolver, search, web app, notifications, pomodoro
 
@@ -1018,6 +1039,8 @@ to date; `app/links` and `app/search` must reproduce them.
 | `test_core`              | header, levels, tree, notes index                                                                                                                                                |
 | `test_syntax`            | line kinds, items, inline spans, link lookups, Items for tasks/KRs/calendar, AST conformance fixtures, highlights, folds, the grammar loading with only the Lua standard library |
 | `test_syntax_config`     | `syntax.label_max_words` and `is_label`; `.z/syntax.json` written only when it says something |
+| `test_calendar_days`     | `caldays.json`, month headings, grouping, new days in their months (store and carry), other months folded |
+| `test_calendar_breaks`   | `calendar.json` resumes, flat and nested breaks, events and done tasks, the now line, the "Back to" notification |
 | `test_links`             | resolution rules, canonical results, archive handling, `[@P/…]`, round-trips                                                                                                     |
 | `test_projects`          | registry, stats/points, `P/` links, schedule, KRs, areas                                                                                                                         |
 | `test_areas`             | area tree, `A/` links, projects/objectives, XP keys                                                                                                                              |

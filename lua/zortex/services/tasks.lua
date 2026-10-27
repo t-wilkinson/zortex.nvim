@@ -301,7 +301,7 @@ function M.calendar_size(lines, lnum, sizes)
 				end
 				break
 			end
-			if require("zortex.utils.datetime").date_heading(text) then
+			if require("zortex.services.calendar_days").is_boundary(text) then
 				break
 			end
 		end
@@ -316,7 +316,7 @@ function M.calendar_size(lines, lnum, sizes)
 	for l = head + 1, #lines do
 		local text = lines[l]
 		if text:match("%S") then
-			if indent_width(text) <= base or require("zortex.utils.datetime").date_heading(text) then
+			if indent_width(text) <= base or require("zortex.services.calendar_days").is_boundary(text) then
 				after = l
 				break
 			end
@@ -336,7 +336,7 @@ function M.calendar_size(lines, lnum, sizes)
 	if not stop then
 		for l = after, #lines do
 			local text = lines[l]
-			if require("zortex.utils.datetime").date_heading(text) then
+			if require("zortex.services.calendar_days").is_boundary(text) then
 				break
 			end
 			if text:match("%S") and indent_width(text) == base then

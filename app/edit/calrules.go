@@ -527,43 +527,9 @@ func ForDate(line string) string {
 	return ""
 }
 
-// Day is a day block of the calendar: its heading and last non-blank line.
-type Day struct {
-	Date          string
-	Heading, Last int
-}
-
-// Days: the calendar's day blocks in file order (code blocks skipped).
-func Days(lines []string) []Day {
-	var out []Day
-	fence := false
-	for i, l := range lines {
-		if isFence(l) {
-			fence = !fence
-		} else if !fence {
-			if date, ok := DateHeading(l); ok {
-				out = append(out, Day{Date: date, Heading: i + 1})
-			}
-		}
-	}
-	for i := range out {
-		stop := len(lines)
-		if i+1 < len(out) {
-			stop = out[i+1].Heading - 1
-		}
-		out[i].Last = out[i].Heading
-		for l := out[i].Heading + 1; l <= stop; l++ {
-			if !blankLine(lines[l-1]) {
-				out[i].Last = l
-			}
-		}
-	}
-	return out
-}
-
 // AddToDay appends `add` at the end of day `date`, at its top level; a new
-// day starts from `template` and goes next to its nearest neighbour in time
-// (as Neovim's stores/calendar.ensure_date).
+// day starts from `template` and goes into its month next to its nearest
+// neighbour in time (as Neovim's stores/calendar.ensure_date).
 func AddToDay(lines []string, date string, template, add []string) []string {
 	days := Days(lines)
 	for _, d := range days {
@@ -573,40 +539,6 @@ func AddToDay(lines []string, date string, template, add []string) []string {
 			return append(out, lines[d.Last:]...)
 		}
 	}
-	target := dayNumber(date)
-	beforeI, afterI := -1, -1
-	var beforeN, afterN int
-	for i, b := range days {
-		n := dayNumber(b.Date)
-		if n < target && (beforeI < 0 || n >= beforeN) {
-			beforeI, beforeN = i, n
-		} else if n > target && (afterI < 0 || n < afterN) {
-			afterI, afterN = i, n
-		}
-	}
-	at := len(lines) + 1
-	if afterI >= 0 {
-		if beforeI >= 0 && target-beforeN <= afterN-target {
-			if beforeI+1 < len(days) {
-				at = days[beforeI+1].Heading
-			}
-		} else {
-			at = days[afterI].Heading
-		}
-	}
-	block := append([]string{DateHeadingLine(date)}, template...)
-	block = append(block, add...)
-	block = append(block, "")
-	if at > len(lines) {
-		at = len(lines) + 1
-		if len(lines) > 0 && !blankLine(lines[len(lines)-1]) {
-			block = append([]string{""}, block...)
-		}
-		block = block[:len(block)-1]
-	} else if at > 1 && !blankLine(lines[at-2]) {
-		block = append([]string{""}, block...)
-	}
-	out := append([]string{}, lines[:at-1]...)
-	out = append(out, block...)
-	return append(out, lines[at-1:]...)
+	body := append(append([]string{}, template...), add...)
+	return InsertDay(lines, date, body, GroupDays(), "").Apply(lines)
 }

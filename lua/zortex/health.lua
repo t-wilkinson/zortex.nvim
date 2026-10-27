@@ -106,6 +106,29 @@ function M.check()
 		health.warn("Missing: " .. table.concat(missing, ", "), { "`:Zortex init` creates them from short templates" })
 	end
 
+	-- the calendar's days under their months (ui.calendar.group_days)
+	local cal = require("zortex.utils.filesystem").get_calendar_file()
+	local cal_cfg = (Config.ui or {}).calendar or {}
+	if cal and cal_cfg.group_days ~= false and vim.fn.filereadable(cal) == 1 then
+		local cd = require("zortex.services.calendar_days")
+		local lines = vim.fn.readfile(cal)
+		local months, loose = cd.months(lines), 0
+		for _, d in ipairs(cd.days(lines)) do
+			local m = cd.month_containing(months, d.heading)
+			if not (m and m.ym == d.date:sub(1, 7)) then
+				loose = loose + 1
+			end
+		end
+		if loose > 0 then
+			health.info(string.format(
+				"%d calendar day%s not under %s month's heading: :ZortexCalendarGroup moves them there",
+				loose,
+				loose == 1 and "" or "s",
+				loose == 1 and "its" or "their"
+			))
+		end
+	end
+
 	local State = require("zortex.core.state")
 	health.info("Shared state: " .. State.path(""):gsub("/%.json$", "") .. " (synced with the notes)")
 	health.info("This machine's state: " .. State.device_dir() .. " (device " .. State.device_name() .. ")")

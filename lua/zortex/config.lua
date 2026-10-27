@@ -211,6 +211,14 @@ local defaults = {
 		},
 
 		calendar = {
+			-- The calendar note's days, grouped under a heading per month
+			-- ("# October 2026"; "## October 2026" under a "# Days" heading):
+			-- a new day goes into its month, made when missing. false makes
+			-- no month headings (a day whose month has one still goes there).
+			-- :ZortexCalendarGroup moves the days you have into their months.
+			group_days = "month",
+			-- months other than the current one start folded in the calendar note
+			fold_months = true,
 			window = {
 				relative = "editor",
 				width = 82,

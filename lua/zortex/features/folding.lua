@@ -148,7 +148,38 @@ function M.update_folds(bufnr)
 			end
 		end
 	end
+	-- the calendar note: months other than the current one
+	for _, lnum in ipairs(M.other_months(bufnr, lines)) do
+		if levels[lnum] and levels[lnum]:sub(1, 1) == ">" then
+			marked[#marked + 1] = lnum
+		end
+	end
+	table.sort(marked)
 	vim.b[bufnr].zortex_fold_closed = marked
+end
+
+--- In the calendar note (ui.calendar.fold_months): the lines of the month
+--- headings other than this month's, which start folded.
+function M.other_months(bufnr, lines)
+	local ok, Config = pcall(require, "zortex.config")
+	local cal = ok and Config.ui and Config.ui.calendar
+	if cal and cal.fold_months == false then
+		return {}
+	end
+	local path = vim.api.nvim_buf_get_name(bufnr)
+	local okc, calendar = pcall(function()
+		return require("zortex.utils.filesystem").get_calendar_file()
+	end)
+	if not okc or not calendar or path == "" or vim.fs.normalize(path) ~= vim.fs.normalize(calendar) then
+		return {}
+	end
+	local now, out = os.date("%Y-%m"), {}
+	for _, m in ipairs(require("zortex.services.calendar_days").months(lines)) do
+		if m.ym ~= now then
+			out[#out + 1] = m.heading
+		end
+	end
+	return out
 end
 
 --- Close the @fold sections of the buffer in `win` (each time the note is
@@ -168,6 +199,12 @@ function M.close_marked(win, bufnr)
 			if vim.fn.foldlevel(lnum) > 0 and vim.fn.foldclosed(lnum) ~= lnum then
 				pcall(vim.cmd, lnum .. "foldclose")
 			end
+		end
+		-- the line the cursor is on stays in view (a day just opened in
+		-- another month of the calendar)
+		local cur = vim.api.nvim_win_get_cursor(win)[1]
+		if cur > 1 and vim.fn.foldclosed(cur) ~= -1 and vim.fn.foldclosed(cur) ~= cur then
+			pcall(vim.cmd, "normal! zv")
 		end
 	end)
 end

@@ -629,6 +629,25 @@ M.list = {
 		end,
 	},
 	{
+		id = "calendar_group",
+		command = "CalendarGroup",
+		key = "Cg",
+		group = "Plan",
+		desc = "Move the calendar's days under a heading per month (# October 2026), making the missing ones",
+		run = function()
+			local moved, err = require("zortex.stores.calendar").group_by_month()
+			if not moved then
+				vim.notify(err or "couldn't group the calendar", vim.log.levels.WARN, { title = "Zortex" })
+			else
+				vim.notify(
+					moved == 0 and "Every day is already under its month" or string.format("%d day%s moved into their months", moved, moved == 1 and "" or "s"),
+					vim.log.levels.INFO,
+					{ title = "Zortex" }
+				)
+			end
+		end,
+	},
+	{
 		id = "calendar",
 		command = "Calendar",
 		key = "c",

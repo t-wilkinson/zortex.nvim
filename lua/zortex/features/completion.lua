@@ -305,7 +305,7 @@ end
 local function attribute_items()
 	local items = {}
 	for i, e in ipairs(require("zortex.attributes_help").list) do
-		if e.key ~= "tag" then
+		if not e.pseudo then
 			items[#items + 1] = {
 				label = "@" .. e.key .. (e.insert:sub(-1) == "(" and "(…)" or ""),
 				filterText = "@" .. e.key,
@@ -348,6 +348,8 @@ local function line_tag_items(ctx)
 		}
 	end
 	if ctx.tag == "bare" then
+		-- sizes ("@sm", with what each is worth), then the other attributes
+		vim.list_extend(items, M._size_items(ctx.line or "", ctx.opts, true))
 		vim.list_extend(items, attribute_items())
 	end
 	return items
@@ -357,6 +359,48 @@ M._line_tag_items = line_tag_items
 -- =============================================================================
 -- Area attributes: @a(...) / @area(...)
 -- =============================================================================
+
+--- The size being typed inside @size( before `col`: { typing,
+--- typing_col (0-based), size = true } or nil.
+function M.size_context(line, col)
+	local before = line:sub(1, col)
+	local open = before:match(".*()@size%(")
+	if not open then
+		return nil
+	end
+	local typing = before:sub(open + 6)
+	if typing:find("[)%s]") then
+		return nil
+	end
+	return { typing = typing, typing_col = col - #typing, size = true }
+end
+
+-- The sizes for the line's kind (a heading: a project's, in the OKR note an
+-- objective's; else a task's), each with what it is worth: "30m · 5 XP".
+-- bare: "@sm" shortcuts after a bare "@" (not for objectives' sizes).
+local function size_items(line, opts, bare)
+	local calc = require("zortex.services.xp.calculator")
+	local hint = require("zortex.features.size_hint")
+	local path = opts and opts.bufnr and vim.api.nvim_buf_get_name(opts.bufnr) or nil
+	local kind = hint.kind_of(line, path)
+	local attrs = require("zortex.utils.attributes").parse_attributes(line, require("zortex.utils.attributes").schemas.project)
+	local items = {}
+	for i, size in ipairs(calc.size_names(kind)) do
+		if not bare or require("zortex.utils.attributes").is_size(size) then
+			local text = calc.size_hint(kind, size, attrs)
+			items[#items + 1] = {
+				label = (bare and "@" or "") .. size,
+				kind = KIND.attribute,
+				detail = text,
+				documentation = string.format("%s size %s: %s (xp.sizes.%s)", kind, size, text, kind),
+				sortText = string.format("%s%04d", bare and "8" or "0", i),
+				data = { zortex_order = (bare and 50000 or 0) + i },
+			}
+		end
+	end
+	return items
+end
+M._size_items = size_items
 
 --- The area value being typed inside @a( / @area( before `col`:
 --- { typing, typing_col (0-based) } or nil.
@@ -512,6 +556,10 @@ M._project_items = project_items
 ---@return table[] items { label, kind, detail, sortText }, table? ctx
 function M.get_completions(line, col, opts)
 	opts = opts or {}
+	local sctx = M.size_context(line, col)
+	if sctx then
+		return size_items(line, opts), sctx
+	end
 	local actx = M.area_context(line, col)
 	if actx then
 		return area_items(), actx
@@ -524,7 +572,10 @@ function M.get_completions(line, col, opts)
 	if not ctx then
 		local tctx = M.tag_context(line, col)
 		if tctx then
-			return line_tag_items(tctx), tctx
+			tctx.line, tctx.opts = line, opts
+			local items = line_tag_items(tctx)
+			tctx.line, tctx.opts = nil, nil
+			return items, tctx
 		end
 		return {}, nil
 	end

@@ -58,7 +58,7 @@ func TestTaskGroupsCascadeOnTheWeb(t *testing.T) {
 	today := time.Now().Format("2006-01-02")
 	lines := readLines(t, path)
 	n := lineOf(t, lines, "Security audit")
-	code, out := postJSON(t, ts.URL, "/api/edit", map[string]any{"rel": "homelab.zortex", "lnum": n, "expect": lines[n-1], "op": "toggle"})
+	code, out := postJSON(t, ts.URL, "/api/n/homelab.zortex", map[string]any{"lnum": n, "expect": lines[n-1], "op": "toggle"})
 	if code != 200 {
 		t.Fatalf("toggle: %d %v", code, out)
 	}
@@ -74,13 +74,13 @@ func TestTaskGroupsCascadeOnTheWeb(t *testing.T) {
 	}
 	// reopen one: the group reopens
 	m := lineOf(t, got, "Wi-Fi password")
-	postJSON(t, ts.URL, "/api/edit", map[string]any{"rel": "homelab.zortex", "lnum": m, "expect": got[m-1], "op": "toggle"})
+	postJSON(t, ts.URL, "/api/n/homelab.zortex", map[string]any{"lnum": m, "expect": got[m-1], "op": "toggle"})
 	got = readLines(t, path)
 	if l := got[n-1]; !strings.HasPrefix(l, "- [ ] Security audit") {
 		t.Fatalf("group still checked: %q", l)
 	}
 	// check it again, the last open one: the group follows
-	postJSON(t, ts.URL, "/api/edit", map[string]any{"rel": "homelab.zortex", "lnum": m, "expect": got[m-1], "op": "toggle"})
+	postJSON(t, ts.URL, "/api/n/homelab.zortex", map[string]any{"lnum": m, "expect": got[m-1], "op": "toggle"})
 	got = readLines(t, path)
 	if l := got[n-1]; !strings.HasPrefix(l, "- [x] Security audit") {
 		t.Fatalf("group not checked by its last task: %q", l)
@@ -103,7 +103,7 @@ func TestTaskGroupCopyOnTheCalendar(t *testing.T) {
 	}
 	s.Refresh()
 	cl := readLines(t, calPath)
-	code, out := postJSON(t, ts.URL, "/api/edit", map[string]any{"rel": "calendar.zortex", "lnum": 4, "expect": cl[3], "op": "toggle"})
+	code, out := postJSON(t, ts.URL, "/api/n/calendar.zortex", map[string]any{"lnum": 4, "expect": cl[3], "op": "toggle"})
 	if code != 200 {
 		t.Fatalf("toggle copy: %d %v", code, out)
 	}
@@ -125,7 +125,7 @@ func TestTaskGroupShareInPendingXP(t *testing.T) {
 	s.Refresh()
 	lines := readLines(t, path)
 	m := lineOf(t, lines, "Wi-Fi password")
-	if code, out := postJSON(t, ts.URL, "/api/edit", map[string]any{"rel": "homelab.zortex", "lnum": m, "expect": lines[m-1], "op": "toggle"}); code != 200 {
+	if code, out := postJSON(t, ts.URL, "/api/n/homelab.zortex", map[string]any{"lnum": m, "expect": lines[m-1], "op": "toggle"}); code != 200 {
 		t.Fatalf("toggle: %d %v", code, out)
 	}
 	body := expect(t, ts, "/api/xp", 200)

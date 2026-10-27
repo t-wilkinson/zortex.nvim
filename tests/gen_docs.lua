@@ -390,6 +390,9 @@ function M.attributes_lines()
 	for i, e in ipairs(help.list) do
 		out[#out + 1] = "    {"
 		out[#out + 1] = '      "key": ' .. str(e.key) .. ","
+		if e.pseudo then
+			out[#out + 1] = '      "pseudo": true,'
+		end
 		out[#out + 1] = '      "group": ' .. str(e.group) .. ","
 		out[#out + 1] = '      "short": ' .. list(e.short) .. ","
 		out[#out + 1] = '      "insert": ' .. str(e.insert) .. ","

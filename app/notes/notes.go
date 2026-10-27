@@ -237,6 +237,19 @@ func (ix *Index) load(rel string, prev *cached) *cached {
 	return &cached{mtime: st.ModTime().UnixNano(), size: st.Size(), doc: doc}
 }
 
+// Forget drops every parsed note, so the next Scan parses them all again
+// (after the grammar's settings changed: syntax.SetMaxLabelWords).
+func (ix *Index) Forget() {
+	ix.mu.Lock()
+	for rel, c := range ix.docs {
+		if c != nil {
+			ix.docs[rel] = &cached{mtime: -1, size: -1, doc: c.doc}
+		}
+	}
+	ix.catalog = nil
+	ix.mu.Unlock()
+}
+
 // Scan reads the folder: new and changed notes are parsed, deleted ones are
 // dropped, unchanged ones keep their parsed Document. From the first Scan on
 // the index is in scanned mode (see Index). It reports whether any note was

@@ -109,6 +109,30 @@ T.test("web: an open tab on this device, else a new tab", function()
 	Config.server, Config.features = saved_server, saved_features
 end)
 
+T.test(":ZortexOpenWeb: this note at the cursor's line, whatever is under it", function()
+	local saved = web.open
+	local got
+	web.open = function(target)
+		got = target
+	end
+	local ok, err = pcall(function()
+		vim.cmd("edit! " .. vim.fn.fnameescape(Config.notes_dir .. "projects.zortex"))
+		vim.api.nvim_win_set_cursor(0, { 15, 0 }) -- a heading with a link-free line
+		T.eq(web.open_note(), { path = "/n/projects.zortex#L15" })
+		T.eq(got, { path = "/n/projects.zortex#L15" })
+		vim.cmd("bwipeout!")
+		-- another file of the notes folder: its viewer
+		local md = Config.notes_dir .. "z/readme.md"
+		vim.fn.writefile({ "# hi" }, md)
+		vim.cmd("edit! " .. vim.fn.fnameescape(md))
+		T.eq(web.open_note(), { path = "/f/z/readme.md" })
+		vim.cmd("bwipeout!")
+		os.remove(md)
+	end)
+	web.open = saved
+	assert(ok, err)
+end)
+
 T.test("web: a note opened through a symlink (or notes_dir set through one) is still found", function()
 	local saved = Config.notes_dir
 	local tmp = vim.fn.tempname()

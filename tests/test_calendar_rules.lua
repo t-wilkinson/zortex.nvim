@@ -96,10 +96,11 @@ T.test("the calendar shows the rules' occurrences; ticking one copies it into to
 			return out
 		end
 		-- 2026-10-13: Stretch is done on the day (its copy shows instead),
-		-- Water plants was done the next day (@for)
+		-- Water plants was done the next day (@for); Ana's and Ed's birthdays
+		-- (@born(10-13), @born(13 Oct 1970)) repeat on their day
 		local on13 = texts("2026-10-13")
 		table.sort(on13)
-		T.eq(on13, { "Dad (65)", "Standup", "Water plants ✓", "Yoga" })
+		T.eq(on13, { "Ana", "Dad (65)", "Ed (56)", "Standup", "Water plants ✓", "Yoga" })
 		local occ
 		for _, e in ipairs(store.occurrences("2026-10-18")) do
 			if e.text == "Weekly review" then

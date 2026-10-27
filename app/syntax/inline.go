@@ -217,14 +217,8 @@ func IsLinkTarget(target string) bool {
 
 func scanBracket(line string, i int) *Span {
 	// footnote reference: [^id]
-	if at(line, i+1) == '^' {
-		k := i + 2
-		for k < len(line) && (isWordOrUnderscore(line[k]) || line[k] == '.' || line[k] == '-') {
-			k++
-		}
-		if k > i+2 && at(line, k) == ']' {
-			return &Span{Type: "footnote_ref", S: i, E: k + 1, ID: line[i+2 : k]}
-		}
+	if k, ok := footnoteID(line, i); ok {
+		return &Span{Type: "footnote_ref", S: i, E: k + 1, ID: line[i+2 : k]}
 	}
 	// markdown link: [text](url)
 	tn := runUntil(line, i+1, notCloseBracket)
@@ -421,4 +415,23 @@ func Links(spans []Span) []Span {
 		}
 	})
 	return out
+}
+
+// footnoteID: "[^id]" at i, the id anything but brackets and not starting
+// with a space ("[^1]", "[^Smith, 2020]"); returns the index of its "]".
+func footnoteID(line string, i int) (int, bool) {
+	if at(line, i) != '[' || at(line, i+1) != '^' {
+		return 0, false
+	}
+	k := i + 2
+	if k >= len(line) || isSpace(line[k]) || line[k] == ']' || line[k] == '[' {
+		return 0, false
+	}
+	for k < len(line) && line[k] != ']' && line[k] != '[' {
+		k++
+	}
+	if at(line, k) != ']' {
+		return 0, false
+	}
+	return k, true
 }

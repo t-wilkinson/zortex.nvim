@@ -27,7 +27,7 @@ import (
 
 // The calendar: the days of calendar.zortex (read from the notes folder, so
 // it shows every entry, timed or not) and the notifications Neovim schedules
-// from it (POST /notify), which the sender delivers through ntfy.
+// from it (POST /api/notifications/sync), which the sender delivers through ntfy.
 
 // openState opens the notification store and the pomodoro clock in DataDir.
 func (s *Server) openState() error {
@@ -507,21 +507,42 @@ func (s *Server) notificationView(now time.Time) notifView {
 	return v
 }
 
-// apiSummary: GET /api/summary, for home dashboards (Homepage, Home Assistant, ...).
+// apiSummary: GET /api/summary, for home dashboards (Homepage, Home
+// Assistant, …): {generated, pending, next, text, html, pomodoro?, xp?}.
+// text/html list the next notifications by day; xp is today's and the last
+// seven days' area XP and the season's progress, when Neovim publishes it.
 func (s *Server) apiSummary(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	v := s.notificationView(now)
 	out := map[string]any{
-		"status":        "ok",
-		"pending_count": v.pending,
-		"calendar_text": v.text,
-		"calendar_html": "<pre>" + html.EscapeString(v.text) + "</pre>",
-		"next_event":    v.next,
-		"generated_at":  now.Format(time.RFC3339),
+		"generated": now.Format(time.RFC3339),
+		"pending":   v.pending,
+		"next":      v.next,
+		"text":      v.text,
+		"html":      "<pre>" + html.EscapeString(v.text) + "</pre>",
 	}
 	if s.pomo != nil {
 		st := s.pomo.State()
 		out["pomodoro"] = map[string]any{"phase": st.Phase, "running": st.Running, "remaining": st.Remaining, "today": st.Today}
+	}
+	if raw := s.xpSummary(); raw != nil && !s.cfg.NoXP {
+		var x struct {
+			Today  float64 `json:"today"`
+			Week   float64 `json:"week"`
+			Season *struct {
+				Name     string  `json:"name"`
+				Progress float64 `json:"progress"`
+				Tier     string  `json:"tier"`
+				SeasonXP float64 `json:"season_xp"`
+			} `json:"season"`
+		}
+		if json.Unmarshal(raw, &x) == nil {
+			xp := map[string]any{"today": x.Today, "week": x.Week}
+			if x.Season != nil {
+				xp["season"] = map[string]any{"name": x.Season.Name, "progress": x.Season.Progress, "tier": x.Season.Tier, "xp": x.Season.SeasonXP}
+			}
+			out["xp"] = xp
+		}
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -536,82 +557,118 @@ func (s *Server) keyOK(r *http.Request) bool {
 
 func (s *Server) stateEnabled(w http.ResponseWriter) bool {
 	if s.alerts == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"success": false, "error": "no data directory: start zortex serve with -data"})
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": "no data directory: start zortex serve with -data"})
 		return false
 	}
 	return true
 }
 
-// handleNotify: POST /notify, the notification API Neovim talks to.
+// The calendar's notifications, which Neovim sends (and the server sends on
+// through ntfy when they are due). X-API-Key when -api-key is set.
 //
-//	{user_id, operation: "sync", notifications: [...]}   replace pending notifications
-//	{user_id, operation: "notify", notification: {...}}  add one
-//	{user_id, operation: "clear"}                        remove pending ones
-func (s *Server) handleNotify(w http.ResponseWriter, r *http.Request) {
+//	GET  /api/notifications?user_id=        the pending ones, soonest first
+//	POST /api/notifications                 {user_id, notification}: add one
+//	POST /api/notifications/sync            {user_id, notifications}: replace the pending ones
+//	POST /api/notifications/clear           {user_id}: remove the pending ones
+//	POST /api/notifications/test            {title?, message?}: send one through ntfy now
+
+// notificationsRequest checks the key and the data folder and reads the
+// body; user_id defaults to "default".
+func (s *Server) notificationsRequest(w http.ResponseWriter, r *http.Request, v any) bool {
 	if !s.keyOK(r) {
-		writeJSON(w, http.StatusUnauthorized, map[string]any{"success": false, "error": "bad API key"})
-		return
+		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "bad API key"})
+		return false
 	}
 	if !s.stateEnabled(w) {
-		return
+		return false
 	}
-	var req struct {
-		UserID        string            `json:"user_id"`
-		Operation     string            `json:"operation"`
-		Notifications []alerts.Incoming `json:"notifications"`
-		Notification  alerts.Incoming   `json:"notification"`
+	if v == nil {
+		return true
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<20)).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "error": "invalid JSON: " + err.Error()})
-		return
+	if !s.jsonOrKey(r) {
+		writeJSON(w, http.StatusUnsupportedMediaType, map[string]any{"error": "send JSON (Content-Type: application/json) or X-API-Key"})
+		return false
 	}
-	if req.UserID == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "error": "user_id required"})
-		return
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<20)).Decode(v); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid JSON: " + err.Error()})
+		return false
 	}
-	switch req.Operation {
-	case "sync":
-		res, err := s.alerts.Sync(req.UserID, req.Notifications)
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]any{"success": false, "error": err.Error()})
-			return
-		}
-		if !res.Unchanged {
-			s.log.Printf("notifications: sync %s: %d added, %d updated, %d removed", req.UserID, res.Added, res.Updated, res.Removed)
-		}
-		s.sender.Kick()
-		writeJSON(w, http.StatusOK, res)
-	case "notify":
-		n, added, err := s.alerts.Add(req.UserID, req.Notification)
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]any{"success": false, "error": err.Error()})
-			return
-		}
-		s.sender.Kick()
-		out := map[string]any{"success": true, "id": n.ID}
-		if !added {
-			out["message"] = "Duplicate notification skipped"
-		}
-		writeJSON(w, http.StatusOK, out)
-	case "clear":
-		n, err := s.alerts.Clear(req.UserID)
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]any{"success": false, "error": err.Error()})
-			return
-		}
-		writeJSON(w, http.StatusOK, map[string]any{"success": true, "deleted": n})
-	default:
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "error": "Unknown operation: " + req.Operation})
-	}
+	return true
 }
 
-// handlePending: GET /pending?user_id=
-func (s *Server) handlePending(w http.ResponseWriter, r *http.Request) {
-	if !s.keyOK(r) {
-		writeJSON(w, http.StatusUnauthorized, map[string]any{"success": false, "error": "bad API key"})
+func userOf(id string) string {
+	if id == "" {
+		return "default"
+	}
+	return id
+}
+
+// apiNotificationsSync: POST /api/notifications/sync {user_id,
+// notifications}: the pending notifications become these (unchanged ones
+// keep their identity); {ok, added, updated, removed, unchanged}.
+func (s *Server) apiNotificationsSync(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		UserID        string            `json:"user_id"`
+		Notifications []alerts.Incoming `json:"notifications"`
+	}
+	if !s.notificationsRequest(w, r, &req) {
 		return
 	}
-	if !s.stateEnabled(w) {
+	res, err := s.alerts.Sync(userOf(req.UserID), req.Notifications)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	if !res.Unchanged {
+		s.log.Printf("notifications: sync %s: %d added, %d updated, %d removed", userOf(req.UserID), res.Added, res.Updated, res.Removed)
+	}
+	s.sender.Kick()
+	raw, _ := json.Marshal(res)
+	out := map[string]any{}
+	_ = json.Unmarshal(raw, &out)
+	out["ok"] = true
+	writeJSON(w, http.StatusOK, out)
+}
+
+// apiNotificationAdd: POST /api/notifications {user_id, notification}:
+// one more; {ok, id, duplicate}.
+func (s *Server) apiNotificationAdd(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		UserID       string          `json:"user_id"`
+		Notification alerts.Incoming `json:"notification"`
+	}
+	if !s.notificationsRequest(w, r, &req) {
+		return
+	}
+	n, added, err := s.alerts.Add(userOf(req.UserID), req.Notification)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	s.sender.Kick()
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "id": n.ID, "duplicate": !added})
+}
+
+// apiNotificationsClear: POST /api/notifications/clear {user_id}:
+// {ok, deleted}.
+func (s *Server) apiNotificationsClear(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		UserID string `json:"user_id"`
+	}
+	if !s.notificationsRequest(w, r, &req) {
+		return
+	}
+	n, err := s.alerts.Clear(userOf(req.UserID))
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "deleted": n})
+}
+
+// apiNotifications: GET /api/notifications?user_id= -> {count, notifications}.
+func (s *Server) apiNotifications(w http.ResponseWriter, r *http.Request) {
+	if !s.notificationsRequest(w, r, nil) {
 		return
 	}
 	type out struct {
@@ -619,18 +676,22 @@ func (s *Server) handlePending(w http.ResponseWriter, r *http.Request) {
 		ScheduledDatetime string `json:"scheduled_datetime"`
 	}
 	list := []out{}
-	for _, n := range s.alerts.Pending(r.URL.Query().Get("user_id")) {
+	for _, n := range s.alerts.Pending(userOf(r.URL.Query().Get("user_id"))) {
 		list = append(list, out{n, time.Unix(n.ScheduledTime, 0).UTC().Format(time.RFC3339)})
 	}
 	sort.SliceStable(list, func(i, j int) bool { return list[i].ScheduledTime < list[j].ScheduledTime })
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "count": len(list), "notifications": list})
+	writeJSON(w, http.StatusOK, map[string]any{"count": len(list), "notifications": list})
 }
 
-// handleTestNotification: POST /test {title?, message?} publishes through
-// ntfy right away and reports the result.
-func (s *Server) handleTestNotification(w http.ResponseWriter, r *http.Request) {
+// apiNotificationTest: POST /api/notifications/test {title?, message?}
+// publishes through ntfy right away: {ok} or {error}.
+func (s *Server) apiNotificationTest(w http.ResponseWriter, r *http.Request) {
 	if !s.keyOK(r) {
-		writeJSON(w, http.StatusUnauthorized, map[string]any{"success": false, "error": "bad API key"})
+		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "bad API key"})
+		return
+	}
+	if !s.jsonOrKey(r) {
+		writeJSON(w, http.StatusUnsupportedMediaType, map[string]any{"error": "send JSON (Content-Type: application/json) or X-API-Key"})
 		return
 	}
 	var req struct{ Title, Message string }
@@ -642,14 +703,19 @@ func (s *Server) handleTestNotification(w http.ResponseWriter, r *http.Request) 
 		req.Message = "This is a test at " + time.Now().Format(time.RFC3339)
 	}
 	if !s.cfg.Ntfy.Enabled() {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"success": false, "error": "ntfy is not configured (-ntfy-url, -ntfy-topic)"})
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": "ntfy is not configured (-ntfy-url, -ntfy-topic)"})
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
 	if err := s.cfg.Ntfy.Publish(ctx, alerts.Message{Title: req.Title, Message: req.Message, Priority: "high", Tags: []string{"test"}}); err != nil {
-		writeJSON(w, http.StatusBadGateway, map[string]any{"success": false, "error": err.Error(), "test_results": map[string]any{"overall_status": "FAILED"}})
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "test_results": map[string]any{"notification_sent": true, "overall_status": "SUCCESS"}})
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+// apiNotFound: anything else under /api/ is a JSON 404 (not the HTML page).
+func (s *Server) apiNotFound(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusNotFound, map[string]any{"error": "no such endpoint: " + r.Method + " " + r.URL.Path})
 }

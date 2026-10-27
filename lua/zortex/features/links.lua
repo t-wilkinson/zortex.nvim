@@ -71,11 +71,12 @@ end
 -- Footnote Search
 -- =============================================================================
 
--- The footnote definition "[^id]: ..." in the current buffer
+-- The footnote definition in the current buffer: "[^id]: ...", or
+-- "[^Smith, 2020] ..." (the colon may go), as core/syntax reads them
 local function search_footnote(ref_id)
-	local prefix = "[^" .. ref_id .. "]:"
 	for lnum, line in ipairs(buffer.get_lines()) do
-		if line:sub(1, #prefix) == prefix then
+		local info = require("zortex.core.syntax").classify(line)
+		if info.kind == "footnote" and info.id == ref_id then
 			return { lnum = lnum, col = 1 }
 		end
 	end

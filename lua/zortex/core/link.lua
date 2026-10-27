@@ -738,23 +738,109 @@ end
 
 --- "R/#Rust/rl, ai" -> { scope = { "R", "#Rust" } | nil, is_local, all,
 --- groups = { { "rl" }, { "ai" } } } (any group, all of its tags)
-function M.parse_tag_search(content)
-	local parts, scope = M.split(content)
-	local query = table.remove(parts) or ""
-	local groups = {}
-	-- "a b, c": (a and b) or c
-	for group in (query .. ","):gmatch("([^,]*),") do
-		local terms = {}
-		for term in group:gmatch("%S+") do
-			term = (term:gsub("^@", "")):lower()
-			if term ~= "" then
-				terms[#terms + 1] = term
+-- An attribute's value as a tag search compares it: lower case, spaces
+-- trimmed and single, none around "," and ";"
+local function norm_value(v)
+	v = vim.trim((v or ""):lower()):gsub("%s+", " ")
+	return (v:gsub("%s*([,;])%s*", "%1"))
+end
+
+--- A tag search term: "rust", "is:open", or an attribute with its value,
+--- "status(reading)", "author(smith)" (normalized: norm_value).
+function M.tag_term(term)
+	term = (term:gsub("^@", "")):lower()
+	local key, value = term:match("^([%w_%-]+)%((.*)%)$")
+	if key then
+		return key .. "(" .. norm_value(value) .. ")"
+	end
+	return term
+end
+
+--- The attribute terms a line's @key(value) attributes answer to:
+--- "status(reading)" for @status(reading); a reference, @ref(Smith &
+--- Jones, 2020) (several: ";" between them), also answers to
+--- "author(smith & jones)", "author(smith)", "author(jones)" and
+--- "year(2020)". { [term] = 1-based col }.
+function M.attribute_terms(spans)
+	local out = {}
+	local function add(term, col)
+		if term ~= "" and not out[term] then
+			out[term] = col
+		end
+	end
+	syntax.walk_spans(spans or {}, function(span)
+		if span.type == "attribute" and span.value ~= nil then
+			local key, col = span.key:lower(), span.s + 1
+			local value = norm_value(span.value)
+			add(key .. "(" .. value .. ")", col)
+			if key == "ref" then
+				for ref in (value .. ";"):gmatch("([^;]*);") do
+					local author, year = ref:match("^(.-),%s*([^,]+)$")
+					author = author or ref
+					if author ~= "" then
+						add("author(" .. author .. ")", col)
+						local bare = vim.trim((author:gsub("%s*et al%.?$", "")))
+						add("author(" .. bare .. ")", col)
+						for name in (bare:gsub("%s+and%s+", "&") .. "&"):gmatch("([^&]*)&") do
+							add("author(" .. vim.trim(name) .. ")", col)
+						end
+					end
+					if year then
+						add("year(" .. vim.trim(year) .. ")", col)
+					end
+				end
 			end
 		end
+	end)
+	out["author()"], out["year()"] = nil, nil
+	return out
+end
+
+--- Split a tag search's query into its groups and terms: "a b, c" is (a
+--- and b) or c. Inside parentheses, spaces and commas belong to the term:
+--- "author(van Rossum)", "ref(Smith, 2020)".
+local function split_query(query)
+	local groups, terms, cur, depth = {}, {}, {}, 0
+	local function term()
+		if #cur > 0 then
+			local t = M.tag_term(table.concat(cur))
+			if t ~= "" then
+				terms[#terms + 1] = t
+			end
+			cur = {}
+		end
+	end
+	local function group()
+		term()
 		if #terms > 0 then
 			groups[#groups + 1] = terms
 		end
+		terms = {}
 	end
+	for ch in query:gmatch(".") do
+		if ch == "(" then
+			depth = depth + 1
+			cur[#cur + 1] = ch
+		elseif ch == ")" then
+			depth = math.max(0, depth - 1)
+			cur[#cur + 1] = ch
+		elseif depth == 0 and ch == "," then
+			group()
+		elseif depth == 0 and ch:match("%s") then
+			term()
+		else
+			cur[#cur + 1] = ch
+		end
+	end
+	group()
+	return groups
+end
+M._split_query = split_query
+
+function M.parse_tag_search(content)
+	local parts, scope = M.split(content)
+	local query = table.remove(parts) or ""
+	local groups = split_query(query)
 	local all = #parts == 1 and parts[1] == "*"
 	return {
 		scope = (#parts > 0 and not all) and parts or nil,
@@ -774,6 +860,16 @@ local function line_tags(doc, lnum)
 			out[key] = out[key] or span.s + 1
 		end
 	end)
+	return out
+end
+
+-- What a tag search matches on a line: its bare @words and its attribute
+-- terms ("status(reading)", "author(smith)": M.attribute_terms)
+local function search_tags(doc, lnum)
+	local out = line_tags(doc, lnum)
+	for term, col in pairs(M.attribute_terms(doc:inline(lnum))) do
+		out[term] = out[term] or col
+	end
 	return out
 end
 
@@ -927,7 +1023,7 @@ function M.tag_search(content, opts)
 				-- a resource heading's section (its notes) starts afresh
 				if not M.is_resource_heading(doc, node.start_line) then
 					tags = vim.deepcopy(section_tags(node.parent))
-					for tag in pairs(line_tags(doc, node.start_line)) do
+					for tag in pairs(search_tags(doc, node.start_line)) do
 						tags[tag] = true
 					end
 				end
@@ -939,7 +1035,7 @@ function M.tag_search(content, opts)
 			local info = doc:info(lnum)
 			local key = tostring(doc.filepath) .. ":" .. lnum
 			if info and not NOT_CONTENT[info.kind] and not doc:in_code(lnum) and not seen[key] then
-				local own = line_tags(doc, lnum)
+				local own = search_tags(doc, lnum)
 				local node = doc:node_at(lnum)
 				-- a resource heading itself takes the tags above it
 				local above

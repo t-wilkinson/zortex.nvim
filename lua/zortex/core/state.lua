@@ -33,7 +33,7 @@
 -- "<name>.sync-conflict-….json", Dropbox's "conflicted copy") into the data
 -- when it loads, saves the result and deletes the copies.
 --
--- Files: synced xp_state, review_state; device link_index, search_history,
+-- Files: synced xp_state, review_state, syntax; device link_index, search_history,
 -- xp_seen, notifications_state, starter.
 local M = {}
 

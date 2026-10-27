@@ -52,6 +52,9 @@ local LINKS = {
 	ZortexLinkBold = { from = "Function", underline = true, bold = false },
 	ZortexLinkItem = { from = "Special", underline = true, bold = false },
 	ZortexTagSearchAt = "Comment", -- the "@" of @[tags]
+	-- the "›" shown for a link's "/" (ui.highlights.link_separator), and the
+	-- link icon; ui.highlights.groups.ZortexLinkDelimiter changes its look
+	ZortexLinkDelimiter = "Comment",
 	ZortexFootnote = { from = "Comment", italic = true },
 	ZortexURL = "Underlined",
 	ZortexBold = { bold = true },
@@ -127,6 +130,7 @@ local ROSE_PINE = {
 	ZortexLinkBold = { fg = "#56949f", underline = true },
 	ZortexLinkItem = { fg = "#9ccfd8", underline = true },
 	ZortexTagSearchAt = { fg = "#6e6a86" },
+	ZortexLinkDelimiter = { fg = "#6e6a86" },
 	ZortexFootnote = { fg = "#9ccfd8", italic = true },
 	ZortexURL = { fg = "#3e8fb0", underline = true },
 	ZortexBold = { bold = true },

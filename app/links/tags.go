@@ -2,6 +2,7 @@ package links
 
 import (
 	"errors"
+	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -34,19 +35,7 @@ func ParseTagSearch(content string) TagQuery {
 		parts = parts[:len(parts)-1]
 	}
 	var q TagQuery
-	for _, group := range strings.Split(query, ",") {
-		var terms []string
-		// words split on ASCII white space, like Lua's %S+
-		for _, term := range strings.FieldsFunc(group, isSpaceRune) {
-			term = syntax.Lower(strings.TrimPrefix(term, "@"))
-			if term != "" {
-				terms = append(terms, term)
-			}
-		}
-		if len(terms) > 0 {
-			q.Groups = append(q.Groups, terms)
-		}
-	}
+	q.Groups = splitQuery(query)
 	q.All = len(parts) == 1 && parts[0] == "*"
 	if len(parts) > 0 && !q.All {
 		q.Scope = parts
@@ -56,6 +45,150 @@ func ParseTagSearch(content string) TagQuery {
 }
 
 func isSpaceRune(r rune) bool { return r < 0x80 && isSpace(byte(r)) }
+
+// splitQuery: "a b, c" is (a and b) or c; inside parentheses spaces and
+// commas belong to the term ("author(van Rossum)", "ref(Smith, 2020)").
+func splitQuery(query string) [][]string {
+	var groups [][]string
+	var terms []string
+	var cur strings.Builder
+	depth := 0
+	term := func() {
+		if cur.Len() > 0 {
+			if t := TagTerm(cur.String()); t != "" {
+				terms = append(terms, t)
+			}
+			cur.Reset()
+		}
+	}
+	group := func() {
+		term()
+		if len(terms) > 0 {
+			groups = append(groups, terms)
+		}
+		terms = nil
+	}
+	for i := 0; i < len(query); i++ {
+		c := query[i]
+		switch {
+		case c == '(':
+			depth++
+			cur.WriteByte(c)
+		case c == ')':
+			if depth > 0 {
+				depth--
+			}
+			cur.WriteByte(c)
+		case depth == 0 && c == ',':
+			group()
+		case depth == 0 && isSpace(c):
+			term()
+		default:
+			cur.WriteByte(c)
+		}
+	}
+	group()
+	return groups
+}
+
+// normValue: an attribute value as a tag search compares it: lower case,
+// spaces trimmed and single, none around "," and ";".
+func normValue(v string) string {
+	v = strings.Join(strings.FieldsFunc(syntax.Lower(v), isSpaceRune), " ")
+	var b strings.Builder
+	for i := 0; i < len(v); i++ {
+		c := v[i]
+		if c == ' ' && (i+1 < len(v) && (v[i+1] == ',' || v[i+1] == ';') || i > 0 && (v[i-1] == ',' || v[i-1] == ';')) {
+			continue
+		}
+		b.WriteByte(c)
+	}
+	return b.String()
+}
+
+func isTermKey(c byte) bool {
+	return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c == '-'
+}
+
+// TagTerm normalizes a tag search term: "Rust" -> "rust", "@Status(Reading)"
+// -> "status(reading)" (core/link tag_term).
+func TagTerm(term string) string {
+	term = syntax.Lower(strings.TrimPrefix(term, "@"))
+	if open := strings.IndexByte(term, '('); open > 0 && strings.HasSuffix(term, ")") {
+		key := term[:open]
+		ok := true
+		for i := 0; i < len(key); i++ {
+			if !isTermKey(key[i]) {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			return key + "(" + normValue(term[open+1:len(term)-1]) + ")"
+		}
+	}
+	return term
+}
+
+// AttributeTerms: the terms a line's @key(value) attributes answer to in a
+// tag search, with their 1-based columns: "status(reading)"; a reference,
+// @ref(Smith & Jones, 2020) (several: ";" between), also "author(smith &
+// jones)", "author(smith)", "author(jones)" and "year(2020)"
+// (core/link attribute_terms).
+func AttributeTerms(spans []syntax.Span) map[string]int {
+	out := map[string]int{}
+	add := func(t string, col int) {
+		if _, ok := out[t]; !ok && t != "author()" && t != "year()" {
+			out[t] = col
+		}
+	}
+	syntax.Walk(spans, func(sp *syntax.Span) {
+		if sp.Type != "attribute" || !sp.HasValue {
+			return
+		}
+		key, col := syntax.Lower(sp.Key), sp.S+1
+		value := normValue(sp.Value)
+		add(key+"("+value+")", col)
+		if key != "ref" {
+			return
+		}
+		for _, ref := range strings.Split(value, ";") {
+			author, year := ref, ""
+			if i := strings.LastIndexByte(ref, ','); i >= 0 && strings.TrimSpace(ref[i+1:]) != "" {
+				author, year = ref[:i], strings.TrimSpace(ref[i+1:])
+			}
+			if author != "" {
+				add("author("+author+")", col)
+				bare := strings.TrimSpace(etAl.ReplaceAllString(author, ""))
+				add("author("+bare+")", col)
+				for _, name := range strings.Split(and.ReplaceAllString(bare, "&"), "&") {
+					add("author("+strings.TrimSpace(name)+")", col)
+				}
+			}
+			if year != "" {
+				add("year("+year+")", col)
+			}
+		}
+	})
+	return out
+}
+
+var (
+	etAl = regexp.MustCompile(`\s*et al\.?$`)
+	and  = regexp.MustCompile(`\s+and\s+`)
+)
+
+// searchTags: what a tag search matches on a line: its bare @words and its
+// attribute terms.
+func searchTags(d *notes.Document, lnum int) map[string]int {
+	out := lineTags(d, lnum)
+	for t, c := range AttributeTerms(d.Spans(lnum)) {
+		if _, ok := out[t]; !ok {
+			out[t] = c
+		}
+	}
+	return out
+}
 
 // lineTags are the bare @words on a line, with their 1-based columns.
 func lineTags(d *notes.Document, lnum int) map[string]int {
@@ -277,7 +410,7 @@ func TagSearch(ix *notes.Index, content string, opts Options) ([]Result, error) 
 				for t := range sectionTags(n.Parent) {
 					tags[t] = true
 				}
-				for t := range lineTags(d, n.Start) {
+				for t := range searchTags(d, n.Start) {
 					tags[t] = true
 				}
 			}
@@ -297,7 +430,7 @@ func TagSearch(ix *notes.Index, content string, opts Options) ([]Result, error) 
 			if d.InCode(lnum) || seen[key] {
 				continue
 			}
-			own := lineTags(d, lnum)
+			own := searchTags(d, lnum)
 			node := d.NodeAt(lnum)
 			var above map[string]bool
 			if node != nil && node.Start == lnum && IsResourceHeading(d, lnum) {

@@ -32,3 +32,8 @@ Read after the book.
   - chapter 1 again
   Exercises:
     - 1.3 and 1.11
+
+# Papers
+- The Art of Computer Programming @ref(Knuth, 1968)
+- Python's design @ref(van Rossum & Drake, 2009)
+  - nested note @ref(Knuth, 1997)

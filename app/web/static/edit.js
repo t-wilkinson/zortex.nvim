@@ -54,8 +54,7 @@
   function send(payload) {
     if (busy) return Promise.resolve();
     busy = true;
-    payload.rel = rel;
-    return fetch(base + "/api/edit", {
+    return fetch(base + "/api/n/" + String(rel).split("/").map(encodeURIComponent).join("/"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

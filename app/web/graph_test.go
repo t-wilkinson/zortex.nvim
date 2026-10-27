@@ -115,7 +115,7 @@ func TestTagTableNotes(t *testing.T) {
 func TestStructureSections(t *testing.T) {
 	ts := newSlidesServer(t, graphNotes)
 	// [Rust book notes] and [Async] are in rust.zortex's # Structure; [Loose] is not
-	_, _, body := get(t, ts, "/api/structure")
+	_, _, body := get(t, ts, "/api/graph")
 	if !strings.Contains(body, `"rel":"loose.zortex"`) || strings.Contains(body, `"rel":"async.zortex"`) || strings.Contains(body, `"rel":"rust-book-notes.zortex"`) {
 		t.Errorf("unlinked: %s", body)
 	}
@@ -208,8 +208,8 @@ func TestGraphCardsAndTags(t *testing.T) {
 		`data-tag="body" data-name="Body"`, `data-tag="work" data-name="Work"`,
 		`data-rel="loose.zortex" data-links="" data-tags="body">Loose</a>`,
 		`id="graph-q" class="graph-q" data-slash`, `/static/graph.js`)
-	if strings.Contains(page, `href="/tags"`) {
-		t.Error("the top bar still has Tags")
+	if top := page[strings.Index(page, `<nav class="links">`):strings.Index(page, `<main>`)]; strings.Contains(top, `href="/tags"`) {
+		t.Error("the top bar still has Tags (the footer does)")
 	}
 	if !strings.Contains(page, `href="/graph" aria-current="page"`) {
 		t.Error("Graph isn't the current tab")

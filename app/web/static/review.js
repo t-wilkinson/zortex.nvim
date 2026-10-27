@@ -70,8 +70,7 @@
     var act = b.dataset.act;
     var body = line(b);
     if (act === "tick") {
-      body.op = "toggle";
-      run(b, "/api/edit", body, function () { return "Ticked"; });
+      run(b, "/api/n/" + String(body.rel).split("/").map(encodeURIComponent).join("/"), { lnum: body.lnum, expect: body.expect, op: "toggle" }, function () { return "Ticked"; });
     } else if (act === "tomorrow") {
       run(b, "/api/review/tomorrow", { lnum: body.lnum, expect: body.expect }, function (x) { return "On " + (x.date || "tomorrow"); });
     } else if (act === "due") {

@@ -8,7 +8,7 @@ dependencies (this folder's Go module).
   media, text), tags, broken links, and the notes not yet linked from the
   Structure note.
 - **Calendar** (home page): the days of `calendar.zortex` and the
-  notifications Neovim sends from it (`POST /notify`). Due notifications
+  notifications Neovim sends from it (`POST /api/notifications/sync`). Due notifications
   are sent through **ntfy** by the server itself (no cron, no database),
   and kept for Neovim to show (`GET /api/alerts`).
 - **Pomodoro**: a clock owned by the server, driven from the home page and
@@ -68,7 +68,8 @@ nix run .#zortex -- serve -dir ~/notes -addr 0.0.0.0:8090
 Flags (each also an environment variable): `-dir` (`ZORTEX_NOTES_DIR`),
 `-addr` (`ZORTEX_ADDR`, default `127.0.0.1:8090`), `-base` (`ZORTEX_BASE`:
 the URL prefix when a proxy serves it below `/`, e.g. `/notes`), `-title`
-(`ZORTEX_TITLE`), `-poll` (`ZORTEX_POLL`, default `3s`), `-resources` (`ZORTEX_RESOURCES`: extensions tracked as resources; NixOS:
+(`ZORTEX_TITLE`), `-poll` (`ZORTEX_POLL`, default `3s`), `-watch`
+(`ZORTEX_WATCH`, default on: watch the folder for changes), `-resources` (`ZORTEX_RESOURCES`: extensions tracked as resources; NixOS:
 `web.resourceExtensions`).
 
 Editing: `-writable` (`ZORTEX_WRITABLE=1`; NixOS `web.writable`) lets the
@@ -100,8 +101,10 @@ writes those notes, so it needs write access to the folder);
 `ZORTEX_SHARE_TOKEN`): the token, 16 characters or more, that opens
 `/calendar.ics?token=…` without the login.
 
-**How it stays light.** The folder is read once at start and rescanned every
-`-poll`. A rescan re-parses only files whose modification time or size
+**How it stays light.** The folder is read once at start, then watched
+(inotify, on Linux: a changed file is picked up within about 150 ms of the
+last write; `-watch=false` or `ZORTEX_WATCH=0` turns it off) and rescanned
+every `-poll` as a safety net. A rescan re-parses only files whose modification time or size
 changed; when anything changed, the search index, backlinks, tags and broken
 links are rebuilt in the background and swapped in. Notes keep their text,
 section tree and a compact per-line summary; a page re-parses the one note it

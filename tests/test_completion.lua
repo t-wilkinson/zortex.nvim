@@ -219,7 +219,8 @@ T.test("tags: after a bare @ and inside @[...], most used first", function()
 	end
 	T.ok(by["@rust"] and by["@rl"] and by["@ai-model"], vim.inspect(vim.tbl_keys(by)))
 	T.ok(by["@rust"].detail:match("^%d+ lines$"), by["@rust"].detail)
-	T.ok(not by["@p1"] and not by["@sm"], "shortcut attributes aren't tags")
+	T.ok(not by["@p1"], "shortcut attributes aren't tags")
+	T.eq(by["@sm"].kind, 5, "@sm is offered as a size, not a tag")
 	T.eq(items[1].label, "@rust") -- the most used tag in the fixtures
 	-- then the attributes, each with how it is written and what it does
 	T.ok(by["@due(…)"], vim.inspect(vim.tbl_keys(by)))
@@ -303,4 +304,35 @@ T.test("headings with a colon in their name complete in full ([/#6.3: …)", fun
 		local r = require("zortex.core.link").resolve("[/#6.3: " .. want .. "]", { doc = d })
 		T.eq(r[1] and d.lines[r[1].lnum], "### 6.3: " .. want)
 	end
+end)
+
+T.test("sizes: @size( and bare @sm offer the sizes with what each is worth", function()
+	local items = C.get_completions("- [ ] Mount the shelves @size(", #"- [ ] Mount the shelves @size(", {})
+	local by = {}
+	for _, i in ipairs(items) do
+		by[i.label] = i
+	end
+	T.eq(by.sm.detail, "30m · 5 XP")
+	T.eq(by.xl.detail, "3h · 30 XP")
+	T.ok(not by.epic, "a task's sizes")
+	-- a heading: a project's
+	items = C.get_completions("## Kitchen @size(", #"## Kitchen @size(", {})
+	by = {}
+	for _, i in ipairs(items) do
+		by[i.label] = i
+	end
+	T.eq(by.epic.detail, "160h · 1,600 XP")
+	-- bare: the shortcuts among the tags and attributes
+	items = C.get_completions("- [ ] Shelves @s", #"- [ ] Shelves @s", {})
+	by = {}
+	for _, i in ipairs(items) do
+		by[i.label] = i
+	end
+	T.eq(by["@sm"].detail, "30m · 5 XP")
+	-- and the hint at the end of the cursor line
+	local hint = require("zortex.features.size_hint")
+	T.eq(select(2, hint.hint("- [ ] Shelves @sm")), "sm ≈ 30m · 5 XP")
+	T.eq(select(2, hint.hint("## Kitchen @size(lg)")), "lg ≈ 20h · 200 XP")
+	T.ok(select(2, hint.hint("- [ ] Shelves @size(epic)")):find("not a task size", 1, true))
+	T.eq(hint.hint("- [ ] no size here"), nil)
 end)

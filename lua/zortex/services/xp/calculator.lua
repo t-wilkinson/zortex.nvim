@@ -106,6 +106,41 @@ function M.hours(kind, size)
 	return tonumber(h)
 end
 
+--- What a @size is worth, as a hint: "30m · 5 XP" (kind: "task",
+--- "project", "objective"; attrs: the line's, for @p/@i when xp.modifiers
+--- makes them count), or nil for a size the config doesn't list.
+function M.size_hint(kind, size, attrs)
+	local h = M.hours(kind or "task", size)
+	if not h then
+		return nil
+	end
+	local xp = h * M.xp_per_hour()
+	local m = M.modifier(attrs)
+	local fmt = require("zortex.ui.xp_guide")
+	if m ~= 1 then
+		return string.format("%s · %s XP ×%s = %s XP", fmt.format_hours(h), fmt.format_number(xp), fmt.format_number(m), fmt.format_number(xp * m))
+	end
+	return string.format("%s · %s XP", fmt.format_hours(h), fmt.format_number(xp))
+end
+
+--- The sizes of a kind, smallest first: { size, ... }.
+function M.size_names(kind)
+	local out = {}
+	for size in pairs(sizes(kind)) do
+		if M.hours(kind, size) then
+			out[#out + 1] = size
+		end
+	end
+	table.sort(out, function(a, b)
+		local ha, hb = M.hours(kind, a), M.hours(kind, b)
+		if ha ~= hb then
+			return ha < hb
+		end
+		return a < b
+	end)
+	return out
+end
+
 --- Effort points of a task, in hours: its @size (unsized and unknown sizes
 --- count as md). They weigh project and key-result progress.
 function M.task_points(size)

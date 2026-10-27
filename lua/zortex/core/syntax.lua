@@ -69,6 +69,10 @@ local BOLD_HEADING = "^%*%*([^*]+):%*%*%s*$" -- "**Title:**" (the colon is insid
 -- Small helpers
 -- =============================================================================
 
+-- A footnote's id, "[^1]", "[^note-2]", "[^Smith, 2020]": anything but
+-- brackets, not starting with a space
+local FOOTNOTE_ID = "[^%]%[%s][^%]%[]*"
+
 local function trim(s)
 	return (s:match("^%s*(.-)%s*$")) or ""
 end
@@ -260,12 +264,34 @@ local function colon_line(line)
 	return text ~= nil and not text:find("%.%s") and not text:find("%*$")
 end
 
+-- syntax.is_label (Config.syntax): function(text, line) -> true|false|nil,
+-- asked about every "Text:" line; nil keeps the word count's answer
+M.label_hook = nil
+
+--- Set the label rule (Config.syntax): label_max_words, is_label.
+function M.configure(opts)
+	opts = opts or {}
+	M.MAX_LABEL_WORDS = tonumber(opts.label_max_words) or 3
+	M.label_hook = type(opts.is_label) == "function" and opts.is_label or nil
+end
+
 -- `body`: the line after its indent (and "- " for "- Label:")
 local function is_label(line, body)
 	if star_label(body) then
 		return true
 	end
-	return colon_line(line) and word_count(M.strip_attributes(body:sub(1, -2))) <= M.MAX_LABEL_WORDS
+	if not colon_line(line) then
+		return false
+	end
+	local text = M.strip_attributes(body:sub(1, -2))
+	local hook = M.label_hook
+	if hook then
+		local ok, answer = pcall(hook, trim(text), line)
+		if ok and answer ~= nil then
+			return answer and true or false
+		end
+	end
+	return word_count(text) <= M.MAX_LABEL_WORDS
 end
 
 local function count(s, ch)
@@ -341,9 +367,15 @@ function M.classify(line)
 		return { kind = "rule", indent = 0, content_col = 0 }
 	end
 
-	local fid = line:match("^%[%^([%w_.%-]+)%]:")
+	-- "[^1]: text", "[^Smith, 2020]: text" (the colon may go: "[^Smith,
+	-- 2020] Smith, J. (2020) …", or the id alone on its line)
+	local fid, after = line:match("^%[%^(" .. FOOTNOTE_ID .. ")%]()")
 	if fid then
-		return { kind = "footnote", id = fid, indent = 0, content_col = #line:match("^%[%^[%w_.%-]+%]:%s*") }
+		local rest = line:sub(after)
+		local sep = rest:match("^:%s*") or (rest == "" and "") or rest:match("^%s+")
+		if sep then
+			return { kind = "footnote", id = fid, indent = 0, content_col = after - 1 + #sep }
+		end
 	end
 
 	local item = M.item(line)
@@ -619,7 +651,7 @@ scanners["@"] = function(line, i)
 end
 
 scanners["["] = function(line, i)
-	local fid = line:match("^%[%^([%w_.%-]+)%]", i)
+	local fid = line:match("^%[%^(" .. FOOTNOTE_ID .. ")%]", i)
 	if fid then
 		return { type = "footnote_ref", s = i - 1, e = i + #fid + 2, id = fid }
 	end

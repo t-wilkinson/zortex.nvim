@@ -155,6 +155,13 @@
         "type": "section"
       },
       {
+        "breadcrumb": "Resources › Papers",
+        "lnum": 36,
+        "rel": "z/resources.zortex",
+        "score": 1150,
+        "type": "section"
+      },
+      {
         "breadcrumb": "Areas › 1 Personal Foundation",
         "lnum": 5,
         "rel": "areas.zortex",
@@ -388,6 +395,16 @@
       },
       {
         "lnum": 32,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 37,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 38,
         "rel": "z/resources.zortex",
         "type": "line"
       },
@@ -1026,6 +1043,13 @@
         "type": "section"
       },
       {
+        "breadcrumb": "Resources › Papers",
+        "lnum": 36,
+        "rel": "z/resources.zortex",
+        "score": 1050,
+        "type": "section"
+      },
+      {
         "breadcrumb": "Projects › 1 Programming",
         "lnum": 5,
         "rel": "z/archive.projects.zortex",
@@ -1269,6 +1293,14 @@
         "breadcrumb": "Resources › Later",
         "child": true,
         "lnum": 30,
+        "rel": "z/resources.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Resources › Papers",
+        "child": true,
+        "lnum": 36,
         "rel": "z/resources.zortex",
         "score": 2100,
         "type": "section"

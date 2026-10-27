@@ -11,7 +11,7 @@ services:
       - NTFY_SERVER_URL=${NTFY_SERVER_URL:-https://ntfy.sh}
       - NTFY_TOPIC=${NTFY_TOPIC:?set a private topic}
       - NTFY_AUTH_TOKEN=${NTFY_AUTH_TOKEN:-}
-      # optional: required by /notify and /pending (set the same in the plugin's server.api_key)
+      # optional: required by /api/notifications, /api/alerts and POST /api/xp (set the same in the plugin's server.api_key)
       - ZORTEX_API_KEY=${ZORTEX_API_KEY:-}
       - ZORTEX_TITLE=${ZORTEX_TITLE:-Zortex}
       # the calendar's time zone, e.g. America/New_York (unset: UTC)

@@ -30,7 +30,15 @@ that share one folder of plain-text notes.
   `![alt](./pic.png)` is an image with alt text.
 - Tags and tag searches: bare `@words` on any line, `@[rust async]` (all),
   `@[rust, rl]` (any), scopes (`@[R/#Rust/async]`), `is:` words, and
-  `!@[…]` tables in place.
+  `!@[…]` tables in place. Attributes are searchable as `key(value)`:
+  `@ref(Smith & Lee, 2020)` is found by `@[author(Smith)]`,
+  `@[author(Smith & Lee)]` and `@[year(2020)]`.
+- Footnotes take any text but `]`: `[^Smith, 2020]` cites the
+  `[^Smith, 2020]: …` line at the bottom of the note (the web app shows
+  it as `(Smith, 2020)` with the reference as its tooltip).
+- What counts as a label is configurable: `syntax.label_max_words`
+  (shared with the server through `.z/syntax.json`) and, in Neovim,
+  `syntax.is_label`.
 - `:ZortexImportMarkdown [path] [--join]` turns Markdown files, or an
   Obsidian vault, into notes beside them.
 
@@ -62,7 +70,9 @@ that share one folder of plain-text notes.
   `# Templates` for new days (`## Daily`, `## Weekday`, `## Sunday`, …)
   and `# Repeating` for entries that recur (`@repeat(…)` how often, `@on(…)`
   which days, including `2nd tue` and `last fri`, `@at(…)` what time,
-  bounded by `@from(date)` and `@to(date)`, birthdays with `@born`); the
+  bounded by `@from(date)` and `@to(date)`, birthdays with `@born`, which
+  reads `1990`, `1961-07-02`, `07-02`, `07-02-1961`, `Feb 1` and
+  `February 1, 2000`, and repeats yearly on the day it names); the
   planner writes a day's repeating tasks into it; a month view whose
   "Coming up" lists events, `:ZortexToday`, `:ZortexNow` and
   `:ZortexTimeShift`; notifications for timed lines, and for all-day lines
@@ -93,6 +103,10 @@ that share one folder of plain-text notes.
   when it closes (`review.default_area_on_close`).
 - `:Zortex attributes` lists every attribute and how it is written, and a
   bare `@` completes them, each with its format as documentation.
+- Sizes show what they're worth as you type them (`@sm ≈ 30m · 5 XP`,
+  `features.size_hint`), and `@size(` and `@s…` complete the sizes with
+  their hours and XP.
+- `:ZortexOpenWeb` opens the note, at the cursor's section, in the web app.
 - The planner keeps a task's links' names in its text (`Read [./doc-1]` and
   `Read [./doc-2]` no longer both read `Read`), and links tasks that would
   link the same by their `@id`.
@@ -128,8 +142,15 @@ that share one folder of plain-text notes.
   a NixOS module) that reads the notes folder: rendered notes with working
   links and hover cards, search, backlinks, tags and tag tables, broken
   links and the notes nothing reaches (`/broken` lists only what has a
-  problem), `/graph`, and a file browser whose
-  resource folders list their files and what links them.
+  problem, and leaves the top bar when nothing does), `/graph`, and a file
+  browser whose resource folders list their files and what links them.
+- The folder is watched (inotify, on Linux), so a synced edit shows within
+  about a second; `-poll` still rescans as a safety net.
+- The top bar's Files menu lists the `z/` folders and your named notes;
+  the footer links the pages the top bar doesn't.
+- A JSON API: every page's data at `/api` + its path
+  (`/api/projects`, `/api/review?day=today`), notes at `/api/n/<path>`,
+  snake_case keys, `{"error"}` on failure and `{"ok": true}` from writes.
 - A home page with today's calendar, an inbox box (offline too, in the
   installed app), the pomodoro, timers, alarms, a stopwatch, time tracking
   on the task you're working on (`@spent`), the week's focus and XP.

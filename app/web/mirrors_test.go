@@ -51,7 +51,7 @@ func TestMirrorToggleBothWays(t *testing.T) {
 
 	// tick the copy: the project task is done too, with the same date
 	n, line := lineWith(t, cal, "@id(web01)")
-	code, out := postJSON(t, url, "/api/edit", map[string]any{"rel": "calendar.zortex", "lnum": n, "expect": line, "op": "toggle"})
+	code, out := postJSON(t, url, "/api/n/calendar.zortex", map[string]any{"lnum": n, "expect": line, "op": "toggle"})
 	if code != 200 {
 		t.Fatalf("toggle: %d %v", code, out)
 	}
@@ -60,7 +60,7 @@ func TestMirrorToggleBothWays(t *testing.T) {
 	}
 	// reopen it from the project: the copy reopens
 	n, line = lineWith(t, proj, "Improve website")
-	code, out = postJSON(t, url, "/api/edit", map[string]any{"rel": "projects.zortex", "lnum": n, "expect": line, "op": "toggle"})
+	code, out = postJSON(t, url, "/api/n/projects.zortex", map[string]any{"lnum": n, "expect": line, "op": "toggle"})
 	if code != 200 {
 		t.Fatalf("toggle: %d %v", code, out)
 	}
@@ -78,7 +78,7 @@ func TestMirrorMovedCopiesStay(t *testing.T) {
 	writeNote(t, s, dir, "calendar.zortex", lines)
 	proj := filepath.Join(dir, "projects.zortex")
 	n, line := lineWith(t, proj, "Improve website")
-	postJSON(t, url, "/api/edit", map[string]any{"rel": "projects.zortex", "lnum": n, "expect": line, "op": "done"})
+	postJSON(t, url, "/api/n/projects.zortex", map[string]any{"lnum": n, "expect": line, "op": "done"})
 	lines = readLines(t, cal)
 	if !strings.HasPrefix(lines[lineOf(t, lines, today()+":")], "- [x] [P/#1.4 - zortex/-Improve website] @id(web01) @done(") {
 		t.Fatalf("copy not ticked: %q", lines)
@@ -110,7 +110,7 @@ func TestMirrorReferenceLine(t *testing.T) {
 		t.Fatalf("reference: %v", e)
 	}
 	n, line := lineWith(t, cal, "[./-Improve website]")
-	code, out := postJSON(t, url, "/api/edit", map[string]any{"rel": "calendar.zortex", "lnum": n, "expect": line, "op": "toggle"})
+	code, out := postJSON(t, url, "/api/n/calendar.zortex", map[string]any{"lnum": n, "expect": line, "op": "toggle"})
 	if code != 200 || out["task"] == nil {
 		t.Fatalf("toggle: %d %v", code, out)
 	}
@@ -223,7 +223,7 @@ func TestMirrorAdoptsLinkedID(t *testing.T) {
 
 	// the task has an @id: the calendar line takes it, and both are done
 	n, line := lineWith(t, cal, "[./-Improve website]")
-	if code, out := postJSON(t, url, "/api/edit", map[string]any{"rel": "calendar.zortex", "lnum": n, "expect": line, "op": "toggle"}); code != 200 {
+	if code, out := postJSON(t, url, "/api/n/calendar.zortex", map[string]any{"lnum": n, "expect": line, "op": "toggle"}); code != 200 {
 		t.Fatalf("toggle: %d %v", code, out)
 	}
 	if _, l := lineWith(t, cal, "[./-Improve website]"); l != "  - [x] [./-Improve website] @id(web01) @done("+today()+")" {
@@ -236,7 +236,7 @@ func TestMirrorAdoptsLinkedID(t *testing.T) {
 	// the task has no @id: it gets a new one, shared with the calendar line
 	s.Refresh()
 	n, line = lineWith(t, cal, "-Add research-ready references]")
-	if code, out := postJSON(t, url, "/api/edit", map[string]any{"rel": "calendar.zortex", "lnum": n, "expect": line, "op": "toggle"}); code != 200 {
+	if code, out := postJSON(t, url, "/api/n/calendar.zortex", map[string]any{"lnum": n, "expect": line, "op": "toggle"}); code != 200 {
 		t.Fatalf("toggle: %d %v", code, out)
 	}
 	_, task := lineWith(t, proj, "Add research-ready references")
@@ -260,7 +260,7 @@ func TestCalendarTaskSizedByBlock(t *testing.T) {
 	})
 	cal := filepath.Join(dir, "calendar.zortex")
 	n, line := lineWith(t, cal, "@id(rep01)")
-	if code, out := postJSON(t, ts.URL, "/api/edit", map[string]any{"rel": "calendar.zortex", "lnum": n, "expect": line, "op": "toggle"}); code != 200 {
+	if code, out := postJSON(t, ts.URL, "/api/n/calendar.zortex", map[string]any{"lnum": n, "expect": line, "op": "toggle"}); code != 200 {
 		t.Fatalf("toggle: %d %v", code, out)
 	}
 	if _, l := lineWith(t, cal, "@id(rep01)"); l != "  - [x] Draft @id(rep01) @done("+today()+") @md" {
@@ -292,7 +292,7 @@ func TestProjectBlockTasks(t *testing.T) {
 		t.Fatalf("block tasks: %+v", virtual)
 	}
 	v := virtual[1]
-	if code, out := postJSON(t, ts.URL, "/api/edit", map[string]any{"rel": v.Rel, "lnum": v.Lnum, "expect": v.Src, "op": "toggle"}); code != 200 {
+	if code, out := postJSON(t, ts.URL, "/api/n/"+v.Rel, map[string]any{"lnum": v.Lnum, "expect": v.Src, "op": "toggle"}); code != 200 {
 		t.Fatalf("toggle: %d %v", code, out)
 	}
 	if _, l := lineWith(t, filepath.Join(dir, "projects.zortex"), "Improve website"); !strings.HasPrefix(l, "- [x] Improve website") {

@@ -390,6 +390,7 @@ require("zortex").setup({
 |  | `<leader>zfc` | `open_calendar` | Open calendar.zortex (`:ZortexOpen calendar`) |
 |  | `<leader>zfs` | `open_structure` | Open structure.zortex (`:ZortexOpen structure`) |
 |  | `<leader>zfi` | `open_inbox` | Open inbox.zortex (`:ZortexOpen inbox`) |
+| `:ZortexOpenWeb` | `<leader>zW` | `open_web` | Open this note in the web app, at the cursor's line (any other file in the notes folder in its viewer) |
 | `:ZortexPresent` | `<leader>zS` | `present` | Present this note as slides in the web app, from the slide under the cursor |
 
 **XP**
@@ -569,6 +570,49 @@ sources = {
   providers = { zortex = { name = "Zortex", module = "zortex.features.blink" } },
 }
 ```
+
+### Snippets
+
+Zortex buffers have the filetype `zortex`, so snippets for it are ordinary
+VS Code-style snippets. In LazyVim (blink.cmp, or the LuaSnip extra) put
+them in your config's `snippets/` folder: both read
+`~/.config/nvim/snippets/package.json` and the files it lists.
+
+`~/.config/nvim/snippets/package.json`:
+
+```json
+{
+  "name": "my-snippets",
+  "contributes": {
+    "snippets": [{ "language": "zortex", "path": "./zortex.json" }]
+  }
+}
+```
+
+`~/.config/nvim/snippets/zortex.json`:
+
+```json
+{
+  "Task": {
+    "prefix": "task",
+    "body": "- [ ] ${1:task} @size(${2|sm,xs,md,lg,xl,2xl|})$0"
+  },
+  "Task due": {
+    "prefix": "due",
+    "body": "- [ ] ${1:task} @size(${2|sm,xs,md,lg,xl|}) @due(${3:$CURRENT_YEAR-$CURRENT_MONTH-$CURRENT_DATE})$0"
+  },
+  "Event": {
+    "prefix": "event",
+    "body": "${1:09:00} - ${2:10:00} ${3:what} @event$0"
+  }
+}
+```
+
+blink.cmp lists them next to the zortex completions (`task` → `- [ ] …`, a
+choice of sizes at `@size(`; the size hint shows the XP once it's typed).
+After editing a snippet file, restart Neovim (blink reads them once). With
+plain LuaSnip outside LazyVim, load the folder yourself:
+`require("luasnip.loaders.from_vscode").lazy_load({ paths = { vim.fn.stdpath("config") .. "/snippets" } })`.
 
 ## Lua API
 

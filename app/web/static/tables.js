@@ -89,7 +89,7 @@
       sec.querySelector("h3 span").textContent = btn.dataset.noteTitle || rel;
       sec.querySelector(".np-open").href = btn.dataset.noteHref || "#";
       body.appendChild(sec);
-      fetch(base + "/api/note?rel=" + encodeURIComponent(rel), { cache: "no-store" })
+      fetch(base + "/api/n/" + String(rel).split("/").map(encodeURIComponent).join("/"), { cache: "no-store" })
         .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
         .then(function (res) {
           var box = sec.querySelector(".np-note");

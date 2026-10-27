@@ -1,5 +1,5 @@
 // Package alerts is the notification side of `zortex serve`: the scheduled
-// notifications Neovim syncs from calendar.zortex (POST /notify), persisted in
+// notifications Neovim syncs from calendar.zortex (POST /api/notifications/sync), persisted in
 // a JSON file, and the sender that delivers them through ntfy when they are
 // due.
 //

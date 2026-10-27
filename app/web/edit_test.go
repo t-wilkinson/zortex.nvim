@@ -54,7 +54,7 @@ func lineOf(t *testing.T, lines []string, prefix string) int {
 
 func TestEditReadOnly(t *testing.T) {
 	_, _, ts, _ := newStateServer(t, "")
-	code, out := postJSON(t, ts.URL, "/api/edit", map[string]any{"rel": "flipping.zortex", "lnum": 12, "op": "toggle"})
+	code, out := postJSON(t, ts.URL, "/api/n/flipping.zortex", map[string]any{"lnum": 12, "op": "toggle"})
 	if code != http.StatusForbidden || !strings.Contains(out["error"].(string), "-writable") {
 		t.Fatalf("read-only: %d %v", code, out)
 	}
@@ -71,7 +71,7 @@ func TestEditToggleAndConflict(t *testing.T) {
 	n := lineOf(t, lines, "Pull engine")
 	before := lines[n-1]
 
-	code, out := postJSON(t, url, "/api/edit", map[string]any{"rel": "flipping.zortex", "lnum": n, "expect": before, "op": "toggle"})
+	code, out := postJSON(t, url, "/api/n/flipping.zortex", map[string]any{"lnum": n, "expect": before, "op": "toggle"})
 	if code != 200 {
 		t.Fatalf("toggle: %d %v", code, out)
 	}
@@ -84,7 +84,7 @@ func TestEditToggleAndConflict(t *testing.T) {
 		t.Error("response carries the re-rendered note")
 	}
 	// the page's copy is stale now: refused, file untouched, latest note sent
-	code, out = postJSON(t, url, "/api/edit", map[string]any{"rel": "flipping.zortex", "lnum": n, "expect": before, "op": "toggle"})
+	code, out = postJSON(t, url, "/api/n/flipping.zortex", map[string]any{"lnum": n, "expect": before, "op": "toggle"})
 	if code != http.StatusConflict || out["body"] == nil {
 		t.Fatalf("stale edit: %d %v", code, out)
 	}
@@ -92,7 +92,7 @@ func TestEditToggleAndConflict(t *testing.T) {
 		t.Fatal("a stale edit changed the file")
 	}
 	// back to open: @done removed, @id kept
-	code, _ = postJSON(t, url, "/api/edit", map[string]any{"rel": "flipping.zortex", "lnum": n, "expect": got, "op": "toggle"})
+	code, _ = postJSON(t, url, "/api/n/flipping.zortex", map[string]any{"lnum": n, "expect": got, "op": "toggle"})
 	back := readLines(t, path)[n-1]
 	if code != 200 || strings.Contains(back, "@done") || !strings.Contains(back, "@id(") || !strings.HasPrefix(back, "- [ ] ") {
 		t.Fatalf("toggle back: %d %q", code, back)
@@ -107,7 +107,7 @@ func TestEditSetInsertDelete(t *testing.T) {
 	h := lineOf(t, lines, "# Subaru outback")
 
 	// insert a task under the heading
-	code, out := postJSON(t, url, "/api/edit", map[string]any{"rel": "flipping.zortex", "lnum": h, "expect": lines[h-1], "op": "insert", "kind": "task", "text": "Order gaskets"})
+	code, out := postJSON(t, url, "/api/n/flipping.zortex", map[string]any{"lnum": h, "expect": lines[h-1], "op": "insert", "kind": "task", "text": "Order gaskets"})
 	if code != 200 || out["lnum"].(float64) != float64(h+1) {
 		t.Fatalf("insert: %d %v", code, out)
 	}
@@ -117,33 +117,33 @@ func TestEditSetInsertDelete(t *testing.T) {
 	}
 	// edit its text: the marker, checkbox stay; the new text replaces the rest
 	id := regexp.MustCompile(`@id\(\w+\)`).FindString(lines[h])
-	code, _ = postJSON(t, url, "/api/edit", map[string]any{"rel": "flipping.zortex", "lnum": h + 1, "expect": lines[h], "op": "set", "text": "Order head gaskets @p1"})
+	code, _ = postJSON(t, url, "/api/n/flipping.zortex", map[string]any{"lnum": h + 1, "expect": lines[h], "op": "set", "text": "Order head gaskets @p1"})
 	lines = readLines(t, path)
 	if code != 200 || lines[h] != "- [ ] Order head gaskets @p1 "+id {
 		t.Fatalf("set keeps @id: %d %q", code, lines[h])
 	}
 	// a note line, then delete it
-	code, _ = postJSON(t, url, "/api/edit", map[string]any{"rel": "flipping.zortex", "lnum": h + 1, "expect": lines[h], "op": "insert", "kind": "note", "text": "Ask about torque specs"})
+	code, _ = postJSON(t, url, "/api/n/flipping.zortex", map[string]any{"lnum": h + 1, "expect": lines[h], "op": "insert", "kind": "note", "text": "Ask about torque specs"})
 	lines = readLines(t, path)
 	if code != 200 || lines[h+1] != "- Ask about torque specs" {
 		t.Fatalf("note: %d %q", code, lines[h+1])
 	}
 	count := len(lines)
-	code, _ = postJSON(t, url, "/api/edit", map[string]any{"rel": "flipping.zortex", "lnum": h + 2, "expect": lines[h+1], "op": "delete"})
+	code, _ = postJSON(t, url, "/api/n/flipping.zortex", map[string]any{"lnum": h + 2, "expect": lines[h+1], "op": "delete"})
 	if code != 200 || len(readLines(t, path)) != count-1 {
 		t.Fatalf("delete: %d", code)
 	}
 	// structure and header are off limits
-	code, out = postJSON(t, url, "/api/edit", map[string]any{"rel": "flipping.zortex", "lnum": h, "expect": lines[h-1], "op": "toggle"})
+	code, out = postJSON(t, url, "/api/n/flipping.zortex", map[string]any{"lnum": h, "expect": lines[h-1], "op": "toggle"})
 	if code != http.StatusUnprocessableEntity {
 		t.Fatalf("heading toggled: %d %v", code, out)
 	}
-	code, _ = postJSON(t, url, "/api/edit", map[string]any{"rel": "flipping.zortex", "lnum": 1, "expect": "@@Flipping", "op": "delete"})
+	code, _ = postJSON(t, url, "/api/n/flipping.zortex", map[string]any{"lnum": 1, "expect": "@@Flipping", "op": "delete"})
 	if code != http.StatusUnprocessableEntity {
 		t.Fatalf("header deleted: %d", code)
 	}
 	// nothing outside the folder
-	code, _ = postJSON(t, url, "/api/edit", map[string]any{"rel": "../x.zortex", "lnum": 1, "op": "delete"})
+	code, _ = postJSON(t, url, "/api/n/../x.zortex", map[string]any{"lnum": 1, "op": "delete"})
 	if code != http.StatusNotFound {
 		t.Fatalf("outside: %d", code)
 	}
@@ -155,7 +155,7 @@ func TestEditKeepsLineEndings(t *testing.T) {
 	path := filepath.Join(dir, "crlf.zortex")
 	os.WriteFile(path, []byte("@@Win\r\n\r\n- [ ] One\r\n- [ ] Two\r\n"), 0o640)
 	s.Refresh()
-	code, out := postJSON(t, url, "/api/edit", map[string]any{"rel": "crlf.zortex", "lnum": 3, "expect": "- [ ] One", "op": "done"})
+	code, out := postJSON(t, url, "/api/n/crlf.zortex", map[string]any{"lnum": 3, "expect": "- [ ] One", "op": "done"})
 	if code != 200 {
 		t.Fatalf("%d %v", code, out)
 	}
@@ -190,7 +190,7 @@ func TestInboxAndPending(t *testing.T) {
 
 	// complete it on the web: pending until Neovim publishes a newer summary
 	n := 3
-	postJSON(t, url, "/api/edit", map[string]any{"rel": "inbox.zortex", "lnum": n, "expect": lines[n-1], "op": "done"})
+	postJSON(t, url, "/api/n/inbox.zortex", map[string]any{"lnum": n, "expect": lines[n-1], "op": "done"})
 	var x map[string]any
 	_ = json.Unmarshal([]byte(expect(t, ts, "/api/xp", 200)), &x)
 	if x["pending_web"].(float64) != 1 || x["pending_titles"].([]any)[0] != "Call the junkyard" {
@@ -308,11 +308,11 @@ func TestEditMove(t *testing.T) {
 	from := lineOf(t, lines, "- row52")
 	to := lineOf(t, lines, "- lkqonline")
 	// a stale target is refused
-	code, _ := postJSON(t, ts.URL, "/api/edit", map[string]any{"rel": "flipping.zortex", "lnum": from, "expect": lines[from-1], "op": "move", "to": to + 1, "expectTo": "not this"})
+	code, _ := postJSON(t, ts.URL, "/api/n/flipping.zortex", map[string]any{"lnum": from, "expect": lines[from-1], "op": "move", "to": to + 1, "expectTo": "not this"})
 	if code != http.StatusConflict {
 		t.Fatalf("stale target: %d", code)
 	}
-	code, out := postJSON(t, ts.URL, "/api/edit", map[string]any{"rel": "flipping.zortex", "lnum": from, "expect": lines[from-1], "op": "move", "to": to + 1, "expectTo": lines[to]})
+	code, out := postJSON(t, ts.URL, "/api/n/flipping.zortex", map[string]any{"lnum": from, "expect": lines[from-1], "op": "move", "to": to + 1, "expectTo": lines[to]})
 	if code != 200 || out["lnum"].(float64) != float64(to) {
 		t.Fatalf("move: %d %v", code, out)
 	}

@@ -113,6 +113,12 @@ time, key, key_col, mark, mark_col, content_col }`. `content_col` is where
   (`[ ]`, `[x]`) and `[^…]` are not links; `$5 and $6` is not math.
 - `span_at(line, col)`, `links(line)`, `walk_spans` for link lookups.
 - `parse_header`, `strip_attributes`, `section_text`.
+- `configure({ label_max_words, is_label })` sets the label rule
+  (`Config.syntax`). `core/syntax_config.lua` calls it at setup and writes
+  the word count to `.z/syntax.json` when it isn't the default (or the file
+  exists), so `zortex serve` (`app/web/syntaxfile.go`,
+  `syntax.SetMaxLabelWords`) reads labels the same way and re-reads every
+  note when it changes. `is_label` is Neovim's alone.
 
 **Conformance fixtures.** `tests/fixtures/ast/*.json` hold the parser's
 output for every fixture note plus `tests/fixtures/syntax/sample.zortex`
@@ -394,8 +400,9 @@ with `State.open(name, { version, default, device?, merge? })`, in one of
 two places:
 
 - **synced**, `notes_dir/.z/<name>.json`: travels with the notes. Only
-  what every device shares and that changes rarely: `xp_state` (seasons)
-  and `review_state` (the last daily review).
+  what every device shares and that changes rarely: `xp_state` (seasons),
+  `review_state` (the last daily review) and `syntax` (the label word
+  count, for the server).
 - **device** (`device = true`), `stdpath("state")/zortex/<folder>-<hash>/`:
   this machine's own, for what every Neovim rewrites often: `link_index`,
   `search_history`, `xp_seen` (levels announced), `notifications_state`,
@@ -667,7 +674,7 @@ XP is derived, not recorded (see [Planning.md](Planning.md)):
   in `notifications/`).
 - **`notifications/`** is the client of `zortex serve`: `server.lua` (HTTP
   with the key, `vim.system` + curl), `calendar.lua` (the calendar's timed
-  lines, sent to `POST /notify` when `calendar.zortex` is saved and the set
+  lines, sent to `POST /api/notifications/sync` when `calendar.zortex` is saved and the set
   changed), `pomodoro.lua` (the server's clock: actions, a cached state for
   statuslines) and `init.lua` (commands, and the poll of `GET
   /api/alerts` that shows what the server announced). Nothing is scheduled
@@ -697,6 +704,7 @@ XP is derived, not recorded (see [Planning.md](Planning.md)):
 | `ui/xp.lua`                                         | `xp/stats`, `xp/ledger`, `areas`, `projects`              |
 | `ui/calendar/view.lua` (+ `render`, `keys`)         | `stores/calendar`, `agenda` (coming up), `projects`       |
 | `features/completion.lua` (+ `blink.lua`)           | `core/link`, `notes`, `document`                          |
+| `features/size_hint.lua`                            | `xp/calculator.size_hint` (what `@sm` is worth, as virtual text) |
 | `features/preview.lua`                              | `core/link`, `features/links`                             |
 | `features/web.lua` (+ `core/tag_index.lua`)         | `core/link`, `notifications/server` (`/api/open`)         |
 | `ui/review.lua`                                     | `agenda.review`, `services/review` (reviews.zortex), `services/triage` (`m`) |
@@ -1009,6 +1017,7 @@ to date; `app/links` and `app/search` must reproduce them.
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `test_core`              | header, levels, tree, notes index                                                                                                                                                |
 | `test_syntax`            | line kinds, items, inline spans, link lookups, Items for tasks/KRs/calendar, AST conformance fixtures, highlights, folds, the grammar loading with only the Lua standard library |
+| `test_syntax_config`     | `syntax.label_max_words` and `is_label`; `.z/syntax.json` written only when it says something |
 | `test_links`             | resolution rules, canonical results, archive handling, `[@P/…]`, round-trips                                                                                                     |
 | `test_projects`          | registry, stats/points, `P/` links, schedule, KRs, areas                                                                                                                         |
 | `test_areas`             | area tree, `A/` links, projects/objectives, XP keys                                                                                                                              |
@@ -1017,7 +1026,7 @@ to date; `app/links` and `app/search` must reproduce them.
 | `test_load`              | every module under `lua/zortex` loads without the optional plugins                                                                                                               |
 | `test_okr`               | objective entities, `O/` links, KR projects and progress                                                                                                                         |
 | `test_agenda`            | day/range items, due tasks, review findings                                                                                                                                      |
-| `test_completion`        | link context, suggestions per position, every suggestion resolves                                                                                                                |
+| `test_completion`        | link context, suggestions per position, every suggestion resolves; `@size(` and `@s…` with hours and XP                                                                                                                |
 | `test_zq_planner`        | put rules, templates, candidate ranking and links, putting into the calendar                                                                                                     |
 | `test_zr_actions`        | every action complete, targets exist, commands/keymaps/overrides, API, backlinks, README table up to date                                                                        |
 | `test_zs_query`          | every query function returns JSON-safe data; export                                                                                                                              |
@@ -1043,7 +1052,7 @@ to date; `app/links` and `app/search` must reproduce them.
 | `test_zx_outside`        | notes outside `notes_dir` resolve in their own folder; `[~/…]` reaches `notes_dir`                                                                                               |
 | `test_zy_mirrors`        | task copies: one task per `@id` across the calendar and projects (state, XP, time)                                                                                               |
 | `test_zy_present`        | `:ZortexPresent` opens the web app's slides at the slide under the cursor                                                                                                        |
-| `test_zy_web`            | `:ZortexLinkOpenWeb`: where each link goes, reusing an open tab; tag indexes                                                                                                    |
+| `test_zy_web`            | `:ZortexLinkOpenWeb`, `:ZortexOpenWeb`: where each goes, reusing an open tab; tag indexes                                                                                              |
 | `test_picker`            | backend choice, confirm / quickfix, the search spec, blink.cmp and nvim-cmp registration (stub plugins)                                                                          |
 | `test_zz_feeds`          | calendar feeds (`z/feeds/`): read-only entries by time, toggles per feed, a changed note re-read, `@free` in the capacity, the planner's section |
 | `test_zz_setup`          | full `require("zortex").setup()`, then opening and navigating the calendar                                                                                                       |

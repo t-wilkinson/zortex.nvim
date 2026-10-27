@@ -23,10 +23,10 @@
       "start": 84
     },
     {
-      "finish": 100,
+      "finish": 106,
       "kind": "code",
       "lang": "js",
-      "start": 99
+      "start": 105
     }
   ],
   "header": {
@@ -141,6 +141,12 @@
           "e": 42,
           "id": "note",
           "s": 35,
+          "type": "footnote_ref"
+        },
+        {
+          "e": 52,
+          "id": "bad id",
+          "s": 43,
           "type": "footnote_ref"
         },
         {
@@ -1378,6 +1384,86 @@
         }
       ],
       "kind": "text"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 30,
+          "id": "Smith, 2020",
+          "s": 16,
+          "type": "footnote_ref"
+        },
+        {
+          "e": 65,
+          "id": "Smith & Jones, 2019a",
+          "s": 42,
+          "type": "footnote_ref"
+        }
+      ],
+      "kind": "text"
+    },
+    {
+      "content_col": 16,
+      "id": "Smith, 2020",
+      "indent": 0,
+      "inline": [],
+      "kind": "footnote"
+    },
+    {
+      "content_col": 24,
+      "id": "Smith & Jones, 2019a",
+      "indent": 0,
+      "inline": [],
+      "kind": "footnote"
+    },
+    {
+      "content_col": 12,
+      "id": "Lee, 2021",
+      "indent": 0,
+      "inline": [],
+      "kind": "footnote"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 4,
+          "id": "1",
+          "s": 0,
+          "type": "footnote_ref"
+        }
+      ],
+      "kind": "text"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 37,
+          "key": "ref",
+          "s": 20,
+          "type": "attribute",
+          "value": "Smith, 2020"
+        },
+        {
+          "e": 53,
+          "key": "ref",
+          "s": 38,
+          "type": "attribute",
+          "value": "Lee, 2021"
+        }
+      ],
+      "item": {
+        "content_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
     },
     {
       "indent": 0,

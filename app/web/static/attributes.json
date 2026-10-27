@@ -111,7 +111,7 @@
       "insert": "@dur(",
       "formats": ["@dur(90m)", "@90m", "@2h"],
       "where": "task, calendar line",
-      "desc": "How long it takes: a calendar entry's length, a task's minutes in the planner's capacity."
+      "desc": "How long it takes: a calendar entry's length, a task's minutes in the planner's capacity. A calendar line with one inside a running block (10:00 Study, 12:00 Break @15m) is a break: the block resumes after it."
     },
     {
       "key": "spent",

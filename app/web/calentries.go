@@ -83,8 +83,12 @@ func calendarEntries(doc *notes.Document, from, to string) map[string][]calEntry
 	date := ""
 	for i, line := range doc.Lines {
 		lnum := i + 1
-		if d, ok := edit.DateHeading(line); ok {
+		if d, ok := edit.DateHeading(line); ok && !doc.InCode(lnum) {
 			date = d
+			continue
+		}
+		if _, _, ok := edit.Heading(line); ok && !doc.InCode(lnum) {
+			date = "" // a heading (a month's) ends the day
 			continue
 		}
 		if date == "" || (from != "" && date < from) || (to != "" && date > to) || doc.InCode(lnum) {

@@ -72,7 +72,12 @@ that share one folder of plain-text notes.
   which days, including `2nd tue` and `last fri`, `@at(…)` what time,
   bounded by `@from(date)` and `@to(date)`, birthdays with `@born`, which
   reads `1990`, `1961-07-02`, `07-02`, `07-02-1961`, `Feb 1` and
-  `February 1, 2000`, and repeats yearly on the day it names); the
+  `February 1, 2000`, and repeats yearly on the day it names); days
+  grouped under a heading per month (`# October 2026`, made as new days
+  need them, other months folded; `:ZortexCalendarGroup` moves older days
+  in); breaks inside a block (`12:00 Break @15m` after `10:00 Study`, or
+  nested under it) hand the block back when they end, with a "Back to
+  Study" notification and the time tracking following it; the
   planner writes a day's repeating tasks into it; a month view whose
   "Coming up" lists events, `:ZortexToday`, `:ZortexNow` and
   `:ZortexTimeShift`; notifications for timed lines, and for all-day lines

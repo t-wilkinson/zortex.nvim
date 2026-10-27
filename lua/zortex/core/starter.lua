@@ -41,6 +41,8 @@ M.templates = {
 			"",
 			"# Days",
 			"",
+			require("zortex.services.calendar_days").month_heading_line(today():sub(1, 7), 2),
+			"",
 			"**" .. today() .. ":**",
 			"Outcomes:",
 			"- [ ] The one thing that makes today a success",

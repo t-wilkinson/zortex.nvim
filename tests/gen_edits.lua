@@ -8,7 +8,11 @@
 -- tests/fixtures/autosize.json: calendar tasks sized by their block
 -- (services/tasks.calendar_size; app/edit CalendarSize), and
 -- tests/fixtures/calendar.json: the calendar's entries as Neovim's calendar
--- reads them (stores/calendar; app/web calendarEntries).
+-- reads them (stores/calendar; app/web calendarEntries) and the blocks its
+-- breaks hand back (services/calendar_breaks; app/web calbreaks.go), and
+-- tests/fixtures/caldays.json: where days are and where a new day goes
+-- (services/calendar_days, cases in tests/caldays_cases.lua; app/edit
+-- caldays.go).
 --
 --   nvim --headless -u NONE -l tests/gen_edits.lua
 local root = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p:h:h")
@@ -33,8 +37,10 @@ print("wrote " .. path .. " (" .. #out .. " cases)")
 local carry = {}
 for _, c in ipairs(require("carry_cases")) do
 	local n = 0
+	local group = c.group == nil and "month" or c.group
 	local plan = require("zortex.services.planner").carry(c.lines, c.today, {
 		from = c.from,
+		group = group,
 		new_id = function()
 			n = n + 1
 			return string.format("C%04d", n)
@@ -45,6 +51,7 @@ for _, c in ipairs(require("carry_cases")) do
 		today = c.today,
 		from = c.from,
 		lines = c.lines,
+		group = group == "month",
 		edits = plan.edits,
 		inserts = plan.inserts,
 	}
@@ -54,6 +61,33 @@ f = assert(io.open(carry_path, "w"))
 f:write(require("json").encode({ cases = carry }) .. "\n")
 f:close()
 print("wrote " .. carry_path .. " (" .. #carry .. " cases)")
+
+-- Where days are and where a new one goes (services/calendar_days; app/edit
+-- caldays.go), cases in tests/caldays_cases.lua
+do
+	local cd = require("zortex.services.calendar_days")
+	local out_cases = {}
+	for _, c in ipairs(require("caldays_cases")) do
+		local days, months, places = {}, {}, {}
+		for _, d in ipairs(cd.days(c.lines)) do
+			days[#days + 1] = { date = d.date, heading = d.heading, stop = d.stop, last = d.last }
+		end
+		for _, m in ipairs(cd.months(c.lines)) do
+			months[#months + 1] = { ym = m.ym, level = m.level, heading = m.heading, stop = m.stop, last = m.last }
+		end
+		for _, p in ipairs(c.place) do
+			local ins = cd.insert_day(c.lines, p.date, { "- new" }, { group = p.group })
+			places[#places + 1] = { date = p.date, group = p.group == "month", at = ins.at, lines = ins.lines, heading = ins.heading }
+		end
+		local grouped, moved = cd.group(c.lines)
+		out_cases[#out_cases + 1] = { name = c.name, lines = c.lines, days = days, months = months, place = places, grouped = grouped, moved = moved }
+	end
+	local p = root .. "/tests/fixtures/caldays.json"
+	local fh = assert(io.open(p, "w"))
+	fh:write(require("json").encode({ cases = out_cases }) .. "\n")
+	fh:close()
+	print("wrote " .. p .. " (" .. #out_cases .. " cases)")
+end
 
 -- Calendar tasks sized by their block (services/tasks.calendar_size;
 -- app/edit autosize.go)
@@ -98,6 +132,18 @@ do
 			}
 		end
 		days[date] = rows
+	end
+	-- breaks and the blocks they hand back (services/calendar_breaks)
+	local resumes = {}
+	local breaks = require("zortex.services.calendar_breaks")
+	for date, entries in pairs(store.parse_lines(lines)) do
+		local rows = {}
+		for _, r in ipairs(breaks.resumes(breaks.rows(store.day_layout(entries)))) do
+			rows[#rows + 1] = { block = r.block.lnum, after = r.after.lnum, from = breaks.hhmm(r.from), to = r.to and breaks.hhmm(r.to) or "" }
+		end
+		if #rows > 0 then
+			resumes[date] = rows
+		end
 	end
 	-- the top of the calendar: a new day's template, and what the repeating
 	-- rules put on each day of October 2026
@@ -157,7 +203,7 @@ do
 	end
 	local p = root .. "/tests/fixtures/calendar.json"
 	local fh = assert(io.open(p, "w"))
-	fh:write(require("json").encode({ lines = lines, days = days, templates = templates, occurrences = occurrences, copies = copies, id = "rep01" }) .. "\n")
+	fh:write(require("json").encode({ lines = lines, days = days, resumes = resumes, templates = templates, occurrences = occurrences, copies = copies, id = "rep01" }) .. "\n")
 	fh:close()
 	print("wrote " .. p)
 end

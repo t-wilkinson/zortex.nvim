@@ -104,6 +104,8 @@ function M.copies(today)
 		local d = date_heading(line)
 		if d and not doc:in_code(lnum) then
 			day = d
+		elseif day and line:match("^#+%s") and not doc:in_code(lnum) then
+			day = nil -- a heading (a month's) ends the day
 		elseif line:find("@id(", 1, true) and not doc:in_code(lnum) then
 			local t = Item.task(line, { lnum = lnum, file = doc.filepath })
 			local id = t and t.attributes.id

@@ -154,42 +154,16 @@ func dayNumber(date string) int {
 //     its text)
 //   - a task whose @id is already on today is only marked
 func Carry(lines []string, today, from string, newID func() string) CarryPlan {
-	type block struct {
-		date          string
-		heading, last int
-	}
-	var blocks []*block
-	fence := false
-	for i, l := range lines {
-		if isFence(l) {
-			fence = !fence
-		} else if !fence {
-			if date, ok := DateHeading(l); ok {
-				blocks = append(blocks, &block{date: date, heading: i + 1})
-			}
-		}
-	}
-	for i, b := range blocks {
-		stop := len(lines)
-		if i+1 < len(blocks) {
-			stop = blocks[i+1].heading - 1
-		}
-		b.last = b.heading
-		for l := b.heading + 1; l <= stop; l++ {
-			if !blankLine(lines[l-1]) {
-				b.last = l
-			}
-		}
-	}
-	var todayBlock *block
-	for _, b := range blocks {
-		if b.date == today && todayBlock == nil {
-			todayBlock = b
+	blocks := Days(lines)
+	var todayBlock *Day
+	for i := range blocks {
+		if blocks[i].Date == today && todayBlock == nil {
+			todayBlock = &blocks[i]
 		}
 	}
 	onToday := map[string]bool{}
 	if todayBlock != nil {
-		for l := todayBlock.heading + 1; l <= todayBlock.last; l++ {
+		for l := todayBlock.Heading + 1; l <= todayBlock.Last; l++ {
 			if id := ID(lines[l-1]); id != "" {
 				onToday[id] = true
 			}
@@ -214,11 +188,11 @@ func Carry(lines []string, today, from string, newID func() string) CarryPlan {
 		return syntax.Lower(strings.TrimSpace(def))
 	}
 	for _, b := range blocks {
-		if b.date < from || b.date >= today {
+		if b.Date < from || b.Date >= today {
 			continue
 		}
 		inFence := false
-		for l := b.heading + 1; l <= b.last; l++ {
+		for l := b.Heading + 1; l <= b.Last; l++ {
 			line := lines[l-1]
 			if isFence(line) {
 				inFence = !inFence
@@ -235,7 +209,7 @@ func Carry(lines []string, today, from string, newID func() string) CarryPlan {
 			// the nearest linked one (its ./ links' parent)
 			head, parent := 0, 0
 			want := indentOf(line)
-			for k := l - 1; k >= b.heading+1; k-- {
+			for k := l - 1; k >= b.Heading+1; k-- {
 				up := lines[k-1]
 				if blankLine(up) || indentOf(up) >= want {
 					continue
@@ -296,7 +270,7 @@ func Carry(lines []string, today, from string, newID func() string) CarryPlan {
 	type head struct{ lnum, last int }
 	todayHeads := map[string]head{}
 	if todayBlock != nil {
-		for l := todayBlock.heading + 1; l <= todayBlock.last; l++ {
+		for l := todayBlock.Heading + 1; l <= todayBlock.Last; l++ {
 			upIt := syntax.ItemOf(lines[l-1])
 			if (upIt != nil && upIt.Mark != "") || len(links.LinksOn(lines[l-1])) == 0 {
 				continue
@@ -306,7 +280,7 @@ func Carry(lines []string, today, from string, newID func() string) CarryPlan {
 				continue
 			}
 			last := l
-			for k := l + 1; k <= todayBlock.last; k++ {
+			for k := l + 1; k <= todayBlock.Last; k++ {
 				if !blankLine(lines[k-1]) {
 					if indentOf(lines[k-1]) <= indentOf(lines[l-1]) {
 						break
@@ -357,43 +331,12 @@ func Carry(lines []string, today, from string, newID func() string) CarryPlan {
 		return finish()
 	}
 	if todayBlock != nil {
-		inserts = append(inserts, Insert{At: todayBlock.last + 1, Lines: out})
+		inserts = append(inserts, Insert{At: todayBlock.Last + 1, Lines: out})
 		return finish()
 	}
-	// a new day, next to its nearest neighbour in time
-	target := dayNumber(today)
-	beforeI, afterI := -1, -1
-	var beforeN, afterN int
-	for i, b := range blocks {
-		n := dayNumber(b.date)
-		if n < target && (beforeI < 0 || n >= beforeN) {
-			beforeI, beforeN = i, n
-		} else if n > target && (afterI < 0 || n < afterN) {
-			afterI, afterN = i, n
-		}
-	}
-	at := len(lines) + 1
-	if afterI >= 0 {
-		if beforeI >= 0 && target-beforeN <= afterN-target {
-			if beforeI+1 < len(blocks) {
-				at = blocks[beforeI+1].heading
-			}
-		} else {
-			at = blocks[afterI].heading
-		}
-	}
-	add := append([]string{DateHeadingLine(today)}, out...)
-	add = append(add, "")
-	if at > len(lines) {
-		at = len(lines) + 1
-		if len(lines) > 0 && !blankLine(lines[len(lines)-1]) {
-			add = append([]string{""}, add...)
-		}
-		add = add[:len(add)-1]
-	} else if at > 1 && !blankLine(lines[at-2]) {
-		add = append([]string{""}, add...)
-	}
-	inserts = append(inserts, Insert{At: at, Lines: add})
+	// a new day, in its month next to its nearest neighbour in time
+	ins := InsertDay(lines, today, out, GroupDays(), "")
+	inserts = append(inserts, Insert{At: ins.At, Lines: ins.Lines})
 	return finish()
 }
 
@@ -421,10 +364,8 @@ func ToNextDay(lines []string, lnum int, newID func() string) ([]string, string,
 	if it.Mark != " " {
 		return nil, "", 0, errors.New("only an open task moves on")
 	}
-	date := ""
-	for l := lnum; l >= 1 && date == ""; l-- {
-		date, _ = DateHeading(lines[l-1])
-	}
+	from, _ := DayOf(lines, lnum)
+	date := from.Date
 	if date == "" {
 		return nil, "", 0, errors.New("not under a day of the calendar")
 	}

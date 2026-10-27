@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/t-wilkinson/zortex.nvim/app/edit"
 	"github.com/t-wilkinson/zortex.nvim/app/syntax"
 )
 
@@ -31,5 +32,26 @@ func TestSyntaxFileLabelWords(t *testing.T) {
 	s.Refresh()
 	if syntax.MaxLabelWords() != syntax.DefaultMaxLabelWords {
 		t.Fatal("default restored")
+	}
+}
+
+// "group_days": false in .z/syntax.json (Neovim's ui.calendar.group_days =
+// false): days the server adds make no month headings.
+func TestSyntaxFileGroupDays(t *testing.T) {
+	s, dir, _ := newTestServer(t, "")
+	defer edit.SetGroupDays(true)
+	s.checkSyntaxFile()
+	if !edit.GroupDays() {
+		t.Fatal("on by default")
+	}
+	os.WriteFile(filepath.Join(dir, ".z", "syntax.json"), []byte(`{"version": 1, "label_max_words": 3, "group_days": false}`), 0o644)
+	s.Refresh()
+	if edit.GroupDays() {
+		t.Fatal("off from the file")
+	}
+	os.Remove(filepath.Join(dir, ".z", "syntax.json"))
+	s.Refresh()
+	if !edit.GroupDays() {
+		t.Fatal("on again without the file")
 	}
 }

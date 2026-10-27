@@ -119,3 +119,38 @@ func TestCalendarRulesConformance(t *testing.T) {
 		}
 	}
 }
+
+// Breaks hand their block back as Neovim's services/calendar_breaks does
+// (calendar.json "resumes").
+func TestCalendarBreaksConformance(t *testing.T) {
+	raw, err := os.ReadFile("../../tests/fixtures/calendar.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	type res struct {
+		Block int    `json:"block"`
+		After int    `json:"after"`
+		From  string `json:"from"`
+		To    string `json:"to"`
+	}
+	var fx struct {
+		Lines   []string         `json:"lines"`
+		Resumes map[string][]res `json:"resumes"`
+	}
+	if err := json.Unmarshal(raw, &fx); err != nil {
+		t.Fatal(err)
+	}
+	if len(fx.Resumes) == 0 {
+		t.Fatal("no resumes in the fixture")
+	}
+	days := calendarEntries(notes.FromLines("calendar.zortex", fx.Lines), "", "")
+	for date, entries := range days {
+		var got []res
+		for _, r := range calResumes(entries) {
+			got = append(got, res{entries[r.Block].Lnum, entries[r.After].Lnum, r.From, r.To})
+		}
+		if want := fx.Resumes[date]; !(len(got) == 0 && len(want) == 0) && !reflect.DeepEqual(got, want) {
+			t.Errorf("%s: got %+v\n want %+v", date, got, want)
+		}
+	}
+}

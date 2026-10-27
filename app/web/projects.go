@@ -521,6 +521,8 @@ func (s *Server) calendarHistory() *calendarHistory {
 		}
 		if d, ok := edit.DateHeading(line); ok {
 			date = d
+		} else if _, _, ok := edit.Heading(line); ok {
+			date = "" // a heading (a month's) ends the day
 		}
 		h.dateOf[i] = date
 		id := edit.ID(line)

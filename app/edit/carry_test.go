@@ -20,6 +20,7 @@ func TestCarryConformance(t *testing.T) {
 			Today   string     `json:"today"`
 			From    string     `json:"from"`
 			Lines   []string   `json:"lines"`
+			Group   bool       `json:"group"`
 			Edits   []LineEdit `json:"edits"`
 			Inserts []Insert   `json:"inserts"`
 		} `json:"cases"`
@@ -30,8 +31,10 @@ func TestCarryConformance(t *testing.T) {
 	if len(fx.Cases) == 0 {
 		t.Fatal("no cases")
 	}
+	defer SetGroupDays(true)
 	for _, c := range fx.Cases {
 		n := 0
+		SetGroupDays(c.Group)
 		plan := Carry(c.Lines, c.Today, c.From, func() string { n++; return fmt.Sprintf("C%04d", n) })
 		if len(plan.Edits) != len(c.Edits) || (len(c.Edits) > 0 && !reflect.DeepEqual(plan.Edits, c.Edits)) {
 			t.Errorf("%s: edits\n got  %v\n want %v", c.Name, plan.Edits, c.Edits)

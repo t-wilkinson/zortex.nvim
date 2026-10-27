@@ -102,6 +102,8 @@ Attributes, Inbox (with `-writable`), Saved pages and Status
   nested under their project's block, a project block's next tasks under
   it, "now" marked on today), with checkboxes when `-writable` (a calendar
   copy ticks its project task too). 🔔 marks a line with a written `@n`.
+  After a break inside a block, a dim `↩ 12:15–14:00 Study` row shows the
+  block again, and "now" follows it ([Breaks](Planning.md#the-day-on-the-calendar)).
   Under it the month grid: a dot for days with an `@event`, and a dot in
   its color for each [notifying calendar feed](#other-calendars) with
   events that day. The calendar feeds' events are among the day's lines,
@@ -292,7 +294,9 @@ With `-writable` (and `-data`), the clock box on the home page has a
   and the time goes to the next. Otherwise, when its first link points at a
   task (`[P/#1.4 - zortex/-Improve website]`), that task; otherwise the
   calendar line itself. It changes when the next
-  entry starts. **Change** picks another (search open tasks), as does
+  entry starts, and after a break inside a block (`12:00 Break @15m` under
+  `10:00 Study`) it goes back to the block's task
+  ([Breaks](Planning.md#the-day-on-the-calendar)). **Change** picks another (search open tasks), as does
   **⏱ Track** in a note's Edit toolbar; then the calendar no longer
   matters until you choose **Follow the calendar** (or **Don't track**).
 - **What counts.** Time while any clock runs: a pomodoro *work* phase, the
@@ -520,7 +524,7 @@ Everything the pages use is plain HTTP with JSON, under `/api/`:
 | `GET /api/tagtable?q=&from=` | a tag search's table, as HTML ([tag indexes](#tag-indexes)) |
 | `GET /api/graph` | the Structure note's notes, and those not in it (the page is `/graph`) |
 | `GET /search/open?rel=&lnum=` | open a search result (`&section=1` for a section) and count it in the search history (with `-data`) |
-| `GET /api/calendar?from=&to=` | `days` (entries of `calendar.zortex` with time, text, rendered HTML, task state, whether a notification is scheduled; the calendar feeds' events among them, with `feed` and no `rel`; the `# Repeating` rules' occurrences, with `repeat`), `notifications`, `count`, `next_event`, `carry`, `feeds` (`name`, `title`, `notify`, and for a notifying feed its dot `color`) |
+| `GET /api/calendar?from=&to=` | `days` (entries of `calendar.zortex` with time, text, rendered HTML, task state, whether a notification is scheduled; after a break, the block again with `resume` (its `lnum`, `text` and `url`; `time` and `end` when it's back); the calendar feeds' events among them, with `feed` and no `rel`; the `# Repeating` rules' occurrences, with `repeat`), `notifications`, `count`, `next_event`, `carry`, `feeds` (`name`, `title`, `notify`, and for a notifying feed its dot `color`) |
 | `POST /api/calendar/repeat` | `-writable` only: `{lnum, expect, date}`: tick the occurrence on `date` of the repeating task on line `lnum` of the calendar's `# Repeating` section (`expect`: that line): a done copy goes into today (made from its template when new), with `@for(date)` when it was due another day. `GET /api/calendar`'s days list the occurrences with `repeat`, `date`, and `copy` (the copy's line, then `lnum` and `src` are the copy's and `POST /api/n/…` toggles it) |
 | `POST /api/calendar/carry` | `-writable` only: `{date?}` (default today): copy the open tasks of the 14 days before to the date with the same `@id` and mark the old lines `[>]`, as Neovim's `:ZortexCarryForward`; `{moved, added}`. `GET /api/calendar` has `carry`, how many there are for today (the home page offers a **Carry** button) |
 | `GET /api/notifications?user_id=` | the pending notifications, soonest first: `{count, notifications}` |

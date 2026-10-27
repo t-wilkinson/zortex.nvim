@@ -190,7 +190,11 @@ Special notes:
   name (`## Daily`, `## Weekday`, `## Sunday`, …) and `# Repeating` the
   entries that repeat (`- Sam @on(03-14) @born(1990)`, `- [ ] Weekly review
   @repeat(weekly) @on(sun) @at(12:00)`), shown on their days; planning a
-  day writes its repeating tasks into it.
+  day writes its repeating tasks into it. Days are grouped under a heading
+  per month (`# October 2026`, made as new days need them; other months
+  start folded), and a short line with an end inside a block
+  (`10:00 Study`, `12:00 Break @15m`) is a break: Study picks up again at
+  12:15 ([Planning](doc/Planning.md#the-day-on-the-calendar)).
 - Notes tagged `@Archive` (or named `z/archive.*`) are left out of links,
   projects and search ranking.
 
@@ -359,6 +363,7 @@ require("zortex").setup({
 | `:ZortexTimeShift …` | `<leader>z+` | `time_later` | Move the times on the line (or the selected lines) later by an offset: 1h30m takes 12:00 to 13:30; -15m moves them earlier |
 |  | `<leader>z-` | `time_earlier` | Move the times on the line (or the selected lines) earlier by an offset |
 | `:ZortexCarryForward …` | `<leader>zCf` | `carry_forward` | Copy the open tasks of the days before to today (or a date), marking the old lines [>] |
+| `:ZortexCalendarGroup` | `<leader>zCg` | `calendar_group` | Move the calendar's days under a heading per month (# October 2026), making the missing ones |
 | `:ZortexCalendar` | `<leader>zc` | `calendar` | Calendar view |
 
 **Pomodoro**

@@ -26,7 +26,7 @@ function api.setup(opts)
 	local Config = require("zortex.config")
 	Config.setup(opts)
 	-- the note format's knobs, before anything parses a note
-	require("zortex.core.syntax_config").setup(Config.syntax)
+	require("zortex.core.syntax_config").setup(Config.syntax, vim.tbl_get(Config, "ui", "calendar", "group_days"))
 
 	api.helptags()
 

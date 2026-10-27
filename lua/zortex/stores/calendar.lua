@@ -140,29 +140,26 @@ end
 -- Date blocks in file order: { date, heading_lnum, last_lnum }. A date
 -- heading is a bold label "**YYYY-MM-DD:**" (what new days get, so labels
 -- such as "Outcomes:" nest under it) or a top-level label "YYYY-MM-DD:";
--- its block runs to the next date heading, and last_lnum is its last
--- non-blank line.
+-- its block runs to the next date heading or heading (a month's, "# October
+-- 2026"), and last_lnum is its last non-blank line (services/calendar_days).
 local function date_blocks(doc)
 	local blocks = {}
-	for _, sec in ipairs(doc.syntax.sections) do
-		if sec.type == "bold_heading" or (sec.type == "label" and doc:info(sec.lnum).indent == 0) then
-			local date = datetime.date_heading(doc.lines[sec.lnum])
-			if date then
-				blocks[#blocks + 1] = { date = date, heading_lnum = sec.lnum }
-			end
-		end
-	end
-	for i, block in ipairs(blocks) do
-		local stop = blocks[i + 1] and (blocks[i + 1].heading_lnum - 1) or #doc.lines
-		block.last_lnum = block.heading_lnum
-		for lnum = block.heading_lnum + 1, stop do
-			if doc.lines[lnum]:match("%S") then
-				block.last_lnum = lnum
-			end
-		end
+	for _, d in ipairs(require("zortex.services.calendar_days").days(doc.lines)) do
+		blocks[#blocks + 1] = { date = d.date, heading_lnum = d.heading, last_lnum = d.last, stop_lnum = d.stop }
 	end
 	return blocks
 end
+
+-- How new days are grouped (ui.calendar.group_days): "month" or false.
+local function group_days()
+	local cfg = require("zortex.config").ui
+	local v = cfg and cfg.calendar and cfg.calendar.group_days
+	if v == nil then
+		return "month"
+	end
+	return v
+end
+M.group_days = group_days
 
 -- "Outcomes:" in a day: what would make the day a success
 local OUTCOMES = "^%s*[Oo]utcomes:%s*$"
@@ -292,45 +289,11 @@ function M.date_block(date_str, lines)
 	return nil
 end
 
---- Make sure `date_str` has a heading in the calendar, creating it in date
---- order with `lines` (a day template) under it. Returns the heading's line
---- number and whether it was created.
-local function day_number(date_str)
-	local y, m, d = date_str:match("^(%d+)%-(%d+)%-(%d+)$")
-	return math.floor(os.time({ year = tonumber(y), month = tonumber(m), day = tonumber(d), hour = 12 }) / 86400)
-end
-
---- Line a new "YYYY-MM-DD:" block goes before (#lines + 1: append). Dates
---- compare as dates. With no later day in the file the new day goes at the
---- bottom; otherwise next to its nearest neighbour in time: right after the
---- closest earlier day, or right before the closest later day when that one
---- is nearer. So a stray block elsewhere in the file (a far-future
---- appointment near the top) doesn't pull today away from yesterday.
-function M.insertion_line(blocks, date_str, lines)
-	local target = day_number(date_str)
-	local before_i, before_n, after_i, after_n
-	for i, b in ipairs(blocks) do
-		local n = day_number(b.date)
-		if n < target and (not before_n or n >= before_n) then
-			before_i, before_n = i, n
-		elseif n > target and (not after_n or n < after_n) then
-			after_i, after_n = i, n
-		end
-	end
-	if not after_i then
-		return #lines + 1
-	end
-	local use_before = before_i and (target - before_n) <= (after_n - target)
-	if use_before then
-		local next_block = blocks[before_i + 1]
-		return next_block and next_block.heading_lnum or (#lines + 1)
-	end
-	if after_i then
-		return blocks[after_i].heading_lnum
-	end
-	return #lines + 1
-end
-
+--- Make sure `date_str` has a heading in the calendar, creating it with
+--- `lines` (a day template) under it: in its month (made when missing, with
+--- ui.calendar.group_days) next to its nearest neighbour in time
+--- (services/calendar_days). Returns the heading's line number and whether
+--- it was created.
 function M.ensure_date(date_str, lines)
 	local date = datetime.parse_date(date_str)
 	if not date then
@@ -346,25 +309,36 @@ function M.ensure_date(date_str, lines)
 		end
 	end
 
-	local new_lines = { datetime.date_heading_line(date_str) }
-	vim.list_extend(new_lines, lines or {})
-	new_lines[#new_lines + 1] = ""
-	local insert_at = M.insertion_line(blocks, date_str, current)
-	if insert_at > #current then
-		insert_at = #current + 1
-		if #current > 0 and current[#current]:match("%S") then
-			table.insert(new_lines, 1, "")
-		end
-		table.remove(new_lines) -- no trailing blank at the end of the file
-	elseif insert_at > 1 and current[insert_at - 1]:match("%S") then
-		table.insert(new_lines, 1, "") -- after a block whose last line isn't blank
-	end
-	local ok, err = workspace().insert_lines(path, insert_at, new_lines)
+	local ins = require("zortex.services.calendar_days").insert_day(current, date_str, lines, { group = group_days() })
+	local ok, err = workspace().insert_lines(path, ins.at, ins.lines)
 	if not ok then
 		return nil, err
 	end
 	notify_changed("calendar:entry_added", { date = date_str })
-	return insert_at + (new_lines[1] == "" and 1 or 0), true
+	return ins.heading, true
+end
+
+--- Move the calendar's days under their months' headings, making the
+--- missing ones (services/calendar_days.group): one batch, so :ZortexUndo
+--- takes it back. Returns how many days moved, or nil and why not.
+function M.group_by_month()
+	local path = calendar_path()
+	if not path or not fs.file_exists(path) then
+		return nil, "no calendar note"
+	end
+	return workspace().batch("group the calendar's days by month", { path }, function()
+		local lines = workspace().get_lines(path)
+		local out, moved = require("zortex.services.calendar_days").group(lines)
+		if moved == 0 then
+			return 0
+		end
+		local ok, err = workspace().set_lines(path, 1, #lines, out)
+		if not ok then
+			return nil, err
+		end
+		notify_changed("calendar:grouped", { moved = moved })
+		return moved
+	end)
 end
 
 -- Add an entry under its date heading, creating the heading (in date order)
@@ -396,19 +370,9 @@ function M.add_entry(date_str, entry_text)
 		local sibling = block.last_lnum > block.heading_lnum and lines[block.last_lnum] or nil
 		ok, err = workspace().insert_lines(path, block.last_lnum + 1, { format_entry_line(entry_text, sibling) })
 	else
-		-- New date: after the closest earlier date (see insertion_line)
-		local new_lines = { datetime.date_heading_line(date_str), format_entry_line(entry_text), "" }
-		local insert_at = M.insertion_line(blocks, date_str, lines)
-		if insert_at > #lines then
-			insert_at = #lines + 1
-			if #lines > 0 and lines[#lines]:match("%S") then
-				table.insert(new_lines, 1, "")
-			end
-			table.remove(new_lines) -- no trailing blank at end of file
-		elseif insert_at > 1 and lines[insert_at - 1]:match("%S") then
-			table.insert(new_lines, 1, "")
-		end
-		ok, err = workspace().insert_lines(path, insert_at, new_lines)
+		-- a new day, in its month next to its nearest neighbour in time
+		local ins = require("zortex.services.calendar_days").insert_day(lines, date_str, { format_entry_line(entry_text) }, { group = group_days() })
+		ok, err = workspace().insert_lines(path, ins.at, ins.lines)
 	end
 
 	if not ok then
@@ -693,6 +657,25 @@ function M.get_day_entries(date_str)
 	for _, e in ipairs(feed) do
 		e.depth = 0
 		M.insert_by_time(out, e)
+	end
+	return out
+end
+
+--- The breaks of a day and the blocks they hand back to
+--- (services/calendar_breaks): { block, after, from, to } with the
+--- entries, and "HH:MM" times (`to` nil: until the next thing).
+function M.resumes(date_str)
+	M.ensure_loaded()
+	local breaks = require("zortex.services.calendar_breaks")
+	local rows = breaks.rows(M.day_layout(state.entries[date_str] or {}))
+	local out = {}
+	for _, r in ipairs(breaks.resumes(rows)) do
+		out[#out + 1] = {
+			block = r.block.entry,
+			after = r.after.entry,
+			from = breaks.hhmm(r.from),
+			to = r.to and breaks.hhmm(r.to) or nil,
+		}
 	end
 	return out
 end

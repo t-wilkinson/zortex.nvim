@@ -52,7 +52,7 @@
     entries.forEach(function (e, i) {
       var m = minutes(e.time);
       var past = isToday && m !== null && i < current;
-      var cls = "event-item" + (e.feed ? " feed" : "") + (past ? " past" : "") + (e.done ? " done" : "") + (e.moved ? " moved" : "") + (e.virtual ? " virtual" : "") + (i === current ? " current" : "");
+      var cls = "event-item" + (e.feed ? " feed" : "") + (past ? " past" : "") + (e.done ? " done" : "") + (e.moved ? " moved" : "") + (e.virtual ? " virtual" : "") + (e.resume ? " resume" : "") + (i === current ? " current" : "");
       var time = e.time ? esc(e.time) + (e.end ? '<span class="end">–' + esc(e.end) + "</span>" : "") : "";
       var box = "";
       // a line without a checkbox that stands for a task (e.ref) toggles that task
@@ -61,7 +61,10 @@
       if (e.virtual) { refCls = " ref"; refTitle = ' title="the project\'s next task (' + esc(e.rel || "") + ')"'; }
       // a repeating entry (# Repeating): ticking it copies it into today
       if (e.repeat) { refTitle = ' title="repeats; ' + (e.copy ? "its copy is in today's or another day's lines" : "ticking it copies it, done, into today") + '"'; }
-      if (e.moved) {
+      // a block handed back after a break inside it
+      if (e.resume) {
+        box = '<span class="resume-mark" title="back to it after the break" aria-label="back to">↩</span>';
+      } else if (e.moved) {
         box = '<span class="box moved" title="carried to a later day" aria-label="carried to a later day">&gt;</span>';
       } else if (e.task && e.src && calWritable) {
         box = '<button type="button" class="box ' + (e.done ? "done" : "open") + refCls + '" data-day="' + esc(key) + '" data-i="' + i +

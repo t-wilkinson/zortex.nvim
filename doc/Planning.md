@@ -305,6 +305,64 @@ notify only when asked: `- Sam's birthday @notify` notifies on the day at
   block (today's, when today already has one for the same link, say from the
   day's template), and marks the old lines `[>]` (carried: neither open nor
   done, kept as the record of that day). Repeating entries (`@repeat`) stay.
+- **Breaks.** A timed line with an end (a duration, `@15m`, or a range)
+  that starts while an earlier block is still on is a break inside it, and
+  the block picks up again when the break ends:
+
+  ```
+  10:00 Study                   10:00 - 14:00 Study
+  12:00 Break @15m                12:00 Break @15m
+  14:00 Gym                       - [ ] Chapter 3
+  ```
+
+  Both read "Study, a break at 12:00, Study again from 12:15", with no
+  `12:15 Study` line to write. Written flat (left), the block is the latest
+  earlier line still running: one without an end, or with an end after the
+  break's. Nested under it (right), it is the line above. The block runs
+  again until the next timed line starts (or its own end); when the next
+  line starts just as the break ends (`12:00 Lunch @1h`, `13:00 Errands`),
+  that's a switch and nothing resumes. A line without an end always starts
+  something new. Two kinds of line never resume: an `@event` without an
+  end (an appointment is a moment, not a block you're in) and a task
+  already done or carried.
+
+  When the break ends you get "Back to Study" (instead of the break's own
+  end notification, if it asked for one). The calendar view and the web home
+  page show `↩ 12:15 - 14:00 Study` under the break. `:ZortexNow`, the web
+  page's "now" and its time tracking follow the block again: tracked time
+  goes back to its task.
+
+### Months
+
+Days are grouped under a heading per month, so the note folds to one line
+per month and its outline reads by month:
+
+```
+# Days
+
+## October 2026
+
+**2026-10-26:**
+…
+
+## November 2026
+```
+
+A day runs to the next day or the next heading. A new day (planning,
+`:ZortexToday`, carrying forward, the web's carry and review fixes) goes
+into its month, next to its nearest neighbour in time. A missing month
+heading is made in month order: one level below a `# Days` heading, at the
+level the other months have, or `#` with neither. A month whose days
+aren't under a heading yet (a calendar from before) takes its new days
+among them. `:ZortexCalendarGroup` (`<leader>zCg`) moves every day into its
+month in one step (`:ZortexUndo` takes it back), and `:checkhealth zortex`
+counts the days still outside. Month headings read as `# October 2026`,
+`# Oct 2026` or `# 2026-10`.
+
+Months other than this one start folded in Neovim (`ui.calendar.fold_months
+= false` keeps them open). `ui.calendar.group_days = false` makes no new
+month headings, though a day whose month already has one still goes there.
+The server follows it too, through `.z/syntax.json`.
 
 ### Templates and repeating entries
 

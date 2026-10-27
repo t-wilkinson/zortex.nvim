@@ -271,6 +271,180 @@
         "text": "Bold-headed day",
         "time": "09:00"
       }
+    ],
+    "2026-10-15": [
+      {
+        "depth": 0,
+        "done": false,
+        "end": "",
+        "lnum": 94,
+        "moved": false,
+        "task": false,
+        "text": "Study",
+        "time": "10:00"
+      },
+      {
+        "depth": 0,
+        "done": false,
+        "end": "12:15",
+        "lnum": 95,
+        "moved": false,
+        "task": false,
+        "text": "Break",
+        "time": "12:00"
+      },
+      {
+        "depth": 0,
+        "done": false,
+        "end": "",
+        "lnum": 96,
+        "moved": false,
+        "task": false,
+        "text": "Gym",
+        "time": "14:00"
+      },
+      {
+        "depth": 0,
+        "done": false,
+        "end": "15:30",
+        "lnum": 97,
+        "moved": false,
+        "task": false,
+        "text": "Call",
+        "time": "15:00"
+      },
+      {
+        "depth": 0,
+        "done": false,
+        "end": "",
+        "lnum": 98,
+        "moved": false,
+        "task": false,
+        "text": "Dentist",
+        "time": "16:00"
+      },
+      {
+        "depth": 0,
+        "done": false,
+        "end": "16:40",
+        "lnum": 99,
+        "moved": false,
+        "task": false,
+        "text": "Coffee",
+        "time": "16:30"
+      },
+      {
+        "depth": 0,
+        "done": false,
+        "end": "",
+        "lnum": 100,
+        "moved": false,
+        "task": false,
+        "text": "Errands",
+        "time": "17:00"
+      },
+      {
+        "depth": 0,
+        "done": false,
+        "end": "17:45",
+        "lnum": 101,
+        "moved": false,
+        "task": false,
+        "text": "Snack",
+        "time": "17:30"
+      },
+      {
+        "depth": 0,
+        "done": false,
+        "end": "",
+        "lnum": 102,
+        "moved": false,
+        "task": false,
+        "text": "Walk",
+        "time": "17:45"
+      }
+    ],
+    "2026-10-16": [
+      {
+        "depth": 0,
+        "done": false,
+        "end": "12:00",
+        "lnum": 105,
+        "moved": false,
+        "task": false,
+        "text": "Deep work",
+        "time": "09:00"
+      },
+      {
+        "depth": 1,
+        "done": false,
+        "end": "10:40",
+        "lnum": 106,
+        "moved": false,
+        "task": false,
+        "text": "Stretch",
+        "time": "10:30"
+      },
+      {
+        "depth": 1,
+        "done": false,
+        "end": "11:15",
+        "lnum": 107,
+        "moved": false,
+        "task": false,
+        "text": "Tea",
+        "time": "11:00"
+      },
+      {
+        "depth": 1,
+        "done": false,
+        "end": "",
+        "lnum": 108,
+        "moved": false,
+        "task": true,
+        "text": "Write",
+        "time": ""
+      },
+      {
+        "depth": 0,
+        "done": true,
+        "end": "",
+        "lnum": 109,
+        "moved": false,
+        "task": true,
+        "text": "Report",
+        "time": "13:00"
+      },
+      {
+        "depth": 0,
+        "done": false,
+        "end": "13:40",
+        "lnum": 110,
+        "moved": false,
+        "task": false,
+        "text": "Coffee",
+        "time": "13:30"
+      },
+      {
+        "depth": 0,
+        "done": false,
+        "end": "",
+        "lnum": 111,
+        "moved": false,
+        "task": true,
+        "text": "Draft",
+        "time": "14:00"
+      },
+      {
+        "depth": 0,
+        "done": false,
+        "end": "16:00",
+        "lnum": 112,
+        "moved": false,
+        "task": false,
+        "text": "Break",
+        "time": "15:00"
+      }
     ]
   },
   "id": "rep01",
@@ -363,7 +537,30 @@
     "Outcomes:",
     "- [ ] Ship the release",
     "",
-    "09:00 Bold-headed day"
+    "09:00 Bold-headed day",
+    "",
+    "# Breaks",
+    "",
+    "2026-10-15:",
+    "10:00 Study",
+    "12:00 Break @15m",
+    "14:00 Gym",
+    "15:00 - 15:30 Call @event",
+    "16:00 Dentist @event",
+    "16:30 Coffee @10m",
+    "17:00 Errands",
+    "17:30 Snack @15m",
+    "17:45 Walk",
+    "",
+    "2026-10-16:",
+    "09:00 - 12:00 Deep work",
+    "  10:30 Stretch @10m",
+    "  11:00 - 11:15 Tea",
+    "  - [ ] Write",
+    "13:00 [x] Report @done(2026-10-16)",
+    "13:30 Coffee @10m",
+    "14:00 [ ] Draft",
+    "15:00 Break @1h"
   ],
   "occurrences": {
     "2026-10-01": [
@@ -864,15 +1061,6 @@
         "task": false,
         "text": "Standup",
         "time": "09:30"
-      },
-      {
-        "copy": 0,
-        "done": false,
-        "end": "",
-        "rule": 32,
-        "task": true,
-        "text": "Stretch",
-        "time": ""
       }
     ],
     "2026-10-17": [
@@ -1290,6 +1478,48 @@
         "task": true,
         "text": "Pay bills",
         "time": ""
+      }
+    ]
+  },
+  "resumes": {
+    "2026-10-15": [
+      {
+        "after": 95,
+        "block": 94,
+        "from": "12:15",
+        "to": "14:00"
+      },
+      {
+        "after": 97,
+        "block": 96,
+        "from": "15:30",
+        "to": "16:00"
+      },
+      {
+        "after": 99,
+        "block": 96,
+        "from": "16:40",
+        "to": "17:00"
+      }
+    ],
+    "2026-10-16": [
+      {
+        "after": 106,
+        "block": 105,
+        "from": "10:40",
+        "to": "11:00"
+      },
+      {
+        "after": 107,
+        "block": 105,
+        "from": "11:15",
+        "to": "12:00"
+      },
+      {
+        "after": 112,
+        "block": 111,
+        "from": "16:00",
+        "to": ""
       }
     ]
   },

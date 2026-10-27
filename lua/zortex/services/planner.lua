@@ -171,11 +171,17 @@ local function plain(text, opts)
 end
 M.plain = plain
 
--- A candidate's text: `text` linking `link`, "[text](link)" (the link
--- shown as its text: under its project the task's name says enough)
+-- A candidate's text: its link as written, "[P/#1 Programming/#1.4 -
+-- zortex/-Improve website]" (a task's link names it by its text; its
+-- links' brackets don't count, core/link.link_text). `text` when there's
+-- no link.
 local function shown(text, link)
-	return require("zortex.core.link").shown(text, link) or text
+	if not link or link == "" then
+		return text
+	end
+	return "[" .. require("zortex.core.syntax").trim(link):gsub("^%[(.*)%]$", "%1") .. "]"
 end
+M.shown = shown
 
 local function todo_project()
 	local link = cfg().todo_link
@@ -328,7 +334,7 @@ local function sort_by_score(list)
 end
 
 --- Everything worth considering for a day, ranked.
----@param opts { today?: string, max_tasks?: integer }?
+---@param opts { today?: string, max_tasks?: integer, max_todos?: integer }?
 function M.candidates(opts)
 	opts = opts or {}
 	local projects = require("zortex.services.projects")
@@ -426,10 +432,24 @@ function M.candidates(opts)
 		end
 	end
 	sort_by_score(tasks)
+	-- the best of each kind: project work (ui.planner.max_tasks) and to-dos
+	-- (ui.planner.max_todos), each with its own limit so neither crowds out
+	-- the other
 	local max = opts.max_tasks or cfg().max_tasks or 30
-	if #tasks > max then
-		tasks = vim.list_slice(tasks, 1, max)
+	local max_todos = opts.max_todos or cfg().max_todos or 10
+	local kept, n_tasks, n_todos = {}, 0, 0
+	for _, t in ipairs(tasks) do
+		if t.todo or not t.project_key then
+			if n_todos < max_todos then
+				n_todos = n_todos + 1
+				kept[#kept + 1] = t
+			end
+		elseif n_tasks < max then
+			n_tasks = n_tasks + 1
+			kept[#kept + 1] = t
+		end
 	end
+	tasks = kept
 
 	-- Projects: OKR-linked or high priority/importance, with open work
 	local function project_candidate(p)
@@ -993,9 +1013,10 @@ local function day_block(date)
 end
 
 --- The copy of a project task candidate (file, lnum, link, component,
---- title): "[ ] [title](link) @id(x)", the task getting its @id first when
---- it has none. opts.relative: "[ ] [title](./-Item) @id(x)", for under the
---- project's block. Without a title, the plain "[link]".
+--- title): "[ ] [link] @id(x)", the task getting its @id first when it has
+--- none. opts.relative: "[ ] [./-Item] @id(x)", for under the project's
+--- block. A task linked by its @id (another reads the same) shows its
+--- title: "[ ] [title](./-aB3x9) @id(aB3x9)".
 function M.copy_text(c, opts)
 	local id, err = require("zortex.services.mirrors").ensure_id(c.file, c.lnum)
 	if not id then
@@ -1010,7 +1031,9 @@ function M.copy_text(c, opts)
 		end
 	end
 	local def = (opts and opts.relative and component) and ("./" .. component) or link
-	return "[ ] " .. shown(c.title, def) .. " @id(" .. id .. ")", id
+	-- a link by @id says nothing by itself: it shows the task's title
+	local text = c.ambiguous and require("zortex.core.link").shown(c.title, def) or shown(c.title, def)
+	return "[ ] " .. text .. " @id(" .. id .. ")", id
 end
 
 --- Put a project task (a candidate with file, lnum, link, component,

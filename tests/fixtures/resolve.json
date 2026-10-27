@@ -520,6 +520,16 @@
     ]
   },
   {
+    "link": "[Resources/#To read]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 41,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
     "from": "z/resources.zortex",
     "link": "@[rust, rl]",
     "results": [
@@ -597,6 +607,47 @@
       {
         "col": 3,
         "lnum": 9,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "from": "z/resources.zortex",
+    "link": "[/-nested note]",
+    "results": [
+      {
+        "col": 3,
+        "lnum": 39,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[R/#To read/-Start with Garden notes]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 42,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[R/-start with garden]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 42,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[R/#To read/-Then the scraps]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 43,
         "rel": "z/resources.zortex"
       }
     ]

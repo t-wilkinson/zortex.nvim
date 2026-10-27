@@ -177,14 +177,10 @@ func (s *Server) apiReviewNote(w http.ResponseWriter, r *http.Request) {
 	s.reviewReply(w, err, map[string]any{"rel": rel, "lnum": at, "url": s.noteURL(rel, at)})
 }
 
-// shownLink: a link shown as its name, "[name](P/#…)" (core/link shown()).
-func shownLink(name, link string) string {
-	def := strings.TrimSuffix(strings.TrimPrefix(strings.TrimSpace(link), "["), "]")
-	name = strings.Join(strings.Fields(strings.NewReplacer("[", "", "]", "").Replace(name)), " ")
-	if name == "" || strings.ContainsAny(def, "()") {
-		return "[" + def + "]"
-	}
-	return "[" + name + "](" + def + ")"
+// bracketLink: a link as written, "[P/#1 Programming/#1.4 - zortex]", as
+// Neovim's reviews and planner write them (services/planner shown()).
+func bracketLink(link string) string {
+	return "[" + strings.TrimSuffix(strings.TrimPrefix(strings.TrimSpace(link), "["), "]") + "]"
 }
 
 func (s *Server) projectAtLine(all []*webProject, rel string, lnum int) *webProject {
@@ -240,7 +236,7 @@ func (s *Server) apiReviewFocus(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		added = true
-		item := "- " + shownLink(p.Name, p.Link)
+		item := "- " + bracketLink(p.Link)
 		if e.FocusLnum == 0 {
 			out := append([]string(nil), lines[:e.Lnum]...)
 			out = append(out, "Focus:", item)

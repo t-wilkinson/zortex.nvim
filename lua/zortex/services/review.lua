@@ -181,9 +181,9 @@ function M.entries(lines)
 	return { weeks = weeks, order = order }
 end
 
--- A focus line's link: the project shown by its name
+-- A focus line's link: the project's link, "[P/#1 Programming/#1.4 - zortex]"
 local function focus_link(project)
-	return require("zortex.core.link").shown(project.name, project.link) or project.link
+	return require("zortex.services.planner").shown(project.name, project.link)
 end
 
 -- The project a line links (its first link that resolves to one)

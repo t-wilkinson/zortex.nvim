@@ -246,18 +246,20 @@ function M.at(line, col)
 	return span and link_info(line, span) or nil
 end
 
---- `line` from byte `from` (0-based) on, with markdown links and links
---- written with their text replaced by that text: "[The Rust Book](https://…)
---- @rust" -> "The Rust Book @rust", "[the plan](P/#1.4)" -> "the plan".
---- List items match a "-" component by this text.
+--- `line` from byte `from` (0-based) on, links without their brackets:
+--- markdown links and links written with their text by that text ("[The
+--- Rust Book](https://…) @rust" -> "The Rust Book @rust", "[the plan](P/#1.4)"
+--- -> "the plan"), other links by what is inside ("To [this link]" -> "To
+--- this link"). List items match a "-" component by this text, so
+--- [P/-To this link] finds "- To [this link]" and "- To [this link](./link)".
 function M.link_text(line, from)
 	from = from or 0
-	if not line:find("](", from + 1, true) then
+	if not line:find("[", from + 1, true) then
 		return line:sub(from + 1)
 	end
 	local spans = {}
 	syntax.walk_spans(syntax.inline(line), function(span)
-		if (span.type == "markdown" or (span.type == "link" and span.text)) and span.s >= from then
+		if (span.type == "markdown" or span.type == "link") and span.s >= from then
 			spans[#spans + 1] = span
 		end
 	end)
@@ -268,7 +270,7 @@ function M.link_text(line, from)
 	for _, span in ipairs(spans) do
 		if span.s >= pos then
 			out[#out + 1] = line:sub(pos + 1, span.s)
-			out[#out + 1] = span.text
+			out[#out + 1] = span.text or span.definition or ""
 			pos = span.e
 		end
 	end
@@ -1228,6 +1230,8 @@ function M.component_text(text)
 	-- a colon inside stays ("6.3: Homelab"); one at the end ("Async book:"
 	-- before a URL) is punctuation
 	prefix = vim.trim((vim.trim(prefix):gsub("[:,;]+$", "")))
+	-- "Read ./doc-1" stops at the "/": no dangling "." or ".."
+	prefix = vim.trim((prefix:gsub("%s%.%.?$", "")))
 	if prefix == "" then
 		-- Nothing usable at the start: keep the text minus link syntax
 		prefix = vim.trim((text:gsub("[%[%]/|]", "")))

@@ -689,6 +689,11 @@ svg.graph .ga { fill: var(--dim); }
 .gt-cols.masonry > .gt-card { margin-bottom: 0.9rem; }
 .gt-card { border: 1px solid var(--rule); border-radius: 8px; padding: 0.55rem 0.8rem 0.65rem; background: var(--panel); min-width: 0; }
 .gt-card h2 { font-size: 1rem; margin: 0 0 0.35rem; overflow-wrap: anywhere; }
+/* a long card over several grid columns, its list in as many (graph.js):
+   a line never splits, a note's title stays with what's under it */
+.gt-card.gt-multi > ul.gt { column-gap: 1.4rem; }
+.gt-card.gt-multi ul.gt li:not(:has(details)), .gt-card.gt-multi ul.gt summary, .gt-card.gt-multi ul.gt-heads { break-inside: avoid; }
+.gt-card.gt-multi ul.gt summary { break-after: avoid; }
 /* a big card: two grid columns, its top-level entries in two columns
    inside, none split between them (only where two grid columns fit) */
 @container (min-width: 31rem) {

@@ -183,17 +183,19 @@ type Match struct {
 	Link      *syntax.Span
 }
 
-// LinkText is line from byte from on, with markdown links and links written
-// with their text replaced by that text ("[The Rust Book](https://…) @rust"
-// -> "The Rust Book @rust", "[the plan](P/#1.4)" -> "the plan"). List
-// items match a listitem component by this text.
+// LinkText is line from byte from on, links without their brackets:
+// markdown links and links written with their text by that text ("[The
+// Rust Book](https://…) @rust" -> "The Rust Book @rust", "[the plan](P/#1.4)"
+// -> "the plan"), other links by what is inside ("To [this link]" -> "To
+// this link"). List items match a listitem component by this text, as
+// Neovim's link.link_text.
 func LinkText(line string, from int) string {
-	if !strings.Contains(line[from:], "](") {
+	if !strings.Contains(line[from:], "[") {
 		return line[from:]
 	}
 	var spans []syntax.Span
 	syntax.Walk(syntax.Inline(line, 0, len(line)), func(sp *syntax.Span) {
-		if (sp.Type == "markdown" || (sp.Type == "link" && sp.Text != "")) && sp.S >= from {
+		if (sp.Type == "markdown" || sp.Type == "link") && sp.S >= from {
 			spans = append(spans, *sp)
 		}
 	})
@@ -203,7 +205,11 @@ func LinkText(line string, from int) string {
 	for _, sp := range spans {
 		if sp.S >= pos {
 			b.WriteString(line[pos:sp.S])
-			b.WriteString(sp.Text)
+			if sp.Text != "" || sp.Type == "markdown" {
+				b.WriteString(sp.Text)
+			} else {
+				b.WriteString(sp.Definition)
+			}
 			pos = sp.E
 		}
 	}

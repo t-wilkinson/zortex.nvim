@@ -24,6 +24,10 @@ M.SEARCH = root .. "/tests/fixtures/search.json"
 -- Hand-picked links: aliases, tags, namespaces, prefixes, case, items,
 -- queries, archives, local links and failures.
 M.EXTRA_LINKS = {
+	-- list items match their text without its links' brackets
+	{ link = "[R/#To read/-Start with Garden notes]" },
+	{ link = "[R/-start with garden]" },
+	{ link = "[R/#To read/-Then the scraps]" },
 	{ link = "[Projects]" },
 	{ link = "[P]" },
 	{ link = "[p/#1.4 - ZORTEX]" },

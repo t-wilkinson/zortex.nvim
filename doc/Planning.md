@@ -89,10 +89,12 @@ Vision: fit enough to say yes to any hike
   no objective this period
 ```
 
-Everything links by its name: the reviews, the planner and the lines they
-write (focus projects, copies on the calendar, a project linked to a key
-result) use `[name](link)`, so a line reads as text and still goes where it
-points (in Neovim the link part is hidden). Where it is listed (under its
+The reviews, the planner and the lines they write (focus projects, copies
+on the calendar, a project linked to a key result) use links as written:
+`[P/#1 Programming/#1.4 - zortex]`, `[./-Improve website]`. A task's link
+names it by its text, whose own links count without their brackets (`- To
+[this link]` is `-To this link`); a key result's names only its id, so its
+text follows (`[O/#…/-KR2] Search works`). Where it is listed (under its
 area, its objective, its project) says the rest.
 
 Each area shows its vision, the objectives this period that name it,
@@ -236,9 +238,9 @@ Outcomes:
 - [ ] The website's new search is live
 - Rested enough for the long run tomorrow
 
-09:00 [1.4 - zortex](P/#1 Programming/#1.4 - zortex)
-  - [ ] [Improve website](./-Improve website) @id(aB3x9)
-  - [ ] [Change task sizes](./-Change task sizes) @id(Kp2wQ)
+09:00 [P/#1 Programming/#1.4 - zortex]
+  - [ ] [./-Improve website] @id(aB3x9)
+  - [ ] [./-Change task sizes] @id(Kp2wQ)
 11:00 - 11:45 Dentist @event @notify(30)
 14:00 Call the bank about [P/#2 Home/-Mortgage]
 - [ ] Buy milk
@@ -439,7 +441,8 @@ The planner (`<leader>zp`) lists projects first, each under a heading with
 its ranked tasks, then key results, then to-dos (the TODO project,
 `ui.planner.todo_link`, the Projects note's own tasks and calendar tasks
 left open), then areas, then what is left in the inbox; the week's focus projects come
-first. `?` lists its keys. In it, `p`
+first. The best `ui.planner.max_tasks` project tasks (30) and
+`ui.planner.max_todos` to-dos (10) are listed, each with its own limit. `?` lists its keys. In it, `p`
 puts a task on the day as a copy (under its project's block when the day
 has one; the task gets an `@id` if it has none), `P` a project as a block
 with its next open tasks (`ui.planner.project_tasks`, three; `5P` for five;

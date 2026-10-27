@@ -40,16 +40,22 @@ local function rel(path)
 	return vim.fn.fnamemodify(path, ":~:.")
 end
 
--- An entity (project, area, objective, key result) as a link shown by its
--- name: "[1.4 - zortex](P/#1 Programming/#1.4 - zortex)". Where it is
+-- An entity (project, area, objective, key result) as its link, as the
+-- planner writes them: "[P/#1 Programming/#1.4 - zortex]". Where it is
 -- listed (under its area, its objective, its project) says the rest.
 local function shown(e)
-	local L = require("zortex.core.link")
+	local planner = require("zortex.services.planner")
 	local name = e.title or e.name
-	if e.id and e.text then -- a key result: "KR2: Search works"
-		name = e.id .. ": " .. require("zortex.services.planner").plain(e.text, { drop_links = true })
+	if e.id and e.text then
+		-- a key result: its link names only its id, so its text follows,
+		-- "[O/#…/-KR2] Search works" ("KR2: Search works" without a link)
+		local text = planner.plain(e.text, { drop_links = true })
+		if e.link then
+			return planner.shown(text, e.link) .. (text ~= "" and (" " .. text) or "")
+		end
+		name = e.id .. ": " .. text
 	end
-	return L.shown(name, e.link) or name or "?"
+	return planner.shown(name or "?", e.link)
 end
 
 local function pct(x)
@@ -504,7 +510,7 @@ function M.render_unassigned(r, add, section)
 				string.format(
 					"- %s %s · %d task%s · %s%s",
 					it.date or "",
-					require("zortex.core.link").shown(it.title, it.link) or it.title,
+					require("zortex.services.planner").shown(it.title, it.link),
 					it.count,
 					it.count == 1 and "" or "s",
 					calc.hours_text(it.xp or 0),

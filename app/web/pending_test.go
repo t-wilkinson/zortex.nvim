@@ -28,7 +28,7 @@ func TestPendingXPEstimate(t *testing.T) {
 	}
 	// the copy: xl (3h) x 10 XP/h = 30 (@p1 ranks it, it doesn't pay more by
 	// default), titled as the project task
-	if code, out := postJSON(t, ts.URL, "/api/edit", map[string]any{"rel": "calendar.zortex", "lnum": 4, "expect": copyLine, "op": "done"}); code != 200 {
+	if code, out := postJSON(t, ts.URL, "/api/n/calendar.zortex", map[string]any{"lnum": 4, "expect": copyLine, "op": "done"}); code != 200 {
 		t.Fatalf("%d %v", code, out)
 	}
 	x := xp()
@@ -42,7 +42,7 @@ func TestPendingXPEstimate(t *testing.T) {
 	lines := readLines(t, proj)
 	for i, l := range lines {
 		if strings.Contains(l, "@id(imp01)") {
-			postJSON(t, ts.URL, "/api/edit", map[string]any{"rel": "projects.zortex", "lnum": i + 1, "expect": l, "op": "open"})
+			postJSON(t, ts.URL, "/api/n/projects.zortex", map[string]any{"lnum": i + 1, "expect": l, "op": "open"})
 		}
 	}
 	if x = xp(); x["pending_web"].(float64) != 0 {
@@ -52,7 +52,7 @@ func TestPendingXPEstimate(t *testing.T) {
 	postJSON(t, ts.URL, "/api/xp", map[string]any{"version": 2, "generated": time.Now().Add(-time.Hour).UTC().Format(time.RFC3339),
 		"calibration": map[string]any{"xp_per_hour": 20}})
 	lines = readLines(t, filepath.Join(dir, "calendar.zortex"))
-	postJSON(t, ts.URL, "/api/edit", map[string]any{"rel": "calendar.zortex", "lnum": 5, "expect": lines[4], "op": "done"})
+	postJSON(t, ts.URL, "/api/n/calendar.zortex", map[string]any{"lnum": 5, "expect": lines[4], "op": "done"})
 	if x = xp(); x["pending_xp"].(float64) != 10 { // sm: 0.5h x 20
 		t.Fatalf("calibrated: %v", x)
 	}

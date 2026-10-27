@@ -10,6 +10,20 @@ local defaults = {
 	-- so devices never write the same file; nil: the host name
 	device = nil,
 
+	-- The note format's knobs. Labels: a "Text:" line of up to
+	-- label_max_words words is a label (a section), longer ones are text
+	-- ("*A longer label:*" is always one). Neovim writes this number to
+	-- .z/syntax.json, so the web app (zortex serve) reads labels the same.
+	-- is_label: function(text, line) -> true | false | nil, asked about
+	-- every "Text:" line (text: before the colon, attributes stripped); nil
+	-- keeps the word count's answer. Neovim only: the web app follows the
+	-- word count, so links to a label only your function makes resolve in
+	-- Neovim alone.
+	syntax = {
+		label_max_words = 3,
+		is_label = nil,
+	},
+
 	-- Commands and keymaps are generated from zortex.actions (:Zortex lists them)
 	commands = {
 		prefix = "Zortex", -- :ZortexSearch, :ZortexReview, ...
@@ -68,6 +82,9 @@ local defaults = {
 		-- "#"s, "-" (and "[ ]"), "1." or "> "; a label keeps its ":".
 		-- gJ joins as written.
 		join = { enabled = true },
+		-- A @size on the cursor line shows what it is worth at the line's
+		-- end: "sm ≈ 30m · 5 XP" (xp.sizes); completion shows the same
+		size_hint = { enabled = true },
 		-- Calendar feeds: `zortex serve -feeds` writes each feed's events
 		-- (a Cozi or Google calendar's iCal link) into
 		-- z/feeds/<name>.zortex (doc/Server.md), and they show read-only in
@@ -113,7 +130,9 @@ local defaults = {
 			groups = {},
 			-- shown for the "/" between a link's parts ([P/#1 Code/#1.4] reads
 			-- "P›#1 Code›#1.4"); the "/" comes back on the cursor's line. A
-			-- single character, or false to show the "/"
+			-- single character, or false to show the "/". Its color is the
+			-- ZortexLinkDelimiter group (Comment): groups = {
+			-- ZortexLinkDelimiter = { fg = "#888888" } } or { link = "NonText" }
 			link_separator = "›",
 		},
 

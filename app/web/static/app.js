@@ -219,3 +219,19 @@
     hits[sel].scrollIntoView({ block: "nearest" });
   });
 })();
+
+// the top bar's Files menu: hover or focus opens it; its ▾ toggles it (a
+// phone has no hover), and a tap elsewhere or Escape closes it
+(function () {
+  "use strict";
+  var menu = document.querySelector(".nav-menu");
+  if (!menu) return;
+  var caret = menu.querySelector(".nav-caret");
+  function set(open) {
+    menu.classList.toggle("open", open);
+    caret.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  caret.addEventListener("click", function (ev) { ev.stopPropagation(); set(!menu.classList.contains("open")); });
+  document.addEventListener("click", function (ev) { if (!menu.contains(ev.target)) set(false); });
+  document.addEventListener("keydown", function (ev) { if (ev.key === "Escape") set(false); });
+})();

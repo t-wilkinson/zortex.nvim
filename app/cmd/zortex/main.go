@@ -62,7 +62,7 @@ func usage() {
   zortex sections FILE...
   zortex resolve [-dir DIR] [-from REL] LINK...
   zortex search [-dir DIR] [-mode section|article] [-n N] PROMPT...
-  zortex serve [-dir DIR] [-addr HOST:PORT] [-base /PREFIX] [-title T] [-poll D] [-resources pdf,png,...]
+  zortex serve [-dir DIR] [-addr HOST:PORT] [-base /PREFIX] [-title T] [-poll D] [-watch=false] [-resources pdf,png,...]
                [-data DIR] [-ntfy-url URL] [-ntfy-topic T] [-ntfy-token TOKEN] [-api-key KEY] [-writable]
   zortex version`)
 	os.Exit(2)
@@ -157,18 +157,19 @@ func serveCmd(args []string) {
 	addr := fs.String("addr", envOr("ZORTEX_ADDR", "127.0.0.1:8090"), "listen address ($ZORTEX_ADDR)")
 	base := fs.String("base", os.Getenv("ZORTEX_BASE"), "URL prefix when proxied below /, e.g. /notes ($ZORTEX_BASE)")
 	title := fs.String("title", envOr("ZORTEX_TITLE", "Zortex"), "site title ($ZORTEX_TITLE)")
-	poll := fs.Duration("poll", 3*time.Second, "how often to rescan the folder (negative: never)")
+	poll := fs.Duration("poll", 3*time.Second, "how often to rescan the folder, besides watching it (negative: never) ($ZORTEX_POLL)")
+	watch := fs.Bool("watch", os.Getenv("ZORTEX_WATCH") != "0" && os.Getenv("ZORTEX_WATCH") != "false", "watch the folder (Linux inotify) so a synced edit shows within a second (-watch=false or $ZORTEX_WATCH=0: rescan every -poll only)")
 	resources := fs.String("resources", os.Getenv("ZORTEX_RESOURCES"), "extensions tracked as resources for backlinks and the unlinked list, e.g. pdf,epub,png (default: documents, books, images, media) ($ZORTEX_RESOURCES)")
 	dataDefault := os.Getenv("ZORTEX_DATA_DIR")
 	if dataDefault == "" {
 		dataDefault = os.Getenv("STATE_DIRECTORY") // systemd StateDirectory=
 	}
-	data := fs.String("data", dataDefault, "state folder for notifications and the pomodoro clock; empty: read-only, no /notify or pomodoro ($ZORTEX_DATA_DIR, $STATE_DIRECTORY)")
+	data := fs.String("data", dataDefault, "state folder for notifications and the pomodoro clock; empty: read-only, no scheduled notifications or pomodoro ($ZORTEX_DATA_DIR, $STATE_DIRECTORY)")
 	ntfyURL := fs.String("ntfy-url", os.Getenv("NTFY_SERVER_URL"), "ntfy server that delivers notifications ($NTFY_SERVER_URL)")
 	ntfyTopic := fs.String("ntfy-topic", os.Getenv("NTFY_TOPIC"), "ntfy topic ($NTFY_TOPIC)")
 	ntfyToken := fs.String("ntfy-token", os.Getenv("NTFY_AUTH_TOKEN"), "ntfy access token ($NTFY_AUTH_TOKEN)")
 	ntfyTokenFile := fs.String("ntfy-token-file", os.Getenv("NTFY_AUTH_TOKEN_FILE"), "file holding the ntfy access token ($NTFY_AUTH_TOKEN_FILE)")
-	apiKey := fs.String("api-key", os.Getenv("ZORTEX_API_KEY"), "if set, /notify and /pending require it in X-API-Key ($ZORTEX_API_KEY)")
+	apiKey := fs.String("api-key", os.Getenv("ZORTEX_API_KEY"), "if set, the notification API (/api/notifications…) requires it in X-API-Key ($ZORTEX_API_KEY)")
 	sendEvery := fs.Duration("send-interval", 20*time.Second, "how often due notifications are sent")
 	authFile := fs.String("auth-file", os.Getenv("ZORTEX_AUTH_FILE"), "file of user:password lines: a login (HTTP basic auth) for every page; use it over HTTPS ($ZORTEX_AUTH_FILE, or ZORTEX_AUTH=user:password)")
 	writable := fs.Bool("writable", os.Getenv("ZORTEX_WRITABLE") == "1" || os.Getenv("ZORTEX_WRITABLE") == "true", "let the web app edit notes: toggle tasks, edit, add and remove lines, add to inbox.zortex ($ZORTEX_WRITABLE=1)")
@@ -233,6 +234,7 @@ func serveCmd(args []string) {
 		Title:        *title,
 		Base:         *base,
 		Poll:         *poll,
+		NoWatch:      !*watch,
 		DataDir:      *data,
 		Ntfy:         ntfy,
 		APIKey:       *apiKey,

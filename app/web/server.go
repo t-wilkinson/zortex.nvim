@@ -3,8 +3,9 @@
 // every file in the folder (PDFs, images, media, text), tags and broken
 // links. It is what `zortex serve` runs.
 //
-// The folder is read once at start and rescanned every Config.Poll (it is
-// usually a Syncthing folder, so files change underneath). A rescan only
+// The folder is read once at start, watched for changes (inotify, on
+// Linux) and rescanned every Config.Poll as well (it is usually a Syncthing
+// folder, so files change underneath). A rescan only
 // re-parses notes whose modification time or size changed; when anything
 // changed, the search index and the link graph are rebuilt in the background
 // and swapped in, so requests never wait for a rebuild.
@@ -51,14 +52,17 @@ type Config struct {
 	Title string        // site title (default "Zortex")
 	Base  string        // URL path prefix when served below "/", e.g. "/notes"
 	Poll  time.Duration // rescan interval (default 3s; <0: never)
+	// NoWatch: don't watch the folder for changes (Linux inotify), only
+	// rescan every Poll. Watching shows a synced edit within about a second.
+	NoWatch bool
 	// DataDir holds the server's own state: scheduled notifications and the
-	// pomodoro clock. Empty: read-only mode (no /notify, no pomodoro).
+	// pomodoro clock. Empty: read-only mode (no scheduled notifications, no pomodoro).
 	DataDir string
 	// Ntfy delivers due notifications and pomodoro phase changes; nil or
 	// unconfigured: notifications are kept (and shown) but not sent.
 	Ntfy *alerts.Ntfy
 	// APIKey, when set, is required (X-API-Key header) by the endpoints
-	// Neovim uses: /notify and /pending.
+	// Neovim uses: /api/notifications and its sync, clear and test.
 	APIKey string
 	// SendInterval: how often due notifications are sent (default 20s).
 	SendInterval time.Duration
@@ -126,6 +130,10 @@ type Server struct {
 	xpFileMu      sync.Mutex
 	xpFileSeen    time.Time // mtime of .z/xp_summary.json at the last rescan
 	xpFileChecked bool
+	// .z/syntax.json (syntaxfile.go): last seen mtime
+	syntaxMu      sync.Mutex
+	syntaxSeen    time.Time
+	syntaxChecked bool
 }
 
 // Backlink is a link in one note (or Markdown file) to a line of another
@@ -170,6 +178,7 @@ type snapshot struct {
 
 	structure structureInfo        // notes not linked from the Structure note
 	forward   map[string][]outLink // note -> its links to other notes, by line
+	nav       navMenu              // the top bar's Files menu (navmenu.go)
 }
 
 // outLink is a link from a note to another note.
@@ -228,12 +237,14 @@ func New(cfg Config) (*Server, error) {
 	}
 	sub, _ := fs.Sub(staticFS, "static")
 	s.static = http.StripPrefix("/static/", http.FileServer(http.FS(sub)))
+	s.checkSyntaxFile()
 	ix.Scan()
 	s.rebuild(s.scanResources())
 	return s, nil
 }
 
-// Run rescans the folder every Config.Poll and sends due notifications
+// Run rescans the folder when it changes and every Config.Poll, and sends
+// due notifications
 // until ctx is done.
 func (s *Server) Run(ctx context.Context) {
 	go func() {
@@ -267,17 +278,27 @@ func (s *Server) Run(ctx context.Context) {
 		r := &feeds.Runner{Root: s.cfg.Root, Ext: s.cfg.Ext, Feeds: s.cfg.Feeds, Log: s.log, OnWrite: s.Refresh}
 		r.Run(ctx)
 	}
-	if s.cfg.Poll < 0 {
-		<-ctx.Done()
-		return
+	var changes <-chan struct{}
+	if !s.cfg.NoWatch {
+		changes = watchFolder(ctx, s.cfg.Root, s.log.Printf)
 	}
-	t := time.NewTicker(s.cfg.Poll)
-	defer t.Stop()
+	var tick <-chan time.Time
+	if s.cfg.Poll > 0 {
+		t := time.NewTicker(s.cfg.Poll)
+		defer t.Stop()
+		tick = t.C
+	}
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-t.C:
+		case <-tick:
+			s.Refresh()
+		case _, ok := <-changes:
+			if !ok {
+				changes = nil // watching stopped: the timer goes on
+				continue
+			}
 			s.Refresh()
 		}
 	}
@@ -286,6 +307,9 @@ func (s *Server) Run(ctx context.Context) {
 // Refresh rescans the folder now and rebuilds when a note, resource or
 // Markdown file changed.
 func (s *Server) Refresh() {
+	if s.checkSyntaxFile() {
+		s.ix.Forget() // labels read differently: every note again
+	}
 	notesChanged, rels := s.ix.ScanChanges()
 	res, linking, fp := s.scanResources()
 	if notesChanged || fp != s.current().fingerprint {
@@ -358,6 +382,7 @@ func (s *Server) rebuild(res []resource, linking []string, fingerprint uint64) {
 		snap.forward[rel] = out
 	}
 	snap.structure = s.buildStructure(snap)
+	snap.nav = s.buildNavMenu(all)
 	for _, t := range tags {
 		snap.tags = append(snap.tags, *t)
 	}
@@ -436,21 +461,35 @@ func (s *Server) current() *snapshot { return s.snap.Load() }
 // Handler is the app's HTTP handler (mount it at Config.Base).
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
+	// Pages, and each page's data as JSON at /api + its path (pagejson.go)
+	page := func(path string, h http.HandlerFunc) {
+		mux.HandleFunc("GET "+path, h)
+		mux.HandleFunc("GET /api"+path, h)
+	}
 	mux.HandleFunc("GET /{$}", s.handleHome)
 	mux.HandleFunc("GET /n/{rel...}", s.handleNote)
-	mux.HandleFunc("GET /f/{rel...}", s.handleFiles)
+	page("/f/{rel...}", s.handleFiles)
 	mux.HandleFunc("GET /raw/{rel...}", s.handleRaw)
 	mux.HandleFunc("GET /search", s.handleSearch)
 	mux.HandleFunc("GET /link", s.handleLink)
-	mux.HandleFunc("GET /tags", s.handleTags)
-	mux.HandleFunc("GET /tag/{name}", s.handleTag)
-	mux.HandleFunc("GET /broken", s.handleBroken)
-	mux.HandleFunc("GET /projects", s.handleProjects)
-	mux.HandleFunc("GET /project", s.handleProject)
-	mux.HandleFunc("GET /okr", s.handleOKR)
-	mux.HandleFunc("GET /areas", s.handleAreas)
-	mux.HandleFunc("GET /attributes", s.handleAttributes)
-	mux.HandleFunc("GET /review", s.handleReview)
+	page("/tags", s.handleTags)
+	page("/tag/{name}", s.handleTag)
+	page("/broken", s.handleBroken)
+	page("/projects", s.handleProjects)
+	page("/project", s.handleProject)
+	page("/okr", s.handleOKR)
+	page("/areas", s.handleAreas)
+	page("/attributes", s.handleAttributes)
+	page("/review", s.handleReview)
+	mux.HandleFunc("GET /graph", s.handleGraph)
+	mux.HandleFunc("GET /resources", s.handleResources)
+	mux.HandleFunc("GET /search/open", s.handleSearchOpen) // a search result's link: counts it, then goes there
+	mux.HandleFunc("GET /healthz", s.handleHealth)
+	mux.HandleFunc("GET /health", s.handleHealth)
+	// notes: read one, change a line (-writable), add to the inbox
+	mux.HandleFunc("GET /api/n/{rel...}", s.apiNote)
+	mux.HandleFunc("POST /api/n/{rel...}", s.apiEdit)
+	mux.HandleFunc("POST /api/inbox", s.apiInbox)
 	mux.HandleFunc("POST /api/project/log", s.apiProjectLog)
 	mux.HandleFunc("POST /api/review/note", s.apiReviewNote)
 	mux.HandleFunc("POST /api/review/focus", s.apiReviewFocus)
@@ -459,28 +498,26 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/review/due", s.apiReviewDue)
 	mux.HandleFunc("POST /api/review/area", s.apiReviewArea)
 	mux.HandleFunc("POST /api/review/finish", s.apiReviewFinish)
-	mux.HandleFunc("GET /resources", s.handleResources)
-	mux.HandleFunc("GET /api/resources", s.apiResources)
-	mux.HandleFunc("GET /api/tagtable", s.apiTagTable)
+	// finding things
 	mux.HandleFunc("GET /api/search", s.apiSearch)
-	mux.HandleFunc("GET /api/resolve", s.apiResolve)
+	mux.HandleFunc("GET /api/link", s.apiResolve)
 	mux.HandleFunc("GET /api/backlinks", s.apiBacklinks)
 	mux.HandleFunc("GET /api/hover", s.apiHover)
-	mux.HandleFunc("GET /healthz", s.handleHealth)
-	mux.HandleFunc("GET /health", s.handleHealth)
-	mux.HandleFunc("GET /graph", s.handleGraph)
-	mux.HandleFunc("GET /api/structure", s.apiStructure)
-	// calendar and notifications (Neovim syncs to /notify)
+	mux.HandleFunc("GET /api/resources", s.apiResources)
+	mux.HandleFunc("GET /api/tagtable", s.apiTagTable)
+	mux.HandleFunc("GET /api/graph", s.apiStructure)
+	// the calendar, its notifications (Neovim syncs them) and their alerts
 	mux.HandleFunc("GET /api/calendar", s.apiCalendar)
 	mux.HandleFunc("POST /api/calendar/carry", s.apiCarry)
 	mux.HandleFunc("POST /api/calendar/repeat", s.apiRepeat)
-	mux.HandleFunc("GET /api/summary", s.apiSummary)
-	mux.HandleFunc("POST /notify", s.handleNotify)
-	mux.HandleFunc("GET /pending", s.handlePending)
+	mux.HandleFunc("GET /api/notifications", s.apiNotifications)
+	mux.HandleFunc("POST /api/notifications", s.apiNotificationAdd)
+	mux.HandleFunc("POST /api/notifications/sync", s.apiNotificationsSync)
+	mux.HandleFunc("POST /api/notifications/clear", s.apiNotificationsClear)
+	mux.HandleFunc("POST /api/notifications/test", s.apiNotificationTest)
 	mux.HandleFunc("GET /api/alerts", s.apiAlerts)
-	mux.HandleFunc("POST /test", s.handleTestNotification)
+	mux.HandleFunc("GET /api/summary", s.apiSummary)
 	// pomodoro, shared by Neovim and the home page
-	mux.HandleFunc("GET /search/open", s.handleSearchOpen)
 	mux.HandleFunc("GET /api/pomodoro", s.apiPomodoro)
 	mux.HandleFunc("POST /api/pomodoro/{action}", s.apiPomodoroAction)
 	// timers, alarms and the stopwatch (home page)
@@ -498,15 +535,12 @@ func (s *Server) Handler() http.Handler {
 	// XP summary published by Neovim (the ledger lives there)
 	mux.HandleFunc("GET /api/xp", s.apiXP)
 	mux.HandleFunc("POST /api/xp", s.apiXPPost)
-	// editing notes (-writable)
-	mux.HandleFunc("POST /api/edit", s.apiEdit)
-	mux.HandleFunc("POST /api/inbox", s.apiInbox)
-	mux.HandleFunc("GET /api/note", s.apiNote)
-	// live updates
+	// live updates, and pages opened from Neovim
 	mux.HandleFunc("GET /api/events", s.apiEvents)
 	mux.HandleFunc("POST /api/presence", s.apiPresence)
 	mux.HandleFunc("POST /api/open", s.apiOpen)
 	mux.HandleFunc("POST /api/open/ack", s.apiOpenAck)
+	mux.HandleFunc("/api/", s.apiNotFound)
 	mux.Handle("GET /static/", s.cacheStatic(s.static))
 	// installable app (pwa.go)
 	mux.HandleFunc("GET /manifest.webmanifest", s.handleManifest)

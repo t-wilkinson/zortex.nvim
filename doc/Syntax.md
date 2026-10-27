@@ -98,7 +98,23 @@ Nothing inside a code or math block is structure.
 | `# not a heading` | `code` | inside a fence |
 | `$$` | `math_fence` | display math block |
 | `[^1]: The footnote with https://example.com and ./images/pic.png` | `footnote` | a footnote definition |
+| `[^Smith, 2020]: Smith, J. (2020). A book about notes.` | `footnote` | ids may have spaces and commas: an author-year citation |
+| `[^Smith & Jones, 2019a] Smith, J. and Jones, K. (2019). A paper.` | `footnote` | at the start of a line the colon may go (a space after the `]`, or nothing) |
+| `[^1]. not a footnote: no colon, no space` | `text` | anything else after the `]` makes it text |
 | `Key: value text with @home and an email me@example.com.` | `text` | a paragraph line |
+
+**What counts as a label.** A line that passes the rules above (ends in
+`:`, no `. `, nothing after the colon) is a label when it has at most
+`syntax.label_max_words` words (default 3; `@attributes` don't count).
+Neovim writes the number to `.z/syntax.json` so the web app reads labels
+the same way. For anything else, `syntax.is_label = function(text, line)`
+(`text`: before the colon, without the bullet and `@attributes`; `line`:
+the whole line) decides in Neovim alone: return `true` or `false`, or `nil`
+for the word count. A regex is a Lua pattern inside it
+(`return text:match("^%u[%w ]+$") ~= nil`). It
+runs only on candidate lines, so it costs about what the word count does;
+the web app can't run it, so it keeps the word count there. Starred labels
+(`*A longer label like this one:*`) are labels whatever their length.
 
 ## Inline (checked)
 
@@ -113,6 +129,7 @@ Nothing inside a code or math block is structure.
 | `!@[R/rust async]` | `tag_search` | the same search shown in place: a table on the web; see Tag searches below |
 | `[text](https://example.com)` | `markdown` | a markdown link: a URL, or a file (`[the scan](z/scan.pdf)`) |
 | `[^1]` | `footnote_ref` | a footnote reference |
+| `[^Smith, 2020]` | `footnote_ref` | a citation: the web shows it as `(Smith, 2020)`, with the definition as its tooltip |
 | `https://example.com` | `url` | |
 | `./images/pic.png` | `filepath` | `./`, `../`, `~/` or `/` paths, relative to the note |
 | `@size(sm)` | `attribute` | `@key(value)` |
@@ -155,6 +172,7 @@ These are understood (tasks, projects, calendar entries):
 | `@project(1.4)`, `@project(1/1.4)`, `@project(P/#Kitchen)` | the project a line belongs to (`1.4` is `[P/#1.4]`): `m` in the daily review moves it there, dropping the attribute |
 | `@someday` | a project parked on purpose: not listed as stale or unscheduled (`z` in the weekly review toggles it) |
 | `@xp(500)` | a project's XP pool |
+| `@ref(Smith, 2020)`, `@ref(Smith & Jones, 2019a; Lee, 2021)` | a reference, author and year (several: `;` between): tag searches find it by author, `@[*/author(smith)]` (each of `Smith & Jones`, `et al.` left off, matches too), by year, `@[*/year(2020)]`, or whole, `@[*/ref(Smith, 2020)]`. Cite it in the text with a [footnote](#footnotes-and-citations) |
 | `@dur(90m)`, `@dur(2h)` | how long it takes (a calendar entry's length, a task's minutes in the planner) |
 | `@spent(1h25m)` | time worked on it, added by the web app's clocks ([time tracking](Web.md#time-tracking)) |
 | `@at(14:00)` | calendar: the line's time, as `14:00` at the start of the line does (`@from(14:00) @to(15:30)` for a range) |
@@ -165,12 +183,30 @@ These are understood (tasks, projects, calendar entries):
 | `@repeat(weekly)`, `@repeat(2w)`, `@repeat(mon, wed)`, `@repeat(03-14)` | calendar, `# Repeating` section only: how often the entry shows ([Planning](Planning.md#templates-and-repeating-entries)); anywhere else it is not read (the calendar note flags it) |
 | `@on(sun)`, `@on(15th)`, `@on(03-14)`, `@on(2nd tue)`, `@on(last fri)`, `@on(last)` | calendar, `# Repeating` section only: which days a repeating entry lands on (`@repeat(monthly) @on(last thu)`); alone, it repeats on those days (`@on(weekdays)`) |
 | `@from(2026-10-06)`, `@to(2026-12-31)` | a repeating entry: its first day (what every n counts from: `2w` needs one) and its last day, both optional otherwise; with a time instead (`@from(07:30) @to(08:15)`), a calendar line's time |
-| `@born(1990)` | a repeating entry: the age, shown after its text on the day |
+| `@born(1990)`, `@born(1961-07-02)`, `@born(Feb 1, 2000)`, `@born(07-02)` | in `# Repeating`: a birthday. A year shows the age after the text; a day (`yyyy-mm-dd`, `mm-dd-yyyy`, `mm-dd`, `Feb 1`, `February 1, 2000`) repeats it yearly on that day |
 | `@for(2026-10-18)` | a repeating task's copy done on another day: the day it stands for |
 | `@fold` | on a heading, label or list item with nested lines: the section starts folded in Neovim each time the note is shown (`zo` opens it until then) |
 | `@slides(2)` | in a header: the heading level that starts a slide ([slides](Web.md#slides)) |
 | `@step`, `@steps` | slides: reveal a line, or each item of a slide, one at a time |
 | `@rust`, `@home`, `@ai-model` | any other bare `@word`: a tag, found by tag searches (`@[rust]`; see [Tag searches](#tag-searches)) |
+
+## Footnotes and citations
+
+`[^1]` refers to the line that starts with `[^1]:`. An id is anything but
+brackets, so it can be a citation:
+
+```zortex
+- Spaced repetition beats rereading [^Smith, 2020] @ref(Smith, 2020)
+
+[^Smith, 2020]: Smith, J. (2020). Learning that lasts. Press.
+[^Lee, 2021] Lee, K. (2021). Memory. (the colon may go at the start of a line)
+```
+
+On the web a numeric footnote is a superscript and a citation (an id with a
+space or a comma) reads `(Smith, 2020)`; both link to their definition and
+show it on hover. In Neovim `gx` on a reference jumps to its definition.
+`@ref(Smith, 2020)` on the line makes it findable by author or year
+([Tag searches](#tag-searches)).
 
 ## Embeds
 
@@ -202,7 +238,10 @@ A link is coloured by what its last component names: a note (or tag), a
 heading, a label, a bold heading or a list item, each its own colour
 (`ZortexLinkNote`, `ZortexLinkHeading`, `ZortexLinkLabel`, `ZortexLinkBold`,
 `ZortexLinkItem` in Neovim; the same kinds in the web app). Query and
-follow links keep the plain link colour.
+follow links keep the plain link colour. Neovim shows the `/` between parts
+as `›` (`ui.highlights.link_separator`, a character, or `false` for the
+`/`), coloured `ZortexLinkDelimiter` (linked to `Comment`; change it with
+`ui.highlights.groups = { ZortexLinkDelimiter = { fg = "#888888" } }`).
 
 - `[/#Local heading]` (leading `/`) resolves in the current note.
 - A note outside `notes_dir` (a repository's `doc/Roadmap.zortex`) resolves
@@ -276,6 +315,8 @@ in; `*` is every note:
 | `@[rust is:heading]` | headings (and bold headings) tagged `@rust` |
 | `@[rl is:open, rl is:label]` | open tasks tagged `@rl`, or labels tagged `@rl` |
 | `@[P/is:open]` | every open task in Projects (no tag needed) |
+| `@[*/status(reading)]` | lines with `@status(reading)`: an attribute by its value (case and extra spaces don't matter) |
+| `@[R/author(knuth) year(1968)]` | references (`@ref(Knuth, 1968)`) by author and year; inside the parentheses spaces and commas are part of the value |
 
 `:ZortexBrokenLinks` and the web app's `/broken` list, apart from broken
 links, the tags that go nowhere: tag searches that find nothing, `[@Tag]`

@@ -25,6 +25,8 @@ function api.setup(opts)
 	end
 	local Config = require("zortex.config")
 	Config.setup(opts)
+	-- the note format's knobs, before anything parses a note
+	require("zortex.core.syntax_config").setup(Config.syntax)
 
 	api.helptags()
 
@@ -44,6 +46,7 @@ function api.setup(opts)
 	require("zortex.features.preview").setup(Config.ui.preview)
 	require("zortex.features.completion").setup()
 	require("zortex.features.diagnostics").setup((Config.features or {}).diagnostics)
+	require("zortex.features.size_hint").setup((Config.features or {}).size_hint)
 
 	-- Services with configuration
 	require("zortex.services.search").setup(Config.ui.search)

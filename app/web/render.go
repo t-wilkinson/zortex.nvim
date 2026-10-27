@@ -53,6 +53,51 @@ type noteRenderer struct {
 	lnum   int    // the line being rendered (parent-relative links)
 	md     *mdDoc // a Markdown file (markdown.go)
 	inPara bool   // Markdown: inside a <p> of text lines
+
+	footnotes map[string]string // footnote id -> its definition's text (footnoteText)
+}
+
+// fnAnchor: a footnote id as an HTML id: "fn-Smith-2020" for "[^Smith, 2020]".
+func fnAnchor(id string) string {
+	var b strings.Builder
+	b.WriteString("fn-")
+	dash := false
+	for i := 0; i < len(id); i++ {
+		c := id[i]
+		if c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c == '.' || c == '-' {
+			b.WriteByte(c)
+			dash = false
+		} else if !dash {
+			b.WriteByte('-')
+			dash = true
+		}
+	}
+	return strings.TrimRight(b.String(), "-")
+}
+
+// isCitation: an author-year footnote id ("Smith, 2020"): shown in the
+// text as "(Smith, 2020)", not as a superscript.
+func isCitation(id string) bool { return strings.ContainsAny(id, ", ") }
+
+// footnoteText: the text of the note's definition of footnote `id`, for the
+// reference's tooltip ("" when it has none).
+func (r *noteRenderer) footnoteText(id string) string {
+	if r.footnotes == nil {
+		r.footnotes = map[string]string{}
+		for i, line := range r.doc.Lines {
+			if r.doc.Kind(i+1) != syntax.KindFootnote {
+				continue
+			}
+			d := syntax.Classify(line)
+			if d.ID == "" || d.ContentCol == nil {
+				continue
+			}
+			if _, ok := r.footnotes[d.ID]; !ok {
+				r.footnotes[d.ID] = strings.TrimSpace(syntax.StripAttributes(line[*d.ContentCol:]))
+			}
+		}
+	}
+	return r.footnotes[id]
 }
 
 // renderNote is the HTML body of a note (without its header block, which
@@ -285,7 +330,7 @@ func (r *noteRenderer) line(lnum int, d *syntax.Line) {
 	case syntax.KindQuote:
 		r.w(`<blockquote class="ln" id="L`, id, `"`, indent, `>`, content(), `</blockquote>`)
 	case syntax.KindFootnote:
-		r.w(`<div class="ln footnote" id="L`, id, `"><span class="fn-id" id="fn-`, esc(d.ID), `">`, esc(d.ID), `</span> `, content(), `</div>`)
+		r.w(`<div class="ln footnote" id="L`, id, `"><span class="fn-id" id="`, esc(fnAnchor(d.ID)), `">`, esc(d.ID), `</span> `, content(), `</div>`)
 	case syntax.KindTag:
 		r.w(`<div class="ln tagline" id="L`, id, `">`, esc(line), `</div>`)
 	default:
@@ -410,7 +455,14 @@ func (r *noteRenderer) span(line string, sp *syntax.Span) string {
 		}
 		return `<code class="path">` + esc(raw) + `</code>`
 	case "footnote_ref":
-		return `<sup class="fnref"><a href="#fn-` + esc(sp.ID) + `">` + esc(sp.ID) + `</a></sup>`
+		title := ""
+		if t := r.footnoteText(sp.ID); t != "" {
+			title = ` title="` + esc(t) + `"`
+		}
+		if isCitation(sp.ID) {
+			return `<a class="cite" href="#` + esc(fnAnchor(sp.ID)) + `"` + title + `>(` + esc(sp.ID) + `)</a>`
+		}
+		return `<sup class="fnref"><a href="#` + esc(fnAnchor(sp.ID)) + `"` + title + `>` + esc(sp.ID) + `</a></sup>`
 	case "tag_search":
 		// the tagged lines it finds (links.TagSearch), listed on the link page
 		return `<a class="tagsearch" href="` + esc(r.s.linkURL("@["+sp.Content+"]", r.doc.Rel)) + `" title="` + esc(raw) + `">` + tagSearchText(sp.Content) + `</a>`

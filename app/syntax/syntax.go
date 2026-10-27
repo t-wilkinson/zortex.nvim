@@ -11,6 +11,8 @@
 // 1-based.
 package syntax
 
+import "sync/atomic"
+
 // Version of the AST format (matches core/syntax.VERSION).
 const Version = 1
 
@@ -366,9 +368,28 @@ type Line struct {
 	Inline     []Span // nil unless parsed with inline spans (and the line has content)
 }
 
-// MaxLabelWords: a plain "Text:" line is a label up to this many words
-// (attributes not counted); a longer one is written "*A longer label:*".
-const MaxLabelWords = 3
+// DefaultMaxLabelWords: a plain "Text:" line is a label up to this many
+// words (attributes not counted); a longer one is written "*A longer label:*".
+const DefaultMaxLabelWords = 3
+
+// maxLabelWords is the rule in use: Neovim's syntax.label_max_words, which
+// it writes to the notes folder's .z/syntax.json (SetMaxLabelWords).
+var maxLabelWords atomic.Int32
+
+func init() { maxLabelWords.Store(DefaultMaxLabelWords) }
+
+// MaxLabelWords is how many words a plain "Text:" label may have.
+func MaxLabelWords() int { return int(maxLabelWords.Load()) }
+
+// SetMaxLabelWords changes the label rule (n < 1: the default) and reports
+// whether it changed. Notes parsed before keep their old reading: reparse
+// them.
+func SetMaxLabelWords(n int) bool {
+	if n < 1 {
+		n = DefaultMaxLabelWords
+	}
+	return maxLabelWords.Swap(int32(n)) != int32(n)
+}
 
 // colonLine: a "Text:" line: no other colon, no sentence (". "), and no bold
 // or italic text right before the colon.
@@ -422,7 +443,7 @@ func isLabel(line, body string) bool {
 	if _, ok := starLabel(body); ok {
 		return true
 	}
-	return colonLine(line) && wordCount(StripAttributes(body[:len(body)-1])) <= MaxLabelWords
+	return colonLine(line) && wordCount(StripAttributes(body[:len(body)-1])) <= MaxLabelWords()
 }
 
 // SectionText is the display text of a section line, attributes stripped.
@@ -571,19 +592,18 @@ func Classify(line string) *Line {
 		}
 	}
 
-	// footnote definition: ^%[%^([%w_.%-]+)%]:
 	// "---": a rule, a separator (a slide break in a deck)
 	if isRule(line) {
 		return &Line{Kind: KindRule, Indent: 0, ContentCol: intp(0)}
 	}
 
-	if len(line) > 3 && line[0] == '[' && line[1] == '^' {
-		k := 2
-		for k < len(line) && (isWordOrUnderscore(line[k]) || line[k] == '.' || line[k] == '-') {
-			k++
-		}
-		if k > 2 && at(line, k) == ']' && at(line, k+1) == ':' {
+	// "[^1]: text", "[^Smith, 2020] text", or the id alone on its line
+	if k, ok := footnoteID(line, 0); ok {
+		switch {
+		case at(line, k+1) == ':':
 			return &Line{Kind: KindFootnote, ID: line[2:k], Indent: 0, ContentCol: intp(k + 2 + spaceRun(line, k+2))}
+		case k+1 == len(line) || isSpace(line[k+1]):
+			return &Line{Kind: KindFootnote, ID: line[2:k], Indent: 0, ContentCol: intp(k + 1 + spaceRun(line, k+1))}
 		}
 	}
 

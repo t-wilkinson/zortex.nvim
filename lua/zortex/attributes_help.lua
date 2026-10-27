@@ -14,6 +14,8 @@
 --   formats  how values are written, as examples
 --   where    what it goes on: "task", "project", "objective", "calendar", "note", "any"
 --   desc     what it does, in a sentence or two
+--   pseudo   not an attribute of its own (tags, attribute searches): no
+--            completion item
 local M = {}
 
 M.GROUPS = {
@@ -31,7 +33,7 @@ M.list = {
 		insert = "@size(",
 		formats = { "@size(sm)", "@sm", "@size(2xl)", "@epic (projects)" },
 		where = "task, project, objective",
-		desc = "How long it takes: xs 15m, sm 30m, md 1h, lg 2h, xl 3h, 2xl–5xl 5–20h for a task (projects: xs 2h … ultimate 2,500h). Unsized tasks count as md. Weighs progress and XP (10 XP = 1 hour).",
+		desc = "How long it takes: xs 15m, sm 30m, md 1h, lg 2h, xl 3h, 2xl–5xl 5–20h for a task (projects: xs 2h … ultimate 2,500h). Unsized tasks count as md. Weighs progress and XP (10 XP = 1 hour); Neovim shows what a size is worth at the end of the line as you type it.",
 	},
 	{
 		key = "due",
@@ -91,6 +93,14 @@ M.list = {
 		formats = { "@id(4Fz9q)" },
 		where = "task",
 		desc = "A task's id, added for you: lines with the same @id in the calendar and a project are one task (a copy).",
+	},
+	{
+		key = "ref",
+		group = "notes",
+		insert = "@ref(",
+		formats = { "@ref(Smith, 2020)", "@ref(Smith & Jones, 2019a)", "@ref(Lee, 2021; Kim, 2022)" },
+		where = "any line",
+		desc = "A reference: author and year. Tag searches find it by either, @[*/author(smith)], @[*/year(2020)], or whole, @[*/ref(Smith, 2020)]; cite it in the text with a footnote, [^Smith, 2020], defined on a line of its own: [^Smith, 2020]: the full citation.",
 	},
 	{
 		key = "xp",
@@ -195,9 +205,9 @@ M.list = {
 		key = "born",
 		group = "calendar",
 		insert = "@born(",
-		formats = { "@born(1990)", "@born(1961-07-02)" },
+		formats = { "@born(1990)", "@born(1961-07-02)", "@born(07-02-1961)", "@born(07-02)", "@born(Feb 1)", "@born(February 1, 2000)" },
 		where = "calendar, # Repeating only",
-		desc = "Shows the age after the entry's text on the day (a birthday).",
+		desc = "A birthday: a year shows the age after the entry's text; a day repeats it every year on that day.",
 	},
 	{
 		key = "for",
@@ -233,7 +243,17 @@ M.list = {
 		desc = "Slides: reveal this line (or each item of the slide) one click at a time.",
 	},
 	{
+		key = "attribute search",
+		pseudo = true, -- not an attribute: no completion item
+		group = "notes",
+		insert = "@[",
+		formats = { "@[*/status(reading)]", "@[R/author(knuth) year(1968)]" },
+		where = "tag searches",
+		desc = "A tag search finds attributes by their value too: key(value), compared without case or extra spaces.",
+	},
+	{
 		key = "tag",
+		pseudo = true,
 		group = "notes",
 		insert = "@",
 		formats = { "@rust", "@home", "@ai-model" },
@@ -287,7 +307,7 @@ function M.lines()
 		heading(g.title)
 		for _, e in ipairs(M.list) do
 			if e.group == g.id then
-				lines[#lines + 1] = string.format("  %-14s %s", "@" .. e.key, table.concat(e.formats, "  "))
+				lines[#lines + 1] = string.format("  %-14s %s", e.pseudo and e.key or ("@" .. e.key), table.concat(e.formats, "  "))
 				lines[#lines + 1] = string.format("  %-14s %s", "", e.desc)
 				lines[#lines + 1] = string.format("  %-14s on: %s", "", e.where)
 			end

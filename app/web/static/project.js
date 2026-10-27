@@ -1,4 +1,4 @@
-// zortex serve project page (-writable): tick tasks (POST /api/edit, which
+// zortex serve project page (-writable): tick tasks (POST /api/n/<note>, which
 // keeps calendar copies in step) and add a line to the project's log
 // (POST /api/project/log); the page reloads with the result.
 (function () {
@@ -22,7 +22,7 @@
     var btn = ev.target.closest("button.pcheck");
     if (!btn) return;
     btn.disabled = true;
-    post("/api/edit", { rel: rel, lnum: Number(btn.dataset.lnum), expect: btn.dataset.expect, op: "toggle" })
+    post("/api/n/" + String(rel).split("/").map(encodeURIComponent).join("/"), { lnum: Number(btn.dataset.lnum), expect: btn.dataset.expect, op: "toggle" })
       .then(function (res) {
         if (!res.ok) { alert(res.body.error || "Could not change the task"); }
         location.reload();

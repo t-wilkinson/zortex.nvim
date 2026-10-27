@@ -104,7 +104,7 @@
     if (ed && !ed.idle()) { waiting = true; return; }
     if (checking) { waiting = true; return; }
     checking = true; waiting = false;
-    fetch(base + "/api/note?rel=" + encodeURIComponent(rel), { cache: "no-store" })
+    fetch(base + "/api/n/" + String(rel).split("/").map(encodeURIComponent).join("/"), { cache: "no-store" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (res) {
         if (!res || String(res.mod) === body.dataset.mod) return;

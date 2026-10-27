@@ -28,13 +28,37 @@
     <a href="{{u "/okr"}}"{{if eq .Nav "okr"}} aria-current="page"{{end}}>Objectives</a>
     <a href="{{u "/areas"}}"{{if eq .Nav "areas"}} aria-current="page"{{end}}>Areas</a>
     <a href="{{u "/review"}}?day=today"{{if eq .Nav "review"}} aria-current="page"{{end}}>Review</a>
-    <a href="{{fileURL ""}}"{{if eq .Nav "files"}} aria-current="page"{{end}}>Files</a>
-    <a href="{{u "/broken"}}"{{if eq .Nav "broken"}} aria-current="page"{{end}}>Broken</a>
+    <div class="nav-menu">
+      <a href="{{fileURL ""}}"{{if eq .Nav "files"}} aria-current="page"{{end}}>Files</a><button type="button" class="nav-caret" aria-expanded="false" aria-controls="files-menu" aria-label="Folders and notes">▾</button>
+      <div class="nav-drop" id="files-menu">
+        <div class="nav-col">
+          <h3><a href="{{fileURL "z"}}">z/</a></h3>
+          <ul>{{range .Menu.Folders}}<li><a href="{{fileURL .}}">{{base .}}/</a></li>{{else}}<li class="dim">no folders in z/</li>{{end}}</ul>
+        </div>
+        <div class="nav-col">
+          <h3><a href="{{fileURL ""}}">Notes</a></h3>
+          <ul>{{range .Menu.Notes}}<li><a href="{{noteURL .Rel 0}}">{{.Title}}</a></li>{{end}}{{if .Menu.More}}<li><a class="dim" href="{{fileURL ""}}">{{.Menu.More}} more…</a></li>{{end}}</ul>
+        </div>
+      </div>
+    </div>
+    {{if .NavBroken}}<a href="{{u "/broken"}}"{{if eq .Nav "broken"}} aria-current="page"{{end}}>Broken</a>{{end}}
     <a href="{{u "/graph"}}"{{if eq .Nav "graph"}} aria-current="page"{{end}}>Graph</a>
   </nav>
 </header>
 <main>
 {{block "content" .}}{{end}}
 </main>
+<footer class="site-foot small">
+  <nav aria-label="More pages">
+    <a href="{{u "/search"}}">Search</a>
+    <a href="{{u "/tags"}}">Tags</a>
+    <a href="{{fileURL ""}}?show=all">Resources</a>
+    <a href="{{u "/broken"}}">Broken links{{if .NavBroken}} ({{.NavBroken}}){{end}}</a>
+    <a href="{{u "/attributes"}}">Attributes</a>
+    {{if .SiteWritable}}<a href="{{noteURL "inbox.zortex" 0}}">Inbox</a>{{end}}
+    <a href="{{u "/offline"}}">Saved pages</a>
+    <a href="{{u "/healthz"}}">Status</a>
+  </nav>
+</footer>
 </body>
 </html>

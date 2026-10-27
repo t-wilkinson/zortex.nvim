@@ -6,7 +6,7 @@
 --
 --   local server = require("zortex.notifications.server")
 --   server.enabled()
---   server.request("POST", "/notify", { ... }, function(ok, body, err) end)
+--   server.request("POST", "/api/notifications/sync", { ... }, function(ok, body, err) end)
 --   server.request_sync("GET", "/api/pomodoro")   -- blocking, short timeout
 --   server.send_calendar(list, cb)                -- replace the pending set
 --   server.send_now(title, message, cb)           -- one notification, now
@@ -143,7 +143,7 @@ local function user_id()
 	return cfg().user_id or "default"
 end
 
--- One notification as the server takes it (POST /notify)
+-- One notification as the server takes it (POST /api/notifications)
 local function wire(n)
 	return {
 		title = n.title,
@@ -164,22 +164,21 @@ function M.send_calendar(list, cb)
 	for _, n in ipairs(list) do
 		out[#out + 1] = wire(n)
 	end
-	M.request("POST", "/notify", { user_id = user_id(), operation = "sync", notifications = out }, cb, { timeout = 30 })
+	M.request("POST", "/api/notifications/sync", { user_id = user_id(), notifications = out }, cb, { timeout = 30 })
 end
 
 --- A notification now: the server sends it through ntfy (and it comes back
 --- to Neovim as an alert).
 function M.send_now(title, message, cb)
-	M.request("POST", "/notify", {
+	M.request("POST", "/api/notifications", {
 		user_id = user_id(),
-		operation = "notify",
 		notification = wire({ title = title, message = message, scheduled_time = os.time() }),
 	}, cb)
 end
 
 --- The notifications the server has yet to send: ok, list, err.
 function M.pending()
-	local ok, body, err = M.request_sync("GET", "/pending?user_id=" .. user_id())
+	local ok, body, err = M.request_sync("GET", "/api/notifications?user_id=" .. user_id())
 	return ok, ok and body and body.notifications or {}, err
 end
 

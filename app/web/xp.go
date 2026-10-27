@@ -244,21 +244,21 @@ func (s *Server) calibration() calibration { return calibrationOf(s.xpSummary())
 
 func (s *Server) apiXPPost(w http.ResponseWriter, r *http.Request) {
 	if !s.keyOK(r) {
-		writeJSON(w, http.StatusUnauthorized, map[string]any{"success": false, "error": "bad API key"})
+		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "bad API key"})
 		return
 	}
 	if !s.jsonOrKey(r) {
-		writeJSON(w, http.StatusUnsupportedMediaType, map[string]any{"success": false, "error": "send JSON"})
+		writeJSON(w, http.StatusUnsupportedMediaType, map[string]any{"error": "send JSON"})
 		return
 	}
 	raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
 	if err != nil {
-		writeJSON(w, http.StatusRequestEntityTooLarge, map[string]any{"success": false, "error": err.Error()})
+		writeJSON(w, http.StatusRequestEntityTooLarge, map[string]any{"error": err.Error()})
 		return
 	}
 	var obj map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &obj); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "error": "invalid JSON: " + err.Error()})
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid JSON: " + err.Error()})
 		return
 	}
 	if _, ok := obj["generated"]; !ok {
@@ -280,5 +280,5 @@ func (s *Server) apiXPPost(w http.ResponseWriter, r *http.Request) {
 			_ = os.Rename(tmp, path)
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"success": true})
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }

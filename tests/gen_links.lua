@@ -93,6 +93,12 @@ M.EXTRA_LINKS = {
 	{ link = "@[R/#Books/rust book]" },
 	{ link = "@[R/#Later/book]" }, -- the item, not its notes
 	{ link = "@[R/#Later/status]" },
+	{ link = "@[R/status(reading)]" }, -- an attribute with its value
+	{ link = "@[R/author(knuth)]" }, -- a reference's author, any year
+	{ link = "@[R/year(2009)]" },
+	{ link = "@[R/author(Van Rossum) year(2009)]" },
+	{ link = "@[R/ref(Knuth,  1968)]" },
+	{ link = "@[R/author(drake), year(1997)]" },
 	{ link = "@[Nope/rl]" },
 	-- is: words narrow to a kind of line
 	{ link = "@[R/rust is:heading]" },

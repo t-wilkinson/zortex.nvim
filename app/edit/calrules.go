@@ -200,7 +200,6 @@ var (
 	monthDayRe = regexp.MustCompile(`^(\d\d?)(?:[snrt][tdh])?$`)
 	mmddRe     = regexp.MustCompile(`^\d\d-\d\d$`)
 	isoDateRe  = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
-	yearRe     = regexp.MustCompile(`^(\d{4})`)
 )
 
 // ParseRepeat reads @repeat(…) and @on(…): days of the week (sun … sat,
@@ -292,12 +291,85 @@ func attrValue(line, name string) (string, bool) {
 	return m[1], true
 }
 
-// RuleOf: the rule on a line, or nil without @repeat(…) or @on(…).
+var (
+	bornYear     = regexp.MustCompile(`^(\d{4})$`)
+	bornISO      = regexp.MustCompile(`^(\d{4})-(\d{1,2})-(\d{1,2})$`)
+	bornUS       = regexp.MustCompile(`^(\d{1,2})-(\d{1,2})-(\d{4})$`)
+	bornMD       = regexp.MustCompile(`^(\d{1,2})-(\d{1,2})$`)
+	bornNameDY   = regexp.MustCompile(`^([a-z]+)\.?\s+(\d{1,2})[a-z]*,?\s*(\d{4})$`)
+	bornNameD    = regexp.MustCompile(`^([a-z]+)\.?\s+(\d{1,2})[a-z]*$`)
+	bornDNameY   = regexp.MustCompile(`^(\d{1,2})[a-z]*\s+([a-z]+)\.?,?\s*(\d{4})$`)
+	bornDName    = regexp.MustCompile(`^(\d{1,2})[a-z]*\s+([a-z]+)\.?$`)
+	monthNames   = []string{"january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"}
+	bornAnyMonth = func(name string) int {
+		if len(name) < 3 {
+			return 0
+		}
+		for i, full := range monthNames {
+			if strings.HasPrefix(full, name) {
+				return i + 1
+			}
+		}
+		return 0
+	}
+)
+
+// ParseBorn reads a @born(…) value: year, month, day (0 when not given),
+// and whether it is one (services/calendar_rules parse_born): "1990",
+// "1990-02-01", "02-01-1990" (month first), "02-01", "Feb 1", "February 1st",
+// "Feb 1, 2000", "1 Feb 2000".
+func ParseBorn(v string) (year, month, day int, ok bool) {
+	v = strings.ToLower(strings.TrimSpace(v))
+	atoi := func(s string) int { n, _ := strconv.Atoi(s); return n }
+	valid := func(y, m, d int) (int, int, int, bool) {
+		if m != 0 && (m < 1 || m > 12) || d != 0 && (d < 1 || d > 31) {
+			return 0, 0, 0, false
+		}
+		return y, m, d, true
+	}
+	if m := bornYear.FindStringSubmatch(v); m != nil {
+		return atoi(m[1]), 0, 0, true
+	}
+	if m := bornISO.FindStringSubmatch(v); m != nil {
+		return valid(atoi(m[1]), atoi(m[2]), atoi(m[3]))
+	}
+	if m := bornUS.FindStringSubmatch(v); m != nil {
+		return valid(atoi(m[3]), atoi(m[1]), atoi(m[2]))
+	}
+	if m := bornMD.FindStringSubmatch(v); m != nil {
+		return valid(0, atoi(m[1]), atoi(m[2]))
+	}
+	name, d, y := "", "", ""
+	if m := bornNameDY.FindStringSubmatch(v); m != nil {
+		name, d, y = m[1], m[2], m[3]
+	} else if m := bornNameD.FindStringSubmatch(v); m != nil {
+		name, d = m[1], m[2]
+	} else if m := bornDNameY.FindStringSubmatch(v); m != nil {
+		d, name, y = m[1], m[2], m[3]
+	} else if m := bornDName.FindStringSubmatch(v); m != nil {
+		d, name = m[1], m[2]
+	}
+	if mo := bornAnyMonth(name); mo > 0 {
+		return valid(atoi(y), mo, atoi(d))
+	}
+	return 0, 0, 0, false
+}
+
+// RuleOf: the rule on a line, or nil without @repeat(…), @on(…) or a
+// @born(…) with a month and day (a birthday, every year on that day).
 func RuleOf(line string, lnum int) *Rule {
 	spec, hasRepeat := attrValue(line, "repeat")
 	on, hasOn := attrValue(line, "on")
+	var by, bm, bd int
+	if born, ok := attrValue(line, "born"); ok {
+		by, bm, bd, _ = ParseBorn(born)
+	}
 	if !hasRepeat && !hasOn {
-		return nil
+		// a birthday: @born with a month and day repeats every year on it
+		if bm == 0 || bd == 0 {
+			return nil
+		}
+		on = fmt.Sprintf("%02d-%02d", bm, bd)
 	}
 	// the first @name(YYYY-MM-DD) (a @from holding a time is skipped)
 	date := func(name string) string {
@@ -310,14 +382,10 @@ func RuleOf(line string, lnum int) *Rule {
 	}
 	r := &Rule{Lnum: lnum, Line: line, Spec: ParseRepeat(spec + "," + on), From: date("from"), To: date("to")}
 	r.BadOn = hasOn && ParseRepeat(on).Unit != ""
-	if born, ok := attrValue(line, "born"); ok {
-		if m := yearRe.FindStringSubmatch(strings.TrimSpace(born)); m != nil {
-			r.Born, _ = strconv.Atoi(m[1])
-		}
-	}
+	r.Born = by
 	r.Anchor = r.From
-	if r.Anchor == "" {
-		r.Anchor = date("born")
+	if r.Anchor == "" && by > 0 && bm > 0 && bd > 0 {
+		r.Anchor = fmt.Sprintf("%04d-%02d-%02d", by, bm, bd)
 	}
 	return r
 }

@@ -247,6 +247,32 @@ function M.open(target)
 	end, { timeout = 4 })
 end
 
+--- This note in the web app, at the cursor's line, whatever the cursor is
+--- on (:ZortexOpenWeb); another file of the notes folder in the file
+--- viewer. Unsaved changes are written first, so the page shows them.
+function M.open_note()
+	local file = vim.api.nvim_buf_get_name(0)
+	if file == "" then
+		return notify("This buffer has no file", vim.log.levels.WARN)
+	end
+	if vim.bo.modified then
+		vim.cmd("silent! write")
+	end
+	local ext = Config.extension or ".zortex"
+	local path, err
+	if file:sub(-#ext) == ext then
+		path, err = M.note_path(file, buffer.get_cursor_pos())
+	else
+		path, err = M.file_path(file)
+	end
+	if not path then
+		return notify(err or "Not in the notes folder", vim.log.levels.WARN)
+	end
+	local target = { path = path }
+	M.open(target)
+	return target
+end
+
 --- What the cursor is on, shown in the web app.
 function M.open_at_cursor()
 	local file = vim.api.nvim_buf_get_name(0)

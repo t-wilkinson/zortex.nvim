@@ -576,6 +576,82 @@
         "marker_type": "bullet"
       },
       "kind": "item"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "blank"
+    },
+    {
+      "content_col": 2,
+      "heading": 1,
+      "indent": 0,
+      "inline": [],
+      "kind": "heading",
+      "level": 1,
+      "section": true,
+      "text": "Papers"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 51,
+          "key": "ref",
+          "s": 34,
+          "type": "attribute",
+          "value": "Knuth, 1968"
+        }
+      ],
+      "item": {
+        "content_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 48,
+          "key": "ref",
+          "s": 18,
+          "type": "attribute",
+          "value": "van Rossum & Drake, 2009"
+        }
+      ],
+      "item": {
+        "content_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 4,
+      "indent": 2,
+      "inline": [
+        {
+          "e": 33,
+          "key": "ref",
+          "s": 16,
+          "type": "attribute",
+          "value": "Knuth, 1997"
+        }
+      ],
+      "item": {
+        "content_col": 4,
+        "marker": "-",
+        "marker_col": 2,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
     }
   ],
   "sections": [
@@ -642,6 +718,12 @@
       "lnum": 33,
       "text": "Exercises",
       "type": "label"
+    },
+    {
+      "level": 1,
+      "lnum": 36,
+      "text": "Papers",
+      "type": "heading"
     }
   ],
   "version": 1

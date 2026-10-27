@@ -147,7 +147,7 @@ func TestLinkPage(t *testing.T) {
 	}
 	expect(t, ts, "/link?to=P", 200, "matches")
 	expect(t, ts, "/link?to=Nope", 404, "No article found: Nope")
-	_, _, body := get(t, ts, "/api/resolve?to=[P/%23Subaru]")
+	_, _, body := get(t, ts, "/api/link?to=[P/%23Subaru]")
 	if !strings.Contains(body, `"rel":"flipping.zortex"`) {
 		t.Errorf("api/resolve: %s", body)
 	}
@@ -169,7 +169,7 @@ func TestFollowLinks(t *testing.T) {
 		"2 links match; pick one.", `href="/n/z/garden.zortex#L4"`, `href="/n/flipping.zortex#L11"`)
 	// in a note: [R/#Rust/>The Rust Book] (a chain) goes to the book
 	expect(t, ts, "/n/z/resources.zortex", 200, `<a class="zl" href="https://doc.rust-lang.org/book"`)
-	_, _, body := get(t, ts, "/api/resolve?to="+url.QueryEscape("[R/>Spinning]"))
+	_, _, body := get(t, ts, "/api/link?to="+url.QueryEscape("[R/>Spinning]"))
 	if !strings.Contains(body, `"follow":"https://spinningup.openai.com"`) {
 		t.Errorf("api/resolve follow: %s", body)
 	}
@@ -306,11 +306,43 @@ func TestNav(t *testing.T) {
 	_, _, ts := newTestServer(t, "")
 	home := expect(t, ts, "/", 200)
 	nav := home[strings.Index(home, `<nav class="links">`):]
-	if nav = nav[:strings.Index(nav, "</nav>")]; strings.Contains(nav, "Calendar") {
+	if nav = nav[:strings.Index(nav, `<div class="nav-menu">`)]; strings.Contains(nav, "Calendar") {
 		t.Error("the calendar is on the home page, not a tab")
 	}
 	expect(t, ts, "/tags", 200, `href="/graph" aria-current="page"`)
 	expect(t, ts, "/f/z", 200, `href="/f/" aria-current="page"`)
+	// the Files menu: z/'s folders, the named notes at the top
+	menu := home[strings.Index(home, `id="files-menu"`):]
+	menu = menu[:strings.Index(menu, `</nav>`)]
+	for _, want := range []string{`href="/f/z/docs">docs/</a>`, `href="/n/projects.zortex">Projects</a>`, `href="/n/links.zortex">Links</a>`} {
+		if !strings.Contains(menu, want) {
+			t.Errorf("menu lacks %s:\n%s", want, menu)
+		}
+	}
+	if strings.Contains(menu, "2026-10-15.042") || strings.Contains(menu, "garden") {
+		t.Error("generated names and notes in folders stay out of the menu")
+	}
+	// /f/ lists z/'s folders under z/
+	expect(t, ts, "/f/", 200, `class="dir sub"`, `href="/f/z/docs">`)
+	// pages the bar doesn't list are in the footer; Broken is in the bar
+	// only when something is broken (the fixtures have broken links)
+	expect(t, ts, "/", 200, `<footer class="site-foot small">`, `href="/tags">Tags</a>`, `href="/attributes">Attributes</a>`, `href="/broken">Broken</a>`)
+}
+
+func TestNavHidesBrokenWhenNothingIs(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "a.zortex"), []byte("@@A\n\n- [B]\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "b.zortex"), []byte("@@B\n"), 0o644)
+	s, err := New(Config{Root: dir, Poll: -1, Logger: log.New(io.Discard, "", 0)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(s.Handler())
+	defer ts.Close()
+	page := expect(t, ts, "/", 200, `href="/broken">Broken links</a>`)
+	if top := page[:strings.Index(page, `<main>`)]; strings.Contains(top, `href="/broken"`) {
+		t.Error("nothing broken: no Broken in the bar")
+	}
 }
 
 func TestBasePath(t *testing.T) {

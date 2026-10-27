@@ -104,6 +104,7 @@ type entry struct {
 	Resource bool // tracked resource (see resources.go)
 	Links    int  // resource: links to it
 	Unlinked int  // folder: unlinked resources inside it
+	Sub      bool // a folder of z/ listed at the top level (z/books)
 }
 
 // resolvePath maps a rel path to an absolute path inside the folder,
@@ -320,6 +321,10 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 	}
 	if !st.IsDir() {
 		if s.isNote(rel) {
+			if wantsJSON(r) {
+				http.Redirect(w, r, s.url("/api/n/"+escapePath(rel)), http.StatusFound)
+				return
+			}
 			http.Redirect(w, r, s.noteURL(rel, 0), http.StatusFound)
 			return
 		}
@@ -335,6 +340,10 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.notFound(w, r, "Can't read folder: "+rel)
 		return
+	}
+	if rel == "" {
+		// z/'s folders (books, feeds, archives) one click away, under z/
+		entries = append(entries, s.zFolders()...)
 	}
 	ls := parseListSort(r.URL.Query())
 	ls.apply(entries)

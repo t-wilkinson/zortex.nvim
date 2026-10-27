@@ -782,6 +782,14 @@ M.list = {
 	},
 
 	{
+		id = "open_web",
+		command = "OpenWeb",
+		key = "W",
+		group = "Files",
+		desc = "Open this note in the web app, at the cursor's line (any other file in the notes folder in its viewer)",
+		run = call("zortex.features.web", "open_note"),
+	},
+	{
 		id = "present",
 		command = "Present",
 		key = "S",

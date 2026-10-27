@@ -23,7 +23,7 @@ import (
 // Editing (zortex serve -writable): small, line-level changes to notes from
 // the web, for when you're away from Neovim:
 //
-//	POST /api/edit   {rel, lnum, expect, op, text?, kind?}
+//	POST /api/n/{rel} {lnum, expect, op, text?, kind?}
 //	  op open | done | toggle | text    task state (app/edit, as Neovim does it)
 //	     set                            replace the line's text after its marker
 //	     delete                         remove the line
@@ -452,17 +452,17 @@ func (s *Server) noteState(rel string) map[string]any {
 	if doc == nil {
 		return map[string]any{}
 	}
-	out := map[string]any{"body": s.renderNote(doc), "mod": doc.ModTime.UnixNano()}
+	out := map[string]any{"rel": rel, "title": doc.Title(), "body": s.renderNote(doc), "mod": doc.ModTime.UnixNano()}
 	if s.cfg.Writable {
 		out["src"] = s.lineSources(doc.Lines)
 	}
 	return out
 }
 
-// apiNote: GET /api/note?rel= -> {body, mod, src?}: an open page redraws a
-// note that changed (see /api/events).
+// apiNote: GET /api/n/{rel} -> {rel, title, body, mod, src?}: the note
+// rendered (an open page redraws a note that changed, see /api/events).
 func (s *Server) apiNote(w http.ResponseWriter, r *http.Request) {
-	rel := r.URL.Query().Get("rel")
+	rel, _ := cleanRel(r.PathValue("rel"))
 	if s.ix.Doc(rel) == nil {
 		writeJSON(w, http.StatusNotFound, map[string]any{"error": "no such note"})
 		return
@@ -507,6 +507,7 @@ func (s *Server) apiEdit(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid JSON: " + err.Error()})
 		return
 	}
+	req.Rel = r.PathValue("rel") // POST /api/n/{rel}
 	rel, ok := cleanRel(req.Rel)
 	if !ok || rel == "" || !s.isNote(rel) || s.ix.Doc(rel) == nil {
 		writeJSON(w, http.StatusNotFound, map[string]any{"error": "no such note: " + req.Rel})

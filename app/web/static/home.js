@@ -189,7 +189,7 @@
       // a repeating task's occurrence without its copy yet: make the copy
       var req = e.repeat && !e.copy ?
         { url: "/api/calendar/repeat", body: { lnum: e.lnum, expect: e.src, date: e.date } } :
-        { url: "/api/edit", body: { rel: e.rel, lnum: e.lnum, expect: e.src, op: "toggle" } };
+        { url: "/api/n/" + String(e.rel).split("/").map(encodeURIComponent).join("/"), body: { lnum: e.lnum, expect: e.src, op: "toggle" } };
       fetch(base + req.url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

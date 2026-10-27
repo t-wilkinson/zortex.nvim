@@ -11,7 +11,7 @@
 #   - the notes web app: rendered notes, links, backlinks, search, files,
 #     and with web.writable light editing and time tracking
 #   - the calendar (from calendar.zortex) and the notification API Neovim
-#     syncs to (POST /notify); due notifications go out through ntfy when
+#     syncs to (/api/notifications); due notifications go out through ntfy when
 #     ntfy.topic is set
 #   - the pomodoro clock shared by Neovim and the home page, and the home
 #     page's timers, alarms and stopwatch
@@ -68,6 +68,7 @@ let
     web.title
     "-poll"
     web.pollInterval
+    "-watch=${boolToString web.watch}"
     "-data"
     (toString cfg.dataDir)
   ]
@@ -164,7 +165,8 @@ in
       type = types.nullOr types.str;
       default = null;
       description = ''
-        Shared secret for the endpoints Neovim uses (/notify, /pending), sent
+        Shared secret for the endpoints Neovim uses (/api/notifications,
+        /api/alerts, /api/xp, /api/open), sent
         as X-API-Key (the plugin's server.api_key). Ends up in the Nix store;
         prefer apiKeyFile.
       '';
@@ -321,7 +323,7 @@ in
         description = ''
           URL path prefix when the proxy serves the app below "/" (the
           proxy passes the prefix through; the app strips it). The
-          notification API is then at <basePath>/notify.
+          API is then at <basePath>/api/….
         '';
       };
 
@@ -336,8 +338,19 @@ in
         default = "3s";
         example = "1m";
         description = ''
-          How often to rescan notesDir (a Go duration). A rescan only
-          re-reads changed files.
+          How often to rescan notesDir (a Go duration), besides watching
+          it. A rescan only re-reads changed files.
+        '';
+      };
+
+      watch = mkOption {
+        type = types.bool;
+        default = true;
+        description = ''
+          Watch notesDir with inotify, so a synced edit shows on the site
+          within about a second rather than at the next rescan. Raise
+          boot.kernel.sysctl."fs.inotify.max_user_watches" for a folder of
+          many thousands of subfolders.
         '';
       };
 

@@ -62,10 +62,15 @@ Whatever you use:
 - **Keep history.** A sync tool copies a mistake to every device; keep
   the folder in git on this machine (the README's
   [Backups](../README.md#backups) has a daily commit).
-- **Syncthing: lower the delay.** Syncthing waits 10 s before syncing a
-  change by default; set the folder's *Advanced → fsWatcherDelayS* to 1 or
-  2 so the web pages follow Neovim closely. The server itself rescans every
-  3 s (`-poll`).
+- **Syncthing: lower the delay where you edit.** Syncthing waits 10 s
+  before it notices a change by default. *fsWatcherDelayS* is how long the
+  device whose file changed waits, so set it to 1 on every device you edit
+  on (laptop, phone), not only on the server; on NixOS it is
+  `services.syncthing.settings.folders.<name>.fsWatcherDelayS = 1` (note
+  `folders`). A device whose watcher is off (*fsWatcherEnabled*, or a phone
+  app's battery saver) only finds changes at its full rescan, up to an hour.
+  The server picks up a synced file as soon as it lands (inotify, on Linux;
+  `-watch`) and rescans every 3 s as well (`-poll`).
 
 ## 2. Run it
 
@@ -233,7 +238,7 @@ note as slides at the slide under the cursor; set `server.web_url` when the
 browser reaches the web app at another address than `api_endpoint`.
 
 Set `-api-key` (or `ZORTEX_API_KEY`) on the server so only Neovim can post
-to `/notify`, `/pending` and `/api/xp` and read `/api/alerts`; the
+to `/api/notifications` and `/api/xp` and read `/api/alerts`; the
 browser pages don't need it.
 
 ## 6. Other calendars

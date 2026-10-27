@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/t-wilkinson/zortex.nvim/app/notes"
+	"github.com/t-wilkinson/zortex.nvim/app/syntax"
 )
 
 // tests/fixtures/resolve.json is written by the Lua resolver
@@ -100,5 +101,21 @@ func TestParse(t *testing.T) {
 	}
 	if c := d.Components[2]; c.Type != "query" || c.Text != "a b" {
 		t.Errorf("query: %+v", c)
+	}
+}
+
+// Attribute terms: @[status(reading)], and a reference's author and year.
+func TestAttributeTermsInTagSearches(t *testing.T) {
+	q := ParseTagSearch("*/author(Van Rossum) year(2020), ref(Smith,  2020)")
+	if len(q.Groups) != 2 || q.Groups[0][0] != "author(van rossum)" || q.Groups[0][1] != "year(2020)" || q.Groups[1][0] != "ref(smith,2020)" {
+		t.Fatalf("%q", q.Groups)
+	}
+	line := "- notes @ref(Smith & Jones et al., 2019a; Lee, 2021) @status(Reading)"
+	sp := syntax.Inline(line, 2, len(line))
+	terms := AttributeTerms(sp)
+	for _, want := range []string{"ref(smith & jones et al.,2019a;lee,2021)", "author(smith & jones et al.)", "author(smith & jones)", "author(smith)", "author(jones)", "year(2019a)", "author(lee)", "year(2021)", "status(reading)"} {
+		if _, ok := terms[want]; !ok {
+			t.Errorf("no %q in %v", want, terms)
+		}
 	}
 }

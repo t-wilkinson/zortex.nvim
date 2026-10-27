@@ -19,7 +19,7 @@ var MAX_PAGES = 60;
 var OFFLINE = BASE + "/offline";
 // pages that are never kept: the API and everything that changes notes or
 // streams (the network only)
-var NETWORK_ONLY = /^\/(api|f|raw|notify|pending|test|sw\.js|manifest\.webmanifest)(\/|$)/;
+var NETWORK_ONLY = /^\/(api|f|raw|sw\.js|manifest\.webmanifest)(\/|$)/;
 
 self.addEventListener("install", function (event) {
   var core = ["style.css", "app.js", "hover.js", "live.js", "tables.js", "inbox.js", "math.js", "icon.svg"].map(function (f) {

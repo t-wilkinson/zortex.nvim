@@ -96,8 +96,17 @@ func (s *Server) parseTemplates() error {
 // render executes a page inside the layout (or, for partial requests, just
 // its "content" block).
 func (s *Server) render(w http.ResponseWriter, r *http.Request, page string, status int, data map[string]any) {
+	if wantsJSON(r) {
+		s.pageJSON(w, page, status, data) // /api/<page>: its data (pagejson.go)
+		return
+	}
 	data["Site"] = s.cfg.Title
 	data["Base"] = s.cfg.Base
+	// the top bar: the Files menu, and Broken only when something is
+	snap := s.current()
+	data["Menu"] = snap.nav
+	data["NavBroken"] = len(snap.broken)
+	data["SiteWritable"] = s.cfg.Writable
 	data["Nav"] = navOf[page]
 	if tab, ok := data["NavTab"].(string); ok && tab != "" {
 		data["Nav"] = tab

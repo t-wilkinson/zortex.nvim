@@ -510,6 +510,16 @@
     "results": []
   },
   {
+    "link": "[Resources/#Papers]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 36,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
     "from": "z/resources.zortex",
     "link": "@[rust, rl]",
     "results": [
@@ -1425,6 +1435,76 @@
     "error": "No matches found for: @[R/#Later/status]",
     "link": "@[R/#Later/status]",
     "results": []
+  },
+  {
+    "link": "@[R/status(reading)]",
+    "results": [
+      {
+        "col": 66,
+        "lnum": 25,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "@[R/author(knuth)]",
+    "results": [
+      {
+        "col": 35,
+        "lnum": 37,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 17,
+        "lnum": 39,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "@[R/year(2009)]",
+    "results": [
+      {
+        "col": 19,
+        "lnum": 38,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "@[R/author(Van Rossum) year(2009)]",
+    "results": [
+      {
+        "col": 19,
+        "lnum": 38,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "@[R/ref(Knuth,  1968)]",
+    "results": [
+      {
+        "col": 35,
+        "lnum": 37,
+        "rel": "z/resources.zortex"
+      }
+    ]
+  },
+  {
+    "link": "@[R/author(drake), year(1997)]",
+    "results": [
+      {
+        "col": 19,
+        "lnum": 38,
+        "rel": "z/resources.zortex"
+      },
+      {
+        "col": 17,
+        "lnum": 39,
+        "rel": "z/resources.zortex"
+      }
+    ]
   },
   {
     "error": "No article found: Nope",

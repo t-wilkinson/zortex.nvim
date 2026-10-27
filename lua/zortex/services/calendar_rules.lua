@@ -337,16 +337,98 @@ local function dated(line, name)
 	end
 end
 
+local MONTHS = {
+	"january",
+	"february",
+	"march",
+	"april",
+	"may",
+	"june",
+	"july",
+	"august",
+	"september",
+	"october",
+	"november",
+	"december",
+}
+
+-- "feb", "February", "sept" -> 2, 2, 9 (three letters at least)
+local function month_of(name)
+	name = name:lower()
+	if #name < 3 then
+		return nil
+	end
+	for i, full in ipairs(MONTHS) do
+		if full:sub(1, #name) == name then
+			return i
+		end
+	end
+end
+
+--- A @born(…) value: year, month, day (each nil when not given). Years
+--- ("1990"), dates ("1990-02-01", "02-01-1990" month first, "02-01"), and
+--- month names ("Feb 1", "February 1st", "Feb 1, 2000", "1 Feb 2000").
+function M.parse_born(v)
+	v = vim.trim(v or ""):lower()
+	local function ok(y, m, d)
+		m, d = tonumber(m), tonumber(d)
+		if m and (m < 1 or m > 12) or d and (d < 1 or d > 31) then
+			return nil
+		end
+		return tonumber(y), m, d
+	end
+	local y = v:match("^(%d%d%d%d)$")
+	if y then
+		return tonumber(y)
+	end
+	local m, d
+	y, m, d = v:match("^(%d%d%d%d)%-(%d%d?)%-(%d%d?)$")
+	if y then
+		return ok(y, m, d)
+	end
+	m, d, y = v:match("^(%d%d?)%-(%d%d?)%-(%d%d%d%d)$")
+	if m then
+		return ok(y, m, d)
+	end
+	m, d = v:match("^(%d%d?)%-(%d%d?)$")
+	if m then
+		return ok(nil, m, d)
+	end
+	local name
+	name, d, y = v:match("^(%a+)%.?%s+(%d%d?)%a*,?%s*(%d%d%d%d)$")
+	if not name then
+		name, d = v:match("^(%a+)%.?%s+(%d%d?)%a*$")
+	end
+	if not name then
+		d, name, y = v:match("^(%d%d?)%a*%s+(%a+)%.?,?%s*(%d%d%d%d)$")
+	end
+	if not name then
+		d, name = v:match("^(%d%d?)%a*%s+(%a+)%.?$")
+	end
+	m = name and month_of(name)
+	if m then
+		return ok(y, m, d)
+	end
+	return nil
+end
+
 --- The rule on a line of the Repeating section (an item with @repeat(…)
---- or @on(…)), or nil: { lnum, line, spec, from?, to?, anchor?, born?
+--- or @on(…), or a @born(…) with a month and day: a birthday, every year
+--- on that day), or nil: { lnum, line, spec, from?, to?, anchor?, born?
 --- (year), bad_on? (@on holds how often, not days) }
 function M.rule(line, lnum)
 	local spec, on = attr(line, "repeat"), attr(line, "on")
-	if not spec and not on then
-		return nil
-	end
 	local born = attr(line, "born")
-	local born_date = date_of(born)
+	local by, bm, bd
+	if born then
+		by, bm, bd = M.parse_born(born)
+	end
+	if not spec and not on then
+		if not (bm and bd) then
+			return nil
+		end
+		on = string.format("%02d-%02d", bm, bd)
+	end
 	local rule = {
 		lnum = lnum,
 		line = line,
@@ -354,9 +436,9 @@ function M.rule(line, lnum)
 		bad_on = on and M.parse_spec(on).unit ~= nil or nil,
 		from = dated(line, "from"),
 		to = dated(line, "to"),
-		born = born and tonumber(vim.trim(born):match("^(%d%d%d%d)")) or nil,
+		born = by,
 	}
-	rule.anchor = rule.from or born_date
+	rule.anchor = rule.from or (by and bm and bd and string.format("%04d-%02d-%02d", by, bm, bd)) or nil
 	return rule
 end
 
@@ -416,6 +498,10 @@ function M.problems(lines)
 			add(r.lnum, which, "Not a repeat: daily, weekly, 2w, mon, weekdays, 03-14, 15th, 2nd tue, last")
 		elseif needs_anchor(r.spec) and not r.anchor then
 			add(r.lnum, "@repeat%b()", "Every n counts from a first day: add @from(YYYY-MM-DD)")
+		end
+		local born = attr(line, "born")
+		if born and not M.parse_born(born) then
+			add(r.lnum, "@born%b()", "Not a birth date: 1990, 02-01, Feb 1, Feb 1 2000, 1990-02-01 or 02-01-1990")
 		end
 		if r.from and r.to and r.to < r.from then
 			add(r.lnum, "@to%b()", "@to is before @from: it never shows")

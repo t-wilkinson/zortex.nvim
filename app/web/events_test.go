@@ -96,18 +96,18 @@ func TestEvents(t *testing.T) {
 		t.Fatalf("notes event: %s", ev)
 	}
 	// the page fetches the new note
-	code, out := getJSON(t, ts, "/api/note?rel=flipping.zortex")
+	code, out := getJSON(t, ts, "/api/n/flipping.zortex")
 	if code != 200 || !strings.Contains(out["body"].(string), "synced line") || out["mod"] == nil || out["src"] == nil {
 		t.Fatalf("/api/note: %d %v", code, out)
 	}
-	if code, _ := getJSON(t, ts, "/api/note?rel=../etc/passwd"); code != 404 {
+	if code, _ := getJSON(t, ts, "/api/n/../etc/passwd"); code != 404 {
 		t.Fatalf("/api/note outside: %d", code)
 	}
 
 	// an edit from the web
 	lines := readLines(t, path)
 	n := lineOf(t, lines, "synced line")
-	postJSON(t, ts.URL, "/api/edit", map[string]any{"rel": "flipping.zortex", "lnum": n, "expect": lines[n-1], "op": "done"})
+	postJSON(t, ts.URL, "/api/n/flipping.zortex", map[string]any{"lnum": n, "expect": lines[n-1], "op": "done"})
 	next(t, ch, "notes")
 
 	// the pomodoro clock

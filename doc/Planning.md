@@ -325,6 +325,8 @@ Outcomes:
 ## Birthdays
 - Sam's birthday @on(03-14) @born(1990)
 - Dad @repeat(yearly) @born(1961-07-02)
+- Ana @born(Feb 1, 2000)
+- Lee @born(07-19)
 ## Routines
 - [ ] Weekly review @repeat(weekly) @on(sun) @at(12:00)
 - [ ] Bins out @repeat(2w) @from(2026-10-06) @at(18:00)
@@ -362,8 +364,12 @@ Outcomes:
   holding a time (`@from(07:30) @to(08:15)`) is still the entry's time.
   `@repeat` and `@on` are read only in this section; the calendar note marks
   one elsewhere, a rule every n without `@from`, and a value it can't read.
-  `@born(1990)` shows the age: `Sam's birthday (36)`; `@born(1961-07-02)`
-  also anchors `yearly`.
+  `@born(1990)` shows the age: `Sam's birthday (36)`. A `@born` that names
+  the day is a birthday on its own, every year on that day (no `@repeat` or
+  `@on` needed): `1961-07-02`, `07-02-1961` (month first), `07-02`,
+  `Feb 1`, `February 1`, `Feb 1, 2000` (`1st` and `1 Feb 2000` read too).
+  With a year it shows the age; without one only the day. The calendar note
+  marks a `@born` it can't read.
 - **A repeating task** (`[ ]`) is ticked where it shows (`x` in the calendar
   view, its box on the web): it is copied, done, into the day you did it
   (today), with `@for(2026-10-18)` when that was another day. The copy

@@ -74,19 +74,19 @@ func post(t *testing.T, ts *httptest.Server, path, body string, header map[strin
 func TestNotifyAPI(t *testing.T) {
 	_, _, ts, _ := newStateServer(t, "secret")
 	at := time.Now().Add(time.Hour).Unix()
-	body := `{"user_id":"me","operation":"sync","notifications":[{"title":"Dentist","message":"-","scheduled_time":` + itoa(int(at)) + `,"deduplication_key":"cal_1","entry_id":"Dentist"}]}`
-	if code, _ := post(t, ts, "/notify", body, nil); code != 401 {
+	body := `{"user_id":"me","notifications":[{"title":"Dentist","message":"-","scheduled_time":` + itoa(int(at)) + `,"deduplication_key":"cal_1","entry_id":"Dentist"}]}`
+	if code, _ := post(t, ts, "/api/notifications/sync", body, nil); code != 401 {
 		t.Fatalf("no key: %d", code)
 	}
-	code, out := post(t, ts, "/notify", body, map[string]string{"X-API-Key": "secret"})
-	if code != 200 || out["added"] != float64(1) {
+	code, out := post(t, ts, "/api/notifications/sync", body, map[string]string{"X-API-Key": "secret"})
+	if code != 200 || out["added"] != float64(1) || out["ok"] != true {
 		t.Fatalf("sync: %d %v", code, out)
 	}
-	_, out = post(t, ts, "/notify", body, map[string]string{"X-API-Key": "secret"})
+	_, out = post(t, ts, "/api/notifications/sync", body, map[string]string{"X-API-Key": "secret"})
 	if out["unchanged"] != true {
 		t.Fatalf("second sync should be unchanged: %v", out)
 	}
-	req, _ := http.NewRequest("GET", ts.URL+"/pending?user_id=me", nil)
+	req, _ := http.NewRequest("GET", ts.URL+"/api/notifications?user_id=me", nil)
 	req.Header.Set("X-API-Key", "secret")
 	resp, _ := http.DefaultClient.Do(req)
 	raw, _ := io.ReadAll(resp.Body)
@@ -94,7 +94,21 @@ func TestNotifyAPI(t *testing.T) {
 	if !strings.Contains(string(raw), `"count":1`) || !strings.Contains(string(raw), "Dentist") {
 		t.Fatalf("pending: %s", raw)
 	}
-	expect(t, ts, "/api/summary", 200, `"pending_count":1`, `Dentist`)
+	expect(t, ts, "/api/summary", 200, `"pending":1`, `Dentist`)
+	// one more, then none: errors are {"error"}, never "success"
+	one := `{"user_id":"me","notification":{"title":"Call","message":"-","scheduled_time":` + itoa(int(at)) + `}}`
+	if code, out := post(t, ts, "/api/notifications", one, map[string]string{"X-API-Key": "secret"}); code != 200 || out["ok"] != true || out["duplicate"] != false {
+		t.Fatalf("add: %d %v", code, out)
+	}
+	if code, out := post(t, ts, "/api/notifications/clear", `{"user_id":"me"}`, map[string]string{"X-API-Key": "secret"}); code != 200 || out["deleted"] != float64(2) {
+		t.Fatalf("clear: %d %v", code, out)
+	}
+	if code, out := post(t, ts, "/api/notifications/sync", `{nope`, map[string]string{"X-API-Key": "secret"}); code != 400 || out["error"] == nil || out["success"] != nil {
+		t.Fatalf("bad JSON: %d %v", code, out)
+	}
+	if code, out := post(t, ts, "/api/nothing", `{}`, nil); code != 404 || out["error"] == nil {
+		t.Fatalf("unknown endpoint: %d %v", code, out)
+	}
 }
 
 // A notification coming due is an alert Neovim can ask for: /api/alerts
@@ -120,8 +134,8 @@ func TestFiredAlerts(t *testing.T) {
 	if start["seq"] != float64(0) || len(start["alerts"].([]any)) != 0 {
 		t.Fatalf("start: %v", start)
 	}
-	body := `{"user_id":"me","operation":"notify","notification":{"title":"Dentist","message":"12:00","scheduled_time":` + itoa(int(time.Now().Unix()-5)) + `}}`
-	if code, out := post(t, ts, "/notify", body, map[string]string{"X-API-Key": "secret"}); code != 200 {
+	body := `{"user_id":"me","notification":{"title":"Dentist","message":"12:00","scheduled_time":` + itoa(int(time.Now().Unix()-5)) + `}}`
+	if code, out := post(t, ts, "/api/notifications", body, map[string]string{"X-API-Key": "secret"}); code != 200 {
 		t.Fatalf("notify: %d %v", code, out)
 	}
 	s.sender.SendDue(context.Background(), time.Now())
@@ -215,7 +229,7 @@ func TestStructure(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "structure.zortex"), []byte("@@Structure\n@@S\n\n- [Projects]\n- [Areas]\n- [Hub]\n"), 0o644)
 	os.WriteFile(filepath.Join(dir, "hub.zortex"), []byte("@@Hub\n@Structure\n\n- [Calendar]\n"), 0o644)
 	s.Refresh()
-	raw := expect(t, ts, "/api/structure", 200, `"structure.zortex"`, `"hub.zortex"`)
+	raw := expect(t, ts, "/api/graph", 200, `"structure.zortex"`, `"hub.zortex"`)
 	var out struct {
 		Unlinked []struct{ Rel string } `json:"unlinked"`
 	}

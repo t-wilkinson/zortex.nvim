@@ -86,8 +86,8 @@ func TestReviewWindows(t *testing.T) {
 			}
 		}
 	}
-	if shownLink("1.4 - zortex", "[P/#1 Programming/#1.4 - zortex]") != "[1.4 - zortex](P/#1 Programming/#1.4 - zortex)" {
-		t.Error(shownLink("1.4 - zortex", "[P/#1 Programming/#1.4 - zortex]"))
+	if got := bracketLink("[P/#1 Programming/#1.4 - zortex]"); got != "[P/#1 Programming/#1.4 - zortex]" {
+		t.Error(got)
 	}
 	if withArea("- [x] Done @area(9) @done(2026-10-06)", "4.1") != "- [x] Done @done(2026-10-06) @a(4.1)" {
 		t.Error(withArea("- [x] Done @area(9) @done(2026-10-06)", "4.1"))
@@ -207,7 +207,7 @@ func TestDailyReviewOnTheWeb(t *testing.T) {
 			t.Fatalf("focus: %d %v", code, out)
 		}
 		rv = strings.Join(readLines(t, filepath.Join(dir, "reviews.zortex")), "\n")
-		if strings.Contains(rv, "- [1.4 - esp32](P/#1 Programming/#1.4 - esp32)") != want {
+		if strings.Contains(rv, "- [P/#1 Programming/#1.4 - esp32]") != want {
 			t.Fatalf("focus %v:\n%s", want, rv)
 		}
 		s.Refresh()

@@ -24,11 +24,11 @@ T.test("render: sections with counts and links", function()
 	T.ok(find(lines, "## Broken links (F: fix from the search) (1)"), "broken links header")
 
 	local i, line = find(lines, "Change task sizes")
-	T.ok(line:find("[1.4 - zortex](P/", 1, true), line) -- due task links its project, by name
+	T.ok(line:find("[P/#1 Programming/#1.4 - zortex]", 1, true), line) -- due task links its project
 	T.eq(locations[i].lnum > 0, true)
 
-	local _, kr = find(lines, "- [KR1: ")
-	T.ok(kr and kr:find("](O/", 1, true), kr)
+	local _, kr = find(lines, "/-KR1] ")
+	T.ok(kr and kr:find("[O/", 1, true), kr)
 
 	-- every link rendered resolves (except the broken ones, listed last)
 	local resolver = require("zortex.core.link")

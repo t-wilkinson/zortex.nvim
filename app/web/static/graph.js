@@ -61,9 +61,16 @@
   // ---- masonry ---------------------------------------------------------------
   // Each card spans as many of the grid's thin rows as its height (and the
   // gap under it) needs, so short cards fill in under short ones instead of
-  // leaving holes next to tall ones; wide cards keep their two columns. A
-  // card is re-measured whenever its size changes: a list opened or closed,
-  // the filter, the window.
+  // leaving holes next to tall ones. A card is re-measured whenever its size
+  // changes: a list opened or closed, the filter, the window.
+  //
+  // A long card spreads over more grid columns, its list in as many
+  // columns inside, when its text would mostly fill them: enough columns
+  // for each to fit the window, unless they'd be under 60% full (a card a
+  // bit taller than the window stays one column), as many as the grid has. Measured at one column; again when a list in it opens or
+  // closes, the filter changes or the window resizes. (Without the script,
+  // the server's guess, .gt-wide, gives big cards two columns.)
+  var spreadAll = function () {};
   var cols = page.querySelector(".gt-cols");
   if (cols && window.ResizeObserver) {
     cols.classList.add("masonry");
@@ -74,10 +81,64 @@
       var gap = parseFloat(getComputedStyle(card).marginBottom) || 0;
       card.style.gridRowEnd = "span " + Math.max(1, Math.ceil((h + gap) / unit));
     };
+    var gridColumns = function () {
+      var t = getComputedStyle(cols).gridTemplateColumns;
+      return t && t !== "none" ? t.trim().split(/\s+/).length : 1;
+    };
+    var spread = function (card, most) {
+      var list = card.querySelector(":scope > ul.gt");
+      card.classList.remove("gt-wide", "gt-multi");
+      card.style.gridColumn = "";
+      if (list) list.style.columnCount = "";
+      var h = card.getBoundingClientRect().height;
+      if (!h || !list) return;
+      var room = Math.max(240, window.innerHeight - 96);
+      // enough columns to fit the window, unless that leaves them mostly
+      // empty (under 60% of a window each): then one fewer
+      var n = Math.max(1, Math.ceil(h / room));
+      if (n > 1 && h / (n * room) < 0.6) n--;
+      n = Math.min(most, n);
+      if (n > 1) {
+        card.classList.add("gt-multi");
+        card.style.gridColumn = "span " + n;
+        list.style.columnCount = n;
+      }
+    };
+    spreadAll = function () {
+      var most = gridColumns();
+      each(cols.querySelectorAll(".gt-card"), function (card) { spread(card, most); });
+    };
     var ro = new ResizeObserver(function (entries) {
       entries.forEach(function (e) { fit(e.target); });
     });
-    each(cols.querySelectorAll(".gt-card"), function (card) { fit(card); ro.observe(card); });
+    // a list opened or closed: once per card per frame (the filter opens many)
+    var queued = [];
+    var later = function (card) {
+      if (queued.indexOf(card) >= 0) return;
+      queued.push(card);
+      if (queued.length === 1) requestAnimationFrame(function () {
+        var most = gridColumns(), list = queued;
+        queued = [];
+        list.forEach(function (c) { spread(c, most); });
+      });
+    };
+    each(cols.querySelectorAll(".gt-card"), function (card) {
+      ro.observe(card);
+      // "toggle" doesn't bubble: listen in the capture phase
+      card.addEventListener("toggle", function () { later(card); }, true);
+    });
+    spreadAll();
+    each(cols.querySelectorAll(".gt-card"), fit);
+    var resizing = null, lastWidth = window.innerWidth, lastHeight = window.innerHeight;
+    window.addEventListener("resize", function () {
+      clearTimeout(resizing);
+      resizing = setTimeout(function () {
+        if (window.innerWidth === lastWidth && Math.abs(window.innerHeight - lastHeight) < 80) return; // a phone's toolbar
+        lastWidth = window.innerWidth;
+        lastHeight = window.innerHeight;
+        spreadAll();
+      }, 150);
+    });
   }
 
   // ---- (children): to where a note listed again is expanded ----------------
@@ -182,6 +243,7 @@
     if (status) {
       status.textContent = on ? found + (found === 1 ? " note" : " notes") + ", " + shownTags + (shownTags === 1 ? " tag" : " tags") : "";
     }
+    spreadAll();
   }
   if (box) {
     box.addEventListener("input", filter);

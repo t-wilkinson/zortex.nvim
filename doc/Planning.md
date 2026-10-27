@@ -89,14 +89,13 @@ Vision: fit enough to say yes to any hike
   no objective this period
 ```
 
-The reviews and the lines they write (focus projects, a project linked to
-a key result) link by name, `[name](link)`, so a line reads as text and
-still goes where it points (in Neovim the link part is hidden). The planner
-and what it puts on the calendar use the link itself,
-`[P/#1 Programming/#1.4 - zortex]`, `[./-Improve website]`: a task's link
+The reviews, the planner and the lines they write (focus projects, copies
+on the calendar, a project linked to a key result) use links as written:
+`[P/#1 Programming/#1.4 - zortex]`, `[./-Improve website]`. A task's link
 names it by its text, whose own links count without their brackets (`- To
-[this link]` is `-To this link`). Where it is listed (under its area, its
-objective, its project) says the rest.
+[this link]` is `-To this link`); a key result's names only its id, so its
+text follows (`[O/#…/-KR2] Search works`). Where it is listed (under its
+area, its objective, its project) says the rest.
 
 Each area shows its vision, the objectives this period that name it,
 their key results and the projects those link; then the area's projects no

@@ -84,11 +84,10 @@ that share one folder of plain-text notes.
   "Coming up" lists events, `:ZortexToday`, `:ZortexNow` and
   `:ZortexTimeShift`; notifications for timed lines, and for all-day lines
   at `notifications.all_day_time`; other calendars' events, read-only.
-- The reviews and the lines they write (focus projects, a project linked
-  to a key result) show links by their names:
-  `[1.4 - zortex](P/#1 Programming/#1.4 - zortex)`; the planner and the
-  copies it puts on the calendar use the links themselves
-  (`[P/#1 Programming/#1.4 - zortex]`, `[./-Improve website]`). Calendar
+- The planner, the reviews and the lines they write (focus projects,
+  calendar copies, a project linked to a key result) use links as
+  written: `[P/#1 Programming/#1.4 - zortex]`, `[./-Improve website]`
+  (a key result's text follows its link). Calendar
   notifications read links as their text. The plan lists up to
   `ui.planner.max_tasks` project tasks (30) and `max_todos` to-dos (10).
 - A day planner that ranks the week's focus and key-result work first,
@@ -152,7 +151,8 @@ that share one folder of plain-text notes.
   a NixOS module) that reads the notes folder: rendered notes with working
   links and hover cards, search, backlinks, tags and tag tables, broken
   links and the notes nothing reaches (`/broken` lists only what has a
-  problem, and leaves the top bar when nothing does), `/graph`, and a file
+  problem, and leaves the top bar when nothing does), `/graph` (cards
+  for the structure; a long one spreads over more columns), and a file
   browser whose resource folders list their files and what links them.
 - The folder is watched (inotify, on Linux), so a synced edit shows within
   about a second; `-poll` still rescans as a safety net.

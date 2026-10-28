@@ -254,16 +254,20 @@ local function link_group(span_type, definition)
 end
 
 -- The "/" between a link's parts, shown as ui.highlights.link_separator
--- ("›"): each top-level "/" of the definition from byte `s` to `e`
--- (0-based, end exclusive), not a leading "/" (a link in this note) or "~/"
--- (the notes folder), nor one inside parentheses ("@(a/b)").
+-- ("›"; false or "/" keeps the "/"), coloured ZortexLinkDelimiter either
+-- way: each top-level "/" of the definition from byte `s` to `e` (0-based,
+-- end exclusive), not a leading "/" (a link in this note) or "~/" (the notes
+-- folder), nor one inside parentheses ("@(a/b)"). Above the link's own
+-- colour (painted over the whole definition by nvim_buf_add_highlight, at
+-- the extmark default 4096), so the group shows.
+local SEPARATOR_PRIORITY = 4096 + 10
 local function separators(buf, row, line, s, e)
 	local sep = ((require("zortex.config").ui or {}).highlights or {}).link_separator
 	if sep == nil then
 		sep = "›"
 	end
-	if not sep or sep == "" or sep == "/" then
-		return
+	if not sep or sep == "" then
+		sep = "/"
 	end
 	local depth, first = 0, s
 	if line:sub(s + 1, s + 2) == "~/" then
@@ -278,7 +282,12 @@ local function separators(buf, row, line, s, e)
 		elseif c == ")" then
 			depth = math.max(0, depth - 1)
 		elseif c == "/" and depth == 0 then
-			mark(buf, row, i, { end_col = i + 1, conceal = sep, hl_group = "ZortexLinkDelimiter" })
+			mark(buf, row, i, {
+				end_col = i + 1,
+				conceal = sep ~= "/" and sep or nil,
+				hl_group = "ZortexLinkDelimiter",
+				priority = SEPARATOR_PRIORITY,
+			})
 		end
 	end
 end

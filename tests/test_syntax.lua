@@ -185,6 +185,35 @@ T.test("tags are painted on any line; the @ of @[tags] is dimmed", function()
 	vim.cmd("bwipeout!")
 end)
 
+T.test("a link's separators are ZortexLinkDelimiter, over the link's colour, whatever the character", function()
+	local hl = require("zortex.features.highlights")
+	local Config = require("zortex.config")
+	local saved = Config.ui
+	local ns = vim.api.nvim_create_namespace("zortex_highlights")
+	for _, sep in ipairs({ "›", "/", false }) do
+		Config.ui = { highlights = { link_separator = sep } }
+		vim.cmd("enew!")
+		local buf = vim.api.nvim_get_current_buf()
+		vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "See [P/#1.4 - zortex/-Item] and [/#Here] and [~/P]" })
+		hl.highlight_buffer(buf)
+		local got, link_priority = {}, nil
+		for _, m in ipairs(vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, { details = true })) do
+			local d = m[4]
+			if d.hl_group == "ZortexLinkDelimiter" then
+				got[#got + 1] = { m[3], d.conceal or "/" }
+				T.ok(d.priority > (link_priority or 0), "above the link's colour")
+			elseif d.hl_group == "ZortexLinkItem" then
+				link_priority = d.priority
+			end
+		end
+		local shown = sep == "›" and "›" or "/"
+		-- the leading "/" of [/#Here] and "~/" of [~/P] aren't separators
+		T.eq(got, { { 6, shown }, { 20, shown } }, tostring(sep))
+		vim.cmd("bwipeout!")
+	end
+	Config.ui = saved
+end)
+
 T.test("link icons leave with their lines, not piled on the next one", function()
 	local hl = require("zortex.features.highlights")
 	vim.cmd("enew!")

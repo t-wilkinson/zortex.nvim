@@ -187,9 +187,17 @@ end
 --- shows the note.
 function M.close_marked(win, bufnr)
 	win = (win == nil or win == 0) and vim.api.nvim_get_current_win() or win
+	-- scheduled after the note was shown: the window or the buffer may be
+	-- gone by now
+	if not vim.api.nvim_win_is_valid(win) then
+		return
+	end
 	bufnr = bufnr or vim.api.nvim_win_get_buf(win)
+	if not vim.api.nvim_buf_is_valid(bufnr) or vim.api.nvim_win_get_buf(win) ~= bufnr then
+		return
+	end
 	local marked = vim.b[bufnr].zortex_fold_closed or {}
-	if #marked == 0 or not vim.api.nvim_win_is_valid(win) or vim.api.nvim_win_get_buf(win) ~= bufnr then
+	if #marked == 0 then
 		return
 	end
 	vim.api.nvim_win_call(win, function()

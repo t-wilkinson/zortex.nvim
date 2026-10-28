@@ -68,7 +68,9 @@ that share one folder of plain-text notes.
 - Highlighting, concealing and folding for the whole format (`@fold`
   keeps a section closed), `J` that joins lines the way they read, a table
   of contents that follows the note as you edit, link parts read as
-  `P › #1.4`, and slides (`:ZortexPresent`).
+  `P › #1.4` (the separator's character and colour are yours:
+  `ui.highlights.link_separator`, `ZortexLinkDelimiter`), and slides
+  (`:ZortexPresent`).
 - Projects, areas, objectives and key results as entities with progress.
   Objectives are `## 3M-2026-Q4 Title` headings, grouped under top-level
   headings; key results are `- KRn:` items whose linked projects drive

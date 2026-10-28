@@ -239,8 +239,9 @@ heading, a label, a bold heading or a list item, each its own colour
 (`ZortexLinkNote`, `ZortexLinkHeading`, `ZortexLinkLabel`, `ZortexLinkBold`,
 `ZortexLinkItem` in Neovim; the same kinds in the web app). Query and
 follow links keep the plain link colour. Neovim shows the `/` between parts
-as `›` (`ui.highlights.link_separator`, a character, or `false` for the
-`/`), coloured `ZortexLinkDelimiter` (linked to `Comment`; change it with
+as `›` (`ui.highlights.link_separator`, a character, or `false` or `"/"`
+for the `/`), coloured `ZortexLinkDelimiter` either way (linked to
+`Comment`; change it with
 `ui.highlights.groups = { ZortexLinkDelimiter = { fg = "#888888" } }`).
 
 - `[/#Local heading]` (leading `/`) resolves in the current note.

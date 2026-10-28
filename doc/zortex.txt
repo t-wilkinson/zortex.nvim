@@ -556,8 +556,8 @@ setup() merges your options over these defaults: >lua
           groups = {},
           -- shown for the "/" between a link's parts ([P/#1 Code/#1.4] reads
           -- "P›#1 Code›#1.4"); the "/" comes back on the cursor's line. A
-          -- single character, or false to show the "/". Its color is the
-          -- ZortexLinkDelimiter group (Comment): groups = {
+          -- single character, or false (or "/") to show the "/". Its color is
+          -- the ZortexLinkDelimiter group (Comment) either way: groups = {
           -- ZortexLinkDelimiter = { fg = "#888888" } } or { link = "NonText" }
           link_separator = "›",
         },

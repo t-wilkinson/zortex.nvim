@@ -388,7 +388,9 @@ end)
 T.test("plan buffer: the capacity line follows what goes on the day", function()
 	with_notes({}, {}, function()
 		local ui = require("zortex.ui.planner")
-		local buf = ui.open({ date = "2026-10-25" })
+		-- a day ahead: a past day has no free time left, today only what's
+		-- left of it
+		local buf = ui.open({ date = os.date("%Y-%m-%d", os.time() + 3 * 86400) })
 		local st = ui._state()
 		local function cap()
 			return vim.api.nvim_buf_get_lines(buf, 1, 2, false)[1]

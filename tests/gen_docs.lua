@@ -371,8 +371,10 @@ M.attributes = root .. "/app/web/static/attributes.json"
 
 function M.attributes_lines()
 	local help = require("zortex.attributes_help")
+	-- "/" unescaped: Neovim versions differ on escaping it ("\/"), and the
+	-- file must read the same whichever wrote it
 	local function str(v)
-		return vim.json.encode(v)
+		return (vim.json.encode(v):gsub("\\/", "/"))
 	end
 	local function list(t)
 		local parts = {}

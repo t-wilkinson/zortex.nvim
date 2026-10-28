@@ -46,18 +46,18 @@
       "group": "plan",
       "short": ["@a(…)"],
       "insert": "@a(",
-      "formats": ["@area(4.1)", "@a(4.1)", "@a(1.2\/Fitness)", "@a(4.1, 2.1)"],
+      "formats": ["@area(4.1)", "@a(4.1)", "@a(1.2/Fitness)", "@a(4.1, 2.1)"],
       "where": "task, project, objective",
-      "desc": "The area it serves: 4.1 is [A\/#4.1], 1.2\/Fitness the label Fitness under 1.2. Its XP counts for that area (area XP). Work with none earns for @a(0.1) until the daily review gives it one."
+      "desc": "The area it serves: 4.1 is [A/#4.1], 1.2/Fitness the label Fitness under 1.2. Its XP counts for that area (area XP). Work with none earns for @a(0.1) until the daily review gives it one."
     },
     {
       "key": "project",
       "group": "plan",
       "short": [],
       "insert": "@project(",
-      "formats": ["@project(1.4)", "@project(1\/1.4)", "@project(P\/#Kitchen)"],
+      "formats": ["@project(1.4)", "@project(1/1.4)", "@project(P/#Kitchen)"],
       "where": "inbox line, task",
-      "desc": "The project a line belongs to (1.4 is [P\/#1.4]): m in the daily review, or Move on the web review, puts it there and drops the attribute."
+      "desc": "The project a line belongs to (1.4 is [P/#1.4]): m in the daily review, or Move on the web review, puts it there and drops the attribute."
     },
     {
       "key": "done",
@@ -84,7 +84,7 @@
       "insert": "@ref(",
       "formats": ["@ref(Smith, 2020)", "@ref(Smith & Jones, 2019a)", "@ref(Lee, 2021; Kim, 2022)"],
       "where": "any line",
-      "desc": "A reference: author and year. Tag searches find it by either, @[*\/author(smith)], @[*\/year(2020)], or whole, @[*\/ref(Smith, 2020)]; cite it in the text with a footnote, [^Smith, 2020], defined on a line of its own: [^Smith, 2020]: the full citation."
+      "desc": "A reference: author and year. Tag searches find it by either, @[*/author(smith)], @[*/year(2020)], or whole, @[*/ref(Smith, 2020)]; cite it in the text with a footnote, [^Smith, 2020], defined on a line of its own: [^Smith, 2020]: the full citation."
     },
     {
       "key": "xp",
@@ -156,7 +156,7 @@
       "insert": "@share",
       "formats": ["@share"],
       "where": "calendar line",
-      "desc": "Published in the server's \/calendar.ics for other calendars to subscribe to."
+      "desc": "Published in the server's /calendar.ics for other calendars to subscribe to."
     },
     {
       "key": "free",
@@ -174,7 +174,7 @@
       "insert": "@repeat(",
       "formats": ["@repeat(daily)", "@repeat(weekly)", "@repeat(2w)", "@repeat(monthly)", "@repeat(yearly)"],
       "where": "calendar, # Repeating only",
-      "desc": "How often the entry shows: daily, weekly, monthly, yearly, or every n days\/weeks\/months\/years (2d, 3w, 6m, 2y, counted from @from)."
+      "desc": "How often the entry shows: daily, weekly, monthly, yearly, or every n days/weeks/months/years (2d, 3w, 6m, 2y, counted from @from)."
     },
     {
       "key": "on",
@@ -245,7 +245,7 @@
       "group": "notes",
       "short": [],
       "insert": "@[",
-      "formats": ["@[*\/status(reading)]", "@[R\/author(knuth) year(1968)]"],
+      "formats": ["@[*/status(reading)]", "@[R/author(knuth) year(1968)]"],
       "where": "tag searches",
       "desc": "A tag search finds attributes by their value too: key(value), compared without case or extra spaces."
     },

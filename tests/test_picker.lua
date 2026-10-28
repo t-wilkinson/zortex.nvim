@@ -254,3 +254,34 @@ T.test("nvim-cmp registration lists the source for zortex buffers next to yours"
 	end)
 	C._cmp_id, C._cmp_sources = nil, nil
 end)
+
+T.test("search from a note: its own sections first, a table of contents when empty", function()
+	local garden = T.fixture("z/garden.zortex")
+	local spec = require("zortex.ui.picker.search").spec({ mode = "section", here = garden })
+	local toc = spec.query("")
+	T.eq(vim.tbl_map(function(r)
+		return r.breadcrumb or vim.trim(r.line)
+	end, vim.list_slice(toc, 1, 2)), { "Garden", "Garden › What to plant next spring" })
+	T.ok(toc[1].here and toc[2].here and not toc[3].here, "then the other notes")
+	-- typed words match below the note's title first: "spring" finds its label
+	local r = spec.query("spring")
+	T.eq(r[1].breadcrumb, "Garden › What to plant next spring")
+	T.ok(r[1].here, "its own first")
+	-- and its lines ("mint" is a line of the label above)
+	local mint = spec.query("mint")
+	T.eq(mint[1].filepath, garden)
+	T.eq(vim.trim(mint[1].line), "- mint")
+	-- nothing listed twice
+	local seen = {}
+	for _, x in ipairs(spec.query("garden")) do
+		local k = (x.result_type or "") .. tostring(x.filepath) .. tostring(x.lnum or (x.node and x.node.start_line))
+		T.ok(not seen[k], "twice: " .. k)
+		seen[k] = true
+	end
+	-- text mode: its own lines first too
+	local text = require("zortex.ui.picker.search").spec({ mode = "text", here = garden }).query("Plant")
+	T.eq(text[1].filepath, garden)
+	-- off
+	local off = require("zortex.ui.picker.search").spec({ mode = "section", here = false }).query("")
+	T.ok(not off[1].here, "here = false")
+end)

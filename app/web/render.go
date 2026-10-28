@@ -433,6 +433,9 @@ func (r *noteRenderer) span(line string, sp *syntax.Span) string {
 		return r.linkHTMLText(sp.Definition, sp.Text)
 	case "markdown":
 		href, ok := r.s.pathHref(r.doc, sp.URL)
+		if !ok && links.OSPath(sp.URL) {
+			return osPathHTML(sp.URL, r.mdText(sp.Text))
+		}
 		cls := "md"
 		if !ok {
 			cls += " broken"
@@ -579,6 +582,13 @@ func linkPathHTML(def string) string {
 	return b.String()
 }
 
+// osPathHTML: a link to a file elsewhere on the computer ([~/Documents/x],
+// [x](/home/me/a.pdf)): not broken, but nothing a browser here can open;
+// its path in the tooltip.
+func osPathHTML(p, text string) string {
+	return `<span class="zl ospath" title="` + esc("On your computer: "+strings.Trim(strings.TrimSpace(p), "[]")) + `">` + text + `</span>`
+}
+
 // linkHTMLAs is linkHTML for `def` shown as `written`.
 func (s *Server) linkHTMLAs(from *notes.Document, def, written string) string {
 	return s.linkHTMLText(from, def, esc(written))
@@ -590,9 +600,15 @@ func (s *Server) linkHTMLText(from *notes.Document, def, text string) string {
 		if href, ok := s.pathHref(from, def); ok {
 			return `<a class="zl file" href="` + esc(href) + `">` + text + `</a>`
 		}
+		if links.OSPath(def) {
+			return osPathHTML(def, text)
+		}
 		return `<a class="zl broken" title="File not found">` + text + `</a>`
 	}
 	results, err := links.Resolve(s.ix, "["+def+"]", links.Options{From: from})
+	if (err != nil || len(results) == 0) && links.OSPath(def) {
+		return osPathHTML(def, text)
+	}
 	if err != nil || len(results) == 0 {
 		msg := "No match"
 		if err != nil {
@@ -759,6 +775,9 @@ func (s *Server) imageHTMLAlt(from *notes.Document, def, alt string) string {
 	}
 	src, ok := s.rawHref(from, def)
 	if !ok {
+		if links.OSPath(def) {
+			return osPathHTML(def, esc(def))
+		}
 		return `<a class="zl broken" title="File not found">` + esc(def) + `</a>`
 	}
 	if resourceKind(extOf(def)) == "video" {

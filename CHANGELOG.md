@@ -35,6 +35,11 @@ that share one folder of plain-text notes.
   `!@[…]` tables in place. Attributes are searchable as `key(value)`:
   `@ref(Smith & Lee, 2020)` is found by `@[author(Smith)]`,
   `@[author(Smith & Lee)]` and `@[year(2020)]`.
+- Links to files elsewhere on the computer (`[~/Documents/tax.pdf]`,
+  `[/home/me/plan.txt]`, `[scan](~/scans/a.png)`) are never broken.
+- A link that finds nothing in the live notes looks in the archives,
+  which keep their note's names: `[P/-Old task]` finds a task archived
+  into `z/archive.projects.zortex`.
 - Footnotes take any text but `]`: `[^Smith, 2020]` cites the
   `[^Smith, 2020]: …` line at the bottom of the note (the web app shows
   it as `(Smith, 2020)` with the reference as its tooltip).
@@ -49,8 +54,9 @@ that share one folder of plain-text notes.
 - Structural search (`:ZortexSearch`): words match a section's path in
   order, and a line's path is its section's and then the line; ranked by
   hierarchy and by what you open; `<M-n>` narrows to a section (every line
-  in it, no cap); article and plain-text modes. Pickers on snacks.picker,
-  telescope, fzf-lua or `vim.ui.select`.
+  in it, no cap); article and plain-text modes. From a note, its own
+  sections and lines come first (an empty prompt: its table of contents).
+  Pickers on snacks.picker, telescope, fzf-lua or `vim.ui.select`.
 - Links: follow, preview, open in the web app, complete while typing (with
   tags and area values), backlinks, broken links and tags that go nowhere
   (quickfix and diagnostics), from a persistent link index.

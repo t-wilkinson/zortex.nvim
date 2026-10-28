@@ -191,6 +191,8 @@ a.zl::before { content: "["; color: var(--dim); }
 a.zl::after { content: "]"; color: var(--dim); }
 a.zl.multi::after { content: "]⁺"; }
 a.broken, a.zl.broken { color: var(--broken); border-bottom: 1px dashed var(--broken); }
+/* a file elsewhere on the computer ([~/Documents/x]): not broken, not openable here */
+.zl.ospath { color: var(--dim); border-bottom: 1px dotted var(--dim); cursor: help; }
 a.url { overflow-wrap: anywhere; }
 a.tagsearch .ts-at { color: var(--dim); margin-right: 0.05em; }
 

@@ -1003,6 +1003,31 @@
     "results": []
   },
   {
+    "link": "[P/-Old archived task]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 7,
+        "rel": "z/archive.projects.zortex"
+      }
+    ]
+  },
+  {
+    "link": "[P/#1.4 - zortex/-Old archived]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 7,
+        "rel": "z/archive.projects.zortex"
+      }
+    ]
+  },
+  {
+    "error": "No matches found for: -Never written anywhere",
+    "link": "[P/-Never written anywhere]",
+    "results": []
+  },
+  {
     "from": "projects.zortex",
     "link": "[/#1.4 - zortex]",
     "results": [

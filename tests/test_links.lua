@@ -25,6 +25,10 @@ T.test("archived notes are skipped unless asked for", function()
 		T.ok(not r.file:find("archive"), "archive leaked into results")
 	end
 	T.eq(target("[@Archive/#1.4 - zortex]"), "archive.projects.zortex:6")
+	-- nothing in the live notes: the archive (it keeps the note's names, @@P)
+	T.eq(target("[P/-Old archived task]"), "archive.projects.zortex:7")
+	T.eq(#links.resolve("[P/-Old archived task]", { include_archived = false }), 0, "include_archived = false: never")
+	T.eq(#links.resolve("[P/-Never written anywhere]"), 0)
 end)
 
 T.test("[@P/...] reaches standalone project notes", function()

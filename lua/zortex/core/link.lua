@@ -548,14 +548,31 @@ local function mentions_archive(parsed)
 	return false
 end
 
+local resolve_in
+
 --- Resolve a link to every matching location. A parent-relative link
 --- ([./-Item]) needs the note (doc or bufnr) and the line it is written on
---- (lnum).
+--- (lnum). The live notes first; when nothing there matches, the archives
+--- too ([P/-Task] for a task archived into z/archive.projects.zortex, which
+--- keeps the note's names). opts.include_archived: true searches both at
+--- once, false never the archives.
 ---@param link string|table  "[P/#1.4 - zortex]", "P/#1.4", or parse() output
 ---@param opts { bufnr?: integer, doc?: table, lnum?: integer, include_archived?: boolean }?
 ---@return SearchResult[] results, string? err
 function M.resolve(link, opts)
 	opts = opts or {}
+	local results, err = resolve_in(link, opts)
+	if #results > 0 or opts.include_archived ~= nil then
+		return results, err
+	end
+	local more = resolve_in(link, vim.tbl_extend("force", opts, { include_archived = true }))
+	if #more > 0 then
+		return more
+	end
+	return results, err
+end
+
+resolve_in = function(link, opts)
 	if type(link) == "string" then
 		local content = syntax.trim(link):match("^@%[(.*)%]$")
 		if content then
@@ -1097,6 +1114,27 @@ function M.resolve_first(link, opts)
 end
 
 --- Is this "./" followed by a typed component ([./-Item], [./#Heading],
+--- A link to a file elsewhere on this computer, outside the notes: "~/…"
+--- ([~/Documents/tax.pdf], [scan](~/scans/a.png)) or an absolute path
+--- ([/home/me/a.pdf], [x](/srv/share/b.txt)): a "/" link whose first part
+--- isn't a section of this note ([/#Heading], [/-Item] are those). Such
+--- links are never broken (their files are this machine's business), and
+--- following one opens the file. A "~/" link to a note ([~/Projects], from
+--- a note outside the notes folder) still goes to the note when it finds
+--- one. Returns the path, "~" expanded, or nil. app/links OSPath is the same.
+---@param definition string
+---@return string?
+function M.os_path(definition)
+	local def = syntax.trim(definition or ""):gsub("^%[(.*)%]$", "%1")
+	if def:sub(1, 2) == "~/" and #def > 2 then
+		return (os.getenv("HOME") or "~") .. def:sub(2)
+	end
+	if def:sub(1, 1) == "/" and #def > 1 and not def:sub(2, 2):match("[#:%*%-%%>@/%s]") then
+		return def
+	end
+	return nil
+end
+
 --- [./:Label], [./*Bold], [./>Link])? Such a link continues its parent line's
 --- link (absolute); other "./" links are file paths.
 ---@param definition string

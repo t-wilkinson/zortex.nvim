@@ -263,7 +263,7 @@ func (s *Server) addFileRef(snap *snapshot, names map[string][]string, from stri
 		return
 	}
 	if !found {
-		if strict {
+		if strict && !links.OSPath(target) {
 			snap.broken = append(snap.broken, Broken{From: from, FromNote: fromNote, Lnum: lnum, Def: target, Err: "File not found"})
 		}
 		return

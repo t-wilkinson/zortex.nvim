@@ -112,13 +112,16 @@ local function stamp(path, modified)
 end
 
 -- First component of a link definition, for invalidation:
--- { kind = "article"|"tag"|"global"|"local"|"path", text }
+-- { kind = "article"|"tag"|"global"|"local"|"path"|"os", text }
 local function first_component(def)
 	if link_mod.is_parent_relative(def) then
 		return { kind = "global" } -- through its parent line's link: re-resolve with every change
 	end
 	if vim.trim(def):match("^%.%.?/") then
 		return { kind = "path" } -- a file, checked when queried
+	end
+	if vim.trim(def):sub(1, 1) == "/" and link_mod.os_path(def) then
+		return { kind = "os" } -- a file on this computer ([/home/me/a.pdf]): never broken
 	end
 	local parsed = link_mod.parse(def)
 	if not parsed or not parsed.components[1] then
@@ -194,7 +197,7 @@ end
 -- not parent-relative) means the same everywhere, and most notes link the
 -- same few places ([P/#2], [Areas]) many times.
 local function resolve(link, source_path, memo)
-	if link.first.kind == "path" then
+	if link.first.kind == "path" or link.first.kind == "os" then
 		link.target = nil
 		return
 	end
@@ -467,7 +470,12 @@ function M.backlinks(item, opts)
 	return M.references(file, s, e)
 end
 
+-- A file on this computer outside the notes ([/home/me/a.pdf],
+-- [~/Documents/tax.pdf]) is never broken: link.os_path
 local function missing(link, path)
+	if link.first.kind == "os" or (not link.target and link_mod.os_path(link.definition)) then
+		return false
+	end
 	if link.first.kind == "path" then
 		return not vim.uv.fs_stat(link_mod.relative_path(link.definition, path))
 	end

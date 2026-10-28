@@ -23,6 +23,16 @@ and fzf-lua.
 
 The web app's search page has all three (Sections, Articles, Text).
 
+## From a note: its own results first
+
+Opened from a note, the search lists that note's own results first, as if
+its name were typed before your words: the words match below its title,
+so `method` finds the note's `## Method` before anyone else's. With nothing
+typed it lists the note's sections, a table of contents you can narrow by
+typing. Every note's results follow, as usual (none listed twice). The
+text mode lists the note's own lines first the same way.
+`ui.search.here = false` searches every note alike.
+
 ## Words match a path, in order
 
 A section's path is its article, then its headings, bold headings and labels

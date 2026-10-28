@@ -59,6 +59,10 @@ M.EXTRA_LINKS = {
 	{ link = "[@Archive]" },
 	{ link = "[@Archive/#1.4 - zortex]" },
 	{ link = "[Projects/@Archive/#old]" },
+	-- nothing in the live notes: the archive, which keeps the note's names
+	{ link = "[P/-Old archived task]" },
+	{ link = "[P/#1.4 - zortex/-Old archived]" },
+	{ link = "[P/-Never written anywhere]" },
 	{ link = "[/#1.4 - zortex]", from = "projects.zortex" },
 	{ link = "[/:Notes]", from = "projects.zortex" },
 	{ link = "[/#Subaru]", from = "flipping.zortex" },

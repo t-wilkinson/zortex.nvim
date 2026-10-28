@@ -639,12 +639,30 @@ end
 -- opts.scope (M.scope_of): only what is inside that section, every section
 -- type, and no cap. Results are capped at max_results and numbered (`rank`)
 -- for the picker.
----@param opts { mode?: "section"|"article"|"text", scope?: table, all_sections?: boolean }?
+---
+--- opts.here (a note's path, the one being edited): its own sections and
+--- lines come first, found as if its name had been typed before the prompt
+--- (the words match below its title; an empty prompt lists its sections: a
+--- table of contents), then everything else as usual.
+---@param opts { mode?: "section"|"article"|"text", scope?: table, all_sections?: boolean, here?: string }?
 function M.query_index(index, prompt, opts)
 	local c = cfg()
 	local mode = (opts and opts.mode) or c.default_mode or "section"
 	local scope = opts and opts.scope
 	local tokens = tokenize(prompt)
+
+	if opts and opts.here and not scope then
+		local here = vim.fn.fnamemodify(opts.here, ":p")
+		local file
+		for _, f in ipairs(index) do
+			if f.filepath and vim.fn.fnamemodify(f.filepath, ":p") == here then
+				file = f
+			end
+		end
+		if file then
+			return M._with_here(index, file, prompt, tokens, opts, mode, c)
+		end
+	end
 
 	local results
 	if mode == "text" then
@@ -679,6 +697,55 @@ function M.query_index(index, prompt, opts)
 
 	local max = c.max_results
 	if max and not scope and #results > max then
+		results = vim.list_slice(results, 1, max)
+	end
+	for i, r in ipairs(results) do
+		r.rank = i
+	end
+	return results
+end
+
+-- query_index with the note being edited first: its own results (as if its
+-- name had been typed: a scope of the whole note), then the rest without
+-- them. An empty prompt lists its sections only, a table of contents.
+function M._with_here(index, file, prompt, tokens, opts, mode, c)
+	local whole = { filepath = file.filepath, first = 0, last = math.huge, depth = 1, breadcrumb = file.stem }
+	local own
+	if mode == "article" then
+		own = {}
+		for _, r in ipairs(M.query_index(index, prompt, vim.tbl_extend("force", opts, { here = false }))) do
+			if r.filepath == file.filepath then
+				own[#own + 1] = r
+			end
+		end
+	elseif mode == "text" then
+		own = #tokens > 0 and M.query_index({ file }, prompt, vim.tbl_extend("force", opts, { here = false })) or {}
+	else
+		own = match_sections({ file }, tokens, function()
+			return true
+		end, false, whole)
+		if #tokens > 0 then
+			vim.list_extend(own, match_lines({ file }, tokens, whole))
+		end
+	end
+	local seen = {}
+	local function key(r)
+		return (r.result_type or "") .. ":" .. tostring(r.filepath) .. ":" .. tostring(r.lnum or (r.node and r.node.start_line))
+	end
+	local results = {}
+	for _, r in ipairs(own) do
+		r.here = true
+		seen[key(r)] = true
+		results[#results + 1] = r
+	end
+	local rest = M.query_index(index, prompt, vim.tbl_extend("force", opts, { here = false }))
+	for _, r in ipairs(rest) do
+		if not seen[key(r)] then
+			results[#results + 1] = r
+		end
+	end
+	local max = c.max_results
+	if max and #results > max then
 		results = vim.list_slice(results, 1, max)
 	end
 	for i, r in ipairs(results) do

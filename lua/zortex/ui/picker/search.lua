@@ -150,12 +150,31 @@ local function next_mode(mode)
 	return search.MODES[1]
 end
 
+--- The note being edited, when it is one (opts.here: a path, or false for
+--- none): its own sections and lines come first (ui.search.here).
+local function here_of(opts)
+	if opts.here ~= nil then
+		return opts.here or nil
+	end
+	if cfg().here == false then
+		return nil
+	end
+	local name = vim.api.nvim_buf_get_name(0)
+	local ext = require("zortex.config").extension or ".zortex"
+	if name ~= "" and name:sub(-#ext) == ext then
+		return name
+	end
+	return nil
+end
+
 --- The picker spec (ui/picker); opts.mode: "section" | "article" | "text";
 --- opts.all_sections: sections at any depth whatever the number of words;
---- opts.new_note = false: no key for a new note.
+--- opts.new_note = false: no key for a new note; opts.here: the note whose
+--- own results come first (default: the one being edited; false: none).
 function M.spec(opts)
 	opts = opts or {}
 	local mode = opts.mode or cfg().default_mode or "section"
+	local here = here_of(opts)
 	-- Every note is read and parsed once, here; typing only filters the index
 	local index = search.build_index(search.files())
 	local history = require("zortex.services.search_history")
@@ -173,7 +192,7 @@ function M.spec(opts)
 			if cur then
 				prompt = inside(prompt, cur.prefix)
 			end
-			return search.query_index(index, prompt, { mode = mode, all_sections = opts.all_sections, scope = cur and cur.scope })
+			return search.query_index(index, prompt, { mode = mode, all_sections = opts.all_sections, scope = cur and cur.scope, here = here })
 		end,
 		format = M.format,
 		location = M.location,

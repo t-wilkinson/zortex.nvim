@@ -423,8 +423,8 @@ func (s *Server) collectLinks(doc *notes.Document, snap *snapshot) {
 			snap.links++
 			r, err := links.ResolveFirst(s.ix, "["+sp.Definition+"]", links.Options{From: doc, Lnum: lnum})
 			if err != nil || r == nil {
-				if archived {
-					return
+				if archived || links.OSPath(sp.Definition) {
+					return // a file on the computer ([~/Documents/x], [/home/me/x]): never broken
 				}
 				msg := "no match"
 				if err != nil {

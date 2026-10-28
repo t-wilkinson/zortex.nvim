@@ -248,7 +248,11 @@ tasks as `[P/#…/-Improve website]`.
   `results[1]` is the **canonical** target. So `[P/#1.4]` resolves to the first
   `1.4…` heading, which is the parent of any children sharing that prefix.
 - Archived notes are skipped unless a component is `@Archive` or
-  `opts.include_archived` is set.
+  `opts.include_archived` is set; when the live notes find nothing, the
+  archives are tried (`include_archived = false` never does).
+- `os_path(definition)`: a link to a file on the computer outside the notes
+  (`~/…`, or a `/` path whose first part isn't a section): never broken
+  (`link_index` gives it the kind `os`); `features/links` opens it.
 - Local links (`[/…]`) resolve in the current buffer.
 - `resolve("@[scope/tags]")` is a tag search (`tag_search(content)`): the
   scope link's results become ranges (a whole note for article and tag

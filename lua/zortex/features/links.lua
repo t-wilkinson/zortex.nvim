@@ -46,6 +46,19 @@ local function is_media(path)
 	return vim.tbl_contains(MEDIA_EXTENSIONS, ext)
 end
 
+-- A file on this computer outside the notes (core/link.os_path): media
+-- with the system's handler, anything else (a folder too) in a buffer
+local function open_os_file(path)
+	if not vim.uv.fs_stat(path) then
+		vim.notify("File does not exist: " .. path, vim.log.levels.WARN)
+	elseif is_media(path) then
+		open_external(path)
+	else
+		vim.cmd.edit(vim.fn.fnameescape(path))
+	end
+end
+M._open_os_file = open_os_file
+
 -- =============================================================================
 -- Navigation
 -- =============================================================================
@@ -297,7 +310,17 @@ function M.open_info(link_info, ctx)
 			end
 		end
 
-		local results, err = link_mod.resolve(parsed, ctx.doc and { doc = ctx.doc } or nil)
+		-- a file on this computer ([/home/me/a.pdf]; [~/Documents/x] when no
+		-- note answers to it)
+		local os_file = link_mod.os_path(def)
+		local results, err = {}, nil
+		if not (os_file and def:sub(1, 1) == "/") then
+			results, err = link_mod.resolve(parsed, ctx.doc and { doc = ctx.doc } or nil)
+		end
+		if #results == 0 and os_file then
+			open_os_file(os_file)
+			return
+		end
 
 		if #results == 0 then
 			vim.notify(err or "No matches", vim.log.levels.INFO)
@@ -367,7 +390,9 @@ function M.open_info(link_info, ctx)
 
 		-- 2. It is a local file. Resolve the absolute path first.
 		local resolved_path = url
-		if not url:match("^/") and not url:match("^[a-zA-Z]:[\\/]") then
+		if url:sub(1, 2) == "~/" then
+			resolved_path = link_mod.os_path(url) -- a file on this computer
+		elseif not url:match("^/") and not url:match("^[a-zA-Z]:[\\/]") then
 			if url:sub(1, 2) == "./" or url:sub(1, 3) == "../" then
 				-- Relative to current file
 				resolved_path = fs.joinpath(current_dir, url)

@@ -600,6 +600,10 @@ setup() merges your options over these defaults: >lua
 
         search = {
           default_mode = "section", -- or "article", "text" (plain text); keys.cycle_mode cycles them
+          -- From a note, its own sections and lines come first, found as if its
+          -- name were typed first; an empty prompt lists its sections, a table
+          -- of contents to search. false: every note alike
+          here = true,
           max_results = 500,
           -- Keys in the search picker (any backend), shown in its title;
           -- false turns one off. <M-t> is taken by some terminals and

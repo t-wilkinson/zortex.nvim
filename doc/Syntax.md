@@ -264,7 +264,16 @@ as `›` (`ui.highlights.link_separator`, a character, or `false` for the
 - The first match is the link's target; when there are more, the quickfix
   list (Neovim) or the link page (web app) shows them all.
 - Archived notes (tagged `@Archive`, or `z/archive.*.zortex`) are skipped
-  unless a component is `@Archive`.
+  unless a component is `@Archive`, or nothing in the live notes matches:
+  then the archives are searched too. An archive keeps its note's names
+  (`z/archive.projects.zortex` starts `@@Projects`, `@@P`), so
+  `[P/-Old task]` still finds a task once it's archived.
+- A link to a file elsewhere on your computer is never broken:
+  `[~/Documents/tax.pdf]`, `[scan](~/scans/a.png)`, `[/home/me/plan.txt]`,
+  `[share](/srv/share/b.txt)`. A `/` link whose first part is a section of
+  the note (`[/#Heading]`, `[/-Item]`) is a local link instead, and a `~/`
+  link that finds a note (`[~/P/#Subaru]`) goes there. Neovim opens the
+  file; the web app shows the path, which a browser can't open.
 - Generated links keep a heading's text up to link syntax (`[ ] /`), an `@`
   or a `|` (`#Talk to Sam @p1` is written `#Talk to Sam`); the prefix match
   still finds it.

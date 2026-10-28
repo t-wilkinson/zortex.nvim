@@ -482,6 +482,22 @@ type Options struct {
 // NoParentLink: a parent-relative link with no link on a parent line.
 const NoParentLink = "No link on a parent line for ./"
 
+// OSPath reports a link to a file elsewhere on the computer, outside the
+// notes: "~/…" or an absolute path whose first part isn't a section of the
+// note ("/home/me/a.pdf", not "/#Heading" or "/-Item"). Such links are never
+// broken; a "~/" link that finds a note still goes there. As Neovim's
+// link.os_path (without expanding "~": the server's home isn't yours).
+func OSPath(def string) bool {
+	def = strings.TrimSpace(def)
+	if strings.HasPrefix(def, "[") && strings.HasSuffix(def, "]") {
+		def = def[1 : len(def)-1]
+	}
+	if strings.HasPrefix(def, "~/") && len(def) > 2 {
+		return true
+	}
+	return len(def) > 1 && def[0] == '/' && !strings.ContainsRune("#:*-%>@/ \t", rune(def[1]))
+}
+
 // IsParentRelative: "./" followed by a typed component ("./-Item",
 // "./#Heading", "./:Label", "./*Bold", "./>Link") continues its parent
 // line's link (Absolute); other "./" links are file paths.
@@ -566,6 +582,23 @@ func mentionsArchive(d Definition) bool {
 
 // Resolve returns every location a link resolves to, canonical first.
 func Resolve(ix *notes.Index, link string, opts Options) ([]Result, error) {
+	res, err := resolveIn(ix, link, opts)
+	if len(res) > 0 || opts.IncludeArchived != nil {
+		return res, err
+	}
+	// nothing in the live notes: the archives ([P/-Task] for a task archived
+	// into z/archive.projects.zortex, which keeps the note's names)
+	yes := true
+	opts.IncludeArchived = &yes
+	if more, err2 := resolveIn(ix, link, opts); err2 == nil && len(more) > 0 {
+		return more, nil
+	}
+	return res, err
+}
+
+// resolveIn is Resolve over the live notes, or the archives too
+// (opts.IncludeArchived, or a component is @Archive).
+func resolveIn(ix *notes.Index, link string, opts Options) ([]Result, error) {
 	if t := syntax.Trim(link); strings.HasPrefix(t, "@[") && strings.HasSuffix(t, "]") {
 		return TagSearch(ix, t[2:len(t)-1], opts)
 	}

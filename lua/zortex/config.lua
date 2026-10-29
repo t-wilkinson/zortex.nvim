@@ -174,9 +174,10 @@ local defaults = {
 
 		search = {
 			default_mode = "section", -- or "article", "text" (plain text); keys.cycle_mode cycles them
-			-- From a note, its own sections and lines come first, found as if its
-			-- name were typed first; an empty prompt lists its sections, a table
-			-- of contents to search. false: every note alike
+			-- From a note, its own sections and lines come first (the words
+			-- matched below its title; its name matches nothing of it, so typing
+			-- it finds the other notes that say it); an empty prompt lists its
+			-- sections, a table of contents to search. false: every note alike
 			here = true,
 			max_results = 500,
 			-- Keys in the search picker (any backend), shown in its title;

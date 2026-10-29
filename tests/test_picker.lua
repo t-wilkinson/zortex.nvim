@@ -258,11 +258,13 @@ end)
 T.test("search from a note: its own sections first, a table of contents when empty", function()
 	local garden = T.fixture("z/garden.zortex")
 	local spec = require("zortex.ui.picker.search").spec({ mode = "section", here = garden })
+	-- empty: its sections (not its title), then the other notes
 	local toc = spec.query("")
-	T.eq(vim.tbl_map(function(r)
-		return r.breadcrumb or vim.trim(r.line)
-	end, vim.list_slice(toc, 1, 2)), { "Garden", "Garden › What to plant next spring" })
-	T.ok(toc[1].here and toc[2].here and not toc[3].here, "then the other notes")
+	T.eq(toc[1].breadcrumb, "Garden › What to plant next spring")
+	T.ok(toc[1].here and not toc[2].here, "then the other notes")
+	for _, r in ipairs(toc) do
+		T.ok(not (r.filepath == garden and r.node and r.node.type == "article"), "no row for the note itself")
+	end
 	-- typed words match below the note's title first: "spring" finds its label
 	local r = spec.query("spring")
 	T.eq(r[1].breadcrumb, "Garden › What to plant next spring")
@@ -271,16 +273,21 @@ T.test("search from a note: its own sections first, a table of contents when emp
 	local mint = spec.query("mint")
 	T.eq(mint[1].filepath, garden)
 	T.eq(vim.trim(mint[1].line), "- mint")
-	-- nothing listed twice
-	local seen = {}
+	-- its own name matches nothing of it: "garden" finds the other notes
+	-- that say it, not Garden's sections again
 	for _, x in ipairs(spec.query("garden")) do
-		local k = (x.result_type or "") .. tostring(x.filepath) .. tostring(x.lnum or (x.node and x.node.start_line))
-		T.ok(not seen[k], "twice: " .. k)
-		seen[k] = true
+		T.ok(x.filepath ~= garden, "the note's name matched it: " .. (x.breadcrumb or x.line or ""))
 	end
-	-- text mode: its own lines first too
-	local text = require("zortex.ui.picker.search").spec({ mode = "text", here = garden }).query("Plant")
-	T.eq(text[1].filepath, garden)
+	-- text mode: its own lines first too, not its title line
+	local text_spec = require("zortex.ui.picker.search").spec({ mode = "text", here = garden })
+	T.eq(text_spec.query("Plant")[1].filepath, garden)
+	for _, x in ipairs(text_spec.query("Garden")) do
+		T.ok(x.filepath ~= garden, "its @@ line: " .. (x.line or ""))
+	end
+	-- article mode: every other note
+	for _, x in ipairs(require("zortex.ui.picker.search").spec({ mode = "article", here = garden }).query("")) do
+		T.ok(x.filepath ~= garden, "the note itself in article mode")
+	end
 	-- off
 	local off = require("zortex.ui.picker.search").spec({ mode = "section", here = false }).query("")
 	T.ok(not off[1].here, "here = false")

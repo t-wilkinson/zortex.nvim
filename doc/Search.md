@@ -25,13 +25,18 @@ The web app's search page has all three (Sections, Articles, Text).
 
 ## From a note: its own results first
 
-Opened from a note, the search lists that note's own results first, as if
-its name were typed before your words: the words match below its title,
-so `method` finds the note's `## Method` before anyone else's. With nothing
-typed it lists the note's sections, a table of contents you can narrow by
-typing. Every note's results follow, as usual (none listed twice). The
-text mode lists the note's own lines first the same way.
-`ui.search.here = false` searches every note alike.
+Opened from a note, the search lists that note's own sections and lines
+first, the words matched below its title: from `@@Business`, `plan` finds
+its `# Plan` before anyone else's. With nothing typed it lists the note's
+sections, a table of contents you can narrow by typing.
+
+The note's title and name match nothing of it, and it has no row of its
+own: typing `business` there finds the other notes that answer to it
+(`Business economics` and its sections), with only the note's sections
+that say "business" themselves (`# Business model`) before them. The text
+mode lists the note's own lines first the same way (not its `@@` lines),
+and the article mode lists the other notes. `ui.search.here = false`
+searches every note alike.
 
 ## Words match a path, in order
 

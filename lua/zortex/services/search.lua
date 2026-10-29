@@ -641,9 +641,9 @@ end
 -- for the picker.
 ---
 --- opts.here (a note's path, the one being edited): its own sections and
---- lines come first, found as if its name had been typed before the prompt
---- (the words match below its title; an empty prompt lists its sections: a
---- table of contents), then everything else as usual.
+--- lines come first, the words matched below its title (an empty prompt
+--- lists its sections: a table of contents); its title and name match
+--- nothing; then every other note as usual.
 ---@param opts { mode?: "section"|"article"|"text", scope?: table, all_sections?: boolean, here?: string }?
 function M.query_index(index, prompt, opts)
 	local c = cfg()
@@ -705,22 +705,26 @@ function M.query_index(index, prompt, opts)
 	return results
 end
 
--- query_index with the note being edited first: its own results (as if its
--- name had been typed: a scope of the whole note), then the rest without
--- them. An empty prompt lists its sections only, a table of contents.
+-- query_index with the note being edited first. Its own results are found
+-- below its title (a scope of the whole note): its sections and lines, never
+-- its title row, so its name matches nothing; an empty prompt lists its
+-- sections, a table of contents. Then every other note as usual: typing the
+-- note's own name ("Business" in @@Business) finds the other notes that
+-- answer to it ("Business economics"), not this one's sections again.
 function M._with_here(index, file, prompt, tokens, opts, mode, c)
 	local whole = { filepath = file.filepath, first = 0, last = math.huge, depth = 1, breadcrumb = file.stem }
-	local own
-	if mode == "article" then
-		own = {}
-		for _, r in ipairs(M.query_index(index, prompt, vim.tbl_extend("force", opts, { here = false }))) do
-			if r.filepath == file.filepath then
-				own[#own + 1] = r
-			end
+	local others = {}
+	for _, f in ipairs(index) do
+		if f ~= file then
+			others[#others + 1] = f
 		end
-	elseif mode == "text" then
-		own = #tokens > 0 and M.query_index({ file }, prompt, vim.tbl_extend("force", opts, { here = false })) or {}
-	else
+	end
+	local own = {}
+	if mode == "text" then
+		if #tokens > 0 then
+			own = M.query_index({ file }, prompt, vim.tbl_extend("force", opts, { here = false }))
+		end
+	elseif mode ~= "article" then
 		own = match_sections({ file }, tokens, function()
 			return true
 		end, false, whole)
@@ -728,22 +732,16 @@ function M._with_here(index, file, prompt, tokens, opts, mode, c)
 			vim.list_extend(own, match_lines({ file }, tokens, whole))
 		end
 	end
-	local seen = {}
-	local function key(r)
-		return (r.result_type or "") .. ":" .. tostring(r.filepath) .. ":" .. tostring(r.lnum or (r.node and r.node.start_line))
-	end
+	-- never the note itself: its title (and @@ names) or a match on its file name
 	local results = {}
 	for _, r in ipairs(own) do
-		r.here = true
-		seen[key(r)] = true
-		results[#results + 1] = r
-	end
-	local rest = M.query_index(index, prompt, vim.tbl_extend("force", opts, { here = false }))
-	for _, r in ipairs(rest) do
-		if not seen[key(r)] then
+		local title = (r.node and r.node.type == "article") or r.file_match or (r.line and r.line:match("^@@"))
+		if not title then
+			r.here = true
 			results[#results + 1] = r
 		end
 	end
+	vim.list_extend(results, M.query_index(others, prompt, vim.tbl_extend("force", opts, { here = false })))
 	local max = c.max_results
 	if max and #results > max then
 		results = vim.list_slice(results, 1, max)

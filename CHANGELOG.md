@@ -55,7 +55,8 @@ that share one folder of plain-text notes.
   order, and a line's path is its section's and then the line; ranked by
   hierarchy and by what you open; `<M-n>` narrows to a section (every line
   in it, no cap); article and plain-text modes. From a note, its own
-  sections and lines come first (an empty prompt: its table of contents).
+  sections and lines come first (an empty prompt: its table of contents);
+  its name matches nothing of it, so typing it finds the other notes.
   Pickers on snacks.picker, telescope, fzf-lua or `vim.ui.select`.
 - Links: follow, preview, open in the web app, complete while typing (with
   tags and area values), backlinks, broken links and tags that go nowhere

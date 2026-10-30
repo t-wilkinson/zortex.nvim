@@ -32,6 +32,13 @@
   </section>
   {{end}}
 
+  {{if .BookmarksOn}}
+  <section class="bookmarks" aria-labelledby="bm-title">
+    <h2 id="bm-title">Bookmarks</h2>
+    <div class="bm-cards" id="bm-cards">{{template "bookmarkCards" .BookmarkCards}}</div>
+  </section>
+  {{end}}
+
   {{if .HasState}}
   <section class="panel pomo clocks" id="pomo" aria-label="Pomodoro, timer, alarm and stopwatch">
     <div class="clock-tabs" role="tablist" aria-orientation="vertical" aria-label="Clocks">
@@ -224,3 +231,16 @@
 <script src="{{asset "/static/clocks.js"}}" defer></script>
 <script src="{{asset "/static/track.js"}}" defer></script>
 {{end}}
+
+{{define "bookmarkCards"}}{{range .}}<article class="bm-card{{if .Missing}} missing{{end}}" data-url="{{.URL}}" data-kind="{{.Kind}}">
+  <a class="bm-main" href="{{.Href}}">
+    {{if .Image}}<img class="bm-image" src="{{.Image}}" alt="" loading="lazy">{{end}}
+    <span class="bm-kind">{{.Kind}}</span>
+    <h3>{{.Title}}</h3>
+    {{if .Where}}<span class="bm-where">{{.Where}}</span>{{end}}
+    {{if .Missing}}<span class="bm-missing">not there any more</span>{{end}}
+    {{if .Lines}}<ul class="bm-lines">{{range .Lines}}<li>{{.}}</li>{{end}}</ul>{{end}}
+    {{if or .Tags .Backlinks}}<span class="bm-foot">{{range .Tags}}<span class="tag">@{{.}}</span> {{end}}{{if .Backlinks}}<span class="dim">{{.Backlinks}} linked</span>{{end}}</span>{{end}}
+  </a>
+  <button type="button" class="bm-remove" data-url="{{.URL}}" title="Remove the bookmark" aria-label="Remove the bookmark {{.Title}}">×</button>
+</article>{{else}}<p class="dim bm-empty">Nothing bookmarked yet: ☆ in the top bar keeps the page you're on here, for every device.</p>{{end}}{{end}}

@@ -117,7 +117,7 @@ local function first_component(def)
 	if link_mod.is_parent_relative(def) then
 		return { kind = "global" } -- through its parent line's link: re-resolve with every change
 	end
-	if vim.trim(def):match("^%.%.?/") then
+	if vim.trim(def):match("^%.%.?/") or link_mod.site_path(def) then
 		return { kind = "path" } -- a file, checked when queried
 	end
 	if vim.trim(def):sub(1, 1) == "/" and link_mod.os_path(def) then

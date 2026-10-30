@@ -275,6 +275,10 @@ for the `/`), coloured `ZortexLinkDelimiter` either way (linked to
   the note (`[/#Heading]`, `[/-Item]`) is a local link instead, and a `~/`
   link that finds a note (`[~/P/#Subaru]`) goes there. Neovim opens the
   file; the web app shows the path, which a browser can't open.
+- The web app's address of a file, copied from the browser, is that file in
+  the notes folder: `[/raw/z/books/a.pdf]`, `[scan](/f/z/scan.png)`,
+  `[/f/z/books/]`, `[/n/projects.zortex]` (`?…`, `#…` and `%20` are
+  dropped and decoded). It is broken when the file isn't there.
 - Generated links keep a heading's text up to link syntax (`[ ] /`), an `@`
   or a `|` (`#Talk to Sam @p1` is written `#Talk to Sam`); the prefix match
   still finds it.

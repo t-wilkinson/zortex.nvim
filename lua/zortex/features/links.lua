@@ -390,7 +390,9 @@ function M.open_info(link_info, ctx)
 
 		-- 2. It is a local file. Resolve the absolute path first.
 		local resolved_path = url
-		if url:sub(1, 2) == "~/" then
+		if link_mod.site_path(url) then
+			resolved_path = link_mod.relative_path(url, current_file) -- /raw/z/…: in the notes
+		elseif url:sub(1, 2) == "~/" then
 			resolved_path = link_mod.os_path(url) -- a file on this computer
 		elseif not url:match("^/") and not url:match("^[a-zA-Z]:[\\/]") then
 			if url:sub(1, 2) == "./" or url:sub(1, 3) == "../" then

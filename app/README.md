@@ -33,7 +33,7 @@ page has the flags, the NixOS options and the Go packages.
 
 Notes are read-only unless `-writable` is set. The server's own state
 (`notifications.json`, `pomodoro.json`, `clocks.json`, `track.json` and
-`track_log.jsonl`, `search_history.json`, `web_completions.json`, the XP summary)
+`track_log.jsonl`, `search_history.json`, `bookmarks.json`, `web_completions.json`, the XP summary)
 lives in `-data`. Without `-data` it serves the notes only. The server never
 creates notes of its own except `inbox.zortex` (web edits),
 `reviews.zortex` (the web reviews, when you write in one before Neovim made

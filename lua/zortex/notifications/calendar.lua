@@ -142,7 +142,13 @@ function M.collect(now)
 	local function add(entry, notify_values, date_str, at_table, event_type)
 		local at = os.time(at_table)
 		for _, advance_minutes in ipairs(notify_values) do
-			local trigger_time = at - (advance_minutes * 60)
+			-- whole days before keep the clock time (@notify(1d) at 08:15 is
+			-- 08:15 the day before, across a daylight saving change too);
+			-- the minutes left over are minutes
+			local days = math.floor(advance_minutes / 1440)
+			local t = vim.deepcopy(at_table)
+			t.day, t.isdst = t.day - days, nil
+			local trigger_time = os.time(t) - (advance_minutes - days * 1440) * 60
 			if trigger_time > now then
 				local title, message = format_notification(entry, event_type, advance_minutes, trigger_time, date_str)
 				if event_type ~= "allday" and event_type ~= "at" then

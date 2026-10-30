@@ -1114,6 +1114,25 @@ function M.resolve_first(link, opts)
 end
 
 --- Is this "./" followed by a typed component ([./-Item], [./#Heading],
+--- The web app's address of a file in the notes, copied from the browser
+--- ("/raw/z/scan.pdf", "/f/z/books/", "/n/projects.zortex"): its path from
+--- the notes folder ("z/scan.pdf"), or nil. app/links SitePath is the same.
+---@param definition string
+---@return string?
+function M.site_path(definition)
+	local def = syntax.trim(definition or ""):gsub("^%[(.*)%]$", "%1")
+	for _, p in ipairs({ "/raw/", "/f/", "/n/" }) do
+		if def:sub(1, #p) == p then
+			local rest = def:sub(#p + 1):gsub("[?#].*$", "")
+			rest = rest:gsub("%%(%x%x)", function(h)
+				return string.char(tonumber(h, 16))
+			end)
+			return (rest:gsub("^/+", ""):gsub("/+$", ""))
+		end
+	end
+	return nil
+end
+
 --- A link to a file elsewhere on this computer, outside the notes: "~/…"
 --- ([~/Documents/tax.pdf], [scan](~/scans/a.png)) or an absolute path
 --- ([/home/me/a.pdf], [x](/srv/share/b.txt)): a "/" link whose first part
@@ -1126,6 +1145,9 @@ end
 ---@return string?
 function M.os_path(definition)
 	local def = syntax.trim(definition or ""):gsub("^%[(.*)%]$", "%1")
+	if M.site_path(def) then
+		return nil -- the web app's address of a file in the notes
+	end
 	if def:sub(1, 2) == "~/" and #def > 2 then
 		return (os.getenv("HOME") or "~") .. def:sub(2)
 	end
@@ -1210,7 +1232,8 @@ function M.links_on(line)
 end
 
 --- A link written as a path relative to its note ([./z/scan.pdf],
---- [../folder]) names a file, not a note: the absolute path it names
+--- [../folder]), or as the web app's address of a file ([/raw/z/scan.pdf],
+--- M.site_path), names a file, not a note: the absolute path it names
 --- (without any #fragment), or nil for every other link (parent-relative
 --- links included).
 ---@param definition string
@@ -1218,6 +1241,12 @@ end
 ---@return string?
 function M.relative_path(definition, from_file)
 	local def = syntax.trim(definition or "")
+	local site = M.site_path(def)
+	if site then
+		-- the web app's address: from the notes folder
+		local root = require("zortex.config").notes_dir or ""
+		return (vim.fn.simplify(root .. "/" .. site):gsub("(.)/$", "%1"))
+	end
 	if not def:match("^%.%.?/") or M.is_parent_relative(def) then
 		return nil
 	end

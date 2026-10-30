@@ -107,6 +107,11 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, page string, sta
 	data["Menu"] = snap.nav
 	data["NavBroken"] = len(snap.broken)
 	data["SiteWritable"] = s.cfg.Writable
+	// the top bar's ☆: bookmarks need -data; the page's own state
+	if s.bookmarks != nil && status < 400 {
+		data["BookmarkURL"] = s.bookmarkKeyOf(r)
+		data["Bookmarked"] = s.bookmarks.Has(data["BookmarkURL"].(string))
+	}
 	data["Nav"] = navOf[page]
 	if tab, ok := data["NavTab"].(string); ok && tab != "" {
 		data["Nav"] = tab
@@ -260,6 +265,8 @@ func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 		"HasCalendar":    calRel != "" || s.alerts != nil,
 		"CalendarRel":    calRel,
 		"HasState":       s.alerts != nil,
+		"BookmarksOn":    s.bookmarks != nil,
+		"BookmarkCards":  s.bookmarkCards(),
 		"Writable":       s.cfg.Writable,
 		"Structure":      snap.structure,
 		"StructureShown": shown,

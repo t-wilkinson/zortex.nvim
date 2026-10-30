@@ -27,10 +27,21 @@ type hoverCard struct {
 func (s *Server) apiHover(w http.ResponseWriter, r *http.Request) {
 	rel := r.URL.Query().Get("rel")
 	lnum, _ := strconv.Atoi(r.URL.Query().Get("lnum"))
-	d := s.ix.Doc(rel)
-	if d == nil {
+	card, ok := s.hoverCardOf(rel, lnum, hoverLines)
+	if !ok {
 		writeJSON(w, http.StatusNotFound, map[string]any{"error": "no note " + rel})
 		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, card)
+}
+
+// hoverCardOf: a note's card (at lnum's section when a heading starts
+// there), with up to `lines` of its first lines; ok is false for no note.
+func (s *Server) hoverCardOf(rel string, lnum, lines int) (hoverCard, bool) {
+	d := s.ix.Doc(rel)
+	if d == nil {
+		return hoverCard{}, false
 	}
 	h := d.Header()
 	card := hoverCard{Title: d.Title(), Rel: rel, Tags: append([]string{}, h.Tags...), Lines: []string{}}
@@ -42,7 +53,7 @@ func (s *Server) apiHover(w http.ResponseWriter, r *http.Request) {
 			first, last = lnum+1, n.End
 		}
 	}
-	for l := first; l <= last && len(card.Lines) < hoverLines; l++ {
+	for l := first; l <= last && len(card.Lines) < lines; l++ {
 		if l < 1 || d.InCode(l) {
 			continue
 		}
@@ -66,6 +77,5 @@ func (s *Server) apiHover(w http.ResponseWriter, r *http.Request) {
 			card.Backlinks++
 		}
 	}
-	w.Header().Set("Cache-Control", "no-store")
-	writeJSON(w, http.StatusOK, card)
+	return card, true
 }

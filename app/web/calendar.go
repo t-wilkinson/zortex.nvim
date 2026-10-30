@@ -65,6 +65,11 @@ func (s *Server) openState() error {
 		return fmt.Errorf("search history: %w", err)
 	}
 	s.history = h
+	bm, err := openBookmarks(filepath.Join(s.cfg.DataDir, "bookmarks.json"))
+	if err != nil {
+		return fmt.Errorf("bookmarks: %w", err)
+	}
+	s.bookmarks = bm
 	return nil
 }
 

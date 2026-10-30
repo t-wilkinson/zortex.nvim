@@ -117,8 +117,10 @@ type Server struct {
 	// what is opened from search (DataDir/search_history.json, never the
 	// notes' .z/); nil without DataDir
 	history *search.History
-	xp      xpCache     // XP summary published by Neovim
-	fired   firedAlerts // the alerts raised lately, for Neovim (GET /api/alerts)
+	// pages kept on the home page (DataDir/bookmarks.json); nil without DataDir
+	bookmarks *bookmarkStore
+	xp        xpCache     // XP summary published by Neovim
+	fired     firedAlerts // the alerts raised lately, for Neovim (GET /api/alerts)
 
 	editMu      sync.Mutex    // one edit at a time
 	inboxSent   sentIDs       // inbox captures by id, so a resend adds once (edit.go)
@@ -517,6 +519,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/notifications/test", s.apiNotificationTest)
 	mux.HandleFunc("GET /api/alerts", s.apiAlerts)
 	mux.HandleFunc("GET /api/summary", s.apiSummary)
+	mux.HandleFunc("GET /api/bookmarks", s.apiBookmarks)
+	mux.HandleFunc("GET /api/bookmarks/cards", s.apiBookmarkCards)
+	mux.HandleFunc("POST /api/bookmarks", s.apiBookmarkAdd)
+	mux.HandleFunc("POST /api/bookmarks/remove", s.apiBookmarkRemove)
 	// pomodoro, shared by Neovim and the home page
 	mux.HandleFunc("GET /api/pomodoro", s.apiPomodoro)
 	mux.HandleFunc("POST /api/pomodoro/{action}", s.apiPomodoroAction)

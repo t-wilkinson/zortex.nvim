@@ -84,8 +84,8 @@ zortex serve -dir ~/zortex -data ~/.local/state/zortex     # http://127.0.0.1:80
 ```
 
 `-dir` is the notes folder. `-data` is the server's own state; without it you
-get the notes only (no calendar notifications, pomodoro, clocks or time
-tracking). What lives in `-data`:
+get the notes only (no calendar notifications, pomodoro, clocks, time
+tracking or bookmarks). What lives in `-data`:
 
 | file | what |
 |---|---|
@@ -96,6 +96,7 @@ tracking). What lives in `-data`:
 | `xp_summary.json` | the XP summary when Neovim posts it (step 5) |
 | `web_completions.json` | tasks completed on the web, until Neovim counts their XP |
 | `search_history.json` | what you opened from the search page, which ranks it higher next time |
+| `bookmarks.json` | the pages bookmarked with the top bar's ☆, shown on the home page on every device |
 
 Add `-writable` to edit from the browser (the notes folder must be writable
 by the server). Edits are line-level and refused when the note changed since

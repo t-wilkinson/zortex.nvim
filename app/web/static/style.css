@@ -63,6 +63,30 @@ h2 { font-size: 1.05rem; }
 .quick input, .big-search input[type=search] { width: 100%; font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 0.4rem 0.7rem; }
 .quick input:focus, .big-search input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .quick { position: relative; }
+/* bookmarks (bookmarks.js): the top bar's star, the home page's cards */
+.bm-toggle { flex: none; font: inherit; font-size: 1.15rem; line-height: 1; padding: 0.3rem 0.4rem; border: 0; border-radius: 6px; background: none; color: var(--dim); cursor: pointer; }
+.bm-toggle:hover, .bm-toggle:focus-visible { color: var(--accent); background: var(--panel); }
+.bm-toggle[aria-pressed="true"] { color: var(--accent); }
+.bookmarks { margin: 1.4rem 0; }
+.bookmarks h2 { font-size: 1.05rem; margin: 0 0 0.6rem; }
+.bm-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: 0.75rem; }
+.bm-card { position: relative; min-width: 0; border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); transition: opacity 0.2s; }
+.bm-card.leaving { opacity: 0.35; }
+.bm-card.missing { border-style: dashed; }
+.bm-main { display: flex; flex-direction: column; gap: 0.2rem; height: 100%; padding: 0.65rem 2rem 0.7rem 0.8rem; color: var(--ink); text-decoration: none; border-radius: 8px; }
+.bm-main:hover, .bm-main:focus-visible { background: color-mix(in srgb, var(--accent) 7%, var(--panel)); }
+.bm-main h3 { font-size: 1rem; margin: 0; overflow-wrap: anywhere; color: var(--accent); }
+.bm-kind { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); }
+.bm-where { font-size: 0.78rem; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bm-missing { font-size: 0.8rem; color: var(--broken); }
+.bm-lines { list-style: none; margin: 0.25rem 0 0; padding: 0; font-size: 0.85rem; color: color-mix(in srgb, var(--ink) 85%, var(--dim)); }
+.bm-lines li { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bm-foot { margin-top: auto; padding-top: 0.3rem; font-size: 0.78rem; }
+.bm-image { width: 100%; max-height: 8rem; object-fit: cover; border-radius: 5px; margin-bottom: 0.25rem; }
+.bm-remove { position: absolute; top: 0.35rem; right: 0.35rem; width: 1.6rem; height: 1.6rem; border: 0; border-radius: 5px; background: none; color: var(--dim); font-size: 1.1rem; line-height: 1; cursor: pointer; opacity: 0.55; }
+.bm-card:hover .bm-remove, .bm-remove:focus-visible { opacity: 1; }
+.bm-remove:hover { background: var(--bg); color: var(--ink); }
+.bm-empty { margin: 0; }
 .quick-results { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 20; list-style: none; margin: 0; padding: 0.25rem; max-height: 60vh; overflow-y: auto; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; box-shadow: 0 4px 14px color-mix(in srgb, var(--ink) 14%, transparent); }
 .quick-results a { display: flex; gap: 0.6rem; align-items: baseline; justify-content: space-between; padding: 0.35rem 0.55rem; border-radius: 5px; color: var(--ink); }
 .quick-results a .dim { font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

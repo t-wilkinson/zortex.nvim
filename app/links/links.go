@@ -19,6 +19,7 @@ package links
 
 import (
 	"errors"
+	"net/url"
 	"sort"
 	"strings"
 
@@ -492,10 +493,34 @@ func OSPath(def string) bool {
 	if strings.HasPrefix(def, "[") && strings.HasSuffix(def, "]") {
 		def = def[1 : len(def)-1]
 	}
+	if SitePath(def) != "" {
+		return false // the web app's own address of a file in the notes
+	}
 	if strings.HasPrefix(def, "~/") && len(def) > 2 {
 		return true
 	}
 	return len(def) > 1 && def[0] == '/' && !strings.ContainsRune("#:*-%>@/ \t", rune(def[1]))
+}
+
+// SitePath: the notes-folder path a web app address names, "/raw/z/scan.pdf",
+// "/f/z/books/" or "/n/projects.zortex" (copied from the browser), as a
+// path from the notes folder ("z/scan.pdf", "z/books", "projects.zortex");
+// "" for anything else. As Neovim's link.site_path.
+func SitePath(def string) string {
+	def = strings.TrimSpace(def)
+	for _, p := range []string{"/raw/", "/f/", "/n/"} {
+		if strings.HasPrefix(def, p) {
+			rest := def[len(p):]
+			if i := strings.IndexAny(rest, "?#"); i >= 0 {
+				rest = rest[:i]
+			}
+			if u, err := url.PathUnescape(rest); err == nil {
+				rest = u
+			}
+			return strings.Trim(rest, "/")
+		}
+	}
+	return ""
 }
 
 // IsParentRelative: "./" followed by a typed component ("./-Item",

@@ -36,3 +36,26 @@ func TestOSPathLinksAreNotBroken(t *testing.T) {
 		}
 	}
 }
+
+// The web app's own addresses of files in the notes, copied from the
+// browser (/raw/z/…, /f/z/…, /n/…), are links to those files.
+func TestSitePathLinks(t *testing.T) {
+	ts := newSlidesServer(t, map[string]string{
+		"a.zortex": "@@A\n\n" +
+			"- [/raw/z/here.pdf]\n" +
+			"- [the scan](/raw/z/here.pdf)\n" +
+			"- [/f/z/]\n" +
+			"- [/n/b.zortex]\n" +
+			"- [/raw/z/missing.pdf]\n",
+		"b.zortex":   "@@B\n",
+		"z/here.pdf": "%PDF",
+	})
+	page := expect(t, ts, "/n/a.zortex", 200, `href="/f/z/here.pdf"`, `href="/f/z"`, `href="/n/b.zortex"`)
+	if n := strings.Count(page, `zl broken`); n != 1 {
+		t.Errorf("%d broken, want 1 (/raw/z/missing.pdf)", n)
+	}
+	if strings.Contains(page, "ospath") {
+		t.Error("a site path read as a file on the computer")
+	}
+	expect(t, ts, "/broken", 200, "missing.pdf")
+}

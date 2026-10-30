@@ -37,6 +37,9 @@ that share one folder of plain-text notes.
   `@[author(Smith & Lee)]` and `@[year(2020)]`.
 - Links to files elsewhere on the computer (`[~/Documents/tax.pdf]`,
   `[/home/me/plan.txt]`, `[scan](~/scans/a.png)`) are never broken.
+- The web app's address of a file, pasted from the browser
+  (`[/raw/z/scan.pdf]`, `[/f/z/books/]`, `[/n/projects.zortex]`), is a
+  link to that file in the notes.
 - A link that finds nothing in the live notes looks in the archives,
   which keep their note's names: `[P/-Old task]` finds a task archived
   into `z/archive.projects.zortex`.
@@ -173,6 +176,9 @@ that share one folder of plain-text notes.
 - A home page with today's calendar, an inbox box (offline too, in the
   installed app), the pomodoro, timers, alarms, a stopwatch, time tracking
   on the task you're working on (`@spent`), the week's focus and XP.
+- Bookmarks: the top bar's ☆ keeps the page you're on (a note, a folder, a
+  file, a review, a search) on the server, and the home page shows them as
+  cards on every device, updated live.
 - `/projects`, `/project`, `/okr` (objectives against the time passed, each
   season's name and tier, key results nothing can move), `/areas` (every
   area with its XP, level, objectives and projects, and the area XP of all

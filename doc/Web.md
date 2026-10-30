@@ -39,7 +39,7 @@ the other to read notes; each reads the files.
             ▼                                                    │
      zortex serve ── reads notes; with -writable edits lines, ───┘
         │            writes inbox.zortex, @spent, z/feeds/
-        └── -data: notifications, clocks, time tracking, search history
+        └── -data: notifications, clocks, time tracking, search history, bookmarks
 ```
 
 | | Neovim | the website |
@@ -59,7 +59,7 @@ The details, and the settings, are in [Working with Neovim](#working-with-neovim
 
 | page | what |
 |---|---|
-| `/` | the home page: the inbox box, the calendar, the clocks, the week's focus, XP, recent notes ([The home page](#the-home-page)) |
+| `/` | the home page: the inbox box, the calendar, bookmarks, the clocks, the week's focus, XP, recent notes ([The home page](#the-home-page)) |
 | `/graph` | the whole structure as cards side by side, one per section of the Structure note, each note with a `# Structure` section opened in place, and under a note the headings other notes link to (how many notes do); after a note, how many other notes it links with (the note listing it there not counted); a card longer than the window spreads over more columns, its list in as many, when that leaves them mostly full (one column on a phone); hover a note to mark the notes it links with, click a tag to mark its notes, filter notes and tags as you type (`@word` for tags); the notes not in it |
 | `/n/<path>` | a rendered note: outline, every line anchored (`#L12`), links resolved with the plugin's rules (to the canonical target; `⁺` when there are more), broken links in red, file paths and markdown links to the file viewer, [tag tables](#tag-tables) and [indexes](#tag-indexes), its [connections](#connections-and-the-graph), "Linked from" (backlinks) |
 | `/n/<path>?view=slides` | the note as a slide deck ([Slides](#slides)) |
@@ -83,7 +83,8 @@ The details, and the settings, are in [Working with Neovim](#working-with-neovim
 
 Every page has the header's search box (`/` focuses it). The top bar
 links the home page (the site's name), Projects, Objectives (`/okr`),
-Areas, Review, Files, Broken (only while something is broken) and Graph. Hovering **Files** (or its ▾, on a touch
+Areas, Review, Files, Broken (only while something is broken) and Graph,
+and with `-data` the ☆ that bookmarks the page ([The home page](#the-home-page)). Hovering **Files** (or its ▾, on a touch
 screen) opens a menu in two columns: the folders under `z/` and the notes
 in the top folder with a name of their own (not generated ones like
 `2026-10-15.042.zortex`), each a link. The footer links the pages the top
@@ -110,6 +111,15 @@ Attributes, Inbox (with `-writable`), Saved pages and Status
   labelled. **Carry** (`-writable`) moves the open tasks of the last two
   weeks to today, as Neovim's carry forward. The pending notifications and
   the next one are counted above it.
+- **Bookmarks** (`-data`): the pages you starred, newest first, as cards:
+  a note's title, path, first lines, tags and how many notes link it; a
+  folder; a file with its kind, an image as a thumbnail; another page by
+  its title. A bookmarked page that is gone is marked "not there any more".
+  × removes one. They are kept on the server (`-data/bookmarks.json`), so
+  every device has the same ones, and a change on one shows on the others
+  as it happens. The **☆** in the top bar, beside the search box, bookmarks
+  the page you're on (★ when it is; click again to remove it): any note,
+  folder or file (`/raw/…` too), a review, `/okr`, a search, with its query.
 - **Clocks**: the pomodoro (shared with Neovim; its **Settings**), and
   tabs for timers, alarms (once or daily) and a stopwatch. They run on the
   server, so every device sees the same ones and they ring through ntfy
@@ -194,7 +204,9 @@ a Markdown file refers to it with a zortex link to its path
 (`[z/books/type-theory.pdf]`, `[./scan.png]`), a markdown link
 (`[TT](z/books/type-theory.pdf)`, `![](img.png)`) or a bare path
 (`./scan.pdf`). In notes `./` and `../` are relative to the note and other
-paths to the notes folder; Markdown files try their own folder first. A bare
+paths to the notes folder; the app's own address of a file, copied from the
+browser (`[/raw/z/scan.pdf]`, `[scan](/f/z/scan.pdf)`, `[/n/projects.zortex]`),
+is that file in the notes folder too, and Neovim opens it; Markdown files try their own folder first. A bare
 file name (`[type-theory.pdf]`) works when exactly one resource has that
 name. Links inside code blocks don't count; links to missing files are
 listed on `/broken`. New or removed files are picked up on the next rescan.
@@ -524,6 +536,9 @@ Everything the pages use is plain HTTP with JSON, under `/api/`:
 | `GET /api/tagtable?q=&from=` | a tag search's table, as HTML ([tag indexes](#tag-indexes)) |
 | `GET /api/graph` | the Structure note's notes, and those not in it (the page is `/graph`) |
 | `GET /search/open?rel=&lnum=` | open a search result (`&section=1` for a section) and count it in the search history (with `-data`) |
+| `GET /api/bookmarks` | the bookmarks, newest first, as cards: `{bookmarks: [{url, href, title, kind, where?, tags?, lines?, backlinks?, image?, missing?, added}]}` (`kind`: `note`, `folder`, `page`, or a file's kind); `GET /api/bookmarks/cards` is the home page's cards as HTML. Need `-data` (503 without) |
+| `POST /api/bookmarks` | `{url, title?}`: bookmark a page of the site (its path and query, as the browser shows it, `-base` included; the fragment is dropped; `/api/`, `/static/` and the like are refused, 422); again only updates its title; `{ok, url, bookmarked}`. At most 200 |
+| `POST /api/bookmarks/remove` | `{url}`: remove it; `{ok, url, bookmarked: false}` |
 | `GET /api/calendar?from=&to=` | `days` (entries of `calendar.zortex` with time, text, rendered HTML, task state, whether a notification is scheduled; after a break, the block again with `resume` (its `lnum`, `text` and `url`; `time` and `end` when it's back); the calendar feeds' events among them, with `feed` and no `rel`; the `# Repeating` rules' occurrences, with `repeat`), `notifications`, `count`, `next_event`, `carry`, `feeds` (`name`, `title`, `notify`, and for a notifying feed its dot `color`) |
 | `POST /api/calendar/repeat` | `-writable` only: `{lnum, expect, date}`: tick the occurrence on `date` of the repeating task on line `lnum` of the calendar's `# Repeating` section (`expect`: that line): a done copy goes into today (made from its template when new), with `@for(date)` when it was due another day. `GET /api/calendar`'s days list the occurrences with `repeat`, `date`, and `copy` (the copy's line, then `lnum` and `src` are the copy's and `POST /api/n/…` toggles it) |
 | `POST /api/calendar/carry` | `-writable` only: `{date?}` (default today): copy the open tasks of the 14 days before to the date with the same `@id` and mark the old lines `[>]`, as Neovim's `:ZortexCarryForward`; `{moved, added}`. `GET /api/calendar` has `carry`, how many there are for today (the home page offers a **Carry** button) |
@@ -554,7 +569,7 @@ Everything the pages use is plain HTTP with JSON, under `/api/`:
 | `POST /api/track/pin` | `{rel, lnum, expect?}` work on this line; `POST /api/track/{follow,off,flush}`; `GET /api/track/tasks?q=` open tasks for the picker |
 | `GET /api/xp` | the XP summary Neovim published (version 3: the season with its `season_xp`; `daily` area XP for 14 days and `days`, 60 days of area, season and work XP and how the work served the plan; the top `areas`, every area in `area_tree` and their `area_total`; recent awards with their area and season XP; the calibration, with `default_area`), or `{"available": false}`; plus `pending_web` (tasks completed on the web since, one per `@id`), `pending_xp` and `pending_tasks` (`{title, xp, hours}`: estimated from the task's `@size`, priority and importance with the summary's calibration) |
 | `POST /api/xp` | Neovim publishes it after every XP change (`X-API-Key` when set); it also writes `.z/xp_summary.<device>.json` into the notes folder, and the newest of them is shown |
-| `GET /api/events` | server-sent events for open pages: `notes` (`{rels}` added, changed or removed; seen as the file lands, or on the next rescan, `-poll`), `xp` (a new summary), `pomodoro` (the clock changed), `clocks` (timers, alarms, stopwatch), `track` (time tracking). Pages redraw right away; behind nginx the stream needs `proxy_buffering off` (the server also sends `X-Accel-Buffering: no`) |
+| `GET /api/events` | server-sent events for open pages: `notes` (`{rels}` added, changed or removed; seen as the file lands, or on the next rescan, `-poll`), `xp` (a new summary), `pomodoro` (the clock changed), `clocks` (timers, alarms, stopwatch), `track` (time tracking), `bookmarks` (`{url, bookmarked}`). Pages redraw right away; behind nginx the stream needs `proxy_buffering off` (the server also sends `X-Accel-Buffering: no`) |
 | `POST /api/open`, `/api/presence`, `/api/open/ack` | show a page in an open tab ([from Neovim](#opening-pages-from-neovim)) |
 
 Notifications more than 2 h overdue (server down) are

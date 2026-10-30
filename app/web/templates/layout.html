@@ -15,6 +15,7 @@
 <script src="{{asset "/static/live.js"}}" defer></script>
 <script src="{{asset "/static/tables.js"}}" defer></script>
 <script src="{{asset "/static/inbox.js"}}" defer></script>
+<script src="{{asset "/static/bookmarks.js"}}" defer></script>
 <script src="{{asset "/static/math.js"}}" data-katex="{{asset "/static/katex/katex.min.js"}}" data-katex-css="{{asset "/static/katex/katex.min.css"}}" defer></script>
 </head>
 <body data-base="{{.Base}}" data-sw="{{asset "/sw.js"}}">
@@ -23,6 +24,7 @@
   <form class="quick" action="{{u "/search"}}" method="get" role="search">
     <input type="search" name="q" value="{{.Query}}" placeholder="Search notes  ( / )" aria-label="Search notes" autocomplete="off" id="quick">
   </form>
+  {{if .BookmarkURL}}<button type="button" class="bm-toggle" id="bm-toggle" data-url="{{.BookmarkURL}}" aria-pressed="{{if .Bookmarked}}true{{else}}false{{end}}" title="{{if .Bookmarked}}Bookmarked: on the home page (click to remove){{else}}Bookmark this page (on the home page){{end}}" aria-label="Bookmark this page">{{if .Bookmarked}}★{{else}}☆{{end}}</button>{{end}}
   <nav class="links">
     <a href="{{u "/projects"}}"{{if eq .Nav "projects"}} aria-current="page"{{end}}>Projects</a>
     <a href="{{u "/okr"}}"{{if eq .Nav "okr"}} aria-current="page"{{end}}>Objectives</a>

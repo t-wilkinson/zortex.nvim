@@ -16,7 +16,7 @@ import (
 // The top bar's and layout's own keys are left out.
 
 // layoutKeys: what render() adds for the layout, not the page's data.
-var layoutKeys = map[string]bool{"Site": true, "Base": true, "Nav": true, "NavTab": true, "Query": true, "Menu": true, "NavBroken": true, "SiteWritable": true}
+var layoutKeys = map[string]bool{"Site": true, "Base": true, "Nav": true, "NavTab": true, "Query": true, "Menu": true, "NavBroken": true, "SiteWritable": true, "BookmarkURL": true, "Bookmarked": true}
 
 // jsonNames: page keys whose template name is too short for an API.
 var jsonNames = map[string]string{"P": "Project"}

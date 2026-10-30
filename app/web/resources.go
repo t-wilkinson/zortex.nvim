@@ -158,6 +158,9 @@ func (s *Server) localRef(fromRel, p string, dirFirst bool, names map[string][]s
 	switch {
 	case strings.HasPrefix(p, "./") || strings.HasPrefix(p, "../"):
 		candidates = []string{path.Join(dir, p)}
+	case links.SitePath(p) != "":
+		// the web app's address of it (/raw/z/scan.pdf, /f/z/books/)
+		candidates = []string{path.Clean(links.SitePath(p))}
 	case strings.HasPrefix(p, "/"):
 		candidates = []string{path.Clean(p[1:])}
 	case dirFirst:
@@ -190,7 +193,7 @@ func (s *Server) fileLike(def string) bool {
 	if links.IsParentRelative(def) {
 		return false // [./-Item]: its parent line's link continued
 	}
-	if strings.HasPrefix(def, "./") || strings.HasPrefix(def, "../") {
+	if strings.HasPrefix(def, "./") || strings.HasPrefix(def, "../") || links.SitePath(def) != "" {
 		return true
 	}
 	e := extOf(def)

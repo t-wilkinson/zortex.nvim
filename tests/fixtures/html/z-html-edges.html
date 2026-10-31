@@ -1,0 +1,23 @@
+<HTML><BODY>
+<!-- a comment <h1>not this</h1> -->
+<H1 CLASS=big>Edge   cases<br/>here</H1>
+<p>Unclosed paragraph one
+<p>Unclosed paragraph two with a <a href=../other/page.html#sec>relative link</a> and <a href="./same.html">same folder</a>.
+<div>Text in a div <span>with a span</span><p>and a p inside</p>trailing text</div>
+<p>Entities: &lt;tag&gt; &amp;amp; &quot;q&quot; &#39;s&#39; &copy; &unknown; &#0; &#x1F600; caf&eacute; &hellip;</p>
+<p>A < lone angle and 3 > 2, and <notatag text.</p>
+<ul><li>one<li>two<li>three<ol><li>a<li>b</ol><li>four</ul>
+<p><b> spaced bold </b>and<i></i>empty <code> x </code>.</p>
+<pre>
+line with ``` inside
+	tabbed &amp; kept
+</pre>
+<blockquote>Quoted <em>text</em><p>Second quoted paragraph</p><ul><li>quoted item</li></ul></blockquote>
+<table><caption>Cap</caption><tr><td>a<td>b|c<tr><th>H<td><a href="https://x.y">x.y</a></table>
+<p><a href="https://x.y/z">https://x.y/z</a> <a href="javascript:void(0)">js</a> <a href="#top">top</a> <a href="https://e.com"><img src="logo.png" alt=""></a></p>
+<p><img src="/abs/pic one.png" alt="a (pic)"> <img alt="no src"></p>
+<details><summary>More</summary><p>Hidden detail</p></details>
+<h2></h2>
+<h3>Heading with <a href="x.html">a link</a></h3>
+<form><input type="text" value="x"><label>Label text</label><select><option>Opt</option></select><textarea>raw <b>text</b></textarea></form>
+<p>Ends <unknown-tag>inside</unknown-tag> here</p>

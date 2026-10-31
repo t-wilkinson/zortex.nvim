@@ -428,7 +428,7 @@ func TestResources(t *testing.T) {
 
 	// listings: per-file counts and unlinked per folder
 	expect(t, ts, "/f/z", 200, `href="/f/z/books?show=unlinked">1 unlinked</a>`, `href="/f/z/papers?show=unlinked">1 unlinked</a>`,
-		`href="/f/z?show=all">8 resources</a> under this folder`, `href="/f/z?show=unlinked">3 unlinked</a>`)
+		`href="/f/z?show=all">9 resources</a> under this folder`, `href="/f/z?show=unlinked">3 unlinked</a>`)
 	expect(t, ts, "/f/z/books?list=1", 200, `<span class="unlinked">unlinked</span>`, `/f/z/books/type-theory.pdf#backlinks">1</a>`)
 	// a folder of resources (no notes under it) opens as its resources
 	expect(t, ts, "/f/z/books", 200, `<h1>Resources in z/books/</h1>`, `href="/f/z/books?list=1">List as files</a>`, `type-theory.pdf`)

@@ -697,8 +697,18 @@ func firstField(s string) string {
 
 // Parse parses a whole note. With inline, every line with content also gets
 // its inline spans.
-func Parse(lines []string, inline bool) *AST {
-	header := ParseHeader(lines, 0)
+func Parse(lines []string, inline bool) *AST { return ParseWith(lines, inline, nil) }
+
+// ParseWith is Parse with the header given instead of read (a Markdown
+// document's, notes.MarkdownLines: its names, the article on line 1), as
+// core/syntax.parse's opts.header; nil reads it.
+func ParseWith(lines []string, inline bool, given *Header) *AST {
+	var header Header
+	if given != nil {
+		header = *given
+	} else {
+		header = ParseHeader(lines, 0)
+	}
 	out := &AST{Version: Version, Header: header, Lines: make([]*Line, 0, len(lines)), Sections: []*Section{}, Blocks: []*Block{}}
 	if header.NameLnum > 0 {
 		out.Sections = append(out.Sections, &Section{Lnum: header.NameLnum, Type: KindArticle, Level: 0, Text: header.Names[0], Names: header.Names})

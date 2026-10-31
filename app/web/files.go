@@ -424,8 +424,20 @@ func (s *Server) fileView(w http.ResponseWriter, r *http.Request, rel string, st
 			data["Source"] = s.fileURL(rel) + "?source=1"
 		}
 	}
+	// an HTML document (notes/documents.go): the page, or its text as the
+	// notes read it (where links to its headings land)
+	if s.ix.DocumentKind(rel) == "html" {
+		data["Page"] = s.fileURL(rel)
+		data["Readable"] = s.fileURL(rel) + "?view=readable"
+		if r.URL.Query().Get("view") == "readable" {
+			if doc := s.ix.Doc(rel); doc != nil {
+				kind = "readable"
+				data["Body"] = s.renderNote(doc)
+			}
+		}
+	}
 	data["Kind"] = kind
-	if s.isResource(rel) {
+	if s.isResource(rel) || s.ix.DocumentKind(rel) != "" {
 		links := s.current().fileBacklinks[rel]
 		data["Resource"] = true
 		data["Backlinks"] = s.groupBacklinks(links)

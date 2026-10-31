@@ -206,6 +206,16 @@ A note's tree is `Document.get(path).tree`.
 - `find_by_tag(tag)` is case-insensitive.
 - `header(path)` reads **only** the header block, cached by mtime.
 - `is_archived(path)` is true for `archive.*` filenames or the `@Archive` tag.
+- `index({ documents = true })` adds the Markdown and HTML documents
+  (`core/documents.lua`) after the notes, for link resolution, search,
+  completion and the link index only: everything else lists notes alone. A
+  Markdown file's Document is its lines with the front matter blank and
+  setext headings as `#` ones (same line numbers), with a header made from
+  its front matter, first `# Title` and file name (`syntax.parse(lines,
+  { header = … })`); an HTML page is `core/html.lua`'s note, kept in
+  `.z/html/<path>.zortex`. The server (`app/notes/documents.go`,
+  `app/notes/html.go`) reads them the same way, checked against
+  `tests/fixtures/html` and the documents in `tests/fixtures/notes`.
 
 ### Links — `core/link.lua`
 

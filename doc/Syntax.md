@@ -285,6 +285,39 @@ for the `/`), coloured `ZortexLinkDelimiter` either way (linked to
 
 `doc/Architecture.md` (Links) has the exact resolution rules.
 
+### Markdown and HTML documents
+
+Markdown (`.md`) and HTML (`.html`) files in `z/markdown` and `z/html`
+(`documents` in the configuration; `{}` turns it off) are **documents**:
+read-only notes that links, search and completion reach. Copy an
+AI-written page there and link into it like any note:
+
+```zortex
+- [Rust Ownership/#Borrowing]          the heading in z/html/rust-ownership.html
+- [rust-ownership/#Lifetimes]          by its file name
+- [Ownership/#Borrowing/#Mutable]      by a front matter alias, a heading under a heading
+```
+
+- **Its names**: the front matter's `title` (else a first `# Title`, or for
+  a page its `<title>`, else its first `<h1>`), the front matter's
+  `aliases`, and the file name. Its `tags` are its header tags.
+- **Its sections**: its headings (`#`, setext `===` and `---` ones, and
+  `<h1>`…`<h6>`), labels and bold headings, as in a note.
+- **A Markdown file is read where it is**, line for line, so a link lands
+  on its line. **An HTML page is converted** into a note,
+  `.z/html/<path>.zortex` (rewritten when the page changes), which is what
+  Neovim opens (read-only) and what a link to it lands in; its first lines
+  say which page it came from (`From [z/html/a.html](/raw/z/html/a.html)`,
+  which opens the page in the browser). Scripts, styles and navigation are
+  left out; paragraphs, lists, tables, code, quotes, links and images keep
+  their note forms, with the page's relative paths from the notes folder.
+- **A note wins a name**: `[Rust]` is the note `@@Rust` when there is one,
+  then a document named Rust.
+- **They aren't notes**: their tasks, tags, links and attributes count for
+  nothing else (no projects, XP, backlinks from them or broken links in
+  them), and nothing in Zortex edits them. A link to a heading a document
+  doesn't have is broken, as for a note.
+
 ### Display text
 
 `[text](definition)` is a link shown as its text: `[the zortex

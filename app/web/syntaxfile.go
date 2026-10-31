@@ -12,10 +12,11 @@ import (
 
 // The note format's settings, from Neovim (lua/zortex/core/syntax_config):
 // notes_dir/.z/syntax.json, {"version": 1, "label_max_words": 5,
-// "group_days": false}. The server reads it at start and whenever it
-// changes, so a "Text:" line is a label here exactly when it is one in
-// Neovim (a change reparses every note), and the days it adds to the
-// calendar make month headings only when Neovim's do.
+// "group_days": false, "documents": ["docs"]}. The server reads it at start
+// and whenever it changes, so a "Text:" line is a label here exactly when it
+// is one in Neovim (a change reparses every note), the days it adds to the
+// calendar make month headings only when Neovim's do, and the Markdown and
+// HTML documents are in the same folders (default z/markdown and z/html).
 
 func (s *Server) syntaxFile() string { return filepath.Join(s.cfg.Root, ".z", "syntax.json") }
 
@@ -34,22 +35,31 @@ func (s *Server) checkSyntaxFile() bool {
 	}
 	s.syntaxSeen, s.syntaxChecked = mod, true
 	words, group := syntax.DefaultMaxLabelWords, true
+	var documents []string // nil: the default folders
 	if err == nil {
 		var cfg struct {
-			LabelMaxWords int   `json:"label_max_words"`
-			GroupDays     *bool `json:"group_days"`
+			LabelMaxWords int       `json:"label_max_words"`
+			GroupDays     *bool     `json:"group_days"`
+			Documents     *[]string `json:"documents"`
 		}
 		if raw, rerr := os.ReadFile(s.syntaxFile()); rerr == nil && json.Unmarshal(raw, &cfg) == nil {
 			if cfg.LabelMaxWords > 0 {
 				words = cfg.LabelMaxWords
 			}
 			group = cfg.GroupDays == nil || *cfg.GroupDays
+			if cfg.Documents != nil {
+				documents = append([]string{}, *cfg.Documents...)
+			}
 		}
 	}
 	edit.SetGroupDays(group)
 	changed := syntax.SetMaxLabelWords(words)
 	if changed {
 		s.log.Printf("labels: up to %d words (.z/syntax.json)", words)
+	}
+	if s.ix.SetDocumentFolders(documents) {
+		s.log.Printf("documents: %v (.z/syntax.json)", s.ix.DocumentFolders())
+		changed = true
 	}
 	return changed
 }

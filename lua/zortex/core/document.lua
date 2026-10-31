@@ -21,7 +21,16 @@ Document.__index = Document
 -- =============================================================================
 
 function M.from_lines(lines, filepath, meta)
-	local ast = syntax.parse(lines)
+	local given
+	local e = filepath and (filepath:match("%.(%a+)$") or ""):lower()
+	if e == "md" or e == "markdown" then
+		-- a Markdown document (core/documents): read as a note, same lines
+		local documents = require("zortex.core.documents")
+		if documents.kind(filepath) == "markdown" then
+			lines, given = documents.markdown(lines, filepath)
+		end
+	end
+	local ast = syntax.parse(lines, given and { header = given } or nil)
 	local header = ast.header
 	local doc = setmetatable({
 		filepath = filepath,

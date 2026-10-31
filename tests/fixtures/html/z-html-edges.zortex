@@ -1,0 +1,55 @@
+@@Edge cases here
+@@z-html-edges
+
+From [z/html/z-html-edges.html](/raw/z/html/z-html-edges.html)
+
+# Edge cases here
+
+Unclosed paragraph one
+
+Unclosed paragraph two with a [relative link](z/other/page.html#sec) and [same folder](z/html/same.html).
+
+Text in a div with a span
+
+and a p inside
+
+trailing text
+
+Entities: <tag> &amp; "q" 's' © &unknown; &#0; 😀 caf&eacute; …
+
+A < lone angle and 3 > 2, and
+
+- one
+- two
+- three
+  1. a
+  2. b
+- four
+
+**spaced bold** andempty `x` .
+
+````
+line with ``` inside
+	tabbed & kept
+````
+
+> Quoted *text*
+> Second quoted paragraph
+> - quoted item
+
+| a | b¦c |
+| H | [x.y](https://x.y) |
+
+https://x.y/z js top [![](z/html/logo.png)](https://e.com)
+
+![a (pic)](/abs/pic%20one.png) no src
+
+More
+
+Hidden detail
+
+### Heading with [a link](z/html/x.html)
+
+Label text
+
+Ends inside here

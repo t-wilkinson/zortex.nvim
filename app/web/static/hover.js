@@ -35,6 +35,13 @@
     if (href.indexOf(base + "/f/") === 0 && IMAGE.test(href.split(/[?#]/)[0])) {
       return { kind: "image", src: base + "/raw/" + href.slice(base.length + 3) };
     }
+    // a Markdown or HTML document a link names (/f/z/markdown/a.md#L12,
+    // /f/z/html/b.html?view=readable#L4): its card, as a note's
+    if (href.indexOf(base + "/f/") === 0 && /\.(md|markdown|html?)$/i.test(href.split(/[?#]/)[0])) {
+      var drest = href.slice(base.length + 3), dh = drest.indexOf("#");
+      var dm = dh < 0 ? null : /^#L(\d+)$/.exec(drest.slice(dh));
+      return { kind: "note", rel: decodeURIComponent(drest.split(/[?#]/)[0]), lnum: dm ? Number(dm[1]) : 0 };
+    }
     return null;
   }
 

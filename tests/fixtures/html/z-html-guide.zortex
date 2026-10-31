@@ -1,0 +1,51 @@
+@@Rust Ownership & Borrowing
+@@z-html-guide
+
+From [z/html/z-html-guide.html](/raw/z/html/z-html-guide.html)
+
+# Rust Ownership
+
+A guide to **ownership**, *borrowing* and `&mut`.
+
+## Ownership rules
+
+- Each value has an [owner](https://doc.rust-lang.org/book/).
+- Only one owner at a time
+  - moved on assignment
+  - dropped at scope end
+    second para
+
+1. First
+2. Second
+
+## Borrowing
+
+References let you use a value
+without taking it.
+
+```rust
+fn main() {
+    let s = String::from("hi");
+    println!("{}", &s);
+}
+```
+
+> At any time, one mutable reference **or** many immutable ones.
+
+| Kind | Many? |
+|---|---|
+| &T | yes ¦ ok |
+| &mut T | no |
+
+---
+
+A div note with an ![diagram](z/html/img/x.png) image.
+
+- Lifetime
+  How long a reference is valid
+
+### Mutable — refs → ok
+
+Ends
+
+© 2026

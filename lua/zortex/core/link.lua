@@ -620,7 +620,7 @@ resolve_in = function(link, opts)
 		if include_archived == nil then
 			include_archived = mentions_archive(parsed)
 		end
-		idx = notes().index({ include_archived = include_archived, root = root })
+		idx = notes().index({ include_archived = include_archived, root = root, documents = true })
 		cands = {}
 		-- An article first ([P/...], the usual case): only the notes with that
 		-- name or tag can match, so skip the rest now (the article step below

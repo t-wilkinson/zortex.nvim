@@ -233,6 +233,22 @@ func (s *Server) collectFileLinks(doc *notes.Document, snap *snapshot, names map
 	}
 }
 
+// collectPageLinks records the files an HTML document's page uses (its
+// images and links, as notes/html.go reads them: paths from the notes
+// folder); a page's missing file isn't a broken link of the notes.
+func (s *Server) collectPageLinks(doc *notes.Document, snap *snapshot, names map[string][]string) {
+	for lnum := range doc.Lines {
+		lnum++
+		if doc.InCode(lnum) {
+			continue
+		}
+		md := strings.ReplaceAll(doc.Lines[lnum-1], "![", " [")
+		s.fileRefs(syntax.Inline(md, 0, len(md)), func(target string, strict bool) {
+			s.addFileRef(snap, names, doc.Rel, false, lnum, doc.Lines[lnum-1], doc.NodeAt(lnum).Breadcrumb(" › "), target, false, false)
+		})
+	}
+}
+
 // collectMarkdownLinks records the file references in a Markdown file.
 func (s *Server) collectMarkdownLinks(rel string, snap *snapshot, names map[string][]string) {
 	f, err := os.Open(s.ix.Path(rel))

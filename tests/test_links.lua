@@ -217,6 +217,9 @@ T.test("conformance: resolve and search fixtures are up to date", function()
 		gen.use_fixture_copy() -- pristine notes, whatever earlier tests wrote
 		T.eq(vim.json.decode(vim.json.encode(gen.resolve_cases())), read(gen.RESOLVE), "resolve.json" .. hint)
 		T.eq(vim.json.decode(vim.json.encode(gen.search_cases())), read(gen.SEARCH), "search.json" .. hint)
+		for path, lines in pairs(gen.html_cases()) do
+			T.eq(lines, vim.fn.readfile(path), vim.fn.fnamemodify(path, ":t") .. hint)
+		end
 	end)
 	Config.notes_dir = saved
 	require("zortex.core.notes").invalidate()

@@ -287,6 +287,11 @@ iframe.doc { width: 100%; height: calc(100vh - 10rem); border: 1px solid var(--r
 pre.text { background: var(--panel); border: 1px solid var(--rule); padding: 0.8rem 1rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 /* a Markdown file, rendered like a note (markdown.go) */
 .md-view { max-width: 46rem; margin: 0 auto; }
+/* an HTML document (notes/documents.go): the page, or the text links read */
+.doc-tabs { display: flex; gap: 1.25rem; margin: 0.25rem 0 0.75rem; border-bottom: 1px solid var(--rule); font-size: 0.95rem; }
+.doc-tabs a { padding: 0.35rem 0; color: var(--dim); text-decoration: none; }
+.doc-tabs a:hover { color: var(--ink); }
+.doc-tabs a[aria-current="page"] { color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px 0 var(--accent); }
 .md-p { margin: 0; }
 .md-p > .ln { display: inline; padding: 0; }
 .md-view .ln > .anchor { display: inline; }

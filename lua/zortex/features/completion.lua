@@ -93,7 +93,7 @@ local reachable_sections -- defined below
 
 -- the notes a link written in `doc` can reach (notes.root_of)
 local function index_for(doc)
-	return notes().index({ root = doc and doc.filepath and notes().root_of(doc.filepath) or nil })
+	return notes().index({ root = doc and doc.filepath and notes().root_of(doc.filepath) or nil, documents = true })
 end
 
 local function article_items(paths, doc)

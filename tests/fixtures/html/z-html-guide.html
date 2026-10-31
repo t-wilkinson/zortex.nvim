@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Rust Ownership &amp; Borrowing</title>
+<style>body{font:1rem sans-serif}</style><script>var x = "<p>no</p>";</script></head>
+<body>
+<nav><a href="#a">Skip</a></nav>
+<header><h1>Rust Ownership</h1><p class="lead">A guide to <strong>ownership</strong>, <em>borrowing</em> and <code>&amp;mut</code>.</p></header>
+<main>
+<section id="own"><h2>Ownership rules</h2>
+<ul><li>Each value has an <a href="https://doc.rust-lang.org/book/">owner</a>.
+<li>Only one owner at a time
+  <ul><li>moved on assignment</li><li><p>dropped at scope end</p><p>second para</p></li></ul>
+</li></ul>
+<ol><li>First</li><li>Second</li></ol>
+</section>
+<section><h2>Borrowing</h2>
+<p>References&nbsp;let you use a value<br>without taking it.</p>
+<pre><code class="language-rust">fn main() {
+    let s = String::from("hi");
+    println!("{}", &amp;s);
+}
+</code></pre>
+<blockquote><p>At any time, one mutable reference <b>or</b> many immutable ones.</p></blockquote>
+<table><thead><tr><th>Kind</th><th>Many?</th></tr></thead><tbody><tr><td>&amp;T</td><td>yes | ok</td></tr><tr><td>&amp;mut T</td><td>no</td></tr></tbody></table>
+<hr>
+<div class="note">A div note with an <img src="img/x.png" alt="diagram"> image.</div>
+<button>Copy</button>
+<dl><dt>Lifetime</dt><dd>How long a reference is valid</dd></dl>
+<h3>Mutable &#8212; refs &#x2192; ok</h3>
+<p>Ends</p>
+</section></main>
+<footer><p>© 2026</p></footer>
+</body></html>

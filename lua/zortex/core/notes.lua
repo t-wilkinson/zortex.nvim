@@ -121,14 +121,20 @@ function M.root_of(path)
 end
 
 -- Snapshot of every note and its header (opts.root: the notes of another
--- folder, M.root_of).
----@param opts { include_archived?: boolean, fresh?: boolean, root?: string }?
+-- folder, M.root_of). opts.documents: the Markdown and HTML documents too
+-- (core/documents), after the notes (so a note wins a name), for links,
+-- search and completion; not with opts.root.
+---@param opts { include_archived?: boolean, fresh?: boolean, root?: string, documents?: boolean }?
 ---@return { files: string[], headers: table<string, table> }
 function M.index(opts)
 	opts = opts or {}
 	local include_archived = opts.include_archived or false
-	local key = (opts.root or "") .. "\n" .. tostring(include_archived)
+	local documents = opts.documents and not opts.root or false
+	local key = (opts.root or "") .. "\n" .. tostring(include_archived) .. "\n" .. tostring(documents)
 	local now = vim.uv.now()
+	if opts.fresh then
+		snapshots = {} -- fresh for every kind of snapshot, not just this one
+	end
 	local snapshot = snapshots[key]
 	if not opts.fresh and snapshot and now - snapshot.time < SNAPSHOT_TTL_MS then
 		return snapshot
@@ -144,6 +150,16 @@ function M.index(opts)
 		end
 	end
 	sort_paths(files)
+	if documents then
+		local Document = require("zortex.core.document")
+		for _, path in ipairs(require("zortex.core.documents").paths()) do
+			local doc = Document.get(path)
+			if doc then
+				files[#files + 1] = path
+				headers[path] = doc.header
+			end
+		end
+	end
 
 	snapshot = { time = now, include_archived = include_archived, root = opts.root, files = files, headers = headers }
 	snapshots[key] = snapshot

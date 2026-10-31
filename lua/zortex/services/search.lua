@@ -260,8 +260,8 @@ function M.build_index(files)
 
 				index[#index + 1] = {
 					filepath = filepath,
-					-- ties go by path from the notes folder (as the web app's
-					-- search)
+					-- ties go by path from the notes folder; a page's copy in
+					-- .z/html by the page's path (as the web app's search)
 					sort_key = require("zortex.core.documents").display_rel(filepath) or filepath,
 					stem = stem,
 					archived = require("zortex.core.notes").is_archived(filepath),

@@ -8,10 +8,13 @@
 --   tests/fixtures/resolve.json  [{ link, from?, lnum?, results = [{ rel, lnum, col }], error? }]
 --                                (lnum: the line a parent-relative [./-Item] link is written on)
 --   tests/fixtures/search.json   [{ prompt, mode, results = [{ type, rel, lnum, breadcrumb?, score?, child? }] }]
+--   tests/fixtures/html/x.zortex  each x.html there as a note (core/html), read
+--                                as the page z/html/x.html
 --
 -- The cases are every section of every note and document (its canonical
 -- link), every link and tag search written in the notes, and the hand-picked
--- cases below. The
+-- cases below. A document is named by its path, as the server names it (an
+-- HTML page, not its copy in .z/html: core/documents). The
 -- Go port (app/links, app/search) is tested against these files; test_links.lua
 -- checks that they are up to date.
 local root = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p:h:h")
@@ -21,6 +24,21 @@ local M = {}
 
 M.RESOLVE = root .. "/tests/fixtures/resolve.json"
 M.SEARCH = root .. "/tests/fixtures/search.json"
+M.HTML = root .. "/tests/fixtures/html"
+
+--- Each tests/fixtures/html/x.html as core/html converts it: { [x.zortex path] = lines }
+function M.html_cases()
+	local out = {}
+	for _, path in ipairs(vim.fn.glob(M.HTML .. "/*.html", false, true)) do
+		local f = assert(io.open(path, "rb"))
+		local text = f:read("*a")
+		f:close()
+		local name = vim.fn.fnamemodify(path, ":t")
+		out[path:gsub("%.html$", ".zortex")] = require("zortex.core.html").convert(text, "z/html/" .. name)
+	end
+	return out
+end
+
 -- Hand-picked links: aliases, tags, namespaces, prefixes, case, items,
 -- queries, archives, local links and failures.
 M.EXTRA_LINKS = {
@@ -140,12 +158,14 @@ M.EXTRA_LINKS = {
 	{ link = "[./-Item]", from = "z/day-plan.zortex", lnum = 1 },
 	{ link = "[./-Fix project search]", from = "z/day-plan.zortex", lnum = 4 },
 	{ link = "[./-Nothing like this]", from = "z/day-plan.zortex", lnum = 6 },
-	-- Markdown documents (core/documents): names from front matter, a first
-	-- # heading, and the file name; a note wins a name
+	-- Markdown and HTML documents (core/documents): names from front matter,
+	-- a first # heading, a <title>, and the file name; a note wins a name
 	{ link = "[Ownership/#Borrowing/#Mutable]" },
 	{ link = "[rust-ownership/#Lifetimes]" },
 	{ link = "[@rust]" },
 	{ link = "[Tide Tables/#Neap]" },
+	{ link = "[The Chemistry/#Gluten]" },
+	{ link = "[sourdough-chemistry/#The starter/-acetic]" },
 	{ link = "[Rust Ownership/#Nowhere]" },
 	{ link = "[Rust Ownership/:Notes]" },
 }
@@ -202,8 +222,9 @@ M.SEARCHES = {
 	-- documents
 	{ prompt = "spring tides" },
 	{ prompt = "ownership borrowing" },
+	{ prompt = "chemistry gluten" },
 	{ prompt = "tide", mode = "article" },
-	{ prompt = "borrow", mode = "text" },
+	{ prompt = "gluten", mode = "text" },
 }
 
 -- Pretty JSON with sorted keys (same as gen_ast.lua)
@@ -368,6 +389,9 @@ if not package.loaded["helpers"] then
 	M.use_fixture_copy()
 	vim.fn.writefile(vim.split(encode(M.resolve_cases()), "\n"), M.RESOLVE)
 	vim.fn.writefile(vim.split(encode(M.search_cases()), "\n"), M.SEARCH)
+	for path, lines in pairs(M.html_cases()) do
+		vim.fn.writefile(lines, path)
+	end
 	print("wrote " .. M.RESOLVE)
 	print("wrote " .. M.SEARCH)
 	os.exit(0)

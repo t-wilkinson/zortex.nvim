@@ -1,9 +1,9 @@
--- core/documents.lua - Markdown files as read-only notes
+-- core/documents.lua - Markdown and HTML files as read-only notes
 --
--- The Markdown files in Config.documents' folders (default z/markdown and
--- z/html) join the notes for links, search and completion, without becoming
--- notes: [Rust ownership/#Borrowing] finds a heading in
--- z/markdown/rust-ownership.md, the search lists its sections and lines. Their tasks, links and tags don't
+-- The files in Config.documents' folders (default z/markdown and z/html)
+-- join the notes for links, search and completion, without becoming notes:
+-- [Rust ownership/#Borrowing] finds a heading in z/html/rust-ownership.html,
+-- the search lists its sections and lines. Their tasks, links and tags don't
 -- count anywhere else (projects, XP, backlinks from them, broken links in
 -- them), and nothing in Zortex edits them.
 --
@@ -13,6 +13,10 @@
 --              the file name as one more name; headings are sections. The
 --              front matter's lines read as blank and setext headings as
 --              "#" ones, so every line keeps its number.
+--   HTML       converted (core/html) into notes_dir/.z/html/<path>.zortex,
+--              rewritten when the page changes; that copy is what Neovim
+--              indexes and opens (read-only). Its first lines say which page
+--              it came from.
 --
 -- `zortex serve` reads the same files the same way (app/notes/documents.go);
 -- the folders go to .z/syntax.json (core/syntax_config).
@@ -21,6 +25,7 @@ local M = {}
 M.DEFAULT = { "z/markdown", "z/html" }
 
 local MARKDOWN = { md = true, markdown = true }
+local HTML = { html = true, htm = true }
 
 local function Config()
 	return require("zortex.config")
@@ -75,25 +80,50 @@ local function in_folders(rel)
 	return false
 end
 
---- "markdown" for a file in the documents' folders, else nil.
+--- "markdown" or "html" for a file in the documents' folders, else nil.
 function M.kind(path)
 	if not path then
 		return nil
 	end
 	local e = ext(path)
-	if not MARKDOWN[e] then
+	if not MARKDOWN[e] and not HTML[e] then
 		return nil
 	end
 	local rel = M.rel(path)
 	if not rel or not in_folders(rel) then
 		return nil
 	end
-	return "markdown"
+	return MARKDOWN[e] and "markdown" or "html"
 end
 
---- A document's path from the notes folder, as the server names it.
+local COPIES = ".z/html/"
+
+--- Where an HTML page's note lives: .z/html/<path without .html>.zortex
+function M.copy_path(rel)
+	return root() .. COPIES .. rel:gsub("%.[^./]+$", "") .. (Config().extension or ".zortex")
+end
+
+--- The page a copy in .z/html was made from (absolute), or nil.
+function M.source_of(path)
+	local r = root()
+	local prefix = r .. COPIES
+	if not path or path:sub(1, #prefix) ~= prefix then
+		return nil
+	end
+	local base = path:sub(#prefix + 1):gsub("%" .. (Config().extension or ".zortex") .. "$", "")
+	for _, e in ipairs({ ".html", ".htm" }) do
+		if vim.uv.fs_stat(r .. base .. e) then
+			return r .. base .. e
+		end
+	end
+	return nil
+end
+
+--- A document's path from the notes folder, as the server names it: the
+--- page for a copy in .z/html, else the file's own.
 function M.display_rel(path)
-	return M.rel(path)
+	local src = M.source_of(path)
+	return M.rel(src or path)
 end
 
 -- =============================================================================
@@ -226,10 +256,59 @@ function M.markdown(lines, path)
 end
 
 -- =============================================================================
--- The files
+-- The files, and the HTML copies
 -- =============================================================================
 
---- Every document in the folders. Top folders first, then by path.
+local made = {} -- page path -> { mtime, nsec, size } of the page last converted
+
+local function read(path)
+	local f = io.open(path, "rb")
+	if not f then
+		return nil
+	end
+	local text = f:read("*a")
+	f:close()
+	return text
+end
+
+--- Bring a page's copy up to date (written only when its text changes).
+--- Returns the copy's path.
+function M.ensure_copy(path)
+	local rel = M.rel(path)
+	if not rel then
+		return nil
+	end
+	local copy = M.copy_path(rel)
+	local st = vim.uv.fs_stat(path)
+	if not st then
+		return nil
+	end
+	local m = made[path]
+	if m and m.mtime == st.mtime.sec and m.nsec == st.mtime.nsec and m.size == st.size and vim.uv.fs_stat(copy) then
+		return copy
+	end
+	local text = read(path)
+	if not text then
+		return nil
+	end
+	local want = table.concat(require("zortex.core.html").convert(text, rel), "\n") .. "\n"
+	if read(copy) ~= want then
+		vim.fn.mkdir(vim.fn.fnamemodify(copy, ":h"), "p")
+		local f = io.open(copy, "wb")
+		if not f then
+			return nil
+		end
+		f:write(want)
+		f:close()
+		require("zortex.core.document").invalidate(copy)
+	end
+	made[path] = { mtime = st.mtime.sec, nsec = st.mtime.nsec, size = st.size }
+	return copy
+end
+
+--- Every document in the folders, as the paths Zortex reads: a Markdown
+--- file itself, an HTML page's copy (brought up to date). Top folders
+--- first, then by path.
 ---@return string[]
 function M.paths()
 	local fs = require("zortex.utils.filesystem")
@@ -249,8 +328,14 @@ function M.paths()
 			if t == "directory" and not name:match("^%.") then
 				scan(full)
 			elseif t == "file" and not name:match("^%.") and not fs.is_conflict_copy(name) then
-				if MARKDOWN[ext(name)] then
+				local e = ext(name)
+				if MARKDOWN[e] then
 					out[#out + 1] = full
+				elseif HTML[e] then
+					local copy = M.ensure_copy(full)
+					if copy then
+						out[#out + 1] = copy
+					end
 				end
 			end
 		end
@@ -269,13 +354,28 @@ function M.paths()
 	return out
 end
 
---- Is `path` a document (a Markdown file in the folders)?
+--- Is `path` a document (a Markdown file in the folders, or a page's copy)?
 function M.is_document(path)
-	return M.kind(path) == "markdown"
+	return M.kind(path) == "markdown" or M.source_of(path) ~= nil
 end
 
-function M.setup() end
+--- Neovim opens a page's copy read-only: what it says comes from the page.
+function M.setup()
+	local group = vim.api.nvim_create_augroup("ZortexDocuments", { clear = true })
+	vim.api.nvim_create_autocmd("BufReadPost", {
+		group = group,
+		pattern = "*/.z/html/*",
+		callback = function(ev)
+			if M.source_of(vim.api.nvim_buf_get_name(ev.buf)) then
+				vim.bo[ev.buf].readonly = true
+				vim.bo[ev.buf].modifiable = false
+			end
+		end,
+	})
+end
 
-function M._reset() end
+function M._reset()
+	made = {}
+end
 
 return M

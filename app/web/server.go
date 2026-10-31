@@ -357,6 +357,13 @@ func (s *Server) rebuild(res []resource, linking []string, fingerprint uint64) {
 	for _, rel := range linking {
 		s.collectMarkdownLinks(rel, snap, snap.names)
 	}
+	for _, rel := range s.ix.Documents() {
+		if s.ix.DocumentKind(rel) == "html" {
+			if doc := s.ix.Doc(rel); doc != nil {
+				s.collectPageLinks(doc, snap, snap.names)
+			}
+		}
+	}
 	snap.broken = append(snap.broken, s.mirrorIssues()...)
 	snap.unlinked = snap.unlinkedIn()
 	snap.forward = map[string][]outLink{}
@@ -632,12 +639,18 @@ func (s *Server) cacheStatic(h http.Handler) http.Handler {
 // url is an app path ("/n/x.zortex") with the base prefix.
 func (s *Server) url(p string) string { return s.cfg.Base + p }
 
-// noteURL links to a note, optionally at a line; a Markdown document
-// (notes/documents.go) to its file page, rendered.
+// noteURL links to a note, optionally at a line; a document (notes
+// documents.go) to its file page: a Markdown file as rendered, an HTML page
+// as its readable text (the lines a link names).
 func (s *Server) noteURL(rel string, lnum int) string {
-	u := s.url("/n/" + escapePath(rel))
-	if s.ix.DocumentKind(rel) == "markdown" {
+	var u string
+	switch s.ix.DocumentKind(rel) {
+	case "markdown":
 		u = s.fileURL(rel)
+	case "html":
+		u = s.fileURL(rel) + "?view=readable"
+	default:
+		u = s.url("/n/" + escapePath(rel))
 	}
 	if lnum > 0 {
 		u += "#L" + itoa(lnum)

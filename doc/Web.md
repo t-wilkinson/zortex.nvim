@@ -65,7 +65,7 @@ The details, and the settings, are in [Working with Neovim](#working-with-neovim
 | `/n/<path>?view=slides` | the note as a slide deck ([Slides](#slides)) |
 | `/search?q=&mode=` | structural search, the plugin's ranking: sections whose path matches the words in order, then lines with every word; `mode=article` names only, `mode=text` lines holding the prompt as typed. Results update as you type, `↑`/`↓` + Enter, `/` focuses search anywhere; with `-data`, what you open ranks higher next time (`search_history.json`). The header's box lists the notes whose name matches as you type; Enter without picking one opens this page |
 | `/link?to=&from=` | resolve a link: one target redirects, several are listed (a tag search as a [table](#tag-tables)), failures say why |
-| `/f/<path>` | file browser (sort by name (notes by article name) or modified time, either direction: `?sort=modified&order=desc`, kept in folder links; notes with a generated name, like `2026-10-15.042.zortex` from "create note" in search, only with "show all"; hidden folders and Syncthing artefacts never) and viewer: PDF, image, video, audio (with seeking), text, sandboxed HTML/SVG (HTML runs script with `-html-scripts`), [Markdown](#markdown-files) rendered like a note; HTML and Markdown have a "source" link (`?source=1`) to their text. A folder counts the resources under it; `?show=all\|unlinked\|linked&kind=pdf` lists them instead, by folder, folders first (PDFs, books, images, media and documents, and which ones nothing links to). A folder holding only resources (like `z/books`) opens that way; `?list=1` lists its files. The top folder also lists the folders inside `z/` (indented under it), so they are one click away. A [document](#documents) shows what links it |
+| `/f/<path>` | file browser (sort by name (notes by article name) or modified time, either direction: `?sort=modified&order=desc`, kept in folder links; notes with a generated name, like `2026-10-15.042.zortex` from "create note" in search, only with "show all"; hidden folders and Syncthing artefacts never) and viewer: PDF, image, video, audio (with seeking), text, sandboxed HTML/SVG (HTML runs script with `-html-scripts`), [Markdown](#markdown-files) rendered like a note; HTML and Markdown have a "source" link (`?source=1`) to their text. A folder counts the resources under it; `?show=all\|unlinked\|linked&kind=pdf` lists them instead, by folder, folders first (PDFs, books, images, media and documents, and which ones nothing links to). A folder holding only resources (like `z/books`) opens that way; `?list=1` lists its files. The top folder also lists the folders inside `z/` (indented under it), so they are one click away. A [document](#documents) shows what links it; an HTML one has a **Page** tab and a **Readable** one (`?view=readable`, its text as the notes read it) |
 | `/raw/<path>` | the file as is: byte ranges, `?download=1`; HTML/SVG/XML with `Content-Security-Policy: sandbox` (`sandbox allow-scripts` for HTML with `-html-scripts`); nothing outside the folder, no hidden files |
 | `/tags`, `/tag/<name>` | header tags and their notes (the top bar's Graph lists the tags too); an area attribute in a header (`@area(4.1)`, `@area(1.2/Fitness)`) links to its area (`[A/#4.1]`) |
 | `/resources` | redirects to `/f/?show=all` (`?dir=` becomes the path): file pages show their own "Linked from", folder listings count links and unlinked files |
@@ -211,14 +211,17 @@ file name (`[type-theory.pdf]`) works when exactly one resource has that
 name. Links inside code blocks don't count; links to missing files are
 listed on `/broken`. New or removed files are picked up on the next rescan.
 
-<a id="documents"></a>**Documents.** The Markdown files in `z/markdown` and
-`z/html` (Neovim's `documents`, which it writes to `.z/syntax.json`) are
-read as notes for links, search and hover cards
-([Syntax](Syntax.md#markdown-documents)): `[Rust Ownership/#Borrowing]` goes
-to `/f/z/markdown/rust-ownership.md#L12`. Their file pages list what links
-them ("Linked from"), and the search finds their sections and lines. They
-stay out of tags, projects, the graph and `/broken` (a link *to* a heading
-one doesn't have is broken).
+<a id="documents"></a>**Documents.** The Markdown and HTML files in
+`z/markdown` and `z/html` (Neovim's `documents`, which it writes to
+`.z/syntax.json`) are read as notes for links, search and hover cards
+([Syntax](Syntax.md#markdown-and-html-documents)): `[Rust Ownership/#Borrowing]`
+goes to `/f/z/markdown/rust-ownership.md#L12`, a heading in a page to
+`/f/z/html/a.html?view=readable#L19`, the page's text as a note with every
+line anchored (the **Page** tab shows the page itself). Their file pages
+list what links them ("Linked from"), the files a page shows count as
+linked, and the search finds their sections and lines. They stay out of
+tags, projects, the graph and `/broken` (a link *to* a heading one doesn't
+have is broken).
 
 <a id="markdown-files"></a>**Markdown files.** A `.md` or `.markdown` file
 in the viewer is rendered with the note renderer: headings, lists and tasks,

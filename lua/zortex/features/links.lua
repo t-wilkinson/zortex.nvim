@@ -408,8 +408,10 @@ function M.open_info(link_info, ctx)
 		local full_path = vim.fn.expand(resolved_path)
 
 		-- 3. Check extension to decide HOW to open (Media/PDF vs Note)
-		-- Add PDF and other non-text formats here
-		if is_media(full_path) then
+		-- Add PDF and other non-text formats here. An HTML document's page
+		-- (core/documents; its copy's "From [page](/raw/…)" line) is for the
+		-- browser: its text is the copy.
+		if is_media(full_path) or require("zortex.core.documents").kind(full_path) == "html" then
 			if fs.file_exists(full_path) then
 				open_external(full_path)
 			else

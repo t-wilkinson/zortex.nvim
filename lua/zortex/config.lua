@@ -24,9 +24,10 @@ local defaults = {
 		is_label = nil,
 	},
 
-	-- Folders (from notes_dir) whose Markdown (.md) files are read as notes
-	-- you can link to and search, but not edit or count:
-	-- [Rust ownership/#Borrowing]. {} turns it off. Written to
+	-- Folders (from notes_dir) whose Markdown (.md) and HTML (.html) files
+	-- are read as notes you can link to and search, but not edit or count:
+	-- [Rust ownership/#Borrowing]. An HTML page is converted into
+	-- .z/html/<path>.zortex, which Neovim opens. {} turns it off. Written to
 	-- .z/syntax.json, so the web app reads the same folders.
 	documents = { "z/markdown", "z/html" },
 

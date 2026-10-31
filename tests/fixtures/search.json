@@ -53,6 +53,13 @@
         "type": "section"
       },
       {
+        "breadcrumb": "The Chemistry of Sourdough",
+        "lnum": 1,
+        "rel": "z/html/sourdough-chemistry.html",
+        "score": 2000,
+        "type": "section"
+      },
+      {
         "breadcrumb": "Rust Ownership",
         "lnum": 1,
         "rel": "z/markdown/rust-ownership.md",
@@ -383,6 +390,21 @@
         "type": "line"
       },
       {
+        "lnum": 21,
+        "rel": "z/html/sourdough-chemistry.html",
+        "type": "line"
+      },
+      {
+        "lnum": 31,
+        "rel": "z/html/sourdough-chemistry.html",
+        "type": "line"
+      },
+      {
+        "lnum": 33,
+        "rel": "z/html/sourdough-chemistry.html",
+        "type": "line"
+      },
+      {
         "lnum": 10,
         "rel": "z/markdown/rust-ownership.md",
         "type": "line"
@@ -556,6 +578,16 @@
       {
         "lnum": 8,
         "rel": "z/day-plan.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 4,
+        "rel": "z/html/sourdough-chemistry.html",
+        "type": "line"
+      },
+      {
+        "lnum": 33,
+        "rel": "z/html/sourdough-chemistry.html",
         "type": "line"
       }
     ]
@@ -1043,6 +1075,27 @@
         "type": "section"
       },
       {
+        "breadcrumb": "The Chemistry of Sourdough › The Chemistry of Sourdough",
+        "lnum": 6,
+        "rel": "z/html/sourdough-chemistry.html",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "The Chemistry of Sourdough › The Chemistry of Sourdough › The starter",
+        "lnum": 10,
+        "rel": "z/html/sourdough-chemistry.html",
+        "score": 1000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "The Chemistry of Sourdough › The Chemistry of Sourdough › Gluten & structure",
+        "lnum": 19,
+        "rel": "z/html/sourdough-chemistry.html",
+        "score": 1000,
+        "type": "section"
+      },
+      {
         "breadcrumb": "Rust Ownership › Rust Ownership",
         "lnum": 8,
         "rel": "z/markdown/rust-ownership.md",
@@ -1375,6 +1428,21 @@
         "child": true,
         "lnum": 6,
         "rel": "z/garden.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "The Chemistry of Sourdough",
+        "lnum": 1,
+        "rel": "z/html/sourdough-chemistry.html",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "The Chemistry of Sourdough › The Chemistry of Sourdough",
+        "child": true,
+        "lnum": 6,
+        "rel": "z/html/sourdough-chemistry.html",
         "score": 2100,
         "type": "section"
       },
@@ -1823,6 +1891,26 @@
         "type": "line"
       },
       {
+        "lnum": 12,
+        "rel": "z/html/sourdough-chemistry.html",
+        "type": "line"
+      },
+      {
+        "lnum": 15,
+        "rel": "z/html/sourdough-chemistry.html",
+        "type": "line"
+      },
+      {
+        "lnum": 28,
+        "rel": "z/html/sourdough-chemistry.html",
+        "type": "line"
+      },
+      {
+        "lnum": 33,
+        "rel": "z/html/sourdough-chemistry.html",
+        "type": "line"
+      },
+      {
         "lnum": 18,
         "rel": "z/markdown/rust-ownership.md",
         "type": "line"
@@ -1901,6 +1989,13 @@
         "type": "section"
       },
       {
+        "breadcrumb": "The Chemistry of Sourdough",
+        "lnum": 1,
+        "rel": "z/html/sourdough-chemistry.html",
+        "score": 2100,
+        "type": "section"
+      },
+      {
         "breadcrumb": "Resources",
         "lnum": 1,
         "rel": "z/resources.zortex",
@@ -1966,6 +2061,13 @@
         "breadcrumb": "Garden",
         "lnum": 1,
         "rel": "z/garden.zortex",
+        "score": 2000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "The Chemistry of Sourdough",
+        "lnum": 1,
+        "rel": "z/html/sourdough-chemistry.html",
         "score": 2000,
         "type": "section"
       },
@@ -2276,6 +2378,34 @@
     ]
   },
   {
+    "mode": "section",
+    "prompt": "chemistry gluten",
+    "results": [
+      {
+        "breadcrumb": "The Chemistry of Sourdough › The Chemistry of Sourdough › Gluten & structure",
+        "lnum": 19,
+        "rel": "z/html/sourdough-chemistry.html",
+        "score": 1200,
+        "type": "section"
+      },
+      {
+        "lnum": 8,
+        "rel": "z/html/sourdough-chemistry.html",
+        "type": "line"
+      },
+      {
+        "lnum": 21,
+        "rel": "z/html/sourdough-chemistry.html",
+        "type": "line"
+      },
+      {
+        "lnum": 25,
+        "rel": "z/html/sourdough-chemistry.html",
+        "type": "line"
+      }
+    ]
+  },
+  {
     "mode": "article",
     "prompt": "tide",
     "results": [
@@ -2290,16 +2420,26 @@
   },
   {
     "mode": "text",
-    "prompt": "borrow",
+    "prompt": "gluten",
     "results": [
       {
-        "lnum": 28,
-        "rel": "z/resources.zortex",
+        "lnum": 8,
+        "rel": "z/html/sourdough-chemistry.html",
         "type": "line"
       },
       {
-        "lnum": 12,
-        "rel": "z/markdown/rust-ownership.md",
+        "lnum": 19,
+        "rel": "z/html/sourdough-chemistry.html",
+        "type": "line"
+      },
+      {
+        "lnum": 21,
+        "rel": "z/html/sourdough-chemistry.html",
+        "type": "line"
+      },
+      {
+        "lnum": 25,
+        "rel": "z/html/sourdough-chemistry.html",
         "type": "line"
       }
     ]

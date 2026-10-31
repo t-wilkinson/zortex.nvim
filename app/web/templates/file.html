@@ -2,7 +2,9 @@
 <section class="viewer">
   <nav class="crumbs">{{range $i, $c := .Crumbs}}{{if $i}}<span>/</span>{{end}}<a href="{{$c.URL}}">{{$c.Name}}</a>{{end}}</nav>
   <p class="meta dim">{{.Mime}} · {{size .Size}} · changed {{date .ModTime}} · <a href="{{.Raw}}">open</a> · <a href="{{.Raw}}?download=1">download</a>{{if .Source}} · <a href="{{.Source}}">source</a>{{else if .Rendered}} · <a href="{{.Rendered}}">rendered</a>{{end}}{{if .Resource}} · {{if .BackCount}}<a href="#backlinks">{{.BackCount}} link{{if ne .BackCount 1}}s{{end}}</a>{{else}}<span class="unlinked">unlinked</span>{{end}}{{end}}</p>
+  {{if .Readable}}<nav class="doc-tabs" aria-label="View">{{if eq .Kind "readable"}}<a href="{{.Page}}">Page</a><a href="{{.Readable}}" aria-current="page">Readable</a>{{else}}<a href="{{.Page}}" aria-current="page">Page</a><a href="{{.Readable}}">Readable</a>{{end}}</nav>{{end}}
   {{if eq .Kind "image"}}<img class="view" src="{{.Raw}}" alt="{{.Title}}">
+  {{else if eq .Kind "readable"}}<article class="md-view doc-readable"><div class="body">{{.Body}}</div></article>
   {{else if eq .Kind "pdf"}}<iframe class="view doc" src="{{.Raw}}" title="{{.Title}}"></iframe>
   {{else if eq .Kind "html"}}<iframe class="view doc" src="{{.Raw}}" sandbox="{{.Sandbox}}" title="{{.Title}}"></iframe>
   {{else if eq .Kind "video"}}<video class="view" src="{{.Raw}}" controls preload="metadata"></video>

@@ -95,14 +95,19 @@ local function escape_rel(rel)
 end
 
 --- The app path of a note at a line ("/n/z/x.zortex#L12"), or nil, err. A
---- Markdown document (core/documents) is at its file page, rendered.
+--- document (core/documents) is at its file page: a Markdown file as
+--- rendered, an HTML page's copy as the page's readable text.
 function M.note_path(filepath, lnum)
-	local rel = M.rel(filepath)
+	local documents = require("zortex.core.documents")
+	local source = documents.source_of(filepath)
+	local rel = M.rel(source or filepath)
 	if not rel then
 		return nil, not_a_note(filepath)
 	end
 	local p = "/n/" .. escape_rel(rel)
-	if require("zortex.core.documents").kind(filepath) == "markdown" then
+	if source then
+		p = "/f/" .. escape_rel(rel) .. "?view=readable"
+	elseif documents.kind(filepath) == "markdown" then
 		p = "/f/" .. escape_rel(rel)
 	end
 	if lnum and lnum > 0 then

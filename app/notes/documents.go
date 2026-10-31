@@ -10,20 +10,23 @@ import (
 	"github.com/t-wilkinson/zortex.nvim/app/syntax"
 )
 
-// Documents: the Markdown files in a few folders (z/markdown and z/html
-// unless Neovim's .z/syntax.json says otherwise) read as notes that links,
-// search and hover cards reach, without being notes: Files and All leave
-// them out, so projects, XP, tags and the broken-link scan never see them.
-// As lua/zortex/core/documents.lua, a Markdown file reads line for line
-// (MarkdownLines): its name from the front matter's title, else a first
-// "# Title", else the file name; aliases and tags from the front matter,
-// the file name as one more name.
+// Documents: the Markdown and HTML files in a few folders (z/markdown and
+// z/html unless Neovim's .z/syntax.json says otherwise) read as notes that
+// links, search and hover cards reach, without being notes: Files and All
+// leave them out, so projects, XP, tags and the broken-link scan never see
+// them. As lua/zortex/core/documents.lua:
+//
+//   - a Markdown file reads line for line (MarkdownLines): its name from
+//     the front matter's title, else a first "# Title", else the file name;
+//     aliases and tags from the front matter, the file name as one more name
+//   - an HTML page reads as HTMLLines makes it (Neovim keeps that text in
+//     .z/html/<path>.zortex); its rel stays the page's
 
 // DefaultDocumentFolders is where documents are when nothing says otherwise.
 var DefaultDocumentFolders = []string{"z/markdown", "z/html"}
 
-// DocumentKind is "markdown" for a file in the documents' folders, "" for
-// anything else.
+// DocumentKind is "markdown" or "html" for a file in the documents' folders,
+// "" for anything else.
 func (ix *Index) DocumentKind(rel string) string {
 	kind := docExtKind(rel)
 	if kind == "" {
@@ -44,6 +47,8 @@ func docExtKind(rel string) string {
 	switch strings.ToLower(strings.TrimPrefix(filepath.Ext(rel), ".")) {
 	case "md", "markdown":
 		return "markdown"
+	case "html", "htm":
+		return "html"
 	}
 	return ""
 }
@@ -432,6 +437,9 @@ func MarkdownLines(lines []string, rel string) ([]string, syntax.Header) {
 // fromDocument parses a document file's content into a Document (rel: the
 // file's own path).
 func fromDocument(rel, kind, content string) *Document {
+	if kind == "html" {
+		return FromLines(rel, HTMLLines(content, rel))
+	}
 	lines, header := MarkdownLines(syntax.SplitLines(content), rel)
 	return fromLinesWith(rel, lines, &header)
 }

@@ -14,13 +14,27 @@ local function resolve(def)
 	end, results or {}), err
 end
 
-T.test("documents: the Markdown files in the folders", function()
+T.test("documents: the Markdown and HTML files in the folders", function()
 	T.eq(documents.folders(), { "z/markdown", "z/html" })
 	T.eq(documents.kind(Config.notes_dir .. "z/markdown/rust-ownership.md"), "markdown")
+	T.eq(documents.kind(Config.notes_dir .. "z/html/sourdough-chemistry.html"), "html")
 	T.eq(documents.kind(Config.notes_dir .. "README.md"), nil, "outside the folders")
 	T.eq(documents.kind(Config.notes_dir .. "z/markdown/x.zortex"), nil)
 	local rels = vim.tbl_map(rel_of, documents.paths())
-	T.eq(rels, { "z/markdown/rust-ownership.md", "z/markdown/tide-tables.md" })
+	T.eq(rels, { "z/html/sourdough-chemistry.html", "z/markdown/rust-ownership.md", "z/markdown/tide-tables.md" })
+	-- the page's copy is a note in .z/html
+	local copy = documents.copy_path("z/html/sourdough-chemistry.html")
+	T.eq(copy, Config.notes_dir .. ".z/html/z/html/sourdough-chemistry.zortex")
+	T.eq(documents.source_of(copy), Config.notes_dir .. "z/html/sourdough-chemistry.html")
+	local lines = vim.fn.readfile(copy)
+	T.eq(vim.list_slice(lines, 1, 6), {
+		"@@The Chemistry of Sourdough",
+		"@@sourdough-chemistry",
+		"",
+		"From [z/html/sourdough-chemistry.html](/raw/z/html/sourdough-chemistry.html)",
+		"",
+		"# The Chemistry of Sourdough",
+	})
 end)
 
 T.test("documents: a Markdown file reads as a note, line for line", function()
@@ -42,9 +56,14 @@ T.test("documents: links reach their headings; a note wins a name", function()
 	T.eq(resolve("[Ownership/#Borrowing/#Mutable]"), { "z/markdown/rust-ownership.md:16" })
 	T.eq(resolve("[rust-ownership/#Lifetimes]"), { "z/markdown/rust-ownership.md:20" })
 	T.eq(resolve("[Tide Tables/#Neap]"), { "z/markdown/tide-tables.md:9" })
+	T.eq(resolve("[The Chemistry of Sourdough/#Gluten]"), { "z/html/sourdough-chemistry.html:19" })
+	T.eq(resolve("[sourdough-chemistry/#The starter/-acetic]"), { "z/html/sourdough-chemistry.html:17" })
 	T.eq(resolve("[Rust Ownership]"), { "z/markdown/rust-ownership.md:1" })
 	local _, err = resolve("[Rust Ownership/#Nowhere]")
 	T.ok(err and err:match("Nowhere"), err)
+	-- the copy is what Neovim opens
+	local r = link.resolve("[sourdough-chemistry/#Gluten]")[1]
+	T.eq(r.file, Config.notes_dir .. ".z/html/z/html/sourdough-chemistry.zortex")
 	-- a note with the same name comes first
 	local path = Config.notes_dir .. "tide-note.zortex"
 	vim.fn.writefile({ "@@Tide Tables", "", "# Neap", "" }, path)
@@ -66,10 +85,10 @@ T.test("documents: in the search, not in projects or broken links", function()
 	end
 	T.ok(vim.tbl_contains(found, "z/markdown/tide-tables.md:5"), vim.inspect(found))
 	local text = {}
-	for _, r in ipairs(search.search("outlive the value", { mode = "text" })) do
+	for _, r in ipairs(search.search("gluten forms a net", { mode = "text" })) do
 		text[#text + 1] = rel_of(r.filepath or r.file)
 	end
-	T.ok(vim.tbl_contains(text, "z/markdown/rust-ownership.md"), vim.inspect(text))
+	T.ok(vim.tbl_contains(text, "z/html/sourdough-chemistry.html"), vim.inspect(text))
 	-- not notes: the project lists, XP and the rest don't see them
 	for _, p in ipairs(require("zortex.core.notes").files({ include_archived = true })) do
 		T.ok(not documents.is_document(p), p)
@@ -80,6 +99,7 @@ T.test("documents: in the search, not in projects or broken links", function()
 		"@@Doc links",
 		"",
 		"- [Rust Ownership/#Borrowing]",
+		"- [sourdough-chemistry/#Gluten]",
 		"- [Tide Tables/#King tides]",
 	}, path)
 	local index = require("zortex.core.link_index")
@@ -87,7 +107,7 @@ T.test("documents: in the search, not in projects or broken links", function()
 	local ok, e = pcall(function()
 		local broken = index.unresolved_in(path)
 		T.eq(#broken, 1, vim.inspect(broken))
-		T.eq(broken[1].lnum, 4)
+		T.eq(broken[1].lnum, 5)
 		-- their own [brackets] aren't links that can break
 		for _, b in ipairs(index.unresolved()) do
 			T.ok(not documents.is_document(b.file or b.filepath or ""), vim.inspect(b))
@@ -95,6 +115,28 @@ T.test("documents: in the search, not in projects or broken links", function()
 	end)
 	vim.fn.delete(path)
 	index.refresh(true)
+	T.ok(ok, e)
+end)
+
+T.test("documents: a changed page's copy follows; Neovim opens it read-only", function()
+	local page = Config.notes_dir .. "z/html/new-page.html"
+	vim.fn.writefile({ "<title>New page</title><h2>First</h2><p>one</p>" }, page)
+	require("zortex.core.notes").invalidate()
+	local ok, e = pcall(function()
+		T.eq(resolve("[New page/#First]"), { "z/html/new-page.html:6" })
+		vim.fn.writefile({ "<title>New page</title><p>intro</p><h2>Second</h2>" }, page)
+		vim.uv.fs_utime(page, os.time() + 5, os.time() + 5)
+		require("zortex.core.notes").invalidate()
+		T.eq(resolve("[New page/#Second]"), { "z/html/new-page.html:8" })
+		local copy = documents.copy_path("z/html/new-page.html")
+		documents.setup()
+		vim.cmd.edit(vim.fn.fnameescape(copy))
+		T.ok(vim.bo.readonly and not vim.bo.modifiable, "read-only")
+		vim.cmd("bwipeout!")
+	end)
+	vim.fn.delete(page)
+	vim.fn.delete(documents.copy_path("z/html/new-page.html"))
+	require("zortex.core.notes").invalidate()
 	T.ok(ok, e)
 end)
 
@@ -120,6 +162,10 @@ end)
 T.test("documents: the web app's page for one, and the folders in .z/syntax.json", function()
 	local web = require("zortex.features.web")
 	T.eq(web.note_path(Config.notes_dir .. "z/markdown/rust-ownership.md", 12), "/f/z/markdown/rust-ownership.md#L12")
+	T.eq(
+		web.note_path(documents.copy_path("z/html/sourdough-chemistry.html"), 19),
+		"/f/z/html/sourdough-chemistry.html?view=readable#L19"
+	)
 	T.eq(web.note_path(Config.notes_dir .. "projects.zortex", 3), "/n/projects.zortex#L3")
 	-- completion offers their names, and their headings after one
 	local C = require("zortex.features.completion")

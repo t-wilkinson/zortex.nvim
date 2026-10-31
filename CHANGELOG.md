@@ -37,11 +37,12 @@ that share one folder of plain-text notes.
   `@[author(Smith & Lee)]` and `@[year(2020)]`.
 - Links to files elsewhere on the computer (`[~/Documents/tax.pdf]`,
   `[/home/me/plan.txt]`, `[scan](~/scans/a.png)`) are never broken.
-- Markdown documents: the `.md` files in `z/markdown` and `z/html`
-  (`documents`) are read-only notes for links, search and completion:
-  `[Rust Ownership/#Borrowing]` finds a heading in an AI-written page.
-  Names come from front matter, a first `# Title`, and the file name; a
-  note wins a name.
+- Markdown and HTML documents: the `.md` and `.html` files in `z/markdown`
+  and `z/html` (`documents`) are read-only notes for links, search and
+  completion: `[Rust Ownership/#Borrowing]` finds a heading in an
+  AI-written page. Names come from front matter, a first `# Title` or
+  `<title>`, and the file name; a note wins a name. An HTML page is
+  converted into `.z/html/<path>.zortex`, which Neovim opens read-only.
 - The web app's address of a file, pasted from the browser
   (`[/raw/z/scan.pdf]`, `[/f/z/books/]`, `[/n/projects.zortex]`), is a
   link to that file in the notes.
@@ -181,8 +182,9 @@ that share one folder of plain-text notes.
 - A home page with today's calendar, an inbox box (offline too, in the
   installed app), the pomodoro, timers, alarms, a stopwatch, time tracking
   on the task you're working on (`@spent`), the week's focus and XP.
-- Documents on the web: links to a Markdown document's headings land on
-  its file page, which lists what links it; hover cards and the search
+- Documents on the web: links to a Markdown or HTML document's headings
+  land on its file page (an HTML page's **Readable** tab, its text as the
+  notes read it), which lists what links it; hover cards and the search
   include them.
 - Bookmarks: the top bar's ☆ keeps the page you're on (a note, a folder, a
   file, a review, a search) on the server, and the home page shows them as

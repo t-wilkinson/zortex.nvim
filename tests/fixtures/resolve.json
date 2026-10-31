@@ -623,6 +623,46 @@
     ]
   },
   {
+    "link": "[The Chemistry of Sourdough]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 1,
+        "rel": "z/html/sourdough-chemistry.html"
+      }
+    ]
+  },
+  {
+    "link": "[The Chemistry of Sourdough/#The Chemistry of Sourdough]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 6,
+        "rel": "z/html/sourdough-chemistry.html"
+      }
+    ]
+  },
+  {
+    "link": "[The Chemistry of Sourdough/#The Chemistry of Sourdough/#The starter]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 10,
+        "rel": "z/html/sourdough-chemistry.html"
+      }
+    ]
+  },
+  {
+    "link": "[The Chemistry of Sourdough/#The Chemistry of Sourdough/#Gluten & structure]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 19,
+        "rel": "z/html/sourdough-chemistry.html"
+      }
+    ]
+  },
+  {
     "link": "[Rust Ownership]",
     "results": [
       {
@@ -2167,6 +2207,21 @@
         "col": 1,
         "lnum": 9,
         "rel": "z/markdown/tide-tables.md"
+      }
+    ]
+  },
+  {
+    "error": "No article found: The Chemistry",
+    "link": "[The Chemistry/#Gluten]",
+    "results": []
+  },
+  {
+    "link": "[sourdough-chemistry/#The starter/-acetic]",
+    "results": [
+      {
+        "col": 3,
+        "lnum": 17,
+        "rel": "z/html/sourdough-chemistry.html"
       }
     ]
   },

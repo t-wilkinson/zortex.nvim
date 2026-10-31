@@ -251,8 +251,11 @@ function M.refresh(force)
 	end
 	state.last_refresh = now
 
-	-- A fresh notes snapshot, so the resolver below sees current headers
-	local idx = notes().index({ fresh = true })
+	-- A fresh notes snapshot, so the resolver below sees current headers;
+	-- the documents (core/documents) too, so a link to one re-resolves when
+	-- it changes, though their own links and tags don't count
+	local idx = notes().index({ fresh = true, documents = true })
+	local is_document = require("zortex.core.documents").is_document
 	local current = {}
 	for _, path in ipairs(idx.files) do
 		current[vim.fn.fnamemodify(path, ":p")] = true
@@ -297,8 +300,14 @@ function M.refresh(force)
 					mark_header(entry.names, entry.tags)
 				end
 				mark_header(names, tags)
-				state.files[path] =
-					{ stamp = s, names = names, tags = tags, links = extract_links(doc), line_tags = extract_line_tags(doc) }
+				local doc_file = is_document(path)
+				state.files[path] = {
+					stamp = s,
+					names = names,
+					tags = tags,
+					links = doc_file and {} or extract_links(doc),
+					line_tags = doc_file and {} or extract_line_tags(doc),
+				}
 				changed[path] = true
 			end
 		end

@@ -94,13 +94,17 @@ local function escape_rel(rel)
 	return table.concat(parts, "/")
 end
 
---- The app path of a note at a line ("/n/z/x.zortex#L12"), or nil, err.
+--- The app path of a note at a line ("/n/z/x.zortex#L12"), or nil, err. A
+--- Markdown document (core/documents) is at its file page, rendered.
 function M.note_path(filepath, lnum)
 	local rel = M.rel(filepath)
 	if not rel then
 		return nil, not_a_note(filepath)
 	end
 	local p = "/n/" .. escape_rel(rel)
+	if require("zortex.core.documents").kind(filepath) == "markdown" then
+		p = "/f/" .. escape_rel(rel)
+	end
 	if lnum and lnum > 0 then
 		p = p .. "#L" .. lnum
 	end

@@ -1,0 +1,281 @@
+-- core/documents.lua - Markdown files as read-only notes
+--
+-- The Markdown files in Config.documents' folders (default z/markdown and
+-- z/html) join the notes for links, search and completion, without becoming
+-- notes: [Rust ownership/#Borrowing] finds a heading in
+-- z/markdown/rust-ownership.md, the search lists its sections and lines. Their tasks, links and tags don't
+-- count anywhere else (projects, XP, backlinks from them, broken links in
+-- them), and nothing in Zortex edits them.
+--
+--   Markdown   read where it is (Document.from_lines asks M.markdown): the
+--              name is the front matter's title (else a first "# Title",
+--              else the file name), aliases and tags from the front matter,
+--              the file name as one more name; headings are sections. The
+--              front matter's lines read as blank and setext headings as
+--              "#" ones, so every line keeps its number.
+--
+-- `zortex serve` reads the same files the same way (app/notes/documents.go);
+-- the folders go to .z/syntax.json (core/syntax_config).
+local M = {}
+
+M.DEFAULT = { "z/markdown", "z/html" }
+
+local MARKDOWN = { md = true, markdown = true }
+
+local function Config()
+	return require("zortex.config")
+end
+
+local function root()
+	local dir = Config().notes_dir or ""
+	return dir:match("/$") and dir or (dir .. "/")
+end
+
+--- The folders, notes-relative, without slashes at either end.
+---@return string[]
+function M.folders()
+	local list = Config().documents
+	if list == nil then
+		list = M.DEFAULT
+	end
+	local out = {}
+	for _, f in ipairs(type(list) == "table" and list or {}) do
+		f = tostring(f):gsub("^%./", ""):gsub("^/+", ""):gsub("/+$", "")
+		if f ~= "" then
+			out[#out + 1] = f
+		end
+	end
+	return out
+end
+
+local function ext(path)
+	return (path:match("%.([%w]+)$") or ""):lower()
+end
+
+--- `path` from the notes folder, or nil when it is outside.
+function M.rel(path)
+	local r = root()
+	if path:sub(1, #r) == r then
+		return path:sub(#r + 1)
+	end
+	local real = vim.uv.fs_realpath(path)
+	local rr = vim.uv.fs_realpath(r)
+	if real and rr and real:sub(1, #rr + 1) == rr .. "/" then
+		return real:sub(#rr + 2)
+	end
+	return nil
+end
+
+local function in_folders(rel)
+	for _, f in ipairs(M.folders()) do
+		if rel:sub(1, #f + 1) == f .. "/" then
+			return true
+		end
+	end
+	return false
+end
+
+--- "markdown" for a file in the documents' folders, else nil.
+function M.kind(path)
+	if not path then
+		return nil
+	end
+	local e = ext(path)
+	if not MARKDOWN[e] then
+		return nil
+	end
+	local rel = M.rel(path)
+	if not rel or not in_folders(rel) then
+		return nil
+	end
+	return "markdown"
+end
+
+--- A document's path from the notes folder, as the server names it.
+function M.display_rel(path)
+	return M.rel(path)
+end
+
+-- =============================================================================
+-- Markdown
+-- =============================================================================
+
+local function trim(s)
+	return (s:gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
+local function fence_of(line)
+	local f = line:match("^%s*([`~][`~][`~]+)")
+	if f and (f:match("^`+$") or f:match("^~+$")) then
+		return f
+	end
+	return nil
+end
+
+local function plain(text)
+	return trim((text:gsub("%[([^%]]*)%]%([^)]*%)", "%1"):gsub("[*_`]", "")))
+end
+
+-- "## Title ##" -> "Title", "Title {#id}" -> "Title"
+local function heading_text(text)
+	return trim((trim(text):gsub("%s+#+$", ""):gsub("%s*{#[^}]*}$", "")))
+end
+
+local function tag_word(s)
+	s = trim(tostring(s)):gsub("^#", ""):gsub("[/%s]+", "-")
+	return (s:gsub("[^%w_%-\128-\255]", ""))
+end
+
+local function stem_of(path)
+	local name = path:match("([^/]+)$") or path
+	return name:match("^(.+)%.[^.]+$") or name
+end
+
+--- A Markdown file's lines as Zortex reads them, and its header (names,
+--- tags; the article starts on line 1). Same number of lines.
+---@param lines string[]
+---@param path string
+---@return string[] lines, table header
+function M.markdown(lines, path)
+	local out = {}
+	for i, l in ipairs(lines) do
+		out[i] = l
+	end
+	if out[1] then
+		out[1] = out[1]:gsub("^\239\187\191", "")
+	end
+	local title, aliases, tags = nil, {}, {}
+	local fm, body = require("zortex.features.markdown_import").front_matter(out)
+	if fm then
+		for i = 1, body - 1 do
+			out[i] = ""
+		end
+		for _, e in ipairs(fm) do
+			local k, v = e.key:lower(), e.value
+			if (k == "title" or k == "name") and type(v) == "string" and v ~= "" and not title then
+				title = v
+			elseif (k == "aliases" or k == "alias") and v then
+				for _, a in ipairs(type(v) == "table" and v or { v }) do
+					if a ~= "" then
+						aliases[#aliases + 1] = a
+					end
+				end
+			elseif (k == "tags" or k == "tag" or k == "keywords") and v then
+				local list = type(v) == "table" and v or vim.split(v, "[,%s]+", { trimempty = true })
+				for _, t in ipairs(list) do
+					local w = tag_word(t)
+					if w ~= "" then
+						tags[#tags + 1] = w
+					end
+				end
+			end
+		end
+	end
+
+	local fence
+	local first = true -- the first line with content after the front matter
+	local i = body or 1
+	while i <= #out do
+		local line = out[i]
+		local f = fence_of(line)
+		if fence then
+			if f and f:sub(1, 1) == fence then
+				fence = nil
+			end
+		elseif f then
+			fence = f:sub(1, 1)
+			first = false
+		elseif line:match("%S") then
+			local hashes, text = line:match("^(#+)%s+(.-)%s*$")
+			if hashes and #hashes <= 6 then
+				text = heading_text(text)
+				out[i] = hashes .. " " .. text
+				if first and #hashes == 1 and not title then
+					title = plain(text)
+				end
+			else
+				local under = out[i + 1]
+				local level = under and (under:match("^=+%s*$") and 1 or under:match("^%-%-+%s*$") and 2)
+				if level and not line:match("^%s") and not line:match("^[-*+>|]") and not line:match("^%d+[.)]%s") then
+					out[i] = ("#"):rep(level) .. " " .. trim(line)
+					out[i + 1] = ""
+					if first and level == 1 and not title then
+						title = plain(line)
+					end
+					i = i + 1
+				end
+			end
+			first = false
+		end
+		i = i + 1
+	end
+
+	local stem = stem_of(path)
+	local names = { (title and title ~= "") and title or stem }
+	local seen = { [names[1]:lower()] = true }
+	for _, a in ipairs(aliases) do
+		if not seen[a:lower()] then
+			seen[a:lower()] = true
+			names[#names + 1] = a
+		end
+	end
+	if not seen[stem:lower()] then
+		names[#names + 1] = stem
+	end
+	return out, { names = names, tags = tags, tag_lines = {}, name_lnum = 1, last_lnum = 0 }
+end
+
+-- =============================================================================
+-- The files
+-- =============================================================================
+
+--- Every document in the folders. Top folders first, then by path.
+---@return string[]
+function M.paths()
+	local fs = require("zortex.utils.filesystem")
+	local r = root()
+	local out = {}
+	local function scan(dir)
+		local h = vim.uv.fs_scandir(dir)
+		if not h then
+			return
+		end
+		while true do
+			local name, t = vim.uv.fs_scandir_next(h)
+			if not name then
+				break
+			end
+			local full = dir .. "/" .. name
+			if t == "directory" and not name:match("^%.") then
+				scan(full)
+			elseif t == "file" and not name:match("^%.") and not fs.is_conflict_copy(name) then
+				if MARKDOWN[ext(name)] then
+					out[#out + 1] = full
+				end
+			end
+		end
+	end
+	for _, f in ipairs(M.folders()) do
+		scan(r .. f)
+	end
+	table.sort(out, function(a, b)
+		local ra, rb = M.display_rel(a) or a, M.display_rel(b) or b
+		local da, db = select(2, ra:gsub("/", "")), select(2, rb:gsub("/", ""))
+		if da ~= db then
+			return da < db
+		end
+		return ra < rb
+	end)
+	return out
+end
+
+--- Is `path` a document (a Markdown file in the folders)?
+function M.is_document(path)
+	return M.kind(path) == "markdown"
+end
+
+function M.setup() end
+
+function M._reset() end
+
+return M

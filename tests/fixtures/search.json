@@ -53,6 +53,20 @@
         "type": "section"
       },
       {
+        "breadcrumb": "Rust Ownership",
+        "lnum": 1,
+        "rel": "z/markdown/rust-ownership.md",
+        "score": 2000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Tide Tables",
+        "lnum": 1,
+        "rel": "z/markdown/tide-tables.md",
+        "score": 2000,
+        "type": "section"
+      },
+      {
         "breadcrumb": "Resources",
         "lnum": 1,
         "rel": "z/resources.zortex",
@@ -152,6 +166,36 @@
         "lnum": 7,
         "rel": "z/day-plan.zortex",
         "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Rust Ownership",
+        "lnum": 1,
+        "rel": "z/markdown/rust-ownership.md",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Rust Ownership › Rust Ownership",
+        "lnum": 8,
+        "rel": "z/markdown/rust-ownership.md",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Rust Ownership › Rust Ownership › Borrowing",
+        "child": true,
+        "lnum": 12,
+        "rel": "z/markdown/rust-ownership.md",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Rust Ownership › Rust Ownership › Lifetimes",
+        "child": true,
+        "lnum": 20,
+        "rel": "z/markdown/rust-ownership.md",
+        "score": 1050,
         "type": "section"
       },
       {
@@ -336,6 +380,21 @@
       {
         "lnum": 4,
         "rel": "z/garden.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 10,
+        "rel": "z/markdown/rust-ownership.md",
+        "type": "line"
+      },
+      {
+        "lnum": 23,
+        "rel": "z/markdown/rust-ownership.md",
+        "type": "line"
+      },
+      {
+        "lnum": 30,
+        "rel": "z/markdown/rust-ownership.md",
         "type": "line"
       },
       {
@@ -984,6 +1043,55 @@
         "type": "section"
       },
       {
+        "breadcrumb": "Rust Ownership › Rust Ownership",
+        "lnum": 8,
+        "rel": "z/markdown/rust-ownership.md",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Rust Ownership › Rust Ownership › Borrowing",
+        "lnum": 12,
+        "rel": "z/markdown/rust-ownership.md",
+        "score": 1000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Rust Ownership › Rust Ownership › Borrowing › Mutable references",
+        "lnum": 16,
+        "rel": "z/markdown/rust-ownership.md",
+        "score": 950,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Rust Ownership › Rust Ownership › Lifetimes",
+        "lnum": 20,
+        "rel": "z/markdown/rust-ownership.md",
+        "score": 1000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Tide Tables › Tide Tables",
+        "lnum": 1,
+        "rel": "z/markdown/tide-tables.md",
+        "score": 1050,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Tide Tables › Tide Tables › Spring tides",
+        "lnum": 5,
+        "rel": "z/markdown/tide-tables.md",
+        "score": 1000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Tide Tables › Tide Tables › Neap tides",
+        "lnum": 9,
+        "rel": "z/markdown/tide-tables.md",
+        "score": 1000,
+        "type": "section"
+      },
+      {
         "breadcrumb": "Resources › Rust",
         "lnum": 8,
         "rel": "z/resources.zortex",
@@ -1267,6 +1375,36 @@
         "child": true,
         "lnum": 6,
         "rel": "z/garden.zortex",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Rust Ownership",
+        "lnum": 1,
+        "rel": "z/markdown/rust-ownership.md",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Rust Ownership › Rust Ownership",
+        "child": true,
+        "lnum": 8,
+        "rel": "z/markdown/rust-ownership.md",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Tide Tables",
+        "lnum": 1,
+        "rel": "z/markdown/tide-tables.md",
+        "score": 2100,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Tide Tables › Tide Tables",
+        "child": true,
+        "lnum": 1,
+        "rel": "z/markdown/tide-tables.md",
         "score": 2100,
         "type": "section"
       },
@@ -1683,6 +1821,11 @@
         "lnum": 11,
         "rel": "okr.zortex",
         "type": "line"
+      },
+      {
+        "lnum": 18,
+        "rel": "z/markdown/rust-ownership.md",
+        "type": "line"
       }
     ]
   },
@@ -1717,6 +1860,13 @@
         "type": "section"
       },
       {
+        "breadcrumb": "Rust Ownership",
+        "lnum": 1,
+        "rel": "z/markdown/rust-ownership.md",
+        "score": 2100,
+        "type": "section"
+      },
+      {
         "breadcrumb": "Projects",
         "lnum": 1,
         "rel": "z/archive.projects.zortex",
@@ -1734,6 +1884,13 @@
         "lnum": 1,
         "rel": "okr.zortex",
         "score": 2300,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Rust Ownership",
+        "lnum": 1,
+        "rel": "z/markdown/rust-ownership.md",
+        "score": 2200,
         "type": "section"
       },
       {
@@ -1809,6 +1966,20 @@
         "breadcrumb": "Garden",
         "lnum": 1,
         "rel": "z/garden.zortex",
+        "score": 2000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Rust Ownership",
+        "lnum": 1,
+        "rel": "z/markdown/rust-ownership.md",
+        "score": 2000,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Tide Tables",
+        "lnum": 1,
+        "rel": "z/markdown/tide-tables.md",
         "score": 2000,
         "type": "section"
       },
@@ -2069,5 +2240,68 @@
     "mode": "text",
     "prompt": "nothing-matches-this",
     "results": []
+  },
+  {
+    "mode": "section",
+    "prompt": "spring tides",
+    "results": [
+      {
+        "breadcrumb": "Tide Tables › Tide Tables › Spring tides",
+        "lnum": 5,
+        "rel": "z/markdown/tide-tables.md",
+        "score": 1200,
+        "type": "section"
+      }
+    ]
+  },
+  {
+    "mode": "section",
+    "prompt": "ownership borrowing",
+    "results": [
+      {
+        "breadcrumb": "Rust Ownership › Rust Ownership › Borrowing",
+        "lnum": 12,
+        "rel": "z/markdown/rust-ownership.md",
+        "score": 1500,
+        "type": "section"
+      },
+      {
+        "breadcrumb": "Rust Ownership › Rust Ownership › Borrowing › Mutable references",
+        "child": true,
+        "lnum": 16,
+        "rel": "z/markdown/rust-ownership.md",
+        "score": 1500,
+        "type": "section"
+      }
+    ]
+  },
+  {
+    "mode": "article",
+    "prompt": "tide",
+    "results": [
+      {
+        "breadcrumb": "Tide Tables",
+        "lnum": 1,
+        "rel": "z/markdown/tide-tables.md",
+        "score": 2200,
+        "type": "section"
+      }
+    ]
+  },
+  {
+    "mode": "text",
+    "prompt": "borrow",
+    "results": [
+      {
+        "lnum": 28,
+        "rel": "z/resources.zortex",
+        "type": "line"
+      },
+      {
+        "lnum": 12,
+        "rel": "z/markdown/rust-ownership.md",
+        "type": "line"
+      }
+    ]
   }
 ]

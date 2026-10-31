@@ -285,6 +285,32 @@ for the `/`), coloured `ZortexLinkDelimiter` either way (linked to
 
 `doc/Architecture.md` (Links) has the exact resolution rules.
 
+### Markdown documents
+
+Markdown (`.md`) files in `z/markdown` and `z/html` (`documents` in the
+configuration; `{}` turns it off) are **documents**: read-only notes that
+links, search and completion reach. Copy an AI-written page there and link
+into it like any note:
+
+```zortex
+- [Rust Ownership/#Borrowing]          the heading in z/markdown/rust-ownership.md
+- [rust-ownership/#Lifetimes]          by its file name
+- [Ownership/#Borrowing/#Mutable]      by a front matter alias, a heading under a heading
+```
+
+- **Its names**: the front matter's `title` (else a first `# Title`, else
+  the file name), the front matter's `aliases`, and the file name. Its
+  `tags` are its header tags.
+- **Its sections**: its headings (`#`, and setext `===` and `---` ones),
+  labels and bold headings, as in a note.
+- **It is read where it is**, line for line, so a link lands on its line.
+- **A note wins a name**: `[Rust]` is the note `@@Rust` when there is one,
+  then a document named Rust.
+- **They aren't notes**: their tasks, tags, links and attributes count for
+  nothing else (no projects, XP, backlinks from them or broken links in
+  them), and nothing in Zortex edits them. A link to a heading a document
+  doesn't have is broken, as for a note.
+
 ### Display text
 
 `[text](definition)` is a link shown as its text: `[the zortex

@@ -226,6 +226,10 @@ Special notes:
   is installed, `<leader>z` shows as "Zortex" and its sub-prefixes by name
   (`<leader>zC` "Calendar", `<leader>zx` "XP", ...); rename them
   with `keymaps.groups`.
+- **Markdown documents**: drop an AI-written `.md` file in `z/markdown`
+  and link into it like a note (`[Rust Ownership/#Borrowing]`); search and
+  completion find its headings and lines; nothing else counts it as a note
+  ([Syntax](doc/Syntax.md#markdown-documents)).
 - **Links**: follow (`<leader>zgx`), open in the web app (`<leader>zgX`),
   preview in a float (`<leader>zK`, or on hover with
   `ui = { preview = { on_hover = true } }`), complete while typing (tags

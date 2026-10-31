@@ -156,8 +156,10 @@ func fileStem(rel string) string {
 	return strings.TrimSuffix(base, path.Ext(base))
 }
 
-// BuildAll indexes every note, archived ones included.
-func BuildAll(ix *notes.Index) *Index { return Build(ix, ix.All()) }
+// BuildAll indexes every note, archived ones included, then the documents.
+func BuildAll(ix *notes.Index) *Index {
+	return Build(ix, append(append([]string(nil), ix.All()...), ix.Documents()...))
+}
 
 // =============================================================================
 // Tokens

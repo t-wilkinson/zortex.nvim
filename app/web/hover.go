@@ -8,8 +8,8 @@ import (
 	"github.com/t-wilkinson/zortex.nvim/app/syntax"
 )
 
-// Hover cards (static/hover.js): what a link to a note shows before you
-// follow it. GET /api/hover?rel=&lnum= -> {title, rel, section, tags,
+// Hover cards (static/hover.js): what a link to a note (or a Markdown
+// document, notes/documents.go) shows before you follow it. GET /api/hover?rel=&lnum= -> {title, rel, section, tags,
 // lines, backlinks}. Images and external links need no call: the card shows
 // the image itself, or the domain and URL (the server fetches nothing).
 
@@ -27,7 +27,10 @@ type hoverCard struct {
 func (s *Server) apiHover(w http.ResponseWriter, r *http.Request) {
 	rel := r.URL.Query().Get("rel")
 	lnum, _ := strconv.Atoi(r.URL.Query().Get("lnum"))
-	card, ok := s.hoverCardOf(rel, lnum, hoverLines)
+	card, ok := hoverCard{}, s.isNote(rel) || s.ix.DocumentKind(rel) != ""
+	if ok {
+		card, ok = s.hoverCardOf(rel, lnum, hoverLines)
+	}
 	if !ok {
 		writeJSON(w, http.StatusNotFound, map[string]any{"error": "no note " + rel})
 		return

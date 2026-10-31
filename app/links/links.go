@@ -690,14 +690,17 @@ func resolveIn(ix *notes.Index, link string, opts Options) ([]Result, error) {
 		// Header components on every note: straight from the catalog
 		if whole && (comp.Type == "article" || comp.Type == "tag") {
 			var kept []candidate
+			// notes, then documents (a note wins a name): named first, then tagged
+			named := append(append([]string(nil), cat.WithName(comp.Text)...), cat.DocumentsWithName(comp.Text)...)
+			tagged := append(append([]string(nil), cat.WithTag(comp.Text)...), cat.DocumentsWithTag(comp.Text)...)
 			if comp.Type == "article" {
-				kept = included(cat.WithName(comp.Text))
-				named := map[string]bool{}
+				kept = included(named)
+				seen := map[string]bool{}
 				for _, c := range kept {
-					named[c.rel] = true
+					seen[c.rel] = true
 				}
-				for _, c := range included(cat.WithTag(comp.Text)) {
-					if !named[c.rel] {
+				for _, c := range included(tagged) {
+					if !seen[c.rel] {
 						kept = append(kept, c)
 					}
 				}
@@ -705,7 +708,7 @@ func resolveIn(ix *notes.Index, link string, opts Options) ([]Result, error) {
 					return nil, errors.New("No article found: " + comp.Text)
 				}
 			} else {
-				kept = included(cat.WithTag(comp.Text))
+				kept = included(tagged)
 			}
 			if len(kept) > 0 {
 				whole = false
@@ -724,7 +727,7 @@ func resolveIn(ix *notes.Index, link string, opts Options) ([]Result, error) {
 			// a tag no note carries: a line search for "@tag" (below)
 		}
 		if whole {
-			files := cat.Files(include)
+			files := append(append([]string(nil), cat.Files(include)...), cat.Documents()...)
 			cands = make([]candidate, len(files))
 			for k, rel := range files {
 				cands[k] = candidate{rel: rel}

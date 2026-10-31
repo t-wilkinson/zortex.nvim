@@ -260,6 +260,9 @@ function M.build_index(files)
 
 				index[#index + 1] = {
 					filepath = filepath,
+					-- ties go by path from the notes folder (as the web app's
+					-- search)
+					sort_key = require("zortex.core.documents").display_rel(filepath) or filepath,
 					stem = stem,
 					archived = require("zortex.core.notes").is_archived(filepath),
 					raw_lines = lines,
@@ -456,7 +459,7 @@ local function match_sections(index, tokens, allowed, with_children, scope)
 		if a.best ~= b.best then
 			return a.best > b.best
 		end
-		return a.results[1].filepath < b.results[1].filepath
+		return a.file.sort_key < b.file.sort_key
 	end)
 
 	local out = {}
@@ -532,7 +535,7 @@ local function match_lines(index, tokens, scope)
 		if a.best ~= b.best then
 			return a.best > b.best
 		end
-		return a.results[1].filepath < b.results[1].filepath
+		return a.file.sort_key < b.file.sort_key
 	end)
 	local out = {}
 	for _, g in ipairs(groups) do
@@ -758,9 +761,9 @@ M._path_match = path_match
 
 --- Every note to search, archived ones included, in a stable order (top-level
 --- first, then by path; core/notes), so line results come out the same on any
---- filesystem.
+--- filesystem; then the Markdown and HTML documents (core/documents).
 function M.files()
-	return require("zortex.core.notes").files({ include_archived = true })
+	return require("zortex.core.notes").files({ include_archived = true, documents = true })
 end
 
 --- Search every note: { results, ... } as query_index returns them.

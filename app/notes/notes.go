@@ -31,11 +31,13 @@ type Index struct {
 	Root string // absolute folder path
 	Ext  string // note extension, ".zortex"
 
-	mu      sync.Mutex
-	docs    map[string]*cached
-	scanned bool
-	list    []string // scanned mode: every note, in All order
-	catalog *Catalog // scanned mode: built on first use after a Scan
+	mu         sync.Mutex
+	docs       map[string]*cached
+	scanned    bool
+	list       []string // scanned mode: every note, in All order
+	docList    []string // scanned mode: every document (documents.go)
+	docFolders []string // where documents are (SetDocumentFolders)
+	catalog    *Catalog // scanned mode: built on first use after a Scan
 }
 
 type cached struct {
@@ -53,7 +55,7 @@ func Open(root, ext string) (*Index, error) {
 	if ext == "" {
 		ext = ".zortex"
 	}
-	return &Index{Root: abs, Ext: ext, docs: map[string]*cached{}}, nil
+	return &Index{Root: abs, Ext: ext, docs: map[string]*cached{}, docFolders: DefaultDocumentFolders}, nil
 }
 
 // All lists every note, archived ones included: top-level notes first, then
@@ -124,9 +126,12 @@ func (ix *Index) IsArchived(rel string) bool {
 // article name or carry a tag, and which are archived. Lists keep All order.
 type Catalog struct {
 	all, active []string
+	documents   []string // the Markdown and HTML documents (documents.go)
 	archived    map[string]bool
 	byName      map[string][]string // lower-cased name -> notes
 	byTag       map[string][]string // lower-cased tag -> notes
+	// the documents', apart: only links and search look at them
+	docByName, docByTag map[string][]string
 }
 
 // Catalog returns the catalog of the notes: in scanned mode it is built once
@@ -139,29 +144,39 @@ func (ix *Index) Catalog() *Catalog {
 	}
 	ix.mu.Unlock()
 	all := ix.All()
-	c := &Catalog{archived: map[string]bool{}, byName: map[string][]string{}, byTag: map[string][]string{}}
-	for _, rel := range all {
+	c := &Catalog{archived: map[string]bool{}, byName: map[string][]string{}, byTag: map[string][]string{},
+		docByName: map[string][]string{}, docByTag: map[string][]string{}}
+	nNotes := len(all)
+	for i, rel := range append(append([]string(nil), all...), ix.Documents()...) {
 		d := ix.Doc(rel)
 		if d == nil {
 			continue
 		}
-		c.all = append(c.all, rel)
 		h := d.Header()
-		if strings.HasPrefix(filepath.Base(rel), "archive.") || syntax.ListHas(h.Tags, ArchiveTag) {
-			c.archived[rel] = true
+		if i >= nNotes {
+			c.documents = append(c.documents, rel)
 		} else {
-			c.active = append(c.active, rel)
+			c.all = append(c.all, rel)
+			if strings.HasPrefix(filepath.Base(rel), "archive.") || syntax.ListHas(h.Tags, ArchiveTag) {
+				c.archived[rel] = true
+			} else {
+				c.active = append(c.active, rel)
+			}
+		}
+		byName, byTag := c.byName, c.byTag
+		if i >= nNotes {
+			byName, byTag = c.docByName, c.docByTag
 		}
 		for _, n := range h.Names {
 			k := syntax.Lower(n)
-			if l := c.byName[k]; len(l) == 0 || l[len(l)-1] != rel {
-				c.byName[k] = append(l, rel)
+			if l := byName[k]; len(l) == 0 || l[len(l)-1] != rel {
+				byName[k] = append(l, rel)
 			}
 		}
 		for _, t := range h.Tags {
 			k := syntax.Lower(t)
-			if l := c.byTag[k]; len(l) == 0 || l[len(l)-1] != rel {
-				c.byTag[k] = append(l, rel)
+			if l := byTag[k]; len(l) == 0 || l[len(l)-1] != rel {
+				byTag[k] = append(l, rel)
 			}
 		}
 	}
@@ -183,6 +198,15 @@ func (c *Catalog) Files(includeArchived bool) []string {
 
 // IsArchived reports whether a note is archived.
 func (c *Catalog) IsArchived(rel string) bool { return c.archived[rel] }
+
+// Documents lists the Markdown and HTML documents (documents.go).
+func (c *Catalog) Documents() []string { return c.documents }
+
+// DocumentsWithName lists the documents with the name (ignoring case).
+func (c *Catalog) DocumentsWithName(name string) []string { return c.docByName[syntax.Lower(name)] }
+
+// DocumentsWithTag lists the documents whose front matter has the tag.
+func (c *Catalog) DocumentsWithTag(tag string) []string { return c.docByTag[syntax.Lower(tag)] }
 
 // WithName lists the notes declaring the article name (any @@ alias, ignoring case).
 func (c *Catalog) WithName(name string) []string { return c.byName[syntax.Lower(name)] }
@@ -232,7 +256,12 @@ func (ix *Index) load(rel string, prev *cached) *cached {
 	if err != nil {
 		return nil
 	}
-	doc := FromLines(rel, syntax.SplitLines(string(data)))
+	var doc *Document
+	if kind := ix.DocumentKind(rel); kind != "" {
+		doc = fromDocument(rel, kind, string(data))
+	} else {
+		doc = FromLines(rel, syntax.SplitLines(string(data)))
+	}
 	doc.ModTime = st.ModTime()
 	return &cached{mtime: st.ModTime().UnixNano(), size: st.Size(), doc: doc}
 }
@@ -263,29 +292,35 @@ func (ix *Index) Scan() bool {
 // removed (none on the first scan, which reports changed).
 func (ix *Index) ScanChanges() (bool, []string) {
 	list := ix.walk()
+	docList := ix.walkDocs()
 	ix.mu.Lock()
 	prev, wasScanned := ix.docs, ix.scanned
 	ix.mu.Unlock()
 
-	docs := make(map[string]*cached, len(list))
+	docs := make(map[string]*cached, len(list)+len(docList))
 	changed := !wasScanned
 	var rels []string
-	kept := list[:0:0]
-	for _, rel := range list {
-		old := prev[rel]
-		c := ix.load(rel, old)
-		if c == nil {
-			continue
-		}
-		if c != old {
-			changed = true
-			if wasScanned {
-				rels = append(rels, rel)
+	keep := func(list []string) []string {
+		kept := list[:0:0]
+		for _, rel := range list {
+			old := prev[rel]
+			c := ix.load(rel, old)
+			if c == nil {
+				continue
 			}
+			if c != old {
+				changed = true
+				if wasScanned {
+					rels = append(rels, rel)
+				}
+			}
+			docs[rel] = c
+			kept = append(kept, rel)
 		}
-		docs[rel] = c
-		kept = append(kept, rel)
+		return kept
 	}
+	kept := keep(list)
+	keptDocs := keep(docList)
 	if wasScanned {
 		for rel := range prev {
 			if docs[rel] == nil {
@@ -295,7 +330,7 @@ func (ix *Index) ScanChanges() (bool, []string) {
 		}
 	}
 	ix.mu.Lock()
-	ix.docs, ix.list, ix.scanned = docs, kept, true
+	ix.docs, ix.list, ix.docList, ix.scanned = docs, kept, keptDocs, true
 	if changed {
 		ix.catalog = nil
 	}
@@ -366,6 +401,7 @@ type Document struct {
 	ModTime time.Time // when read from disk (zero for FromLines)
 
 	header  syntax.Header
+	given   *syntax.Header // a Markdown document's header (documents.go)
 	lines   []lineInfo
 	byStart map[int]*Node
 }
@@ -376,9 +412,12 @@ type lineInfo struct {
 }
 
 // FromLines parses lines into a Document.
-func FromLines(rel string, lines []string) *Document {
-	ast := syntax.Parse(lines, false)
-	d := &Document{Rel: rel, Lines: lines, header: ast.Header, Tree: buildTree(ast.Sections, len(lines)), byStart: map[int]*Node{}}
+func FromLines(rel string, lines []string) *Document { return fromLinesWith(rel, lines, nil) }
+
+// fromLinesWith is FromLines with the header given (nil: read).
+func fromLinesWith(rel string, lines []string, given *syntax.Header) *Document {
+	ast := syntax.ParseWith(lines, false, given)
+	d := &Document{Rel: rel, Lines: lines, header: ast.Header, given: given, Tree: buildTree(ast.Sections, len(lines)), byStart: map[int]*Node{}}
 	d.lines = make([]lineInfo, len(ast.Lines))
 	for i, l := range ast.Lines {
 		info := lineInfo{kind: l.Kind, from: -1}
@@ -399,7 +438,7 @@ func FromLines(rel string, lines []string) *Document {
 }
 
 // Parse returns the full syntax of the note (parsed again on every call).
-func (d *Document) Parse() *syntax.AST { return syntax.Parse(d.Lines, false) }
+func (d *Document) Parse() *syntax.AST { return syntax.ParseWith(d.Lines, false, d.given) }
 
 // Kind is the syntax kind of line lnum ("" out of range).
 func (d *Document) Kind(lnum int) string {

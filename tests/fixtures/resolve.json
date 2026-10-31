@@ -623,6 +623,96 @@
     ]
   },
   {
+    "link": "[Rust Ownership]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 1,
+        "rel": "z/markdown/rust-ownership.md"
+      }
+    ]
+  },
+  {
+    "link": "[Rust Ownership/#Rust Ownership]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 8,
+        "rel": "z/markdown/rust-ownership.md"
+      }
+    ]
+  },
+  {
+    "link": "[Rust Ownership/#Rust Ownership/#Borrowing]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 12,
+        "rel": "z/markdown/rust-ownership.md"
+      }
+    ]
+  },
+  {
+    "link": "[Rust Ownership/#Rust Ownership/#Borrowing/#Mutable references]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 16,
+        "rel": "z/markdown/rust-ownership.md"
+      }
+    ]
+  },
+  {
+    "link": "[Rust Ownership/#Rust Ownership/#Lifetimes]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 20,
+        "rel": "z/markdown/rust-ownership.md"
+      }
+    ]
+  },
+  {
+    "link": "[Tide Tables]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 1,
+        "rel": "z/markdown/tide-tables.md"
+      }
+    ]
+  },
+  {
+    "link": "[Tide Tables/#Tide Tables]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 1,
+        "rel": "z/markdown/tide-tables.md"
+      }
+    ]
+  },
+  {
+    "link": "[Tide Tables/#Tide Tables/#Spring tides]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 5,
+        "rel": "z/markdown/tide-tables.md"
+      }
+    ]
+  },
+  {
+    "link": "[Tide Tables/#Tide Tables/#Neap tides]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 9,
+        "rel": "z/markdown/tide-tables.md"
+      }
+    ]
+  },
+  {
     "link": "[R/#To read/-Start with Garden notes]",
     "results": [
       {
@@ -2039,5 +2129,60 @@
     "link": "[./-Nothing like this]",
     "lnum": 6,
     "results": []
+  },
+  {
+    "link": "[Ownership/#Borrowing/#Mutable]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 16,
+        "rel": "z/markdown/rust-ownership.md"
+      }
+    ]
+  },
+  {
+    "link": "[rust-ownership/#Lifetimes]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 20,
+        "rel": "z/markdown/rust-ownership.md"
+      }
+    ]
+  },
+  {
+    "link": "[@rust]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 1,
+        "rel": "z/markdown/rust-ownership.md"
+      }
+    ]
+  },
+  {
+    "link": "[Tide Tables/#Neap]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 9,
+        "rel": "z/markdown/tide-tables.md"
+      }
+    ]
+  },
+  {
+    "error": "No matches found for: #Nowhere",
+    "link": "[Rust Ownership/#Nowhere]",
+    "results": []
+  },
+  {
+    "link": "[Rust Ownership/:Notes]",
+    "results": [
+      {
+        "col": 1,
+        "lnum": 30,
+        "rel": "z/markdown/rust-ownership.md"
+      }
+    ]
   }
 ]

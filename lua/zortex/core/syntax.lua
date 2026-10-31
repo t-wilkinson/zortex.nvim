@@ -429,9 +429,11 @@ end
 
 --- Parse a whole note. opts.inline = true also fills `inline` on every line
 --- (highlighting and export need it; the document tree does not).
+--- opts.header: the header to use instead of reading one (a Markdown
+--- document's, core/documents: its names, the article on line 1).
 function M.parse(lines, opts)
 	opts = opts or {}
-	local header = M.parse_header(lines)
+	local header = opts.header or M.parse_header(lines)
 	local out = { version = M.VERSION, header = header, lines = {}, sections = {}, blocks = {} }
 
 	if header.name_lnum then

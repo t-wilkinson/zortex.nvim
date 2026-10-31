@@ -425,7 +425,7 @@ func (s *Server) fileView(w http.ResponseWriter, r *http.Request, rel string, st
 		}
 	}
 	data["Kind"] = kind
-	if s.isResource(rel) {
+	if s.isResource(rel) || s.ix.DocumentKind(rel) != "" {
 		links := s.current().fileBacklinks[rel]
 		data["Resource"] = true
 		data["Backlinks"] = s.groupBacklinks(links)

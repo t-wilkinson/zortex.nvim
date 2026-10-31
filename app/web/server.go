@@ -441,7 +441,7 @@ func (s *Server) collectLinks(doc *notes.Document, snap *snapshot) {
 				snap.inner[doc.Rel] = append(snap.inner[doc.Rel], Backlink{From: doc.Rel, FromNote: true, Lnum: lnum, Def: sp.Definition, ToLnum: r.Lnum})
 				return
 			}
-			snap.backlinks[r.Doc.Rel] = append(snap.backlinks[r.Doc.Rel], Backlink{
+			b := Backlink{
 				From:       doc.Rel,
 				FromNote:   true,
 				Lnum:       lnum,
@@ -449,7 +449,12 @@ func (s *Server) collectLinks(doc *notes.Document, snap *snapshot) {
 				Breadcrumb: doc.NodeAt(lnum).Breadcrumb(" › "),
 				Def:        sp.Definition,
 				ToLnum:     r.Lnum,
-			})
+			}
+			snap.backlinks[r.Doc.Rel] = append(snap.backlinks[r.Doc.Rel], b)
+			if s.ix.DocumentKind(r.Doc.Rel) != "" {
+				// a document is a file too: "Linked from" on its page
+				snap.fileBacklinks[r.Doc.Rel] = append(snap.fileBacklinks[r.Doc.Rel], b)
+			}
 		})
 	}
 }
@@ -627,9 +632,13 @@ func (s *Server) cacheStatic(h http.Handler) http.Handler {
 // url is an app path ("/n/x.zortex") with the base prefix.
 func (s *Server) url(p string) string { return s.cfg.Base + p }
 
-// noteURL links to a note, optionally at a line.
+// noteURL links to a note, optionally at a line; a Markdown document
+// (notes/documents.go) to its file page, rendered.
 func (s *Server) noteURL(rel string, lnum int) string {
 	u := s.url("/n/" + escapePath(rel))
+	if s.ix.DocumentKind(rel) == "markdown" {
+		u = s.fileURL(rel)
+	}
 	if lnum > 0 {
 		u += "#L" + itoa(lnum)
 	}

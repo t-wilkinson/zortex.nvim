@@ -24,6 +24,12 @@ local defaults = {
 		is_label = nil,
 	},
 
+	-- Folders (from notes_dir) whose Markdown (.md) files are read as notes
+	-- you can link to and search, but not edit or count:
+	-- [Rust ownership/#Borrowing]. {} turns it off. Written to
+	-- .z/syntax.json, so the web app reads the same folders.
+	documents = { "z/markdown", "z/html" },
+
 	-- Commands and keymaps are generated from zortex.actions (:Zortex lists them)
 	commands = {
 		prefix = "Zortex", -- :ZortexSearch, :ZortexReview, ...

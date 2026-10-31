@@ -9,8 +9,9 @@
 --                                (lnum: the line a parent-relative [./-Item] link is written on)
 --   tests/fixtures/search.json   [{ prompt, mode, results = [{ type, rel, lnum, breadcrumb?, score?, child? }] }]
 --
--- The cases are every section of every note (its canonical link), every link
--- and tag search written in the notes, and the hand-picked cases below. The
+-- The cases are every section of every note and document (its canonical
+-- link), every link and tag search written in the notes, and the hand-picked
+-- cases below. The
 -- Go port (app/links, app/search) is tested against these files; test_links.lua
 -- checks that they are up to date.
 local root = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p:h:h")
@@ -20,7 +21,6 @@ local M = {}
 
 M.RESOLVE = root .. "/tests/fixtures/resolve.json"
 M.SEARCH = root .. "/tests/fixtures/search.json"
-
 -- Hand-picked links: aliases, tags, namespaces, prefixes, case, items,
 -- queries, archives, local links and failures.
 M.EXTRA_LINKS = {
@@ -140,6 +140,14 @@ M.EXTRA_LINKS = {
 	{ link = "[./-Item]", from = "z/day-plan.zortex", lnum = 1 },
 	{ link = "[./-Fix project search]", from = "z/day-plan.zortex", lnum = 4 },
 	{ link = "[./-Nothing like this]", from = "z/day-plan.zortex", lnum = 6 },
+	-- Markdown documents (core/documents): names from front matter, a first
+	-- # heading, and the file name; a note wins a name
+	{ link = "[Ownership/#Borrowing/#Mutable]" },
+	{ link = "[rust-ownership/#Lifetimes]" },
+	{ link = "[@rust]" },
+	{ link = "[Tide Tables/#Neap]" },
+	{ link = "[Rust Ownership/#Nowhere]" },
+	{ link = "[Rust Ownership/:Notes]" },
 }
 
 M.SEARCHES = {
@@ -191,6 +199,11 @@ M.SEARCHES = {
 	{ prompt = "okr", mode = "text" },
 	{ prompt = "", mode = "text" },
 	{ prompt = "nothing-matches-this", mode = "text" },
+	-- documents
+	{ prompt = "spring tides" },
+	{ prompt = "ownership borrowing" },
+	{ prompt = "tide", mode = "article" },
+	{ prompt = "borrow", mode = "text" },
 }
 
 -- Pretty JSON with sorted keys (same as gen_ast.lua)
@@ -250,8 +263,9 @@ function M.resolve_cases()
 	local resolver = require("zortex.core.link")
 	local syntax = require("zortex.core.syntax")
 	local dir = Config.notes_dir
+	local documents = require("zortex.core.documents")
 	local function rel(path)
-		return path:sub(#dir + 1)
+		return documents.display_rel(path) or path:sub(#dir + 1)
 	end
 
 	local cases, seen = {}, {}
@@ -263,8 +277,9 @@ function M.resolve_cases()
 		end
 	end
 
-	for _, path in ipairs(notes.files({ include_archived = true })) do
+	for _, path in ipairs(notes.files({ include_archived = true, documents = true })) do
 		local doc = Document.get(path)
+		local is_doc = documents.is_document(path)
 		-- every section's canonical link
 		doc.tree:walk(function(node)
 			if not node:is_root() then
@@ -276,7 +291,7 @@ function M.resolve_cases()
 		end)
 		-- every link written in the note (local links resolve in that note)
 		for lnum, line in ipairs(doc.lines) do
-			if not doc:in_code(lnum) then
+			if not is_doc and not doc:in_code(lnum) then
 				for _, span in ipairs(syntax.links(line)) do
 					local def = span.definition
 					if resolver.is_parent_relative(def) then
@@ -321,6 +336,10 @@ function M.search_cases()
 	local search = require("zortex.services.search")
 	search.setup()
 	local dir = Config.notes_dir
+	local documents = require("zortex.core.documents")
+	local function rel(path)
+		return documents.display_rel(path) or path:sub(#dir + 1)
+	end
 	local index = search.build_index(search.files())
 	local cases = {}
 	for _, s in ipairs(M.SEARCHES) do
@@ -330,14 +349,14 @@ function M.search_cases()
 			if r.result_type == "section" then
 				out[#out + 1] = {
 					type = "section",
-					rel = r.filepath:sub(#dir + 1),
+					rel = rel(r.filepath),
 					lnum = r.node.start_line,
 					breadcrumb = r.breadcrumb,
 					score = r.score,
 					child = r.child or nil,
 				}
 			else
-				out[#out + 1] = { type = "line", rel = r.filepath:sub(#dir + 1), lnum = r.lnum }
+				out[#out + 1] = { type = "line", rel = rel(r.filepath), lnum = r.lnum }
 			end
 		end
 		cases[#cases + 1] = { prompt = s.prompt, mode = mode, results = out }

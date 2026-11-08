@@ -11,13 +11,13 @@ func TestToNextDay(t *testing.T) {
 	lines := []string{
 		"@@Calendar",
 		"",
-		"**2026-10-11:**",
+		"2026-10-11:::",
 		"14:00 [ ] Write the notes",
 		"09:00 [P/#1 Programming/#1.4 - zortex]",
 		"  - [ ] [./-Improve website] @id(imp01)",
 		"- [x] Done already",
 		"",
-		"**2026-10-12:**",
+		"2026-10-12:::",
 		"09:00 Standup",
 		"16:00 Gym",
 	}
@@ -44,11 +44,11 @@ func TestToNextDay(t *testing.T) {
 		t.Fatalf("copy: %q\n%s", got, strings.Join(out, "\n"))
 	}
 	// a new day comes from the template
-	out, day, at, err = ToNextDay([]string{"# Templates", "## Daily", "Outcomes:", "", "**2026-10-20:**", "- [ ] Call home"}, 6, newID)
+	out, day, at, err = ToNextDay([]string{"# Templates", "## Daily", "Outcomes::", "", "2026-10-20:::", "- [ ] Call home"}, 6, newID)
 	if err != nil || day != "2026-10-21" {
 		t.Fatal(err, day)
 	}
-	if out[at-1] != "- [ ] Call home @id(new02)" || !strings.Contains(strings.Join(out, "\n"), "**2026-10-21:**\nOutcomes:") {
+	if out[at-1] != "- [ ] Call home @id(new02)" || !strings.Contains(strings.Join(out, "\n"), "2026-10-21:::\nOutcomes::") {
 		t.Fatalf("new day:\n%s", strings.Join(out, "\n"))
 	}
 	for _, bad := range []int{7, 3, 99} {

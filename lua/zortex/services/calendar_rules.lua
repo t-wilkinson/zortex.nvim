@@ -7,11 +7,11 @@
 --
 --   # Templates
 --   Weekday:                 the lines a new day starts with, by its name:
---   Outcomes:                monday … sunday (mon … sun), weekday(s),
+--   Outcomes::               monday … sunday (mon … sun), weekday(s),
 --   - [ ]                    weekend(s), daily; the most specific one wins
 --   09:00                    (sunday over weekend over daily). Every line up
 --   ## Sunday                to the next such name is the template, other
---   12:00 Weekly review      labels included. A name is a label ("Daily:")
+--   12:00 Weekly review      labels included. A name is a label ("Daily::")
 --                            or a heading below # Templates ("## Daily").
 --
 --   # Repeating
@@ -117,10 +117,10 @@ for _, name in ipairs(DAY_NAMES) do
 	SELECTOR[name:sub(1, 3)] = { name, 3 }
 end
 
---- The template a line names ("Weekday:" or "## Weekday" -> "weekday"), or
+--- The template a line names ("Weekday::" or "## Weekday" -> "weekday"), or
 --- nil.
 function M.template_name(line)
-	local name = line:match("^%s*(%a+):%s*$") or line:match("^#+%s+(%a+)%s*$")
+	local name = line:match("^%s*(%a+)::%s*$") or line:match("^#+%s+(%a+)%s*$")
 	local sel = name and SELECTOR[name:lower()]
 	return sel and sel[1] or nil
 end

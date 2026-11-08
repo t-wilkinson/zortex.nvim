@@ -177,7 +177,7 @@ T.test("daily review keys: x, d, t, a", function()
 	with_notes(function(proj)
 		local cal = fs.get_calendar_file()
 		local c = read(cal)
-		vim.list_extend(c, { "", "**" .. TODAY .. ":**", "14:00 [ ] Write the notes" })
+		vim.list_extend(c, { "", TODAY .. ":::", "14:00 [ ] Write the notes" })
 		-- a project task due today: listed under "Due today and tomorrow"
 		local p = read(proj)
 		p[5] = "- [ ] Dig the beds @due(" .. TODAY .. ")"
@@ -200,7 +200,7 @@ T.test("daily review keys: x, d, t, a", function()
 		T.ok(vim.iter(after):any(function(l)
 			return l:match("^14:00 %[>%] Write the notes @id%(") ~= nil
 		end), table.concat(after, "\n"))
-		local tomorrow = vim.fn.index(after, "**2026-10-12:**") + 1
+		local tomorrow = vim.fn.index(after, "2026-10-12:::") + 1
 		T.ok(tomorrow > 0 and after[tomorrow + 1]:match("^14:00 %[ %] Write the notes @id%("), table.concat(after, "\n"))
 
 		-- a: a finished task without an area goes to z/archive.tasks.zortex

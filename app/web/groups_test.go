@@ -96,7 +96,7 @@ func TestTaskGroupCopyOnTheCalendar(t *testing.T) {
 		t.Fatal(err)
 	}
 	day := time.Now().Format("2006-01-02")
-	cal := "@@Calendar\n\n" + day + ":\n- [ ] [P/Homelab/#Security/-Security audit] @id(grp01)\n"
+	cal := "@@Calendar\n\n" + day + "::\n- [ ] [P/Homelab/#Security/-Security audit] @id(grp01)\n"
 	calPath := filepath.Join(dir, "calendar.zortex")
 	if err := os.WriteFile(calPath, []byte(cal), 0o644); err != nil {
 		t.Fatal(err)

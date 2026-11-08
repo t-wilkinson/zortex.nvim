@@ -132,7 +132,7 @@ func (s *Server) apiReviewNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	text := strings.TrimSpace(strings.ReplaceAll(req.Text, "\n", " "))
-	label := strings.TrimSuffix(strings.TrimSpace(req.Label), ":")
+	label := strings.TrimSpace(strings.TrimRight(strings.TrimSpace(req.Label), ":"))
 	switch {
 	case text == "":
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": "empty text"})

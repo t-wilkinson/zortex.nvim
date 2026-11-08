@@ -267,7 +267,7 @@ func (ix *Index) load(rel string, prev *cached) *cached {
 }
 
 // Forget drops every parsed note, so the next Scan parses them all again
-// (after the grammar's settings changed: syntax.SetMaxLabelWords).
+// (after the grammar's settings changed: syntax.SetLabelRule).
 func (ix *Index) Forget() {
 	ix.mu.Lock()
 	for rel, c := range ix.docs {

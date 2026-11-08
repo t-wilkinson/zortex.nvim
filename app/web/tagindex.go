@@ -60,13 +60,20 @@ func tagSearchOf(spans []syntax.Span) (sp *syntax.Span, ok bool) {
 	return sp, true
 }
 
+// keyEndsLine: only colons and spaces follow the key ending at k (^:+%s*$).
+func keyEndsLine(line string, k int) bool {
+	rest := line[k:]
+	t := strings.TrimLeft(rest, ":")
+	return len(t) < len(rest) && strings.TrimSpace(t) == ""
+}
+
 // tagIndexAt reads the index label at lnum, or returns nil.
 func tagIndexAt(d *notes.Document, ast *syntax.AST, lnum int) *tagIndex {
 	if lnum < 1 || lnum > len(d.Lines) || d.InCode(lnum) {
 		return nil
 	}
 	ld := ast.Lines[lnum-1]
-	if ld.Kind != syntax.KindLabel || ld.Item != nil || ld.Indent > 0 {
+	if ld.Kind != syntax.KindLabel || ld.Indent > 0 {
 		return nil
 	}
 	ix := &tagIndex{lnum: lnum, name: syntax.SectionText(d.Lines[lnum-1], syntax.KindLabel)}
@@ -86,13 +93,13 @@ func tagIndexAt(d *notes.Document, ast *syntax.AST, lnum int) *tagIndex {
 		node := &tiNode{lnum: l, indent: ln.Indent}
 		from := 0
 		switch {
-		case ln.Item != nil && (ln.Kind == syntax.KindItem || ln.Kind == syntax.KindLabel):
-			if ln.Kind == syntax.KindLabel {
-				// "- Embedded:": a group named by its key
+		case ln.Item != nil && ln.Kind == syntax.KindItem:
+			if it := ln.Item; it.Label && it.KeyCol != nil && keyEndsLine(line, *it.KeyCol+len(it.Key)) {
+				// "- Embedded::": a group named by its key
 				if sp != nil {
 					return nil
 				}
-				node.name = syntax.SectionText(line[ln.Item.ContentCol:], syntax.KindLabel)
+				node.name = syntax.StripAttributes(it.Key)
 				break
 			}
 			from = ln.Item.ContentCol

@@ -1,7 +1,7 @@
 -- tests/autosize_cases.lua - calendar tasks sized by their block
 -- (services/tasks.calendar_size; app/edit CalendarSize). Each case marks
 -- line `lnum` (already ticked) and expects the size it gets, or nil.
-local day = "2026-10-16:"
+local day = "2026-10-16::"
 return {
 	{
 		name = "one task until the next timed line: an hour is md",
@@ -55,7 +55,7 @@ return {
 	},
 	{
 		name = "the day's last block has no end",
-		lines = { day, "16:00 Report", "  - [x] Task 1", "", "2026-10-17:", "09:00 Next" },
+		lines = { day, "16:00 Report", "  - [x] Task 1", "", "2026-10-17::", "09:00 Next" },
 		lnum = 3,
 	},
 	{

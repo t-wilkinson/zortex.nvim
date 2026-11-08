@@ -10,18 +10,17 @@ local defaults = {
 	-- so devices never write the same file; nil: the host name
 	device = nil,
 
-	-- The note format's knobs. Labels: a "Text:" line of up to
-	-- label_max_words words is a label (a section), longer ones are text
-	-- ("*A longer label:*" is always one). Neovim writes this number to
-	-- .z/syntax.json, so the web app (zortex serve) reads labels the same.
-	-- is_label: function(text, line) -> true | false | nil, asked about
-	-- every "Text:" line (text: before the colon, attributes stripped); nil
-	-- keeps the word count's answer. Neovim only: the web app follows the
-	-- word count, so links to a label only your function makes resolve in
-	-- Neovim alone.
+	-- The note format's knobs. A whole line "Label::" is a label and
+	-- "Title:::" a bold heading (sections, like headings); "Label:: text" and
+	-- "- Label:: text" are styled as labels. A "Key:" with one colon ("Key:
+	-- text", "- Key:", "Key:") is styled as a label when the text before the
+	-- colon (attributes stripped) has at most label_max_words words (0: never)
+	-- or matches label_pattern, a Lua pattern ("^%u[%w ]+$"; nil: none).
+	-- Neovim writes both to .z/syntax.json, so the web app (zortex serve)
+	-- reads them the same.
 	syntax = {
 		label_max_words = 3,
-		is_label = nil,
+		label_pattern = nil,
 	},
 
 	-- Folders (from notes_dir) whose Markdown (.md) and HTML (.html) files
@@ -296,13 +295,13 @@ local defaults = {
 		-- a weekly review from this day on plans the next week ("saturday":
 		-- Saturday and Sunday reviews pick the coming week's focus)
 		next_week_from = "saturday",
-		-- a new week's lines; the projects linked under "Focus:" are the week's
+		-- a new week's lines; the projects linked under "Focus::" are the week's
 		-- focus, ranked first by the planner. The reviews note's own
 		-- "# Templates" section (## Weekly, ## Daily) wins over these; a new
 		-- reviews note starts with one made from them
-		week = { "Focus:", "", "Wins:", "", "Lessons:" },
+		week = { "Focus::", "", "Wins::", "", "Lessons::" },
 		-- a new day's lines
-		day = { "Done:", "Blocked:", "First thing tomorrow:" },
+		day = { "Done::", "Blocked::", "First thing tomorrow::" },
 		width = 80, -- findings window width
 		-- where m in the review moves an inbox line without @project(...): a
 		-- link like "P/#Areas" (a heading of the projects note for small

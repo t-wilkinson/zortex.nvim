@@ -117,14 +117,14 @@
       "inline": [],
       "item": {
         "content_col": 4,
+        "key": "Notes",
+        "key_col": 4,
+        "label": true,
         "marker": "-",
         "marker_col": 2,
         "marker_type": "bullet"
       },
-      "kind": "label",
-      "level": 10,
-      "section": true,
-      "text": "Notes"
+      "kind": "item"
     },
     {
       "content_col": 6,
@@ -198,12 +198,6 @@
       ],
       "text": "Day plan",
       "type": "article"
-    },
-    {
-      "level": 10,
-      "lnum": 7,
-      "text": "Notes",
-      "type": "label"
     }
   ],
   "version": 1

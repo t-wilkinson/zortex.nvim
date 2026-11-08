@@ -8,7 +8,7 @@
 //
 //	Written by zortex serve from the "cozi" feed; edits here are replaced.
 //
-//	**2026-10-21:**
+//	2026-10-21:::
 //	16:00 - 17:00 Soccer practice · Field 3 @notify(no)
 //	- Camping
 //
@@ -241,7 +241,7 @@ func Note(f Feed, occs []ical.Occurrence, from, to time.Time, loc *time.Location
 			}
 			return ls[i].at < ls[j].at
 		})
-		out = append(out, "", "**"+k+":**")
+		out = append(out, "", k+":::")
 		for _, l := range ls {
 			out = append(out, l.text)
 		}

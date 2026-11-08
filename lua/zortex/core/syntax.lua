@@ -23,16 +23,20 @@
 --                (constants.SECTION_HIERARCHY), text = display text with
 --                attributes stripped
 --   heading      number of "#" (headings)
---   item         list-item details (items, and labels written as "- Label:"):
+--   item         list-item details:
 --                  marker        "-", "1.", "A.", or "14:00"
 --                  marker_type   "bullet" | "ordered" | "time"
 --                  marker_col    0-based column of the marker
 --                  time          { from = "14:00", to = "16:00"? } (time items)
---                  key, key_col  "KR1" in "- KR1: [ ] text", "Label" in "- Label: text"
+--                  key, key_col  "KR1" in "- KR1: [ ] text", "Label" in "- Label:: text"
+--                  label         true when the key reads as a label: "Key::",
+--                                or "Key:" passing the label rule (M.soft_label)
 --                  mark, mark_col checkbox character and column ("[x]" -> "x")
---   key, key_col plain lines written as "Label: text"
+--   key, key_col, key_len  text lines starting with a label: "Label:: text",
+--                or "Label: text" / "Label:" passing the label rule
 --   content_col  0-based column where inline content starts
---   content_end  0-based exclusive end of inline content (bold headings)
+--   content_end  0-based exclusive end of inline content (bold headings and
+--                labels: their colons)
 --   lang         code fences
 --   inline       inline spans (when parsed with { inline = true })
 --
@@ -63,7 +67,6 @@ local HIERARCHY = constants.SECTION_HIERARCHY
 local T = constants.SECTION_TYPE
 
 local TAG_LINE = "^@%w+" -- "@P", "@Archive" (header tags)
-local BOLD_HEADING = "^%*%*([^*]+):%*%*%s*$" -- "**Title:**" (the colon is inside)
 
 -- =============================================================================
 -- Small helpers
@@ -140,14 +143,78 @@ end
 -- List items
 -- =============================================================================
 
--- "Key: rest" at the start of `text` -> key, key length incl. ": ".
--- Keys look like labels: start with a word character, no ". " inside.
-local function match_key(text)
-	local key, sep = text:match("^(%w[^:]-)(:%s+)")
-	if key and not key:find("%.%s") and #key <= 60 then
-		return key, #key + #sep
+-- The label rule for "Key:" (one colon): Config.syntax.label_max_words
+-- (0: off) and label_pattern (a Lua pattern; nil: off), core/syntax_config.
+-- "Key::" is always a label.
+M.MAX_LABEL_WORDS = 3
+M.LABEL_PATTERN = nil
+
+local function word_count(s)
+	local n = 0
+	for _ in s:gmatch("%S+") do
+		n = n + 1
 	end
-	return nil
+	return n
+end
+
+--- Does "key:" (one colon) read as a label? `key` is the text before the
+--- colon: it passes when, attributes stripped, it has at most
+--- M.MAX_LABEL_WORDS words or matches M.LABEL_PATTERN.
+function M.soft_label(key)
+	local text = M.strip_attributes(key or "")
+	if text == "" then
+		return false
+	end
+	if M.LABEL_PATTERN then
+		local ok, found = pcall(string.find, text, M.LABEL_PATTERN)
+		if ok and found then
+			return true
+		end
+	end
+	return M.MAX_LABEL_WORDS > 0 and word_count(text) <= M.MAX_LABEL_WORDS
+end
+
+--- Set the label rule (Config.syntax): label_max_words, label_pattern.
+--- Returns false and the error for a pattern Lua can't read (it is then off).
+function M.configure(opts)
+	opts = opts or {}
+	M.MAX_LABEL_WORDS = math.max(0, math.floor(tonumber(opts.label_max_words) or 3))
+	local pattern = opts.label_pattern
+	M.LABEL_PATTERN = nil
+	if type(pattern) == "string" and pattern ~= "" then
+		local ok, err = pcall(string.find, "", pattern)
+		if not ok then
+			return false, err
+		end
+		M.LABEL_PATTERN = pattern
+	end
+	return true
+end
+
+-- "Key:: rest" or "Key: rest" at the start of `text`, or a key ending it
+-- ("Key::", "Key:") -> key, length incl. the colons and spaces after,
+-- colons (1 or 2). Text must follow after a space, so
+-- "14:00", "https://…" and "a::b" have no key. "Key::" keys are any text
+-- without a colon; "Key:" keys start with a word character, have no
+-- sentence (". ") and don't end in "*" ("**Bold**: text" is bold text).
+local function match_key(text)
+	local key, sep = text:match("^([^%s:][^:]-)(::%s*)")
+	local colons = 2
+	if not key then
+		key, sep = text:match("^(%w[^:]-)(:%s*)")
+		colons = 1
+		if not key or key:find("%.%s") or key:find("%*$") or #key > 60 then
+			return nil
+		end
+	end
+	if key:find("%s$") or M.strip_attributes(key) == "" then
+		return nil
+	end
+	local after = text:sub(#key + #sep + 1)
+	if after ~= "" and not sep:find("%s") then
+		return nil
+	end
+	return key, #key + #sep, colons
 end
 
 -- Checkbox "[x] text" at the start of `text` -> mark, consumed length.
@@ -212,9 +279,10 @@ function M.item(line)
 			item.mark, item.mark_col = mark, col
 			col = col + n
 		else
-			local key, kn = match_key(text)
+			local key, kn, colons = match_key(text)
 			if key then
 				item.key, item.key_col = key, col
+				item.label = (colons == 2 or M.soft_label(key)) or nil
 				local after = col + kn
 				local mark2, n2 = match_checkbox(line:sub(after + 1))
 				if mark2 then
@@ -239,59 +307,14 @@ end
 -- Single lines
 -- =============================================================================
 
--- Labels are short: a plain "Text:" line is a label up to this many words
--- (attributes not counted); a longer one is written "*A longer label:*"
-M.MAX_LABEL_WORDS = 3
-
-local function word_count(s)
-	local n = 0
-	for _ in s:gmatch("%S+") do
-		n = n + 1
+-- A whole line "Text::" or "Text:::" (spaces may follow): its indent, text
+-- and number of colons. The text ends in neither a space nor a colon, so
+-- "Text::::" and "Text ::" are nothing.
+local function colon_run(line)
+	local indent, text, colons = line:match("^(%s*)(.-[^%s:])(:+)%s*$")
+	if text and (#colons == 2 or #colons == 3) and M.strip_attributes(text) ~= "" then
+		return #indent, text, #colons
 	end
-	return n
-end
-
--- "*A longer label like this one:*" (after the indent or "- "): its text
-local function star_label(body)
-	return body:match("^%*([^*%s][^*]*):%*$")
-end
-
--- A "Text:" line: no other colon, no sentence (". "), and not bold or
--- italic text before the colon ("**Bold**:" is text; a bold heading has its
--- colon inside: "**Bold:**")
-local function colon_line(line)
-	local text = line:match("^([^:]+):$")
-	return text ~= nil and not text:find("%.%s") and not text:find("%*$")
-end
-
--- syntax.is_label (Config.syntax): function(text, line) -> true|false|nil,
--- asked about every "Text:" line; nil keeps the word count's answer
-M.label_hook = nil
-
---- Set the label rule (Config.syntax): label_max_words, is_label.
-function M.configure(opts)
-	opts = opts or {}
-	M.MAX_LABEL_WORDS = tonumber(opts.label_max_words) or 3
-	M.label_hook = type(opts.is_label) == "function" and opts.is_label or nil
-end
-
--- `body`: the line after its indent (and "- " for "- Label:")
-local function is_label(line, body)
-	if star_label(body) then
-		return true
-	end
-	if not colon_line(line) then
-		return false
-	end
-	local text = M.strip_attributes(body:sub(1, -2))
-	local hook = M.label_hook
-	if hook then
-		local ok, answer = pcall(hook, trim(text), line)
-		if ok and answer ~= nil then
-			return answer and true or false
-		end
-	end
-	return word_count(text) <= M.MAX_LABEL_WORDS
 end
 
 local function count(s, ch)
@@ -306,15 +329,14 @@ local function section_level(stype, heading, indent)
 	return HIERARCHY.get_priority(stype, heading, indent)
 end
 
--- Display text of a section line (attributes stripped)
+-- Display text of a section line (attributes stripped): the heading after
+-- its "#"s, a label or bold heading without its colons
 local function section_text(line, kind)
 	if kind == T.HEADING then
 		return M.strip_attributes(line:match("^#+%s+(.+)") or line:gsub("^#+%s*", ""))
-	elseif kind == T.BOLD_HEADING then
-		return M.strip_attributes(line:match("^%*%*([^*]+):%*%*") or line)
-	elseif kind == T.LABEL then
-		local body = line:match("^%s*(.-)$")
-		return M.strip_attributes(star_label(body) or line:match("^%s*(.-):$") or line)
+	elseif kind == T.BOLD_HEADING or kind == T.LABEL then
+		local text = line:match("^%s*(.-[^%s:]):+%s*$")
+		return M.strip_attributes(text or trim(line))
 	end
 	return trim(line)
 end
@@ -349,19 +371,6 @@ function M.classify(line)
 		return { kind = T.TAG, indent = 0, content_col = 1 }
 	end
 
-	if line:match(BOLD_HEADING) then
-		local colon = line:find(":**", 3, true) -- inline content stops before ":**"
-		return {
-			kind = T.BOLD_HEADING,
-			section = true,
-			level = section_level(T.BOLD_HEADING),
-			text = section_text(line, T.BOLD_HEADING),
-			indent = 0,
-			content_col = 2,
-			content_end = colon - 1,
-		}
-	end
-
 	-- "---": a rule, a separator (a slide break in a deck)
 	if line:match("^%-%-%-+%s*$") then
 		return { kind = "rule", indent = 0, content_col = 0 }
@@ -378,20 +387,6 @@ function M.classify(line)
 		end
 	end
 
-	local item = M.item(line)
-	if is_label(line, item and line:sub(item.content_col + 1) or line:sub(indent + 1)) and not (item and item.mark) then
-		return {
-			kind = T.LABEL,
-			section = true,
-			level = section_level(T.LABEL, nil, indent),
-			-- "- Label:" displays (and links) as "Label"
-			text = section_text(item and line:sub(item.content_col + 1) or line, T.LABEL),
-			indent = indent,
-			item = item,
-			content_col = item and item.content_col or indent,
-		}
-	end
-
 	if line:match("^%s*|") and count(line, "|") > 1 then
 		local separator = line:match("^%s*|[|%-:%s]*|%s*$") ~= nil and line:find("-", 1, true) ~= nil
 		return { kind = "table", separator = separator, indent = indent, content_col = indent }
@@ -400,13 +395,40 @@ function M.classify(line)
 		return { kind = "quote", indent = indent, content_col = #line:match("^%s*>%s*") }
 	end
 
+	local item = M.item(line)
 	if item then
 		return { kind = "item", indent = indent, item = item, content_col = item.content_col }
 	end
 
+	-- "Title:::" (unindented): a bold heading; "Label::": a label, nested by
+	-- its indent. Inline content stops before the colons.
+	local _, text, colons = colon_run(line)
+	if colons == 3 and indent == 0 then
+		return {
+			kind = T.BOLD_HEADING,
+			section = true,
+			level = section_level(T.BOLD_HEADING),
+			text = section_text(line, T.BOLD_HEADING),
+			indent = 0,
+			content_col = 0,
+			content_end = #text,
+		}
+	elseif colons == 2 then
+		return {
+			kind = T.LABEL,
+			section = true,
+			level = section_level(T.LABEL, nil, indent),
+			text = section_text(line, T.LABEL),
+			indent = indent,
+			content_col = indent,
+			content_end = indent + #text,
+		}
+	end
+
+	-- "Label:: text", or "Label: text" / "Label:" passing the label rule
 	local desc = { kind = "text", indent = indent, content_col = indent }
-	local key, kn = match_key(line:sub(indent + 1))
-	if key and not line:find("%.%s.-:") then
+	local key, kn, n = match_key(line:sub(indent + 1))
+	if key and (n == 2 or (M.soft_label(key) and not line:find("%.%s.-:"))) then
 		desc.key, desc.key_col = key, indent
 		desc.key_len = kn
 	end

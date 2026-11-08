@@ -36,7 +36,7 @@
   function info(n) { return src[n - 1]; }
   function isTask(t) { return /^\s*(?:[-*+]\s+)?(?:[A-Za-z0-9_]+:\s*)?\[.\]/.test(t); }
   function isDone(t) { return /^\s*(?:[-*+]\s+)?(?:[A-Za-z0-9_]+:\s*)?\[[xX]\]/.test(t); }
-  function isStructural(t) { return /^#+\s|^\*\*.*:\*\*\s*$|^@/.test(t); }
+  function isStructural(t) { return /^#+\s|[^\s:]:::$|^@/.test(t); } // a heading, a bold heading "Title:::", the header
 
   function apply(res, lnum) {
     if (res.body != null) body.innerHTML = res.body;

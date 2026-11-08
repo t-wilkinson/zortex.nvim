@@ -285,19 +285,18 @@ func (r *noteRenderer) line(lnum int, d *syntax.Line) {
 			r.w(`<span class="anchor" id="`, esc(pin), `"></span>`)
 		}
 		r.w(content(), `<a class="pin" href="#`, esc(pin), `" aria-label="Link to this section">#</a></h`, h, `>`)
-	case syntax.KindBoldHeading:
-		r.w(`<div class="ln bold-heading" id="L`, id, `">`, content(), `</div>`)
-	case syntax.KindLabel:
-		r.w(`<div class="ln label" id="L`, id, `"`, indent, `>`)
-		if d.Item != nil {
-			r.marker(line, d.Item)
+	case syntax.KindBoldHeading, syntax.KindLabel:
+		// "Title:::" and "Label::" show one colon (the content stops before them)
+		cls := "ln label"
+		if d.Kind == syntax.KindBoldHeading {
+			cls = "ln bold-heading"
 		}
-		r.w(content(), `</div>`)
+		r.w(`<div class="`, cls, `" id="L`, id, `"`, indent, `>`, content(), `:</div>`)
 	case syntax.KindItem:
-		// "- Key: text": marker() shows the key, the content the rest
-		if it := d.Item; it.Key != "" && it.KeyCol != nil && r.md == nil {
+		// "- Key:: text": keyBox() shows the key, the content the rest
+		if it := d.Item; shownKey(it) && it.KeyCol != nil && r.md == nil {
 			k := *it.KeyCol + len(it.Key)
-			if k < len(line) && line[k] == ':' {
+			for c := 0; c < 2 && k < len(line) && line[k] == ':'; c++ {
 				k++
 			}
 			for k < len(line) && (line[k] == ' ' || line[k] == '\t') {
@@ -316,8 +315,8 @@ func (r *noteRenderer) line(lnum int, d *syntax.Line) {
 		}
 		r.w(`<div class="`, cls, `" id="L`, id, `"`, indent, `>`)
 		r.bullet(d.Item)
-		if d.Item.Key != "" && r.md == nil {
-			// "- Key: text" wraps under the key, not in a column after it
+		if shownKey(d.Item) && r.md == nil {
+			// "- Key:: text" wraps under the key, not in a column after it
 			r.w(`<span class="body keyed">`)
 			r.keyBox(line, d.Item)
 			r.w(content(), `</span></div>`)
@@ -336,8 +335,10 @@ func (r *noteRenderer) line(lnum int, d *syntax.Line) {
 	default:
 		r.w(`<div class="ln text" id="L`, id, `"`, indent, `>`)
 		if r.md == nil && d.Key != "" && d.KeyCol != nil && (len(spans) == 0 || spans[0].S >= *d.KeyCol+d.KeyLen) {
+			// "Label:: text" shows "Label: text"
 			k0, k1 := *d.KeyCol, *d.KeyCol+d.KeyLen
-			r.w(r.inline(line, nil, from, k0), `<span class="key">`, esc(line[k0:k1]), `</span>`, r.inline(line, spans, k1, to))
+			gap := strings.TrimLeft(line[k0+len(d.Key):k1], ":")
+			r.w(r.inline(line, nil, from, k0), `<span class="key">`, esc(d.Key+":"+gap), `</span>`, r.inline(line, spans, k1, to))
 		} else {
 			r.w(content())
 		}
@@ -374,9 +375,28 @@ func (r *noteRenderer) bullet(it *syntax.Item) {
 	}
 }
 
+// shownKey: is a list item's key shown as one: a label key ("- Label::
+// text", or "- Key: text" by the label rule), or a key result's ("KR1")?
+func shownKey(it *syntax.Item) bool {
+	return it.Key != "" && (it.Label || isKeyResultKey(it.Key))
+}
+
+// isKeyResultKey: "KR1" (^KR%d+$)
+func isKeyResultKey(key string) bool {
+	if len(key) < 3 || key[:2] != "KR" {
+		return false
+	}
+	for i := 2; i < len(key); i++ {
+		if key[i] < '0' || key[i] > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 // keyBox renders a list item's key and checkbox.
 func (r *noteRenderer) keyBox(line string, it *syntax.Item) {
-	if it.Key != "" && r.md == nil {
+	if shownKey(it) && r.md == nil {
 		r.w(`<span class="key">`, esc(it.Key), `:</span>`)
 	}
 	if it.Mark != "" {

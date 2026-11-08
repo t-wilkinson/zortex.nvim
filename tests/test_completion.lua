@@ -259,7 +259,7 @@ local function rel_labels(lines, typed)
 end
 
 T.test("'[./' completes from the parent line's link: items, sections, links", function()
-	local cal = { "@@Calendar", "", "2026-10-15:", "16:00 [P/#1 Programming/#1.4 - zortex]" }
+	local cal = { "@@Calendar", "", "2026-10-15::", "16:00 [P/#1 Programming/#1.4 - zortex]" }
 	-- "-" lists the section's items, its own first
 	local items = rel_labels(cal, "    - [ ] [./-")
 	T.eq(items[1], "-Add research-ready references")

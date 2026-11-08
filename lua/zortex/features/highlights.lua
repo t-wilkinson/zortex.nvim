@@ -35,9 +35,8 @@ local LINKS = {
 	ZortexTag = "Label",
 	ZortexBoldHeading = { from = "Function", bold = true },
 	ZortexLabel = { from = "Identifier", bold = true },
-	ZortexLabelText = "Normal",
-	ZortexLabelList = "Identifier",
-	ZortexLabelListText = "Normal",
+	ZortexLabelText = "Identifier", -- "Label:: text"
+	ZortexLabelList = "Identifier", -- "- Label:: text"
 	ZortexNumberList = { from = "Special", bold = true },
 	ZortexTextList = { from = "Special", bold = true },
 	ZortexTaskCheckbox = "Special",
@@ -116,7 +115,6 @@ local ROSE_PINE = {
 	ZortexLabel = { bold = true, fg = "#3e8fb0" },
 	ZortexLabelText = { bold = true, fg = "#f6c177" },
 	ZortexLabelList = { bold = false, fg = "#3e8fb0" },
-	ZortexLabelListText = { bold = false, fg = "#f6c177" },
 	ZortexNumberList = { fg = "#3e8fb0", bold = true },
 	ZortexTextList = { fg = "#3e8fb0", bold = true },
 	ZortexTaskCheckbox = { fg = "#ea9a97" },
@@ -399,6 +397,22 @@ local function bullet_level(indent)
 	return math.min(math.floor(indent / 2) + 1, #BULLETS)
 end
 
+-- "Label::" / "Title:::" / "Key:: text" are shown with one colon: hide the
+-- colons after the first of the run starting at `col` (0-based)
+local function conceal_colons(buf, row, line, col)
+	local run = line:match("^:+", col + 1)
+	if run and #run > 1 then
+		conceal(buf, row, col + 1, col + #run)
+	end
+end
+
+-- A label key ("Label:: text", "Key: text"): the key and its colon in
+-- `group`, the extra colon hidden
+local function paint_key(buf, row, line, group, col, key)
+	paint(buf, row, group, col, col + #key + 1)
+	conceal_colons(buf, row, line, col + #key)
+end
+
 local function paint_item(buf, row, line, d, it)
 	local is_kr = it.key and it.key:match("^KR%d+$")
 
@@ -417,13 +431,11 @@ local function paint_item(buf, row, line, d, it)
 		end
 	end
 
-	-- Key ("KR1:", "Label:")
-	if it.key then
-		if is_kr then
-			paint(buf, row, "ZortexKeyResult", it.key_col, it.key_col + #it.key + 1)
-		else
-			paint(buf, row, "ZortexLabelListText", 0, it.key_col + #it.key + 1)
-		end
+	-- Key ("KR1:", "Label::", a "Key:" read as a label)
+	if is_kr then
+		paint_key(buf, row, line, "ZortexKeyResult", it.key_col, it.key)
+	elseif it.key and it.label then
+		paint_key(buf, row, line, "ZortexLabelList", it.key_col, it.key)
 	end
 
 	-- Checkbox and task text
@@ -485,23 +497,17 @@ local function paint_line(buf, row, line, d, spans)
 			paint(buf, row, "ZortexObjective", caps[i] - 1, caps[i + 2] - 1)
 		end
 	elseif kind == "bold_heading" then
-		-- "**Title:**": content_end is the colon, which stays visible
+		-- "Title:::" shown as "Title:" (content_end is the first colon)
 		paint(buf, row, "ZortexBoldHeading", d.content_col, d.content_end + 1)
-		conceal(buf, row, 0, 2)
-		conceal(buf, row, d.content_end + 1, d.content_end + 3)
+		conceal_colons(buf, row, line, d.content_end)
 	elseif kind == "label" then
-		-- "Label:", or "*A longer label:*" (its stars hidden by the italic span)
-		local colon = (line:find(":%*?$") or #line) - 1
-		if d.item then
-			paint_item(buf, row, line, d, d.item)
-			paint(buf, row, "ZortexLabelList", 0, colon + 1)
-		else
-			paint(buf, row, "ZortexLabel", 0, colon)
-		end
+		-- "Label::" shown as "Label:"
+		paint(buf, row, "ZortexLabel", d.content_col, d.content_end)
+		conceal_colons(buf, row, line, d.content_end)
 	elseif kind == "item" then
 		paint_item(buf, row, line, d, d.item)
 	elseif kind == "text" and d.key then
-		paint(buf, row, "ZortexLabelText", 0, d.key_col + #d.key + 1)
+		paint_key(buf, row, line, "ZortexLabelText", d.key_col, d.key)
 	elseif kind == "table" then
 		if d.separator then
 			paint(buf, row, "ZortexTableSeparator", 0, #line)
@@ -589,9 +595,13 @@ function M.zortex_fold_text()
 	if d.kind == "heading" then
 		hl_group = "ZortexHeading" .. math.min(d.heading, 3)
 	elseif d.kind == "label" then
-		hl_group = d.item and "ZortexLabelList" or "ZortexLabel"
+		hl_group = "ZortexLabel"
 	elseif d.kind == "bold_heading" then
 		hl_group = "ZortexBoldHeading"
+	end
+	if d.content_end then
+		-- "Label::" / "Title:::" folded as "Label:"
+		start_line = start_line:sub(1, d.content_end + 1) .. start_line:sub(d.content_end + 2):gsub("^:+", "")
 	end
 
 	-- First non-empty line inside the fold, as a preview

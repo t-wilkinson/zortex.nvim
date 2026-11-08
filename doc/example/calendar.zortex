@@ -2,12 +2,12 @@
 @@C
 
 # Templates
-Weekday:
-Outcomes:
+Weekday::
+Outcomes::
 - [ ]
 
 09:00 - 10:30 Deep work
-Sunday:
+Sunday::
 12:00 Weekly review [P]
 
 # Repeating
@@ -19,12 +19,12 @@ Sunday:
 
 # Days
 
-**2026-10-12:**
+2026-10-12:::
 09:00 - 10:30 Deep work on [P/#2.1]
 - [x] Call the hardware store @done(2026-10-12)
 
-**2026-10-13:**
-Outcomes:
+2026-10-13:::
+Outcomes::
 - [ ] Shelves bought, ready to mount
 - Read two chapters
 
@@ -36,5 +36,5 @@ Outcomes:
 - [ ] Feed the starter
 18:30 Bake [Sourdough/#Method]
 
-**2026-10-18:**
+2026-10-18:::
 10:00 Mount the shelves [P/#1.1]

@@ -200,9 +200,9 @@ func TestTagSearch(t *testing.T) {
 
 func TestTagIndex(t *testing.T) {
 	s, dir, ts := newTestServer(t, "")
-	note := "@@Topics hub\n\nTopics:\n- AI @[R/rl, ai-model]\n  - Reinforcement learning @[R/rl]\n" +
+	note := "@@Topics hub\n\nTopics::\n- AI @[R/rl, ai-model]\n  - Reinforcement learning @[R/rl]\n" +
 		"  - Models @[R/rl ai-model]\n- Embedded\n  - Rust **embedded** @[R/rust embedded]\n  - @[R/async]\n" +
-		"- Gardening @[R/garden]\n- Labelled:\n  - Spinning @[R/rl]\n\nReading:\n@[R/rust]\n@[R/nothing]\n\nNot an index:\n- plain item\n- @[R/rust]\n"
+		"- Gardening @[R/garden]\n- Labelled::\n  - Spinning @[R/rl]\n\nReading::\n@[R/rust]\n@[R/nothing]\n\nNot an index::\n- plain item\n- @[R/rust]\n"
 	if err := os.WriteFile(filepath.Join(dir, "z/hub.zortex"), []byte(note), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +223,7 @@ func TestTagIndex(t *testing.T) {
 		// no matches: dimmed
 		`<a class="ti-chip none" href=`,
 		`<span class="ti-head">Topics</span>`,
-		// "- Labelled:" groups the items under it too
+		// "- Labelled::" groups the items under it too
 		`data-q="R/rl" title="@[R/rl]">Labelled <span class="ti-n">2</span>`,
 		`data-q="R/rust, nothing" title="@[R/rust, nothing]">Reading`,
 		`<div class="ti-table" aria-live="polite"></div>`,

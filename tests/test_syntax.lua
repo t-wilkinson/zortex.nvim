@@ -24,10 +24,10 @@ T.test("line kinds and structure", function()
 	T.eq(ast.header.names, { "Syntax sample", "Sample" })
 	T.eq(ast.header.tags, { "Example", "size(lg)" })
 	T.eq(kind("# Heading one @p1 @a(4.1)").text, "Heading one")
-	T.eq(kind("**Bold heading:**").kind, "bold_heading")
-	T.eq(kind("  Indented label:").level, 10)
-	local bl = kind("- Bulleted label:")
-	T.eq({ bl.kind, bl.text, bl.item.marker }, { "label", "Bulleted label", "-" })
+	T.eq(kind("Bold heading:::").kind, "bold_heading")
+	T.eq(kind("  Indented label::").level, 10)
+	local bl = kind("- Bulleted label:: with text")
+	T.eq({ bl.kind, bl.item.key, bl.item.label, bl.section }, { "item", "Bulleted label", true, nil })
 	T.eq(kind("# not a heading").kind, "code") -- inside a fence
 	T.eq(kind("- [ ] not a task").kind, "code")
 	T.eq(kind("\\int_0^1 x\\,dx").kind, "math")
@@ -47,7 +47,6 @@ T.test("line kinds and structure", function()
 		"bold_heading:Bold heading",
 		"label:Label",
 		"label:Indented label",
-		"label:Bulleted label",
 		"heading:3M-2026-Q1 Objective title",
 		"heading:Tasks",
 	})
@@ -129,11 +128,11 @@ T.test("conformance: fixtures parse to tests/fixtures/ast", function()
 	end
 end)
 
-T.test("bold headings show their text and colon, not the stars", function()
+T.test("labels and bold headings show their text and one colon", function()
 	local hl = require("zortex.features.highlights")
 	vim.cmd("enew!")
 	local buf = vim.api.nvim_get_current_buf()
-	local lines = { "**Heading:**", "**Next steps:**  " }
+	local lines = { "Heading:::", "Next steps @p1:::", "Label::", "  Indented label::  " }
 	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
 	hl.highlight_buffer(buf)
 	local ns = vim.api.nvim_create_namespace("zortex_highlights")
@@ -144,7 +143,7 @@ T.test("bold headings show their text and colon, not the stars", function()
 				for col = m[3], m[4].end_col - 1 do
 					hidden[col] = true
 				end
-			elseif m[4].hl_group == "ZortexBoldHeading" then
+			elseif m[4].hl_group == "ZortexBoldHeading" or m[4].hl_group == "ZortexLabel" then
 				painted = line:sub(m[3] + 1, m[4].end_col)
 			end
 		end
@@ -154,9 +153,9 @@ T.test("bold headings show their text and colon, not the stars", function()
 				shown[#shown + 1] = line:sub(col + 1, col + 1)
 			end
 		end
-		local title = line:match("^%*%*(.-)%*%*")
-		T.eq(vim.trim(table.concat(shown)), title, line)
-		T.eq(painted, title, line)
+		local title = line:match("^%s*(.-):+%s*$")
+		T.eq(vim.trim(table.concat(shown)), title .. ":", line)
+		T.eq(painted, line:match(":::") and title .. ":" or title, line)
 	end
 	vim.cmd("bwipeout!")
 end)
@@ -342,7 +341,7 @@ T.test("folds follow sections and indentation", function()
 		"# code, not a heading",
 		"```",
 		"## Two",
-		"Label:",
+		"Label::",
 		"  text",
 	})
 	folding.update_folds(buf)
@@ -431,41 +430,78 @@ T.test("attributes start a word: links and emails keep their @", function()
 	T.eq({ timed:get_end_time().hour, timed:get_end_time().min }, { 9, 45 })
 end)
 
-T.test("bold headings are **Text:** only", function()
+T.test("bold headings are Text::: on its own unindented line", function()
 	local k = function(line)
 		return syntax.classify(line)
 	end
-	local d = k("**Fitness:**")
-	T.eq({ d.kind, d.text, d.content_col, d.content_end }, { "bold_heading", "Fitness", 2, 9 })
-	T.eq(k("**Spaced:**   ").kind, "bold_heading")
-	T.eq(k("**Ideas @a(4.1):**").text, "Ideas")
-	-- bold text, with or without a colon after it, is not a bold heading
-	T.ok(k("**Fitness**").kind ~= "bold_heading")
-	T.ok(k("**Fitness**:").kind ~= "bold_heading")
-	T.ok(k("**:**").kind ~= "bold_heading")
-	T.ok(k("**Fitness:** more").kind ~= "bold_heading")
+	local d = k("Fitness:::")
+	T.eq({ d.kind, d.text, d.content_col, d.content_end }, { "bold_heading", "Fitness", 0, 7 })
+	T.eq(k("Spaced:::   ").kind, "bold_heading")
+	T.eq(k("Ideas @a(4.1):::").text, "Ideas")
+	T.eq(k("A long bold heading of many words:::").kind, "bold_heading")
+	-- the old form is bold text; indented, or with text after, it is no heading
+	T.ok(k("**Fitness:**").kind ~= "bold_heading")
+	T.ok(k("  Fitness:::").kind ~= "bold_heading")
+	T.ok(k("Fitness::: more").kind ~= "bold_heading")
+	T.ok(k("Fitness::::").kind ~= "bold_heading")
+	T.ok(k("- Fitness:::").kind ~= "bold_heading")
 end)
 
 T.test("[*Text] reaches a bold heading", function()
 	local Document = require("zortex.core.document")
 	local link = require("zortex.core.link")
-	local doc = Document.from_lines({ "@@Gym", "", "**Warmup:**", "- jog", "", "Some **plain** bold" }, "/tmp/gym.zortex")
+	local doc = Document.from_lines({ "@@Gym", "", "Warmup:::", "- jog", "", "Some **plain** bold" }, "/tmp/gym.zortex")
 	local r = link.resolve("/*Warmup", { doc = doc })
 	T.eq(r[1] and r[1].lnum, 3)
 	T.eq(link.resolve("/*plain", { doc = doc })[1].lnum, 6)
 end)
 
-T.test("labels: three words at most, or *a longer label:*", function()
+T.test("labels: a whole line Label::, any length, nested by indent", function()
 	local syntax = require("zortex.core.syntax")
 	local kind = function(l)
 		return syntax.classify(l).kind
 	end
-	T.eq(kind("First thing tomorrow:"), "label")
-	T.eq(kind("Archive @fold @p1:"), "label")
+	T.eq(kind("First thing tomorrow::"), "label")
+	T.eq(kind("Archive @fold @p1::"), "label")
 	T.eq(kind("Things that grew too well:"), "text")
-	T.eq(kind("*Things that grew too well:*"), "label")
-	T.eq(syntax.classify("*Things that grew too well:*").text, "Things that grew too well")
-	T.eq(kind("- Four words in item:"), "item")
-	T.eq(kind("**Bold**:"), "text", "bold text before the colon")
-	T.eq(kind("**Bold:**"), "bold_heading")
+	T.eq(kind("Things that grew too well::"), "label")
+	T.eq(syntax.classify("Things that grew too well::").text, "Things that grew too well")
+	local d = syntax.classify("    Nested label::")
+	T.eq({ d.level, d.content_col, d.content_end }, { 12, 4, 16 })
+	-- only a whole line is a section: items, text after, the old forms are not
+	T.eq(kind("- Bulleted label::"), "item")
+	T.eq(kind("Label:: text after"), "text")
+	T.eq(kind("Label:"), "text")
+	T.eq(kind("*A longer label:*"), "text")
+	T.eq(kind("**Bold**:"), "text")
+	T.eq(kind("Space before ::"), "text")
+	T.eq(kind("@p1 @a(1)::"), "tag")
+	T.eq(kind("  @p1 @a(1)::"), "text")
+	T.eq(kind("> quoted::"), "quote")
+	T.eq(kind("14:00 timed::"), "item")
+end)
+
+T.test("label keys: Label:: text always, Key: text by the label rule", function()
+	local function key(line)
+		local d = syntax.classify(line)
+		if d.item then
+			return d.item.label and d.item.key or nil
+		end
+		return d.key
+	end
+	T.eq(key("Label:: text"), "Label")
+	T.eq(key("A label of many many words:: text"), "A label of many many words")
+	T.eq(key("Label::no space"), nil)
+	T.eq(key("- Label::"), "Label")
+	T.eq(key("- Label:: text"), "Label")
+	T.eq(key("  - Label: text"), "Label")
+	T.eq(key("Key: value"), "Key")
+	T.eq(key("Key:"), "Key")
+	T.eq(key("Four words go here: text"), nil)
+	T.eq(key("Not a label: one. Two: three"), nil)
+	T.eq(key("**Bold**: text"), nil)
+	T.eq(key("https://example.com"), nil)
+	T.eq(key("std::vector is text"), nil)
+	local d = syntax.classify("Label::   text")
+	T.eq({ d.key_col, d.key_len }, { 0, 10 })
 end)

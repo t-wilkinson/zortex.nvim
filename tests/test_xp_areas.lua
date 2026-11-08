@@ -175,7 +175,7 @@ T.test("the daily review lists work without an area; A gives it one; closing sta
 		[fs.get_areas_file()] = default_area,
 		[fs.get_projects_file()] = function() end,
 		[fs.get_calendar_file()] = function(lines)
-			vim.list_extend(lines, { "", "2026-10-08:", "- [x] Water the plants @done(2026-10-08)" })
+			vim.list_extend(lines, { "", "2026-10-08::", "- [x] Water the plants @done(2026-10-08)" })
 		end,
 		[fs.get_reviews_file()] = function() end,
 	}, function()

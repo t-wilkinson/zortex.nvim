@@ -48,7 +48,7 @@ T.test("sized tasks share in proportion (the group's size wins); unsized groups 
 		"- [ ] Move @lg", -- 2h
 		"  - [ ] Pack @xl", -- 3h
 		"  - [ ] Clean @md", -- 1h
-		"  Notes:", -- a label between doesn't break the nesting
+		"  Notes::", -- a label between doesn't break the nesting
 		"    - [ ] Keys", -- md: 1h
 		"- [ ] Garden", -- no size: its tasks add up
 		"  - [ ] Weed @sm",
@@ -195,7 +195,7 @@ T.test("checking a group's copy on the calendar checks its tasks in the project"
 	vim.list_extend(p, { "", "# Groups", "- [ ] Audit @id(grp01) @md", "  - [ ] One", "  - [ ] Two" })
 	vim.fn.writefile(p, proj)
 	local c = vim.deepcopy(cal0)
-	vim.list_extend(c, { "", "2026-11-20:", "- [ ] [P/#Groups/-Audit] @id(grp01)" })
+	vim.list_extend(c, { "", "2026-11-20::", "- [ ] [P/#Groups/-Audit] @id(grp01)" })
 	vim.fn.writefile(c, cal)
 	Document.invalidate()
 	local ok, err = pcall(function()

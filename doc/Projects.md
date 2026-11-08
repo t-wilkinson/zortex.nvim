@@ -15,7 +15,7 @@ in one place, and the calendar, OKRs and areas link to it.
   sub-projects.
 - **Own content**: a project's own tasks and notes run from its header line to
   its first sub-project. Container projects have their own tasks too.
-- Labels (`Notes:`) and bold headings are content, not sub-projects.
+- Labels (`Notes::`) and bold headings are content, not sub-projects.
 - Archived notes (`z/archive.*.zortex`, or tagged `@Archive`) are ignored.
 
 ## Identity

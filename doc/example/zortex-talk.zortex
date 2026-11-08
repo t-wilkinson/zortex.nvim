@@ -14,7 +14,7 @@ anywhere: [Projects/#2 Learning] or [Sourdough/#Method/:Bake].
 - Readable without any tool
 - Links by name, not by path
 
-Notes:
+Notes::
 - The web app and Neovim share one parser, tested against the same fixtures
 - Ask who already keeps notes in plain text
 

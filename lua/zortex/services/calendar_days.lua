@@ -1,7 +1,7 @@
 -- services/calendar_days.lua - Where the calendar note's days are, and where
 -- a new one goes
 --
--- A day is a date label ("**2026-10-21:**" or "2026-10-21:") and the lines
+-- A day is a date label ("2026-10-21:::" or "2026-10-21::") and the lines
 -- under it, up to the next day or the next heading. Days are grouped under
 -- a heading per month ("# October 2026"; "## October 2026" under a "# Days"
 -- heading; "2026-10" reads too): a new day goes into its month, next to its
@@ -288,7 +288,7 @@ end
 
 --- The lines to insert for a new day, and where: { at, lines, heading }
 --- (heading: the new day label's line once inserted). `body` goes under the
---- label; `label` replaces the "**YYYY-MM-DD:**" a new day gets.
+--- label; `label` replaces the "YYYY-MM-DD:::" a new day gets.
 ---@param opts { group?: "month"|false, label?: string, into_month?: boolean }?
 function M.insert_day(lines, date_str, body, opts)
 	opts = opts or {}

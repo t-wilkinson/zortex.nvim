@@ -9,7 +9,7 @@ hitting a personal default. Ship as v0.1.0; everything under # 4 waits.
 What is done is in ../CHANGELOG.md; what was decided and why, in
 Wishlist.md (sections 8 and 9).
 
-**Definition of done:**
+Definition of done:::
 - [ ] A tagged release with `zortex` binaries and a container image @p1 @size(sm)
 
 # 6 Proposed (review of 2026-10-16)
@@ -50,7 +50,7 @@ From a review before publishing. Not agreed item by item yet.
 
 Dropped: a raw-text section, uploading a file to render it, tags generated from Structure, other rules for a tagged heading's rows, XP "overlap", the calendar picker, a `|` alias in links (it breaks table rows).
 
-Decisions:
+Decisions::
 - One repo, one version: the plugin and `zortex serve` are tagged together (decided 2026-10-16).
 - Platforms promised: Linux and macOS; Windows untested (README, decided 2026-10-14).
 - Names: `zortex.nvim` for the plugin, `zortex` for the binary and the image on ghcr.io (`ghcr.io/t-wilkinson/zortex`, decided 2026-10-16).

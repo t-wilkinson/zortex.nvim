@@ -76,7 +76,7 @@ function M.update_folds(bufnr)
 				indent_stack = { spaces }
 				raw_levels[i] = base_level + bold_level
 				explicit_starters[i] = ">" .. raw_levels[i]
-			elseif d.kind == "label" and not d.item then
+			elseif d.kind == "label" then
 				label_level = 1
 				indent_stack = { spaces }
 				raw_levels[i] = base_level + bold_level + label_level

@@ -11,9 +11,19 @@ that share one folder of plain-text notes.
 
 ### Notes
 
+- Labels are written with two colons and bold headings with three:
+  `Ideas::` and `Next steps:::` (a whole line each) open sections and are
+  shown as `Ideas:` and **Next steps:**. `Label:: text` and `- Label:: text`
+  start a line with a label without opening a section, and a short `Key:
+  text` reads as one too (`syntax.label_max_words`, and a Lua pattern,
+  `syntax.label_pattern`, shared with the web app; `syntax.is_label` is
+  gone). New calendar days are `YYYY-MM-DD:::`. Notes written with the old
+  `Label:` / `**Label:**` convert once with
+  `nvim -l contrib/migrate_labels.lua ~/zortex` (`--dry-run` first), or
+  `:luafile contrib/migrate_labels.lua` then `:ZortexMigrateLabels`.
 - One note format, `.zortex`: a header (`@@Name`, aliases, `@Tags`),
-  headings, bold headings (`**Text:**`), labels (`Ideas:`, up to three
-  words; `*A longer label:*` beyond), lists, tasks, timed calendar lines
+  headings, bold headings (`Text:::`), labels (`Ideas::`, any length,
+  shown with one colon), lists, tasks, timed calendar lines
   (`14:00 event`, `16:00 [ ] task`), attributes, tags, links, math, code,
   tables, quotes and `---` rules. One grammar parses it for every feature,
   in Lua and in Go, checked against shared fixtures and against the

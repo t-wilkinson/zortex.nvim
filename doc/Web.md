@@ -69,8 +69,8 @@ The details, and the settings, are in [Working with Neovim](#working-with-neovim
 | `/raw/<path>` | the file as is: byte ranges, `?download=1`; HTML/SVG/XML with `Content-Security-Policy: sandbox` (`sandbox allow-scripts` for HTML with `-html-scripts`); nothing outside the folder, no hidden files |
 | `/tags`, `/tag/<name>` | header tags and their notes (the top bar's Graph lists the tags too); an area attribute in a header (`@area(4.1)`, `@area(1.2/Fitness)`) links to its area (`[A/#4.1]`) |
 | `/resources` | redirects to `/f/?show=all` (`?dir=` becomes the path): file pages show their own "Linked from", folder listings count links and unlinked files |
-| `/projects` | the week's focus projects (the `Focus:` of the week's entry in `reviews.zortex`), then every project with open work and those without a next action: progress (task `@size` hours, done when a task or its calendar copy is checked), key results, the next task and how often it was put off |
-| `/project?rel=&lnum=` | one project: progress, time tracked (all and this week), its next tasks (put off ×n, the day it's planned, due), sub-projects, done tasks, the key results it moves (progress, how far behind its objective's window), its `Log:`, the days it was on the calendar, the notes and files it links and the notes that link it. With `-writable`: tick tasks (calendar copies follow) and add a dated line to its log (`POST /api/project/log` `{rel, lnum, expect, text}`) |
+| `/projects` | the week's focus projects (the `Focus::` of the week's entry in `reviews.zortex`), then every project with open work and those without a next action: progress (task `@size` hours, done when a task or its calendar copy is checked), key results, the next task and how often it was put off |
+| `/project?rel=&lnum=` | one project: progress, time tracked (all and this week), its next tasks (put off ×n, the day it's planned, due), sub-projects, done tasks, the key results it moves (progress, how far behind its objective's window), its `Log::`, the days it was on the calendar, the notes and files it links and the notes that link it. With `-writable`: tick tasks (calendar copies follow) and add a dated line to its log (`POST /api/project/log` `{rel, lnum, expect, text}`) |
 | `/areas` | every area of `areas.zortex`, nested: its vision, its XP (its own and with its sub-areas', its level and the way to the next, from Neovim's XP summary), the objectives running now that name it, the active projects that carry it (their own `@area` or a parent's); the area XP of all areas together at the top. The default area (`xp.default_area`, `0.1`) is marked as where work without one earns |
 | `/attributes` | every `@attribute`: how it is written (`@due(2026-10-20)`, `@a(1.2/Fitness)`, …), what it goes on and what it does, with a filter; the same list as Neovim's `:Zortex attributes` (`static/attributes.json`, written from the plugin's `attributes_help.lua`) |
 | `/okr` | objectives (`## 3M-2026-Q4 …`) by period; the period of a season shows its name and tier (Neovim's, from the XP summary or its history; for the current quarter without one, estimated here from its objectives' mean progress); a key result with no project and no checkbox is marked stuck: progress (the mean of their key results) against the share of the period gone, marked when behind; each key result with the projects it links; objectives whose period ended without `@done`, later ones, and the latest done |
@@ -297,8 +297,8 @@ same notes and write the same lines, so a review done on the web is done:
   from its summary) on what is still without one, when `areas.zortex` has
   that area ([Planning](Planning.md#area-xp-and-season-xp)).
 - **+ Focus / − Focus** (`f`, weekly): the project in or out of the
-  week's `Focus:` (on a weekend, the coming week's, as Neovim plans it).
-- **Write a line** under a label of the entry (`Done:`, `Blocked:`, `Wins:`,
+  week's `Focus::` (on a weekend, the coming week's, as Neovim plans it).
+- **Write a line** under a label of the entry (`Done::`, `Blocked::`, `Wins::`,
   …): the day's or the week's entry in `reviews.zortex`, made from the
   note's `# Templates` when missing, the label added when it has none.
 
@@ -347,7 +347,7 @@ note has to change:
 | `@@Name` and the lines before the first heading | the title slide |
 | headings at the slide level | one slide each, with everything up to the next one |
 | headings above the slide level | section slides |
-| `Notes:` (or `**Notes:**`) in a slide | speaker notes: hidden, shown in the presenter window |
+| `Notes::` (or `Notes:::`) in a slide | speaker notes: hidden, shown in the presenter window |
 | `@step` on a line | revealed on its own click, with the lines nested under it |
 | `@steps` on a slide's heading | each of its top-level items revealed in turn |
 | `---` | a new slide that carries on the one before it, under the same heading (a note without headings is cut into slides by its rules) |
@@ -562,9 +562,9 @@ Everything the pages use is plain HTTP with JSON, under `/api/`:
 | `GET /api/alerts?after=` | the alerts raised after `seq` `after` (calendar, pomodoro, clocks; the last 100): `{seq, alerts: [{seq, kind, title, message, at}]}`; without `after`, only the current `seq` |
 | `GET /api/summary` | for home dashboards (Homepage, Home Assistant, …): `{generated, pending, next, text, html, pomodoro?, xp?: {today, week, season: {name, progress, tier, xp}}}` |
 | `POST /api/inbox` | `-writable` only: `{text, kind: "task" \| "note", id?}` appended to the bottom of `inbox.zortex` (created when missing). `id` is set by the offline queue: a capture sent again with the same id (its answer was lost) is added once |
-| `POST /api/project/log` | `-writable` only: `{rel, lnum, expect, text}`: a dated line in the project's `Log:` |
+| `POST /api/project/log` | `-writable` only: `{rel, lnum, expect, text}`: a dated line in the project's `Log::` |
 | `POST /api/review/note` | `-writable` only: `{week, date?, label, text}`: `- text` under the label of the week's entry (or the day's, with `date`) in `reviews.zortex`, made from its template when missing; `{rel, lnum, url}` |
-| `POST /api/review/focus` | `-writable` only: `{week, rel, lnum}`: the project (its heading) in or out of the week's `Focus:`; `{added, project}` |
+| `POST /api/review/focus` | `-writable` only: `{week, rel, lnum}`: the project (its heading) in or out of the week's `Focus::`; `{added, project}` |
 | `POST /api/review/move` | `-writable` only: `{rel, lnum, expect, to: "rel:lnum"}`: the line and the lines under it, without `@project`, to the end of that project's own lines |
 | `POST /api/review/tomorrow` | `-writable` only: `{lnum, expect}`: the open calendar task on that line to the next day, same time, `[>]` on the old line; `{date}` |
 | `POST /api/review/due` | `-writable` only: `{rel, lnum, expect, due}` (`YYYY-MM-DD`, `+N`, `tomorrow`): sets `@due` |

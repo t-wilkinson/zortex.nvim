@@ -62,7 +62,7 @@ func CalendarSections(lines []string) (templates, repeating []Span) {
 
 var (
 	headingRe  = regexp.MustCompile(`^(#+)\s+(.*?)\s*$`)
-	templateRe = regexp.MustCompile(`^(?:\s*([A-Za-z]+):|#+\s+([A-Za-z]+))\s*$`)
+	templateRe = regexp.MustCompile(`^(?:\s*([A-Za-z]+)::|#+\s+([A-Za-z]+))\s*$`)
 )
 
 func isCalFence(line string) bool {
@@ -72,7 +72,7 @@ func isCalFence(line string) bool {
 
 var dayNames = []string{"sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"}
 
-// templateName: the template a label or a heading names ("Weekday:",
+// templateName: the template a label or a heading names ("Weekday::",
 // "## Weekday" -> "weekday"), or "".
 func templateName(line string) string {
 	m := templateRe.FindStringSubmatch(line)

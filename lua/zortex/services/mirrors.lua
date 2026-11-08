@@ -78,7 +78,7 @@ function M.calendar_doc()
 	return Document().get(path)
 end
 
--- a calendar day heading: "**2026-10-21:**" or "2026-10-21:"
+-- a calendar day heading: "2026-10-21:::" or "2026-10-21::"
 local function date_heading(line)
 	return require("zortex.utils.datetime").date_heading(line)
 end

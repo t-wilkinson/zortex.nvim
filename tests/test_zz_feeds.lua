@@ -48,7 +48,7 @@ local cal_original = fs.read_lines(cal_path)
 T.test("feeds: a feed's events join the day, read-only, by time", function()
 	fs.write_lines(cal_path, vim.list_extend(vim.deepcopy(cal_original), {
 		"",
-		"**" .. DAY .. ":**",
+		DAY .. ":::",
 		"09:00 Work",
 		"17:00 Gym",
 	}))
@@ -59,13 +59,13 @@ T.test("feeds: a feed's events join the day, read-only, by time", function()
 		"",
 		'Written by zortex serve from the "cozi" feed; edits here are replaced.',
 		"",
-		"**" .. DAY .. ":**",
+		DAY .. ":::",
 		"- Camping",
 		"12:30 - 13:00 Dentist · Room 2 @n(no)",
 		"14:00 - 15:00 Piano @free @n(no)",
 	})
 	-- a note in z/feeds without the marker isn't a feed
-	write_feed(dir .. "stray.zortex", { "@@Stray", "", "**" .. DAY .. ":**", "10:00 Not a feed" })
+	write_feed(dir .. "stray.zortex", { "@@Stray", "", DAY .. ":::", "10:00 Not a feed" })
 	with_feeds({}, function()
 		calendar.load()
 		T.eq(calendar.feeds(), { "cozi" })
@@ -120,7 +120,7 @@ end)
 T.test("feeds: a feed note changing on disk is picked up", function()
 	with_feeds({}, function()
 		calendar.load()
-		write_feed(cozi, { "@@Cozi", "@CalendarFeed", "", "**" .. DAY .. ":**", "08:00 - 08:30 School run @n(no)" })
+		write_feed(cozi, { "@@Cozi", "@CalendarFeed", "", DAY .. ":::", "08:00 - 08:30 School run @n(no)" })
 		-- a newer mtime than the first write
 		vim.uv.fs_utime(cozi, os.time() + 5, os.time() + 5)
 		T.eq(vim.tbl_filter(function(t)
@@ -130,7 +130,7 @@ T.test("feeds: a feed note changing on disk is picked up", function()
 end)
 
 T.test("feeds: toggled off per feed, or all of them", function()
-	write_feed(dir .. "school.zortex", { "@@School", "@CalendarFeed", "", "**" .. DAY .. ":**", "- Half day" })
+	write_feed(dir .. "school.zortex", { "@@School", "@CalendarFeed", "", DAY .. ":::", "- Half day" })
 	with_feeds({ cozi = false }, function()
 		calendar.load()
 		T.eq(calendar.feeds(), { "school" })

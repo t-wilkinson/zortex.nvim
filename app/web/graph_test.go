@@ -63,7 +63,7 @@ func TestTagTableNotes(t *testing.T) {
 		"books.zortex": "@@Books\n\n!@[book]\n\n# Reading @book\n" +
 			"- [The Rust Book](https://doc.rust-lang.org/book) @rust\n" +
 			"  - chapters 1-8 first\n" +
-			"  Ownership:\n" +
+			"  Ownership::\n" +
 			"    - moves vs borrows\n" +
 			"    - [x] lifetimes\n" +
 			"  - Full notes: [Rust book notes]\n" +

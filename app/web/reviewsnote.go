@@ -11,21 +11,21 @@ import (
 // services/review does: one "# 2026-W43" entry per week, newest first, its
 // days ("## 2026-10-21") inside, each made from the note's "# Templates"
 // (## Weekly, ## Daily) when missing; the week's focus is the projects
-// linked under its "Focus:" label. These work on lines; the handlers in
+// linked under its "Focus::" label. These work on lines; the handlers in
 // reviewapi.go read and write the file.
 
 var (
 	reviewWeekRe  = regexp.MustCompile(`^#\s+(\d{4}-W\d{2})\b`)
 	reviewDayRe   = regexp.MustCompile(`^##\s+(\d{4}-\d{2}-\d{2})\b`)
-	reviewFocusRe = regexp.MustCompile(`^(\s*)[Ff]ocus:\s*$`)
+	reviewFocusRe = regexp.MustCompile(`^(\s*)[Ff]ocus::\s*$`)
 	templatesRe   = regexp.MustCompile(`^#\s+[Tt]emplates\s*$`)
 	tmplHeadRe    = regexp.MustCompile(`^#+\s+([A-Za-z]+)\s*$`)
-	tmplLabelRe   = regexp.MustCompile(`^\s*([A-Za-z]+):\s*$`)
+	tmplLabelRe   = regexp.MustCompile(`^\s*([A-Za-z]+)::\s*$`)
 )
 
 var (
-	defaultWeekTemplate = []string{"Focus:", "", "Wins:", "", "Lessons:"}
-	defaultDayTemplate  = []string{"Done:", "Blocked:", "First thing tomorrow:"}
+	defaultWeekTemplate = []string{"Focus::", "", "Wins::", "", "Lessons::"}
+	defaultDayTemplate  = []string{"Done::", "Blocked::", "First thing tomorrow::"}
 )
 
 // reviewWeek is a week's entry: its heading, last line, the end of its own
@@ -322,7 +322,7 @@ func entryLabels(lines []string, from, to int) []string {
 		if c.Kind != syntax.KindLabel {
 			continue
 		}
-		name := strings.TrimSuffix(strings.TrimSpace(lines[l-1]), ":")
+		name := *c.Text
 		if !strings.EqualFold(name, "focus") {
 			out = append(out, name)
 		}
@@ -337,8 +337,7 @@ func addUnderLabel(lines []string, from, to int, label, text string) ([]string, 
 	item := "- " + strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(text), "- "))
 	at := 0
 	for l := from; l <= to && l <= len(lines); l++ {
-		name := strings.TrimSuffix(strings.TrimSpace(lines[l-1]), ":")
-		if syntax.Classify(lines[l-1]).Kind != syntax.KindLabel || !strings.EqualFold(name, label) {
+		if syntax.Classify(lines[l-1]).Kind != syntax.KindLabel || !strings.EqualFold(syntax.SectionText(lines[l-1], syntax.KindLabel), label) {
 			continue
 		}
 		indent := indentWidthOf(lines[l-1])
@@ -368,7 +367,7 @@ func addUnderLabel(lines []string, from, to int, label, text string) ([]string, 
 			}
 		}
 		out := append([]string(nil), lines[:end]...)
-		out = append(out, label+":", item)
+		out = append(out, label+"::", item)
 		return append(out, lines[end:]...), end + 2
 	}
 	out := append([]string(nil), lines[:at-1]...)

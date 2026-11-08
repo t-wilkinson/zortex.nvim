@@ -168,14 +168,6 @@
         "type": "section"
       },
       {
-        "breadcrumb": "Day plan › Notes",
-        "child": true,
-        "lnum": 7,
-        "rel": "z/day-plan.zortex",
-        "score": 2100,
-        "type": "section"
-      },
-      {
         "breadcrumb": "Rust Ownership",
         "lnum": 1,
         "rel": "z/markdown/rust-ownership.md",
@@ -1409,14 +1401,6 @@
         "type": "section"
       },
       {
-        "breadcrumb": "Day plan › Notes",
-        "child": true,
-        "lnum": 7,
-        "rel": "z/day-plan.zortex",
-        "score": 2100,
-        "type": "section"
-      },
-      {
         "breadcrumb": "Garden",
         "lnum": 1,
         "rel": "z/garden.zortex",
@@ -1558,13 +1542,6 @@
         "rel": "projects.zortex",
         "score": 600,
         "type": "section"
-      },
-      {
-        "breadcrumb": "Day plan › Notes",
-        "lnum": 7,
-        "rel": "z/day-plan.zortex",
-        "score": 600,
-        "type": "section"
       }
     ]
   },
@@ -1611,13 +1588,6 @@
         "breadcrumb": "Projects › 1 Programming › 1.4 - zortex › Notes",
         "lnum": 23,
         "rel": "projects.zortex",
-        "score": 400,
-        "type": "section"
-      },
-      {
-        "breadcrumb": "Day plan › Notes",
-        "lnum": 7,
-        "rel": "z/day-plan.zortex",
         "score": 400,
         "type": "section"
       },

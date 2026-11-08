@@ -30,7 +30,7 @@ func mirrorServer(t *testing.T, day []string) (*Server, string, *httptest.Server
 	i := lineOf(t, proj, "Improve website") - 1
 	proj[i] += " @id(web01)"
 	writeNote(t, s, dir, "projects.zortex", proj)
-	cal := append([]string{"@@Calendar", "", today() + ":"}, day...)
+	cal := append([]string{"@@Calendar", "", today() + "::"}, day...)
 	writeNote(t, s, dir, "calendar.zortex", cal)
 	return s, dir, ts
 }
@@ -74,13 +74,13 @@ func TestMirrorMovedCopiesStay(t *testing.T) {
 	url := ts.URL
 	cal := filepath.Join(dir, "calendar.zortex")
 	lines := readLines(t, cal)
-	lines = append(lines, "", "2020-01-01:", "- [>] [P/#1.4 - zortex/-Improve website] @id(web01)")
+	lines = append(lines, "", "2020-01-01::", "- [>] [P/#1.4 - zortex/-Improve website] @id(web01)")
 	writeNote(t, s, dir, "calendar.zortex", lines)
 	proj := filepath.Join(dir, "projects.zortex")
 	n, line := lineWith(t, proj, "Improve website")
 	postJSON(t, url, "/api/n/projects.zortex", map[string]any{"lnum": n, "expect": line, "op": "done"})
 	lines = readLines(t, cal)
-	if !strings.HasPrefix(lines[lineOf(t, lines, today()+":")], "- [x] [P/#1.4 - zortex/-Improve website] @id(web01) @done(") {
+	if !strings.HasPrefix(lines[lineOf(t, lines, today()+"::")], "- [x] [P/#1.4 - zortex/-Improve website] @id(web01) @done(") {
 		t.Fatalf("copy not ticked: %q", lines)
 	}
 	if l := lines[lineOf(t, lines, "[>]")-1]; l != "- [>] [P/#1.4 - zortex/-Improve website] @id(web01)" {
@@ -149,7 +149,7 @@ func TestMirrorCarry(t *testing.T) {
 	cal := filepath.Join(dir, "calendar.zortex")
 	writeNote(t, s, dir, "calendar.zortex", []string{
 		"@@Calendar", "",
-		yesterday + ":",
+		yesterday + "::",
 		"09:00 [P/#1.4 - zortex]",
 		"  - [ ] [./-Improve website] @id(web01)",
 		"- [ ] Call the bank",
@@ -163,7 +163,7 @@ func TestMirrorCarry(t *testing.T) {
 		t.Fatalf("carry: %d %v", code, res)
 	}
 	lines := readLines(t, cal)
-	i := lineOf(t, lines, today()+":")
+	i := lineOf(t, lines, today()+"::")
 	got := strings.Join(lines[i-1:], "\n")
 	// a new day gets a bold label
 	if !strings.HasPrefix(got, edit.DateHeadingLine(today())+"\n- [P/#1.4 - zortex]\n  - [ ] [./-Improve website] @id(web01)\n- [ ] Call the bank @id(") {
@@ -181,7 +181,7 @@ func TestTrackBlockTasks(t *testing.T) {
 	s, dir, _ := mirrorServer(t, nil)
 	writeNote(t, s, dir, "calendar.zortex", []string{
 		"@@Calendar", "",
-		today() + ":",
+		today() + "::",
 		"00:00 [P/#1.4 - zortex]",
 		"  - [x] [./-Highlight OKR ids] @id(okr01)",
 		"  - [ ] [./-Improve website] @id(web01)",
@@ -200,7 +200,7 @@ func TestTrackBlockTasks(t *testing.T) {
 	// a reference under the block: the task it stands for
 	writeNote(t, s, dir, "calendar.zortex", []string{
 		"@@Calendar", "",
-		today() + ":",
+		today() + "::",
 		"00:00 [P/#1.4 - zortex]",
 		"  - [./-Change task sizes]",
 	})

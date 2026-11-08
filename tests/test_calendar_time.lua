@@ -36,15 +36,15 @@ end)
 
 T.test("shifting a selection is one change; lines that would leave the day stay", function()
 	local buf = vim.api.nvim_create_buf(false, true)
-	vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "**2026-10-20:**", "09:00 A", "- [ ] B", "23:00 C", "10:00 - 11:00 D" })
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "2026-10-20:::", "09:00 A", "- [ ] B", "23:00 C", "10:00 - 11:00 D" })
 	local changed, skipped = CT.shift_lines(buf, 2, 5, 90)
 	T.eq({ changed, skipped }, { 2, 1 })
-	T.eq(vim.api.nvim_buf_get_lines(buf, 0, -1, false), { "**2026-10-20:**", "10:30 A", "- [ ] B", "23:00 C", "11:30 - 12:30 D" })
+	T.eq(vim.api.nvim_buf_get_lines(buf, 0, -1, false), { "2026-10-20:::", "10:30 A", "- [ ] B", "23:00 C", "11:30 - 12:30 D" })
 	vim.api.nvim_buf_delete(buf, { force = true })
 end)
 
 T.test("now: the latest entry that has started", function()
-	local lines = { "**2026-10-20:**", "Outcomes:", "- [ ] Ship", "", "07:00 Run", "09:00 - 10:30 Deep work", "- [ ] Untimed", "12:30 Lunch", "", "**2026-10-21:**", "08:00 Next day" }
+	local lines = { "2026-10-20:::", "Outcomes::", "- [ ] Ship", "", "07:00 Run", "09:00 - 10:30 Deep work", "- [ ] Untimed", "12:30 Lunch", "", "2026-10-21:::", "08:00 Next day" }
 	T.eq(CT.line_for_time(lines, 1, "10:00", "2026-10-20"), 6)
 	T.eq(CT.line_for_time(lines, 1, "12:30", "2026-10-20"), 8)
 	T.eq(CT.line_for_time(lines, 1, "23:59", "2026-10-20"), 8, "not into the next day")

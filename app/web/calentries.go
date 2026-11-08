@@ -195,7 +195,7 @@ func occurrences(doc *notes.Document, rules []*edit.Rule, own []calEntry, forCop
 		if !rule.Matches(date) {
 			continue
 		}
-		read := calendarEntries(notes.FromLines("rule", []string{date + ":", rule.Line}), "", "")[date]
+		read := calendarEntries(notes.FromLines("rule", []string{date + "::", rule.Line}), "", "")[date]
 		if len(read) == 0 {
 			continue
 		}

@@ -50,7 +50,7 @@ end)
 
 T.test(":Zortex init fills the gaps and leaves existing notes alone", function()
 	with_dir(function(dir)
-		vim.fn.writefile({ "@@Calendar", "", "2026-01-01:", "- mine" }, dir .. "calendar.zortex")
+		vim.fn.writefile({ "@@Calendar", "", "2026-01-01::", "- mine" }, dir .. "calendar.zortex")
 		T.ok(not starter.is_new_folder())
 		T.eq(#starter.missing(), 5)
 		starter.init_command()
@@ -83,7 +83,7 @@ T.test("templates use the syntax and link to each other", function()
 	T.eq(syntax.classify(cal[day + 2]).kind, "item")
 	local rules = require("zortex.services.calendar_rules")
 	T.eq(#rules.rules(cal), 2, "two repeating rules")
-	T.eq(rules.template(cal, "2026-10-20"), { "Outcomes:", "- [ ] " })
+	T.eq(rules.template(cal, "2026-10-20"), { "Outcomes::", "- [ ] " })
 	for _, link in ipairs({ "Projects", "Areas", "Objectives", "Calendar", "Inbox" }) do
 		T.ok(has("structure.zortex", "- [" .. link .. "]"), link)
 	end

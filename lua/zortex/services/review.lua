@@ -33,7 +33,7 @@
 --
 -- Without one (or without one of the two), review.week / review.day.
 --
--- The week's **focus** is the projects linked under its "Focus:" label.
+-- The week's **focus** is the projects linked under its "Focus::" label.
 -- The planner ranks their tasks first (services/planner, weights.focus).
 -- A week without focus projects keeps the latest earlier week's.
 --
@@ -50,7 +50,7 @@ local M = {}
 
 local WEEK_HEADING = "^#%s+(%d%d%d%d%-W%d%d)%f[^%w]"
 local DAY_HEADING = "^##%s+(%d%d%d%d%-%d%d%-%d%d)%f[^%w]"
-local FOCUS_LABEL = "^(%s*)[Ff]ocus:%s*$"
+local FOCUS_LABEL = "^(%s*)[Ff]ocus::%s*$"
 
 local WEEKDAYS = { sunday = 7, monday = 1, tuesday = 2, wednesday = 3, thursday = 4, friday = 5, saturday = 6 }
 
@@ -272,14 +272,14 @@ end
 -- Writing entries
 -- =============================================================================
 
-local DEFAULT_WEEK = { "Focus:", "", "Wins:", "", "Lessons:" }
-local DEFAULT_DAY = { "Done:", "Blocked:", "First thing tomorrow:" }
+local DEFAULT_WEEK = { "Focus::", "", "Wins::", "", "Lessons::" }
+local DEFAULT_DAY = { "Done::", "Blocked::", "First thing tomorrow::" }
 
--- "## Weekly" / "Weekly:" -> "weekly" (Week, Day too)
+-- "## Weekly" / "Weekly::" -> "weekly" (Week, Day too)
 local TEMPLATE_NAMES = { weekly = "weekly", week = "weekly", daily = "daily", day = "daily" }
 
 local function template_name(line)
-	local name = line:match("^#+%s+(%a+)%s*$") or line:match("^%s*(%a+):%s*$")
+	local name = line:match("^#+%s+(%a+)%s*$") or line:match("^%s*(%a+)::%s*$")
 	return name and TEMPLATE_NAMES[name:lower()] or nil
 end
 
@@ -468,7 +468,7 @@ function M.toggle_focus(week, project)
 		end
 	end
 	if not e.focus then
-		workspace().insert_lines(path, e.lnum + 1, { "Focus:", "- " .. focus_link(project) })
+		workspace().insert_lines(path, e.lnum + 1, { "Focus::", "- " .. focus_link(project) })
 		return true
 	end
 	local indent = lines[e.focus.lnum]:match(FOCUS_LABEL) or ""

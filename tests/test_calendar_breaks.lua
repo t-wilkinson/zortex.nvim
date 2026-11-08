@@ -75,7 +75,7 @@ end)
 
 T.test("now is the block again once the break is over", function()
 	local ct = require("zortex.features.calendar_time")
-	local lines = { "@@Calendar", "", "2026-10-26:", "10:00 Study", "12:00 Break @15m", "14:00 Gym" }
+	local lines = { "@@Calendar", "", "2026-10-26::", "10:00 Study", "12:00 Break @15m", "14:00 Gym" }
 	T.eq(ct.line_for_time(lines, 3, "09:00", "2026-10-26"), nil)
 	T.eq(ct.line_for_time(lines, 3, "11:00", "2026-10-26"), 4)
 	T.eq(ct.line_for_time(lines, 3, "12:05", "2026-10-26"), 5)
@@ -83,7 +83,7 @@ T.test("now is the block again once the break is over", function()
 	T.eq(ct.line_for_time(lines, 3, "13:59", "2026-10-26"), 4)
 	T.eq(ct.line_for_time(lines, 3, "15:00", "2026-10-26"), 6)
 	-- a month heading ends the day
-	local grouped = { "@@Calendar", "", "2026-10-26:", "10:00 Study", "", "# November 2026", "2026-11-01:", "09:00 Later" }
+	local grouped = { "@@Calendar", "", "2026-10-26::", "10:00 Study", "", "# November 2026", "2026-11-01::", "09:00 Later" }
 	T.eq(ct.line_for_time(grouped, 3, "23:00", "2026-10-26"), 4)
 end)
 
@@ -97,7 +97,7 @@ T.test("notifications say Back to the block when a break ends", function()
 		vim.fn.writefile({
 			"@@Calendar",
 			"",
-			today .. ":",
+			today .. "::",
 			"10:00 Work on [P/#1.4 - zortex]",
 			"12:00 Break @15m @n(0, end)",
 			"14:00 Gym",

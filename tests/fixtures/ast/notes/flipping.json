@@ -57,6 +57,7 @@
     },
     {
       "content_col": 0,
+      "content_end": 22,
       "indent": 0,
       "inline": [],
       "kind": "label",

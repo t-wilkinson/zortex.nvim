@@ -44,23 +44,23 @@
       "lines": [
         "@@Calendar",
         "",
-        "2026-10-12:",
+        "2026-10-12::",
         "09:00 [P/#1.4 - zortex]",
         "  - [ ] [./-Improve website] @id(web01)",
         "  - [x] [./-Highlight OKR ids] @id(okr01)",
-        "  - Notes:",
+        "  - Notes::",
         "    - [ ] [./-Change task sizes]",
         "- [ ] Call the mechanic",
         "- [ ] Water plants @repeat(daily)",
         "- [-] Other mark stays",
         "- Note line",
         "",
-        "2026-10-13:",
+        "2026-10-13::",
         "- [ ] [P/#1.4 - zortex/-Improve website] @id(web01)",
         "- [ ] Buy milk @id(milk1)",
         "14:00 Dentist",
         "",
-        "2026-10-14:",
+        "2026-10-14::",
         "07:00 Morning routine",
         "- [ ] Buy milk @id(milk1)"
       ],
@@ -84,7 +84,7 @@
         {
           "at": 7,
           "lines": [
-            "**2026-10-14:**",
+            "2026-10-14:::",
             "- [ ] Pick up parcel @id(C0001)",
             "- [ ] Bring ID @id(C0002)",
             ""
@@ -94,11 +94,11 @@
       "lines": [
         "@@Calendar",
         "",
-        "2026-10-13:",
+        "2026-10-13::",
         "- [ ] Pick up parcel",
         "  - [ ] Bring ID",
         "",
-        "2026-10-20:",
+        "2026-10-20::",
         "10:00 Later"
       ],
       "name": "no day for today yet: a new block in date order",
@@ -117,7 +117,7 @@
         {
           "at": 6,
           "lines": [
-            "**2026-10-14:**",
+            "2026-10-14:::",
             "- [ ] Pick up parcel @id(C0001)",
             ""
           ]
@@ -126,10 +126,10 @@
       "lines": [
         "@@Calendar",
         "",
-        "2026-10-13:",
+        "2026-10-13::",
         "- [ ] Pick up parcel",
         "",
-        "2026-10-20:",
+        "2026-10-20::",
         "10:00 Later"
       ],
       "name": "no day for today yet, no month headings made (group_days = false)",
@@ -148,7 +148,7 @@
         {
           "at": 8,
           "lines": [
-            "**2026-10-14:**",
+            "2026-10-14:::",
             "- [ ] Pick up parcel @id(C0001)",
             ""
           ]
@@ -159,12 +159,12 @@
         "",
         "# October 2026",
         "",
-        "2026-10-13:",
+        "2026-10-13::",
         "- [ ] Pick up parcel",
         "",
         "# November 2026",
         "",
-        "2026-11-02:",
+        "2026-11-02::",
         "10:00 Later"
       ],
       "name": "today goes into its month, before the next month",
@@ -191,7 +191,7 @@
         {
           "at": 10,
           "lines": [
-            "**2026-10-14:**",
+            "2026-10-14:::",
             "- [1.4 - zortex](P/#1.4 - zortex)",
             "  - [ ] [Improve website](./-Improve website) @id(web02)",
             "- [ ] [Change sizes](P/#1.4 - zortex/-Change task sizes) @id(C0001)",
@@ -202,7 +202,7 @@
       "lines": [
         "@@Calendar",
         "",
-        "2026-10-13:",
+        "2026-10-13::",
         "09:00 [1.4 - zortex](P/#1.4 - zortex)",
         "  - [ ] [Improve website](./-Improve website) @id(web02)",
         "- [ ] [Change sizes](P/#1.4 - zortex/-Change task sizes)",
@@ -233,13 +233,13 @@
       "lines": [
         "@@Calendar",
         "",
-        "**2026-10-13:**",
-        "Outcomes:",
+        "2026-10-13:::",
+        "Outcomes::",
         "- [ ] Ship the release",
         "",
         "09:00 - [ ] Write the notes",
         "",
-        "**2026-10-14:**",
+        "2026-10-14:::",
         "10:00 Stand-up"
       ],
       "name": "bold day headings (what new days get), with Outcomes: under a day",
@@ -253,17 +253,17 @@
       "lines": [
         "@@Calendar",
         "",
-        "2026-10-01:",
+        "2026-10-01::",
         "- [ ] Too old",
         "",
-        "2026-10-12:",
+        "2026-10-12::",
         "- [x] Done @done(2026-10-12)",
         "- [>] Already carried @id(old01)",
         "```",
         "- [ ] In a code block",
         "```",
         "",
-        "2026-10-15:",
+        "2026-10-15::",
         "- [ ] Tomorrow"
       ],
       "name": "nothing open; days before `from` and after today stay",
@@ -304,14 +304,14 @@
       "lines": [
         "@@Calendar",
         "",
-        "2026-10-13:",
+        "2026-10-13::",
         "07:00 Morning routine [P/#1 Personal/#Habits]",
         "  - [ ] [./-Stretch] @id(str01)",
         "09:00 [P/#1.4 - zortex]",
         "  - [ ] [./-Improve website] @id(web01)",
         "- [ ] Call the bank",
         "",
-        "2026-10-14:",
+        "2026-10-14::",
         "07:00 Morning routine [P/#1 Personal/#Habits]",
         "  - [ ] [./-Meditate] @id(med01)",
         "12:00 Lunch",
@@ -346,12 +346,12 @@
       "lines": [
         "@@Calendar",
         "",
-        "2026-10-13:",
+        "2026-10-13::",
         "09:00 [P/#1.4 - zortex]",
         "  - [ ] [./#1.4.1 - zortex search] parent task @id(par01)",
         "    - [ ] [./-Fix project search] child",
         "",
-        "2026-10-14:"
+        "2026-10-14::"
       ],
       "name": "a [./-Item] task under a task is written out in full",
       "today": "2026-10-14"
@@ -376,12 +376,12 @@
       "lines": [
         "@@Calendar",
         "",
-        "2026-10-13:",
+        "2026-10-13::",
         "16:00 [ ] Write the report @sm",
         "17:00 - [ ] Call the bank @id(bank1)",
         "18:00 [x] Done already",
         "",
-        "2026-10-14:",
+        "2026-10-14::",
         "09:00 Standup"
       ],
       "name": "timed tasks carry without their old time; the old line keeps it",

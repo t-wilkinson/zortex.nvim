@@ -7,20 +7,20 @@ local Config = require("zortex.config")
 local HUB = {
 	"@@Topics hub",
 	"",
-	"Topics:",
+	"Topics::",
 	"- AI @[R/rl, ai-model]",
 	"  - Reinforcement learning @[R/rl]",
 	"  - Models @[R/rl ai-model]",
 	"- Embedded",
 	"  - Rust **embedded** @[R/rust embedded]",
 	"  - @[R/async]",
-	"- Labelled:",
+	"- Labelled::",
 	"  - Spinning @[R/rl]",
 	"",
-	"Reading:",
+	"Reading::",
 	"@[R/rust]",
 	"",
-	"Not an index:",
+	"Not an index::",
 	"- plain item",
 	"- @[R/rust]",
 }
@@ -137,7 +137,7 @@ T.test("web: a note opened through a symlink (or notes_dir set through one) is s
 	local saved = Config.notes_dir
 	local tmp = vim.fn.tempname()
 	vim.fn.mkdir(tmp .. "/real/z", "p")
-	vim.fn.writefile({ "@@T", "", "Topics:", "- @[rl]" }, tmp .. "/real/z/t.zortex")
+	vim.fn.writefile({ "@@T", "", "Topics::", "- @[rl]" }, tmp .. "/real/z/t.zortex")
 	vim.uv.fs_symlink(tmp .. "/real", tmp .. "/link")
 
 	Config.notes_dir = tmp .. "/link/"
@@ -145,7 +145,7 @@ T.test("web: a note opened through a symlink (or notes_dir set through one) is s
 	T.eq(web.rel(tmp .. "/real/z/new.zortex"), "z/new.zortex") -- not written yet
 	Config.notes_dir = tmp .. "/real/"
 	T.eq(web.rel(tmp .. "/link/z/t.zortex"), "z/t.zortex")
-	local doc = Document.from_lines({ "@@T", "", "Topics:", "- @[rl]" }, tmp .. "/link/z/t.zortex")
+	local doc = Document.from_lines({ "@@T", "", "Topics::", "- @[rl]" }, tmp .. "/link/z/t.zortex")
 	T.eq(web.index_target(doc, tmp .. "/link/z/t.zortex", 3), { path = "/n/z/t.zortex#L3" })
 
 	-- outside notes_dir: a search in the note it's in can't be opened, and says why

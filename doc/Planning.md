@@ -18,12 +18,12 @@ project     the work that moves a key result      projects.zortex    ## 2.2 Bake
 task        the next step                         anywhere           - [ ] Feed the starter twice a day @size(sm)
 ```
 
-- **The vision** is a `Vision:` line above the first area of `areas.zortex`,
+- **The vision** is a `Vision::` line above the first area of `areas.zortex`,
   and each area can have its own (`Vision: fit enough to say yes to any
   hike`, or `Vision:` with lines under it): what good looks like there. The
   weekly review opens with them.
 - **Areas** are headings (and labels) in `areas.zortex`, nested: `1.2` is part
-  of `1`. A `Vision:` label is not an area.
+  of `1`. A `Vision::` label is not an area.
 - **Objectives** are headings in `okr.zortex`, `##` or deeper, that start
   with their span: `## 3M-2026-Q4 Build steady habits` runs October to
   December (also `6M-2026-H2`, `1M-2026-03`, `1Y-2026-Y`). Top-level
@@ -60,8 +60,8 @@ objective.
 | when | what | command |
 |---|---|---|
 | weekly | **Weekly review.** Opens the week's entry in `reviews.zortex` (made when missing; on a weekend, the coming week's) beside the findings, top down: the inbox; then [the plan from the vision down](#the-weekly-review-top-down): the vision, each area with its vision, the objectives that name it against the time passed, their key results and the projects those link, and the area's projects no key result covers, with the gaps marked where they are; then [the week](#the-week): its focus projects, tasks put off again and again, and the active projects to pick the focus from (`f`); XP and time over seven days; overdue and due tasks, stale and unscheduled projects, projects without a next action, done projects to archive, the alignment gaps again as lists, broken links. Every line links to its source and has its [fix one key away](#review-keys); what you write goes in the note; `?` lists the keys. | `:ZortexReview` (`<leader>zR`) |
-| morning | **Plan the day.** Write the day's `Outcomes:` first ([the day](#the-day-on-the-calendar)): the two or three results that would make it a success, each serving a key result or a focus project where it can. Yesterday's open tasks come along ([carried forward](#the-day-on-the-calendar)). Today's calendar next to what's [coming up](#coming-up) and ranked candidates: the week's focus projects and their tasks first; then tasks on key results, the further their key result is behind schedule the higher; then tasks of projects that only have an area; then the rest. Due dates, priority, the TODO project and how often a task was put off add on top. Key results are listed most behind first, areas without a current objective first. A project a key result links keeps the rest of its tree under it, folded: its other open tasks and each sub-project with its own (`zo` opens one). Put tasks (`p`) and projects (`P`, with their next three tasks) on the day, until the [capacity line](#capacity) says the day is full, and check how much of it is on key results. | `:ZortexPlan` (`<leader>zp`) |
-| during | **Work.** Tick tasks on the calendar or a project's page (Neovim or the web); their copies are ticked with them. On the web home page the clocks (pomodoro, timer, stopwatch) count against the task you're working on, by default the first open task of the current calendar block, and add it to its `@spent(...)`. Before you stop, a line in the project's log (its web page, or a `Log:` label in the note) says where you left off. | `zortex serve` |
+| morning | **Plan the day.** Write the day's `Outcomes::` first ([the day](#the-day-on-the-calendar)): the two or three results that would make it a success, each serving a key result or a focus project where it can. Yesterday's open tasks come along ([carried forward](#the-day-on-the-calendar)). Today's calendar next to what's [coming up](#coming-up) and ranked candidates: the week's focus projects and their tasks first; then tasks on key results, the further their key result is behind schedule the higher; then tasks of projects that only have an area; then the rest. Due dates, priority, the TODO project and how often a task was put off add on top. Key results are listed most behind first, areas without a current objective first. A project a key result links keeps the rest of its tree under it, folded: its other open tasks and each sub-project with its own (`zo` opens one). Put tasks (`p`) and projects (`P`, with their next three tasks) on the day, until the [capacity line](#capacity) says the day is full, and check how much of it is on key results. | `:ZortexPlan` (`<leader>zp`) |
+| during | **Work.** Tick tasks on the calendar or a project's page (Neovim or the web); their copies are ticked with them. On the web home page the clocks (pomodoro, timer, stopwatch) count against the task you're working on, by default the first open task of the current calendar block, and add it to its `@spent(...)`. Before you stop, a line in the project's log (its web page, or a `Log::` label in the note) says where you left off. | `zortex serve` |
 | evening | **Daily review.** Opens the day's entry in `reviews.zortex` (inside its week) beside the findings since the last daily review (a skipped evening rolls into the next, at most a week): first how the work done served the plan (`Work done: 3h30m · 60% on key results · 25% on areas only · 15% with no area`); what is left in the inbox (from Neovim or the web app's "Add to inbox"), with `m` to move each line to its project (an inbox line or any task marked `@project(1.4)`; without one, to `review.inbox_default` or a place you pick), the week's focus, tasks put off, objectives and key results against the time passed, XP earned, time spent per task, what you completed, what wasn't done (`t` puts it on tomorrow at the same time; tomorrow's plan carries the rest), what you finished with no area (its area XP goes to the default area, `@a(0.1)`; `A` gives it a real one: a project's tasks on its heading, a loose task on its line; `a` archives a task), overdue, due by tomorrow. Closing the review writes `@a(0.1)` on what is still without an area ([Area XP](#area-xp-and-season-xp)). The web app has the same review, with its fixes, for your phone ([Web](Web.md#reviews)). | `:ZortexReview day` (`<leader>zr`) |
 
 "Behind schedule" is the share of the objective's window that has passed
@@ -139,28 +139,28 @@ first:
 
 # Templates
 ## Weekly
-Focus:
-Wins:
-Lessons:
+Focus::
+Wins::
+Lessons::
 ## Daily
-Done:
-Blocked:
-First thing tomorrow:
+Done::
+Blocked::
+First thing tomorrow::
 
 # 2026-W43
-Focus:
+Focus::
 - [3.1 Rebuild the engine](P/#3 Car/#3.1 Rebuild the engine)
 - [2.1 Signals and systems](P/#2 School/#2.1 Signals and systems)
-Wins:
+Wins::
 - Head is back from the machine shop
-Lessons:
+Lessons::
 - Order gaskets before tearing down
 
 ## 2026-10-21
-Done:
+Done::
 - Lapped the valves
-Blocked:
-First thing tomorrow:
+Blocked::
+First thing tomorrow::
 - Torque the head bolts in sequence
 ```
 
@@ -172,7 +172,7 @@ First thing tomorrow:
   are also used when the note has none); nothing in the note is
   regenerated, so it is yours to write in, and it syncs like any note.
 - **Focus.** `f` on a project in the weekly review's findings adds it under
-  the week's `Focus:` label, or takes it out; you can also write the links
+  the week's `Focus::` label, or takes it out; you can also write the links
   by hand. The planner ranks the focus projects (and their sub-projects)
   and their tasks above everything else; a week without focus keeps the
   latest earlier week's until the next weekly review. The web app lists them
@@ -228,13 +228,13 @@ of hours is a day that holds.
 ## The day on the calendar
 
 A day is a block of `calendar.zortex` under a bold label,
-`**2026-10-15:**` (new days get it; a plain `2026-10-15:` reads the same).
+`2026-10-15:::` (new days get it; a plain `2026-10-15::` reads the same).
 Projects and their tasks go on it without duplicating them: a task on the
 calendar is the project's task.
 
 ```
-**2026-10-15:**
-Outcomes:
+2026-10-15:::
+Outcomes::
 - [ ] The website's new search is live
 - Rested enough for the long run tomorrow
 
@@ -251,7 +251,7 @@ from the day's template when it isn't there yet (`:ZortexToday
 2026-10-21` for another day); `:ZortexPlan` does the same with the
 candidates beside it.
 
-**Outcomes** come first: under an `Outcomes:` label (it nests under the
+**Outcomes** come first: under an `Outcomes::` label (it nests under the
 day's bold label), the two or three results that would make the day a
 success, up to the first blank line. They are the day's own items (tick
 them like any task), but they aren't events, and the daily review is the
@@ -344,7 +344,7 @@ per month and its outline reads by month:
 
 ## October 2026
 
-**2026-10-26:**
+2026-10-26:::
 …
 
 ## November 2026
@@ -375,7 +375,7 @@ day, so a `# Days` heading after them keeps the days out of them):
 ```
 # Templates
 ## Weekday
-Outcomes:
+Outcomes::
 - [ ]
 09:00
 ## Sunday
@@ -401,9 +401,9 @@ Outcomes:
   planner, ticking a repeating task on a day not written yet). A heading
   below `# Templates` or a label names which days: `## Monday` … `## Sunday`
   (or `Mon`, …), `## Weekday` (or `Weekdays`), `## Weekend` (or `Weekends`),
-  `## Daily`; `Daily:`, `Sunday:` and so on work the same. The most specific
+  `## Daily`; `Daily::`, `Sunday::` and so on work the same. The most specific
   wins (`Sunday` over `Weekend` over `Daily`). Everything up to the next such
-  name is the template, other labels (`Outcomes:`) included.
+  name is the template, other labels (`Outcomes::`) included.
 - **Repeating entries** are the items with `@repeat(…)` in the Repeating
   section; headings, labels and plain lines around them only organize it.
   Each shows on the days it lands on, in the calendar view, the planner,

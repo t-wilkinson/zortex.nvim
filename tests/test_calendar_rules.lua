@@ -56,19 +56,19 @@ T.test("templates by name, the most specific first; sections end at the first da
 	local lines = {
 		"@@Calendar",
 		"# Templates",
-		"Weekend:",
+		"Weekend::",
 		"- lazy",
-		"Sat:",
+		"Sat::",
 		"  - [ ] Market",
-		"  Notes:",
+		"  Notes::",
 		"",
 		"# Repeating",
 		"- Sam @repeat(03-14)",
 		"",
-		"**2026-10-12:**",
+		"2026-10-12:::",
 		"- Not a rule @repeat(daily)",
 	}
-	T.eq(R.template(lines, "2026-10-17"), { "- [ ] Market", "Notes:" }) -- Saturday
+	T.eq(R.template(lines, "2026-10-17"), { "- [ ] Market", "Notes::" }) -- Saturday
 	T.eq(R.template(lines, "2026-10-18"), { "- lazy" }) -- Sunday: weekend
 	T.eq(R.template(lines, "2026-10-19"), {}) -- Monday: none
 	local rules = R.rules(lines)
@@ -192,7 +192,7 @@ T.test("problems: a rule that can't work, @repeat or @on outside # Repeating", f
 		"- Sam @repeat(03-14) @born(1990)", -- 9
 		"- Gym @repeat(mon) @on(weekly)", -- 10: how often in @on
 		"",
-		"2026-10-20:",
+		"2026-10-20::",
 		"- [ ] Water plants @repeat(daily)", -- 13
 		"- Dentist @on(fri)", -- 14
 	}

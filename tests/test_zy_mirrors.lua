@@ -59,7 +59,7 @@ local function with_copy(copy_line)
 		lines[i] = lines[i] .. " @id(web01)"
 	end)
 	set(CAL, function(lines)
-		vim.list_extend(lines, { "", "2026-10-14:", copy_line })
+		vim.list_extend(lines, { "", "2026-10-14::", copy_line })
 	end)
 end
 
@@ -115,7 +115,7 @@ T.test("toggling the project task ticks open copies; moved [>] ones stay", funct
 	local restore = snapshot({ CAL, PROJ })
 	with_copy("- [ ] [P/#1.4 - zortex/-Improve website] @id(web01)")
 	set(CAL, function(lines)
-		vim.list_extend(lines, { "", "2026-10-13:", "- [>] [P/#1.4 - zortex/-Improve website] @id(web01)" })
+		vim.list_extend(lines, { "", "2026-10-13::", "- [>] [P/#1.4 - zortex/-Improve website] @id(web01)" })
 	end)
 	vim.cmd("edit " .. vim.fn.fnameescape(PROJ))
 	local row = find(vim.api.nvim_buf_get_lines(0, 0, -1, false), "@id(web01)")
@@ -130,7 +130,7 @@ end)
 T.test("a calendar line without a checkbox stands for the task it links", function()
 	local restore = snapshot({ CAL, PROJ })
 	set(CAL, function(lines)
-		vim.list_extend(lines, { "", "2026-10-14:", "09:00 [P/#1.4 - zortex]", "  - [./-Improve website]" })
+		vim.list_extend(lines, { "", "2026-10-14::", "09:00 [P/#1.4 - zortex]", "  - [./-Improve website]" })
 	end)
 	local agenda = require("zortex.services.agenda")
 	local function ref_item()
@@ -277,7 +277,7 @@ T.test("carry forward: open tasks of the days before move to today, [>] on the o
 	set(CAL, function(lines)
 		vim.list_extend(lines, {
 			"",
-			"2026-10-20:",
+			"2026-10-20::",
 			"09:00 [P/#1.4 - zortex]",
 			"  - [ ] [./-Improve website] @id(web01)",
 			"  - [x] [./-Change task sizes] @id(chg01) @done(2026-10-20)",
@@ -288,9 +288,9 @@ T.test("carry forward: open tasks of the days before move to today, [>] on the o
 	T.eq({ moved, added }, { 2, 2 })
 	local cal = fs.read_lines(CAL)
 	T.ok(find(cal, "  - [>] [./-Improve website] @id(web01)"), "marked")
-	local i = find(cal, "**2026-10-21:**") -- a new day: a bold label
+	local i = find(cal, "2026-10-21:::") -- a new day: a bold label
 	T.eq(vim.list_slice(cal, i, i + 3), {
-		"**2026-10-21:**",
+		"2026-10-21:::",
 		"- [P/#1.4 - zortex]",
 		"  - [ ] [./-Improve website] @id(web01)",
 		cal[i + 3],

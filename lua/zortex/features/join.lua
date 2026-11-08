@@ -9,8 +9,8 @@
 --   - first item      - first item second item  (the joined line's "-",
 --   - second item                                with its "[ ]", or "1.")
 --
---   First line:       First line: Second line   (the joined item's "-"; the
---   - Second line                                label keeps its ":")
+--   First line::      First line:: Second line  (the joined item's "-"; the
+--   - Second line                                label keeps its "::")
 --
 --   > quoted          > quoted more             (the joined line's "> ")
 --   > more

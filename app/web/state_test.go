@@ -152,7 +152,7 @@ func TestFiredAlerts(t *testing.T) {
 func TestCalendarFromNote(t *testing.T) {
 	s, dir, ts, _ := newStateServer(t, "")
 	day := time.Now().Format("2006-01-02")
-	cal := "@@Calendar\n@@C\n\n" + day + ":\n09:00 - 10:00 Standup [P/#1.4 - zortex] @notify(no)\n- [x] Water plants @done(" + day + ")\n  - nested note\n12:00 Dentist @event @n(30)\n14:00 Gym\n"
+	cal := "@@Calendar\n@@C\n\n" + day + "::\n09:00 - 10:00 Standup [P/#1.4 - zortex] @notify(no)\n- [x] Water plants @done(" + day + ")\n  - nested note\n12:00 Dentist @event @n(30)\n14:00 Gym\n"
 	if err := os.WriteFile(filepath.Join(dir, "calendar.zortex"), []byte(cal), 0o644); err != nil {
 		t.Fatal(err)
 	}

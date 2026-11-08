@@ -138,8 +138,8 @@ function M.load()
 end
 
 -- Date blocks in file order: { date, heading_lnum, last_lnum }. A date
--- heading is a bold label "**YYYY-MM-DD:**" (what new days get, so labels
--- such as "Outcomes:" nest under it) or a top-level label "YYYY-MM-DD:";
+-- heading is a bold heading "YYYY-MM-DD:::" (what new days get, so labels
+-- such as "Outcomes::" nest under it) or a top-level label "YYYY-MM-DD::";
 -- its block runs to the next date heading or heading (a month's, "# October
 -- 2026"), and last_lnum is its last non-blank line (services/calendar_days).
 local function date_blocks(doc)
@@ -161,13 +161,13 @@ local function group_days()
 end
 M.group_days = group_days
 
--- "Outcomes:" in a day: what would make the day a success
-local OUTCOMES = "^%s*[Oo]utcomes:%s*$"
+-- "Outcomes::" in a day: what would make the day a success
+local OUTCOMES = "^%s*[Oo]utcomes::%s*$"
 
 -- Parse calendar lines into { ["YYYY-MM-DD"] = { CalendarEntry, ... } }.
 -- Entries are the list items under each date heading; each records its line
 -- in `entry.lnum`. Duplicate date headings merge into one list. The items
--- right under an "Outcomes:" label (up to the first blank line) are the
+-- right under an "Outcomes::" label (up to the first blank line) are the
 -- day's outcomes: `entry.outcome` is true.
 function M.parse_lines(lines, doc)
 	doc = doc or require("zortex.core.document").from_lines(lines)
@@ -194,7 +194,7 @@ function M.parse_lines(lines, doc)
 	return entries
 end
 
---- The day's outcomes: the entries under its "Outcomes:" label, in file
+--- The day's outcomes: the entries under its "Outcomes::" label, in file
 --- order.
 function M.outcomes(date_str)
 	M.ensure_loaded()

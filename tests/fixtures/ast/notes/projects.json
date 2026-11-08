@@ -317,6 +317,7 @@
     },
     {
       "content_col": 0,
+      "content_end": 5,
       "indent": 0,
       "inline": [],
       "kind": "label",

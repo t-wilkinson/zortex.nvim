@@ -7,10 +7,10 @@ Intro paragraph with **bold**, *italic*, `code`, $x^2$ and a [Link/#Heading].
 Key: value text with @home and an email me@example.com.
 
 # Heading one @p1 @a(4.1)
-**Bold heading:**
-Label:
-  Indented label:
-- Bulleted label:
+Bold heading:::
+Label::
+  Indented label::
+- Bulleted label:: with text
 
 ## 3M-2026-Q1 Objective title @p2
 - KR1: [ ] Key result [P/#1 Programming]

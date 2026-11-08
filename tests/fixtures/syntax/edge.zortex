@@ -38,6 +38,35 @@ Done @fold @p1 here:
 *Not a label:* text after
 * spaced:*
 *Two *stars:*
+Label::
+Label with many more than three words in it::
+  Indented label::
+	Tabbed label::
+Fitness @p1 @a(4.1)::
+Bold heading:::
+Bold with *star* and `code`:::
+  Indented bold:::
+Trailing spaces label::   
+Too many colons::::
+Space before colons ::
+std::vector is text
+a::b
+@p1::
+  @p1 @a(1)::
+Label:: text after
+  Label::   text after spaces
+Label::no space
+- Bulleted label::
+- Bulleted label:: text
+- KR4:: [ ] double key result
+- [ ] Task ending with label::
+> quote::
+| a | b |::
+14:00 timed::
+Short key: text
+Short key:
+Long key with five words: text
+**Bold key**:: text
 - [ ] Task ending with colon:
 - KR-legacy text
 - KR3 also legacy

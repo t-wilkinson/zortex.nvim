@@ -68,17 +68,9 @@
     },
     {
       "content_col": 0,
+      "content_end": 25,
       "indent": 0,
-      "inline": [
-        {
-          "children": [],
-          "e": 28,
-          "inner_e": 27,
-          "inner_s": 1,
-          "s": 0,
-          "type": "italic"
-        }
-      ],
+      "inline": [],
       "kind": "label",
       "level": 8,
       "section": true,

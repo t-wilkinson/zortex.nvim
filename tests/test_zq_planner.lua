@@ -20,7 +20,7 @@ local function with_config(planner_cfg, fn)
 		local names = vim.tbl_keys(templates)
 		table.sort(names)
 		for _, name in ipairs(names) do
-			section[#section + 1] = name:sub(1, 1):upper() .. name:sub(2) .. ":"
+			section[#section + 1] = name:sub(1, 1):upper() .. name:sub(2) .. "::"
 			vim.list_extend(section, templates[name])
 		end
 		section[#section + 1] = ""
@@ -192,7 +192,7 @@ T.test("plan buffer puts items into the calendar day", function()
 		local cal_lines = vim.api.nvim_buf_get_lines(st.cal_buf, 0, -1, false)
 		local h
 		for i, l in ipairs(cal_lines) do
-			if l == "**2026-10-18:**" then -- new days get a bold heading
+			if l == "2026-10-18:::" then -- new days get a bold heading
 				h = i
 			end
 		end
@@ -377,30 +377,30 @@ T.test("new days go after the closest earlier day, not before a stray later one"
 	vim.fn.writefile({
 		"@@Calendar",
 		"",
-		"2026-10-21:",
+		"2026-10-21::",
 		"09:00 Dentist",
 		"",
-		"2026-10-09:",
+		"2026-10-09::",
 		"- one",
 		"",
-		"2026-10-10:",
+		"2026-10-10::",
 		"- two",
 	}, cal)
 	require("zortex.core.document").invalidate(cal)
 	calendar.ensure_date("2026-10-12", { "09:00" })
 	local lines = vim.fn.readfile(cal)
-	-- new days get a bold label ("Outcomes:" nests under it); old ones stay
-	T.eq(vim.list_slice(lines, 9), { "2026-10-10:", "- two", "", "**2026-10-12:**", "09:00" })
+	-- new days get a bold label ("Outcomes::" nests under it); old ones stay
+	T.eq(vim.list_slice(lines, 9), { "2026-10-10::", "- two", "", "2026-10-12:::", "09:00" })
 
 	-- between two days that are in order
 	calendar.ensure_date("2026-10-11", {})
 	lines = vim.fn.readfile(cal)
-	T.eq(vim.list_slice(lines, 9), { "2026-10-10:", "- two", "", "**2026-10-11:**", "", "**2026-10-12:**", "09:00" })
+	T.eq(vim.list_slice(lines, 9), { "2026-10-10::", "- two", "", "2026-10-11:::", "", "2026-10-12:::", "09:00" })
 
 	-- earlier than everything: before the earliest day
 	calendar.add_entry("2026-10-01", "- zero")
 	lines = vim.fn.readfile(cal)
-	T.eq(vim.list_slice(lines, 6, 9), { "**2026-10-01:**", "- zero", "", "2026-10-09:" })
+	T.eq(vim.list_slice(lines, 6, 9), { "2026-10-01:::", "- zero", "", "2026-10-09::" })
 
 	vim.fn.writefile(original, cal)
 	require("zortex.core.document").invalidate(cal)
@@ -516,12 +516,12 @@ end)
 T.test(":ZortexToday adds the day from its template once and goes to it", function()
 	local cal = require("zortex.utils.filesystem").get_calendar_file()
 	local original = vim.fn.readfile(cal)
-	with_config({ templates = { weekday = { "Outcomes:", "- [ ] The one thing" }, sunday = { "Outcomes:" } } }, function()
+	with_config({ templates = { weekday = { "Outcomes::", "- [ ] The one thing" }, sunday = { "Outcomes::" } } }, function()
 		local ui = require("zortex.ui.planner")
 		local buf, heading = ui.open_day("2026-10-20") -- a Tuesday
 		local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
 		T.eq(vim.api.nvim_buf_get_name(0), vim.fn.fnamemodify(cal, ":p"))
-		T.eq(vim.list_slice(lines, heading, heading + 2), { "**2026-10-20:**", "Outcomes:", "- [ ] The one thing" })
+		T.eq(vim.list_slice(lines, heading, heading + 2), { "2026-10-20:::", "Outcomes::", "- [ ] The one thing" })
 		T.eq(vim.api.nvim_win_get_cursor(0)[1], heading + 1, "on the day's first line")
 		-- again: the same day, nothing added
 		local _, again = ui.open_day("2026-10-20")
@@ -529,7 +529,7 @@ T.test(":ZortexToday adds the day from its template once and goes to it", functi
 		T.eq(#vim.api.nvim_buf_get_lines(buf, 0, -1, false), #lines)
 		-- an existing day is only visited
 		local _, h = ui.open_day("2026-10-09")
-		T.eq(vim.api.nvim_buf_get_lines(buf, h - 1, h, false)[1], "2026-10-09:")
+		T.eq(vim.api.nvim_buf_get_lines(buf, h - 1, h, false)[1], "2026-10-09::")
 		T.eq(vim.api.nvim_win_get_cursor(0)[1], h + 1)
 		T.eq(ui.open_day("not a date"), nil)
 		vim.cmd("silent! bwipeout! " .. buf)

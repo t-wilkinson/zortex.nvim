@@ -20,14 +20,14 @@ func TestRepeatingOnTheWeb(t *testing.T) {
 	yesterday := now.AddDate(0, 0, -1).Format("2006-01-02")
 	cal := strings.Join([]string{
 		"@@Calendar", "@@C", "",
-		"# Templates", "Daily:", "Outcomes:", "",
+		"# Templates", "Daily::", "Outcomes::", "",
 		"# Repeating", "## Birthdays",
 		"- Sam's birthday @repeat(" + today[5:] + ") @born(1990)",
 		"## Routines",
 		"- [ ] Stretch @repeat(daily)",
 		"- Not a rule",
 		"", "# Days", "",
-		"2020-01-01:", "- long ago",
+		"2020-01-01::", "- long ago",
 	}, "\n") + "\n"
 	path := filepath.Join(dir, "calendar.zortex")
 	if err := os.WriteFile(path, []byte(cal), 0o644); err != nil {
@@ -66,8 +66,8 @@ func TestRepeatingOnTheWeb(t *testing.T) {
 		t.Fatalf("repeat: %d %v", code, out)
 	}
 	lines := readLines(t, path)
-	n := lineOf(t, lines, "**"+today+":**")
-	if lines[n] != "Outcomes:" || !regexp.MustCompile(`^- \[x\] Stretch @id\(\w{5}\) @done\(`+today+`\) @for\(`+yesterday+`\)$`).MatchString(lines[n+1]) {
+	n := lineOf(t, lines, today+":::")
+	if lines[n] != "Outcomes::" || !regexp.MustCompile(`^- \[x\] Stretch @id\(\w{5}\) @done\(`+today+`\) @for\(`+yesterday+`\)$`).MatchString(lines[n+1]) {
 		t.Fatalf("today's block: %q", lines[n-1:])
 	}
 	s.Refresh()

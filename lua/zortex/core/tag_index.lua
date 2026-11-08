@@ -43,7 +43,7 @@ end
 --- { lnum, last, name, nodes = { { lnum, name, query, indent, children }... } }
 function M.at_label(doc, lnum)
 	local d = doc:info(lnum)
-	if not d or d.kind ~= "label" or d.item or (d.indent or 0) > 0 or doc:in_code(lnum) then
+	if not d or d.kind ~= "label" or (d.indent or 0) > 0 or doc:in_code(lnum) then
 		return nil
 	end
 	local ix = { lnum = lnum, last = lnum, name = d.text or "", nodes = {} }
@@ -60,13 +60,14 @@ function M.at_label(doc, lnum)
 		end
 		local node = { lnum = l, indent = ld.indent or 0, children = {} }
 		local from
-		if ld.item and ld.kind == "label" then
-			-- "- Embedded:": a group named by its text
+		local it = ld.kind == "item" and ld.item
+		if it and it.label and line:sub(it.key_col + #it.key + 1):match("^:+%s*$") then
+			-- "- Embedded::": a group named by its key
 			if sp then
 				return nil
 			end
-			node.name = ld.text or ""
-		elseif ld.item and ld.kind == "item" then
+			node.name = syntax.strip_attributes(it.key)
+		elseif it then
 			from = ld.item.content_col
 		elseif ld.kind == "text" and sp then
 			from = #line:match("^%s*")
@@ -178,7 +179,7 @@ function M.at(doc, lnum)
 		if l < lnum and trim(doc.lines[l]) == "" then
 			return nil
 		end
-		if d.kind == "label" and not d.item and (d.indent or 0) == 0 then
+		if d.kind == "label" and (d.indent or 0) == 0 then
 			local ix = M.at_label(doc, l)
 			if not ix or lnum > ix.last then
 				return nil

@@ -41,10 +41,12 @@ local function line_hl(line)
 		return "ZortexTaskDone"
 	elseif line:match("^%s*%-%s*%[.?%]") then
 		return "ZortexTaskText"
-	elseif line:match("^%s*%-%s*%w[^:]*:%s") and not line:find("%.%s.-:") then
-		return "ZortexLabelListText"
-	elseif line:match("^%s*%-%s*%w[^:]*:$") and not line:find("%.%s.-:") then
-		return "ZortexLabelList"
+	end
+	local d = require("zortex.core.syntax").classify(line)
+	if d.kind == "item" and d.item.label then
+		return "ZortexLabelList" -- "- Label:: text"
+	elseif d.kind == "text" and d.key then
+		return "ZortexLabelText" -- "Label:: text"
 	elseif line:match("^%s*%-") then
 		local indent = #(line:match("^(%s*)") or "")
 		return "ZortexBullet" .. math.min(math.floor(indent / 2) + 1, 4)

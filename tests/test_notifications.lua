@@ -16,7 +16,7 @@ end
 T.test("calendar: a time range notifies at its start; @n(…, end) also when it ends", function()
 	local cal = require("zortex.notifications.calendar")
 	local day = os.date("%Y-%m-%d", os.time() + 86400)
-	with_calendar({ "@@Calendar", "", day .. ":", "09:00-10:30 Dentist @n(0, 30)", "13:00-14:00 Meeting @n(10, end)" }, function()
+	with_calendar({ "@@Calendar", "", day .. "::", "09:00-10:30 Dentist @n(0, 30)", "13:00-14:00 Meeting @n(10, end)" }, function()
 		local got = vim.tbl_map(function(n)
 			return os.date("%H:%M", n.trigger_time) .. " " .. n.tags[2] .. " " .. n.title
 		end, cal.collect())
@@ -30,7 +30,7 @@ T.test("calendar: a timed task notifies until it is done; carried and done ones 
 	with_calendar({
 		"@@Calendar",
 		"",
-		day .. ":",
+		day .. "::",
 		"09:00 [ ] Write the report",
 		"10:00 - 11:00 [x] Done already @n(5) @done(" .. day .. ")",
 		"11:00 [>] Carried",
@@ -51,7 +51,7 @@ T.test("calendar: all-day lines notify at all_day_time on their first day; @noti
 	with_calendar({
 		"@@Calendar",
 		"",
-		day .. ":",
+		day .. "::",
 		"- Trip @from(" .. day .. ") @to(" .. after .. ")", -- all day: on its first day only
 		"- Sam's birthday @notify", -- untimed, asked for
 		"- Call the bank @notify(1d)", -- the day before
@@ -131,7 +131,7 @@ if go ~= "" then
 			assert(up, "server didn't start")
 			-- calendar sync: sent once, not again while unchanged
 			local day = os.date("%Y-%m-%d", os.time() + 86400)
-			with_calendar({ "@@Calendar", "", day .. ":", "09:00 Dentist" }, function()
+			with_calendar({ "@@Calendar", "", day .. "::", "09:00 Dentist" }, function()
 				store.save_calendar_manifest(nil)
 				local cal = require("zortex.notifications.calendar")
 				local done

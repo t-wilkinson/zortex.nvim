@@ -15,7 +15,7 @@ func TestBreaksResumeTheBlock(t *testing.T) {
 	s, dir, ts := writableServer(t)
 	_ = ts
 	today := time.Now().Format("2006-01-02")
-	cal := "@@Calendar\n\n" + today + ":\n" +
+	cal := "@@Calendar\n\n" + today + "::\n" +
 		"10:00 Work on [P/#1.4 - zortex/-Improve website]\n" +
 		"12:00 Break @15m\n" +
 		"14:00 Gym\n"
@@ -57,7 +57,7 @@ func TestBreaksResumeTheBlock(t *testing.T) {
 func TestNestedBreaksOrder(t *testing.T) {
 	s, dir, _ := writableServer(t)
 	today := time.Now().Format("2006-01-02")
-	cal := "@@Calendar\n\n" + today + ":\n" +
+	cal := "@@Calendar\n\n" + today + "::\n" +
 		"10:00 Study\n" +
 		"16:00 Write @2h\n" +
 		"  17:00 Tea @10m\n" +

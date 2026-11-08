@@ -40,8 +40,8 @@ T.test("upcoming events: appointments of the days after a date, not tasks, notes
 	local original = fs.read_lines(cal)
 	local lines = vim.list_extend(vim.deepcopy(original), {
 		"",
-		"**2026-10-15:**",
-		"Outcomes:",
+		"2026-10-15:::",
+		"Outcomes::",
 		"- [ ] Ship the release",
 		"- Feel rested",
 		"",

@@ -30,7 +30,7 @@ func TestTrackTime(t *testing.T) {
 	js := map[string]string{"Content-Type": "application/json"}
 	// a calendar entry running all day, linking a task
 	today := time.Now().Format("2006-01-02")
-	cal := "@@Calendar\n\n" + today + ":\n00:00 Work on [P/#1.4 - zortex/-Improve website]\n"
+	cal := "@@Calendar\n\n" + today + "::\n00:00 Work on [P/#1.4 - zortex/-Improve website]\n"
 	os.WriteFile(filepath.Join(dir, "calendar.zortex"), []byte(cal), 0o644)
 	s.Refresh()
 	// noon today: the test adds 85 minutes, which mustn't cross midnight

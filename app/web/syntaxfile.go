@@ -12,9 +12,10 @@ import (
 
 // The note format's settings, from Neovim (lua/zortex/core/syntax_config):
 // notes_dir/.z/syntax.json, {"version": 1, "label_max_words": 5,
-// "group_days": false, "documents": ["docs"]}. The server reads it at start
-// and whenever it changes, so a "Text:" line is a label here exactly when it
-// is one in Neovim (a change reparses every note), the days it adds to the
+// "label_pattern": "^%u%u+$", "group_days": false, "documents": ["docs"]}.
+// The server reads it at start and whenever it changes, so a "Key:" line
+// reads as a label here exactly when it does in Neovim (a change reparses
+// every note; the pattern is Lua's, translated), the days it adds to the
 // calendar make month headings only when Neovim's do, and the Markdown and
 // HTML documents are in the same folders (default z/markdown and z/html).
 
@@ -34,18 +35,20 @@ func (s *Server) checkSyntaxFile() bool {
 		return false
 	}
 	s.syntaxSeen, s.syntaxChecked = mod, true
-	words, group := syntax.DefaultMaxLabelWords, true
+	words, pattern, group := syntax.DefaultMaxLabelWords, "", true
 	var documents []string // nil: the default folders
 	if err == nil {
 		var cfg struct {
-			LabelMaxWords int       `json:"label_max_words"`
+			LabelMaxWords *int      `json:"label_max_words"`
+			LabelPattern  string    `json:"label_pattern"`
 			GroupDays     *bool     `json:"group_days"`
 			Documents     *[]string `json:"documents"`
 		}
 		if raw, rerr := os.ReadFile(s.syntaxFile()); rerr == nil && json.Unmarshal(raw, &cfg) == nil {
-			if cfg.LabelMaxWords > 0 {
-				words = cfg.LabelMaxWords
+			if cfg.LabelMaxWords != nil && *cfg.LabelMaxWords >= 0 {
+				words = *cfg.LabelMaxWords
 			}
+			pattern = cfg.LabelPattern
 			group = cfg.GroupDays == nil || *cfg.GroupDays
 			if cfg.Documents != nil {
 				documents = append([]string{}, *cfg.Documents...)
@@ -53,9 +56,12 @@ func (s *Server) checkSyntaxFile() bool {
 		}
 	}
 	edit.SetGroupDays(group)
-	changed := syntax.SetMaxLabelWords(words)
+	changed, perr := syntax.SetLabelRule(words, pattern)
+	if perr != nil {
+		s.log.Printf("labels: label_pattern %q: %v (.z/syntax.json)", pattern, perr)
+	}
 	if changed {
-		s.log.Printf("labels: up to %d words (.z/syntax.json)", words)
+		s.log.Printf("labels: up to %d words, pattern %q (.z/syntax.json)", words, syntax.LabelPattern())
 	}
 	if s.ix.SetDocumentFolders(documents) {
 		s.log.Printf("documents: %v (.z/syntax.json)", s.ix.DocumentFolders())

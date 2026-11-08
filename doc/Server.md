@@ -301,7 +301,7 @@ your calendar's shared lines (30 days back to 180 ahead) that Cozi, Google
 or Apple can subscribe to:
 
 ```
-**2026-10-21:**
+2026-10-21:::
 09:00 - 12:00 Deep work on [P/#1.4 - zortex]
 16:00 [ ] Pick up the kids @share
 - Mum's birthday @share

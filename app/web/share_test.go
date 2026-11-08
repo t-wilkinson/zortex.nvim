@@ -33,7 +33,7 @@ func fetchAs(t *testing.T, url string, user, pass string) (int, string) {
 func TestShareFeed(t *testing.T) {
 	s, dir, ts := newTestServer(t, "")
 	day := time.Now().Format("2006-01-02")
-	os.WriteFile(filepath.Join(dir, "calendar.zortex"), []byte("@@Calendar\n\n**"+day+":**\n"+
+	os.WriteFile(filepath.Join(dir, "calendar.zortex"), []byte("@@Calendar\n\n"+day+":::\n"+
 		"09:00 - 10:30 Deep work on [P/#1.4 - zortex] @share\n"+
 		"12:00 Lunch with Sam\n"+
 		"- Mum's birthday @share\n"+
@@ -96,10 +96,10 @@ func TestShareFeedWithLogin(t *testing.T) {
 func TestFeedInCalendar(t *testing.T) {
 	s, dir, ts := newTestServer(t, "")
 	day := time.Now().Format("2006-01-02")
-	os.WriteFile(filepath.Join(dir, "calendar.zortex"), []byte("@@Calendar\n\n**"+day+":**\n09:00 Work\n17:00 Gym\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "calendar.zortex"), []byte("@@Calendar\n\n"+day+":::\n09:00 Work\n17:00 Gym\n"), 0o644)
 	os.MkdirAll(filepath.Join(dir, "z", "feeds"), 0o755)
 	os.WriteFile(filepath.Join(dir, "z", "feeds", "cozi.zortex"), []byte(strings.Join([]string{
-		"@@Cozi", feeds.Marker, "", "**" + day + ":**", "- Camping", "12:30 - 13:00 Dentist @n(no)",
+		"@@Cozi", feeds.Marker, "", day + ":::", "- Camping", "12:30 - 13:00 Dentist @n(no)",
 	}, "\n")+"\n"), 0o644)
 	s.Refresh()
 	days := s.calendarDays(day, day)

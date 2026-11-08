@@ -20,7 +20,7 @@ import (
 // a new slide that carries on the one before it, under the same heading (a
 // note without headings is cut into slides by its rules alone).
 //
-// A "Notes:" label (or **Notes:**) is its slide's speaker notes: hidden on
+// A "Notes::" label (or "Notes:::") is its slide's speaker notes: hidden on
 // the slide, shown in the presenter window. @step on a line reveals it (and
 // the lines nested under it) on its own click; @steps on a slide's heading
 // does that for each of its top-level items.

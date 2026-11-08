@@ -18,7 +18,7 @@
 --                              (same @id), the old lines marked [>]
 --
 -- Ranking: the week's focus projects (services/review: the projects linked
--- under "Focus:" in the week's entry of reviews.zortex) come first, their
+-- under "Focus::" in the week's entry of reviews.zortex) come first, their
 -- tasks too. Then signals add up, so a TODO with a high priority that is
 -- also due beats any one of those alone (weights in M.weights). Alignment
 -- counts most: work on a key result ranks above work that only has an area,
@@ -901,7 +901,7 @@ end
 -- =============================================================================
 
 --- Template lines for a new day: the calendar note's # Templates (its
---- weekday's label, else Weekday: / Weekend:, else Daily:; see
+--- weekday's label, else Weekday:: / Weekend::, else Daily::; see
 --- services/calendar_rules).
 function M.template(date)
 	if type(date) == "table" then
@@ -1161,7 +1161,7 @@ end
 ---          @id (opts.new_id() when it had none)
 ---   inserts { { at, lines } }, ascending: insert `lines` before line `at`:
 ---          the copies, with the same @id, at the end of today's block (or a
----          new "YYYY-MM-DD:" block for them placed by date); copies whose
+---          new "YYYY-MM-DD:::" block for them placed by date); copies whose
 ---          block today already has (a line whose first link is the same)
 ---          go at the end of that block instead
 --- A task nested under a linked line that isn't a task ("09:00

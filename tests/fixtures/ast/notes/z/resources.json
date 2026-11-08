@@ -198,6 +198,7 @@
         "content_col": 2,
         "key": "Async book",
         "key_col": 2,
+        "label": true,
         "marker": "-",
         "marker_col": 0,
         "marker_type": "bullet"
@@ -387,6 +388,7 @@
         "content_col": 2,
         "key": "Reading list",
         "key_col": 2,
+        "label": true,
         "marker": "-",
         "marker_col": 0,
         "marker_type": "bullet"
@@ -558,6 +560,7 @@
     },
     {
       "content_col": 2,
+      "content_end": 11,
       "indent": 2,
       "inline": [],
       "kind": "label",

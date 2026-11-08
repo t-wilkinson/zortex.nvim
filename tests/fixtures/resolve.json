@@ -345,11 +345,6 @@
     ]
   },
   {
-    "error": "No matches found for: :Notes",
-    "link": "[Day plan/:Notes]",
-    "results": []
-  },
-  {
     "from": "z/day-plan.zortex",
     "link": "[./-Improve website]",
     "lnum": 4,
@@ -2130,17 +2125,12 @@
     ]
   },
   {
+    "error": "No matches found for: :Things that grew",
     "link": "[Garden/:Things that grew]",
-    "results": [
-      {
-        "col": 1,
-        "lnum": 9,
-        "rel": "z/garden.zortex"
-      }
-    ]
+    "results": []
   },
   {
-    "error": "No matches found for: -mint",
+    "error": "No matches found for: :Things that grew",
     "link": "[Garden/:Things that grew/-mint]",
     "results": []
   },
@@ -2231,13 +2221,8 @@
     "results": []
   },
   {
+    "error": "No matches found for: :Notes",
     "link": "[Rust Ownership/:Notes]",
-    "results": [
-      {
-        "col": 1,
-        "lnum": 30,
-        "rel": "z/markdown/rust-ownership.md"
-      }
-    ]
+    "results": []
   }
 ]

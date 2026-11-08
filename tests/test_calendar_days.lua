@@ -34,15 +34,15 @@ T.test("grouping moves every day into its month, once; the rest stays", function
 		"# Repeating",
 		"- Sam @on(03-14) @born(1990)",
 		"",
-		"2026-10-09:",
+		"2026-10-09::",
 		"14:00 A",
 		"  - [ ] under A",
 		"",
-		"2026-09-28:",
+		"2026-09-28::",
 		"- [ ] C",
 		"",
-		"**2026-10-10:**",
-		"Outcomes:",
+		"2026-10-10:::",
+		"Outcomes::",
 		"- [ ] B",
 	}
 	local out, moved = cd.group(lines)
@@ -55,17 +55,17 @@ T.test("grouping moves every day into its month, once; the rest stays", function
 		"",
 		"# September 2026",
 		"",
-		"2026-09-28:",
+		"2026-09-28::",
 		"- [ ] C",
 		"",
 		"# October 2026",
 		"",
-		"2026-10-09:",
+		"2026-10-09::",
 		"14:00 A",
 		"  - [ ] under A",
 		"",
-		"**2026-10-10:**",
-		"Outcomes:",
+		"2026-10-10:::",
+		"Outcomes::",
 		"- [ ] B",
 	})
 	local again, n = cd.group(out)
@@ -85,19 +85,19 @@ T.test("a new day goes into its month; :ZortexCalendarGroup groups the calendar"
 		return require("zortex.core.workspace").get_lines(cal)
 	end
 	local ok, err = pcall(function()
-		vim.fn.writefile({ "@@Calendar", "", "2026-10-09:", "14:00 A", "", "2026-10-12:", "- B" }, cal)
+		vim.fn.writefile({ "@@Calendar", "", "2026-10-09::", "14:00 A", "", "2026-10-12::", "- B" }, cal)
 		require("zortex.core.document").invalidate(cal)
 		store.load()
 		-- a day of a month with loose days joins them: no heading yet
 		local heading, created = store.ensure_date("2026-10-10")
 		T.ok(created)
 		local lines = read()
-		T.eq(lines[heading], "**2026-10-10:**")
+		T.eq(lines[heading], "2026-10-10:::")
 		T.eq(#cd.months(lines), 0, "no month heading for October's loose days")
 		-- a new month gets its heading
 		heading = store.ensure_date("2026-11-02", { "- [ ] Plan" })
 		lines = read()
-		T.eq(lines[heading], "**2026-11-02:**")
+		T.eq(lines[heading], "2026-11-02:::")
 		T.eq(lines[heading - 2], "# November 2026")
 		T.eq(lines[heading + 1], "- [ ] Plan")
 		-- group the rest
@@ -108,17 +108,17 @@ T.test("a new day goes into its month; :ZortexCalendarGroup groups the calendar"
 			"",
 			"# October 2026",
 			"",
-			"2026-10-09:",
+			"2026-10-09::",
 			"14:00 A",
 			"",
-			"**2026-10-10:**",
+			"2026-10-10:::",
 			"",
-			"2026-10-12:",
+			"2026-10-12::",
 			"- B",
 			"",
 			"# November 2026",
 			"",
-			"**2026-11-02:**",
+			"2026-11-02:::",
 			"- [ ] Plan",
 		})
 		T.eq(store.group_by_month(), 0)
@@ -157,12 +157,12 @@ T.test("carrying to a new day puts it in its month", function()
 		"",
 		"# October 2026",
 		"",
-		"2026-10-30:",
+		"2026-10-30::",
 		"- [ ] Open",
 		"",
 		"# December 2026",
 		"",
-		"2026-12-01:",
+		"2026-12-01::",
 		"- later",
 	}
 	local n = 0
@@ -174,7 +174,7 @@ T.test("carrying to a new day puts it in its month", function()
 			return "C" .. n
 		end,
 	})
-	T.eq(plan.inserts, { { at = 8, lines = { "# November 2026", "", "**2026-11-02:**", "- [ ] Open @id(C1)", "" } } })
+	T.eq(plan.inserts, { { at = 8, lines = { "# November 2026", "", "2026-11-02:::", "- [ ] Open @id(C1)", "" } } })
 end)
 
 T.test("other months start folded in the calendar note", function()
@@ -183,7 +183,7 @@ T.test("other months start folded in the calendar note", function()
 	local cal = fs.get_calendar_file()
 	local this = os.date("*t")
 	local name = cd.MONTHS[this.month] .. " " .. this.year
-	local lines = { "@@Calendar", "", "# January 2001", "", "2001-01-01:", "- old", "", "# " .. name, "", os.date("%Y-%m-%d") .. ":", "- now" }
+	local lines = { "@@Calendar", "", "# January 2001", "", "2001-01-01::", "- old", "", "# " .. name, "", os.date("%Y-%m-%d") .. "::", "- now" }
 	local buf = vim.api.nvim_create_buf(false, true)
 	vim.api.nvim_buf_set_name(buf, cal .. ".test")
 	T.eq(folding.other_months(buf, lines), {}, "only the calendar note")

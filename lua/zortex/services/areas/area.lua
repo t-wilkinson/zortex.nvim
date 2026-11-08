@@ -8,7 +8,7 @@
 --
 -- Links start with the A namespace: "[A/#1 Personal Foundation/#1.2 Vitality/:Fitness]".
 --
--- A "Vision:" in an area's own lines says what good looks like there
+-- A "Vision::" in an area's own lines says what good looks like there
 -- (area:vision()); the weekly review opens with it:
 --   ## 1.1 Health
 --   Vision: strong enough to carry the kids up a mountain at 60
@@ -112,13 +112,13 @@ function Area:objectives(opts)
 end
 
 
---- What good looks like in this area: the text of a "Vision:" line in its
---- own lines ("Vision: …", or "Vision:" with the lines under it up to a
---- blank line), or nil.
+--- What good looks like in this area: the text of a "Vision" line in its
+--- own lines ("Vision:: …" or "Vision: …", or a label "Vision::" with the
+--- lines under it up to a blank line), or nil.
 function Area:vision()
 	local lines = self:lines()
 	for i, line in ipairs(lines) do
-		local rest = line:match("^%s*[Vv]ision:%s*(.-)%s*$")
+		local rest = line:match("^%s*[Vv]ision::?%s+(.-)%s*$") or (line:match("^%s*[Vv]ision::%s*$") and "")
 		if rest then
 			local parts = {}
 			if rest ~= "" then
@@ -126,7 +126,7 @@ function Area:vision()
 			else
 				for j = i + 1, #lines do
 					local l = lines[j]
-					if not l:match("%S") or l:match("^#") or l:match("^%S.*:%s*$") then
+					if not l:match("%S") or l:match("^#") or l:match("^%S.*::%s*$") then
 						break
 					end
 					parts[#parts + 1] = vim.trim((l:gsub("^%s*[-*]%s+", "")))

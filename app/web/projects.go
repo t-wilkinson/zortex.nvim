@@ -31,7 +31,7 @@ import (
 //	                             moves, its log, calendar days, time spent,
 //	                             the notes and files it links and that link it
 //	POST /api/project/log        {rel, lnum, expect, text}: add a dated line
-//	                             under the project's "Log:" label (-writable)
+//	                             under the project's "Log::" label (-writable)
 //
 // Progress weighs tasks by their @size hours (Neovim's calibration from the
 // XP summary), and a task is done when it, or a calendar copy with its @id,
@@ -1063,7 +1063,7 @@ func (s *Server) handleProject(w http.ResponseWriter, r *http.Request) {
 	})
 	week7 := s.spentSince(p, ids, now.AddDate(0, 0, -6).Format("2006-01-02"))
 
-	// the log: the lines under its "Log:" label
+	// the log: the lines under its "Log::" label
 	var logLines []template.HTML
 	if node := projectLog(p); node != nil {
 		rd := &noteRenderer{s: s, doc: p.doc}
@@ -1323,7 +1323,7 @@ func (s *Server) spentSince(p *webProject, ids map[string]bool, from string) int
 	return total
 }
 
-// projectLog: the "Log:" label in the project's own part, or nil.
+// projectLog: the "Log::" label in the project's own part, or nil.
 func projectLog(p *webProject) *notes.Node {
 	var found *notes.Node
 	p.doc.Tree.Walk(func(n *notes.Node) {
@@ -1335,7 +1335,7 @@ func projectLog(p *webProject) *notes.Node {
 }
 
 // apiProjectLog: POST /api/project/log {rel, lnum, expect, text}: a dated
-// line at the top of the project's "Log:" label (the label made, after its
+// line at the top of the project's "Log::" label (the label made, after its
 // own content, when it has none).
 func (s *Server) apiProjectLog(w http.ResponseWriter, r *http.Request) {
 	if !s.writableOK(w, r) {
@@ -1398,7 +1398,7 @@ func (s *Server) apiProjectLog(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 		}
-		insert = []string{"", "Log:", entry}
+		insert = []string{"", "Log::", entry}
 		if at < len(f.lines) && strings.TrimSpace(f.lines[at]) != "" {
 			insert = append(insert, "")
 		}

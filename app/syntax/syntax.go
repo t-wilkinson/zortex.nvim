@@ -11,7 +11,10 @@
 // 1-based.
 package syntax
 
-import "sync/atomic"
+import (
+	"regexp"
+	"sync/atomic"
+)
 
 // Version of the AST format (matches core/syntax.VERSION).
 const Version = 1
@@ -73,7 +76,8 @@ type Item struct {
 	Time       *Time  `json:"time,omitempty"`
 	Key        string `json:"key,omitempty"`
 	KeyCol     *int   `json:"key_col,omitempty"`
-	Mark       string `json:"mark,omitempty"` // checkbox character
+	Label      bool   `json:"label,omitempty"` // the key reads as a label ("Key::", or "Key:" by the label rule)
+	Mark       string `json:"mark,omitempty"`  // checkbox character
 	MarkCol    *int   `json:"mark_col,omitempty"`
 	ContentCol int    `json:"content_col"`
 }
@@ -223,12 +227,13 @@ func ParseHeader(lines []string, maxLines int) Header {
 // List items
 // =============================================================================
 
-// matchKey matches "Key: " at the start of text: the key and the length
-// consumed including ":" and the following whitespace.
-func matchKey(text string) (string, int, bool) {
-	if !isAlnum(at(text, 0)) {
-		return "", 0, false
-	}
+// matchKey matches "Key:: rest" or "Key: rest" at the start of text, or a
+// key ending it ("Key::", "Key:"): the key, the length consumed including
+// the colons and the whitespace after, and the number of colons (1 or 2).
+// Text must follow after a space, so "14:00", "https://…" and "a::b" have
+// no key. "Key::" keys are any text without a colon; "Key:" keys start with
+// a word character, have no sentence (". ") and don't end in "*".
+func matchKey(text string) (string, int, int, bool) {
 	colon := -1
 	for i := 0; i < len(text); i++ {
 		if text[i] == ':' {
@@ -236,18 +241,25 @@ func matchKey(text string) (string, int, bool) {
 			break
 		}
 	}
-	if colon < 1 {
-		return "", 0, false
-	}
-	ws := spaceRun(text, colon+1)
-	if ws == 0 {
-		return "", 0, false
+	if colon < 1 || isSpace(text[0]) {
+		return "", 0, 0, false
 	}
 	key := text[:colon]
-	if hasPeriodSpace(key) || len(key) > 60 {
-		return "", 0, false
+	colons := 1
+	if at(text, colon+1) == ':' {
+		colons = 2
+	} else if !isAlnum(text[0]) || hasPeriodSpace(key) || key[len(key)-1] == '*' || len(key) > 60 {
+		return "", 0, 0, false
 	}
-	return key, colon + 1 + ws, true
+	if isSpace(key[len(key)-1]) || StripAttributes(key) == "" {
+		return "", 0, 0, false
+	}
+	ws := spaceRun(text, colon+colons)
+	n := colon + colons + ws
+	if n < len(text) && ws == 0 {
+		return "", 0, 0, false
+	}
+	return key, n, colons, true
 }
 
 // matchCheckbox matches "[x] text" at the start of text: the mark and the
@@ -322,8 +334,9 @@ func ItemOf(line string) *Item {
 		if mark, n, ok := matchCheckbox(text); ok {
 			it.Mark, it.MarkCol = mark, intp(col)
 			col += n
-		} else if key, kn, ok := matchKey(text); ok {
+		} else if key, kn, colons, ok := matchKey(text); ok {
 			it.Key, it.KeyCol = key, intp(col)
+			it.Label = colons == 2 || SoftLabel(key)
 			after := col + kn
 			if mark2, n2, ok := matchCheckbox(line[after:]); ok {
 				it.Mark, it.MarkCol = mark2, intp(after)
@@ -368,60 +381,73 @@ type Line struct {
 	Inline     []Span // nil unless parsed with inline spans (and the line has content)
 }
 
-// DefaultMaxLabelWords: a plain "Text:" line is a label up to this many
-// words (attributes not counted); a longer one is written "*A longer label:*".
+// The label rule for "Key:" lines (one colon), Neovim's
+// syntax.label_max_words and syntax.label_pattern, which it writes to the
+// notes folder's .z/syntax.json (SetLabelRule). "Key::" is always a label.
+
+// DefaultMaxLabelWords: a "Key:" is a label up to this many words
+// (attributes not counted).
 const DefaultMaxLabelWords = 3
 
-// maxLabelWords is the rule in use: Neovim's syntax.label_max_words, which
-// it writes to the notes folder's .z/syntax.json (SetMaxLabelWords).
-var maxLabelWords atomic.Int32
+var (
+	maxLabelWords atomic.Int32
+	labelPattern  atomic.Pointer[labelRule]
+)
+
+type labelRule struct {
+	src string
+	re  *regexp.Regexp
+}
 
 func init() { maxLabelWords.Store(DefaultMaxLabelWords) }
 
-// MaxLabelWords is how many words a plain "Text:" label may have.
+// MaxLabelWords is how many words a "Key:" label may have (0: the count is off).
 func MaxLabelWords() int { return int(maxLabelWords.Load()) }
 
-// SetMaxLabelWords changes the label rule (n < 1: the default) and reports
-// whether it changed. Notes parsed before keep their old reading: reparse
-// them.
-func SetMaxLabelWords(n int) bool {
-	if n < 1 {
-		n = DefaultMaxLabelWords
+// LabelPattern is the Lua pattern in use ("" for none).
+func LabelPattern() string {
+	if r := labelPattern.Load(); r != nil {
+		return r.src
 	}
-	return maxLabelWords.Swap(int32(n)) != int32(n)
+	return ""
 }
 
-// colonLine: a "Text:" line: no other colon, no sentence (". "), and no bold
-// or italic text right before the colon.
-func colonLine(line string) bool {
-	n := len(line)
-	if n < 2 || line[n-1] != ':' {
+// SetLabelRule changes the label rule: up to `words` words (< 0: the
+// default, 0: off) or matching the Lua `pattern` ("": none). It reports
+// whether the rule changed; notes parsed before keep their old reading:
+// reparse them. A pattern that can't be translated is an error and is off.
+func SetLabelRule(words int, pattern string) (bool, error) {
+	if words < 0 {
+		words = DefaultMaxLabelWords
+	}
+	changed := maxLabelWords.Swap(int32(words)) != int32(words)
+	var rule *labelRule
+	var err error
+	if pattern != "" {
+		var re *regexp.Regexp
+		if re, err = LuaPatternRegexp(pattern); err == nil {
+			rule = &labelRule{src: pattern, re: re}
+		}
+	}
+	if old := labelPattern.Swap(rule); (old == nil) != (rule == nil) || (old != nil && old.src != rule.src) {
+		changed = true
+	}
+	return changed, err
+}
+
+// SoftLabel: does "key:" (one colon) read as a label? It does when, with
+// attributes stripped, it has at most MaxLabelWords words or matches the
+// label pattern (core/syntax.soft_label).
+func SoftLabel(key string) bool {
+	text := StripAttributes(key)
+	if text == "" {
 		return false
 	}
-	prefix := line[:n-1]
-	for i := 0; i < len(prefix); i++ {
-		if prefix[i] == ':' {
-			return false
-		}
+	if r := labelPattern.Load(); r != nil && r.re.MatchString(text) {
+		return true
 	}
-	// "**Bold**:" is text (a bold heading has its colon inside: "**Bold:**")
-	return !hasPeriodSpace(prefix) && prefix[len(prefix)-1] != '*'
-}
-
-// starLabel: the text of "*A longer label like this one:*"
-// (^%*([^*%s][^*]*):%*$), ok.
-func starLabel(body string) (string, bool) {
-	n := len(body)
-	if n < 4 || body[0] != '*' || body[n-1] != '*' || body[n-2] != ':' || isSpace(body[1]) || body[1] == '*' {
-		return "", false
-	}
-	inner := body[1 : n-2]
-	for i := 0; i < len(inner); i++ {
-		if inner[i] == '*' {
-			return "", false
-		}
-	}
-	return inner, true
+	n := MaxLabelWords()
+	return n > 0 && wordCount(text) <= n
 }
 
 // wordCount: runs of non-space bytes (Lua's %S+).
@@ -438,12 +464,24 @@ func wordCount(s string) int {
 	return n
 }
 
-// isLabel: body is the line after its indent (and "- " for "- Label:").
-func isLabel(line, body string) bool {
-	if _, ok := starLabel(body); ok {
-		return true
+// colonRun: a whole line "Text::" or "Text:::" (whitespace may follow,
+// ^(%s*)(.-[^%s:])(:+)%s*$): the end of its text and its number of colons
+// (2 or 3), else 0. The text ends in neither a space nor a colon.
+func colonRun(line string) (int, int) {
+	end := len(line)
+	for end > 0 && isSpace(line[end-1]) {
+		end--
 	}
-	return colonLine(line) && wordCount(StripAttributes(body[:len(body)-1])) <= MaxLabelWords()
+	k := end
+	for k > 0 && line[k-1] == ':' {
+		k--
+	}
+	colons := end - k
+	start := spaceRun(line, 0)
+	if (colons != 2 && colons != 3) || k <= start || isSpace(line[k-1]) || StripAttributes(line[start:k]) == "" {
+		return 0, 0
+	}
+	return k, colons
 }
 
 // SectionText is the display text of a section line, attributes stripped.
@@ -461,45 +499,23 @@ func SectionText(line, kind string) string {
 			}
 		}
 		return StripAttributes(line[i:])
-	case KindBoldHeading:
-		if k := boldHeadingColon(line); k > 0 {
-			return StripAttributes(line[2:k])
+	case KindBoldHeading, KindLabel:
+		// the text before the colons (^%s*(.-[^%s:]):+%s*$)
+		end := len(line)
+		for end > 0 && isSpace(line[end-1]) {
+			end--
 		}
-		return StripAttributes(line)
-	case KindLabel:
-		if t, ok := starLabel(line[spaceRun(line, 0):]); ok {
-			return StripAttributes(t)
+		k := end
+		for k > 0 && line[k-1] == ':' {
+			k--
 		}
-		if len(line) > 0 && line[len(line)-1] == ':' {
-			start := spaceRun(line, 0)
-			if start <= len(line)-1 {
-				return StripAttributes(line[start : len(line)-1])
-			}
+		start := spaceRun(line, 0)
+		if k < end && k > start && !isSpace(line[k-1]) {
+			return StripAttributes(line[start:k])
 		}
-		return StripAttributes(line)
+		return StripAttributes(Trim(line))
 	}
 	return Trim(line)
-}
-
-// boldHeadingColon: for a bold heading "**Title:**" (^%*%*([^*]+):%*%*%s*$)
-// the index of its colon, else 0.
-func boldHeadingColon(line string) int {
-	if len(line) < 6 || line[0] != '*' || line[1] != '*' {
-		return 0
-	}
-	k := 2
-	for k < len(line) && line[k] != '*' {
-		k++
-	}
-	// at least one character of text, then ":**", then only spaces
-	if k < 4 || line[k-1] != ':' || at(line, k) != '*' || at(line, k+1) != '*' {
-		return 0
-	}
-	r := k + 2
-	if spaceRun(line, r) != len(line)-r {
-		return 0
-	}
-	return k - 1
 }
 
 func countByte(s string, c byte) int {
@@ -579,19 +595,6 @@ func Classify(line string) *Line {
 		return &Line{Kind: KindTag, Indent: 0, ContentCol: intp(1)}
 	}
 
-	if colon := boldHeadingColon(line); colon > 0 {
-		end := colon // inline content stops before ":**"
-		return &Line{
-			Kind:       KindBoldHeading,
-			Section:    true,
-			Level:      intp(levelBold),
-			Text:       strp(SectionText(line, KindBoldHeading)),
-			Indent:     0,
-			ContentCol: intp(2),
-			ContentEnd: intp(end),
-		}
-	}
-
 	// "---": a rule, a separator (a slide break in a deck)
 	if isRule(line) {
 		return &Line{Kind: KindRule, Indent: 0, ContentCol: intp(0)}
@@ -607,29 +610,6 @@ func Classify(line string) *Line {
 		}
 	}
 
-	item := ItemOf(line)
-	body := line[indent:]
-	if item != nil {
-		body = line[item.ContentCol:]
-	}
-	if isLabel(line, body) && !(item != nil && item.Mark != "") {
-		src := line
-		col := indent
-		if item != nil {
-			src = line[item.ContentCol:]
-			col = item.ContentCol
-		}
-		return &Line{
-			Kind:       KindLabel,
-			Section:    true,
-			Level:      intp(levelLabel + indent),
-			Text:       strp(SectionText(src, KindLabel)),
-			Indent:     indent,
-			Item:       item,
-			ContentCol: intp(col),
-		}
-	}
-
 	if at(line, indent) == '|' && countByte(line, '|') > 1 {
 		return &Line{Kind: KindTable, Separator: boolp(isTableSeparator(line)), Indent: indent, ContentCol: intp(indent)}
 	}
@@ -637,12 +617,37 @@ func Classify(line string) *Line {
 		return &Line{Kind: KindQuote, Indent: indent, ContentCol: intp(indent + 1 + spaceRun(line, indent+1))}
 	}
 
-	if item != nil {
+	if item := ItemOf(line); item != nil {
 		return &Line{Kind: KindItem, Indent: indent, Item: item, ContentCol: intp(item.ContentCol)}
 	}
 
+	// "Title:::" (unindented): a bold heading; "Label::": a label, nested
+	// by its indent. Inline content stops before the colons.
+	if textEnd, colons := colonRun(line); colons == 3 && indent == 0 {
+		return &Line{
+			Kind:       KindBoldHeading,
+			Section:    true,
+			Level:      intp(levelBold),
+			Text:       strp(SectionText(line, KindBoldHeading)),
+			Indent:     0,
+			ContentCol: intp(0),
+			ContentEnd: intp(textEnd),
+		}
+	} else if colons == 2 {
+		return &Line{
+			Kind:       KindLabel,
+			Section:    true,
+			Level:      intp(levelLabel + indent),
+			Text:       strp(SectionText(line, KindLabel)),
+			Indent:     indent,
+			ContentCol: intp(indent),
+			ContentEnd: intp(textEnd),
+		}
+	}
+
+	// "Label:: text", or "Label: text" / "Label:" by the label rule
 	d := &Line{Kind: KindText, Indent: indent, ContentCol: intp(indent)}
-	if key, kn, ok := matchKey(line[indent:]); ok && !hasPeriodSpaceBeforeColon(line) {
+	if key, kn, colons, ok := matchKey(line[indent:]); ok && (colons == 2 || (SoftLabel(key) && !hasPeriodSpaceBeforeColon(line))) {
 		d.Key, d.KeyCol, d.KeyLen = key, intp(indent), kn
 	}
 	return d

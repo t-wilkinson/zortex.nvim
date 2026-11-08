@@ -306,7 +306,7 @@ function M.render_top_down(r, add)
 	if r.vision then
 		add("Vision: " .. r.vision)
 	else
-		add("  no vision yet: write one in areas.zortex (Vision: above the first area)")
+		add("  no vision yet: write one in areas.zortex (Vision:: above the first area)")
 	end
 	for _, node in ipairs(r.top_down) do
 		local area = node.area

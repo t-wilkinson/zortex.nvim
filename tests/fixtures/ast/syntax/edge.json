@@ -1,32 +1,37 @@
 {
   "blocks": [
     {
-      "finish": 69,
+      "finish": 64,
       "kind": "table",
-      "start": 67
+      "start": 64
     },
     {
-      "finish": 79,
+      "finish": 98,
+      "kind": "table",
+      "start": 96
+    },
+    {
+      "finish": 108,
       "kind": "code",
       "lang": "",
-      "start": 75
+      "start": 104
     },
     {
-      "finish": 83,
+      "finish": 112,
       "kind": "code",
       "lang": "python",
-      "start": 80
+      "start": 109
     },
     {
-      "finish": 86,
+      "finish": 115,
       "kind": "math",
-      "start": 84
+      "start": 113
     },
     {
-      "finish": 106,
+      "finish": 135,
       "kind": "code",
       "lang": "js",
-      "start": 105
+      "start": 134
     }
   ],
   "header": {
@@ -492,14 +497,19 @@
       "text": "seven"
     },
     {
-      "content_col": 2,
-      "content_end": 14,
+      "content_col": 0,
       "indent": 0,
-      "inline": [],
-      "kind": "bold_heading",
-      "level": 7,
-      "section": true,
-      "text": "Bold heading"
+      "inline": [
+        {
+          "children": [],
+          "e": 17,
+          "inner_e": 15,
+          "inner_s": 2,
+          "s": 0,
+          "type": "bold"
+        }
+      ],
+      "kind": "text"
     },
     {
       "content_col": 0,
@@ -526,14 +536,19 @@
       "kind": "text"
     },
     {
-      "content_col": 2,
-      "content_end": 8,
+      "content_col": 0,
       "indent": 0,
-      "inline": [],
-      "kind": "bold_heading",
-      "level": 7,
-      "section": true,
-      "text": "Spaced"
+      "inline": [
+        {
+          "children": [],
+          "e": 11,
+          "inner_e": 9,
+          "inner_s": 2,
+          "s": 0,
+          "type": "bold"
+        }
+      ],
+      "kind": "text"
     },
     {
       "content_col": 0,
@@ -617,10 +632,10 @@
       "content_col": 1,
       "indent": 1,
       "inline": [],
-      "kind": "label",
-      "level": 9,
-      "section": true,
-      "text": "Tabbed label"
+      "key": "Tabbed label",
+      "key_col": 1,
+      "key_len": 13,
+      "kind": "text"
     },
     {
       "content_col": 4,
@@ -628,23 +643,23 @@
       "inline": [],
       "item": {
         "content_col": 4,
+        "key": "Bulleted label",
+        "key_col": 4,
+        "label": true,
         "marker": "-",
         "marker_col": 2,
         "marker_type": "bullet"
       },
-      "kind": "label",
-      "level": 10,
-      "section": true,
-      "text": "Bulleted label"
+      "kind": "item"
     },
     {
       "content_col": 0,
       "indent": 0,
       "inline": [],
-      "kind": "label",
-      "level": 8,
-      "section": true,
-      "text": "Three word label"
+      "key": "Three word label",
+      "key_col": 0,
+      "key_len": 17,
+      "kind": "text"
     },
     {
       "content_col": 0,
@@ -669,10 +684,10 @@
           "type": "attribute"
         }
       ],
-      "kind": "label",
-      "level": 8,
-      "section": true,
-      "text": "Done here"
+      "key": "Done @fold @p1 here",
+      "key_col": 0,
+      "key_len": 20,
+      "kind": "text"
     },
     {
       "content_col": 0,
@@ -687,10 +702,7 @@
           "type": "italic"
         }
       ],
-      "kind": "label",
-      "level": 8,
-      "section": true,
-      "text": "A longer label like this one"
+      "kind": "text"
     },
     {
       "content_col": 4,
@@ -711,10 +723,7 @@
         "marker_col": 2,
         "marker_type": "bullet"
       },
-      "kind": "label",
-      "level": 10,
-      "section": true,
-      "text": "Also a longer bulleted label"
+      "kind": "item"
     },
     {
       "content_col": 0,
@@ -750,6 +759,327 @@
           "type": "italic"
         }
       ],
+      "kind": "text"
+    },
+    {
+      "content_col": 0,
+      "content_end": 5,
+      "indent": 0,
+      "inline": [],
+      "kind": "label",
+      "level": 8,
+      "section": true,
+      "text": "Label"
+    },
+    {
+      "content_col": 0,
+      "content_end": 43,
+      "indent": 0,
+      "inline": [],
+      "kind": "label",
+      "level": 8,
+      "section": true,
+      "text": "Label with many more than three words in it"
+    },
+    {
+      "content_col": 2,
+      "content_end": 16,
+      "indent": 2,
+      "inline": [],
+      "kind": "label",
+      "level": 10,
+      "section": true,
+      "text": "Indented label"
+    },
+    {
+      "content_col": 1,
+      "content_end": 13,
+      "indent": 1,
+      "inline": [],
+      "kind": "label",
+      "level": 9,
+      "section": true,
+      "text": "Tabbed label"
+    },
+    {
+      "content_col": 0,
+      "content_end": 19,
+      "indent": 0,
+      "inline": [
+        {
+          "e": 11,
+          "key": "p1",
+          "s": 8,
+          "type": "attribute"
+        },
+        {
+          "e": 19,
+          "key": "a",
+          "s": 12,
+          "type": "attribute",
+          "value": "4.1"
+        }
+      ],
+      "kind": "label",
+      "level": 8,
+      "section": true,
+      "text": "Fitness"
+    },
+    {
+      "content_col": 0,
+      "content_end": 12,
+      "indent": 0,
+      "inline": [],
+      "kind": "bold_heading",
+      "level": 7,
+      "section": true,
+      "text": "Bold heading"
+    },
+    {
+      "content_col": 0,
+      "content_end": 27,
+      "indent": 0,
+      "inline": [
+        {
+          "children": [],
+          "e": 16,
+          "inner_e": 15,
+          "inner_s": 11,
+          "s": 10,
+          "type": "italic"
+        },
+        {
+          "e": 27,
+          "inner_e": 26,
+          "inner_s": 22,
+          "s": 21,
+          "type": "code"
+        }
+      ],
+      "kind": "bold_heading",
+      "level": 7,
+      "section": true,
+      "text": "Bold with *star* and `code`"
+    },
+    {
+      "content_col": 2,
+      "indent": 2,
+      "inline": [],
+      "kind": "text"
+    },
+    {
+      "content_col": 0,
+      "content_end": 21,
+      "indent": 0,
+      "inline": [],
+      "kind": "label",
+      "level": 8,
+      "section": true,
+      "text": "Trailing spaces label"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "text"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "text"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "text"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "text"
+    },
+    {
+      "content_col": 1,
+      "indent": 0,
+      "inline": [],
+      "kind": "tag"
+    },
+    {
+      "content_col": 2,
+      "indent": 2,
+      "inline": [
+        {
+          "e": 5,
+          "key": "p1",
+          "s": 2,
+          "type": "attribute"
+        },
+        {
+          "e": 11,
+          "key": "a",
+          "s": 6,
+          "type": "attribute",
+          "value": "1"
+        }
+      ],
+      "kind": "text"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "key": "Label",
+      "key_col": 0,
+      "key_len": 8,
+      "kind": "text"
+    },
+    {
+      "content_col": 2,
+      "indent": 2,
+      "inline": [],
+      "key": "Label",
+      "key_col": 2,
+      "key_len": 10,
+      "kind": "text"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "text"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 2,
+        "key": "Bulleted label",
+        "key_col": 2,
+        "label": true,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 2,
+        "key": "Bulleted label",
+        "key_col": 2,
+        "label": true,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 12,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 12,
+        "key": "KR4",
+        "key_col": 2,
+        "label": true,
+        "mark": " ",
+        "mark_col": 8,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 6,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 6,
+        "mark": " ",
+        "mark_col": 2,
+        "marker": "-",
+        "marker_col": 0,
+        "marker_type": "bullet"
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 2,
+      "indent": 0,
+      "inline": [],
+      "kind": "quote"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "table",
+      "separator": false
+    },
+    {
+      "content_col": 6,
+      "indent": 0,
+      "inline": [],
+      "item": {
+        "content_col": 6,
+        "marker": "14:00",
+        "marker_col": 0,
+        "marker_type": "time",
+        "time": {
+          "at": "14:00"
+        }
+      },
+      "kind": "item"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "key": "Short key",
+      "key_col": 0,
+      "key_len": 11,
+      "kind": "text"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "key": "Short key",
+      "key_col": 0,
+      "key_len": 10,
+      "kind": "text"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [],
+      "kind": "text"
+    },
+    {
+      "content_col": 0,
+      "indent": 0,
+      "inline": [
+        {
+          "children": [],
+          "e": 12,
+          "inner_e": 10,
+          "inner_s": 2,
+          "s": 0,
+          "type": "bold"
+        }
+      ],
+      "key": "**Bold key**",
+      "key_col": 0,
+      "key_len": 15,
       "kind": "text"
     },
     {
@@ -1498,51 +1828,51 @@
       "type": "heading"
     },
     {
+      "level": 8,
+      "lnum": 41,
+      "text": "Label",
+      "type": "label"
+    },
+    {
+      "level": 8,
+      "lnum": 42,
+      "text": "Label with many more than three words in it",
+      "type": "label"
+    },
+    {
+      "level": 10,
+      "lnum": 43,
+      "text": "Indented label",
+      "type": "label"
+    },
+    {
+      "level": 9,
+      "lnum": 44,
+      "text": "Tabbed label",
+      "type": "label"
+    },
+    {
+      "level": 8,
+      "lnum": 45,
+      "text": "Fitness",
+      "type": "label"
+    },
+    {
       "level": 7,
-      "lnum": 20,
+      "lnum": 46,
       "text": "Bold heading",
       "type": "bold_heading"
     },
     {
       "level": 7,
-      "lnum": 22,
-      "text": "Spaced",
+      "lnum": 47,
+      "text": "Bold with *star* and `code`",
       "type": "bold_heading"
     },
     {
-      "level": 9,
-      "lnum": 31,
-      "text": "Tabbed label",
-      "type": "label"
-    },
-    {
-      "level": 10,
-      "lnum": 32,
-      "text": "Bulleted label",
-      "type": "label"
-    },
-    {
       "level": 8,
-      "lnum": 33,
-      "text": "Three word label",
-      "type": "label"
-    },
-    {
-      "level": 8,
-      "lnum": 35,
-      "text": "Done here",
-      "type": "label"
-    },
-    {
-      "level": 8,
-      "lnum": 36,
-      "text": "A longer label like this one",
-      "type": "label"
-    },
-    {
-      "level": 10,
-      "lnum": 37,
-      "text": "Also a longer bulleted label",
+      "lnum": 49,
+      "text": "Trailing spaces label",
       "type": "label"
     }
   ],

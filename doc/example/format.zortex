@@ -9,13 +9,13 @@ links, written the way you would write them anyway. [Structure] links here.
 # Headings and labels
 A label ends with a colon and holds the lines under it.
 
-Ingredients:
+Ingredients::
 - Flour, water, salt
 - A starter: see [Sourdough/#Starter]
 
 Key: a label can also carry text on its line.
 
-**A bold heading:**
+A bold heading:::
 - Sits between headings and labels in the outline
 
 ## A sub-heading

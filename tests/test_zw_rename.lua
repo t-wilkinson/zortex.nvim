@@ -24,7 +24,7 @@ T.test("rename a heading: links through it follow, prefixes that still match sta
 		"# 3 Home", -- 3
 		"## 3.1 Kitchen shelves @size(md)", -- 4
 		"- [ ] Buy brackets", -- 5
-		"Notes:", -- 6
+		"Notes::", -- 6
 		"- see [/#3.1 Kitchen shelves/:Notes]", -- 7
 		"## 3.2 Garden", -- 8
 	})
@@ -58,10 +58,10 @@ T.test("rename a heading: links through it follow, prefixes that still match sta
 end)
 
 T.test("rename a label; only headings, bold headings and labels can be renamed", function()
-	local p = note("rn-labels.zortex", { "@@Rn labels", "", "Reading list:", "- a book", "- [/:Reading list/-a book]" })
+	local p = note("rn-labels.zortex", { "@@Rn labels", "", "Reading list::", "- a book", "- [/:Reading list/-a book]" })
 	require("zortex.core.link_index").refresh(true)
 	local plan = assert(Rename.plan(p, 3, "Books"))
-	T.eq(plan.title.line, "Books:")
+	T.eq(plan.title.line, "Books::")
 	Rename.apply(plan)
 	T.eq(read(p)[5], "- [/:Books/-a book]")
 	local none, err = Rename.plan(p, 4, "x")

@@ -30,7 +30,7 @@ return {
 		"- [ ]",
 		"",
 		"   ",
-		"Label:",
+		"Label::",
 		"- Café ✓ unicode",
 	},
 }

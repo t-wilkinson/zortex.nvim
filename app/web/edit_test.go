@@ -232,7 +232,7 @@ func TestInboxOfflineQueueResend(t *testing.T) {
 func TestCalendarSourcesWhenWritable(t *testing.T) {
 	s, dir, ts := writableServer(t)
 	day := time.Now().Format("2006-01-02")
-	os.WriteFile(filepath.Join(dir, "calendar.zortex"), []byte("@@Calendar\n\n"+day+":\n- [ ] Buy oil\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "calendar.zortex"), []byte("@@Calendar\n\n"+day+"::\n- [ ] Buy oil\n"), 0o644)
 	s.Refresh()
 	raw := expect(t, ts, "/api/calendar?from="+day+"&to="+day, 200, `"writable":true`, `"src":"- [ ] Buy oil"`, `"rel":"calendar.zortex"`)
 	_ = raw
@@ -251,7 +251,7 @@ func TestMoveBlock(t *testing.T) {
 		"",            // 6
 		"    - rear",  // 7
 		"- [ ] Oil",   // 8
-		"Fitness:",    // 9
+		"Fitness::",   // 9
 		"  - Running", // 10
 		"# Later",     // 11
 		"```",         // 12
@@ -266,15 +266,15 @@ func TestMoveBlock(t *testing.T) {
 		err      string
 	}{
 		{name: "down with sub-items", from: 4, to: 9, lnum: 5,
-			want: []string{"@@Car", "", "# Parts", "- [ ] Oil", "- [ ] Pads", "    - front", "", "    - rear", "Fitness:", "  - Running", "# Later", "```", "code", "```"}},
+			want: []string{"@@Car", "", "# Parts", "- [ ] Oil", "- [ ] Pads", "    - front", "", "    - rear", "Fitness::", "  - Running", "# Later", "```", "code", "```"}},
 		{name: "up, before the first item", from: 8, to: 4, lnum: 4,
-			want: []string{"@@Car", "", "# Parts", "- [ ] Oil", "- [ ] Pads", "    - front", "", "    - rear", "Fitness:", "  - Running", "# Later", "```", "code", "```"}},
+			want: []string{"@@Car", "", "# Parts", "- [ ] Oil", "- [ ] Pads", "    - front", "", "    - rear", "Fitness::", "  - Running", "# Later", "```", "code", "```"}},
 		{name: "into a list nests it", from: 8, to: 10, lnum: 9,
-			want: []string{"@@Car", "", "# Parts", "- [ ] Pads", "    - front", "", "    - rear", "Fitness:", "  - [ ] Oil", "  - Running", "# Later", "```", "code", "```"}},
+			want: []string{"@@Car", "", "# Parts", "- [ ] Pads", "    - front", "", "    - rear", "Fitness::", "  - [ ] Oil", "  - Running", "# Later", "```", "code", "```"}},
 		{name: "child out to the top, after a heading", from: 10, to: 12, lnum: 11,
-			want: []string{"@@Car", "", "# Parts", "- [ ] Pads", "    - front", "", "    - rear", "- [ ] Oil", "Fitness:", "# Later", "- Running", "```", "code", "```"}},
+			want: []string{"@@Car", "", "# Parts", "- [ ] Pads", "    - front", "", "    - rear", "- [ ] Oil", "Fitness::", "# Later", "- Running", "```", "code", "```"}},
 		{name: "to the end", from: 4, to: 15, lnum: 11,
-			want: []string{"@@Car", "", "# Parts", "- [ ] Oil", "Fitness:", "  - Running", "# Later", "```", "code", "```", "- [ ] Pads", "    - front", "", "    - rear"}},
+			want: []string{"@@Car", "", "# Parts", "- [ ] Oil", "Fitness::", "  - Running", "# Later", "```", "code", "```", "- [ ] Pads", "    - front", "", "    - rear"}},
 		{name: "inside itself", from: 4, to: 6, err: "inside itself"},
 		{name: "a heading", from: 3, to: 9, err: "only list items"},
 		{name: "into code", from: 8, to: 13, err: "header, code"},

@@ -30,8 +30,8 @@ What to look at:
 - `calendar.zortex`: dated days with timed entries; entries link to tasks
   (`[P/#2.1/-Chapters 4-6]`), so the day planner and time tracking know
   what you're working on.
-- `sourdough.zortex`: headings, bold headings (`**Feeding:**`), labels
-  (`Mix:`), a table, a quote, and links back into the structure.
+- `sourdough.zortex`: headings, bold headings (`Feeding:::`), labels
+  (`Mix::`), a table, a quote, and links back into the structure.
 - `format.zortex`: a short tour of the format in one note: headings,
   labels, inline markup, math, code, the kinds of links, tasks and
   attributes.

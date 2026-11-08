@@ -56,7 +56,7 @@ end)
 
 T.test("toggling never turns structure into a task", function()
 	local tasks = require("zortex.services.tasks")
-	for _, line in ipairs({ "# 1 Example project @a(1.1)", "**Next steps:**", "@@Note" }) do
+	for _, line in ipairs({ "# 1 Example project @a(1.1)", "Next steps:::", "@@Note" }) do
 		local result, err = tasks.change_task_completion({ doc = {}, line = line, bufnr = 0, lnum = 1 }, nil)
 		T.eq(result, nil, line)
 		T.ok(err and err:find("not a task"), tostring(err))
@@ -108,7 +108,7 @@ T.test("the only task of a calendar block gets the block's size when ticked", fu
 
 	-- ticking it in a buffer writes the size
 	local path = vim.fn.tempname() .. ".zortex"
-	vim.fn.writefile({ "@@Day", "", "2026-10-16:", "16:00 Report", "  - [ ] Task 1 @id(aut01)", "17:00 Next" }, path)
+	vim.fn.writefile({ "@@Day", "", "2026-10-16::", "16:00 Report", "  - [ ] Task 1 @id(aut01)", "17:00 Next" }, path)
 	vim.cmd("edit! " .. vim.fn.fnameescape(path))
 	local bufnr = vim.api.nvim_get_current_buf()
 	vim.api.nvim_win_set_cursor(0, { 5, 0 })

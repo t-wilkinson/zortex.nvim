@@ -1,6 +1,6 @@
 -- services/calendar_entry - A calendar entry: an Item (core/item) under a date
 --
--- Entries are list items below a "YYYY-MM-DD:" heading in the calendar note:
+-- Entries are list items below a "YYYY-MM-DD:::" heading in the calendar note:
 -- "- [ ] task", "- note", "14:00 event", "16:00 - 17:00 event",
 -- "- 09:00 event". An entry is the line's Item (raw_text, marker, key, mark,
 -- completed, body, attributes, ...) plus:

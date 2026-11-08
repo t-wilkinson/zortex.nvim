@@ -29,7 +29,7 @@ local registry = entity.registry({
 	namespace = "A",
 	class = AreaModule.Area,
 	keep = function(node)
-		-- "Vision:" says what an area is for; it isn't an area itself
+		-- "Vision::" says what an area is for; it isn't an area itself
 		return AREA_TYPES[node.type] == true and not (node.type == "label" and (node.text or ""):lower() == "vision")
 	end,
 	sources = function()
@@ -198,7 +198,7 @@ end
 M.get_top_areas = M.top
 
 
---- The vision written above every area in the Areas note ("Vision:" before
+--- The vision written above every area in the Areas note ("Vision::" before
 --- the first area), or nil.
 function M.vision()
 	local root = M.roots()[1]

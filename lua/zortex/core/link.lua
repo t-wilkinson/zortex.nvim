@@ -310,7 +310,8 @@ end
 -- Line matching
 -- =============================================================================
 
--- Lua pattern(s) a line-search component matches (nil for articles)
+-- The Lua pattern a line-search component matches (nil for articles), or
+-- a list of them (a line matching any)
 local function search_pattern(component)
 	local text = escape_pattern(component.text)
 
@@ -319,13 +320,13 @@ local function search_pattern(component)
 	elseif component.type == "heading" then
 		return "^#+%s*" .. text .. ".*$"
 	elseif component.type == "label" then
-		-- "Label:", or a longer label written "*A longer label:*"
-		return "^%*?" .. text .. ".*:"
+		-- "Label::" (and "Label:: text")
+		return "^" .. text .. ".-::"
 	elseif component.type == "listitem" then
 		return "^%s*- " .. text .. "$"
 	elseif component.type == "highlight" then
-		-- *text*, **text**, ***text***, or a bold heading **text:**
-		return "%*%*?%*?" .. text .. ":?%*%*?%*?"
+		-- *text*, **text**, ***text***, or a bold heading "text:::"
+		return { "%*%*?%*?" .. text .. "%*", "^" .. text .. ":::%s*$" }
 	elseif component.type == "query" then
 		-- Plain substring search
 		return text
@@ -410,8 +411,11 @@ function M.search_lines(lines, component, start_line, end_line)
 	end
 
 	local case_sensitive = component.type == "query" and component.text:match("[A-Z]") ~= nil
+	local patterns = type(pattern) == "table" and pattern or { pattern }
 	if not case_sensitive then
-		pattern = pattern:lower()
+		for i, p in ipairs(patterns) do
+			patterns[i] = p:lower()
+		end
 	end
 
 	local out = {}
@@ -444,9 +448,12 @@ function M.search_lines(lines, component, start_line, end_line)
 	local first, last = start_line or 1, math.min(end_line or #lines, #lines)
 	local function try(lnum)
 		local line = case_sensitive and lines[lnum] or lower_line(lines, lnum)
-		local col = line:find(pattern)
-		if col then
-			out[#out + 1] = { lnum = lnum, col = col }
+		for _, p in ipairs(patterns) do
+			local col = line:find(p)
+			if col then
+				out[#out + 1] = { lnum = lnum, col = col }
+				return
+			end
 		end
 	end
 	local anchor = ANCHOR[component.type]

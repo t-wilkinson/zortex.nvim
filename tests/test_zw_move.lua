@@ -47,7 +47,7 @@ local AREAS = {
 	"- [ ] PWA", -- 14
 	"", -- 15
 	"# 7 Home", -- 16
-	"Chores:", -- 17
+	"Chores::", -- 17
 	"- dishes", -- 18
 }
 
@@ -65,7 +65,7 @@ T.test("a heading section goes last under its new parent, levels and blank lines
 	local at = move(p, 10, p, 16) -- "### 6.3: Homelab" under "# 7 Home"
 	local l = read(p)
 	T.eq(l[at], "## 6.3: Homelab")
-	T.eq(vim.list_slice(l, at - 3, #l), { "Chores:", "- dishes", "", "## 6.3: Homelab", "- [ ] rack" })
+	T.eq(vim.list_slice(l, at - 3, #l), { "Chores::", "- dishes", "", "## 6.3: Homelab", "- [ ] rack" })
 	-- the old place closes up: no doubled blank line
 	T.eq(vim.list_slice(l, 7, 12), { "## 6.3 Tools", "- [ ] sharpen", "", "### 6.3: Zortex", "- [ ] PWA", "" })
 	-- under the note itself: a top-level heading
@@ -78,18 +78,18 @@ end)
 
 T.test("under a label: its indent; under a line: nested one step deeper", function()
 	local p = note("move-areas.zortex", AREAS)
-	move(p, 8, p, 17) -- "- [ ] sharpen" under "Chores:"
+	move(p, 8, p, 17) -- "- [ ] sharpen" under "Chores::"
 	local l = read(p)
-	T.eq(vim.list_slice(l, #l - 2, #l), { "Chores:", "- dishes", "- [ ] sharpen" })
+	T.eq(vim.list_slice(l, #l - 2, #l), { "Chores::", "- dishes", "- [ ] sharpen" })
 	p = note("move-areas.zortex", AREAS)
 	move(p, 14, p, 18) -- "- [ ] PWA" under "- dishes"
 	l = read(p)
 	T.eq(vim.list_slice(l, #l - 1, #l), { "- dishes", "  - [ ] PWA" })
 	-- and back out: nested lines lose the indent they don't need
 	p = note("move-areas.zortex", AREAS)
-	move(p, 5, p, 16) -- under "# 7 Home": before its "Chores:" label
+	move(p, 5, p, 16) -- under "# 7 Home": before its "Chores::" label
 	l = read(p)
-	T.eq(vim.list_slice(l, 15, 17), { "# 7 Home", "- with a note", "Chores:" })
+	T.eq(vim.list_slice(l, 15, 17), { "# 7 Home", "- with a note", "Chores::" })
 end)
 
 T.test("refused: a heading under a label or a line, a section into itself", function()
@@ -125,7 +125,7 @@ T.test("to another note, loaded in a buffer or not; a selected range moves as is
 	-- lines 17-18 as selected: the label and its item, under "# Inbox"
 	a = note("move-areas.zortex", AREAS)
 	move(a, 17, b, 3, 18)
-	T.eq(vim.list_slice(read(b), 3, 6), { "# Inbox", "- first", "Chores:", "- dishes" })
+	T.eq(vim.list_slice(read(b), 3, 6), { "# Inbox", "- first", "Chores::", "- dishes" })
 end)
 
 T.test(":ZortexMove picks the place in the structural search", function()

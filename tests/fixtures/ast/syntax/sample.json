@@ -163,8 +163,8 @@
       "text": "Heading one"
     },
     {
-      "content_col": 2,
-      "content_end": 14,
+      "content_col": 0,
+      "content_end": 12,
       "indent": 0,
       "inline": [],
       "kind": "bold_heading",
@@ -174,6 +174,7 @@
     },
     {
       "content_col": 0,
+      "content_end": 5,
       "indent": 0,
       "inline": [],
       "kind": "label",
@@ -183,6 +184,7 @@
     },
     {
       "content_col": 2,
+      "content_end": 16,
       "indent": 2,
       "inline": [],
       "kind": "label",
@@ -196,14 +198,14 @@
       "inline": [],
       "item": {
         "content_col": 2,
+        "key": "Bulleted label",
+        "key_col": 2,
+        "label": true,
         "marker": "-",
         "marker_col": 0,
         "marker_type": "bullet"
       },
-      "kind": "label",
-      "level": 8,
-      "section": true,
-      "text": "Bulleted label"
+      "kind": "item"
     },
     {
       "content_col": 0,
@@ -243,6 +245,7 @@
         "content_col": 11,
         "key": "KR1",
         "key_col": 2,
+        "label": true,
         "mark": " ",
         "mark_col": 7,
         "marker": "-",
@@ -259,6 +262,7 @@
         "content_col": 11,
         "key": "KR2",
         "key_col": 2,
+        "label": true,
         "mark": "x",
         "mark_col": 7,
         "marker": "-",
@@ -700,12 +704,6 @@
       "level": 10,
       "lnum": 12,
       "text": "Indented label",
-      "type": "label"
-    },
-    {
-      "level": 8,
-      "lnum": 13,
-      "text": "Bulleted label",
       "type": "label"
     },
     {

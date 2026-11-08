@@ -15,7 +15,7 @@ import (
 
 // Areas on the web, read the way the plugin reads them
 // (lua/zortex/services/areas): the headings, bold headings and labels of
-// areas.zortex, nested ("Vision:" is not an area, it says what one is for).
+// areas.zortex, nested ("Vision::" is not an area, it says what one is for).
 //
 //	GET /areas   every area: its vision, its area XP (Mastery: own, with its
 //	             sub-areas', its level), the objectives that name it now and
@@ -82,10 +82,10 @@ func (s *Server) areasDoc() *notes.Document {
 }
 
 var (
-	visionRe    = regexp.MustCompile(`^\s*[Vv]ision:\s*(.*?)\s*$`)
+	visionRe    = regexp.MustCompile(`^\s*[Vv]ision(?:::?\s+(.*?)|::)\s*$`)
 	areaNumRe   = regexp.MustCompile(`^(\d[\d.]*)(?:\s|$)`)
 	listMarkRe  = regexp.MustCompile(`^\s*[-*]\s+`)
-	labelLineRe = regexp.MustCompile(`^\S.*:\s*$`)
+	labelLineRe = regexp.MustCompile(`^\S.*::\s*$`)
 )
 
 func isAreaNode(n *notes.Node) bool {
@@ -98,8 +98,9 @@ func isAreaNode(n *notes.Node) bool {
 	return false
 }
 
-// visionIn: the text of a "Vision:" line in lines[from..to] (1-based), or
-// on the lines under it up to a blank line, a heading or another label
+// visionIn: the text of a "Vision:: …" (or "Vision: …") line in
+// lines[from..to] (1-based), or of the lines under a "Vision::" label up to
+// a blank line, a heading or another label
 // (services/areas/area.lua vision()).
 func visionIn(lines []string, from, to int) string {
 	for l := from; l <= to && l <= len(lines); l++ {

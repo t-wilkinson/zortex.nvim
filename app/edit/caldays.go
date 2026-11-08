@@ -312,7 +312,7 @@ type DayInsert struct {
 }
 
 // InsertDay: the lines for a new day (its label, then body) and where they
-// go, as Neovim's calendar_days.insert_day. label "" is "**YYYY-MM-DD:**".
+// go, as Neovim's calendar_days.insert_day. label "" is "YYYY-MM-DD:::".
 func InsertDay(lines []string, date string, body []string, group bool, label string) DayInsert {
 	at, monthLine := PlaceDay(lines, date, group)
 	var add []string

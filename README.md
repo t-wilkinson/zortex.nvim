@@ -158,8 +158,9 @@ subfolders work too. A note starts with a header:
 @size(lg)           header attribute
 ```
 
-The body has headings (`#` … `######`), bold headings (`**Next steps:**`),
-labels (`Ideas:`), list items and tasks (`- [ ] task @size(sm)`,
+The body has headings (`#` … `######`), bold headings (`Next steps:::`,
+shown as **Next steps:**), labels (`Ideas::`, shown as `Ideas::`), list
+items and tasks (`- [ ] task @size(sm)`,
 `14:00 event`), attributes (`@p1`, `@due(2026-10-20)`, `@area(4.1)`), links
 (`[P/#1.4 - zortex]`, `[A/#1.2/:Fitness]`, `[/#Local heading]`, or shown
 by its text: `[the plugin](P/#1.4 - zortex)`) and the
@@ -168,6 +169,12 @@ the complete reference; a test checks its examples against the parser.
 Attributes are written in full in these docs; most have a short form that
 means the same: `@a(4.1)` for `@area(4.1)`, `@n(15)` for `@notify(15)`,
 `@sm` for `@size(sm)`, `@90m` for `@dur(90m)`.
+
+Notes written before labels took two colons (`Label::`, `Bold heading:::`)
+convert once with `nvim -l contrib/migrate_labels.lua --dry-run ~/zortex`
+(drop `--dry-run` to write; `--words N` if you had raised
+`syntax.label_max_words`), or from Neovim with
+`:luafile contrib/migrate_labels.lua` and `:ZortexMigrateLabels`.
 
 Special notes:
 
@@ -182,10 +189,10 @@ Special notes:
   like the one `:ZortexSeason start` adds (`# 3M-2026-Q4 Season 10
   Juniper`). Their `- KRn:` items are key results, and project links on a
   KR drive its progress.
-- **`calendar.zortex`**: a day is `**YYYY-MM-DD:**` (new days get this
-  bold label; a plain `YYYY-MM-DD:` reads the same) with its entries under
+- **`calendar.zortex`**: a day is `YYYY-MM-DD:::` (new days get this
+  bold label; a plain `YYYY-MM-DD::` reads the same) with its entries under
   it (`- [ ] task`, `14:00 event`, `16:00 [ ] timed task`, `- note`). Start
-  the day with `Outcomes:` and the two or three things that would make it
+  the day with `Outcomes::` and the two or three things that would make it
   a success. Above the first day, `# Templates` holds a new day's lines by
   name (`## Daily`, `## Weekday`, `## Sunday`, …) and `# Repeating` the
   entries that repeat (`- Sam @on(03-14) @born(1990)`, `- [ ] Weekly review
@@ -240,7 +247,7 @@ Special notes:
   persistent link index keeps this fast.
 - **Highlighting and folding** for the whole format, with concealed markers;
   `@fold` keeps a section folded. `J` joins lines the way they read: the
-  joined line's `#`, `-` (and `[ ]`), `1.` or `> ` go (`First line:` + `- Second line` is `First line: Second line`)
+  joined line's `#`, `-` (and `[ ]`), `1.` or `> ` go (`First line::` + `- Second line` is `First line:: Second line`)
   (`features.join`; `gJ` joins as written).
 - **Projects**: picker with progress, points, due dates, areas and key
   results.

@@ -18,7 +18,7 @@ func TestPendingXPEstimate(t *testing.T) {
 	os.WriteFile(proj, []byte(strings.Replace(string(raw), "- [ ] Improve website @p1 @size(xl)", "- [ ] Improve website @p1 @size(xl) @id(imp01)", 1)), 0o644)
 	day := time.Now().Format("2006-01-02")
 	copyLine := "- [ ] [P/#1 Programming/#1.4 - zortex/-Improve website] @id(imp01)"
-	os.WriteFile(filepath.Join(dir, "calendar.zortex"), []byte("@@Calendar\n\n"+day+":\n"+copyLine+"\n- [ ] Buy oil @sm\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "calendar.zortex"), []byte("@@Calendar\n\n"+day+"::\n"+copyLine+"\n- [ ] Buy oil @sm\n"), 0o644)
 	s.Refresh()
 
 	xp := func() map[string]any {

@@ -196,6 +196,12 @@ local function blank(line)
 	return not line:match("%S")
 end
 
+-- A line the next line shouldn't join: "Label::", or a short "Text:"
+local function ends_label(line)
+	local d = require("zortex.core.syntax").classify(line)
+	return d.kind == "label" or (d.key ~= nil and line:match(":%s*$") ~= nil)
+end
+
 local function is_rule(line)
 	local t = line:match("^ ? ? ?(.-)%s*$")
 	for _, c in ipairs({ "%-", "%*", "_" }) do
@@ -415,8 +421,9 @@ function M.join(lines, code)
 				and not last:match("^%s*#+%s")
 				and not last:match("^%s*|")
 				and not is_rule(last)
-				-- a label (three words at most): the line under it is its content
-				and require("zortex.core.syntax").classify(last).kind ~= "label"
+				-- a label, or a short "Text:" line read as one: the line under
+				-- it is its content
+				and not ends_label(last)
 		end
 	end
 	return out, out_code

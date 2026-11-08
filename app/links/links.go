@@ -287,6 +287,8 @@ func headingMatch(line, text string) bool {
 	return false
 }
 
+// highlightCol: the column of *text*, **text** or ***text*** in line
+// (%*%*?%*?text%*), or 1 for a bold heading "text:::" (^text:::%s*$), else 0.
 func highlightCol(line, text string) int {
 	for p := 0; p < len(line); p++ {
 		if line[p] != '*' {
@@ -297,13 +299,13 @@ func highlightCol(line, text string) int {
 				continue
 			}
 			rest := line[p+s:]
-			if strings.HasPrefix(rest, text) {
-				after := strings.TrimPrefix(rest[len(text):], ":") // bold heading "**text:**"
-				if strings.HasPrefix(after, "*") {
-					return p + 1
-				}
+			if strings.HasPrefix(rest, text) && strings.HasPrefix(rest[len(text):], "*") {
+				return p + 1
 			}
 		}
+	}
+	if rest, ok := strings.CutPrefix(line, text); ok && strings.HasPrefix(rest, ":::") && syntax.Trim(rest[3:]) == "" {
+		return 1
 	}
 	return 0
 }
@@ -419,9 +421,8 @@ func SearchLines(lines []string, c Component, start, end int) []Match {
 				col = 1
 			}
 		case "label":
-			// "Label:", or a longer label written "*A longer label:*"
-			l := strings.TrimPrefix(line, "*")
-			if strings.HasPrefix(l, text) && strings.IndexByte(l[len(text):], ':') >= 0 {
+			// "Label::" (and "Label:: text"): ^text.-::
+			if strings.HasPrefix(line, text) && strings.Contains(line[len(text):], "::") {
 				col = 1
 			}
 		case "highlight":

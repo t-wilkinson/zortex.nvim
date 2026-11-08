@@ -27,7 +27,7 @@ M.groups = {
 			"- [ ] Move @lg @p1",
 			"  - [ ] Pack @xl",
 			"  - [ ] Clean @md @p3",
-			"  Notes:",
+			"  Notes::",
 			"    - [ ] Keys",
 			"- [ ] Garden",
 			"  - [ ] Weed @size(sm)",

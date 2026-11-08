@@ -18,8 +18,8 @@ this page ever disagree, the test fails.
 
 # 1 Programming @p1
 ## 1.4 - zortex @area(4.1)
-**Next steps:**
-Ideas:
+Next steps:::
+Ideas::
 - [ ] Write the server guide @size(sm) @due(2026-10-20)
 - [x] Improve website @done(2026-10-12)
 ```
@@ -43,8 +43,8 @@ level, and a section ends at the next section of the same or a higher level
 |---|---|
 | article (the header) | 0 |
 | `#` … `######` heading | 1–6 |
-| `**Bold heading:**` | 7 |
-| `Label:` | 8 + indentation, so indented labels nest |
+| `Bold heading:::` | 7 |
+| `Label::` | 8 + indentation, so indented labels nest |
 
 Everything else (list items, text, blocks) belongs to the section above it.
 Nothing inside a code or math block is structure.
@@ -59,18 +59,20 @@ Nothing inside a code or math block is structure.
 | `@size(lg)` | `tag` | In the header: an attribute of the note |
 | `# Heading one @p1 @a(4.1)` | `heading` | `#` to `######` and a space |
 | `#NotHeading` | `text` | the space is required |
-| `**Bold heading:**` | `bold_heading` | the colon is inside the closing `**`; only spaces may follow |
-| `**Not a heading**` | `text` | no colon: just bold text |
-| `**Bold then colon**:` | `text` | the colon outside the stars: bold text, not a label |
-| `Label:` | `label` | text ending in `:` |
-| `Three word label:` | `label` | up to three words (`@attributes` don't count) |
-| `A line of four words:` | `text` | longer, it is a sentence ending in a colon, not a label |
-| `*A longer label like this one:*` | `label` | a longer label: between stars, colon inside |
-| `  Indented label:` | `label` | indentation nests labels |
-| `- Bulleted label:` | `label` | a bullet item ending in `:` is a label too |
-| `Label: text after colon` | `text` | nothing may follow the colon |
-| `Not a label: one. Two: three` | `text` | no sentence (`. `) in a label |
-| `Trailing spaces label:   ` | `text` | no trailing spaces after a label's colon |
+| `Bold heading:::` | `bold_heading` | text and three colons, unindented: shown as **Bold heading:** |
+| `  Indented bold:::` | `text` | a bold heading is never indented |
+| `**Bold heading:**` | `text` | bold text; a bold heading is `Bold heading:::` |
+| `Label::` | `label` | text and two colons: shown as `Label:` |
+| `Label with many more than three words in it::` | `label` | any length |
+| `  Indented label::` | `label` | indentation nests labels |
+| `Fitness @p1 @a(4.1)::` | `label` | `@attributes` go before the colons |
+| `Trailing spaces label::   ` | `label` | spaces may follow the colons |
+| `Too many colons::::` | `text` | two colons make a label, three a bold heading; more are text |
+| `Space before colons ::` | `text` | no space before the colons |
+| `Label:: text after` | `text` | text after: a line starting with a label (below), not a section |
+| `- Bulleted label::` | `item` | an item whose key is a label (below), not a section |
+| `Short key:` | `text` | one colon is never a section; a short key reads as a label (below) |
+| `Not a label: one. Two: three` | `text` | |
 | `- plain bullet with [^1]` | `item` | a bullet: `-` and a space |
 | `+ not a bullet` | `text` | bullets are `-` only |
 | `*not a bullet*` | `text` | italic text, not a bullet |
@@ -103,18 +105,24 @@ Nothing inside a code or math block is structure.
 | `[^1]. not a footnote: no colon, no space` | `text` | anything else after the `]` makes it text |
 | `Key: value text with @home and an email me@example.com.` | `text` | a paragraph line |
 
-**What counts as a label.** A line that passes the rules above (ends in
-`:`, no `. `, nothing after the colon) is a label when it has at most
-`syntax.label_max_words` words (default 3; `@attributes` don't count).
-Neovim writes the number to `.z/syntax.json` so the web app reads labels
-the same way. For anything else, `syntax.is_label = function(text, line)`
-(`text`: before the colon, without the bullet and `@attributes`; `line`:
-the whole line) decides in Neovim alone: return `true` or `false`, or `nil`
-for the word count. A regex is a Lua pattern inside it
-(`return text:match("^%u[%w ]+$") ~= nil`). It
-runs only on candidate lines, so it costs about what the word count does;
-the web app can't run it, so it keeps the word count there. Starred labels
-(`*A longer label like this one:*`) are labels whatever their length.
+**Labels in a line.** Only a whole line `Label::` is a section, and only
+those are found by `:Label` links and structural search. A line can also
+*start* with a label, which is shown the same way (`Label:`) but is not a
+section:
+
+| Line | Its label |
+|---|---|
+| `Label:: text`, `- Label:: text`, `- Label::` | always: two colons say so |
+| `Key: text`, `Key:`, `- Key: text`, `- Key:` | when the key is short enough: at most `syntax.label_max_words` words (default 3; `@attributes` don't count), or it matches `syntax.label_pattern` |
+
+A one-colon key must start with a letter or digit, have no sentence
+(`. `) and not end in `*` (`**Bold**: text` is bold text). `label_pattern`
+is a [Lua pattern](https://www.lua.org/manual/5.1/manual.html#5.4.1)
+matched against the key (`"^%u%u+$"`: `TODO: …`, `NB: …`); it and the word
+count both say yes on their own, and `label_max_words = 0` turns the count
+off. Neovim writes both to `.z/syntax.json`, and the web app translates
+the pattern (no `%b`, `%f` or `%1`), so both read keys the same. Key
+results (`- KR1: [ ] …`) keep their key either way.
 
 ## Inline (checked)
 
@@ -389,7 +397,7 @@ their own tags: not the resource's, nor those of the sections above it.
 # Rust @rust
 - [The Rust Book](https://doc.rust-lang.org/book) @status(reading)
   - chapters 1-8 first
-  Ownership:
+  Ownership::
     - moves vs borrows
   - Full notes: [Rust book notes]
 
@@ -433,7 +441,7 @@ search, and `gx` on the label opens the index in the web app
 (`:ZortexLinkOpenWeb`, `<leader>zgX`, opens any line's link there).
 
 ```zortex
-Topics:
+Topics::
 - AI @[R/rl, ai-model]
   - Reinforcement learning @[R/rl]
   - Models @[R/rl ai-model]
@@ -447,9 +455,9 @@ Topics:
 | Note | Name | What it holds |
 |---|---|---|
 | `projects.zortex` | `@@Projects` / `@@P` | headings are projects and sub-projects; checkbox items are their tasks. A heading with no task of its own and no project attribute only groups the projects under it, unless it is linked ([Planning](Planning.md)). Any note tagged `@P` is a project too |
-| `areas.zortex` | `@@Areas` / `@@A` | headings and labels are areas (`# 1 Personal`, `## 1.2 Health`, `Fitness:`) |
+| `areas.zortex` | `@@Areas` / `@@A` | headings and labels are areas (`# 1 Personal`, `## 1.2 Health`, `Fitness::`) |
 | `okr.zortex` | `@@Objectives` / `@@OKR` | headings `## SPAN Title` and deeper are objectives (`## 3M-2026-Q4 Ship the release`: the span sets its window, see [Planning](Planning.md#the-plan)); top-level headings group them, like the season's (`# 3M-2026-Q4 Season 10 Juniper`, added by `:ZortexSeason start`); `- KRn: [ ] …` items are key results; project links on a KR drive its progress |
-| `calendar.zortex` | `@@Calendar` | days with entries under them: `**YYYY-MM-DD:**` (a bold heading, what new days get, so an `Outcomes:` label nests under it) or a plain `YYYY-MM-DD:` label; entries `- [ ] task`, `14:00 event`, `16:00 - 17:00 event`, `- note`. The items right under `Outcomes:` (to the first blank line) are the day's outcomes. A day runs to the next day or heading; days are grouped under a heading per month (`# October 2026`, or `## October 2026` under `# Days`; [Months](Planning.md#months)). A timed line with an end inside a running block (`12:00 Break @15m`) is a break, and the block resumes after it ([Breaks](Planning.md#the-day-on-the-calendar)) |
+| `calendar.zortex` | `@@Calendar` | days with entries under them: `YYYY-MM-DD:::` (a bold heading, what new days get, so an `Outcomes::` label nests under it) or a plain `YYYY-MM-DD::` label; entries `- [ ] task`, `14:00 event`, `16:00 - 17:00 event`, `- note`. The items right under `Outcomes::` (to the first blank line) are the day's outcomes. A day runs to the next day or heading; days are grouped under a heading per month (`# October 2026`, or `## October 2026` under `# Days`; [Months](Planning.md#months)). A timed line with an end inside a running block (`12:00 Break @15m`) is a break, and the block resumes after it ([Breaks](Planning.md#the-day-on-the-calendar)) |
 | `structure.zortex` | `@@Structure` | links to your notes; notes nothing here links to are listed as unlinked. A note tagged `@Structure` adds all its links; a note with a top-level `# Structure` heading adds the links in that section: its own sub-notes, so a hub note can own its part of the tree |
 | `inbox.zortex` | `@@Inbox` | tasks and notes added from the web app |
 | `z/feeds/<name>.zortex` | `@@<title>`, tagged `@CalendarFeed` | written by the server from another calendar's iCal link ([Other calendars](Server.md#6-other-calendars)): days as in `calendar.zortex`, one line per event (`16:00 - 17:00 Soccer · Field 3 @notify(no)`, `- Camping` for an all-day one). The calendar shows them read-only; edits are replaced on the next change |

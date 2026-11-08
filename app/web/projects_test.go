@@ -145,7 +145,7 @@ func TestOKRSeasonTierAndStuckKRs(t *testing.T) {
 func TestKeyResultsAndFocus(t *testing.T) {
 	s, dir, _ := newTestServer(t, "")
 	week := isoWeek(time.Now())
-	os.WriteFile(filepath.Join(dir, "reviews.zortex"), []byte("@@Reviews\n\n# "+week+"\nFocus:\n- [P/#1.4 - esp32]\nWins:\n- [P/#Habits]\n\n# 2020-W01\nFocus:\n- [P/#Habits]\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "reviews.zortex"), []byte("@@Reviews\n\n# "+week+"\nFocus::\n- [P/#1.4 - esp32]\nWins::\n- [P/#Habits]\n\n# 2020-W01\nFocus::\n- [P/#Habits]\n"), 0o644)
 	s.Refresh()
 	all := s.allProjects()
 	krs := s.keyResults(all, time.Now())
@@ -180,10 +180,10 @@ func TestProjectPages(t *testing.T) {
 	os.WriteFile(proj, []byte(strings.Replace(string(raw), "- [ ] Compile code @size(sm)", "- [ ] Compile code @size(sm) @id(esp01)", 1)), 0o644)
 	copyLine := "- [>] [P/#1 Programming/#1.4 - esp32/-Compile code] @id(esp01)"
 	os.WriteFile(filepath.Join(dir, "calendar.zortex"), []byte("@@Calendar\n\n"+
-		day(-2)+":\n"+copyLine+"\n\n"+
-		day(-1)+":\n"+copyLine+"\n10:00 Solder headers [P/#1.4 - esp32]\n\n"+
-		day(0)+":\n- [ ] [P/#1 Programming/#1.4 - esp32/-Compile code] @id(esp01)\n"), 0o644)
-	os.WriteFile(filepath.Join(dir, "reviews.zortex"), []byte("@@Reviews\n\n# "+isoWeek(today)+"\nFocus:\n- [P/#1.4 - esp32]\n"), 0o644)
+		day(-2)+"::\n"+copyLine+"\n\n"+
+		day(-1)+"::\n"+copyLine+"\n10:00 Solder headers [P/#1.4 - esp32]\n\n"+
+		day(0)+"::\n- [ ] [P/#1 Programming/#1.4 - esp32/-Compile code] @id(esp01)\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "reviews.zortex"), []byte("@@Reviews\n\n# "+isoWeek(today)+"\nFocus::\n- [P/#1.4 - esp32]\n"), 0o644)
 	s.Refresh()
 
 	// the list: focus first, then the rest with open work
@@ -208,7 +208,7 @@ func TestProjectPages(t *testing.T) {
 	postJSON(t, ts.URL, "/api/project/log", map[string]any{"rel": "projects.zortex", "lnum": esp.Lnum, "expect": heading, "text": "  I2C   needs pull-ups "})
 	lines := readLines(t, proj)
 	at := esp.Lnum
-	want := []string{heading, "- [ ] Compile code @size(sm) @id(esp01)", "", "Log:", "- " + day(0) + ": I2C needs pull-ups", "- " + day(0) + ": Flashed the bootloader", ""}
+	want := []string{heading, "- [ ] Compile code @size(sm) @id(esp01)", "", "Log::", "- " + day(0) + ": I2C needs pull-ups", "- " + day(0) + ": Flashed the bootloader", ""}
 	for i, w := range want {
 		if lines[at-1+i] != w {
 			t.Fatalf("line %d: %q, want %q\n%s", at+i, lines[at-1+i], w, strings.Join(lines, "\n"))
@@ -243,8 +243,8 @@ func TestObjectivesAndReviewPages(t *testing.T) {
 func TestReviewPageShowsTheWeeksNotes(t *testing.T) {
 	s, dir, ts := newTestServer(t, "")
 	note := "@@Reviews\n\n# 2026-W03\nOnly W03\n\n" +
-		"# 2026-W02\nEnergy: low midweek\nFocus:\n- [P/#1.4 - zortex]\nWins:\n- Shipped the parser\nLessons:\n" +
-		"\n## 2026-01-06\nDone:\n- A day line\n"
+		"# 2026-W02\nEnergy: low midweek\nFocus::\n- [P/#1.4 - zortex]\nWins::\n- Shipped the parser\nLessons::\n" +
+		"\n## 2026-01-06\nDone::\n- A day line\n"
 	if err := os.WriteFile(filepath.Join(dir, "reviews.zortex"), []byte(note), 0o644); err != nil {
 		t.Fatal(err)
 	}

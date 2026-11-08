@@ -113,12 +113,15 @@ time, key, key_col, mark, mark_col, content_col }`. `content_col` is where
   (`[ ]`, `[x]`) and `[^…]` are not links; `$5 and $6` is not math.
 - `span_at(line, col)`, `links(line)`, `walk_spans` for link lookups.
 - `parse_header`, `strip_attributes`, `section_text`.
-- `configure({ label_max_words, is_label })` sets the label rule
-  (`Config.syntax`). `core/syntax_config.lua` calls it at setup and writes
-  the word count to `.z/syntax.json` when it isn't the default (or the file
+- `configure({ label_max_words, label_pattern })` sets the rule for
+  one-colon label keys (`Key: text`, `soft_label`; `Config.syntax`).
+  Sections never depend on it: a label is a whole line `Label::`, a bold
+  heading `Title:::`. `core/syntax_config.lua` calls it at setup and writes
+  both to `.z/syntax.json` when they aren't the default (or the file
   exists), so `zortex serve` (`app/web/syntaxfile.go`,
-  `syntax.SetMaxLabelWords`) reads labels the same way and re-reads every
-  note when it changes. `is_label` is Neovim's alone.
+  `syntax.SetLabelRule`, which translates the Lua pattern to RE2 in
+  `app/syntax/luapattern.go`) reads keys the same way and re-reads every
+  note when it changes.
 
 **Conformance fixtures.** `tests/fixtures/ast/*.json` hold the parser's
 output for every fixture note plus `tests/fixtures/syntax/sample.zortex`
@@ -528,12 +531,12 @@ heading is an entity; headings matching `3M-2026-Q1 Title` are objectives
 ### Calendar — `stores/calendar.lua`
 
 - The file is the source of truth. Date headings are bold labels
-  `**YYYY-MM-DD:**` (what new days get, `datetime.date_heading_line`) or
-  top-level labels `YYYY-MM-DD:` (`datetime.date_heading` reads both, as
+  `YYYY-MM-DD:::` (what new days get, `datetime.date_heading_line`) or
+  top-level labels `YYYY-MM-DD::` (`datetime.date_heading` reads both, as
   `app/edit.DateHeading` does in Go); entries are the list items under them
   (`parse_lines`, each entry with its `lnum`), read from the current
   snapshot of `calendar.zortex` and re-parsed whenever the file or its
-  buffer changes. The items right under an `Outcomes:` label, to the first
+  buffer changes. The items right under an `Outcomes::` label, to the first
   blank line, are the day's outcomes (`entry.outcome`, `outcomes(date)`).
 - **Edits are line edits** through `core/workspace`. `add_entry` inserts under
   the date's last entry (formatted like its siblings, `- ` for untimed
@@ -615,7 +618,7 @@ days (`## 2026-10-21`) inside, newest first. `ensure_week` / `ensure_day`
 make an entry from `review.week` / `review.day` when it is missing;
 `review_week(today)` is the week a weekly review plans (the next one from
 `review.next_week_from`). The week's **focus** is the projects linked under
-its `Focus:` label (`focus(date)`, falling back to the latest earlier week;
+its `Focus::` label (`focus(date)`, falling back to the latest earlier week;
 `toggle_focus(week, project)`). `ui/review` opens the entry with the
 findings beside it, and `services/planner` ranks the focus first. The
 server reads the same label (`app/web/projects.go`).
@@ -888,8 +891,8 @@ focuses it. Footnotes preview their definition.
 
 **Day planner** (`ui/planner.lua` + `services/planner.lua`, `:ZortexPlan
 [date]`, `<prefix>m`): opens `calendar.zortex` at the day, creating it from
-the calendar's `# Templates` (`services/calendar_rules`: `Monday:` …
-`Sunday:` over `Weekday:` / `Weekend:` over `Daily:`), and a `zortex://plan` window beside it with ranked candidates in
+the calendar's `# Templates` (`services/calendar_rules`: `Monday::` …
+`Sunday::` over `Weekday::` / `Weekend::` over `Daily::`), and a `zortex://plan` window beside it with ranked candidates in
 four sections: **Projects** (a `## <project link>` heading per project, its
 ranked tasks under it; `planner.group`), **Key results**, **Tasks** (to-dos:
 the TODO project, the Projects note's own tasks, open calendar tasks of
@@ -1052,7 +1055,7 @@ to date; `app/links` and `app/search` must reproduce them.
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `test_core`              | header, levels, tree, notes index                                                                                                                                                |
 | `test_syntax`            | line kinds, items, inline spans, link lookups, Items for tasks/KRs/calendar, AST conformance fixtures, highlights, folds, the grammar loading with only the Lua standard library |
-| `test_syntax_config`     | `syntax.label_max_words` and `is_label`; `.z/syntax.json` written only when it says something |
+| `test_syntax_config`     | `syntax.label_max_words` and `label_pattern` for `Key:` lines; `.z/syntax.json` written only when it says something |
 | `test_calendar_days`     | `caldays.json`, month headings, grouping, new days in their months (store and carry), other months folded |
 | `test_calendar_breaks`   | `calendar.json` resumes, flat and nested breaks, events and done tasks, the now line, the "Back to" notification |
 | `test_links`             | resolution rules, canonical results, archive handling, `[@P/…]`, round-trips                                                                                                     |

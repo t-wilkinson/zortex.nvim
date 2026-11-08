@@ -13,7 +13,7 @@ import (
 func TestReviewsNoteEntries(t *testing.T) {
 	lines := newReviewsNote()
 	lines, at := ensureWeek(lines, "2026-W43")
-	if lines[at-1] != "# 2026-W43" || lines[at] != "Focus:" {
+	if lines[at-1] != "# 2026-W43" || lines[at] != "Focus::" {
 		t.Fatalf("week from the note's template:\n%s", strings.Join(lines, "\n"))
 	}
 	// newest first, before the templates when they come after every week
@@ -23,7 +23,7 @@ func TestReviewsNoteEntries(t *testing.T) {
 		t.Fatalf("order %v\n%s", order, strings.Join(lines, "\n"))
 	}
 	lines, day := ensureDay(lines, "2026-10-21", "2026-W43")
-	if lines[day-1] != "## 2026-10-21" || lines[day] != "Done:" {
+	if lines[day-1] != "## 2026-10-21" || lines[day] != "Done::" {
 		t.Fatalf("day:\n%s", strings.Join(lines, "\n"))
 	}
 	from, to, ok := entryRange(lines, "2026-W43", "2026-10-21")
@@ -35,13 +35,13 @@ func TestReviewsNoteEntries(t *testing.T) {
 	}
 	lines, at = addUnderLabel(lines, from, to, "Done", "Lapped the valves")
 	lines, _ = addUnderLabel(lines, from, to+1, "Done", "Torqued the head")
-	if lines[at-1] != "- Lapped the valves" || lines[at-2] != "Done:" || lines[at] != "- Torqued the head" || lines[at+1] != "Blocked:" {
+	if lines[at-1] != "- Lapped the valves" || lines[at-2] != "Done::" || lines[at] != "- Torqued the head" || lines[at+1] != "Blocked::" {
 		t.Fatalf("under Done:\n%s", strings.Join(lines, "\n"))
 	}
 	// a label the entry doesn't have is added
 	from, to, _ = entryRange(lines, "2026-W43", "")
 	lines, at = addUnderLabel(lines, from, to, "Energy", "low midweek")
-	if lines[at-2] != "Energy:" || lines[at-1] != "- low midweek" {
+	if lines[at-2] != "Energy::" || lines[at-1] != "- low midweek" {
 		t.Fatalf("new label:\n%s", strings.Join(lines, "\n"))
 	}
 	// the Focus label and its lines
@@ -106,7 +106,7 @@ func TestDailyReviewOnTheWeb(t *testing.T) {
 	areas = append(areas[:3], append([]string{"# 0 General", "## 0.1 Unassigned"}, areas[3:]...)...)
 	write("areas.zortex", strings.Join(areas, "\n")+"\n")
 	write("inbox.zortex", "@@Inbox\n\n- Call the plumber @project(1.4 - esp32)\n    - about the leak\n- Read [./doc-1]\n")
-	write("calendar.zortex", "@@Calendar\n\n**2026-10-08:**\n14:00 [ ] Write the notes\n- [x] Water the plants @done(2026-10-08)\n- [x] Fix the gate @a(1.1) @done(2026-10-08)\n")
+	write("calendar.zortex", "@@Calendar\n\n2026-10-08:::\n14:00 [ ] Write the notes\n- [x] Water the plants @done(2026-10-08)\n- [x] Fix the gate @a(1.1) @done(2026-10-08)\n")
 	s.Refresh()
 
 	page := expect(t, ts, "/review?day=2026-10-08", 200, `<h1>2026-10-08</h1>`, `Done without an area`, `Water the plants`, `Habits`,
@@ -150,7 +150,7 @@ func TestDailyReviewOnTheWeb(t *testing.T) {
 	}
 	cal = readLines(t, filepath.Join(dir, "calendar.zortex"))
 	joined := strings.Join(cal, "\n")
-	if !strings.HasPrefix(cal[3], "14:00 [>] Write the notes @id(") || !strings.Contains(joined, "**2026-10-09:**\n14:00 [ ] Write the notes @id(") {
+	if !strings.HasPrefix(cal[3], "14:00 [>] Write the notes @id(") || !strings.Contains(joined, "2026-10-09:::\n14:00 [ ] Write the notes @id(") {
 		t.Fatalf("calendar:\n%s", joined)
 	}
 	// a stale line is refused
@@ -195,7 +195,7 @@ func TestDailyReviewOnTheWeb(t *testing.T) {
 		t.Fatalf("note: %d %v", code, out)
 	}
 	rv := strings.Join(readLines(t, filepath.Join(dir, "reviews.zortex")), "\n")
-	if !strings.Contains(rv, "# 2026-W41\nFocus:") || !strings.Contains(rv, "## 2026-10-08\nDone:\n- Lapped the valves\nBlocked:") {
+	if !strings.Contains(rv, "# 2026-W41\nFocus::") || !strings.Contains(rv, "## 2026-10-08\nDone::\n- Lapped the valves\nBlocked::") {
 		t.Fatalf("reviews:\n%s", rv)
 	}
 

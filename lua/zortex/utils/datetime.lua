@@ -358,17 +358,17 @@ end
 -- Calendar day headings
 -- =============================================================================
 
---- The date of a calendar day heading: "**2026-10-21:**" (a bold label, so
---- a label like "Outcomes:" nests under it) or "2026-10-21:", at the start of
---- the line. nil for any other line.
+--- The date of a calendar day heading: "2026-10-21:::" (a bold heading, so
+--- a label like "Outcomes::" nests under it) or a label "2026-10-21::", at
+--- the start of the line. nil for any other line.
 function M.date_heading(line)
-	local d = line and (line:match("^%*%*(%d%d%d%d%-%d%d%-%d%d):%*%*%s*$") or line:match("^(%d%d%d%d%-%d%d%-%d%d):%s*$"))
-	return d
+	local d, colons = (line or ""):match("^(%d%d%d%d%-%d%d%-%d%d)(:::?)%s*$")
+	return colons and d or nil
 end
 
---- The heading a new calendar day gets: "**2026-10-21:**".
+--- The heading a new calendar day gets: "2026-10-21:::".
 function M.date_heading_line(date_str)
-	return "**" .. date_str .. ":**"
+	return date_str .. ":::"
 end
 
 return M

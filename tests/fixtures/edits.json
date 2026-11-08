@@ -521,24 +521,24 @@
       "result": "   "
     },
     {
-      "line": "Label:",
+      "line": "Label::",
       "op": "open",
-      "result": "- [ ] Label: @id(Tst01)"
+      "result": "- [ ] Label:: @id(Tst01)"
     },
     {
-      "line": "Label:",
+      "line": "Label::",
       "op": "done",
-      "result": "- [x] Label: @id(Tst01) @done(2026-10-12)"
+      "result": "- [x] Label:: @id(Tst01) @done(2026-10-12)"
     },
     {
-      "line": "Label:",
+      "line": "Label::",
       "op": "toggle",
-      "result": "- [ ] Label: @id(Tst01)"
+      "result": "- [ ] Label:: @id(Tst01)"
     },
     {
-      "line": "Label:",
+      "line": "Label::",
       "op": "text",
-      "result": "Label:"
+      "result": "Label::"
     },
     {
       "line": "- Café ✓ unicode",

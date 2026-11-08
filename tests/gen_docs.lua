@@ -184,7 +184,7 @@ local SETUP = {
 local NOTES = {
 	"A note starts with a header: `@@Name` lines (the first is the article name,",
 	"the rest aliases) and `@Tag` lines. The body has headings (`#`..`######`),",
-	"bold headings (`**Next steps:**`), labels (`Ideas:`), list items and tasks",
+	"bold headings (`Next steps:::`), labels (`Ideas::`), list items and tasks",
 	"(`- [ ] task @size(sm)`, `14:00 event`), attributes (`@p1`,",
 	"`@due(2026-10-20)`, `@area(4.1)`, `@spent(1h25m)`; short forms: `@a(4.1)`,",
 	"`@n(15)` for `@notify(15)`, `@sm`, `@90m` for `@dur(90m)`) and links. A",

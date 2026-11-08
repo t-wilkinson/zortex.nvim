@@ -46,11 +46,11 @@ T.test("add_entry creates date headings in date order", function()
 	calendar.add_entry("2026-10-12", "09:00 Review")
 	local lines = fs.read_lines(cal_path)
 	T.eq(lines[1], "@@Calendar") -- header kept
-	T.eq(lines[4], "**2026-10-08:**") -- new days get a bold label
+	T.eq(lines[4], "2026-10-08:::") -- new days get a bold label
 	T.eq(lines[5], "- Pack") -- untimed entries need "- "
 	T.eq(lines[6], "")
-	T.eq(lines[7], "2026-10-09:")
-	T.eq(lines[#lines - 1], "**2026-10-12:**")
+	T.eq(lines[7], "2026-10-09::")
+	T.eq(lines[#lines - 1], "2026-10-12:::")
 	T.eq(lines[#lines], "09:00 Review")
 	restore()
 end)
@@ -73,7 +73,7 @@ T.test("update and delete edit exactly one line", function()
 	lines = fs.read_lines(cal_path)
 	T.eq(#lines, #before - 1)
 	T.eq(lines[10], "10:00 [P/#1.4 - Zortex]")
-	T.eq(lines[9], "2026-10-10:") -- heading stays
+	T.eq(lines[9], "2026-10-10::") -- heading stays
 	restore()
 end)
 

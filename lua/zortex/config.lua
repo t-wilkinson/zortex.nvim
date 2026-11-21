@@ -131,6 +131,11 @@ local defaults = {
 
 		-- Highlight groups: linked to your colorscheme by default.
 		-- preset = "rose-pine" for a Rose Pine Moon palette; groups = { ZortexLink = { fg = "#3e8fb0" } }
+		-- Sections step down: headings, bold headings (ZortexBoldHeading),
+		-- labels (ZortexLabel); a label starting a line ("Key: text") is
+		-- ZortexLabelText, the label colour without the bold. "(asides)" in
+		-- text are ZortexParenthesis: your text colour a quarter of the way
+		-- to the background.
 		highlights = {
 			preset = nil,
 			groups = {},

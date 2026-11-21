@@ -155,9 +155,85 @@ T.test("labels and bold headings show their text and one colon", function()
 		end
 		local title = line:match("^%s*(.-):+%s*$")
 		T.eq(vim.trim(table.concat(shown)), title .. ":", line)
-		T.eq(painted, line:match(":::") and title .. ":" or title, line)
+		T.eq(painted, title .. ":", line)
 	end
 	vim.cmd("bwipeout!")
+end)
+
+-- row (0-based) -> { { group, text }, ... } of the highlight marks on it
+local function painted_groups(lines)
+	local hl = require("zortex.features.highlights")
+	vim.cmd("enew!")
+	local buf = vim.api.nvim_get_current_buf()
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+	hl.highlight_buffer(buf)
+	local ns = vim.api.nvim_create_namespace("zortex_highlights")
+	local out = {}
+	for row, line in ipairs(lines) do
+		out[row] = {}
+		for _, m in ipairs(vim.api.nvim_buf_get_extmarks(buf, ns, { row - 1, 0 }, { row - 1, -1 }, { details = true })) do
+			if m[4].hl_group then
+				table.insert(out[row], { m[4].hl_group, line:sub(m[3] + 1, m[4].end_col) })
+			end
+		end
+	end
+	vim.cmd("bwipeout!")
+	return out
+end
+
+local function text_of(marks, group)
+	local out = {}
+	for _, m in ipairs(marks) do
+		if m[1] == group then
+			out[#out + 1] = m[2]
+		end
+	end
+	return out
+end
+
+T.test("a label starting a line looks the same in a list or out, with or without ::", function()
+	local rows = painted_groups({ "Key: text", "Label:: text", "- Key: text", "- Label:: text" })
+	T.eq(text_of(rows[1], "ZortexLabelText"), { "Key:" })
+	T.eq(text_of(rows[2], "ZortexLabelText"), { "Label:" })
+	T.eq(text_of(rows[3], "ZortexLabelList"), { "Key:" })
+	T.eq(text_of(rows[4], "ZortexLabelList"), { "Label:" })
+	-- one look: the list group follows the text group, which is never bold
+	-- (a label section's weight is its own)
+	require("zortex.features.highlights").setup_highlights()
+	T.eq(vim.api.nvim_get_hl(0, { name = "ZortexLabelList" }).link, "ZortexLabelText")
+	T.ok(not vim.api.nvim_get_hl(0, { name = "ZortexLabelText", link = false }).bold, "label text not bold")
+	T.ok(vim.api.nvim_get_hl(0, { name = "ZortexLabel", link = false }).bold, "label bold")
+end)
+
+T.test("asides in parentheses are dimmed on plain text only", function()
+	local rows = painted_groups({
+		"Some text (an aside) and f(x) more",
+		"- an item (with [Note] inside) end",
+		"Key (k): value (aside)",
+		"- [ ] task (not dimmed)",
+		"# Heading (not dimmed)",
+		"Label (kept)::",
+		"text @due(2026-01-01) and `code (x)`",
+		"(nested (parens) work) (two)",
+	})
+	T.eq(text_of(rows[1], "ZortexParenthesis"), { "(an aside)" })
+	-- the link keeps its colour: the aside is painted around it
+	T.eq(text_of(rows[2], "ZortexParenthesis"), { "(with ", " inside)" })
+	T.eq(text_of(rows[3], "ZortexParenthesis"), { "(aside)" })
+	T.eq(text_of(rows[4], "ZortexParenthesis"), {})
+	T.eq(text_of(rows[5], "ZortexParenthesis"), {})
+	T.eq(text_of(rows[6], "ZortexParenthesis"), {})
+	T.eq(text_of(rows[7], "ZortexParenthesis"), {})
+	T.eq(text_of(rows[8], "ZortexParenthesis"), { "(nested (parens) work)", "(two)" })
+end)
+
+T.test("ZortexParenthesis is Normal's colour moved toward the background", function()
+	vim.api.nvim_set_hl(0, "Normal", { fg = 0xffffff, bg = 0x000000 })
+	vim.api.nvim_set_hl(0, "ZortexParenthesis", {})
+	require("zortex.features.highlights").setup_highlights()
+	local hl = vim.api.nvim_get_hl(0, { name = "ZortexParenthesis", link = false })
+	T.eq(hl.fg, 0xbfbfbf)
+	T.eq(hl.bg, nil)
 end)
 
 T.test("tags are painted on any line; the @ of @[tags] is dimmed", function()

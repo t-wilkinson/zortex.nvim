@@ -21,7 +21,15 @@ local NS = vim.api.nvim_create_namespace("zortex_highlights")
 -- win. ui.highlights = { preset = "rose-pine" } gives a Rose Pine Moon palette;
 -- ui.highlights.groups overrides single groups ({ fg = "#..." } or { link = ... }).
 
--- name -> standard group, or { from = group, <attrs to add> }
+-- name -> standard group, or { from = group, <attrs to add> }, or
+-- { dim = t }: Normal's foreground moved a fraction t toward its background
+--
+-- Sections step down in weight and colour: headings (bands), bold headings
+-- ("Title:::", bold), labels ("Label::", bold, the label colour). A label
+-- that only starts a line ("Label:: text", "Key: text", "- Label:: text") is
+-- not a section: it has the label colour without the weight, the same in a
+-- list or out of one, so it reads as part of the label family but never as
+-- a heading. Every one of them is painted with its colon.
 local LINKS = {
 	ZortexHeading1 = { from = "Title", bold = true },
 	ZortexHeading2 = { from = "Title", bold = true },
@@ -34,9 +42,12 @@ local LINKS = {
 	ZortexArticle = { from = "Title", bold = true },
 	ZortexTag = "Label",
 	ZortexBoldHeading = { from = "Function", bold = true },
-	ZortexLabel = { from = "Identifier", bold = true },
-	ZortexLabelText = "Identifier", -- "Label:: text"
-	ZortexLabelList = "Identifier", -- "- Label:: text"
+	ZortexLabel = { from = "Identifier", bold = true }, -- "Label::"
+	ZortexLabelText = { from = "Identifier", bold = false }, -- "Label:: text", "Key: text"
+	ZortexLabelList = "ZortexLabelText", -- "- Label:: text", "- Key: text"
+	-- "(an aside)": a little closer to the background than the text, in
+	-- the same hue, so it recedes without drawing the eye
+	ZortexParenthesis = { dim = 0.25 },
 	ZortexNumberList = { from = "Special", bold = true },
 	ZortexTextList = { from = "Special", bold = true },
 	ZortexTaskCheckbox = "Special",
@@ -78,11 +89,39 @@ local LINKS = {
 	ZortexRule = "NonText",
 }
 
+-- Mix two 0xRRGGBB colours: a moved a fraction t toward b
+local function blend(a, b, t)
+	local out = 0
+	for shift = 16, 0, -8 do
+		local ca = math.floor(a / 2 ^ shift) % 256
+		local cb = math.floor(b / 2 ^ shift) % 256
+		out = out + math.floor(ca + (cb - ca) * t + 0.5) * 2 ^ shift
+	end
+	return out
+end
+
+-- Normal's foreground moved a fraction t toward its background: only a
+-- foreground, so the line's own background (a heading band, the cursor
+-- line) shows through. A transparent background is taken as black or white
+-- by 'background'; no foreground (no 'termguicolors' colours) changes
+-- nothing.
+local function dimmed(t)
+	local ok, normal = pcall(vim.api.nvim_get_hl, 0, { name = "Normal", link = false })
+	local fg = ok and normal.fg
+	if not fg then
+		return {}
+	end
+	local bg = normal.bg or (vim.o.background == "light" and 0xffffff or 0x000000)
+	return { fg = blend(fg, bg, t) }
+end
+
 local function default_groups()
 	local out = {}
 	for name, spec in pairs(LINKS) do
 		if type(spec) == "string" then
 			out[name] = { link = spec }
+		elseif spec.dim then
+			out[name] = dimmed(spec.dim)
 		elseif spec.from then
 			local ok, base = pcall(vim.api.nvim_get_hl, 0, { name = spec.from, link = false })
 			local hl = ok and vim.deepcopy(base) or {}
@@ -111,10 +150,13 @@ local ROSE_PINE = {
 	ZortexCodeBlock = { fg = "#f2ae49", bg = "#1e1c1f" },
 	ZortexArticle = { bold = true, fg = "#c4a7e7" },
 	ZortexTag = { fg = "#ea9a97" },
-	ZortexBoldHeading = { bold = true, fg = "#56949f" },
+	-- bold headings in foam, labels in pine: bright and bold, deeper and
+	-- bold, then a label starting a line in pine without the weight
+	ZortexBoldHeading = { bold = true, fg = "#9ccfd8" },
 	ZortexLabel = { bold = true, fg = "#3e8fb0" },
-	ZortexLabelText = { bold = true, fg = "#f6c177" },
-	ZortexLabelList = { bold = false, fg = "#3e8fb0" },
+	ZortexLabelText = { fg = "#3e8fb0" },
+	ZortexLabelList = { link = "ZortexLabelText" },
+	ZortexParenthesis = { fg = "#b1afc5" }, -- text a quarter of the way to base
 	ZortexNumberList = { fg = "#3e8fb0", bold = true },
 	ZortexTextList = { fg = "#3e8fb0", bold = true },
 	ZortexTaskCheckbox = { fg = "#ea9a97" },
@@ -125,7 +167,7 @@ local ROSE_PINE = {
 	ZortexLinkNote = { fg = "#c4a7e7", underline = true },
 	ZortexLinkHeading = { fg = "#ea9a97", underline = true },
 	ZortexLinkLabel = { fg = "#3e8fb0", underline = true },
-	ZortexLinkBold = { fg = "#56949f", underline = true },
+	ZortexLinkBold = { fg = "#9ccfd8", underline = true },
 	ZortexLinkItem = { fg = "#9ccfd8", underline = true },
 	ZortexTagSearchAt = { fg = "#6e6a86" },
 	ZortexLinkDelimiter = { fg = "#6e6a86" },
@@ -389,6 +431,65 @@ local function paint_decorations(buf, row, line, spans, from)
 	end
 end
 
+-- "(an aside)" in ZortexParenthesis, from byte `from` (0-based) on. Spans
+-- with their own colour (links, code, attributes, ...) keep it; bold and
+-- italic dim with the rest. A "(" after a letter or digit ("f(x)",
+-- "@due(...)") or inside a span opens no aside. Below the default priority,
+-- so punctuation and quotes inside still show.
+local PAREN_PRIORITY = 4096 - 10
+
+local function own_colour(spans, out)
+	for _, span in ipairs(spans) do
+		if span.type == "bold" or span.type == "italic" then
+			own_colour(span.children or {}, out)
+		else
+			out[#out + 1] = span
+		end
+	end
+	return out
+end
+
+local function inside(spans, col)
+	for _, span in ipairs(spans) do
+		if col >= span.s and col < span.e then
+			return true
+		end
+	end
+	return false
+end
+
+local function paint_parentheses(buf, row, line, spans, from)
+	local keep = own_colour(spans, {})
+	table.sort(keep, function(a, b)
+		return a.s < b.s
+	end)
+	local init = from + 1
+	while true do
+		local ms, me = line:find("%b()", init)
+		if not ms then
+			break
+		end
+		local s, e = ms - 1, me -- 0-based, end exclusive
+		if line:sub(ms - 1, ms - 1):match("[%w_]") or inside(keep, s) then
+			init = ms + 1
+		else
+			local col = s
+			for _, span in ipairs(keep) do
+				if span.e > col and span.s < e then
+					if span.s > col then
+						mark(buf, row, col, { end_col = span.s, hl_group = "ZortexParenthesis", priority = PAREN_PRIORITY })
+					end
+					col = math.max(col, span.e)
+				end
+			end
+			if col < e then
+				mark(buf, row, col, { end_col = e, hl_group = "ZortexParenthesis", priority = PAREN_PRIORITY })
+			end
+			init = me + 1
+		end
+	end
+end
+
 -- =============================================================================
 -- Lines
 -- =============================================================================
@@ -501,8 +602,9 @@ local function paint_line(buf, row, line, d, spans)
 		paint(buf, row, "ZortexBoldHeading", d.content_col, d.content_end + 1)
 		conceal_colons(buf, row, line, d.content_end)
 	elseif kind == "label" then
-		-- "Label::" shown as "Label:"
-		paint(buf, row, "ZortexLabel", d.content_col, d.content_end)
+		-- "Label::" shown as "Label:", painted with its colon like a bold
+		-- heading and a label starting a line
+		paint(buf, row, "ZortexLabel", d.content_col, d.content_end + 1)
 		conceal_colons(buf, row, line, d.content_end)
 	elseif kind == "item" then
 		paint_item(buf, row, line, d, d.item)
@@ -527,6 +629,20 @@ local function paint_line(buf, row, line, d, spans)
 	end
 
 	paint_spans(buf, row, spans, kind, line)
+	-- asides on plain text only: not in headings and labels (their look is
+	-- their own), a label key, a task's text (its own colour) or a quote
+	local aside_from
+	if kind == "text" then
+		aside_from = d.key and d.key_col + d.key_len or d.content_col
+	elseif kind == "item" and not d.item.mark then
+		local it = d.item
+		aside_from = it.key and it.key_col + #it.key + 1 or it.content_col
+	elseif kind == "table" or kind == "footnote" then
+		aside_from = d.content_col
+	end
+	if aside_from then
+		paint_parentheses(buf, row, line, spans, aside_from)
+	end
 	if kind ~= "article" and kind ~= "tag" then
 		paint_decorations(buf, row, line, spans, d.content_col or 0)
 	end

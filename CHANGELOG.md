@@ -70,6 +70,13 @@ that share one folder of plain-text notes.
 
 ### Neovim
 
+- Highlighting reads as a hierarchy: headings, then bold headings
+  (`Title:::`, bold), then labels (`Label::`, bold, painted with their
+  colon). A label that only starts a line (`Label:: text`, `Key: text`,
+  `- Label:: text`) has the label colour without the bold, the same in a
+  list or out of one, since it opens no section. `(asides)` in text are
+  `ZortexParenthesis`, the text colour a quarter of the way to the
+  background (not in headings, labels, tasks or quotes).
 - Structural search (`:ZortexSearch`): words match a section's path in
   order, and a line's path is its section's and then the line; ranked by
   hierarchy and by what you open; `<M-n>` narrows to a section (every line
